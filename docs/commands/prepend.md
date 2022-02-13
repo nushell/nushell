@@ -1,58 +1,33 @@
-# prepend
+---
+title: prepend
+layout: command
+version: 0.59.0
+---
 
-This command prepends the given row to the front of the table
+Prepend a row to the table.
 
-**Note**:
+## Signature
 
-- `prepend` does not change a file itself. If you want to save your changes, you need to run the `save` command
-- if you want to add something containing a whitespace character, you need to put it in quotation marks
+prepend (row)
+
+## Parameters
+
+  row: the row to prepend
 
 ## Examples
 
-Let's complete this table with the missing continents:
-
+Prepend one Int item
 ```shell
-> open continents.txt | lines
-━━━┯━━━━━━━━━━━━━━━
- # │
-───┼───────────────
- 0 │ Africa
- 1 │ South America
- 2 │ Australia
- 3 │ Europe
- 4 │ Antarctica
-━━━┷━━━━━━━━━━━━━━━
+[1,2,3,4] | prepend 0
 ```
 
-You can add a new row at the top by using `prepend`:
-
+Prepend two Int items
 ```shell
-> open continents.txt | lines | prepend Asia
-━━━┯━━━━━━━━━━━━━━━
- # │
-───┼───────────────
- 0 │ Asia
- 1 │ Africa
- 2 │ South America
- 3 │ Australia
- 4 │ Europe
- 5 │ Antarctica
-━━━┷━━━━━━━━━━━━━━━
+[2,3,4] | prepend [0,1]
 ```
 
-It's not possible to add multiple rows at once, so you'll need to call `prepend` multiple times:
-
+Prepend Ints and Strings
 ```shell
-> open continents.txt | lines | prepend Asia | prepend "North America"
-━━━┯━━━━━━━━━━━━━━━
- # │
-───┼───────────────
- 0 │ North America
- 1 │ Asia
- 2 │ Africa
- 3 │ South America
- 4 │ Australia
- 5 │ Europe
- 6 │ Antarctica
-━━━┷━━━━━━━━━━━━━━━
+[2,nu,4,shell] | prepend [0,1,rocks]
 ```
+

@@ -1,60 +1,29 @@
-# update
+---
+title: update
+layout: command
+version: 0.59.0
+---
 
-Updates an existing column on a table. First parameter is the column to update and the second parameter is the value to put.
+Update an existing column to have a new value.
+
+## Signature
+
+update (field) (replacement value)
+
+## Parameters
+
+  field: the name of the column to update
+  replacement value: the new value to give the cell(s)
 
 ## Examples
 
+Update a column value
 ```shell
-> ls
-━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━━
- # │ name                       │ type │ readonly │ size   │ accessed  │ modified
-───┼────────────────────────────┼──────┼──────────┼────────┼───────────┼───────────
- 0 │ zeusiscrazy.txt            │ File │          │ 556 B  │ a day ago │ a day ago
- 1 │ coww.txt                   │ File │          │  24 B  │ a day ago │ a day ago
- 2 │ randomweirdstuff.txt       │ File │          │ 197 B  │ a day ago │ a day ago
- 3 │ abaracadabra.txt           │ File │          │ 401 B  │ a day ago │ a day ago
- 4 │ youshouldeatmorecereal.txt │ File │          │ 768 B  │ a day ago │ a day ago
-━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━
+echo {'name': 'nu', 'stars': 5} | update name 'Nushell'
 ```
 
+Use in block form for more involved updating logic
 ```shell
-> ls | update modified neverrrr
-━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━
- # │ name                       │ type │ readonly │ size   │ accessed  │ modified
-───┼────────────────────────────┼──────┼──────────┼────────┼───────────┼──────────
- 0 │ zeusiscrazy.txt            │ File │          │ 556 B  │ a day ago │ neverrrr
- 1 │ coww.txt                   │ File │          │  24 B  │ a day ago │ neverrrr
- 2 │ randomweirdstuff.txt       │ File │          │ 197 B  │ a day ago │ neverrrr
- 3 │ abaracadabra.txt           │ File │          │ 401 B  │ a day ago │ neverrrr
- 4 │ youshouldeatmorecereal.txt │ File │          │ 768 B  │ a day ago │ neverrrr
-━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━
+echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { get authors | str collect ',' }
 ```
 
-```shell
-> shells
-━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- # │   │ name       │ path
-───┼───┼────────────┼────────────────────────────────
- 0 │ X │ filesystem │ /home/username/stuff/expr/stuff
- 1 │   │ filesystem │ /
-━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-```shell
-> shells | update " " X | update path /
-━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━
- # │   │ name       │ path
-───┼───┼────────────┼──────
- 0 │ X │ filesystem │ /
- 1 │ X │ filesystem │ /
-━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━
-```
-
-Collect all the values of a nested column and join them together
-```shell
-> version | update features {get features | str collect ', '}
-───┬─────────┬──────────────────────────────────────────┬───────────────────────────
- # │ version │               commit_hash                │         features
-───┼─────────┼──────────────────────────────────────────┼───────────────────────────
- 0 │ 0.20.0  │ fdab3368094e938c390f1e5a7892a42da45add3e │ default, clipboard, trash
-───┴─────────┴──────────────────────────────────────────┴───────────────────────────

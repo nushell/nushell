@@ -1,11 +1,12 @@
-# p
-Go to previous shell.
+---
+title: p
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> p {flags} 
- ```
+Switch to the previous shell.
 
-## Flags
-* -h, --help: Display this help message
+## Signature
+
+p 
 

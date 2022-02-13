@@ -1,0 +1,12 @@
+---
+title: date list-timezone
+layout: command
+version: 0.59.0
+---
+
+List supported time zones.
+
+## Signature
+
+date list-timezone 
+

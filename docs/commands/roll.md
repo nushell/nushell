@@ -1,18 +1,12 @@
-# roll
-Rolls the table rows.
+---
+title: roll
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> roll (by) <subcommand> {flags} 
- ```
+Rolling commands for tables
 
-## Subcommands
-* roll column - Rolls the table columns
-* roll up - Rolls the table rows
+## Signature
 
-## Parameters
-* `(by)` the number of times to roll
-
-## Flags
-* -h, --help: Display this help message
+roll 
 

@@ -1,30 +1,43 @@
-# flatten
+---
+title: flatten
+layout: command
+version: 0.59.0
+---
+
 Flatten the table.
 
-## Usage
-```shell
-> flatten ...args {flags} 
- ```
+## Signature
+
+flatten ...rest
 
 ## Parameters
-* ...args: optionally flatten data by column
 
-## Flags
-* -h, --help: Display this help message
+  ...rest: optionally flatten data by column
 
 ## Examples
-* flatten a table
-```shell
-> echo [[N, u, s, h, e, l, l]] | flatten | first
- ```
 
-* flatten a column having a nested table
+flatten a table
 ```shell
-> echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]] | flatten | get meal
- ```
+[[N, u, s, h, e, l, l]] | flatten 
+```
 
-  restrict the flattening by passing column names
+flatten a table, get the first item
 ```shell
-> echo [[origin, crate, versions]; [World, (echo [[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions
- ```
+[[N, u, s, h, e, l, l]] | flatten | first
+```
+
+flatten a column having a nested table
+```shell
+[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten | get meal
+```
+
+restrict the flattening by passing column names
+```shell
+[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions
+```
+
+Flatten inner table
+```shell
+{ a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten
+```
 

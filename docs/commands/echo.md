@@ -1,20 +1,28 @@
-# echo
+---
+title: echo
+layout: command
+version: 0.59.0
+---
 
-Use `echo` to repeat arguments back to the user
+Echo the arguments back to the user.
+
+## Signature
+
+echo ...rest
+
+## Parameters
+
+  ...rest: the values to echo
 
 ## Examples
 
+Put a hello message in the pipeline
 ```shell
-> echo Hello world
-───┬───────
- # │
-───┼───────
- 0 │ Hello
- 1 │ world
-───┴───────
+echo 'hello'
 ```
 
+Print the value of the special '$nu' variable
 ```shell
-> echo "Hello, world!"
-Hello, world!
+echo $nu
 ```
+

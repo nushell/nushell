@@ -1,39 +1,46 @@
-# reduce
+---
+title: reduce
+layout: command
+version: 0.59.0
+---
+
 Aggregate a list table to a single value using an accumulator block.
 
-Block must be (A, A) -> A unless --fold is selected, in which case it may be A, B -> A.
+## Signature
 
-## Usage
-```shell
-> reduce <block> {flags} 
- ```
+reduce (block) --fold --numbered
 
 ## Parameters
-* `<block>` reducing function
 
-## Flags
-* -h, --help: Display this help message
-* -f, --fold <any>: reduce with initial value
-* -n, --numbered: returned a numbered item ($it.index and $it.item)
+  block: reducing function
+  --fold {any}: reduce with initial value
+  --numbered: iterate with an index
 
 ## Examples
-  Simple summation (equivalent to math sum)
-```shell
-> echo 1 2 3 4 | reduce { $acc + $it }
- ```
 
-  Summation from starting value using fold
+Sum values of a list (same as 'math sum')
 ```shell
-> echo 1 2 3 4 | reduce -f (-1) { $acc + $it }
- ```
+[ 1 2 3 4 ] | reduce { $it.acc + $it.item }
+```
 
-  Folding with rows
+Sum values with a starting value (fold)
 ```shell
-> <table> | reduce -f 1.6 { $acc * (echo $it.a | str to-int) + (echo $it.b | str to-int) }
- ```
+[ 1 2 3 4 ] | reduce -f 10 { $it.acc + $it.item }
+```
 
-  Numbered reduce to find index of longest word
+Replace selected characters in a string with 'X'
 ```shell
-> echo one longest three bar | reduce -n { if ($it.item | str length) > ($acc.item | str length) {echo $it} {echo $acc}} | get index
- ```
+[ i o t ] | reduce -f "Arthur, King of the Britons" { $it.acc | str find-replace -a $it.item "X" }
+```
+
+Find the longest string and its index
+```shell
+[ one longest three bar ] | reduce -n {
+        if ($it.item | str length) > ($it.acc | str length) {
+            $it.item
+        } else {
+            $it.acc
+        }
+    }
+```
 

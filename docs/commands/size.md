@@ -1,23 +1,24 @@
-# size
+---
+title: size
+layout: command
+version: 0.59.0
+---
 
-This commands gives word count statistics on any text.
+Gather word count statistics on the text.
+
+## Signature
+
+size 
 
 ## Examples
 
+Count the number of words in a string
 ```shell
-> open lalala.txt | size
-━━━━━━━┯━━━━━━━┯━━━━━━━┯━━━━━━━━━━━━
- lines │ words │ chars │ bytes
-───────┼───────┼───────┼────────────
-     4 │    10 │    72 │         72
-━━━━━━━┷━━━━━━━┷━━━━━━━┷━━━━━━━━━━━━
+"There are seven words in this sentence" | size
 ```
 
+Counts Unicode characters correctly in a string
 ```shell
-> open the_mysterious_affair_at_styles.txt | size
-━━━━━━━┯━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━
- lines │ words │ chars  │ bytes
-───────┼───────┼────────┼────────────
-  8935 │ 62352 │ 349459 │     361771
-━━━━━━━┷━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━
+"Amélie Amelie" | size
 ```
+

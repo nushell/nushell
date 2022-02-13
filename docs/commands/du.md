@@ -1,36 +1,28 @@
-# du
+---
+title: du
+layout: command
+version: 0.59.0
+---
 
-`du` stands for disk usage. It will give you the physical and apparent size of files and folders
+Find disk usage sizes of specified items.
+
+## Signature
+
+du (path) --all --deref --exclude --max-depth --min-size
+
+## Parameters
+
+  path: starting directory
+  --all: Output file sizes as well as directory sizes
+  --deref: Dereference symlinks to their targets for size
+  --exclude {glob}: Exclude these file names
+  --max-depth {int}: Directory recursion limit
+  --min-size {int}: Exclude files below this size
 
 ## Examples
 
+Disk usage of the current directory
 ```shell
-> du src/commands
-─────────────┬────────────────────────────
- path        │ crates/nu-cli/src/commands
- apparent    │ 655.9 KB
- physical    │ 950.3 KB
- directories │ [table 5 rows]
- files       │
-─────────────┴────────────────────────────
+du
 ```
 
-```shell
-> du -a src/commands
-─────────────┬────────────────────────────
- path        │ crates/nu-cli/src/commands
- apparent    │ 655.9 KB
- physical    │ 950.3 KB
- directories │ [table 5 rows]
- files       │ [table 118 rows]
-─────────────┴────────────────────────────
-```
-
-```shell
-> du *.rs
-───┬──────────┬──────────┬──────────
- # │ path     │ apparent │ physical
-───┼──────────┼──────────┼──────────
- 0 │ build.rs │     78 B │   4.1 KB
-───┴──────────┴──────────┴──────────
-```

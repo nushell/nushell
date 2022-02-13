@@ -1,11 +1,19 @@
-# describe
-Describes the objects in the stream.
+---
+title: describe
+layout: command
+version: 0.59.0
+---
 
-## Usage
+Describe the value(s) piped in.
+
+## Signature
+
+describe 
+
+## Examples
+
+Describe the type of a string
 ```shell
-> describe {flags} 
- ```
-
-## Flags
-* -h, --help: Display this help message
+'hello' | describe
+```
 

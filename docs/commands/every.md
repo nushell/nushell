@@ -1,45 +1,29 @@
-# every
+---
+title: every
+layout: command
+version: 0.59.0
+---
 
-Selects every n-th row of a table, starting from the first one. With the `--skip` flag, every n-th row will be skipped, inverting the original functionality.
+Show (or skip) every n-th row, starting from the first one.
 
-Syntax: `> [input-command] | every <stride> {flags}`
+## Signature
 
-## Flags
+every (stride) --skip
 
-* `--skip`, `-s`: Skip the rows that would be returned, instead of selecting them
+## Parameters
+
+  stride: how many rows to skip between (and including) each row returned
+  --skip: skip the rows that would be returned, instead of selecting them
 
 ## Examples
 
+Get every second row
 ```shell
-> open contacts.csv
-───┬─────────┬──────┬─────────────────
- # │ first   │ last │ email
-───┼─────────┼──────┼─────────────────
- 0 │ John    │ Doe  │ doe.1@email.com
- 1 │ Jane    │ Doe  │ doe.2@email.com
- 2 │ Chris   │ Doe  │ doe.3@email.com
- 3 │ Francis │ Doe  │ doe.4@email.com
- 4 │ Stella  │ Doe  │ doe.5@email.com
-───┴─────────┴──────┴─────────────────
+[1 2 3 4 5] | every 2
 ```
 
+Skip every second row
 ```shell
-> open contacts.csv | every 2
-───┬─────────┬──────┬─────────────────
- # │ first   │ last │ email
-───┼─────────┼──────┼─────────────────
- 0 │ John    │ Doe  │ doe.1@email.com
- 2 │ Chris   │ Doe  │ doe.3@email.com
- 4 │ Stella  │ Doe  │ doe.5@email.com
-───┴─────────┴──────┴─────────────────
+[1 2 3 4 5] | every 2 --skip
 ```
 
-```shell
-> open contacts.csv | every 2 --skip
-───┬─────────┬──────┬─────────────────
- # │ first   │ last │ email
-───┼─────────┼──────┼─────────────────
- 1 │ Jane    │ Doe  │ doe.2@email.com
- 3 │ Francis │ Doe  │ doe.4@email.com
-───┴─────────┴──────┴─────────────────
-```

@@ -1,20 +1,28 @@
-# merge
-Merge a table.
+---
+title: merge
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> merge <block> {flags} 
- ```
+Merge a table into an input table
+
+## Signature
+
+merge (block)
 
 ## Parameters
-* `<block>` the block to run and merge into the table
 
-## Flags
-* -h, --help: Display this help message
+  block: the block to run and merge into the table
 
 ## Examples
-  Merge a 1-based index column with some ls output
+
+Merge an index column into the input table
 ```shell
-> ls | select name | keep 3 | merge { echo [1 2 3] | wrap index }
- ```
+[a b c] | wrap name | merge { [1 2 3] | wrap index }
+```
+
+Merge two records
+```shell
+{a: 1, b: 2} | merge { {c: 3} }
+```
 

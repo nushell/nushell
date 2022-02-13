@@ -1,44 +1,16 @@
-# reject
+---
+title: reject
+layout: command
+version: 0.59.0
+---
 
-This command removes or rejects the columns passed to it.
+Remove the given columns from the table. If you want to remove rows, try 'drop'.
 
-## Examples
+## Signature
 
-```shell
-> ls
-━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━
- # │ name                       │ type │ readonly │ size   │ created     │ accessed    │ modified
-───┼────────────────────────────┼──────┼──────────┼────────┼─────────────┼─────────────┼─────────────
- 0 │ zeusiscrazy.txt            │ File │          │ 556 B  │ a month ago │ a month ago │ a month ago
- 1 │ coww.txt                   │ File │          │  24 B  │ a month ago │ a month ago │ a month ago
- 2 │ randomweirdstuff.txt       │ File │          │ 197 B  │ a month ago │ a month ago │ a month ago
- 3 │ abaracadabra.txt           │ File │          │ 401 B  │ a month ago │ a month ago │ a month ago
- 4 │ youshouldeatmorecereal.txt │ File │          │ 768 B  │ a month ago │ a month ago │ a month ago
-━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━
-```
+reject ...rest
 
-```shell
-> ls | reject readonly
-━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━
- # │ name                       │ type │ size   │ created     │ accessed    │ modified
-───┼────────────────────────────┼──────┼────────┼─────────────┼─────────────┼─────────────
- 0 │ zeusiscrazy.txt            │ File │ 556 B  │ a month ago │ a month ago │ a month ago
- 1 │ coww.txt                   │ File │  24 B  │ a month ago │ a month ago │ a month ago
- 2 │ randomweirdstuff.txt       │ File │ 197 B  │ a month ago │ a month ago │ a month ago
- 3 │ abaracadabra.txt           │ File │ 401 B  │ a month ago │ a month ago │ a month ago
- 4 │ youshouldeatmorecereal.txt │ File │ 768 B  │ a month ago │ a month ago │ a month ago
-━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━
-```
+## Parameters
 
-```shell
-> ls | reject readonly accessed
-━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━
- # │ name                       │ type │ size   │ created     │ modified
-───┼────────────────────────────┼──────┼────────┼─────────────┼─────────────
- 0 │ zeusiscrazy.txt            │ File │ 556 B  │ a month ago │ a month ago
- 1 │ coww.txt                   │ File │  24 B  │ a month ago │ a month ago
- 2 │ randomweirdstuff.txt       │ File │ 197 B  │ a month ago │ a month ago
- 3 │ abaracadabra.txt           │ File │ 401 B  │ a month ago │ a month ago
- 4 │ youshouldeatmorecereal.txt │ File │ 768 B  │ a month ago │ a month ago
-━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━
-```
+  ...rest: the names of columns to remove from the table
+

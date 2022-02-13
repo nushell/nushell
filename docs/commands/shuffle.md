@@ -1,37 +1,12 @@
-# shuffle
+---
+title: shuffle
+layout: command
+version: 0.59.0
+---
 
-Shuffles the rows in a random order.
+Shuffle rows randomly.
 
-## Examples
+## Signature
 
-Passing the same input to shuffle multiple times gives different results -
+shuffle 
 
-```shell
-> echo [ a b c d ] | shuffle
-───┬───
- 0 │ a
- 1 │ c
- 2 │ d
- 3 │ b
-───┴───
-```
-
-```shell
-> echo [ a b c d ] | shuffle
-───┬───
- 0 │ c
- 1 │ b
- 2 │ d
- 3 │ a
-───┴───
-```
-
-```shell
-> echo [ a b c d ] | shuffle
-───┬───
- 0 │ c
- 1 │ b
- 2 │ a
- 3 │ d
-───┴───
-```

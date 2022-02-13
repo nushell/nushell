@@ -1,17 +1,34 @@
-# rename
+---
+title: rename
+layout: command
+version: 0.59.0
+---
 
-Use `rename` to give columns more appropriate names.
+Creates a new table with columns renamed.
+
+## Signature
+
+rename ...rest --column
+
+## Parameters
+
+  ...rest: the new names for the columns
+  --column {list<string>}: column name to be changed
 
 ## Examples
 
+Rename a column
 ```shell
-> open /etc/passwd | lines | split column ":" | rename user password uid gid gecos home shell
-────┬────────┬──────────┬──────┬──────┬────────┬─────────────────┬──────────────────
- #  │ user   │ password │ uid  │ gid  │ gecos  │ home            │ shell
-────┼────────┼──────────┼──────┼──────┼────────┼─────────────────┼──────────────────
-  0 │ root   │ x        │ 0    │ 0    │ root   │ /root           │ /bin/bash
-  1 │ bin    │ x        │ 1    │ 1    │ bin    │ /bin            │ /usr/bin/nologin
-  2 │ daemon │ x        │ 2    │ 2    │ daemon │ /               │ /usr/bin/nologin
-  3 │ mail   │ x        │ 8    │ 12   │ mail   │ /var/spool/mail │ /usr/bin/nologin
-────┴────────┴──────────┴──────┴──────┴────────┴─────────────────┴──────────────────
+[[a, b]; [1, 2]] | rename my_column
 ```
+
+Rename many columns
+```shell
+[[a, b, c]; [1, 2, 3]] | rename eggs ham bacon
+```
+
+Rename a specific column
+```shell
+[[a, b, c]; [1, 2, 3]] | rename -c [a ham]
+```
+

@@ -1,14 +1,16 @@
-# source
+---
+title: source
+layout: command
+version: 0.59.0
+---
+
 Runs a script file in the current context.
 
-## Usage
-```shell
-> source <filename> {flags} 
- ```
+## Signature
+
+source (filename)
 
 ## Parameters
-* `<filename>` the filepath to the script file to source
 
-## Flags
-* -h, --help: Display this help message
+  filename: the filepath to the script file to source
 

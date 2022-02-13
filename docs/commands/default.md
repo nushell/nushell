@@ -1,37 +1,24 @@
-# default
+---
+title: default
+layout: command
+version: 0.59.0
+---
 
-This command sets a default row's column if missing. Other commands are capable of feeding `default` with their output through pipelines.
+Sets a default row's column if missing.
 
-## Usage
+## Signature
 
-```shell
-> [input-command] | default [column-name] [column-value]
-```
+default (column name) (column value)
+
+## Parameters
+
+  column name: the name of the column
+  column value: the value of the column to default
 
 ## Examples
 
-Let's say we have a table like this:
-
+Give a default 'target' to all file entries
 ```shell
-> open contacts.json
-━━━┯━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━
- # │ name     │ email
-───┼──────────┼──────────────────
- 0 │ paul     │ paul@example.com
- 1 │ andres   │
- 2 │ jonathan │
-━━━┷━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━
+ls -la | default target 'nothing'
 ```
 
-`default` allows us to fill `email` column with a default value:
-
-```shell
-> open contacts.json | default email "no-reply@example.com"
-━━━┯━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━
- # │ name     │ email
-───┼──────────┼──────────────────────
- 0 │ paul     │ paul@example.com
- 1 │ andres   │ no-reply@example.com
- 2 │ jonathan │ no-reply@example.com
-━━━┷━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━
-```

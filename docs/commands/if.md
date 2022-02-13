@@ -1,27 +1,35 @@
-# if
-Run blocks if a condition is true or false.
+---
+title: if
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> if <condition> <then_case> <else_case> {flags} 
- ```
+Conditionally run a block.
+
+## Signature
+
+if (cond) (then_block) (else_expression)
 
 ## Parameters
-* `<condition>` the condition that must match
-* `<then_case>` block to run if condition is true
-* `<else_case>` block to run if condition is false
 
-## Flags
-* -h, --help: Display this help message
+  cond: condition to check
+  then_block: block to run if check succeeds
+  else_expression: expression or block to run if check fails
 
 ## Examples
-  Run a block if a condition is true
-```shell
-> let x = 10; if $x > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }
- ```
 
-  Run a block if a condition is false
+Output a value if a condition matches, otherwise return nothing
 ```shell
-> let x = 1; if $x > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }
- ```
+if 2 < 3 { 'yes!' }
+```
+
+Output a value if a condition matches, else return another value
+```shell
+if 5 < 3 { 'yes!' } else { 'no!' }
+```
+
+Chain multiple if's together
+```shell
+if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }
+```
 
