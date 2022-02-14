@@ -2,6 +2,7 @@ use crate::is_perf_true;
 use crate::utils::{eval_source, report_error};
 use log::info;
 use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
+use nu_protocol::{PipelineData, Span};
 use std::path::PathBuf;
 
 const NUSHELL_FOLDER: &str = "nushell";
@@ -22,8 +23,14 @@ pub(crate) fn read_plugin_file(engine_state: &mut EngineState, stack: &mut Stack
 
         let plugin_filename = plugin_path.to_string_lossy().to_owned();
 
-        if let Ok(contents) = std::fs::read_to_string(&plugin_path) {
-            eval_source(engine_state, stack, &contents, &plugin_filename);
+        if let Ok(contents) = std::fs::read(&plugin_path) {
+            eval_source(
+                engine_state,
+                stack,
+                &contents,
+                &plugin_filename,
+                PipelineData::new(Span::new(0, 0)),
+            );
         }
     }
     if is_perf_true() {
@@ -49,8 +56,14 @@ pub(crate) fn read_config_file(engine_state: &mut EngineState, stack: &mut Stack
                 //println!("Loading config from: {:?}", config_path);
                 let config_filename = config_path.to_string_lossy().to_owned();
 
-                if let Ok(contents) = std::fs::read_to_string(&config_path) {
-                    eval_source(engine_state, stack, &contents, &config_filename);
+                if let Ok(contents) = std::fs::read(&config_path) {
+                    eval_source(
+                        engine_state,
+                        stack,
+                        &contents,
+                        &config_filename,
+                        PipelineData::new(Span::new(0, 0)),
+                    );
                     // Merge the delta in case env vars changed in the config
                     match nu_engine::env::current_dir(engine_state, stack) {
                         Ok(cwd) => {

@@ -188,13 +188,8 @@ fn main() -> Result<()> {
 
                 ret_val
             } else if !script_name.is_empty() && binary_args.interactive_shell.is_none() {
-                let ret_val = eval_file::evaluate(
-                    script_name,
-                    &args_to_script,
-                    init_cwd,
-                    &mut engine_state,
-                    input,
-                );
+                let ret_val =
+                    eval_file::evaluate(script_name, &args_to_script, &mut engine_state, input);
                 if is_perf_true() {
                     info!("eval_file execution {}:{}:{}", file!(), line!(), column!());
                 }

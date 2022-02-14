@@ -12,6 +12,7 @@ use nu_cli::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_color_config::get_color_config;
 use nu_engine::convert_env_values;
 use nu_parser::lex;
+use nu_protocol::PipelineData;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Config, ShellError, Span, Value, CONFIG_VARIABLE_ID,
@@ -300,8 +301,9 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
                     eval_source(
                         engine_state,
                         &mut stack,
-                        &s,
+                        s.as_bytes(),
                         &format!("entry #{}", entry_num),
+                        PipelineData::new(Span::new(0, 0)),
                     );
 
                     stack.add_env_var(
