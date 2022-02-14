@@ -304,3 +304,8 @@ fn capture_row_condition() -> TestResult {
         "foo",
     )
 }
+
+#[test]
+fn proper_missing_param() -> TestResult {
+    fail_test(r#"def foo [x y z w] { }; foo a b c"#, "missing w")
+}
