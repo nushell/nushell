@@ -40,11 +40,13 @@ impl Command for SubCommand {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
         if call.has_flag("list") {
-            return Ok(PipelineData::Value(generate_strftime_list(head), None));
+            return Ok(PipelineData::Value(
+                generate_strftime_list(head, false),
+                None,
+            ));
         }
 
-        let format = call
-            .opt::<String>(engine_state, stack, 0)?;
+        let format = call.opt::<String>(engine_state, stack, 0)?;
 
         input.map(
             move |value| match &format {
@@ -58,12 +60,12 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Format a given date using the default format (RFC-2822).",
+                description: "Format a given date using the default format (RFC 2822).",
                 example: r#""2021-10-22 20:00:12 +01:00" | date format"#,
                 result: Some(Value::String {
                     val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
-                    span: Span::test_data()
-                })
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Format a given date using a given format string.",
@@ -144,7 +146,12 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
     }
 }
 
-pub(crate) fn generate_strftime_list(head: Span) -> Value {
+/// Generates a table containing available datetime format specifiers
+///
+/// # Arguments
+/// * `head` - use the call's head
+/// * `show_parse_only_formats` - whether parse-only format specifiers (that can't be outputted) should be shown. Should only be used for `into datetime`, not `date format`
+pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) -> Value {
     let column_names = vec![
         "Specification".into(),
         "Example".into(),
@@ -377,9 +384,8 @@ pub(crate) fn generate_strftime_list(head: Span) -> Value {
             description: "Literal percent sign.",
         },
     ];
-    // Omitted: %#z: "Parsing only: Same as %z but allows minutes to be missing or present."
 
-    let records = specifications
+    let mut records = specifications
         .iter()
         .map(|s| Value::Record {
             cols: column_names.clone(),
@@ -400,6 +406,35 @@ pub(crate) fn generate_strftime_list(head: Span) -> Value {
             span: head,
         })
         .collect::<Vec<Value>>();
+
+    if show_parse_only_formats {
+        // now.format("%#z") will panic since it is parse-only
+        // so here we emulate how it will look:
+        let example = now.format("%:z") // e.g. +09:30
+            .to_string()
+            .get(0..3) // +09:30 -> +09
+            .unwrap_or("")
+            .to_string();
+
+        records.push(Value::Record {
+            cols: column_names.clone(),
+            vals: vec![
+                Value::String {
+                    val: "%#z".to_string(),
+                    span: head,
+                },
+                Value::String {
+                    val: example,
+                    span: head,
+                },
+                Value::String {
+                    val: "Parsing only: Same as %z but allows minutes to be missing or present.".to_string(),
+                    span: head,
+                },
+            ],
+            span: head
+        });    
+    }
 
     Value::List {
         vals: records,

@@ -177,7 +177,7 @@ fn operate(
             if options.column_paths.is_empty() && !list_flag {
                 action(&v, &zone_options, &format_options, head)
             } else if list_flag {
-                generate_strftime_list(head)
+                generate_strftime_list(head, true)
             } else {
                 let mut ret = v;
                 for path in &options.column_paths {
