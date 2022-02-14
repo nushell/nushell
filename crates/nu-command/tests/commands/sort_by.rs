@@ -1,7 +1,5 @@
 use nu_test_support::{nu, pipeline};
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn by_column() {
     let actual = nu!(
