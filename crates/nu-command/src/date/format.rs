@@ -28,7 +28,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Format a given date using the given format string."
+        "Format a given date using a format string."
     }
 
     fn run(
@@ -58,17 +58,25 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Format a given date using the given format string.",
+                description: "Format a given date using the default format (RFC-2822).",
+                example: r#""2021-10-22 20:00:12 +01:00" | date format"#,
+                result: Some(Value::String {
+                    val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
+                    span: Span::test_data()
+                })
+            },
+            Example {
+                description: "Format a given date using a given format string.",
                 example: "date format '%Y-%m-%d'",
                 result: None,
             },
             Example {
-                description: "Format a given date using the given format string.",
+                description: "Format a given date using a given format string.",
                 example: r#"date format "%Y-%m-%d %H:%M:%S""#,
                 result: None,
             },
             Example {
-                description: "Format a given date using the given format string.",
+                description: "Format a given date using a given format string.",
                 example: r#""2021-10-22 20:00:12 +01:00" | date format "%Y-%m-%d""#,
                 result: None,
             },
