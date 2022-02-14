@@ -257,8 +257,9 @@ fn print_pipeline_data(
 pub(crate) fn eval_source(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    source: &str,
+    source: &[u8],
     fname: &str,
+    input: PipelineData,
 ) -> bool {
     trace!("eval_source");
 
@@ -267,7 +268,7 @@ pub(crate) fn eval_source(
         let (output, err) = parse(
             &mut working_set,
             Some(fname), // format!("entry #{}", entry_num)
-            source.as_bytes(),
+            source,
             false,
         );
         if let Some(err) = err {
@@ -292,12 +293,7 @@ pub(crate) fn eval_source(
         report_error(&working_set, &err);
     }
 
-    match eval_block(
-        engine_state,
-        stack,
-        &block,
-        PipelineData::new(Span::new(0, 0)),
-    ) {
+    match eval_block(engine_state, stack, &block, input) {
         Ok(pipeline_data) => {
             if let Err(err) = print_pipeline_data(pipeline_data, engine_state, stack) {
                 let working_set = StateWorkingSet::new(engine_state);
