@@ -410,7 +410,8 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
     if show_parse_only_formats {
         // now.format("%#z") will panic since it is parse-only
         // so here we emulate how it will look:
-        let example = now.format("%:z") // e.g. +09:30
+        let example = now
+            .format("%:z") // e.g. +09:30
             .to_string()
             .get(0..3) // +09:30 -> +09
             .unwrap_or("")
@@ -428,12 +429,13 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
                     span: head,
                 },
                 Value::String {
-                    val: "Parsing only: Same as %z but allows minutes to be missing or present.".to_string(),
+                    val: "Parsing only: Same as %z but allows minutes to be missing or present."
+                        .to_string(),
                     span: head,
                 },
             ],
-            span: head
-        });    
+            span: head,
+        });
     }
 
     Value::List {
