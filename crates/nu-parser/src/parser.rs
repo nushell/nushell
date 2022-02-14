@@ -96,7 +96,7 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
         // that that positional argument is missing from the parsed call
         for argument in &sig.required_positional {
             let found = call.positional.iter().fold(false, |ac, expr| {
-                if argument.shape.to_type() == expr.ty {
+                if argument.shape.to_type() == expr.ty || argument.shape == SyntaxShape::Any {
                     true
                 } else {
                     ac
@@ -494,12 +494,12 @@ fn calculate_end_span(
             }
         } else {
             // Make space for the remaining require positionals, if we can
-            if positional_idx < signature.required_positional.len()
+            if signature.num_positionals_after(positional_idx) == 0 {
+                spans.len()
+            } else if positional_idx < signature.required_positional.len()
                 && spans.len() > (signature.required_positional.len() - positional_idx)
             {
                 spans.len() - (signature.required_positional.len() - positional_idx - 1)
-            } else if signature.num_positionals_after(positional_idx) == 0 {
-                spans.len()
             } else {
                 spans_idx + 1
             }
@@ -724,11 +724,20 @@ pub fn parse_internal_call(
         if let Some(positional) = signature.get_positional(positional_idx) {
             let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
 
-            if spans[..end].is_empty() {
+            let end = if spans.len() > spans_idx && end == spans_idx {
+                end + 1
+            } else {
+                end
+            };
+
+            if spans[..end].is_empty() || spans_idx == end {
                 error = error.or_else(|| {
                     Some(ParseError::MissingPositional(
                         positional.name.clone(),
-                        spans[spans_idx],
+                        Span {
+                            start: spans[spans_idx].end,
+                            end: spans[spans_idx].end,
+                        },
                         signature.call_signature(),
                     ))
                 });
