@@ -1,14 +1,33 @@
-# split-by
-Creates a new table with the data from the inner tables split by the column given.
+---
+title: split-by
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> split-by (column_name) {flags} 
- ```
+Create a new table splitted.
+
+## Signature
+
+```> split-by (splitter)```
 
 ## Parameters
-* `(column_name)` the name of the column within the nested table to split by
 
-## Flags
-* -h, --help: Display this help message
+ -  `splitter`: the splitter value to use
+
+## Examples
+
+split items by column named "lang"
+```shell
+> 
+                {
+                    '2019': [
+                      { name: 'andres', lang: 'rb', year: '2019' },
+                      { name: 'jt', lang: 'rs', year: '2019' }
+                    ],
+                    '2021': [
+                      { name: 'storm', lang: 'rs', 'year': '2021' }
+                    ]
+                } | split-by lang
+                
+```
 

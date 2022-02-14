@@ -1,27 +1,18 @@
-# cp
+---
+title: cp
+layout: command
+version: 0.59.0
+---
+
 Copy files.
 
-## Usage
-```shell
-> cp <src> <dst> {flags} 
- ```
+## Signature
+
+```> cp (source) (destination) --recursive```
 
 ## Parameters
-* `<src>` the place to copy from
-* `<dst>` the place to copy to
 
-## Flags
-* -h, --help: Display this help message
-* -r, --recursive: copy recursively through subdirectories
-
-## Examples
-  Copy myfile to dir_b
-```shell
-> cp myfile dir_b
- ```
-
-  Recursively copy dir_a to dir_b
-```shell
-> cp -r dir_a dir_b
- ```
+ -  `source`: the place to copy from
+ -  `destination`: the place to copy to
+ -  `--recursive`: copy recursively through subdirectories
 

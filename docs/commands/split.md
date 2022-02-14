@@ -1,16 +1,12 @@
-# split
+---
+title: split
+layout: command
+version: 0.59.0
+---
+
 Split contents across desired subcommand (like row, column) via the separator.
 
-## Usage
-```shell
-> split <subcommand> {flags} 
- ```
+## Signature
 
-## Subcommands
-* split chars - splits a string's characters into separate rows
-* split column - splits contents across multiple columns via the separator.
-* split row - splits contents over multiple rows via the separator.
-
-## Flags
-* -h, --help: Display this help message
+```> split ```
 

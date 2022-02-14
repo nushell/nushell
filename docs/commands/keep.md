@@ -1,29 +1,28 @@
-# keep
-Keep the number of rows only.
+---
+title: keep
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> keep (rows) <subcommand> {flags} 
- ```
+Keep the first n elements of the input.
 
-## Subcommands
-* keep until - Keeps rows until the condition matches.
-* keep while - Keeps rows while the condition matches.
+## Signature
+
+```> keep (n)```
 
 ## Parameters
-* `(rows)` Starting from the front, the number of rows to keep
 
-## Flags
-* -h, --help: Display this help message
+ -  `n`: the number of elements to keep
 
 ## Examples
-  Keep the first row
-```shell
-> echo [1 2 3] | keep
- ```
 
-  Keep the first four rows
+Keep two elements
 ```shell
-> echo [1 2 3 4 5] | keep 4
- ```
+> echo [[editions]; [2015] [2018] [2021]] | keep 2
+```
+
+Keep the first value
+```shell
+> echo [2 4 6 8] | keep
+```
 

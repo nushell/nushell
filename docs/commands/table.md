@@ -1,12 +1,16 @@
-# table
-View the contents of the pipeline as a table.
+---
+title: table
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> table {flags} 
- ```
+Render the table.
 
-## Flags
-* -h, --help: Display this help message
-* -n, --start_number <number>: row number to start viewing from
+## Signature
+
+```> table --start_number```
+
+## Parameters
+
+ -  `--start_number {int}`: row number to start viewing from
 

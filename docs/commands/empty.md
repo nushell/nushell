@@ -1,76 +1,34 @@
-# empty?
+---
+title: empty?
+layout: command
+version: 0.59.0
+---
 
-Check for empty values. Pass the column names to check emptiness. Optionally pass a block as the last parameter if setting contents to empty columns is wanted.
+Check for empty values.
+
+## Signature
+
+```> empty? ...rest --block```
+
+## Parameters
+
+ -  `...rest`: the names of the columns to check emptiness
+ -  `--block {block}`: an optional block to replace if empty
 
 ## Examples
 
 Check if a value is empty
 ```shell
-> echo '' | empty?
-true
+> '' | empty?
 ```
 
-Given the following meals
+more than one column
 ```shell
-> echo [[meal size]; [arepa small] [taco '']]
-═══╦═══════╦═══════
- # ║ meal  ║ size
-═══╬═══════╬═══════
- 0 ║ arepa ║ small
- 1 ║ taco  ║
-═══╩═══════╩═══════
+> [[meal size]; [arepa small] [taco '']] | empty? meal size
 ```
 
-Show the empty contents
+use a block if setting the empty cell contents is wanted
 ```shell
-> echo [[meal size]; [arepa small] [taco '']] | empty? meal size
-═══╦═══════╦═══════
- # ║ meal  ║ size
-═══╬═══════╬═══════
- 0 ║ false ║ false
- 1 ║ false ║ true
-═══╩═══════╩═══════
+> [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 -b { [33 37] }
 ```
 
-Let's assume we have a report of totals per day. For simplicity we show just for three days `2020/04/16`, `2020/07/10`, and `2020/11/16`. Like so
-```shell
-> echo [[2020/04/16 2020/07/10 2020/11/16]; ['' 27 37]]
-═══╦════════════╦════════════╦════════════
- # ║ 2020/04/16 ║ 2020/07/10 ║ 2020/11/16
-═══╬════════════╬════════════╬════════════
- 0 ║            ║         27 ║         37
-═══╩════════════╩════════════╩════════════
-```
-
-In the future, the report now has many totals logged per day. In this example, we have 1 total for the day `2020/07/10` and `2020/11/16` like so
-```shell
-> echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]]
-═══╦════════════╦════════════════╦════════════════
- # ║ 2020/04/16 ║ 2020/07/10     ║ 2020/11/16
-═══╬════════════╬════════════════╬════════════════
- 0 ║            ║ [table 1 rows] ║ [table 1 rows]
-═══╩════════════╩════════════════╩════════════════
-```
-
-We want to add two totals (numbers `33` and `37`) for the day `2020/04/16`
-
-Set a table with two numbers for the empty column
-```shell
-> echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 { [33 37] }
-═══╦════════════════╦════════════════╦════════════════
- # ║ 2020/04/16     ║ 2020/07/10     ║ 2020/11/16
-═══╬════════════════╬════════════════╬════════════════
- 0 ║ [table 2 rows] ║ [table 1 rows] ║ [table 1 rows]
-═══╩════════════════╩════════════════╩════════════════
-```
-
-Checking all the numbers
-```shell
-> echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 { [33 37] } | pivot _ totals | get totals
-═══╦════
- 0 ║ 33
- 1 ║ 37
- 2 ║ 27
- 3 ║ 37
-═══╩════
-```

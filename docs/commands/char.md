@@ -1,38 +1,41 @@
-# char
+---
+title: char
+layout: command
+version: 0.59.0
+---
+
 Output special characters (e.g., 'newline').
 
-## Usage
-```shell
-> char (character) ...args {flags} 
- ```
+## Signature
+
+```> char (character) ...rest --list --unicode```
 
 ## Parameters
-* `(character)` the name of the character to output
-* ...args: multiple Unicode bytes
 
-## Flags
-* -h, --help: Display this help message
-* -l, --list: List all supported character names
-* -u, --unicode: Unicode string i.e. 1f378
+ -  `character`: the name of the character to output
+ -  `...rest`: multiple Unicode bytes
+ -  `--list`: List all supported character names
+ -  `--unicode`: Unicode string i.e. 1f378
 
 ## Examples
-  Output newline
+
+Output newline
 ```shell
 > char newline
- ```
+```
 
-  Output prompt character, newline and a hamburger character
+Output prompt character, newline and a hamburger character
 ```shell
-> echo (char prompt) (char newline) (char hamburger)
- ```
+> echo [(char prompt) (char newline) (char hamburger)] | str collect
+```
 
-  Output Unicode character
+Output Unicode character
 ```shell
 > char -u 1f378
- ```
+```
 
-  Output multi-byte Unicode character
+Output multi-byte Unicode character
 ```shell
 > char -u 1F468 200D 1F466 200D 1F466
- ```
+```
 

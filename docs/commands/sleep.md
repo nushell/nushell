@@ -1,21 +1,34 @@
-# sleep
+---
+title: sleep
+layout: command
+version: 0.59.0
+---
 
-Delay for a specified amount of time
+Delay for a specified amount of time.
 
-Syntax: `sleep <time> [additional_time]...`
+## Signature
 
-## Flags
-`-h`, `--help`
-  Display help message.
+```> sleep (duration) ...rest```
+
+## Parameters
+
+ -  `duration`: time to sleep
+ -  `...rest`: additional time
 
 ## Examples
 
-Sleep for 3 seconds
+Sleep for 1sec
 ```shell
-> sleep 3sec
+> sleep 1sec
 ```
 
-Sleep for 1 minute and 2 seconds
+Sleep for 3sec
 ```shell
-> sleep 1sec 1min 1sec
+> sleep 1sec 1sec 1sec
 ```
+
+Send output after 1sec
+```shell
+> sleep 1sec; echo done
+```
+

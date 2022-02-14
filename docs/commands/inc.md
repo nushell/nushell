@@ -1,39 +1,18 @@
-# inc
+---
+title: inc
+layout: command
+version: 0.59.0
+---
 
-This command increments the value of variable by one.
+Increment a value or version. Optionally use the column of a table.
 
-## Examples
+## Signature
 
-```shell
-> open rustfmt.toml
-─────────┬──────
- edition │ 2018
-─────────┴──────
-```
+```> inc --major --minor --patch```
 
-```shell
-> open rustfmt.toml | inc edition
-─────────┬──────
- edition │ 2019
-─────────┴──────
-```
+## Parameters
 
-```shell
-> open Cargo.toml | get package.version
-0.15.1
-```
+ -  `--major`: increment the major version (eg 1.2.1 -> 2.0.0)
+ -  `--minor`: increment the minor version (eg 1.2.1 -> 1.3.0)
+ -  `--patch`: increment the patch version (eg 1.2.1 -> 1.2.2)
 
-```shell
-> open Cargo.toml | inc package.version --major | get package.version
-1.0.0
-```
-
-```shell
-> open Cargo.toml | inc package.version --minor | get package.version
-0.16.0
-```
-
-```shell
-> open Cargo.toml | inc package.version --patch | get package.version
-0.15.2
-```

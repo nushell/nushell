@@ -1,32 +1,29 @@
-# let
+---
+title: let
+layout: command
+version: 0.59.0
+---
+
 Create a variable and give it a value.
 
-## Usage
-```shell
-> let <name> <equals> <expr> {flags} 
- ```
+## Signature
+
+```> let (var_name) (initial_value)```
 
 ## Parameters
-* `<name>` the name of the variable
-* `<equals>` the equals sign
-* `<expr>` the value for the variable
 
-## Flags
-* -h, --help: Display this help message
+ -  `var_name`: variable name
+ -  `initial_value`: equals sign followed by value
 
 ## Examples
-  Assign a simple value to a variable
-```shell
-> let x = 3
- ```
 
-  Assign the result of an expression to a variable
+Set a variable to a value
 ```shell
-> let result = (3 + 7); echo $result
- ```
+> let x = 10
+```
 
-  Create a variable using the full name
+Set a variable to the result of an expression
 ```shell
-> let $three = 3
- ```
+> let x = 10 + 100
+```
 

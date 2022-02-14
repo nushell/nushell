@@ -1,11 +1,12 @@
-# n
-Go to next shell.
+---
+title: n
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> n {flags} 
- ```
+Switch to the next shell.
 
-## Flags
-* -h, --help: Display this help message
+## Signature
+
+```> n ```
 

@@ -1,17 +1,19 @@
-# clear
-Clears the terminal.
+---
+title: clear
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> clear {flags} 
- ```
+Clear the terminal.
 
-## Flags
-* -h, --help: Display this help message
+## Signature
+
+```> clear ```
 
 ## Examples
-  Clear the screen
+
+Clear the terminal
 ```shell
 > clear
- ```
+```
 

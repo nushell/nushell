@@ -1,35 +1,33 @@
-# compact
+---
+title: compact
+layout: command
+version: 0.59.0
+---
 
-This command allows us to filters out rows with empty columns. Other commands are capable of feeding `compact` with their output through pipelines.
+Creates a table with non-empty rows.
 
-## Usage
+## Signature
 
-```shell
-> [input-command] | compact [column-name]
-```
+```> compact ...columns```
+
+## Parameters
+
+ -  `...columns`: the columns to compact from the table
 
 ## Examples
 
-Let's say we have a table like this:
-
+Filter out all records where 'Hello' is null (returns nothing)
 ```shell
-> open contacts.json
-━━━┯━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━
- # │ name     │ email
-───┼──────────┼──────────────────
- 0 │ paul     │ paul@example.com
- 1 │ andres   │
- 2 │ jonathan │
-━━━┷━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━
+> echo [["Hello" "World"]; [$nothing 3]]| compact Hello
 ```
 
-`compact` allows us to filter out rows with empty `email` column:
-
+Filter out all records where 'World' is null (Returns the table)
 ```shell
-> open contacts.json | compact email
-━━━━━━┯━━━━━━━━━━━━━━━━━━
- name │ email
-──────┼──────────────────
- paul │ paul@example.com
-━━━━━━┷━━━━━━━━━━━━━━━━━━
+> echo [["Hello" "World"]; [$nothing 3]]| compact World
 ```
+
+Filter out all instances of nothing from a list (Returns [1,2]
+```shell
+> echo [1, $nothing, 2] | compact
+```
+

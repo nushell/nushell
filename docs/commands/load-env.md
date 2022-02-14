@@ -1,30 +1,28 @@
-# load-env
-Set environment variables using a table stream
+---
+title: load-env
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> load-env (environ) {flags} 
- ```
+Loads an environment update from a record.
+
+## Signature
+
+```> load-env (update)```
 
 ## Parameters
-* `(environ)` Optional environment table to load in. If not provided, will use the table provided on the input stream
 
-## Flags
-* -h, --help: Display this help message
+ -  `update`: the record to use for updates
 
 ## Examples
-  Load variables from an input stream
-```shell
-> echo [[name, value]; ["NAME", "JT"] ["AGE", "UNKNOWN"]] | load-env; echo $nu.env.NAME
- ```
 
-  Load variables from an argument
+Load variables from an input stream
 ```shell
-> load-env [[name, value]; ["NAME", "JT"] ["AGE", "UNKNOWN"]]; echo $nu.env.NAME
- ```
+> {NAME: ABE, AGE: UNKNOWN} | load-env; echo $env.NAME
+```
 
-  Load variables from an argument and an input stream
+Load variables from an argument
 ```shell
-> echo [[name, value]; ["NAME", "JT"]] | load-env [[name, value]; ["VALUE", "FOO"]]; echo $nu.env.NAME $nu.env.VALUE
- ```
+> load-env {NAME: ABE, AGE: UNKNOWN}; echo $env.NAME
+```
 

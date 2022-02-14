@@ -1,26 +1,16 @@
-# benchmark
-Runs a block and returns the time it took to execute it.
+---
+title: benchmark
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> benchmark <block> {flags} 
- ```
+Time the running time of a block
+
+## Signature
+
+```> benchmark (block)```
 
 ## Parameters
-* `<block>` the block to run and benchmark
 
-## Flags
-* -h, --help: Display this help message
-* -p, --passthrough <block>: Display the benchmark results and pass through the block's output
-
-## Examples
-  Benchmarks a command within a block
-```shell
-> benchmark { sleep 500ms }
- ```
-
-  Benchmarks a command within a block and passes its output through
-```shell
-> echo 45 | benchmark { sleep 500ms } --passthrough {}
- ```
+ -  `block`: the block to run
 

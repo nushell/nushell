@@ -894,6 +894,29 @@ pub fn eval_variable(
                         span,
                     });
 
+                    cols.push("examples".to_string());
+                    vals.push(Value::List {
+                        vals: decl
+                            .examples()
+                            .into_iter()
+                            .map(|x| Value::Record {
+                                cols: vec!["description".into(), "example".into()],
+                                vals: vec![
+                                    Value::String {
+                                        val: x.description.to_string(),
+                                        span,
+                                    },
+                                    Value::String {
+                                        val: x.example.to_string(),
+                                        span,
+                                    },
+                                ],
+                                span,
+                            })
+                            .collect(),
+                        span,
+                    });
+
                     cols.push("is_binary".to_string());
                     vals.push(Value::Bool {
                         val: decl.is_binary(),

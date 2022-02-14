@@ -1,37 +1,28 @@
-# format
+---
+title: format
+layout: command
+version: 0.59.0
+---
 
-Format columns into a string using a simple pattern
+Format columns into a string using a simple pattern.
 
-Syntax: `format <pattern>`
+## Signature
+
+```> format (pattern)```
 
 ## Parameters
 
-* `<pattern>`: the pattern to match
+ -  `pattern`: the pattern to output. e.g.) "{foo}: {bar}"
 
-## Example
+## Examples
 
-Let's say we have a table like this:
-
+Print filenames with their sizes
 ```shell
-> open pets.csv
-━━━┯━━━━━━━━━━━┯━━━━━━━━┯━━━━━
- # │ animal    │ name   │ age
-───┼───────────┼────────┼─────
- 0 │ cat       │ Tom    │ 7
- 1 │ dog       │ Alfred │ 10
- 2 │ chameleon │ Linda  │ 1
-━━━┷━━━━━━━━━━━┷━━━━━━━━┷━━━━━
+> ls | format '{name}: {size}'
 ```
 
-`format` allows us to convert table data into a string by following a formatting pattern. To print the value of a column we have to put the column name in curly brackets:
-
+Print elements from some columns of a table
 ```shell
-> open pets.csv | format "{name} is a {age} year old {animal}"
-━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- # │
-───┼─────────────────────────────────
- 0 │ Tom is a 7 year old cat
- 1 │ Alfred is a 10 year old dog
- 2 │ Linda is a 1 year old chameleon
-━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+> echo [[col1, col2]; [v1, v2] [v3, v4]] | format '{col2}'
 ```
+

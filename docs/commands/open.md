@@ -1,107 +1,34 @@
-# open
+---
+title: open
+layout: command
+version: 0.59.0
+---
 
-Loads a file into a cell, convert it to table if possible (avoid by appending `--raw` flag)
+Opens a file.
 
-## Example
+## Signature
 
+```> open (filename) --raw```
+
+## Parameters
+
+ -  `filename`: the filename to use
+ -  `--raw`: open file as raw binary
+
+## Examples
+
+Open a file, with structure (based on file extension)
 ```shell
-> cat user.yaml
-- Name: Peter
-  Age: 30
-  Telephone: 88204828
-  Country: Singapore
-- Name: Michael
-  Age: 42
-  Telephone: 44002010
-  Country: Spain
-- Name: Will
-  Age: 50
-  Telephone: 99521080
-  Country: Germany
+> open myfile.json
 ```
 
+Open a file, as raw bytes
 ```shell
-> open user.yaml
-━━━┯━━━━━━━━━┯━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━━
- # │ Name    │ Age │ Telephone │ Country
-───┼─────────┼─────┼───────────┼───────────
- 0 │ Peter   │  30 │  88204828 │ Singapore
- 1 │ Michael │  42 │  44002010 │ Spain
- 2 │ Will    │  50 │  99521080 │ Germany
-━━━┷━━━━━━━━━┷━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━
+> open myfile.json --raw
 ```
 
+Open a file, using the input to get filename
 ```shell
-> open user.yaml --raw
-- Name: Peter
-  Age: 30
-  Telephone: 88204828
-  Country: Singapore
-- Name: Michael
-  Age: 42
-  Telephone: 44002010
-  Country: Spain
-- Name: Will
-  Age: 50
-  Telephone: 99521080
-  Country: Germany
+> echo 'myfile.txt' | open
 ```
 
-```shell
-> cat user.json
-[
-    {
-        "Name": "Peter",
-        "Age": 30,
-        "Telephone": 88204828,
-        "Country": "Singapore"
-    },
-    {
-        "Name": "Michael",
-        "Age": 42,
-        "Telephone": 44002010,
-        "Country": "Spain"
-    },
-    {
-        "Name": "Will",
-        "Age": 50,
-        "Telephone": 99521080,
-        "Country": "Germany"
-    }
-]
-```
-
-```shell
-> open user.json
-━━━┯━━━━━━━━━┯━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━━
- # │ Name    │ Age │ Telephone │ Country
-───┼─────────┼─────┼───────────┼───────────
- 0 │ Peter   │  30 │  88204828 │ Singapore
- 1 │ Michael │  42 │  44002010 │ Spain
- 2 │ Will    │  50 │  99521080 │ Germany
-━━━┷━━━━━━━━━┷━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━
-```
-
-```shell
-> open user.json --raw
-[
-    {
-        "Name": "Peter",
-        "Age": 30,
-        "Telephone": 88204828,
-        "Country": "Singapore"
-    },
-    {
-        "Name": "Michael",
-        "Age": 42,
-        "Telephone": 44002010,
-        "Country": "Spain"
-    },
-    {
-        "Name": "Will",
-        "Age": 50,
-        "Telephone": 99521080,
-        "Country": "Germany"
-    }
-]
-```

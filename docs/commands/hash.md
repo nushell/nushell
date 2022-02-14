@@ -1,18 +1,12 @@
-# hash
+---
+title: hash
+layout: command
+version: 0.59.0
+---
+
 Apply hash function.
 
-## Usage
-```shell
-> hash ...args <subcommand> {flags} 
- ```
+## Signature
 
-## Subcommands
-* hash base64 - base64 encode or decode a value
-* hash md5 - md5 encode a value
-
-## Parameters
-* ...args: optionally convert by column paths
-
-## Flags
-* -h, --help: Display this help message
+```> hash ```
 
