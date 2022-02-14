@@ -127,7 +127,7 @@ fn ls_sort_by_type_name_sensitive() {
         "#
     ));
 
-    let json_output = r#"[{"name": "C","type": "Dir"},{"name": "a.txt","type": "File"},{"name": "B.txt","type": "File"}]"#;
+    let json_output = r#"[{"name": "C","type": "Dir"},{"name": "B.txt","type": "File"},{"name": "a.txt","type": "File"}]"#;
     assert_eq!(actual.out, json_output);
 }
 

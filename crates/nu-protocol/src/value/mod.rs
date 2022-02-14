@@ -953,6 +953,60 @@ impl PartialEq for Value {
     }
 }
 
+impl Ord for Value {
+    fn cmp(&self, other: &Self) -> Ordering {
+        fn compare_floats(val: f64, other: f64) -> Ordering {
+            let prec = f64::EPSILON.max(val.abs() * f64::EPSILON);
+
+            if (other - val).abs() < prec {
+                return Ordering::Equal;
+            }
+
+            val.partial_cmp(&other).unwrap_or(Ordering::Equal)
+        }
+
+        match (self, other) {
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => lhs.cmp(rhs),
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => lhs.cmp(rhs),
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                compare_floats(*lhs, *rhs)
+            }
+            (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => lhs.cmp(rhs),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => lhs.cmp(rhs),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                compare_floats(*lhs as f64, *rhs)
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                compare_floats(*lhs, *rhs as f64)
+            }
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => lhs.cmp(rhs),
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => lhs.cmp(rhs),
+            (Value::Block { val: b1, .. }, Value::Block { val: b2, .. }) if b1 == b2 => {
+                Ordering::Equal
+            }
+            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => lhs.cmp(rhs),
+            (
+                Value::Record {
+                    vals: lhs,
+                    cols: lhs_headers,
+                    ..
+                },
+                Value::Record {
+                    vals: rhs,
+                    cols: rhs_headers,
+                    ..
+                },
+            ) if lhs_headers == rhs_headers && lhs == rhs => Ordering::Equal,
+            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => lhs.cmp(rhs),
+            // (Value::CustomValue { val: lhs, .. }, rhs) => lhs.cmp(rhs),
+            (Value::Nothing { .. }, Value::Nothing { .. }) => Ordering::Equal,
+            (_, _) => Ordering::Equal,
+        }
+    }
+}
+
+impl Eq for Value {}
+
 impl Value {
     pub fn add(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span()?, rhs.span()?]);

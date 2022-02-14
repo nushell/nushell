@@ -173,17 +173,32 @@ pub fn sort(
                     .iter()
                     .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
 
-            vec.sort_by(|a, b| {
-                process(
-                    a,
-                    b,
-                    &columns[0],
-                    call,
-                    should_sort_case_insensitively,
-                    config,
-                )
-                .expect("sort_by Value::Record bug")
-            });
+            // vec.sort_by(|a, b| {
+            //     process(a, b, &columns[0], call, insensitive, config)
+            //         .expect("sort_by Value::Record bug")
+            // });
+
+            let calc_key = |item: &Value| {
+                columns
+                    .iter()
+                    .map(|f| {
+                        let mut value_option = item.get_data_by_key(f.as_str());
+
+                        if should_sort_case_insensitively {
+                            if let Some(value) = &value_option {
+                                if let Ok(string_value) = value.as_string() {
+                                    value_option = Some(Value::string(
+                                        string_value.to_ascii_lowercase(),
+                                        value.span().ok()?,
+                                    ))
+                                }
+                            }
+                        }
+                        value_option
+                    })
+                    .collect::<Vec<Option<Value>>>()
+            };
+            vec.sort_by_cached_key(calc_key)
         }
         _ => {
             vec.sort_by(|a, b| {
@@ -207,42 +222,42 @@ pub fn sort(
     Ok(())
 }
 
-pub fn process(
-    left: &Value,
-    right: &Value,
-    column: &str,
-    call: &Call,
-    insensitive: bool,
-    config: &Config,
-) -> Result<Ordering, ShellError> {
-    let left_value = left.get_data_by_key(column);
+// pub fn process(
+//     left: &Value,
+//     right: &Value,
+//     column: &str,
+//     call: &Call,
+//     insensitive: bool,
+//     config: &Config,
+// ) -> Result<Ordering, ShellError> {
+//     let left_value = left.get_data_by_key(column);
 
-    let left_res = match left_value {
-        Some(left_res) => left_res,
-        None => Value::Nothing { span: call.head },
-    };
+//     let left_res = match left_value {
+//         Some(left_res) => left_res,
+//         None => Value::Nothing { span: call.head },
+//     };
 
-    let right_value = right.get_data_by_key(column);
+//     let right_value = right.get_data_by_key(column);
 
-    let right_res = match right_value {
-        Some(right_res) => right_res,
-        None => Value::Nothing { span: call.head },
-    };
+//     let right_res = match right_value {
+//         Some(right_res) => right_res,
+//         None => Value::Nothing { span: call.head },
+//     };
 
-    if insensitive {
-        let lowercase_left = Value::string(
-            left_res.into_string("", config).to_ascii_lowercase(),
-            Span::test_data(),
-        );
-        let lowercase_right = Value::string(
-            right_res.into_string("", config).to_ascii_lowercase(),
-            Span::test_data(),
-        );
-        coerce_compare(&lowercase_left, &lowercase_right, call)
-    } else {
-        coerce_compare(&left_res, &right_res, call)
-    }
-}
+//     if insensitive {
+//         let lowercase_left = Value::string(
+//             left_res.into_string("", config).to_ascii_lowercase(),
+//             Span::test_data(),
+//         );
+//         let lowercase_right = Value::string(
+//             right_res.into_string("", config).to_ascii_lowercase(),
+//             Span::test_data(),
+//         );
+//         coerce_compare(&lowercase_left, &lowercase_right, call)
+//     } else {
+//         coerce_compare(&left_res, &right_res, call)
+//     }
+// }
 
 #[derive(Debug)]
 pub enum CompareValues {
