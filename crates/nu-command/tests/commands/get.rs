@@ -49,6 +49,7 @@ fn fetches_by_index() {
         assert_eq!(actual.out, "Andrés N. Robalino <andres@androbtech.com>");
     })
 }
+
 #[test]
 fn fetches_by_column_path() {
     Playground::setup("get_test_3", |dirs, sandbox| {
@@ -130,8 +131,6 @@ fn fetches_more_than_one_column_path() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_fetching_by_column_not_present() {
     Playground::setup("get_test_6", |dirs, sandbox| {
@@ -153,17 +152,11 @@ fn errors_fetching_by_column_not_present() {
             "#
         ));
 
-        assert!(actual.err.contains("Unknown column"),);
-        assert!(actual.err.contains("There isn't a column named 'taco'"),);
-        assert!(actual.err.contains("Perhaps you meant 'taconushell'?"),);
-        assert!(actual
-            .err
-            .contains("Columns available: pizzanushell, taconushell"),);
+        assert!(actual.err.contains("Name not found"),);
+        assert!(actual.err.contains("did you mean 'taconushell'"),);
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_fetching_by_column_using_a_number() {
     Playground::setup("get_test_7", |dirs, sandbox| {
@@ -183,16 +176,15 @@ fn errors_fetching_by_column_using_a_number() {
             "#
         ));
 
-        assert!(actual.err.contains("No rows available"),);
-        assert!(actual.err.contains("A row at '0' can't be indexed."),);
         assert!(actual
             .err
-            .contains("Appears to contain columns. Columns available: 0"),)
+            .contains("Data cannot be accessed with a cell path"),);
+        assert!(actual
+            .err
+            .contains(" record<0: string> doesn't support cell paths"),);
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_fetching_by_index_out_of_bounds() {
     Playground::setup("get_test_8", |dirs, sandbox| {
@@ -212,9 +204,8 @@ fn errors_fetching_by_index_out_of_bounds() {
             "#
         ));
 
-        assert!(actual.err.contains("Row not found"),);
-        assert!(actual.err.contains("There isn't a row indexed at 3"),);
-        assert!(actual.err.contains("The table only has 3 rows (0 to 2)"),)
+        assert!(actual.err.contains("Row number too large (max: 3)"),);
+        assert!(actual.err.contains("too large"),);
     })
 }
 
