@@ -17,7 +17,7 @@ use nu_command::{create_default_context, BufferedReader};
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_protocol::{
-    ast::{Call, Expr, Expression, Pipeline, Statement},
+    ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value, CONFIG_VARIABLE_ID,
@@ -188,13 +188,8 @@ fn main() -> Result<()> {
 
                 ret_val
             } else if !script_name.is_empty() && binary_args.interactive_shell.is_none() {
-                let ret_val = eval_file::evaluate(
-                    script_name,
-                    &args_to_script,
-                    init_cwd,
-                    &mut engine_state,
-                    input,
-                );
+                let ret_val =
+                    eval_file::evaluate(script_name, &args_to_script, &mut engine_state, input);
                 if is_perf_true() {
                     info!("eval_file execution {}:{}:{}", file!(), line!(), column!());
                 }
@@ -246,11 +241,11 @@ fn parse_commandline_args(
     );
 
     // We should have a successful parse now
-    if let Some(Statement::Pipeline(Pipeline { expressions })) = block.stmts.get(0) {
+    if let Some(pipeline) = block.pipelines.get(0) {
         if let Some(Expression {
             expr: Expr::Call(call),
             ..
-        }) = expressions.get(0)
+        }) = pipeline.expressions.get(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");

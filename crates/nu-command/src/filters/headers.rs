@@ -115,7 +115,15 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
     match value {
         Value::Record { vals, .. } => Ok(vals
             .iter()
-            .map(|value| value.into_string("", config))
+            .enumerate()
+            .map(|(idx, value)| {
+                let col = value.into_string("", config);
+                if col.is_empty() {
+                    format!("Column{}", idx)
+                } else {
+                    col
+                }
+            })
             .collect::<Vec<String>>()),
         Value::List { vals, span } => vals
             .iter()

@@ -196,6 +196,7 @@ impl Command for Reduce {
                     v
                 }
             })
+            .with_span(span)
             .into_pipeline_data())
     }
 }

@@ -1,6 +1,4 @@
-use nu_protocol::ast::{
-    Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline, Statement,
-};
+use nu_protocol::ast::{Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline};
 use nu_protocol::{engine::StateWorkingSet, Span};
 use std::fmt::{Display, Formatter, Result};
 
@@ -63,20 +61,10 @@ impl Display for FlatShape {
 
 pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span, FlatShape)> {
     let mut output = vec![];
-    for stmt in &block.stmts {
-        output.extend(flatten_statement(working_set, stmt));
+    for pipeline in &block.pipelines {
+        output.extend(flatten_pipeline(working_set, pipeline));
     }
     output
-}
-
-pub fn flatten_statement(
-    working_set: &StateWorkingSet,
-    stmt: &Statement,
-) -> Vec<(Span, FlatShape)> {
-    match stmt {
-        Statement::Pipeline(pipeline) => flatten_pipeline(working_set, pipeline),
-        _ => vec![],
-    }
 }
 
 pub fn flatten_expression(
