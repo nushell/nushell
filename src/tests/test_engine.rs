@@ -235,3 +235,11 @@ fn export_def_env() -> TestResult {
 fn dynamic_let_env() -> TestResult {
     run_test(r#"let x = "FOO"; let-env $x = "BAZ"; $env.FOO"#, "BAZ")
 }
+
+#[test]
+fn reduce_spans() -> TestResult {
+    fail_test(
+        r#"let x = ([1, 2, 3] | reduce -f 0 { $it.item + 2 * $it.acc }); error make {msg: "oh that hurts", label: {text: "right here", start: (metadata $x).span.start, end: (metadata $x).span.end } }"#,
+        "right here",
+    )
+}
