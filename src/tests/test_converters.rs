@@ -37,3 +37,11 @@ fn to_json_raw_flag_3() -> TestResult {
         r#"[{"a b": "jim smith","c d": "susie roberts"},{"a b": 3,"c d": 4}]"#,
     )
 }
+
+#[test]
+fn to_json_escaped() -> TestResult {
+    run_test(
+        r#"{foo: {bar: '[{"a":"b","c": 2}]'}} | to json --raw"#,
+        r#"{"foo":{"bar": "[{\"a\":\"b\",\"c\": 2}]"}}"#,
+    )
+}
