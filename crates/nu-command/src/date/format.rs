@@ -418,7 +418,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             .to_string();
 
         records.push(Value::Record {
-            cols: column_names.clone(),
+            cols: column_names,
             vals: vec![
                 Value::String {
                     val: "%#z".to_string(),
