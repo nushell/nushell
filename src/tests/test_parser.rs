@@ -34,6 +34,11 @@ fn alias_2_multi_word() -> TestResult {
 }
 
 #[test]
+fn alias_recursion() -> TestResult {
+    run_test_contains(r#"alias ls = (ls | sort-by type name -i); ls"#, " ")
+}
+
+#[test]
 fn block_param1() -> TestResult {
     run_test("[3] | each { $it + 10 } | get 0", "13")
 }
