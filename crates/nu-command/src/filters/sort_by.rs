@@ -138,6 +138,13 @@ pub fn sort(
     insensitive: bool,
     config: &Config,
 ) -> Result<(), ShellError> {
+    if vec.is_empty() {
+        return Err(ShellError::LabeledError(
+            "no values to work with".to_string(),
+            "no values to work with".to_string(),
+        ));
+    }
+
     match &vec[0] {
         Value::Record {
             cols,
