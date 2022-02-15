@@ -1,7 +1,7 @@
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, trim_quotes, FlatShape};
 use nu_protocol::{
-    ast::{Expr, Statement},
+    ast::Expr,
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Value, CONFIG_VARIABLE_ID,
 };
@@ -174,228 +174,214 @@ impl NuCompleter {
         let pos = offset + pos;
         let (output, _err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
 
-        for stmt in output.stmts.into_iter() {
-            if let Statement::Pipeline(pipeline) = stmt {
-                for expr in pipeline.expressions {
-                    let flattened: Vec<_> = flatten_expression(&working_set, &expr);
+        for pipeline in output.pipelines.into_iter() {
+            for expr in pipeline.expressions {
+                let flattened: Vec<_> = flatten_expression(&working_set, &expr);
 
-                    for (flat_idx, flat) in flattened.iter().enumerate() {
-                        if pos >= flat.0.start && pos < flat.0.end {
-                            let new_span = Span {
-                                start: flat.0.start,
-                                end: flat.0.end - 1,
-                            };
+                for (flat_idx, flat) in flattened.iter().enumerate() {
+                    if pos >= flat.0.start && pos < flat.0.end {
+                        let new_span = Span {
+                            start: flat.0.start,
+                            end: flat.0.end - 1,
+                        };
 
-                            let mut prefix = working_set.get_span_contents(flat.0).to_vec();
-                            prefix.remove(pos - flat.0.start);
+                        let mut prefix = working_set.get_span_contents(flat.0).to_vec();
+                        prefix.remove(pos - flat.0.start);
 
-                            if prefix.starts_with(b"$") {
-                                return self.complete_variables(
-                                    &working_set,
-                                    &prefix,
-                                    new_span,
-                                    offset,
-                                );
-                            }
-                            if prefix.starts_with(b"-") {
-                                // this might be a flag, let's see
-                                if let Expr::Call(call) = &expr.expr {
-                                    let decl = working_set.get_decl(call.decl_id);
-                                    let sig = decl.signature();
+                        if prefix.starts_with(b"$") {
+                            return self.complete_variables(
+                                &working_set,
+                                &prefix,
+                                new_span,
+                                offset,
+                            );
+                        }
+                        if prefix.starts_with(b"-") {
+                            // this might be a flag, let's see
+                            if let Expr::Call(call) = &expr.expr {
+                                let decl = working_set.get_decl(call.decl_id);
+                                let sig = decl.signature();
 
-                                    let mut output = vec![];
+                                let mut output = vec![];
 
-                                    for named in &sig.named {
-                                        let mut named = named.long.as_bytes().to_vec();
-                                        named.insert(0, b'-');
-                                        named.insert(0, b'-');
-                                        if named.starts_with(&prefix) {
-                                            output.push((
-                                                reedline::Span {
-                                                    start: new_span.start - offset,
-                                                    end: new_span.end - offset,
-                                                },
-                                                String::from_utf8_lossy(&named).to_string(),
-                                            ));
-                                        }
-                                    }
-                                    return output;
-                                }
-                            }
-
-                            match &flat.1 {
-                                FlatShape::Custom(custom_completion) => {
-                                    //let prefix = working_set.get_span_contents(flat.0).to_vec();
-
-                                    let (block, ..) = parse(
-                                        &mut working_set,
-                                        None,
-                                        custom_completion.as_bytes(),
-                                        false,
-                                    );
-
-                                    let mut stack = Stack::new();
-                                    // Set up our initial config to start from
-                                    stack.vars.insert(
-                                        CONFIG_VARIABLE_ID,
-                                        Value::Record {
-                                            cols: vec![],
-                                            vals: vec![],
-                                            span: Span { start: 0, end: 0 },
-                                        },
-                                    );
-                                    let result = eval_block(
-                                        &self.engine_state,
-                                        &mut stack,
-                                        &block,
-                                        PipelineData::new(new_span),
-                                    );
-
-                                    let v: Vec<_> = match result {
-                                        Ok(pd) => pd
-                                            .into_iter()
-                                            .filter_map(move |x| {
-                                                let s = x.as_string();
-
-                                                match s {
-                                                    Ok(s) => Some((
-                                                        reedline::Span {
-                                                            start: new_span.start - offset,
-                                                            end: new_span.end - offset,
-                                                        },
-                                                        s,
-                                                    )),
-                                                    Err(_) => None,
-                                                }
-                                            })
-                                            .filter(|x| x.1.as_bytes().starts_with(&prefix))
-                                            .collect(),
-                                        _ => vec![],
-                                    };
-
-                                    return v;
-                                }
-                                FlatShape::Filepath | FlatShape::GlobPattern => {
-                                    let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
-                                    {
-                                        match d.as_string() {
-                                            Ok(s) => s,
-                                            Err(_) => "".to_string(),
-                                        }
-                                    } else {
-                                        "".to_string()
-                                    };
-                                    let prefix = String::from_utf8_lossy(&prefix).to_string();
-                                    return file_path_completion(new_span, &prefix, &cwd)
-                                        .into_iter()
-                                        .map(move |x| {
-                                            (
-                                                reedline::Span {
-                                                    start: x.0.start - offset,
-                                                    end: x.0.end - offset,
-                                                },
-                                                x.1,
-                                            )
-                                        })
-                                        .collect();
-                                }
-                                flat_shape => {
-                                    let last = flattened
-                                        .iter()
-                                        .rev()
-                                        .skip_while(|x| x.0.end > pos)
-                                        .take_while(|x| {
-                                            matches!(
-                                                x.1,
-                                                FlatShape::InternalCall
-                                                    | FlatShape::External
-                                                    | FlatShape::ExternalArg
-                                                    | FlatShape::Literal
-                                                    | FlatShape::String
-                                            )
-                                        })
-                                        .last();
-
-                                    // The last item here would be the earliest shape that could possible by part of this subcommand
-                                    let subcommands = if let Some(last) = last {
-                                        self.complete_commands(
-                                            &working_set,
-                                            Span {
-                                                start: last.0.start,
-                                                end: pos,
+                                for named in &sig.named {
+                                    let mut named = named.long.as_bytes().to_vec();
+                                    named.insert(0, b'-');
+                                    named.insert(0, b'-');
+                                    if named.starts_with(&prefix) {
+                                        output.push((
+                                            reedline::Span {
+                                                start: new_span.start - offset,
+                                                end: new_span.end - offset,
                                             },
-                                            offset,
-                                            false,
-                                        )
-                                    } else {
-                                        vec![]
-                                    };
-
-                                    if !subcommands.is_empty() {
-                                        return subcommands;
+                                            String::from_utf8_lossy(&named).to_string(),
+                                        ));
                                     }
+                                }
+                                return output;
+                            }
+                        }
 
-                                    let commands =
-                                        if matches!(flat_shape, nu_parser::FlatShape::External)
-                                            || matches!(
-                                                flat_shape,
-                                                nu_parser::FlatShape::InternalCall
-                                            )
-                                            || ((new_span.end - new_span.start) == 0)
-                                        {
-                                            // we're in a gap or at a command
-                                            self.complete_commands(
-                                                &working_set,
-                                                new_span,
-                                                offset,
-                                                true,
-                                            )
-                                        } else {
-                                            vec![]
-                                        };
+                        match &flat.1 {
+                            FlatShape::Custom(custom_completion) => {
+                                //let prefix = working_set.get_span_contents(flat.0).to_vec();
 
-                                    let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
+                                let (block, ..) = parse(
+                                    &mut working_set,
+                                    None,
+                                    custom_completion.as_bytes(),
+                                    false,
+                                );
+
+                                let mut stack = Stack::new();
+                                // Set up our initial config to start from
+                                stack.vars.insert(
+                                    CONFIG_VARIABLE_ID,
+                                    Value::Record {
+                                        cols: vec![],
+                                        vals: vec![],
+                                        span: Span { start: 0, end: 0 },
+                                    },
+                                );
+                                let result = eval_block(
+                                    &self.engine_state,
+                                    &mut stack,
+                                    &block,
+                                    PipelineData::new(new_span),
+                                );
+
+                                let v: Vec<_> = match result {
+                                    Ok(pd) => pd
+                                        .into_iter()
+                                        .filter_map(move |x| {
+                                            let s = x.as_string();
+
+                                            match s {
+                                                Ok(s) => Some((
+                                                    reedline::Span {
+                                                        start: new_span.start - offset,
+                                                        end: new_span.end - offset,
+                                                    },
+                                                    s,
+                                                )),
+                                                Err(_) => None,
+                                            }
+                                        })
+                                        .filter(|x| x.1.as_bytes().starts_with(&prefix))
+                                        .collect(),
+                                    _ => vec![],
+                                };
+
+                                return v;
+                            }
+                            FlatShape::Filepath | FlatShape::GlobPattern => {
+                                let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
+                                    match d.as_string() {
+                                        Ok(s) => s,
+                                        Err(_) => "".to_string(),
+                                    }
+                                } else {
+                                    "".to_string()
+                                };
+                                let prefix = String::from_utf8_lossy(&prefix).to_string();
+                                return file_path_completion(new_span, &prefix, &cwd)
+                                    .into_iter()
+                                    .map(move |x| {
+                                        (
+                                            reedline::Span {
+                                                start: x.0.start - offset,
+                                                end: x.0.end - offset,
+                                            },
+                                            x.1,
+                                        )
+                                    })
+                                    .collect();
+                            }
+                            flat_shape => {
+                                let last = flattened
+                                    .iter()
+                                    .rev()
+                                    .skip_while(|x| x.0.end > pos)
+                                    .take_while(|x| {
+                                        matches!(
+                                            x.1,
+                                            FlatShape::InternalCall
+                                                | FlatShape::External
+                                                | FlatShape::ExternalArg
+                                                | FlatShape::Literal
+                                                | FlatShape::String
+                                        )
+                                    })
+                                    .last();
+
+                                // The last item here would be the earliest shape that could possible by part of this subcommand
+                                let subcommands = if let Some(last) = last {
+                                    self.complete_commands(
+                                        &working_set,
+                                        Span {
+                                            start: last.0.start,
+                                            end: pos,
+                                        },
+                                        offset,
+                                        false,
+                                    )
+                                } else {
+                                    vec![]
+                                };
+
+                                if !subcommands.is_empty() {
+                                    return subcommands;
+                                }
+
+                                let commands =
+                                    if matches!(flat_shape, nu_parser::FlatShape::External)
+                                        || matches!(flat_shape, nu_parser::FlatShape::InternalCall)
+                                        || ((new_span.end - new_span.start) == 0)
                                     {
-                                        match d.as_string() {
-                                            Ok(s) => s,
-                                            Err(_) => "".to_string(),
-                                        }
-                                    } else {
-                                        "".to_string()
-                                    };
-
-                                    let preceding_byte = if new_span.start > offset {
-                                        working_set
-                                            .get_span_contents(Span {
-                                                start: new_span.start - 1,
-                                                end: new_span.start,
-                                            })
-                                            .to_vec()
+                                        // we're in a gap or at a command
+                                        self.complete_commands(&working_set, new_span, offset, true)
                                     } else {
                                         vec![]
                                     };
-                                    // let prefix = working_set.get_span_contents(flat.0);
-                                    let prefix = String::from_utf8_lossy(&prefix).to_string();
-                                    let output = file_path_completion(new_span, &prefix, &cwd)
-                                        .into_iter()
-                                        .map(move |x| {
-                                            if flat_idx == 0 {
-                                                // We're in the command position
-                                                if x.1.starts_with('"')
-                                                    && !matches!(preceding_byte.get(0), Some(b'^'))
-                                                {
-                                                    let trimmed = trim_quotes(x.1.as_bytes());
-                                                    let trimmed = String::from_utf8_lossy(trimmed)
-                                                        .to_string();
-                                                    let expanded =
-                                                        nu_path::canonicalize_with(trimmed, &cwd);
 
-                                                    if let Ok(expanded) = expanded {
-                                                        if is_executable::is_executable(expanded) {
-                                                            (x.0, format!("^{}", x.1))
-                                                        } else {
-                                                            (x.0, x.1)
-                                                        }
+                                let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
+                                    match d.as_string() {
+                                        Ok(s) => s,
+                                        Err(_) => "".to_string(),
+                                    }
+                                } else {
+                                    "".to_string()
+                                };
+
+                                let preceding_byte = if new_span.start > offset {
+                                    working_set
+                                        .get_span_contents(Span {
+                                            start: new_span.start - 1,
+                                            end: new_span.start,
+                                        })
+                                        .to_vec()
+                                } else {
+                                    vec![]
+                                };
+                                // let prefix = working_set.get_span_contents(flat.0);
+                                let prefix = String::from_utf8_lossy(&prefix).to_string();
+                                let output = file_path_completion(new_span, &prefix, &cwd)
+                                    .into_iter()
+                                    .map(move |x| {
+                                        if flat_idx == 0 {
+                                            // We're in the command position
+                                            if x.1.starts_with('"')
+                                                && !matches!(preceding_byte.get(0), Some(b'^'))
+                                            {
+                                                let trimmed = trim_quotes(x.1.as_bytes());
+                                                let trimmed =
+                                                    String::from_utf8_lossy(trimmed).to_string();
+                                                let expanded =
+                                                    nu_path::canonicalize_with(trimmed, &cwd);
+
+                                                if let Ok(expanded) = expanded {
+                                                    if is_executable::is_executable(expanded) {
+                                                        (x.0, format!("^{}", x.1))
                                                     } else {
                                                         (x.0, x.1)
                                                     }
@@ -405,23 +391,25 @@ impl NuCompleter {
                                             } else {
                                                 (x.0, x.1)
                                             }
-                                        })
-                                        .map(move |x| {
-                                            (
-                                                reedline::Span {
-                                                    start: x.0.start - offset,
-                                                    end: x.0.end - offset,
-                                                },
-                                                x.1,
-                                            )
-                                        })
-                                        .chain(subcommands.into_iter())
-                                        .chain(commands.into_iter())
-                                        .collect::<Vec<_>>();
-                                    //output.dedup_by(|a, b| a.1 == b.1);
+                                        } else {
+                                            (x.0, x.1)
+                                        }
+                                    })
+                                    .map(move |x| {
+                                        (
+                                            reedline::Span {
+                                                start: x.0.start - offset,
+                                                end: x.0.end - offset,
+                                            },
+                                            x.1,
+                                        )
+                                    })
+                                    .chain(subcommands.into_iter())
+                                    .chain(commands.into_iter())
+                                    .collect::<Vec<_>>();
+                                //output.dedup_by(|a, b| a.1 == b.1);
 
-                                    return output;
-                                }
+                                return output;
                             }
                         }
                     }

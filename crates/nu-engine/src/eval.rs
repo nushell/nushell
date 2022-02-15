@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io::Write;
 
 use nu_path::expand_path_with;
-use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
+use nu_protocol::ast::{Block, Call, Expr, Expression, Operator};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
@@ -471,21 +471,19 @@ pub fn eval_block(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let num_stmts = block.stmts.len();
-    for (stmt_idx, stmt) in block.stmts.iter().enumerate() {
-        if let Statement::Pipeline(pipeline) = stmt {
-            for (i, elem) in pipeline.expressions.iter().enumerate() {
-                input = eval_expression_with_input(
-                    engine_state,
-                    stack,
-                    elem,
-                    input,
-                    i == pipeline.expressions.len() - 1,
-                )?
-            }
+    let num_pipelines = block.len();
+    for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
+        for (i, elem) in pipeline.expressions.iter().enumerate() {
+            input = eval_expression_with_input(
+                engine_state,
+                stack,
+                elem,
+                input,
+                i == pipeline.expressions.len() - 1,
+            )?
         }
 
-        if stmt_idx < (num_stmts) - 1 {
+        if pipeline_idx < (num_pipelines) - 1 {
             match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {}
                 _ => {
@@ -551,15 +549,13 @@ pub fn eval_block_with_redirect(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let num_stmts = block.stmts.len();
-    for (stmt_idx, stmt) in block.stmts.iter().enumerate() {
-        if let Statement::Pipeline(pipeline) = stmt {
-            for elem in pipeline.expressions.iter() {
-                input = eval_expression_with_input(engine_state, stack, elem, input, false)?
-            }
+    let num_pipelines = block.len();
+    for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
+        for elem in pipeline.expressions.iter() {
+            input = eval_expression_with_input(engine_state, stack, elem, input, false)?
         }
 
-        if stmt_idx < (num_stmts) - 1 {
+        if pipeline_idx < (num_pipelines) - 1 {
             match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {}
                 _ => {
@@ -625,11 +621,9 @@ pub fn eval_subexpression(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    for stmt in block.stmts.iter() {
-        if let Statement::Pipeline(pipeline) = stmt {
-            for expr in pipeline.expressions.iter() {
-                input = eval_expression_with_input(engine_state, stack, expr, input, false)?
-            }
+    for pipeline in block.pipelines.iter() {
+        for expr in pipeline.expressions.iter() {
+            input = eval_expression_with_input(engine_state, stack, expr, input, false)?
         }
     }
 

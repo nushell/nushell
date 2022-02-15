@@ -1,4 +1,4 @@
-use super::{Expr, Operator, Statement};
+use super::{Expr, Operator};
 use crate::ast::ImportPattern;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
 
@@ -116,7 +116,7 @@ impl Expression {
                     return true;
                 }
 
-                if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
+                if let Some(pipeline) = block.pipelines.get(0) {
                     match pipeline.expressions.get(0) {
                         Some(expr) => expr.has_in_variable(working_set),
                         None => false,
@@ -218,7 +218,7 @@ impl Expression {
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
+                if let Some(pipeline) = block.pipelines.get(0) {
                     if let Some(expr) = pipeline.expressions.get(0) {
                         expr.has_in_variable(working_set)
                     } else {
@@ -261,7 +261,7 @@ impl Expression {
             Expr::Block(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_expr = if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
+                let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
                     if let Some(expr) = pipeline.expressions.get(0) {
                         let mut new_expr = expr.clone();
                         new_expr.replace_in_variable(working_set, new_var_id);
@@ -276,7 +276,7 @@ impl Expression {
                 let block = working_set.get_block_mut(*block_id);
 
                 if let Some(new_expr) = new_expr {
-                    if let Some(Statement::Pipeline(pipeline)) = block.stmts.get_mut(0) {
+                    if let Some(pipeline) = block.pipelines.get_mut(0) {
                         if let Some(expr) = pipeline.expressions.get_mut(0) {
                             *expr = new_expr
                         }
@@ -353,7 +353,7 @@ impl Expression {
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_expr = if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
+                let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
                     if let Some(expr) = pipeline.expressions.get(0) {
                         let mut new_expr = expr.clone();
                         new_expr.replace_in_variable(working_set, new_var_id);
@@ -368,7 +368,7 @@ impl Expression {
                 let block = working_set.get_block_mut(*block_id);
 
                 if let Some(new_expr) = new_expr {
-                    if let Some(Statement::Pipeline(pipeline)) = block.stmts.get_mut(0) {
+                    if let Some(pipeline) = block.pipelines.get_mut(0) {
                         if let Some(expr) = pipeline.expressions.get_mut(0) {
                             *expr = new_expr
                         }
@@ -420,11 +420,9 @@ impl Expression {
             Expr::Block(block_id) => {
                 let mut block = working_set.get_block(*block_id).clone();
 
-                for stmt in block.stmts.iter_mut() {
-                    if let Statement::Pipeline(pipeline) = stmt {
-                        for expr in pipeline.expressions.iter_mut() {
-                            expr.replace_span(working_set, replaced, new_span)
-                        }
+                for pipeline in block.pipelines.iter_mut() {
+                    for expr in pipeline.expressions.iter_mut() {
+                        expr.replace_span(working_set, replaced, new_span)
                     }
                 }
 
@@ -497,11 +495,9 @@ impl Expression {
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let mut block = working_set.get_block(*block_id).clone();
 
-                for stmt in block.stmts.iter_mut() {
-                    if let Statement::Pipeline(pipeline) = stmt {
-                        for expr in pipeline.expressions.iter_mut() {
-                            expr.replace_span(working_set, replaced, new_span)
-                        }
+                for pipeline in block.pipelines.iter_mut() {
+                    for expr in pipeline.expressions.iter_mut() {
+                        expr.replace_span(working_set, replaced, new_span)
                     }
                 }
 

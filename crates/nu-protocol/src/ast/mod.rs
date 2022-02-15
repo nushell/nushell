@@ -6,7 +6,6 @@ mod expression;
 mod import_pattern;
 mod operator;
 mod pipeline;
-mod statement;
 
 pub use block::*;
 pub use call::*;
@@ -16,4 +15,3 @@ pub use expression::*;
 pub use import_pattern::*;
 pub use operator::*;
 pub use pipeline::*;
-pub use statement::*;

@@ -31,17 +31,17 @@ impl LiteCommand {
 }
 
 #[derive(Debug)]
-pub struct LiteStatement {
+pub struct LitePipeline {
     pub commands: Vec<LiteCommand>,
 }
 
-impl Default for LiteStatement {
+impl Default for LitePipeline {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl LiteStatement {
+impl LitePipeline {
     pub fn new() -> Self {
         Self { commands: vec![] }
     }
@@ -57,7 +57,7 @@ impl LiteStatement {
 
 #[derive(Debug)]
 pub struct LiteBlock {
-    pub block: Vec<LiteStatement>,
+    pub block: Vec<LitePipeline>,
 }
 
 impl Default for LiteBlock {
@@ -71,7 +71,7 @@ impl LiteBlock {
         Self { block: vec![] }
     }
 
-    pub fn push(&mut self, pipeline: LiteStatement) {
+    pub fn push(&mut self, pipeline: LitePipeline) {
         self.block.push(pipeline);
     }
 
@@ -82,7 +82,7 @@ impl LiteBlock {
 
 pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
     let mut block = LiteBlock::new();
-    let mut curr_pipeline = LiteStatement::new();
+    let mut curr_pipeline = LitePipeline::new();
     let mut curr_command = LiteCommand::new();
 
     let mut last_token = TokenContents::Eol;
@@ -117,7 +117,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                     if !curr_pipeline.is_empty() {
                         block.push(curr_pipeline);
 
-                        curr_pipeline = LiteStatement::new();
+                        curr_pipeline = LitePipeline::new();
                     }
                 }
 
@@ -138,7 +138,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 if !curr_pipeline.is_empty() {
                     block.push(curr_pipeline);
 
-                    curr_pipeline = LiteStatement::new();
+                    curr_pipeline = LitePipeline::new();
                 }
 
                 last_token = TokenContents::Semicolon;

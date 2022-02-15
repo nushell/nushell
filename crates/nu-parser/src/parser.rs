@@ -10,7 +10,6 @@ use nu_protocol::{
     ast::{
         Block, Call, CellPath, Expr, Expression, FullCellPath, ImportPattern, ImportPatternHead,
         ImportPatternMember, Operator, PathMember, Pipeline, RangeInclusion, RangeOperator,
-        Statement,
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
@@ -34,8 +33,8 @@ pub fn garbage(span: Span) -> Expression {
     Expression::garbage(span)
 }
 
-pub fn garbage_statement(spans: &[Span]) -> Statement {
-    Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))]))
+pub fn garbage_pipeline(spans: &[Span]) -> Pipeline {
+    Pipeline::from_vec(vec![garbage(span(spans))])
 }
 
 fn is_identifier_byte(b: u8) -> bool {
@@ -2293,7 +2292,7 @@ pub fn parse_row_condition(
             let mut pipeline = Pipeline::new();
             pipeline.expressions.push(expression);
 
-            block.stmts.push(Statement::Pipeline(pipeline));
+            block.pipelines.push(pipeline);
 
             block.signature.required_positional.push(PositionalArg {
                 name: "$it".into(),
@@ -3413,31 +3412,43 @@ pub fn parse_expression(
         match bytes {
             b"def" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
-                Some(ParseError::StatementInPipeline("def".into(), spans[0])),
+                Some(ParseError::BuiltinCommandInPipeline("def".into(), spans[0])),
             ),
             b"extern" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
-                Some(ParseError::StatementInPipeline("extern".into(), spans[0])),
+                Some(ParseError::BuiltinCommandInPipeline(
+                    "extern".into(),
+                    spans[0],
+                )),
             ),
             b"let" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
-                Some(ParseError::StatementInPipeline("let".into(), spans[0])),
+                Some(ParseError::BuiltinCommandInPipeline("let".into(), spans[0])),
             ),
             b"alias" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
-                Some(ParseError::StatementInPipeline("alias".into(), spans[0])),
+                Some(ParseError::BuiltinCommandInPipeline(
+                    "alias".into(),
+                    spans[0],
+                )),
             ),
             b"module" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
-                Some(ParseError::StatementInPipeline("module".into(), spans[0])),
+                Some(ParseError::BuiltinCommandInPipeline(
+                    "module".into(),
+                    spans[0],
+                )),
             ),
             b"use" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
-                Some(ParseError::StatementInPipeline("use".into(), spans[0])),
+                Some(ParseError::BuiltinCommandInPipeline("use".into(), spans[0])),
             ),
             b"source" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
-                Some(ParseError::StatementInPipeline("source".into(), spans[0])),
+                Some(ParseError::BuiltinCommandInPipeline(
+                    "source".into(),
+                    spans[0],
+                )),
             ),
             b"export" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
@@ -3445,12 +3456,18 @@ pub fn parse_expression(
             ),
             b"hide" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
-                Some(ParseError::StatementInPipeline("hide".into(), spans[0])),
+                Some(ParseError::BuiltinCommandInPipeline(
+                    "hide".into(),
+                    spans[0],
+                )),
             ),
             #[cfg(feature = "plugin")]
             b"register" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
-                Some(ParseError::StatementInPipeline("plugin".into(), spans[0])),
+                Some(ParseError::BuiltinCommandInPipeline(
+                    "plugin".into(),
+                    spans[0],
+                )),
             ),
 
             b"for" => parse_for(working_set, spans),
@@ -3464,9 +3481,9 @@ pub fn parse_expression(
         if let Some(decl_id) = with_env {
             let mut block = Block::default();
             let ty = output.ty.clone();
-            block.stmts = vec![Statement::Pipeline(Pipeline {
+            block.pipelines = vec![Pipeline {
                 expressions: vec![output],
-            })];
+            }];
 
             let block_id = working_set.add_block(block);
 
@@ -3530,10 +3547,10 @@ pub fn parse_variable(
     }
 }
 
-pub fn parse_statement(
+pub fn parse_builtin_commands(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
-) -> (Statement, Option<ParseError>) {
+) -> (Pipeline, Option<ParseError>) {
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
@@ -3542,14 +3559,14 @@ pub fn parse_statement(
         b"let" => parse_let(working_set, &lite_command.parts),
         b"for" => {
             let (expr, err) = parse_for(working_set, &lite_command.parts);
-            (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
+            (Pipeline::from_vec(vec![expr]), err)
         }
         b"alias" => parse_alias(working_set, &lite_command.parts),
         b"module" => parse_module(working_set, &lite_command.parts),
         b"use" => parse_use(working_set, &lite_command.parts),
         b"source" => parse_source(working_set, &lite_command.parts),
         b"export" => (
-            garbage_statement(&lite_command.parts),
+            garbage_pipeline(&lite_command.parts),
             Some(ParseError::UnexpectedKeyword(
                 "export".into(),
                 lite_command.parts[0],
@@ -3560,7 +3577,7 @@ pub fn parse_statement(
         b"register" => parse_register(working_set, &lite_command.parts),
         _ => {
             let (expr, err) = parse_expression(working_set, &lite_command.parts, true);
-            (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
+            (Pipeline::from_vec(vec![expr]), err)
         }
     }
 }
@@ -3691,40 +3708,39 @@ pub fn parse_block(
                     }
                 }
 
-                Statement::Pipeline(Pipeline {
+                Pipeline {
                     expressions: output,
-                })
+                }
             } else {
-                let (mut stmt, err) = parse_statement(working_set, &pipeline.commands[0]);
+                let (mut pipeline, err) =
+                    parse_builtin_commands(working_set, &pipeline.commands[0]);
 
                 if idx == 0 {
                     if let Some(let_decl_id) = working_set.find_decl(b"let") {
                         if let Some(let_env_decl_id) = working_set.find_decl(b"let-env") {
-                            if let Statement::Pipeline(pipeline) = &mut stmt {
-                                for expr in pipeline.expressions.iter_mut() {
-                                    if let Expression {
-                                        expr: Expr::Call(call),
-                                        ..
-                                    } = expr
+                            for expr in pipeline.expressions.iter_mut() {
+                                if let Expression {
+                                    expr: Expr::Call(call),
+                                    ..
+                                } = expr
+                                {
+                                    if call.decl_id == let_decl_id
+                                        || call.decl_id == let_env_decl_id
                                     {
-                                        if call.decl_id == let_decl_id
-                                            || call.decl_id == let_env_decl_id
+                                        // Do an expansion
+                                        if let Some(Expression {
+                                            expr: Expr::Keyword(_, _, expr),
+                                            ..
+                                        }) = call.positional.get_mut(1)
                                         {
-                                            // Do an expansion
-                                            if let Some(Expression {
-                                                expr: Expr::Keyword(_, _, expr),
-                                                ..
-                                            }) = call.positional.get_mut(1)
-                                            {
-                                                if expr.has_in_variable(working_set) {
-                                                    *expr = Box::new(wrap_expr_with_collect(
-                                                        working_set,
-                                                        expr,
-                                                    ));
-                                                }
+                                            if expr.has_in_variable(working_set) {
+                                                *expr = Box::new(wrap_expr_with_collect(
+                                                    working_set,
+                                                    expr,
+                                                ));
                                             }
-                                            continue;
                                         }
+                                        continue;
                                     }
                                 }
                             }
@@ -3736,7 +3752,7 @@ pub fn parse_block(
                     error = err;
                 }
 
-                stmt
+                pipeline
             }
         })
         .into();
@@ -3778,15 +3794,9 @@ pub fn discover_captures_in_block(
         }
     }
 
-    for stmt in &block.stmts {
-        match stmt {
-            Statement::Pipeline(pipeline) => {
-                let result =
-                    discover_captures_in_pipeline(working_set, pipeline, seen, seen_blocks);
-                output.extend(&result);
-            }
-            Statement::Declaration(_) => {}
-        }
+    for pipeline in &block.pipelines {
+        let result = discover_captures_in_pipeline(working_set, pipeline, seen, seen_blocks);
+        output.extend(&result);
     }
 
     output
@@ -4028,9 +4038,9 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         expr.replace_in_variable(working_set, var_id);
 
         let block = Block {
-            stmts: vec![Statement::Pipeline(Pipeline {
+            pipelines: vec![Pipeline {
                 expressions: vec![expr],
-            })],
+            }],
             signature: Box::new(signature),
             ..Default::default()
         };
