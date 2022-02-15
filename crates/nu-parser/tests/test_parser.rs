@@ -1,7 +1,7 @@
 use nu_parser::ParseError;
 use nu_parser::*;
 use nu_protocol::{
-    ast::{Expr, Expression, Pipeline, Statement},
+    ast::{Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Signature, SyntaxShape,
 };
@@ -50,19 +50,15 @@ pub fn parse_int() {
 
     assert!(err.is_none());
     assert!(block.len() == 1);
-    match &block[0] {
-        Statement::Pipeline(Pipeline { expressions }) => {
-            assert!(expressions.len() == 1);
-            assert!(matches!(
-                expressions[0],
-                Expression {
-                    expr: Expr::Int(3),
-                    ..
-                }
-            ))
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert!(matches!(
+        expressions[0],
+        Expression {
+            expr: Expr::Int(3),
+            ..
         }
-        _ => panic!("No match"),
-    }
+    ))
 }
 
 #[test]
@@ -78,19 +74,15 @@ pub fn parse_call() {
     assert!(err.is_none());
     assert!(block.len() == 1);
 
-    match &block[0] {
-        Statement::Pipeline(Pipeline { expressions }) => {
-            assert_eq!(expressions.len(), 1);
+    let expressions = &block[0];
+    assert_eq!(expressions.len(), 1);
 
-            if let Expression {
-                expr: Expr::Call(call),
-                ..
-            } = &expressions[0]
-            {
-                assert_eq!(call.decl_id, 0);
-            }
-        }
-        _ => panic!("not a call"),
+    if let Expression {
+        expr: Expr::Call(call),
+        ..
+    } = &expressions[0]
+    {
+        assert_eq!(call.decl_id, 0);
     }
 }
 
@@ -186,19 +178,16 @@ fn test_nothing_comparisson_eq() {
 
     assert!(err.is_none());
     assert!(block.len() == 1);
-    match &block[0] {
-        Statement::Pipeline(Pipeline { expressions }) => {
-            assert!(expressions.len() == 1);
-            assert!(matches!(
-                &expressions[0],
-                Expression {
-                    expr: Expr::BinaryOp(..),
-                    ..
-                }
-            ))
+
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert!(matches!(
+        &expressions[0],
+        Expression {
+            expr: Expr::BinaryOp(..),
+            ..
         }
-        _ => panic!("No match"),
-    }
+    ))
 }
 
 #[test]
@@ -209,19 +198,16 @@ fn test_nothing_comparisson_neq() {
 
     assert!(err.is_none());
     assert!(block.len() == 1);
-    match &block[0] {
-        Statement::Pipeline(Pipeline { expressions }) => {
-            assert!(expressions.len() == 1);
-            assert!(matches!(
-                &expressions[0],
-                Expression {
-                    expr: Expr::BinaryOp(..),
-                    ..
-                }
-            ))
+
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert!(matches!(
+        &expressions[0],
+        Expression {
+            expr: Expr::BinaryOp(..),
+            ..
         }
-        _ => panic!("No match"),
-    }
+    ))
 }
 
 mod range {
@@ -237,27 +223,24 @@ mod range {
 
         assert!(err.is_none());
         assert!(block.len() == 1);
-        match &block[0] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            Some(_),
-                            None,
-                            Some(_),
-                            RangeOperator {
-                                inclusion: RangeInclusion::Inclusive,
-                                ..
-                            }
-                        ),
+
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        assert!(matches!(
+            expressions[0],
+            Expression {
+                expr: Expr::Range(
+                    Some(_),
+                    None,
+                    Some(_),
+                    RangeOperator {
+                        inclusion: RangeInclusion::Inclusive,
                         ..
                     }
-                ))
+                ),
+                ..
             }
-            _ => panic!("No match"),
-        }
+        ))
     }
 
     #[test]
@@ -269,27 +252,24 @@ mod range {
 
         assert!(err.is_none());
         assert!(block.len() == 1);
-        match &block[0] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            Some(_),
-                            None,
-                            Some(_),
-                            RangeOperator {
-                                inclusion: RangeInclusion::RightExclusive,
-                                ..
-                            }
-                        ),
+
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        assert!(matches!(
+            expressions[0],
+            Expression {
+                expr: Expr::Range(
+                    Some(_),
+                    None,
+                    Some(_),
+                    RangeOperator {
+                        inclusion: RangeInclusion::RightExclusive,
                         ..
                     }
-                ))
+                ),
+                ..
             }
-            _ => panic!("No match"),
-        }
+        ))
     }
 
     #[test]
@@ -301,27 +281,24 @@ mod range {
 
         assert!(err.is_none());
         assert!(block.len() == 1);
-        match &block[0] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            Some(_),
-                            None,
-                            Some(_),
-                            RangeOperator {
-                                inclusion: RangeInclusion::Inclusive,
-                                ..
-                            }
-                        ),
+
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        assert!(matches!(
+            expressions[0],
+            Expression {
+                expr: Expr::Range(
+                    Some(_),
+                    None,
+                    Some(_),
+                    RangeOperator {
+                        inclusion: RangeInclusion::Inclusive,
                         ..
                     }
-                ))
+                ),
+                ..
             }
-            _ => panic!("No match"),
-        }
+        ))
     }
 
     #[test]
@@ -333,27 +310,24 @@ mod range {
 
         assert!(err.is_none());
         assert!(block.len() == 1);
-        match &block[0] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            Some(_),
-                            None,
-                            Some(_),
-                            RangeOperator {
-                                inclusion: RangeInclusion::RightExclusive,
-                                ..
-                            }
-                        ),
+
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        assert!(matches!(
+            expressions[0],
+            Expression {
+                expr: Expr::Range(
+                    Some(_),
+                    None,
+                    Some(_),
+                    RangeOperator {
+                        inclusion: RangeInclusion::RightExclusive,
                         ..
                     }
-                ))
+                ),
+                ..
             }
-            _ => panic!("No match"),
-        }
+        ))
     }
 
     #[test]
@@ -367,27 +341,24 @@ mod range {
 
         assert!(err.is_none());
         assert!(block.len() == 2);
-        match &block[1] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            Some(_),
-                            None,
-                            Some(_),
-                            RangeOperator {
-                                inclusion: RangeInclusion::Inclusive,
-                                ..
-                            }
-                        ),
+
+        let expressions = &block[1];
+        assert!(expressions.len() == 1);
+        assert!(matches!(
+            expressions[0],
+            Expression {
+                expr: Expr::Range(
+                    Some(_),
+                    None,
+                    Some(_),
+                    RangeOperator {
+                        inclusion: RangeInclusion::Inclusive,
                         ..
                     }
-                ))
+                ),
+                ..
             }
-            _ => panic!("No match"),
-        }
+        ))
     }
 
     #[test]
@@ -401,27 +372,24 @@ mod range {
 
         assert!(err.is_none());
         assert!(block.len() == 2);
-        match &block[1] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            Some(_),
-                            None,
-                            Some(_),
-                            RangeOperator {
-                                inclusion: RangeInclusion::RightExclusive,
-                                ..
-                            }
-                        ),
+
+        let expressions = &block[1];
+        assert!(expressions.len() == 1);
+        assert!(matches!(
+            expressions[0],
+            Expression {
+                expr: Expr::Range(
+                    Some(_),
+                    None,
+                    Some(_),
+                    RangeOperator {
+                        inclusion: RangeInclusion::RightExclusive,
                         ..
                     }
-                ))
+                ),
+                ..
             }
-            _ => panic!("No match"),
-        }
+        ))
     }
 
     #[test]
@@ -433,27 +401,24 @@ mod range {
 
         assert!(err.is_none());
         assert!(block.len() == 1);
-        match &block[0] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            Some(_),
-                            None,
-                            None,
-                            RangeOperator {
-                                inclusion: RangeInclusion::Inclusive,
-                                ..
-                            }
-                        ),
+
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        assert!(matches!(
+            expressions[0],
+            Expression {
+                expr: Expr::Range(
+                    Some(_),
+                    None,
+                    None,
+                    RangeOperator {
+                        inclusion: RangeInclusion::Inclusive,
                         ..
                     }
-                ))
+                ),
+                ..
             }
-            _ => panic!("No match"),
-        }
+        ))
     }
 
     #[test]
@@ -465,27 +430,24 @@ mod range {
 
         assert!(err.is_none());
         assert!(block.len() == 1);
-        match &block[0] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            None,
-                            None,
-                            Some(_),
-                            RangeOperator {
-                                inclusion: RangeInclusion::Inclusive,
-                                ..
-                            }
-                        ),
+
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        assert!(matches!(
+            expressions[0],
+            Expression {
+                expr: Expr::Range(
+                    None,
+                    None,
+                    Some(_),
+                    RangeOperator {
+                        inclusion: RangeInclusion::Inclusive,
                         ..
                     }
-                ))
+                ),
+                ..
             }
-            _ => panic!("No match"),
-        }
+        ))
     }
 
     #[test]
@@ -497,27 +459,24 @@ mod range {
 
         assert!(err.is_none());
         assert!(block.len() == 1);
-        match &block[0] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            Some(_),
-                            None,
-                            Some(_),
-                            RangeOperator {
-                                inclusion: RangeInclusion::Inclusive,
-                                ..
-                            }
-                        ),
+
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        assert!(matches!(
+            expressions[0],
+            Expression {
+                expr: Expr::Range(
+                    Some(_),
+                    None,
+                    Some(_),
+                    RangeOperator {
+                        inclusion: RangeInclusion::Inclusive,
                         ..
                     }
-                ))
+                ),
+                ..
             }
-            _ => panic!("No match"),
-        }
+        ))
     }
 
     #[test]
@@ -529,27 +488,24 @@ mod range {
 
         assert!(err.is_none());
         assert!(block.len() == 1);
-        match &block[0] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            Some(_),
-                            Some(_),
-                            Some(_),
-                            RangeOperator {
-                                inclusion: RangeInclusion::Inclusive,
-                                ..
-                            }
-                        ),
+
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        assert!(matches!(
+            expressions[0],
+            Expression {
+                expr: Expr::Range(
+                    Some(_),
+                    Some(_),
+                    Some(_),
+                    RangeOperator {
+                        inclusion: RangeInclusion::Inclusive,
                         ..
                     }
-                ))
+                ),
+                ..
             }
-            _ => panic!("No match"),
-        }
+        ))
     }
 
     #[test]

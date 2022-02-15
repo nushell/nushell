@@ -2,12 +2,12 @@ use std::ops::{Index, IndexMut};
 
 use crate::{Signature, Span, VarId};
 
-use super::Statement;
+use super::Pipeline;
 
 #[derive(Debug, Clone)]
 pub struct Block {
     pub signature: Box<Signature>,
-    pub stmts: Vec<Statement>,
+    pub pipelines: Vec<Pipeline>,
     pub captures: Vec<VarId>,
     pub redirect_env: bool,
     pub span: Option<Span>, // None option encodes no span to avoid using test_span()
@@ -15,25 +15,25 @@ pub struct Block {
 
 impl Block {
     pub fn len(&self) -> usize {
-        self.stmts.len()
+        self.pipelines.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.stmts.is_empty()
+        self.pipelines.is_empty()
     }
 }
 
 impl Index<usize> for Block {
-    type Output = Statement;
+    type Output = Pipeline;
 
     fn index(&self, index: usize) -> &Self::Output {
-        &self.stmts[index]
+        &self.pipelines[index]
     }
 }
 
 impl IndexMut<usize> for Block {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.stmts[index]
+        &mut self.pipelines[index]
     }
 }
 
@@ -47,7 +47,7 @@ impl Block {
     pub fn new() -> Self {
         Self {
             signature: Box::new(Signature::new("")),
-            stmts: vec![],
+            pipelines: vec![],
             captures: vec![],
             redirect_env: false,
             span: None,
@@ -57,12 +57,12 @@ impl Block {
 
 impl<T> From<T> for Block
 where
-    T: Iterator<Item = Statement>,
+    T: Iterator<Item = Pipeline>,
 {
-    fn from(stmts: T) -> Self {
+    fn from(pipelines: T) -> Self {
         Self {
             signature: Box::new(Signature::new("")),
-            stmts: stmts.collect(),
+            pipelines: pipelines.collect(),
             captures: vec![],
             redirect_env: false,
             span: None,

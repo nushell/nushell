@@ -8,9 +8,7 @@ mod parser;
 mod type_check;
 
 pub use errors::ParseError;
-pub use flatten::{
-    flatten_block, flatten_expression, flatten_pipeline, flatten_statement, FlatShape,
-};
+pub use flatten::{flatten_block, flatten_expression, flatten_pipeline, FlatShape};
 pub use known_external::KnownExternal;
 pub use lex::{lex, Token, TokenContents};
 pub use lite_parse::{lite_parse, LiteBlock};
