@@ -842,35 +842,21 @@ pub fn parse_call(
 
                 let expansion = working_set.get_alias(alias_id);
 
-                let orig_span = spans[pos];
+                let expansion_span = span(expansion);
+
+                let orig_span = span(&[spans[cmd_start], spans[pos]]);
                 let mut new_spans: Vec<Span> = vec![];
-                new_spans.extend(&spans[0..pos]);
+                new_spans.extend(&spans[0..cmd_start]);
                 new_spans.extend(expansion);
                 if spans.len() > pos {
                     new_spans.extend(&spans[(pos + 1)..]);
                 }
 
-                let (result, err) = parse_expression(working_set, &new_spans, false);
+                let (mut result, err) = parse_expression(working_set, &new_spans, false);
 
-                let expression = match result {
-                    Expression {
-                        expr: Expr::Call(mut call),
-                        span,
-                        ty,
-                        custom_completion,
-                    } => {
-                        call.head = orig_span;
-                        Expression {
-                            expr: Expr::Call(call),
-                            span,
-                            ty,
-                            custom_completion,
-                        }
-                    }
-                    x => x,
-                };
+                result.replace_span(working_set, expansion_span, orig_span);
 
-                return (expression, err);
+                return (result, err);
             }
         }
 
