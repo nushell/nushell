@@ -75,8 +75,6 @@ fn compute_sum_of_table() -> Result<(), String> {
     Ok(())
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn sum_of_a_row_containing_a_table_is_an_error() {
     let actual = nu!(
@@ -85,5 +83,5 @@ fn sum_of_a_row_containing_a_table_is_an_error() {
     );
     assert!(actual
         .err
-        .contains("Attempted to compute values that can't be operated on"));
+        .contains("Attempted to compute the sum of a value that cannot be summed"));
 }
