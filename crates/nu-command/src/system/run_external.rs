@@ -358,14 +358,10 @@ impl ExternalCommand {
                 if let Ok((prefix, matches)) = nu_engine::glob_from(&arg, &cwd, self.name.span) {
                     let matches: Vec<_> = matches.collect();
 
-                    // Following shells like bash, if we can't expand a glob pattern, we don't assume an empty arg
-                    // Instead, we throw an error. This helps prevent issues with things like `ls unknowndir/*` accidentally
-                    // listening the current directory.
+                    // FIXME: do we want to special-case this further? We might accidentally expand when they don't
+                    // intend to
                     if matches.is_empty() {
-                        return Err(ShellError::FileNotFoundCustom(
-                            "pattern not found".to_string(),
-                            arg.span,
-                        ));
+                        process.arg(&arg.item);
                     }
                     for m in matches {
                         if let Ok(arg) = m {
