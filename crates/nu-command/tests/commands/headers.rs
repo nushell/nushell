@@ -1,7 +1,5 @@
 use nu_test_support::{nu, pipeline};
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn headers_uses_first_row_as_header() {
     let actual = nu!(
@@ -11,14 +9,12 @@ fn headers_uses_first_row_as_header() {
             | get Sheet1
             | headers
             | get header0
-            | from json"#
+            | to json --raw"#
     ));
 
-    assert_eq!(actual.out, "r1c0r2c0")
+    assert_eq!(actual.out, r#"["r1c0","r2c0"]"#)
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn headers_adds_missing_column_name() {
     let actual = nu!(
@@ -28,8 +24,8 @@ fn headers_adds_missing_column_name() {
             | get Sheet1
             | headers
             | get Column1
-            | from json"#
+            | to json --raw"#
     ));
 
-    assert_eq!(actual.out, "r1c1r2c1")
+    assert_eq!(actual.out, r#"["r1c1","r2c1"]"#)
 }
