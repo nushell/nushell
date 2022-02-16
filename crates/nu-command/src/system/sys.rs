@@ -35,11 +35,23 @@ impl Command for Sys {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Show info about the system",
-            example: "sys",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Show info about the system",
+                example: "sys",
+                result: None,
+            },
+            Example {
+                description: "Show the os system name with get",
+                example: "(sys).host | get name",
+                result: None,
+            },
+            Example {
+                description: "Show the os system name",
+                example: "(sys).host.name",
+                result: None,
+            },
+        ]
     }
 }
 
