@@ -89,3 +89,19 @@ fn single_tick_interpolation() -> TestResult {
 fn detect_newlines() -> TestResult {
     run_test("'hello\r\nworld' | lines | get 0 | str length", "5")
 }
+
+#[test]
+fn case_insensitive_sort() -> TestResult {
+    run_test(
+        r#"[a, B, d, C, f] | sort-by -i | to json --raw"#,
+        "[\"a\",\"B\",\"C\",\"d\",\"f\"]",
+    )
+}
+
+#[test]
+fn case_insensitive_sort_columns() -> TestResult {
+    run_test(
+        r#"[[version, package]; ["two", "Abc"], ["three", "abc"], ["four", "abc"]] | sort-by -i package version | to json --raw"#,
+        r#"[{"version": "four","package": "abc"},{"version": "three","package": "abc"},{"version": "two","package": "Abc"}]"#,
+    )
+}
