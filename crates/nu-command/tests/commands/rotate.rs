@@ -1,7 +1,5 @@
 use nu_test_support::{nu, pipeline};
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn counter_clockwise() {
     let table = pipeline(
@@ -34,7 +32,7 @@ fn counter_clockwise() {
     let actual = nu!(
         cwd: ".",
         format!("{} | {}", table, pipeline(r#"
-            rotate counter-clockwise
+            rotate --ccw
             | where Column0 == EXPECTED
             | get Column1 Column2 Column3
             | str collect "-"
