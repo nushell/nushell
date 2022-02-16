@@ -30,6 +30,8 @@ pub use custom_value::CustomValue;
 use crate::ShellError;
 
 /// Core structured values that pass through the pipeline in engine-q
+// NOTE: Please do not reorder these enum cases without thinking through the
+// impact on the PartialOrd implementation and the global sort order
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Value {
     Bool {
@@ -38,6 +40,10 @@ pub enum Value {
     },
     Int {
         val: i64,
+        span: Span,
+    },
+    Float {
+        val: f64,
         span: Span,
     },
     Filesize {
@@ -54,10 +60,6 @@ pub enum Value {
     },
     Range {
         val: Box<Range>,
-        span: Span,
-    },
-    Float {
-        val: f64,
         span: Span,
     },
     String {
@@ -901,49 +903,295 @@ impl PartialOrd for Value {
         }
 
         match (self, other) {
-            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => lhs.partial_cmp(rhs),
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => lhs.partial_cmp(rhs),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                compare_floats(*lhs, *rhs)
-            }
-            (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => lhs.partial_cmp(rhs),
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
-                lhs.partial_cmp(rhs)
-            }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                compare_floats(*lhs as f64, *rhs)
-            }
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                compare_floats(*lhs, *rhs as f64)
-            }
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                lhs.partial_cmp(rhs)
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                lhs.partial_cmp(rhs)
-            }
-            (Value::Block { val: b1, .. }, Value::Block { val: b2, .. }) if b1 == b2 => {
-                Some(Ordering::Equal)
-            }
-            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => lhs.partial_cmp(rhs),
+            (Value::Bool { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Int { .. } => Some(Ordering::Less),
+                Value::Float { .. } => Some(Ordering::Less),
+                Value::Filesize { .. } => Some(Ordering::Less),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::Int { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Float { val: rhs, .. } => compare_floats(*lhs as f64, *rhs),
+                Value::Filesize { .. } => Some(Ordering::Less),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::Float { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { val: rhs, .. } => compare_floats(*lhs, *rhs as f64),
+                Value::Float { val: rhs, .. } => compare_floats(*lhs, *rhs),
+                Value::Filesize { .. } => Some(Ordering::Less),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::Filesize { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::Duration { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::Date { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::Range { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::String { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
             (
                 Value::Record {
-                    vals: lhs,
-                    cols: lhs_headers,
+                    cols: lhs_cols,
+                    vals: lhs_vals,
                     ..
                 },
+                rhs,
+            ) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
                 Value::Record {
-                    vals: rhs,
-                    cols: rhs_headers,
+                    cols: rhs_cols,
+                    vals: rhs_vals,
                     ..
-                },
-            ) if lhs_headers == rhs_headers && lhs == rhs => Some(Ordering::Equal),
-            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
-                lhs.partial_cmp(rhs)
-            }
+                } => {
+                    let result = lhs_cols.partial_cmp(rhs_cols);
+                    if result == Some(Ordering::Equal) {
+                        lhs_vals.partial_cmp(rhs_vals)
+                    } else {
+                        result
+                    }
+                }
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::List { vals: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Record { .. } => Some(Ordering::Greater),
+                Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::Block { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Record { .. } => Some(Ordering::Greater),
+                Value::List { .. } => Some(Ordering::Greater),
+                Value::Block { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::Nothing { .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Record { .. } => Some(Ordering::Greater),
+                Value::List { .. } => Some(Ordering::Greater),
+                Value::Block { .. } => Some(Ordering::Greater),
+                Value::Nothing { .. } => Some(Ordering::Equal),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::Error { .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Record { .. } => Some(Ordering::Greater),
+                Value::List { .. } => Some(Ordering::Greater),
+                Value::Block { .. } => Some(Ordering::Greater),
+                Value::Nothing { .. } => Some(Ordering::Greater),
+                Value::Error { .. } => Some(Ordering::Equal),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::Binary { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Record { .. } => Some(Ordering::Greater),
+                Value::List { .. } => Some(Ordering::Greater),
+                Value::Block { .. } => Some(Ordering::Greater),
+                Value::Nothing { .. } => Some(Ordering::Greater),
+                Value::Error { .. } => Some(Ordering::Greater),
+                Value::Binary { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::CellPath { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Record { .. } => Some(Ordering::Greater),
+                Value::List { .. } => Some(Ordering::Greater),
+                Value::Block { .. } => Some(Ordering::Greater),
+                Value::Nothing { .. } => Some(Ordering::Greater),
+                Value::Error { .. } => Some(Ordering::Greater),
+                Value::Binary { .. } => Some(Ordering::Greater),
+                Value::CellPath { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
             (Value::CustomValue { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
-            (Value::Nothing { .. }, Value::Nothing { .. }) => Some(Ordering::Equal),
-            (_, _) => None,
         }
     }
 }
