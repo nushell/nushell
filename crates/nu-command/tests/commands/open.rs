@@ -223,7 +223,13 @@ fn errors_if_file_not_found() {
         cwd: "tests/fixtures/formats",
         "open i_dont_exist.txt"
     );
+
+    #[cfg(windows)]
     let expected = "The system cannot find the file specified. (os error 2)";
+
+    #[cfg(not(windows))]
+    let expected = "No such file or directory (os error 2)";
+
     assert!(
         actual.err.contains(expected),
         "Error:\n{}\ndoes not contain{}",
