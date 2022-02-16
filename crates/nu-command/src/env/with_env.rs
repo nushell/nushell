@@ -24,7 +24,7 @@ impl Command for WithEnv {
             )
             .required(
                 "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
+                SyntaxShape::Block(Some(vec![])),
                 "the block to run once the variable is set",
             )
             .category(Category::Env)

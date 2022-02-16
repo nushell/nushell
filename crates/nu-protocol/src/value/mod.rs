@@ -290,6 +290,7 @@ impl Value {
     pub fn as_float(&self) -> Result<f64, ShellError> {
         match self {
             Value::Float { val, .. } => Ok(*val),
+            Value::Int { val, .. } => Ok(*val as f64),
             x => Err(ShellError::CantConvert(
                 "float".into(),
                 x.get_type().to_string(),

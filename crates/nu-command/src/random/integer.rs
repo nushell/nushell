@@ -70,7 +70,13 @@ fn integer(
     let range: Option<Range> = call.opt(engine_state, stack, 0)?;
 
     let (min, max) = if let Some(r) = range {
-        (r.from.as_integer()?, r.to.as_integer()?)
+        if r.is_end_inclusive() {
+            (r.from.as_integer()?, r.to.as_integer()?)
+        } else if r.to.as_integer()? > 0 {
+            (r.from.as_integer()?, r.to.as_integer()? - 1)
+        } else {
+            (0, 0)
+        }
     } else {
         (0, i64::MAX)
     };
