@@ -39,11 +39,11 @@ impl Command for DropDuplicates {
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "a".to_string(),
-                        vec![Value::test_int(1), Value::test_int(3)],
+                        vec![Value::test_int(3), Value::test_int(1)],
                     ),
                     Column::new(
                         "b".to_string(),
-                        vec![Value::test_int(2), Value::test_int(4)],
+                        vec![Value::test_int(4), Value::test_int(2)],
                     ),
                 ])
                 .expect("simple df for test should not fail")
