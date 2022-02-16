@@ -5,8 +5,6 @@ use nu_test_support::{nu, pipeline};
 mod simple {
     use super::*;
 
-    // FIXME: jt: needs more work
-    #[ignore]
     #[test]
     fn extracts_fields_from_the_given_the_pattern() {
         Playground::setup("parse_test_1", |dirs, sandbox| {
@@ -25,7 +23,8 @@ mod simple {
                     open key_value_separated_arepa_ingredients.txt
                     | lines
                     | each { echo $it | parse "{Name}={Value}" }
-                    | select 1
+                    | flatten
+                    | get 1
                     | get Value
                 "#
             ));
@@ -83,8 +82,6 @@ mod simple {
         })
     }
 
-    // FIXME: jt: needs more work
-    #[ignore]
     #[test]
     fn errors_when_missing_closing_brace() {
         Playground::setup("parse_test_regex_5", |dirs, _sandbox| {
@@ -97,7 +94,9 @@ mod simple {
                 "#
             ));
 
-            assert!(actual.err.contains("invalid parse pattern"));
+            assert!(actual
+                .err
+                .contains("Found opening `{` without an associated closing `}`"));
         })
     }
 }
