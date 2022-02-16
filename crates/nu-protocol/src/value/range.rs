@@ -109,8 +109,7 @@ impl Range {
         self.from <= self.to
     }
 
-    #[inline]
-    fn is_end_inclusive(&self) -> bool {
+    pub fn is_end_inclusive(&self) -> bool {
         matches!(self.inclusion, RangeInclusion::Inclusive)
     }
 

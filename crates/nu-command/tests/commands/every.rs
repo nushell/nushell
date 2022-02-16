@@ -80,8 +80,6 @@ fn gets_all_rows_by_every_one() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn gets_no_rows_by_every_skip_one() {
     Playground::setup("every_test_4", |dirs, sandbox| {
@@ -102,7 +100,7 @@ fn gets_no_rows_by_every_skip_one() {
             "#
         ));
 
-        assert_eq!(actual.out, "");
+        assert_eq!(actual.out, "[]");
     })
 }
 

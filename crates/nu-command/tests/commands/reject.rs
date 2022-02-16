@@ -17,7 +17,7 @@ fn regular_columns() {
         "#
     ));
 
-    assert_eq!(actual.out, "rusty_at, last_name");
+    assert_eq!(actual.out, "last_name, rusty_at");
 }
 
 // FIXME: needs more work

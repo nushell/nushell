@@ -17,14 +17,12 @@ mod rows {
         )
     }
 
-    // FIXME: jt: needs more work
-    #[ignore]
     #[test]
-    fn roll_down_by_default() {
+    fn can_roll_down() {
         let actual = nu!(
         cwd: ".",
         format!("{} | {}", table(), pipeline(r#"
-            roll
+            roll down
             | first
             | get status
         "#)));
@@ -32,14 +30,12 @@ mod rows {
         assert_eq!(actual.out, "HERE");
     }
 
-    // FIXME: jt: needs more work
-    #[ignore]
     #[test]
     fn can_roll_up() {
         let actual = nu!(
         cwd: ".",
         format!("{} | {}", table(), pipeline(r#"
-            roll up 3
+            roll up --by 3
             | first
             | get status
         "#)));
@@ -66,30 +62,26 @@ mod columns {
         )
     }
 
-    // FIXME: jt: needs more work
-    #[ignore]
     #[test]
-    fn roll_left_by_default() {
+    fn can_roll_left() {
         let actual = nu!(
         cwd: ".",
         format!("{} | {}", table(), pipeline(r#"
-            roll column
-            | get
+            roll left
+            | columns
             | str collect "-"
         "#)));
 
         assert_eq!(actual.out, "origin-stars-commit_author");
     }
 
-    // FIXME: jt: needs more work
-    #[ignore]
     #[test]
-    fn can_roll_in_the_opposite_direction() {
+    fn can_roll_right() {
         let actual = nu!(
         cwd: ".",
         format!("{} | {}", table(), pipeline(r#"
-            roll column 2 --opposite
-            | get
+            roll right --by 2
+            | columns
             | str collect "-"
         "#)));
 
@@ -98,8 +90,6 @@ mod columns {
 
     struct ThirtieTwo<'a>(usize, &'a str);
 
-    // FIXME: jt: needs more work
-    #[ignore]
     #[test]
     fn can_roll_the_cells_only_keeping_the_header_names() {
         let four_bitstring = bitstring_to_nu_row_pipeline("00000100");
@@ -107,14 +97,12 @@ mod columns {
 
         let actual = nu!(
             cwd: ".",
-            format!("{} | roll column 3 --opposite --cells-only | get | str collect '-' ", four_bitstring)
+            format!("{} | roll right --by 3 --cells-only | columns | str collect '-' ", four_bitstring)
         );
 
         assert_eq!(actual.out, expected_value.1);
     }
 
-    // FIXME: jt: needs more work
-    #[ignore]
     #[test]
     fn four_in_bitstring_left_shifted_with_three_bits_should_be_32_in_decimal() {
         let four_bitstring = "00000100";
@@ -144,7 +132,7 @@ mod columns {
         // decimal value.
         let nu_row_literal_bitstring_to_decimal_value_pipeline = pipeline(
             r#"
-            pivot bit --ignore-titles
+            transpose bit --ignore-titles
             | get bit
             | reverse
             | each --numbered {
@@ -156,7 +144,7 @@ mod columns {
 
         nu!(
             cwd: ".",
-            format!("{} | roll column 3 | {}", bitstring_as_nu_row_pipeline, nu_row_literal_bitstring_to_decimal_value_pipeline)
+            format!("{} | roll left --by 3 | {}", bitstring_as_nu_row_pipeline, nu_row_literal_bitstring_to_decimal_value_pipeline)
         ).out
     }
 
@@ -167,9 +155,8 @@ mod columns {
             pipeline(
                 r#"
             split chars
-            | each { into int }
-            | rotate counter-clockwise _
-            | reject _
+            | each { $it | into int }
+            | rotate --ccw
             | rename bit1 bit2 bit3 bit4 bit5 bit6 bit7 bit8
         "#
             )
