@@ -5,7 +5,7 @@ fn base64_defaults_to_encoding_with_standard_character_type() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 'username:password' | hash base64 
+        echo 'username:password' | hash base64
         "#
         )
     );
@@ -88,14 +88,12 @@ fn error_use_both_flags() {
         .contains("only one of --decode and --encode flags can be used"));
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn md5_works_with_file() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        open sample.db | hash md5 
+        open sample.db | hash md5
         "#
         )
     );
@@ -103,8 +101,6 @@ fn md5_works_with_file() {
     assert_eq!(actual.out, "4de97601d232c427977ef11db396c951");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn sha256_works_with_file() {
     let actual = nu!(
