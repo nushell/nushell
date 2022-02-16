@@ -1191,24 +1191,7 @@ impl PartialOrd for Value {
                 Value::CellPath { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::CustomValue { .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Record { .. } => Some(Ordering::Greater),
-                Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
-                Value::Error { .. } => Some(Ordering::Greater),
-                Value::Binary { .. } => Some(Ordering::Greater),
-                Value::CellPath { .. } => Some(Ordering::Greater),
-                Value::CustomValue { .. } => None, // FIXME: Improve custom value sorting
-            },
+            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
         }
     }
 }
