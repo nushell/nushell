@@ -185,6 +185,19 @@ fn parses_json() {
 }
 
 #[test]
+fn parses_xml() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "open jonathan.xml | get rss.children.channel.children | get item.children | get link.children.0.3.3.0"
+    );
+
+    assert_eq!(
+        actual.out,
+        "http://www.jonathanturner.org/2015/10/off-to-new-adventures.html"
+    )
+}
+
+#[test]
 fn parses_ini() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
@@ -204,15 +217,13 @@ fn parses_utf16_ini() {
     assert_eq!(actual.out, "-236")
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_if_file_not_found() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
         "open i_dont_exist.txt"
     );
-    let expected = "Cannot find file";
+    let expected = "The system cannot find the file specified. (os error 2)";
     assert!(
         actual.err.contains(expected),
         "Error:\n{}\ndoes not contain{}",
