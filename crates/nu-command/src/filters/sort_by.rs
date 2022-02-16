@@ -177,7 +177,7 @@ pub fn sort(
                     .iter()
                     .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
 
-            vec.sort_by(|a, b| process(a, b, &columns[0], span, should_sort_case_insensitively));
+            vec.sort_by(|a, b| process(a, b, &columns, span, should_sort_case_insensitively));
         }
         _ => {
             vec.sort_by(|a, b| {
@@ -213,46 +213,53 @@ pub fn sort(
 pub fn process(
     left: &Value,
     right: &Value,
-    column: &str,
+    columns: &[String],
     span: Span,
     insensitive: bool,
 ) -> Ordering {
-    let left_value = left.get_data_by_key(column);
+    for column in columns {
+        let left_value = left.get_data_by_key(column);
 
-    let left_res = match left_value {
-        Some(left_res) => left_res,
-        None => Value::Nothing { span },
-    };
-
-    let right_value = right.get_data_by_key(column);
-
-    let right_res = match right_value {
-        Some(right_res) => right_res,
-        None => Value::Nothing { span },
-    };
-
-    if insensitive {
-        let lowercase_left = match left_res {
-            Value::String { val, span } => Value::String {
-                val: val.to_ascii_lowercase(),
-                span,
-            },
-            _ => left_res,
+        let left_res = match left_value {
+            Some(left_res) => left_res,
+            None => Value::Nothing { span },
         };
 
-        let lowercase_right = match right_res {
-            Value::String { val, span } => Value::String {
-                val: val.to_ascii_lowercase(),
-                span,
-            },
-            _ => right_res,
+        let right_value = right.get_data_by_key(column);
+
+        let right_res = match right_value {
+            Some(right_res) => right_res,
+            None => Value::Nothing { span },
         };
-        lowercase_left
-            .partial_cmp(&lowercase_right)
-            .unwrap_or(Ordering::Equal)
-    } else {
-        left_res.partial_cmp(&right_res).unwrap_or(Ordering::Equal)
+
+        let result = if insensitive {
+            let lowercase_left = match left_res {
+                Value::String { val, span } => Value::String {
+                    val: val.to_ascii_lowercase(),
+                    span,
+                },
+                _ => left_res,
+            };
+
+            let lowercase_right = match right_res {
+                Value::String { val, span } => Value::String {
+                    val: val.to_ascii_lowercase(),
+                    span,
+                },
+                _ => right_res,
+            };
+            lowercase_left
+                .partial_cmp(&lowercase_right)
+                .unwrap_or(Ordering::Equal)
+        } else {
+            left_res.partial_cmp(&right_res).unwrap_or(Ordering::Equal)
+        };
+        if result != Ordering::Equal {
+            return result;
+        }
     }
+
+    Ordering::Equal
 }
 
 #[cfg(test)]
