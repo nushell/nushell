@@ -243,3 +243,11 @@ fn reduce_spans() -> TestResult {
         "right here",
     )
 }
+
+#[test]
+fn with_env_shorthand_nested_quotes() -> TestResult {
+    run_test(
+        r#"FOO='-arg "hello world"' echo $env | get FOO"#,
+        "-arg \"hello world\"",
+    )
+}
