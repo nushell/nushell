@@ -135,7 +135,7 @@ mod columns {
             transpose bit --ignore-titles
             | get bit
             | reverse
-            | each --numbered {
+            | each --numbered { |it|
                 $it.item * (2 ** $it.index)
             }
             | math sum
@@ -155,7 +155,7 @@ mod columns {
             pipeline(
                 r#"
             split chars
-            | each { $it | into int }
+            | each { |it| $it | into int }
             | rotate --ccw
             | rename bit1 bit2 bit3 bit4 bit5 bit6 bit7 bit8
         "#

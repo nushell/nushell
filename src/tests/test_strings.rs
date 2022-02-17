@@ -7,13 +7,13 @@ fn build_string1() -> TestResult {
 
 #[test]
 fn build_string2() -> TestResult {
-    run_test("'nu' | each {build-string $it 'shell'}", "nushell")
+    run_test("'nu' | each { |it| build-string $it 'shell'}", "nushell")
 }
 
 #[test]
 fn build_string3() -> TestResult {
     run_test(
-        "build-string 'nu' 'shell' | each {build-string $it ' rocks'}",
+        "build-string 'nu' 'shell' | each { |it| build-string $it ' rocks'}",
         "nushell rocks",
     )
 }
@@ -21,7 +21,7 @@ fn build_string3() -> TestResult {
 #[test]
 fn build_string4() -> TestResult {
     run_test(
-        "['sam','rick','pete'] | each { build-string $it ' is studying'} | get 2",
+        "['sam','rick','pete'] | each { |it| build-string $it ' is studying'} | get 2",
         "pete is studying",
     )
 }

@@ -22,7 +22,7 @@ mod simple {
                 r#"
                     open key_value_separated_arepa_ingredients.txt
                     | lines
-                    | each { echo $it | parse "{Name}={Value}" }
+                    | each { |it| echo $it | parse "{Name}={Value}" }
                     | flatten
                     | get 1
                     | get Value

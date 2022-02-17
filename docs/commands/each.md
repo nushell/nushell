@@ -19,6 +19,6 @@ Run a block on each element of input
 
 Multiplies elements in list
 ```shell
-> [1 2 3] | each { 2 * $it }
+> [1 2 3] | each { |it| 2 * $it }
 ```
 

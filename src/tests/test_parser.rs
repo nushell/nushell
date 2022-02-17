@@ -40,7 +40,7 @@ fn alias_recursion() -> TestResult {
 
 #[test]
 fn block_param1() -> TestResult {
-    run_test("[3] | each { $it + 10 } | get 0", "13")
+    run_test("[3] | each { |it| $it + 10 } | get 0", "13")
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn block_param2() -> TestResult {
 
 #[test]
 fn block_param3_list_iteration() -> TestResult {
-    run_test("[1,2,3] | each { $it + 10 } | get 1", "12")
+    run_test("[1,2,3] | each { |it| $it + 10 } | get 1", "12")
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn range_iteration2() -> TestResult {
 
 #[test]
 fn simple_value_iteration() -> TestResult {
-    run_test("4 | each { $it + 10 }", "14")
+    run_test("4 | each { |it| $it + 10 }", "14")
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn bad_var_name() -> TestResult {
 #[test]
 fn long_flag() -> TestResult {
     run_test(
-        r#"([a, b, c] | each --numbered { if $it.index == 1 { 100 } else { 0 } }).1"#,
+        r#"([a, b, c] | each --numbered { |it| if $it.index == 1 { 100 } else { 0 } }).1"#,
         "100",
     )
 }
@@ -313,4 +313,19 @@ fn capture_row_condition() -> TestResult {
 #[test]
 fn proper_missing_param() -> TestResult {
     fail_test(r#"def foo [x y z w] { }; foo a b c"#, "missing w")
+}
+
+#[test]
+fn block_arity_check1() -> TestResult {
+    fail_test(r#"ls | each { 1 }"#, "expected 1 block parameter")
+}
+
+#[test]
+fn block_arity_check2() -> TestResult {
+    fail_test(r#"ls | reduce { 1 }"#, "expected 2 block parameters")
+}
+
+#[test]
+fn block_arity_check3() -> TestResult {
+    fail_test(r#"ls | each { |x, y| 1}"#, "expected 1 block parameter")
 }

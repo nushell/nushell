@@ -24,7 +24,7 @@ impl Command for Reduce {
             )
             .required(
                 "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
+                SyntaxShape::Block(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
                 "reducing function",
             )
             .switch("numbered", "iterate with an index", Some('n'))
@@ -37,7 +37,7 @@ impl Command for Reduce {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[ 1 2 3 4 ] | reduce { $it.acc + $it.item }",
+                example: "[ 1 2 3 4 ] | reduce {|it, acc| $it + $acc }",
                 description: "Sum values of a list (same as 'math sum')",
                 result: Some(Value::Int {
                     val: 10,
@@ -45,7 +45,7 @@ impl Command for Reduce {
                 }),
             },
             Example {
-                example: "[ 1 2 3 4 ] | reduce -f 10 { $it.acc + $it.item }",
+                example: "[ 1 2 3 4 ] | reduce -f 10 {|it, acc| $acc + $it }",
                 description: "Sum values with a starting value (fold)",
                 result: Some(Value::Int {
                     val: 20,
@@ -53,7 +53,7 @@ impl Command for Reduce {
                 }),
             },
             Example {
-                example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" { $it.acc | str find-replace -a $it.item "X" }"#,
+                example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" {|it, acc| $acc | str find-replace -a $it "X" }"#,
                 description: "Replace selected characters in a string with 'X'",
                 result: Some(Value::String {
                     val: "ArXhur, KXng Xf Xhe BrXXXns".to_string(),
@@ -61,11 +61,11 @@ impl Command for Reduce {
                 }),
             },
             Example {
-                example: r#"[ one longest three bar ] | reduce -n {
-        if ($it.item | str length) > ($it.acc | str length) {
+                example: r#"[ one longest three bar ] | reduce -n { |it, acc|
+        if ($it.item | str length) > ($acc | str length) {
             $it.item
         } else {
-            $it.acc
+            $acc
         }
     }"#,
                 description: "Find the longest string and its index",
@@ -147,30 +147,26 @@ impl Command for Reduce {
                     if let Some(var_id) = &var.var_id {
                         let it = if numbered {
                             Value::Record {
-                                cols: vec![
-                                    "index".to_string(),
-                                    "acc".to_string(),
-                                    "item".to_string(),
-                                ],
+                                cols: vec!["index".to_string(), "item".to_string()],
                                 vals: vec![
                                     Value::Int {
                                         val: idx as i64 + off,
                                         span,
                                     },
-                                    acc,
                                     x,
                                 ],
                                 span,
                             }
                         } else {
-                            Value::Record {
-                                cols: vec!["acc".to_string(), "item".to_string()],
-                                vals: vec![acc, x],
-                                span,
-                            }
+                            x
                         };
 
                         stack.add_var(*var_id, it);
+                    }
+                }
+                if let Some(var) = block.signature.get_positional(1) {
+                    if let Some(var_id) = &var.var_id {
+                        stack.add_var(*var_id, acc);
                     }
                 }
 

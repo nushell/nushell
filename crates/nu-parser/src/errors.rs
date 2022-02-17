@@ -175,6 +175,15 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::rest_needs_name), url(docsrs))]
     RestNeedsName(#[label = "needs a parameter name"] Span),
 
+    #[error("Parameter not correct type.")]
+    #[diagnostic(code(nu::parser::parameter_mismatch_type), url(docsrs))]
+    ParameterMismatchType(
+        String,
+        String,
+        String,
+        #[label = "parameter {0} needs to be '{1}' instead of '{2}'"] Span,
+    ),
+
     #[error("Extra columns.")]
     #[diagnostic(code(nu::parser::extra_columns), url(docsrs))]
     ExtraColumns(
