@@ -89,11 +89,11 @@ fn command(
 
     match file.item.extension() {
         Some(e) => match e.to_str() {
-            Some("csv") => from_csv(engine_state, stack, call),
+            Some("csv") | Some("tsv") => from_csv(engine_state, stack, call),
             Some("parquet") => from_parquet(engine_state, stack, call),
             Some("json") => from_json(engine_state, stack, call),
             _ => Err(ShellError::FileNotFoundCustom(
-                "Not a csv, parquet or json file".into(),
+                "Not a csv, tsv, parquet or json file".into(),
                 file.span,
             )),
         },
