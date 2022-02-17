@@ -157,9 +157,9 @@ fn from_csv(
 ) -> Result<polars::prelude::DataFrame, ShellError> {
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
     let delimiter: Option<Spanned<String>> = call.get_flag(engine_state, stack, "delimiter")?;
-    let no_header: bool = call.has_flag("no_header");
-    let infer_schema: Option<usize> = call.get_flag(engine_state, stack, "infer_schema")?;
-    let skip_rows: Option<usize> = call.get_flag(engine_state, stack, "skip_rows")?;
+    let no_header: bool = call.has_flag("no-header");
+    let infer_schema: Option<usize> = call.get_flag(engine_state, stack, "infer-schema")?;
+    let skip_rows: Option<usize> = call.get_flag(engine_state, stack, "skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
 
     let csv_reader = CsvReader::from_path(&file.item)

@@ -35,12 +35,12 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
         Some(q2) => q2,
         None => "".to_string(),
     };
-    let as_html = call.has_flag("as_html");
+    let as_html = call.has_flag("as-html");
     let attribute: String = match call.get_flag("attribute")? {
         Some(a) => a,
         None => "".to_string(),
     };
-    let as_table: Value = match call.get_flag("as_table")? {
+    let as_table: Value = match call.get_flag("as-table")? {
         Some(v) => v,
         None => Value::nothing(head),
     };

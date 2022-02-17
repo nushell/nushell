@@ -29,7 +29,7 @@ impl Command for Base64 {
     fn signature(&self) -> Signature {
         Signature::build("hash base64")
         .named(
-            "character_set",
+            "character-set",
             SyntaxShape::String,
             "specify the character rules for encoding the input.\n\
                     \tValid values are 'standard', 'standard-no-padding', 'url-safe', 'url-safe-no-padding',\
@@ -98,7 +98,7 @@ fn operate(
     let encode = call.has_flag("encode");
     let decode = call.has_flag("decode");
     let character_set: Option<Spanned<String>> =
-        call.get_flag(engine_state, stack, "character_set")?;
+        call.get_flag(engine_state, stack, "character-set")?;
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     if encode && decode {

@@ -172,7 +172,7 @@ fn eval_external(
     last_expression: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
-        .find_decl("run_external".as_bytes())
+        .find_decl("run-external".as_bytes())
         .ok_or(ShellError::ExternalNotSupported(head.span))?;
 
     let command = engine_state.get_decl(decl_id);
@@ -188,7 +188,7 @@ fn eval_external(
     if last_expression {
         call.named.push((
             Spanned {
-                item: "last_expression".into(),
+                item: "last-expression".into(),
                 span: head.span,
             },
             None,

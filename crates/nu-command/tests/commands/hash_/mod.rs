@@ -18,7 +18,7 @@ fn base64_encode_characterset_binhex() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 'username:password' | hash base64 --character_set binhex --encode
+        echo 'username:password' | hash base64 --character-set binhex --encode
         "#
         )
     );
@@ -63,7 +63,7 @@ fn error_invalid_decode_value() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo "this should not be a valid encoded value" | hash base64 --character_set url-safe --decode
+        echo "this should not be a valid encoded value" | hash base64 --character-set url-safe --decode
         "#
         )
     );
