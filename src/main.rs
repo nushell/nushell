@@ -294,10 +294,11 @@ fn parse_commandline_args(
             }
 
             if call.has_flag("version") {
+                let version = env!("CARGO_PKG_VERSION").to_string();
                 let _ = std::panic::catch_unwind(move || {
                     let stdout = std::io::stdout();
                     let mut stdout = stdout.lock();
-                    let _ = stdout.write_all(env!("CARGO_PKG_VERSION").to_string().as_bytes());
+                    let _ = stdout.write_all(format!("{}\n", version).as_bytes());
                 });
 
                 std::process::exit(0);
