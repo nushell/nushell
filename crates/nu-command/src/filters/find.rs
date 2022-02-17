@@ -91,6 +91,7 @@ impl Command for Find {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let metadata = input.metadata();
+        let config = stack.get_config()?;
 
         match call.get_flag::<CaptureBlock>(&engine_state, stack, "predicate")? {
             Some(predicate) => {
@@ -130,9 +131,25 @@ impl Command for Find {
             }
             None => {
                 let terms = call.rest::<Value>(&engine_state, stack, 0)?;
+                let lower_terms = terms
+                    .iter()
+                    .map(|v| {
+                        if let Ok(span) = v.span() {
+                            Value::string(v.into_string("", &config).to_lowercase(), span)
+                        } else {
+                            v.clone()
+                        }
+                    })
+                    .collect::<Vec<Value>>();
+
                 let pipe = input.filter(
                     move |value| {
-                        terms.iter().any(|term| match value {
+                        let lower_value = if let Ok(span) = value.span() {
+                            Value::string(value.into_string("", &config).to_lowercase(), span)
+                        } else {
+                            value.clone()
+                        };
+                        lower_terms.iter().any(|term| match value {
                             Value::Bool { .. }
                             | Value::Int { .. }
                             | Value::Filesize { .. }
@@ -142,17 +159,27 @@ impl Command for Find {
                             | Value::Float { .. }
                             | Value::Block { .. }
                             | Value::Nothing { .. }
-                            | Value::Error { .. } => {
-                                value.eq(span, term).map_or(false, |value| value.is_true())
-                            }
+                            | Value::Error { .. } => lower_value
+                                .eq(span, term)
+                                .map_or(false, |value| value.is_true()),
                             Value::String { .. }
                             | Value::List { .. }
                             | Value::CellPath { .. }
                             | Value::CustomValue { .. } => term
-                                .r#in(span, value)
+                                .r#in(span, &lower_value)
                                 .map_or(false, |value| value.is_true()),
                             Value::Record { vals, .. } => vals.iter().any(|val| {
-                                term.r#in(span, val).map_or(false, |value| value.is_true())
+                                if let Ok(span) = val.span() {
+                                    let lower_val = Value::string(
+                                        val.into_string("", &config).to_lowercase(),
+                                        Span::test_data(),
+                                    );
+
+                                    term.r#in(span, &lower_val)
+                                        .map_or(false, |value| value.is_true())
+                                } else {
+                                    term.r#in(span, val).map_or(false, |value| value.is_true())
+                                }
                             }),
                             Value::Binary { .. } => false,
                         })
