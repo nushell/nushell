@@ -68,7 +68,7 @@ impl Command for EachWindow {
 
         vec![
             Example {
-                example: "echo [1 2 3 4] | each window 2 { $it.0 + $it.1 }",
+                example: "echo [1 2 3 4] | each window 2 { |it| $it.0 + $it.1 }",
                 description: "A sliding window of two elements",
                 result: Some(Value::List {
                     vals: stream_test_1,

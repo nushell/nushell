@@ -86,7 +86,7 @@ fn scope_variable() -> TestResult {
 #[test]
 fn earlier_errors() -> TestResult {
     fail_test(
-        r#"[1, "bob"] | each { $it + 3 } | each { $it / $it } | table"#,
+        r#"[1, "bob"] | each { |it| $it + 3 } | each { |it| $it / $it } | table"#,
         "int",
     )
 }

@@ -8,7 +8,7 @@ fn reduce_table_column() {
         echo "[{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]"
         | from json
         | get total
-        | reduce -f 20 { $it.item + (math eval $"($it.acc)^1.05")}
+        | reduce -f 20 { |it, acc| $it + (math eval $"($acc)^1.05")}
         | into string -d 1
         "#
         )
@@ -23,7 +23,7 @@ fn reduce_table_column_with_path() {
         cwd: ".", pipeline(
         r#"
         [{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]
-        | reduce -f 20 { $it.item.total + (math eval $"($it.acc)^1.05")}
+        | reduce -f 20 { |it, acc| $it.total + (math eval $"($acc)^1.05")}
         | into string -d 1
         "#
         )
@@ -38,7 +38,7 @@ fn reduce_rows_example() {
         cwd: ".", pipeline(
         r#"
         [[a,b]; [1,2] [3,4]]
-        | reduce -f 1.6 { $it.acc * ($it.item.a | into int) + ($it.item.b | into int) }
+        | reduce -f 1.6 { |it, acc| $acc * ($it.a | into int) + ($it.b | into int) }
         "#
         )
     );
@@ -54,7 +54,7 @@ fn reduce_numbered_example() {
         cwd: ".", pipeline(
         r#"
         echo one longest three bar
-        reduce -n { if ($it.item | str length) > ($acc.item | str length) {echo $it} {echo $acc}}
+        reduce -n { |it, acc| if ($it | str length) > ($acc | str length) {echo $it} else {echo $acc}}
         | get index
         "#
         )
@@ -69,7 +69,7 @@ fn reduce_numbered_integer_addition_example() {
         cwd: ".", pipeline(
         r#"
         echo [1 2 3 4]
-        | reduce -n { $it.acc + $it.item }
+        | reduce -n { |it, acc| $acc + $it.item }
         | get item
         "#
         )
@@ -84,9 +84,9 @@ fn folding_with_tables() {
         cwd: ".", pipeline(
         r#"
         echo [10 20 30 40]
-        | reduce -f [] {
-            with-env [value $it.item] {
-              echo $it.acc | append (10 * ($env.value | into int))
+        | reduce -f [] { |it, acc|
+            with-env [value $it] {
+              echo $acc | append (10 * ($env.value | into int))
             }
           }
         | math sum
@@ -102,7 +102,7 @@ fn error_reduce_fold_type_mismatch() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo a b c | reduce -f 0 { $it.acc + $it.item }
+        echo a b c | reduce -f 0 { |it, acc| $acc + $it }
         "#
         )
     );
@@ -115,7 +115,7 @@ fn error_reduce_empty() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        reduce { $it.$acc + $it.item }
+        reduce { |it, acc| $acc + $it }
         "#
         )
     );

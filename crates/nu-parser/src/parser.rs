@@ -2894,7 +2894,7 @@ pub fn parse_block_expression(
     working_set.enter_scope();
 
     // Check to see if we have parameters
-    let (mut signature, amt_to_skip): (Option<Box<Signature>>, usize) = match output.first() {
+    let (signature, amt_to_skip): (Option<Box<Signature>>, usize) = match output.first() {
         Some(Token {
             contents: TokenContents::Pipe,
             span,
@@ -2942,19 +2942,28 @@ pub fn parse_block_expression(
 
     // TODO: Finish this
     if let SyntaxShape::Block(Some(v)) = shape {
-        if signature.is_none() && v.len() == 1 {
-            // We'll assume there's an `$it` present
-            let var_id = working_set.add_variable(b"$it".to_vec(), Type::Unknown);
+        if signature.is_none() && !v.is_empty() {
+            // // We'll assume there's an `$it` present
+            // let var_id = working_set.add_variable(b"$it".to_vec(), Type::Unknown);
 
-            let mut new_sigature = Signature::new("");
-            new_sigature.required_positional.push(PositionalArg {
-                var_id: Some(var_id),
-                name: "$it".into(),
-                desc: String::new(),
-                shape: SyntaxShape::Any,
+            // let mut new_sigature = Signature::new("");
+            // new_sigature.required_positional.push(PositionalArg {
+            //     var_id: Some(var_id),
+            //     name: "$it".into(),
+            //     desc: String::new(),
+            //     shape: SyntaxShape::Any,
+            // });
+
+            // signature = Some(Box::new(new_sigature));
+            error = error.or_else(|| {
+                Some(ParseError::Expected(
+                    format!("block parameter{}", if v.len() > 1 { "s" } else { "" }),
+                    Span {
+                        start: span.start + 1,
+                        end: span.start + 1,
+                    },
+                ))
             });
-
-            signature = Some(Box::new(new_sigature));
         }
     }
 

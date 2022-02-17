@@ -303,7 +303,7 @@ The `each` command gives us a way of working with each individual row or
 element of a list one at a time. It reads these in from the pipeline and
 runs a block on each element. A block is a group of pipelines.
 ```
-echo 1 2 3 | each { $it + 10}
+echo 1 2 3 | each { |it| $it + 10}
 ```
 This example iterates over each element sent by `echo`, giving us three new
 values that are the original value + 10. Here, the `$it` is a variable that

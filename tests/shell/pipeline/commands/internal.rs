@@ -22,7 +22,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         r#"
             open nu_times.csv
             | get origin
-            | each { ^echo $it | nu --testbin chop }
+            | each { |it| ^echo $it | nu --testbin chop }
             | get 2
             "#
         ));
@@ -76,7 +76,7 @@ fn argument_subexpression() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo "foo" | each { echo (echo $it) }
+            echo "foo" | each { |it| echo (echo $it) }
         "#
     );
 
@@ -102,7 +102,7 @@ fn subexpression_handles_dot() {
         r#"
             echo (open nu_times.csv)
             | get name
-            | each { nu --testbin chop $it }
+            | each { |it| nu --testbin chop $it }
             | get 3
             "#
         ));
@@ -116,7 +116,7 @@ fn string_interpolation_with_it() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo "foo" | each { echo $"($it)" }
+                    echo "foo" | each { |it| echo $"($it)" }
             "#
     );
 
@@ -128,7 +128,7 @@ fn string_interpolation_with_it_column_path() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo [[name]; [sammie]] | each { echo $"($it.name)" } | get 0
+                    echo [[name]; [sammie]] | each { |it| echo $"($it.name)" } | get 0
         "#
     );
 
@@ -1048,7 +1048,7 @@ fn duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { $it + 10000000000000000day }
+        ls | get modified | each { |it| $it + 10000000000000000day }
         "#)
     );
 
@@ -1060,7 +1060,7 @@ fn date_and_duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { $it + 1000000000day }
+        ls | get modified | each { |it| $it + 1000000000day }
         "#)
     );
 
@@ -1336,17 +1336,17 @@ mod variable_scoping {
                 == "ZZZ"
         );
         test_variable_scope_list!(
-            r#" def test [input] { echo [0 1 2] | each { echo $input } }
+            r#" def test [input] { echo [0 1 2] | each { |_| echo $input } }
                 test ZZZ "#
                 == ["ZZZ", "ZZZ", "ZZZ"]
         );
         test_variable_scope_list!(
-            r#" def test [input] { echo [0 1 2] | each { if $it > 0 {echo $input} else {echo $input}} }
+            r#" def test [input] { echo [0 1 2] | each { |it| if $it > 0 {echo $input} else {echo $input}} }
                 test ZZZ "#
                 == ["ZZZ", "ZZZ", "ZZZ"]
         );
         test_variable_scope_list!(
-            r#" def test [input] { echo [0 1 2] | each { if $input == $input {echo $input} else {echo $input}} }
+            r#" def test [input] { echo [0 1 2] | each { |_| if $input == $input {echo $input} else {echo $input}} }
                 test ZZZ "#
                 == ["ZZZ", "ZZZ", "ZZZ"]
         );

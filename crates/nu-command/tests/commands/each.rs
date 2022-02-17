@@ -5,7 +5,7 @@ fn each_works_separately() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [1 2 3] | each { echo $it 10 | math sum } | to json -r
+        echo [1 2 3] | each { |it| echo $it 10 | math sum } | to json -r
         "#
     ));
 
@@ -17,7 +17,7 @@ fn each_group_works() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [1 2 3 4 5 6] | each group 3 { $it } | to json --raw
+        echo [1 2 3 4 5 6] | each group 3 { |it| $it } | to json --raw
         "#
     ));
 
@@ -29,7 +29,7 @@ fn each_window() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [1 2 3 4] | each window 3 { $it } | to json --raw
+        echo [1 2 3 4] | each window 3 { |it| $it } | to json --raw
         "#
     ));
 
@@ -41,7 +41,7 @@ fn each_window_stride() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [1 2 3 4 5 6] | each window 3 -s 2 { echo $it } | to json --raw
+        echo [1 2 3 4 5 6] | each window 3 -s 2 { |it| echo $it } | to json --raw
         "#
     ));
 
@@ -65,7 +65,7 @@ fn each_implicit_it_in_block() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [[foo bar]; [a b] [c d] [e f]] | each { nu --testbin cococo $it.foo } | str collect
+        echo [[foo bar]; [a b] [c d] [e f]] | each { |it| nu --testbin cococo $it.foo } | str collect
         "#
     ));
 

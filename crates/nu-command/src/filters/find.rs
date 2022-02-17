@@ -60,7 +60,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find the first odd value",
-                example: "echo [2 4 3 6 5 8] | find --predicate { ($it mod 2) == 1 }",
+                example: "echo [2 4 3 6 5 8] | find --predicate { |it| ($it mod 2) == 1 }",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(3), Value::test_int(5)],
                     span: Span::test_data()
@@ -68,7 +68,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find if a service is not running",
-                example: "echo [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { $it.patch }",
+                example: "echo [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { |it| $it.patch }",
                 result: Some(Value::List {
                     vals: vec![Value::test_record(
                             vec!["version", "patch"],
