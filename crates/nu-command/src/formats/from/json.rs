@@ -76,8 +76,7 @@ impl Command for FromJson {
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
         let config = stack.get_config().unwrap_or_default();
-        let mut string_input = input.collect_string("", &config)?;
-        string_input.push('\n');
+        let string_input = input.collect_string("", &config)?;
 
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag("objects") {
@@ -85,11 +84,14 @@ impl Command for FromJson {
             let lines: Vec<String> = string_input.lines().map(|x| x.to_string()).collect();
             Ok(lines
                 .into_iter()
-                .map(move |mut x| {
-                    x.push('\n');
-                    match convert_string_to_value(x, span) {
-                        Ok(v) => v,
-                        Err(error) => Value::Error { error },
+                .filter_map(move |x| {
+                    if x.trim() == "" {
+                        None
+                    } else {
+                        match convert_string_to_value(x, span) {
+                            Ok(v) => Some(v),
+                            Err(error) => Some(Value::Error { error }),
+                        }
                     }
                 })
                 .into_pipeline_data(engine_state.ctrlc.clone()))
@@ -152,8 +154,8 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
     match result {
         Ok(value) => Ok(convert_nujson_to_value(&value, span)),
 
-        Err(_x) => Err(ShellError::CantConvert(
-            "structured data from json".into(),
+        Err(x) => Err(ShellError::CantConvert(
+            format!("structured data from json ({})", x),
             "string".into(),
             span,
         )),
