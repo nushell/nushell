@@ -9,7 +9,7 @@ use nu_protocol::{
 };
 use std::{io::Write, path::PathBuf};
 
-// This fill collect environment variables from std::env and adds them to a stack.
+// This will collect environment variables from std::env and adds them to a stack.
 //
 // In order to ensure the values have spans, it first creates a dummy file, writes the collected
 // env vars into it (in a "NAME"="value" format, quite similar to the output of the Unix 'env'

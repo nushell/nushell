@@ -23,10 +23,8 @@ macro_rules! nu {
 
         // let commands = &*format!(
         //     "
-        //                     cd \"{}\"
         //                     {}
         //                     exit",
-        //     $crate::fs::in_directory($cwd),
         //     $crate::fs::DisplayPath::display_path(&$path)
         // );
 
@@ -51,13 +49,16 @@ macro_rules! nu {
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };
 
+        let target_cwd = $crate::fs::in_directory(&$cwd);
+
         let mut process = match Command::new($crate::fs::executable_path())
+            .env("PWD", &target_cwd)  // setting PWD is enough to set cwd
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
             // .arg("--skip-plugins")
             // .arg("--no-history")
             // .arg("--config-file")
             // .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
-            .arg(format!("-c 'cd {}; {}'", $crate::fs::in_directory($cwd), $crate::fs::DisplayPath::display_path(&path)))
+            .arg(format!("-c '{}'", $crate::fs::DisplayPath::display_path(&path)))
             .stdout(Stdio::piped())
             // .stdin(Stdio::piped())
             .stderr(Stdio::piped())
@@ -109,10 +110,8 @@ macro_rules! nu_with_plugins {
 
         let commands = &*format!(
             "
-                            cd \"{}\"
                             {}
                             exit",
-            $crate::fs::in_directory($cwd),
             $crate::fs::DisplayPath::display_path(&$path)
         );
 
@@ -133,7 +132,10 @@ macro_rules! nu_with_plugins {
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };
 
+        let target_cwd = $crate::fs::in_directory(&$cwd);
+
         let mut process = match Command::new($crate::fs::executable_path())
+            .env("PWD", &target_cwd)  // setting PWD is enough to set cwd
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())
