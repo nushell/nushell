@@ -2894,7 +2894,7 @@ pub fn parse_block_expression(
     working_set.enter_scope();
 
     // Check to see if we have parameters
-    let (signature, amt_to_skip): (Option<Box<Signature>>, usize) = match output.first() {
+    let (signature, amt_to_skip): (Option<(Box<Signature>, Span)>, usize) = match output.first() {
         Some(Token {
             contents: TokenContents::Pipe,
             span,
@@ -2923,16 +2923,14 @@ pub fn parse_block_expression(
                 end
             };
 
-            let (signature, err) = parse_signature_helper(
-                working_set,
-                Span {
-                    start: start_point,
-                    end: end_point,
-                },
-            );
+            let signature_span = Span {
+                start: start_point,
+                end: end_point,
+            };
+            let (signature, err) = parse_signature_helper(working_set, signature_span);
             error = error.or(err);
 
-            (Some(signature), amt_to_skip)
+            (Some((signature, signature_span)), amt_to_skip)
         }
         _ => (None, 0),
     };
@@ -2942,22 +2940,42 @@ pub fn parse_block_expression(
 
     // TODO: Finish this
     if let SyntaxShape::Block(Some(v)) = shape {
-        if signature.is_none() && !v.is_empty() {
-            // // We'll assume there's an `$it` present
-            // let var_id = working_set.add_variable(b"$it".to_vec(), Type::Unknown);
+        if let Some((sig, sig_span)) = &signature {
+            if sig.num_positionals() != v.len() {
+                error = error.or_else(|| {
+                    Some(ParseError::Expected(
+                        format!(
+                            "{} block parameter{}",
+                            v.len(),
+                            if v.len() > 1 { "s" } else { "" }
+                        ),
+                        *sig_span,
+                    ))
+                });
+            }
 
-            // let mut new_sigature = Signature::new("");
-            // new_sigature.required_positional.push(PositionalArg {
-            //     var_id: Some(var_id),
-            //     name: "$it".into(),
-            //     desc: String::new(),
-            //     shape: SyntaxShape::Any,
-            // });
-
-            // signature = Some(Box::new(new_sigature));
+            for (expected, PositionalArg { name, shape, .. }) in
+                v.iter().zip(sig.required_positional.iter())
+            {
+                if expected != shape && *shape != SyntaxShape::Any {
+                    error = error.or_else(|| {
+                        Some(ParseError::ParameterMismatchType(
+                            name.to_owned(),
+                            expected.to_string(),
+                            shape.to_string(),
+                            *sig_span,
+                        ))
+                    });
+                }
+            }
+        } else if !v.is_empty() {
             error = error.or_else(|| {
                 Some(ParseError::Expected(
-                    format!("block parameter{}", if v.len() > 1 { "s" } else { "" }),
+                    format!(
+                        "{} block parameter{}",
+                        v.len(),
+                        if v.len() > 1 { "s" } else { "" }
+                    ),
                     Span {
                         start: span.start + 1,
                         end: span.start + 1,
@@ -2971,7 +2989,7 @@ pub fn parse_block_expression(
     error = error.or(err);
 
     if let Some(signature) = signature {
-        output.signature = signature;
+        output.signature = signature.0;
     } else if let Some(last) = working_set.delta.scope.last() {
         // FIXME: this only supports the top $it. Is this sufficient?
 

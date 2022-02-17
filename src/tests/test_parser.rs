@@ -314,3 +314,18 @@ fn capture_row_condition() -> TestResult {
 fn proper_missing_param() -> TestResult {
     fail_test(r#"def foo [x y z w] { }; foo a b c"#, "missing w")
 }
+
+#[test]
+fn block_arity_check1() -> TestResult {
+    fail_test(r#"ls | each { 1 }"#, "expected 1 block parameter")
+}
+
+#[test]
+fn block_arity_check2() -> TestResult {
+    fail_test(r#"ls | reduce { 1 }"#, "expected 2 block parameters")
+}
+
+#[test]
+fn block_arity_check3() -> TestResult {
+    fail_test(r#"ls | each { |x, y| 1}"#, "expected 1 block parameter")
+}
