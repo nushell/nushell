@@ -71,7 +71,7 @@ impl Command for Ls {
         let cwd = current_dir(engine_state, stack)?;
         let pattern_arg = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
-        let (path, p_tag) = match pattern_arg {
+        let (path, p_tag, absolute_path) = match pattern_arg {
             Some(p) => {
                 let p_tag = p.span;
                 let mut p = PathBuf::from(p.item);
@@ -101,13 +101,14 @@ impl Command for Ls {
                     }
                     p.push("*");
                 }
-                (p, p_tag)
+                let absolute_path = p.is_absolute();
+                (p, p_tag, absolute_path)
             }
             None => {
                 if is_empty_dir(current_dir(engine_state, stack)?) {
                     return Ok(Value::nothing(call_span).into_pipeline_data());
                 } else {
-                    (PathBuf::from("./*"), call_span)
+                    (PathBuf::from("./*"), call_span, false)
                 }
             }
         };
@@ -151,7 +152,7 @@ impl Command for Ls {
 
                     let display_name = if short_names {
                         path.file_name().map(|os| os.to_string_lossy().to_string())
-                    } else if full_paths {
+                    } else if full_paths || absolute_path {
                         Some(path.to_string_lossy().to_string())
                     } else if let Some(prefix) = &prefix {
                         if let Ok(remainder) = path.strip_prefix(&prefix) {
