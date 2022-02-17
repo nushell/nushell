@@ -11,22 +11,23 @@ fn use_module_file_within_block() {
         nu.with_files(vec![FileWithContent(
             &file.display_path(),
             r#"
-            export def foo [] {
-                echo "hello world"
-            }
+                export def foo [] {
+                    echo "hello world"
+                }
             "#,
         )]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-            def bar [] {
-                use spam.nu foo;
-                foo
-            };
-            bar
-            "#
-        ));
+                r#"
+                    def bar [] {
+                        use spam.nu foo;
+                        foo
+                    };
+                    bar
+                "#
+            )
+        );
 
         assert_eq!(actual.out, "hello world");
     })
