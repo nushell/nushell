@@ -104,6 +104,7 @@ fn main() -> Result<()> {
                 || arg == "--config-file"
                 || arg == "--perf"
                 || arg == "--threads"
+                || arg == "--version"
             {
                 collect_arg_nushell = true;
             }
@@ -292,6 +293,16 @@ fn parse_commandline_args(
                 std::process::exit(1);
             }
 
+            if call.has_flag("version") {
+                let _ = std::panic::catch_unwind(move || {
+                    let stdout = std::io::stdout();
+                    let mut stdout = stdout.lock();
+                    let _ = stdout.write_all(env!("CARGO_PKG_VERSION").to_string().as_bytes());
+                });
+
+                std::process::exit(0);
+            }
+
             return Ok(NushellCliArgs {
                 redirect_stdin,
                 login_shell,
@@ -335,6 +346,7 @@ impl Command for Nu {
             .switch("stdin", "redirect the stdin", None)
             .switch("login", "start as a login shell", Some('l'))
             .switch("interactive", "start as an interactive shell", Some('i'))
+            .switch("version", "print the version", Some('v'))
             .switch(
                 "perf",
                 "start and print performance metrics during startup",
