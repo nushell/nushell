@@ -16,7 +16,7 @@ impl Command for ErrorMake {
 
     fn signature(&self) -> Signature {
         Signature::build("error make")
-            .optional("error-struct", SyntaxShape::Record, "the error to create")
+            .optional("error_struct", SyntaxShape::Record, "the error to create")
             .category(Category::Core)
     }
 
