@@ -2093,6 +2093,8 @@ pub fn parse_import_pattern(
         );
     };
 
+    let maybe_overlay_id = working_set.find_overlay(&head);
+
     let (import_pattern, err) = if let Some(tail_span) = spans.get(1) {
         // FIXME: expand this to handle deeper imports once we support module imports
         let tail = working_set.get_span_contents(*tail_span);
@@ -2101,6 +2103,7 @@ pub fn parse_import_pattern(
                 ImportPattern {
                     head: ImportPatternHead {
                         name: head,
+                        id: maybe_overlay_id,
                         span: *head_span,
                     },
                     members: vec![ImportPatternMember::Glob { span: *tail_span }],
@@ -2129,6 +2132,7 @@ pub fn parse_import_pattern(
                         ImportPattern {
                             head: ImportPatternHead {
                                 name: head,
+                                id: maybe_overlay_id,
                                 span: *head_span,
                             },
                             members: vec![ImportPatternMember::List { names: output }],
@@ -2141,6 +2145,7 @@ pub fn parse_import_pattern(
                     ImportPattern {
                         head: ImportPatternHead {
                             name: head,
+                            id: maybe_overlay_id,
                             span: *head_span,
                         },
                         members: vec![],
@@ -2155,6 +2160,7 @@ pub fn parse_import_pattern(
                 ImportPattern {
                     head: ImportPatternHead {
                         name: head,
+                        id: maybe_overlay_id,
                         span: *head_span,
                     },
                     members: vec![ImportPatternMember::Name {
@@ -2171,6 +2177,7 @@ pub fn parse_import_pattern(
             ImportPattern {
                 head: ImportPatternHead {
                     name: head,
+                    id: maybe_overlay_id,
                     span: *head_span,
                 },
                 members: vec![],
