@@ -151,7 +151,7 @@ impl Command for Ls {
 
                     let display_name = if short_names {
                         path.file_name().map(|os| os.to_string_lossy().to_string())
-                    } else if full_paths {
+                    } else if full_paths || !path.is_relative() {
                         Some(path.to_string_lossy().to_string())
                     } else if let Some(prefix) = &prefix {
                         if let Ok(remainder) = path.strip_prefix(&prefix) {
