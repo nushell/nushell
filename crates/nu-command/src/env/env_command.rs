@@ -73,7 +73,7 @@ impl Command for Env {
                 result: Some(Value::test_bool(false)),
             },
             Example {
-                description: "Another way to check whether the env variable `MY_ENV` exists",
+                description: "Another way to check whether the env variable `PATH` exists",
                 example: r#"'PATH' in (env).name"#,
                 result: Some(Value::test_bool(true)),
             },
