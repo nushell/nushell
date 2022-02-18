@@ -1,7 +1,9 @@
 use chrono_tz::TZ_VARIANTS;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, IntoInterruptiblePipelineData, PipelineData, Signature, Value};
+use nu_protocol::{
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -40,5 +42,13 @@ impl Command for SubCommand {
             })
             .into_iter()
             .into_pipeline_data(engine_state.ctrlc.clone()))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: "date list-timezone | where timezone =~ Asia",
+            description: "Show all Asia timezones",
+            result: None,
+        }]
     }
 }
