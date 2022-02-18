@@ -138,7 +138,10 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_state.clone(),
             }))
-            .with_completer(Box::new(NuCompleter::new(engine_state.clone())))
+            .with_completer(Box::new(NuCompleter::new(
+                engine_state.clone(),
+                stack.vars.get(&CONFIG_VARIABLE_ID).cloned(),
+            )))
             .with_quick_completions(config.quick_completions)
             .with_ansi_colors(config.use_ansi_coloring);
 

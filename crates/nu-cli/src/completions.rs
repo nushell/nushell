@@ -12,11 +12,15 @@ const SEP: char = std::path::MAIN_SEPARATOR;
 #[derive(Clone)]
 pub struct NuCompleter {
     engine_state: EngineState,
+    config: Option<Value>,
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: EngineState) -> Self {
-        Self { engine_state }
+    pub fn new(engine_state: EngineState, config: Option<Value>) -> Self {
+        Self {
+            engine_state,
+            config,
+        }
     }
 
     fn external_command_completion(&self, prefix: &str) -> Vec<String> {
@@ -235,14 +239,19 @@ impl NuCompleter {
 
                                 let mut stack = Stack::new();
                                 // Set up our initial config to start from
-                                stack.vars.insert(
-                                    CONFIG_VARIABLE_ID,
-                                    Value::Record {
-                                        cols: vec![],
-                                        vals: vec![],
-                                        span: Span { start: 0, end: 0 },
-                                    },
-                                );
+                                if let Some(conf) = &self.config {
+                                    stack.vars.insert(CONFIG_VARIABLE_ID, conf.clone());
+                                } else {
+                                    stack.vars.insert(
+                                        CONFIG_VARIABLE_ID,
+                                        Value::Record {
+                                            cols: vec![],
+                                            vals: vec![],
+                                            span: Span { start: 0, end: 0 },
+                                        },
+                                    );
+                                }
+
                                 let result = eval_block(
                                     &self.engine_state,
                                     &mut stack,
