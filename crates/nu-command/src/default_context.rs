@@ -312,6 +312,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
         // Network
         bind_command! {
             Fetch,
+            Post,
             Url,
             UrlHost,
             UrlPath,
