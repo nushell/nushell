@@ -3,7 +3,7 @@ use std::fs::OpenOptions;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Touch;
@@ -51,5 +51,20 @@ impl Command for Touch {
         }
 
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Creates \"fixture.json\"",
+                example: "touch fixture.json",
+                result: None,
+            },
+            Example {
+                description: "Creates files a, b and c",
+                example: "touch a b c",
+                result: None,
+            },
+        ]
     }
 }

@@ -12,8 +12,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 const GLOB_PARAMS: glob::MatchOptions = glob::MatchOptions {
@@ -66,6 +66,31 @@ impl Command for Rm {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         rm(engine_state, stack, call)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Delete or move a file to the system trash (depending on 'rm_always_trash' config option)",
+                example: "rm file.txt",
+                result: None,
+            },
+            Example {
+                description: "Move a file to the system trash",
+                example: "rm --trash file.txt",
+                result: None,
+            },
+            Example {
+                description: "Delete a file permanently",
+                example: "rm --permanent file.txt",
+                result: None,
+            },
+            Example {
+                description: "Delete a file, and suppress errors if no file is found",
+                example: "rm --force file.txt",
+                result: None,
+            }
+        ]
     }
 }
 
