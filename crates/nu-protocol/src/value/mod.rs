@@ -1537,6 +1537,13 @@ impl Value {
             return lhs.operation(*span, Operator::LessThan, op, rhs);
         }
 
+        if !type_compatible(self.get_type(), rhs.get_type())
+            && (self.get_type() != Type::Unknown)
+            && (rhs.get_type() != Type::Unknown)
+        {
+            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+        }
+
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
                 val: matches!(ordering, Ordering::Less),
@@ -1556,6 +1563,13 @@ impl Value {
 
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::LessThanOrEqual, op, rhs);
+        }
+
+        if !type_compatible(self.get_type(), rhs.get_type())
+            && (self.get_type() != Type::Unknown)
+            && (rhs.get_type() != Type::Unknown)
+        {
+            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
         }
 
         match self.partial_cmp(rhs) {
@@ -1579,6 +1593,13 @@ impl Value {
             return lhs.operation(*span, Operator::GreaterThan, op, rhs);
         }
 
+        if !type_compatible(self.get_type(), rhs.get_type())
+            && (self.get_type() != Type::Unknown)
+            && (rhs.get_type() != Type::Unknown)
+        {
+            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+        }
+
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
                 val: matches!(ordering, Ordering::Greater),
@@ -1598,6 +1619,13 @@ impl Value {
 
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::GreaterThanOrEqual, op, rhs);
+        }
+
+        if !type_compatible(self.get_type(), rhs.get_type())
+            && (self.get_type() != Type::Unknown)
+            && (rhs.get_type() != Type::Unknown)
+        {
+            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
         }
 
         match self.partial_cmp(rhs) {
@@ -1983,6 +2011,14 @@ impl From<Spanned<HashMap<String, Value>>> for Value {
 
         Value::Record { cols, vals, span }
     }
+}
+
+fn type_compatible(a: Type, b: Type) -> bool {
+    if a == b {
+        return true;
+    }
+
+    matches!((a, b), (Type::Int, Type::Float) | (Type::Float, Type::Int))
 }
 
 /// Create a Value::Record from a spanned indexmap
