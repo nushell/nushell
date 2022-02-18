@@ -109,6 +109,7 @@ impl Command for For {
                         Err(error) => Value::Error { error },
                     }
                 })
+                .filter(|x| !x.is_nothing())
                 .into_pipeline_data(ctrlc)),
             Value::Range { val, .. } => Ok(val
                 .into_range_iter()?
@@ -146,6 +147,7 @@ impl Command for For {
                         Err(error) => Value::Error { error },
                     }
                 })
+                .filter(|x| !x.is_nothing())
                 .into_pipeline_data(ctrlc)),
             x => {
                 stack.add_var(var_id, x);

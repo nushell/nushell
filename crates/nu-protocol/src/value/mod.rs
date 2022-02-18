@@ -562,6 +562,10 @@ impl Value {
         }
     }
 
+    pub fn is_nothing(&self) -> bool {
+        matches!(self, Value::Nothing { .. })
+    }
+
     /// Create a new `Nothing` value
     pub fn nothing(span: Span) -> Value {
         Value::Nothing { span }
