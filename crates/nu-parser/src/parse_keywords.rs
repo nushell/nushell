@@ -1116,12 +1116,13 @@ pub fn parse_use(
                         error = error.or(err);
 
                         let _ = working_set.add_block(block);
-                        let _ = working_set.add_overlay(&module_name, overlay.clone());
+                        let overlay_id = working_set.add_overlay(&module_name, overlay.clone());
 
                         (
                             ImportPattern {
                                 head: ImportPatternHead {
                                     name: module_name.into(),
+                                    id: Some(overlay_id),
                                     span: spans[1],
                                 },
                                 members: import_pattern.members,
@@ -1141,10 +1142,7 @@ pub fn parse_use(
                         );
                     }
                 } else {
-                    error = error.or(Some(ParseError::FileNotFound(
-                        module_filename,
-                        import_pattern.head.span,
-                    )));
+                    error = error.or(Some(ParseError::ModuleNotFound(import_pattern.head.span)));
                     (ImportPattern::new(), Overlay::new())
                 }
             } else {
