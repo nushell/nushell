@@ -198,11 +198,11 @@ fn print_pipeline_data(
 
     let config = stack.get_config().unwrap_or_default();
 
-    let mut stdout = std::io::stdout();
+    let stdout = std::io::stdout();
 
     if let PipelineData::RawStream(stream, _, _) = input {
         for s in stream {
-            let _ = stdout.write(s?.as_binary()?);
+            let _ = stdout.lock().write_all(s?.as_binary()?);
         }
         return Ok(());
     }
