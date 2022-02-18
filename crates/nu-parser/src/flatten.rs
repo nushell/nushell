@@ -46,7 +46,7 @@ impl Display for FlatShape {
             FlatShape::Signature => write!(f, "flatshape_signature"),
             FlatShape::String => write!(f, "flatshape_string"),
             FlatShape::StringInterpolation => write!(f, "flatshape_string_interpolation"),
-            FlatShape::List => write!(f, "flatshape_string_interpolation"),
+            FlatShape::List => write!(f, "flatshape_list"),
             FlatShape::Table => write!(f, "flatshape_table"),
             FlatShape::Record => write!(f, "flatshape_record"),
             FlatShape::Block => write!(f, "flatshape_block"),
