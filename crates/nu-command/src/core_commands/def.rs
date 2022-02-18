@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Def;
@@ -34,5 +34,20 @@ impl Command for Def {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Define a command and run it",
+                example: r#"def say-hi [] { echo 'hi' }; say-hi"#,
+                result: Some(Value::test_string("hi")),
+            },
+            Example {
+                description: "Define a command and run it with parameter(s)",
+                example: r#"def say-sth [sth: string] { echo $sth }; say-sth hi"#,
+                result: Some(Value::test_string("hi")),
+            },
+        ]
     }
 }

@@ -6,7 +6,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 use pathdiff::diff_paths;
@@ -204,6 +204,26 @@ impl Command for Ls {
                 },
                 engine_state.ctrlc.clone(),
             ))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "List all files in the current directory",
+                example: "ls",
+                result: None,
+            },
+            Example {
+                description: "List all files in a subdirectory",
+                example: "ls subdir",
+                result: None,
+            },
+            Example {
+                description: "List all rust files",
+                example: "ls *.rs",
+                result: None,
+            },
+        ]
     }
 }
 
