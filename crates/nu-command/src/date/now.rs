@@ -35,12 +35,10 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Get the current date and display it in a given format string.",
-                example: r#"date now | date format "%Y-%m-%d %H:%M:%S""#,
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Get the current date and display it in a given format string.",
+            example: r#"date now | date format "%Y-%m-%d %H:%M:%S""#,
+            result: None,
+        }]
     }
 }

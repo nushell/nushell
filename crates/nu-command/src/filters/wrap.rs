@@ -69,7 +69,14 @@ impl Command for Wrap {
         vec![Example {
             description: "Wrap a list into a table with a given column name",
             example: "echo [1 2 3] | wrap num",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["num".into()], vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)], span: Span::test_data()}], span: Span::test_data()}),
+            result: Some(Value::List {
+                vals: vec![Value::Record {
+                    cols: vec!["num".into()],
+                    vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                    span: Span::test_data(),
+                }],
+                span: Span::test_data(),
+            }),
         }]
     }
 }
