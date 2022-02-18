@@ -5,8 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, SyntaxShape,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -76,5 +76,20 @@ impl Command for Mkdir {
         Ok(stream
             .into_iter()
             .into_pipeline_data(engine_state.ctrlc.clone()))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Make a directory named foo",
+                example: "mkdir foo",
+                result: None,
+            },
+            Example {
+                description: "Make multiple directories and show the paths created",
+                example: "mkdir -s foo/bar foo2",
+                result: None,
+            },
+        ]
     }
 }

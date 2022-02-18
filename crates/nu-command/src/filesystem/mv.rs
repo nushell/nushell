@@ -5,7 +5,9 @@ use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+};
 
 const GLOB_PARAMS: glob::MatchOptions = glob::MatchOptions {
     case_sensitive: true,
@@ -128,6 +130,26 @@ impl Command for Mv {
         }
 
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Rename a file",
+                example: "mv before.txt after.txt",
+                result: None,
+            },
+            Example {
+                description: "Move a file into a directory",
+                example: "mv test.txt my/subdirectory",
+                result: None,
+            },
+            Example {
+                description: "Move many files into a directory",
+                example: "mv *.txt my/subdirectory",
+                result: None,
+            },
+        ]
     }
 }
 
