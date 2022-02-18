@@ -2,7 +2,7 @@ use chrono_tz::TZ_VARIANTS;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -46,9 +46,16 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "date list-timezone | where timezone =~ Asia",
-            description: "Show all Asia timezones",
-            result: None,
+            example: "date list-timezone | where timezone =~ Shanghai",
+            description: "Show timezone(s) that contains 'Shanghai'",
+            result: Some(Value::List {
+                vals: vec![Value::Record {
+                    cols: vec!["timezone".into()],
+                    vals: vec![Value::test_string("Asia/Shanghai")],
+                    span: Span::test_data(),
+                }],
+                span: Span::test_data(),
+            }),
         }]
     }
 }
