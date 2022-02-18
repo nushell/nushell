@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
+    Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -63,5 +63,13 @@ impl Command for Wrap {
             }
             .into_pipeline_data()),
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Wrap a list into a table with a given column name",
+            example: "echo [1 2 3] | wrap num",
+            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["num".into()], vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)], span: Span::test_data()}], span: Span::test_data()}),
+        }]
     }
 }

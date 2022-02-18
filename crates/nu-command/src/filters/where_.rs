@@ -1,7 +1,7 @@
 use nu_engine::{eval_block_with_redirect, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Where;
@@ -62,5 +62,30 @@ impl Command for Where {
                 ctrlc,
             )
             .map(|x| x.set_metadata(metadata))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "List all files in the current directory with sizes greater than 2kb",
+                example: "ls | where size > 2kb",
+                result: None,
+            },
+            Example {
+                description: "List only the files in the current directory",
+                example: "ls | where type == file",
+                result: None,
+            },
+            Example {
+                description: "List all files with names that contain \"Car\"",
+                example: "ls | where name =~ \"Car\"",
+                result: None,
+            },
+            Example {
+                description: "List all files that were modified in the last two weeks",
+                example: "ls | where modified <= 2wk",
+                result: None,
+            },
+        ]
     }
 }

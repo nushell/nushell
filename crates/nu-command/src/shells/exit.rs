@@ -1,7 +1,7 @@
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -96,5 +96,20 @@ impl Command for Exit {
 
             Ok(PipelineData::new(call.head))
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Exit the current shell",
+                example: "exit",
+                result: None,
+            },
+            Example {
+                description: "Exit all shells (exiting Nu)",
+                example: "exit --now",
+                result: None,
+            },
+        ]
     }
 }
