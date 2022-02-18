@@ -303,13 +303,21 @@ impl ProcessInfo {
 
     /// Name of command
     pub fn name(&self) -> String {
-        // self.command()
-        //     .split(' ')
-        //     .collect::<Vec<_>>()
-        //     .first()
-        //     .map(|x| x.to_string())
-        //     .unwrap_or_default()
-        self.command_only()
+        if let Some(path) = &self.curr_path {
+            if !path.cmd.is_empty() {
+                let command_path = &path.exe;
+
+                if let Some(command_name) = command_path.file_name() {
+                    command_name.to_string_lossy().to_string()
+                } else {
+                    command_path.to_string_lossy().to_string()
+                }
+            } else {
+                String::from("")
+            }
+        } else {
+            String::from("")
+        }
     }
 
     /// Full name of command, with arguments
@@ -325,7 +333,7 @@ impl ProcessInfo {
         }
     }
 
-    /// Full name of comand only
+    /// Full name of command only
     pub fn command_only(&self) -> String {
         if let Some(path) = &self.curr_path {
             if !path.cmd.is_empty() {
