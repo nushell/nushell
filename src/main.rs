@@ -51,6 +51,7 @@ fn main() -> Result<()> {
     let delta = {
         let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
         working_set.add_decl(Box::new(nu_cli::NuHighlight));
+        working_set.add_decl(Box::new(nu_cli::Print));
 
         working_set.render()
     };
