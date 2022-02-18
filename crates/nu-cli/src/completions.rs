@@ -71,7 +71,9 @@ impl NuCompleter {
     ) -> Vec<(reedline::Span, String)> {
         let mut output = vec![];
 
-        let builtins = ["$nu", "$scope", "$in", "$config", "$env"];
+        let builtins = [
+            "$nu", "$scope", "$in", "$config", "$env", "$true", "$false", "$nothing",
+        ];
 
         for builtin in builtins {
             if builtin.as_bytes().starts_with(prefix) {
