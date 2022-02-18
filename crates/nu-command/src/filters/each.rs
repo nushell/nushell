@@ -115,7 +115,7 @@ impl Command for Each {
                         Err(error) => Value::Error { error },
                     }
                 })
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(ctrlc.clone())),
             PipelineData::RawStream(stream, ..) => Ok(stream
                 .into_iter()
                 .enumerate()
@@ -160,7 +160,7 @@ impl Command for Each {
                         Err(error) => Value::Error { error },
                     }
                 })
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(ctrlc.clone())),
             PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                 let mut output_cols = vec![];
                 let mut output_vals = vec![];
@@ -231,6 +231,7 @@ impl Command for Each {
                 eval_block_with_redirect(&engine_state, &mut stack, &block, PipelineData::new(span))
             }
         }
+        .and_then(|x| x.filter(|x| !x.is_nothing(), ctrlc))
     }
 }
 
