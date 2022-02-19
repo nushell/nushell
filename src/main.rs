@@ -262,16 +262,14 @@ fn parse_commandline_args(
                 expression: Option<Expression>,
                 engine_state: &mut EngineState,
             ) -> Option<Spanned<String>> {
-                if let Some(expression) = expression {
-                    let contents = engine_state.get_span_contents(&expression.span);
+                expression.map(|expr| {
+                    let contents = engine_state.get_span_contents(&expr.span);
 
-                    Some(Spanned {
+                    Spanned {
                         item: String::from_utf8_lossy(contents).to_string(),
-                        span: expression.span,
-                    })
-                } else {
-                    None
-                }
+                        span: expr.span,
+                    }
+                })
             }
 
             let commands = extract_contents(commands, engine_state);
