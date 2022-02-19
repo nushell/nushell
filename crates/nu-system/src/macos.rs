@@ -333,19 +333,6 @@ impl ProcessInfo {
         }
     }
 
-    /// Full name of command only
-    pub fn command_only(&self) -> String {
-        if let Some(path) = &self.curr_path {
-            if !path.cmd.is_empty() {
-                path.exe.to_string_lossy().to_string()
-            } else {
-                String::from("")
-            }
-        } else {
-            String::from("")
-        }
-    }
-
     /// Get the status of the process
     pub fn status(&self) -> String {
         let mut state = 7;
