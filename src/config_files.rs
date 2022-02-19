@@ -49,9 +49,8 @@ pub(crate) fn read_config_file(
     if let Some(file) = config_file {
         let working_set = StateWorkingSet::new(engine_state);
         let cwd = working_set.get_cwd();
-        let config_path = canonicalize_with(&file.item, cwd);
 
-        match config_path {
+        match canonicalize_with(&file.item, cwd) {
             Ok(path) => {
                 eval_config_contents(path, engine_state, stack);
             }
@@ -67,6 +66,7 @@ pub(crate) fn read_config_file(
         if !config_path.exists() {
             if let Err(err) = std::fs::create_dir_all(&config_path) {
                 eprintln!("Failed to create config directory: {}", err);
+                return;
             }
         }
 
