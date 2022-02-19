@@ -122,7 +122,7 @@ fn from_tsv_text_skipping_headers_to_table() {
             r#"
                 open los_tres_amigos.txt
                 | from tsv --noheaders
-                | get Column3
+                | get column3
                 | length
             "#
         ));

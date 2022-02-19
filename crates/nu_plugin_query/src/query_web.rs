@@ -180,7 +180,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         let mut vals = vec![];
         for row in &table_with_no_empties {
             for (counter, cell) in row.iter().enumerate() {
-                cols.push(format!("Column{}", counter));
+                cols.push(format!("column{}", counter));
                 vals.push(Value::string(cell.to_string(), span))
             }
         }
