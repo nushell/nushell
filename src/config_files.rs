@@ -5,9 +5,9 @@ use nu_parser::ParseError;
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
 use nu_protocol::{PipelineData, Span, Spanned};
-use std::path::PathBuf;
 use std::fs::File;
 use std::io::Write;
+use std::path::PathBuf;
 
 const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";
