@@ -142,6 +142,7 @@ lazy_static! {
     AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_end", code: "\x1b[0J".to_string()}, // clears from cursor until end of screen
     AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_beginning", code: "\x1b[1J".to_string()}, // clears from cursor to beginning of screen
     AnsiCode{ short_name: Some("cls"), long_name:"clear_entire_screen", code: "\x1b[2J".to_string()}, // clears the entire screen
+    AnsiCode{ short_name: Some("clsb"), long_name:"clear_entire_screen_plus_buffer", code: "\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
     AnsiCode{ short_name: None, long_name:"erase_line", code: "\x1b[K".to_string()},                   // clears the current line
     AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_end", code: "\x1b[0K".to_string()}, // clears from cursor to end of line
     AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_beginning", code: "\x1b[1K".to_string()}, // clears from cursor to start of line
@@ -150,6 +151,7 @@ lazy_static! {
     // Turn on/off cursor
     AnsiCode{ short_name: None, long_name:"cursor_off", code: "\x1b[?25l".to_string()},
     AnsiCode{ short_name: None, long_name:"cursor_on", code: "\x1b[?25h".to_string()},
+    AnsiCode{ short_name: Some("home"), long_name:"cursor_home", code: "\x1b[H".to_string()},
 
     // Turn on/off blinking
     AnsiCode{ short_name: None, long_name:"cursor_blink_off", code: "\x1b[?12l".to_string()},
@@ -162,7 +164,9 @@ lazy_static! {
     AnsiCode{ short_name: None, long_name:"identity", code: "\x1b[0c".to_string()},
 
     // Ansi escape only - CSI command
-    AnsiCode{ short_name: Some("escape"), long_name: "escape_left", code: "\x1b[".to_string()},
+    AnsiCode{ short_name: Some("esc"), long_name: "escape", code: "\x1b".to_string()},
+    // Ansi escape only - CSI command
+    AnsiCode{ short_name: Some("csi"), long_name: "escape_left", code: "\x1b[".to_string()},
     // OSC escape (Operating system command)
     AnsiCode{ short_name: Some("osc"), long_name:"escape_right", code: "\x1b]".to_string()},
     // OSC string terminator
