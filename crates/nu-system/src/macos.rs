@@ -316,18 +316,7 @@ impl ProcessInfo {
     pub fn command(&self) -> String {
         if let Some(path) = &self.curr_path {
             if !path.cmd.is_empty() {
-                let mut cmd = path
-                    .cmd
-                    .iter()
-                    .cloned()
-                    .map(|mut x| {
-                        x.push(' ');
-                        x
-                    })
-                    .collect::<String>();
-                cmd.pop();
-                cmd = cmd.replace("\n", " ").replace("\t", " ");
-                cmd
+                path.cmd.join(" ").replace("\n", " ").replace("\t", " ")
             } else {
                 String::from("")
             }
