@@ -71,18 +71,7 @@ impl Command for DetectColumns {
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
                 example: "echo $'c1 c2 c3(char nl)a b c' | detect columns",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["c1".to_string(), "c2".to_string(), "c3".to_string()],
-                        vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
-                        ],
-                        span,
-                    }],
-                    span,
-                }),
+                result: None,
             },
         ]
     }
