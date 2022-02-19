@@ -12,15 +12,18 @@ use nu_cli::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_color_config::get_color_config;
 use nu_engine::convert_env_values;
 use nu_parser::lex;
-use nu_protocol::PipelineData;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Config, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
+use nu_protocol::{PipelineData, Spanned};
 use reedline::{DefaultHinter, Emacs, Vi};
 use std::{sync::atomic::Ordering, time::Instant};
 
-pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
+pub(crate) fn evaluate(
+    engine_state: &mut EngineState,
+    config_file: Option<Spanned<String>>,
+) -> Result<()> {
     // use crate::logger::{configure, logger};
     use reedline::{FileBackedHistory, Reedline, Signal};
 
@@ -53,7 +56,7 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
         info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     }
 
-    config_files::read_config_file(engine_state, &mut stack);
+    config_files::read_config_file(engine_state, &mut stack, config_file);
     let history_path = config_files::create_history_path();
 
     // Load config struct form config variable
