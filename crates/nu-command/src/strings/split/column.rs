@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -41,6 +41,51 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         split_column(engine_state, stack, call, input)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Split a string into columns by the specified separator",
+                example: "echo 'a--b--c' | split column '--'",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec![
+                            "Column1".to_string(),
+                            "Column2".to_string(),
+                            "Column3".to_string(),
+                        ],
+                        vals: vec![
+                            Value::test_string("a"),
+                            Value::test_string("b"),
+                            Value::test_string("c"),
+                        ],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Split a string into columns of char and remove the empty columns",
+                example: "echo 'abc' | split column -c ''",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec![
+                            "Column1".to_string(),
+                            "Column2".to_string(),
+                            "Column3".to_string(),
+                        ],
+                        vals: vec![
+                            Value::test_string("a"),
+                            Value::test_string("b"),
+                            Value::test_string("c"),
+                        ],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 

@@ -3,7 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -51,6 +52,70 @@ impl Command for Transpose {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         transpose(engine_state, stack, call, input)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        let span = Span::test_data();
+        vec![
+            Example {
+                description: "Transposes the table contents with default column names",
+                example: "echo [[c1 c2]; [1 2]] | transpose",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["Column0".to_string(), "Column1".to_string()],
+                            vals: vec![Value::test_string("c1"), Value::test_int(1)],
+                            span,
+                        },
+                        Value::Record {
+                            cols: vec!["Column0".to_string(), "Column1".to_string()],
+                            vals: vec![Value::test_string("c2"), Value::test_int(2)],
+                            span,
+                        },
+                    ],
+                    span,
+                }),
+            },
+            Example {
+                description: "Transposes the table contents with specified column names",
+                example: "echo [[c1 c2]; [1 2]] | transpose key val",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["key".to_string(), "val".to_string()],
+                            vals: vec![Value::test_string("c1"), Value::test_int(1)],
+                            span,
+                        },
+                        Value::Record {
+                            cols: vec!["key".to_string(), "val".to_string()],
+                            vals: vec![Value::test_string("c2"), Value::test_int(2)],
+                            span,
+                        },
+                    ],
+                    span,
+                }),
+            },
+            Example {
+                description:
+                    "Transposes the table without column names and specify a new column name",
+                example: "echo [[c1 c2]; [1 2]] | transpose -i val",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["val".to_string()],
+                            vals: vec![Value::test_int(1)],
+                            span,
+                        },
+                        Value::Record {
+                            cols: vec!["val".to_string()],
+                            vals: vec![Value::test_int(2)],
+                            span,
+                        },
+                    ],
+                    span,
+                }),
+            },
+        ]
     }
 }
 
