@@ -143,7 +143,7 @@ fn main() -> Result<()> {
                 let level = binary_args
                     .log_level
                     .map(|level| level.item)
-                    .unwrap_or("info".to_string());
+                    .unwrap_or_else(|| "info".to_string());
 
                 logger(|builder| {
                     configure(level.as_str(), builder)?;

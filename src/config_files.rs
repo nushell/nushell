@@ -151,4 +151,3 @@ pub(crate) fn create_history_path() -> Option<PathBuf> {
         }
     })
 }
-
