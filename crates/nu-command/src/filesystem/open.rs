@@ -142,7 +142,7 @@ impl Command for Open {
                     Some(converter_id) => engine_state.get_decl(converter_id).run(
                         engine_state,
                         stack,
-                        &Call::new(call_span),
+                        &Call::new(arg_span),
                         output,
                     ),
                     None => Ok(output),

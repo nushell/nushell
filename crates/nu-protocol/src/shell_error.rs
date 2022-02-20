@@ -74,7 +74,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::feature_not_enabled), url(docsrs))]
     FeatureNotEnabled(#[label = "feature not enabled"] Span),
 
-    #[error("External commands not yet supported")]
+    #[error("Running external commands not supported")]
     #[diagnostic(code(nu::shell::external_commands), url(docsrs))]
     ExternalNotSupported(#[label = "external not supported"] Span),
 
@@ -152,7 +152,7 @@ pub enum ShellError {
 
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
-    UnsupportedInput(String, #[label("{0}")] Span),
+    UnsupportedInput(String, #[label("{0} not supported")] Span),
 
     #[error("Network failure")]
     #[diagnostic(code(nu::shell::network_failure), url(docsrs))]

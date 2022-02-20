@@ -76,7 +76,7 @@ itertools = "0.10.3"
 plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
 default = ["plugin", "inc", "example", "which"]
 stable = ["default"]
-extra = [ "default", "dataframe", "gstat", "zip-support", "query", ]
+extra = ["default", "dataframe", "gstat", "zip-support", "query", "trash-support"]
 wasi = ["inc"]
 trash-support = ["nu-command/trash-support"]
 

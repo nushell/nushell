@@ -26,7 +26,7 @@ impl Command for FromJson {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "'{ a:1 }' | from json",
+                example: r#"'{ "a": 1 }' | from json"#,
                 description: "Converts json formatted string to table",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string()],
@@ -38,7 +38,7 @@ impl Command for FromJson {
                 }),
             },
             Example {
-                example: "'{ a:1, b: [1, 2] }' | from json",
+                example: r#"'{ "a": 1, "b": [1, 2] }' | from json"#,
                 description: "Converts json formatted string to table",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
