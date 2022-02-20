@@ -1,7 +1,8 @@
+use nu_engine::CallExt;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +16,12 @@ impl Command for ToJson {
     fn signature(&self) -> Signature {
         Signature::build("to json")
             .switch("raw", "remove all of the whitespace", Some('r'))
+            .named(
+                "indent",
+                SyntaxShape::Number,
+                "specify indentation width",
+                Some('i'),
+            )
             .category(Category::Formats)
     }
 
@@ -24,24 +31,26 @@ impl Command for ToJson {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let raw = call.has_flag("raw");
 
-        let json_function = if raw {
-            nu_json::to_string_raw
-        } else {
-            nu_json::to_string
-        };
-
         let span = call.head;
         let value = input.into_value(span);
         let json_value = value_to_json_value(&value)?;
 
-        match json_function(&json_value) {
+        let json_result = if raw {
+            nu_json::to_string_raw(&json_value)
+        } else {
+            let indent: usize = call.get_flag(engine_state, stack, "indent")?.unwrap_or(2);
+
+            nu_json::to_string_with_indent(&json_value, indent)
+        };
+
+        match json_result {
             Ok(serde_json_string) => Ok(Value::String {
                 val: serde_json_string,
                 span,
@@ -55,12 +64,26 @@ impl Command for ToJson {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description:
-                "Outputs an unformatted JSON string representing the contents of this table",
-            example: "[1 2 3] | to json",
-            result: Some(Value::test_string("[\n  1,\n  2,\n  3\n]")),
-        }]
+        vec![
+            Example {
+                description:
+                    "Outputs a JSON string, with default indentation, representing the contents of this table",
+                example: "[a b c] | to json",
+                result: Some(Value::test_string("[\n  \"a\",\n  \"b\",\n  \"c\"\n]")),
+            },
+            Example {
+                description:
+                    "Outputs a JSON string, with 4-space indentation, representing the contents of this table",
+                example: "[Joe Bob Sam] | to json -i 4",
+                result: Some(Value::test_string("[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]")),
+            },
+            Example {
+                description:
+                    "Outputs an unformatted JSON string representing the contents of this table",
+                example: "[1 2 3] | to json -r",
+                result: Some(Value::test_string("[1,2,3]")),
+            },
+        ]
     }
 }
 
