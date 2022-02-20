@@ -299,7 +299,7 @@ pub fn get_flags_section(signature: &Signature) -> String {
                     flag.long, arg, flag.desc
                 )
             } else {
-                format!("  --{} {:?}\n      {}\n", flag.long, arg, flag.desc)
+                format!("  --{} <{:?}>\n      {}\n", flag.long, arg, flag.desc)
             }
         } else if let Some(short) = flag.short {
             if flag.required {
