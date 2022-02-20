@@ -39,63 +39,48 @@ pub fn convert_env_values(
                 }
             };
 
-            let path_member = PathMember::String {
-                val: name.to_string(),
-                span: val_span,
-            };
-
-            if let Ok(env_conversion) = env_conversions.follow_cell_path(&[path_member]) {
-                let conv_span = match env_conversion.span() {
-                    Ok(sp) => sp,
-                    Err(e) => {
-                        error = error.or(Some(e));
-                        continue;
-                    }
-                };
-
-                let path_member = PathMember::String {
+            let path_members = &[
+                PathMember::String {
+                    val: name.to_string(),
+                    span: val_span,
+                },
+                PathMember::String {
                     val: "from_string".to_string(),
-                    span: conv_span,
-                };
+                    span: val_span,
+                },
+            ];
 
-                if let Ok(Value::Block {
-                    val: block_id,
-                    span: from_span,
-                    ..
-                }) = env_conversion.follow_cell_path(&[path_member])
-                {
-                    let block = engine_state.get_block(block_id);
+            if let Ok(Value::Block {
+                val: block_id,
+                span: from_span,
+                ..
+            }) = env_conversions.follow_cell_path(path_members)
+            {
+                let block = engine_state.get_block(block_id);
 
-                    if let Some(var) = block.signature.get_positional(0) {
-                        let mut stack = stack.gather_captures(&block.captures);
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, val.clone());
+                if let Some(var) = block.signature.get_positional(0) {
+                    let mut stack = stack.gather_captures(&block.captures);
+                    if let Some(var_id) = &var.var_id {
+                        stack.add_var(*var_id, val.clone());
+                    }
+
+                    let result =
+                        eval_block(engine_state, &mut stack, block, PipelineData::new(val_span));
+
+                    match result {
+                        Ok(data) => {
+                            let val = data.into_value(val_span);
+                            new_scope.insert(name.to_string(), val);
                         }
-
-                        let result = eval_block(
-                            engine_state,
-                            &mut stack,
-                            block,
-                            PipelineData::new(val_span),
-                        );
-
-                        match result {
-                            Ok(data) => {
-                                let val = data.into_value(val_span);
-                                new_scope.insert(name.to_string(), val);
-                            }
-                            Err(e) => error = error.or(Some(e)),
-                        }
-                    } else {
-                        error = error.or_else(|| {
-                            Some(ShellError::MissingParameter(
-                                "block input".into(),
-                                from_span,
-                            ))
-                        });
+                        Err(e) => error = error.or(Some(e)),
                     }
                 } else {
-                    new_scope.insert(name.to_string(), val.clone());
+                    error = error.or_else(|| {
+                        Some(ShellError::MissingParameter(
+                            "block input".into(),
+                            from_span,
+                        ))
+                    });
                 }
             } else {
                 new_scope.insert(name.to_string(), val.clone());
