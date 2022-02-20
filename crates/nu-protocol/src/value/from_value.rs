@@ -96,21 +96,39 @@ impl FromValue for f64 {
 impl FromValue for Spanned<usize> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
-            Value::Int { val, span } => Ok(Spanned {
-                item: *val as usize,
-                span: *span,
-            }),
-            Value::Filesize { val, span } => Ok(Spanned {
-                item: *val as usize,
-                span: *span,
-            }),
-            Value::Duration { val, span } => Ok(Spanned {
-                item: *val as usize,
-                span: *span,
-            }),
+            Value::Int { val, span } => {
+                if val.is_negative() {
+                    Err(ShellError::NeedsPositiveValue(*span))
+                } else {
+                    Ok(Spanned {
+                        item: *val as usize,
+                        span: *span,
+                    })
+                }
+            }
+            Value::Filesize { val, span } => {
+                if val.is_negative() {
+                    Err(ShellError::NeedsPositiveValue(*span))
+                } else {
+                    Ok(Spanned {
+                        item: *val as usize,
+                        span: *span,
+                    })
+                }
+            }
+            Value::Duration { val, span } => {
+                if val.is_negative() {
+                    Err(ShellError::NeedsPositiveValue(*span))
+                } else {
+                    Ok(Spanned {
+                        item: *val as usize,
+                        span: *span,
+                    })
+                }
+            }
 
             v => Err(ShellError::CantConvert(
-                "integer".into(),
+                "non-negative integer".into(),
                 v.get_type().to_string(),
                 v.span()?,
             )),
@@ -121,12 +139,30 @@ impl FromValue for Spanned<usize> {
 impl FromValue for usize {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
-            Value::Int { val, .. } => Ok(*val as usize),
-            Value::Filesize { val, .. } => Ok(*val as usize),
-            Value::Duration { val, .. } => Ok(*val as usize),
+            Value::Int { val, span } => {
+                if val.is_negative() {
+                    Err(ShellError::NeedsPositiveValue(*span))
+                } else {
+                    Ok(*val as usize)
+                }
+            }
+            Value::Filesize { val, span } => {
+                if val.is_negative() {
+                    Err(ShellError::NeedsPositiveValue(*span))
+                } else {
+                    Ok(*val as usize)
+                }
+            }
+            Value::Duration { val, span } => {
+                if val.is_negative() {
+                    Err(ShellError::NeedsPositiveValue(*span))
+                } else {
+                    Ok(*val as usize)
+                }
+            }
 
             v => Err(ShellError::CantConvert(
-                "integer".into(),
+                "non-negative integer".into(),
                 v.get_type().to_string(),
                 v.span()?,
             )),
@@ -203,12 +239,18 @@ impl FromValue for CellPath {
                     span,
                 }],
             }),
-            Value::Int { val, .. } => Ok(CellPath {
-                members: vec![PathMember::Int {
-                    val: *val as usize,
-                    span,
-                }],
-            }),
+            Value::Int { val, span } => {
+                if val.is_negative() {
+                    Err(ShellError::NeedsPositiveValue(*span))
+                } else {
+                    Ok(CellPath {
+                        members: vec![PathMember::Int {
+                            val: *val as usize,
+                            span: *span,
+                        }],
+                    })
+                }
+            }
             x => Err(ShellError::CantConvert(
                 "cell path".into(),
                 x.get_type().to_string(),
