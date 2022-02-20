@@ -82,6 +82,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         DataTypes,
         DescribeDF,
         DropDF,
+        DropDuplicates,
         DropNulls,
         Dummies,
         FilterWith,

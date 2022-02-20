@@ -14,10 +14,10 @@ use crate::logger::{configure, logger};
 use log::info;
 use miette::Result;
 use nu_command::{create_default_context, BufferedReader};
-use nu_engine::get_full_help;
+use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_protocol::{
-    ast::{Call, Expr, Expression, Pipeline, Statement},
+    ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value, CONFIG_VARIABLE_ID,
@@ -51,6 +51,7 @@ fn main() -> Result<()> {
     let delta = {
         let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
         working_set.add_decl(Box::new(nu_cli::NuHighlight));
+        working_set.add_decl(Box::new(nu_cli::Print));
 
         working_set.render()
     };
@@ -77,7 +78,6 @@ fn main() -> Result<()> {
     // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
     // then it'll be the script name
     // then the args to the script
-
     let mut collect_arg_nushell = false;
     for arg in std::env::args().skip(1) {
         if !script_name.is_empty() {
@@ -101,11 +101,15 @@ fn main() -> Result<()> {
                 || arg == "--develop"
                 || arg == "--debug"
                 || arg == "--loglevel"
-                || arg == "--config-file"
+                || arg == "--config"
                 || arg == "--perf"
+                || arg == "--threads"
+                || arg == "--version"
+                || arg == "--log-level"
             {
                 collect_arg_nushell = true;
             }
+
             args_to_nushell.push(arg);
         } else {
             // Our script file
@@ -122,13 +126,27 @@ fn main() -> Result<()> {
 
     match parsed_nu_cli_args {
         Ok(binary_args) => {
+            if let Some(t) = binary_args.threads {
+                // 0 means to let rayon decide how many threads to use
+                let threads = t.as_i64().unwrap_or(0);
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads as usize)
+                    .build_global()
+                    .expect("error setting number of threads");
+            }
+
             set_is_perf_value(binary_args.perf);
 
             if binary_args.perf {
                 // if we started in perf mode show only the info logs
                 // TODO: what happens when the config log_level is read?
+                let level = binary_args
+                    .log_level
+                    .map(|level| level.item)
+                    .unwrap_or_else(|| "info".to_string());
+
                 logger(|builder| {
-                    configure("info", builder)?;
+                    configure(level.as_str(), builder)?;
                     Ok(())
                 })?;
                 info!("start logging {}:{}:{}", file!(), line!(), column!());
@@ -178,20 +196,15 @@ fn main() -> Result<()> {
 
                 ret_val
             } else if !script_name.is_empty() && binary_args.interactive_shell.is_none() {
-                let ret_val = eval_file::evaluate(
-                    script_name,
-                    &args_to_script,
-                    init_cwd,
-                    &mut engine_state,
-                    input,
-                );
+                let ret_val =
+                    eval_file::evaluate(script_name, &args_to_script, &mut engine_state, input);
                 if is_perf_true() {
                     info!("eval_file execution {}:{}:{}", file!(), line!(), column!());
                 }
 
                 ret_val
             } else {
-                let ret_val = repl::evaluate(&mut engine_state);
+                let ret_val = repl::evaluate(&mut engine_state, binary_args.config_file);
                 if is_perf_true() {
                     info!("repl eval {}:{}:{}", file!(), line!(), column!());
                 }
@@ -236,11 +249,11 @@ fn parse_commandline_args(
     );
 
     // We should have a successful parse now
-    if let Some(Statement::Pipeline(Pipeline { expressions })) = block.stmts.get(0) {
+    if let Some(pipeline) = block.pipelines.get(0) {
         if let Some(Expression {
             expr: Expr::Call(call),
             ..
-        }) = expressions.get(0)
+        }) = pipeline.expressions.get(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");
@@ -248,28 +261,28 @@ fn parse_commandline_args(
             let commands: Option<Expression> = call.get_flag_expr("commands");
             let testbin: Option<Expression> = call.get_flag_expr("testbin");
             let perf = call.has_flag("perf");
+            let config_file: Option<Expression> = call.get_flag_expr("config");
+            let log_level: Option<Expression> = call.get_flag_expr("log-level");
+            let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
 
-            let commands = if let Some(expression) = commands {
-                let contents = engine_state.get_span_contents(&expression.span);
+            fn extract_contents(
+                expression: Option<Expression>,
+                engine_state: &mut EngineState,
+            ) -> Option<Spanned<String>> {
+                expression.map(|expr| {
+                    let contents = engine_state.get_span_contents(&expr.span);
 
-                Some(Spanned {
-                    item: String::from_utf8_lossy(contents).to_string(),
-                    span: expression.span,
+                    Spanned {
+                        item: String::from_utf8_lossy(contents).to_string(),
+                        span: expr.span,
+                    }
                 })
-            } else {
-                None
-            };
+            }
 
-            let testbin = if let Some(expression) = testbin {
-                let contents = engine_state.get_span_contents(&expression.span);
-
-                Some(Spanned {
-                    item: String::from_utf8_lossy(contents).to_string(),
-                    span: expression.span,
-                })
-            } else {
-                None
-            };
+            let commands = extract_contents(commands, engine_state);
+            let testbin = extract_contents(testbin, engine_state);
+            let config_file = extract_contents(config_file, engine_state);
+            let log_level = extract_contents(log_level, engine_state);
 
             let help = call.has_flag("help");
 
@@ -286,13 +299,27 @@ fn parse_commandline_args(
                 std::process::exit(1);
             }
 
+            if call.has_flag("version") {
+                let version = env!("CARGO_PKG_VERSION").to_string();
+                let _ = std::panic::catch_unwind(move || {
+                    let stdout = std::io::stdout();
+                    let mut stdout = stdout.lock();
+                    let _ = stdout.write_all(format!("{}\n", version).as_bytes());
+                });
+
+                std::process::exit(0);
+            }
+
             return Ok(NushellCliArgs {
                 redirect_stdin,
                 login_shell,
                 interactive_shell,
                 commands,
                 testbin,
+                config_file,
+                log_level,
                 perf,
+                threads,
             });
         }
     }
@@ -310,7 +337,10 @@ struct NushellCliArgs {
     interactive_shell: Option<Spanned<String>>,
     commands: Option<Spanned<String>>,
     testbin: Option<Spanned<String>>,
+    config_file: Option<Spanned<String>>,
+    log_level: Option<Spanned<String>>,
     perf: bool,
+    threads: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -327,6 +357,7 @@ impl Command for Nu {
             .switch("stdin", "redirect the stdin", None)
             .switch("login", "start as a login shell", Some('l'))
             .switch("interactive", "start as an interactive shell", Some('i'))
+            .switch("version", "print the version", Some('v'))
             .switch(
                 "perf",
                 "start and print performance metrics during startup",
@@ -348,6 +379,24 @@ impl Command for Nu {
                 "script file",
                 SyntaxShape::Filepath,
                 "name of the optional script file to run",
+            )
+            .named(
+                "config",
+                SyntaxShape::String,
+                "start with an alternate config file",
+                None,
+            )
+            .named(
+                "log-level",
+                SyntaxShape::String,
+                "log level for performance logs",
+                None,
+            )
+            .named(
+                "threads",
+                SyntaxShape::Int,
+                "threads to use for parallel commands",
+                Some('t'),
             )
             .rest(
                 "script args",

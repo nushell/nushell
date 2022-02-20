@@ -33,7 +33,7 @@ impl Command for Table {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("table")
             .named(
-                "start_number",
+                "start-number",
                 SyntaxShape::Int,
                 "row number to start viewing from",
                 Some('n'),
@@ -52,7 +52,7 @@ impl Command for Table {
         let ctrlc = engine_state.ctrlc.clone();
         let config = stack.get_config().unwrap_or_default();
         let color_hm = get_color_config(&config);
-        let start_num: Option<i64> = call.get_flag(engine_state, stack, "start_number")?;
+        let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
         let row_offset = start_num.unwrap_or_default() as usize;
 
         let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {

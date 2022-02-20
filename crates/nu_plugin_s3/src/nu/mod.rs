@@ -22,13 +22,13 @@ impl Plugin for handler::Handler {
                 Some('e'),
             )
             .named(
-                "access_key",
+                "access-key",
                 SyntaxShape::Any,
                 "the access key when authenticating",
                 Some('a'),
             )
             .named(
-                "secret_key",
+                "secret-key",
                 SyntaxShape::Any,
                 "the secret key when authenticating",
                 Some('s'),

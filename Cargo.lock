@@ -2123,6 +2123,7 @@ dependencies = [
  "nu_plugin_query",
  "pretty_assertions",
  "pretty_env_logger",
+ "rayon",
  "reedline",
  "rstest",
  "serial_test",
@@ -3311,7 +3312,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.2.0"
-source = "git+https://github.com/nushell/reedline?branch=main#8c565e4f1de2c6dd4f67b18876d011756bfbe16d"
+source = "git+https://github.com/nushell/reedline?branch=main#e87e9d1fd3d392308975fb6f89c1a67cc43bc8b9"
 dependencies = [
  "chrono",
  "crossterm",

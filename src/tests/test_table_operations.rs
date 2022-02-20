@@ -180,7 +180,7 @@ fn split_row() -> TestResult {
 #[test]
 fn split_column() -> TestResult {
     run_test(
-        r#""hello world" | split column " " | get "Column1".0"#,
+        r#""hello world" | split column " " | get "column1".0"#,
         "hello",
     )
 }
@@ -230,6 +230,14 @@ fn length_for_columns() -> TestResult {
 #[test]
 fn length_for_rows() -> TestResult {
     run_test(r#"[[name,age,grade]; [bill,20,a] [a b c]] | length"#, "2")
+}
+
+#[test]
+fn length_defaulted_columns() -> TestResult {
+    run_test(
+        r#"echo [[name, age]; [test, 10]] | default age 11 | get 0 | columns | length"#,
+        "2",
+    )
 }
 
 #[test]

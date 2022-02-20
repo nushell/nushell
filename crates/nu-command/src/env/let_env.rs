@@ -1,7 +1,7 @@
 use nu_engine::{current_dir, eval_expression_with_input, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct LetEnv;
@@ -57,5 +57,13 @@ impl Command for LetEnv {
             stack.add_env_var(env_var, rhs);
         }
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Create an environment variable and display it",
+            example: "let-env MY_ENV_VAR = 1; $env.MY_ENV_VAR",
+            result: Some(Value::test_int(1)),
+        }]
     }
 }

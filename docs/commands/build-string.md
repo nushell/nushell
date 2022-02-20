@@ -1,20 +1,28 @@
-# build-string
-Builds a string from the arguments.
+---
+title: build-string
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> build-string ...args {flags} 
- ```
+Create a string from the arguments.
+
+## Signature
+
+```> build-string ...rest```
 
 ## Parameters
-* ...args: all values to form into the string
 
-## Flags
-* -h, --help: Display this help message
+ -  `...rest`: list of string
 
 ## Examples
-  Builds a string from a string and a number, without spaces between them
+
+Builds a string from letters a b c
 ```shell
-> build-string 'foo' 3
- ```
+> build-string a b c
+```
+
+Builds a string from letters a b c
+```shell
+> build-string (1 + 2) = one ' ' plus ' ' two
+```
 

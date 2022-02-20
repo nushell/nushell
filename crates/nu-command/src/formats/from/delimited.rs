@@ -14,7 +14,7 @@ fn from_delimited_string_to_value(
 
     let headers = if noheaders {
         (1..=reader.headers()?.len())
-            .map(|i| format!("Column{}", i))
+            .map(|i| format!("column{}", i))
             .collect::<Vec<String>>()
     } else {
         reader.headers()?.iter().map(String::from).collect()

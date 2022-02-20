@@ -1,7 +1,9 @@
 use nu_engine::{eval_block_with_redirect, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Where;
@@ -39,28 +41,59 @@ impl Command for Where {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        input
-            .filter(
-                move |value| {
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, value.clone());
+        Ok(input
+            .into_iter()
+            .filter_map(move |value| {
+                if let Some(var) = block.signature.get_positional(0) {
+                    if let Some(var_id) = &var.var_id {
+                        stack.add_var(*var_id, value.clone());
+                    }
+                }
+                let result = eval_block_with_redirect(
+                    &engine_state,
+                    &mut stack,
+                    &block,
+                    PipelineData::new(span),
+                );
+
+                match result {
+                    Ok(result) => {
+                        let result = result.into_value(span);
+                        if result.is_true() {
+                            Some(value)
+                        } else {
+                            None
                         }
                     }
-                    let result = eval_block_with_redirect(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        PipelineData::new(span),
-                    );
+                    Err(err) => Some(Value::Error { error: err }),
+                }
+            })
+            .into_pipeline_data(ctrlc))
+        .map(|x| x.set_metadata(metadata))
+    }
 
-                    match result {
-                        Ok(result) => result.into_value(span).is_true(),
-                        _ => false,
-                    }
-                },
-                ctrlc,
-            )
-            .map(|x| x.set_metadata(metadata))
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "List all files in the current directory with sizes greater than 2kb",
+                example: "ls | where size > 2kb",
+                result: None,
+            },
+            Example {
+                description: "List only the files in the current directory",
+                example: "ls | where type == file",
+                result: None,
+            },
+            Example {
+                description: "List all files with names that contain \"Car\"",
+                example: "ls | where name =~ \"Car\"",
+                result: None,
+            },
+            Example {
+                description: "List all files that were modified in the last two weeks",
+                example: "ls | where modified <= 2wk",
+                result: None,
+            },
+        ]
     }
 }

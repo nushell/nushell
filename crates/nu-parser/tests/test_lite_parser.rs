@@ -109,7 +109,7 @@ fn separated_comments_dont_stack() -> Result<(), ParseError> {
 }
 
 #[test]
-fn multiple_statements() -> Result<(), ParseError> {
+fn multiple_pipelines() -> Result<(), ParseError> {
     // Code:
     // # A comment
     // let a = ( 3 + (

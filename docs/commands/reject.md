@@ -1,44 +1,28 @@
-# reject
+---
+title: reject
+layout: command
+version: 0.59.0
+---
 
-This command removes or rejects the columns passed to it.
+Remove the given columns from the table. If you want to remove rows, try 'drop'.
+
+## Signature
+
+```> reject ...rest```
+
+## Parameters
+
+ -  `...rest`: the names of columns to remove from the table
 
 ## Examples
 
+Lists the files in a directory without showing the modified column
 ```shell
-> ls
-━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━
- # │ name                       │ type │ readonly │ size   │ created     │ accessed    │ modified
-───┼────────────────────────────┼──────┼──────────┼────────┼─────────────┼─────────────┼─────────────
- 0 │ zeusiscrazy.txt            │ File │          │ 556 B  │ a month ago │ a month ago │ a month ago
- 1 │ coww.txt                   │ File │          │  24 B  │ a month ago │ a month ago │ a month ago
- 2 │ randomweirdstuff.txt       │ File │          │ 197 B  │ a month ago │ a month ago │ a month ago
- 3 │ abaracadabra.txt           │ File │          │ 401 B  │ a month ago │ a month ago │ a month ago
- 4 │ youshouldeatmorecereal.txt │ File │          │ 768 B  │ a month ago │ a month ago │ a month ago
-━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━
+> ls | reject modified
 ```
 
+Reject the specified field in a record
 ```shell
-> ls | reject readonly
-━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━
- # │ name                       │ type │ size   │ created     │ accessed    │ modified
-───┼────────────────────────────┼──────┼────────┼─────────────┼─────────────┼─────────────
- 0 │ zeusiscrazy.txt            │ File │ 556 B  │ a month ago │ a month ago │ a month ago
- 1 │ coww.txt                   │ File │  24 B  │ a month ago │ a month ago │ a month ago
- 2 │ randomweirdstuff.txt       │ File │ 197 B  │ a month ago │ a month ago │ a month ago
- 3 │ abaracadabra.txt           │ File │ 401 B  │ a month ago │ a month ago │ a month ago
- 4 │ youshouldeatmorecereal.txt │ File │ 768 B  │ a month ago │ a month ago │ a month ago
-━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━
+> echo {a: 1, b: 2} | reject a
 ```
 
-```shell
-> ls | reject readonly accessed
-━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━
- # │ name                       │ type │ size   │ created     │ modified
-───┼────────────────────────────┼──────┼────────┼─────────────┼─────────────
- 0 │ zeusiscrazy.txt            │ File │ 556 B  │ a month ago │ a month ago
- 1 │ coww.txt                   │ File │  24 B  │ a month ago │ a month ago
- 2 │ randomweirdstuff.txt       │ File │ 197 B  │ a month ago │ a month ago
- 3 │ abaracadabra.txt           │ File │ 401 B  │ a month ago │ a month ago
- 4 │ youshouldeatmorecereal.txt │ File │ 768 B  │ a month ago │ a month ago
-━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━
-```

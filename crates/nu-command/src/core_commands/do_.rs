@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Do;
@@ -94,5 +94,20 @@ impl Command for Do {
         } else {
             result
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Run the block",
+                example: r#"do { echo hello }"#,
+                result: Some(Value::test_string("hello")),
+            },
+            Example {
+                description: "Run the block and ignore errors",
+                example: r#"do -i { thisisnotarealcommand }"#,
+                result: None,
+            },
+        ]
     }
 }

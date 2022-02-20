@@ -5,7 +5,7 @@ fn into_int_filesize() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1kb | into int | each { $it / 1000 }
+        echo 1kb | into int | each { |it| $it / 1000 }
         "#
     ));
 
@@ -17,7 +17,7 @@ fn into_int_filesize2() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1kib | into int | each { $it / 1024 }
+        echo 1kib | into int | each { |it| $it / 1024 }
         "#
     ));
 
@@ -29,7 +29,7 @@ fn into_int_int() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1024 | into int | each { $it / 1024 }
+        echo 1024 | into int | each { |it| $it / 1024 }
         "#
     ));
 

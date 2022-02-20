@@ -1,10 +1,9 @@
-use chrono::{DateTime, FixedOffset};
 use nu_engine::{column::column_does_not_exist, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    Span, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
 };
 use std::cmp::Ordering;
 
@@ -112,10 +111,9 @@ impl Command for SortBy {
         let reverse = call.has_flag("reverse");
         let insensitive = call.has_flag("insensitive");
         let metadata = &input.metadata();
-        let config = stack.get_config()?;
         let mut vec: Vec<_> = input.into_iter().collect();
 
-        sort(&mut vec, columns, call, insensitive, &config)?;
+        sort(&mut vec, columns, call.head, insensitive)?;
 
         if reverse {
             vec.reverse()
@@ -134,14 +132,15 @@ impl Command for SortBy {
 pub fn sort(
     vec: &mut [Value],
     columns: Vec<String>,
-    call: &Call,
+    span: Span,
     insensitive: bool,
-    config: &Config,
 ) -> Result<(), ShellError> {
-    let should_sort_case_insensitively = insensitive
-        && vec
-            .iter()
-            .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
+    if vec.is_empty() {
+        return Err(ShellError::LabeledError(
+            "no values to work with".to_string(),
+            "no values to work with".to_string(),
+        ));
+    }
 
     match &vec[0] {
         Value::Record {
@@ -151,42 +150,59 @@ pub fn sort(
         } => {
             if columns.is_empty() {
                 println!("sort-by requires a column name to sort table data");
-                return Err(ShellError::CantFindColumn(call.head, call.head));
+                return Err(ShellError::CantFindColumn(span, span));
             }
 
             if column_does_not_exist(columns.clone(), cols.to_vec()) {
-                return Err(ShellError::CantFindColumn(call.head, call.head));
+                return Err(ShellError::CantFindColumn(span, span));
             }
 
-            vec.sort_by(|a, b| {
-                process(
-                    a,
-                    b,
-                    &columns[0],
-                    call,
-                    should_sort_case_insensitively,
-                    config,
-                )
-                .expect("sort_by Value::Record bug")
-                .compare()
-            });
+            // check to make sure each value in each column in the record
+            // that we asked for is a string. So, first collect all the columns
+            // that we asked for into vals, then later make sure they're all
+            // strings.
+            let mut vals = vec![];
+            for item in vec.iter() {
+                for col in &columns {
+                    let val = match item.get_data_by_key(col) {
+                        Some(v) => v,
+                        None => Value::nothing(Span::test_data()),
+                    };
+                    vals.push(val);
+                }
+            }
+
+            let should_sort_case_insensitively = insensitive
+                && vals
+                    .iter()
+                    .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
+
+            vec.sort_by(|a, b| process(a, b, &columns, span, should_sort_case_insensitively));
         }
         _ => {
             vec.sort_by(|a, b| {
-                if should_sort_case_insensitively {
-                    let lowercase_left = Value::string(
-                        a.into_string("", config).to_ascii_lowercase(),
-                        Span::test_data(),
-                    );
-                    let lowercase_right = Value::string(
-                        b.into_string("", config).to_ascii_lowercase(),
-                        Span::test_data(),
-                    );
-                    coerce_compare(&lowercase_left, &lowercase_right)
-                        .expect("sort_by default bug")
-                        .compare()
+                if insensitive {
+                    let lowercase_left = match a {
+                        Value::String { val, span } => Value::String {
+                            val: val.to_ascii_lowercase(),
+                            span: *span,
+                        },
+                        _ => a.clone(),
+                    };
+
+                    let lowercase_right = match b {
+                        Value::String { val, span } => Value::String {
+                            val: val.to_ascii_lowercase(),
+                            span: *span,
+                        },
+                        _ => b.clone(),
+                    };
+
+                    lowercase_left
+                        .partial_cmp(&lowercase_right)
+                        .unwrap_or(Ordering::Equal)
                 } else {
-                    coerce_compare(a, b).expect("sort_by default bug").compare()
+                    a.partial_cmp(b).unwrap_or(Ordering::Equal)
                 }
             });
         }
@@ -197,97 +213,53 @@ pub fn sort(
 pub fn process(
     left: &Value,
     right: &Value,
-    column: &str,
-    call: &Call,
+    columns: &[String],
+    span: Span,
     insensitive: bool,
-    config: &Config,
-) -> Result<CompareValues, (&'static str, &'static str)> {
-    let left_value = left.get_data_by_key(column);
+) -> Ordering {
+    for column in columns {
+        let left_value = left.get_data_by_key(column);
 
-    let left_res = match left_value {
-        Some(left_res) => left_res,
-        None => Value::Nothing { span: call.head },
-    };
+        let left_res = match left_value {
+            Some(left_res) => left_res,
+            None => Value::Nothing { span },
+        };
 
-    let right_value = right.get_data_by_key(column);
+        let right_value = right.get_data_by_key(column);
 
-    let right_res = match right_value {
-        Some(right_res) => right_res,
-        None => Value::Nothing { span: call.head },
-    };
+        let right_res = match right_value {
+            Some(right_res) => right_res,
+            None => Value::Nothing { span },
+        };
 
-    if insensitive {
-        let lowercase_left = Value::string(
-            left_res.into_string("", config).to_ascii_lowercase(),
-            Span::test_data(),
-        );
-        let lowercase_right = Value::string(
-            right_res.into_string("", config).to_ascii_lowercase(),
-            Span::test_data(),
-        );
-        coerce_compare(&lowercase_left, &lowercase_right)
-    } else {
-        coerce_compare(&left_res, &right_res)
-    }
-}
+        let result = if insensitive {
+            let lowercase_left = match left_res {
+                Value::String { val, span } => Value::String {
+                    val: val.to_ascii_lowercase(),
+                    span,
+                },
+                _ => left_res,
+            };
 
-#[derive(Debug)]
-pub enum CompareValues {
-    Ints(i64, i64),
-    Floats(f64, f64),
-    String(String, String),
-    Booleans(bool, bool),
-    Filesize(i64, i64),
-    Date(DateTime<FixedOffset>, DateTime<FixedOffset>),
-}
-
-impl CompareValues {
-    pub fn compare(&self) -> std::cmp::Ordering {
-        match self {
-            CompareValues::Ints(left, right) => left.cmp(right),
-            CompareValues::Floats(left, right) => process_floats(left, right),
-            CompareValues::String(left, right) => left.cmp(right),
-            CompareValues::Booleans(left, right) => left.cmp(right),
-            CompareValues::Filesize(left, right) => left.cmp(right),
-            CompareValues::Date(left, right) => left.cmp(right),
+            let lowercase_right = match right_res {
+                Value::String { val, span } => Value::String {
+                    val: val.to_ascii_lowercase(),
+                    span,
+                },
+                _ => right_res,
+            };
+            lowercase_left
+                .partial_cmp(&lowercase_right)
+                .unwrap_or(Ordering::Equal)
+        } else {
+            left_res.partial_cmp(&right_res).unwrap_or(Ordering::Equal)
+        };
+        if result != Ordering::Equal {
+            return result;
         }
     }
-}
 
-pub fn process_floats(left: &f64, right: &f64) -> std::cmp::Ordering {
-    let result = left.partial_cmp(right);
-    match result {
-        Some(Ordering::Greater) => Ordering::Greater,
-        Some(Ordering::Less) => Ordering::Less,
-        _ => Ordering::Equal,
-    }
-}
-
-pub fn coerce_compare(
-    left: &Value,
-    right: &Value,
-) -> Result<CompareValues, (&'static str, &'static str)> {
-    match (left, right) {
-        (Value::Float { val: left, .. }, Value::Float { val: right, .. }) => {
-            Ok(CompareValues::Floats(*left, *right))
-        }
-        (Value::Filesize { val: left, .. }, Value::Filesize { val: right, .. }) => {
-            Ok(CompareValues::Filesize(*left, *right))
-        }
-        (Value::Date { val: left, .. }, Value::Date { val: right, .. }) => {
-            Ok(CompareValues::Date(*left, *right))
-        }
-        (Value::Int { val: left, .. }, Value::Int { val: right, .. }) => {
-            Ok(CompareValues::Ints(*left, *right))
-        }
-        (Value::String { val: left, .. }, Value::String { val: right, .. }) => {
-            Ok(CompareValues::String(left.clone(), right.clone()))
-        }
-        (Value::Bool { val: left, .. }, Value::Bool { val: right, .. }) => {
-            Ok(CompareValues::Booleans(*left, *right))
-        }
-        _ => Err(("coerce_compare_left", "coerce_compare_right")),
-    }
+    Ordering::Equal
 }
 
 #[cfg(test)]

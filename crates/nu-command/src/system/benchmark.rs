@@ -3,7 +3,9 @@ use std::time::Instant;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
-use nu_protocol::{Category, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Benchmark;
@@ -55,5 +57,13 @@ impl Command for Benchmark {
         };
 
         Ok(output.into_pipeline_data())
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Benchmarks a command within a block",
+            example: "benchmark { sleep 500ms }",
+            result: None,
+        }]
     }
 }

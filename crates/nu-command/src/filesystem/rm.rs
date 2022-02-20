@@ -12,8 +12,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 const GLOB_PARAMS: glob::MatchOptions = glob::MatchOptions {
@@ -48,6 +48,7 @@ impl Command for Rm {
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
+            .switch("quiet", "supress output showing files deleted", Some('q'))
             // .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",
@@ -66,6 +67,31 @@ impl Command for Rm {
     ) -> Result<PipelineData, ShellError> {
         rm(engine_state, stack, call)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Delete or move a file to the system trash (depending on 'rm_always_trash' config option)",
+                example: "rm file.txt",
+                result: None,
+            },
+            Example {
+                description: "Move a file to the system trash",
+                example: "rm --trash file.txt",
+                result: None,
+            },
+            Example {
+                description: "Delete a file permanently",
+                example: "rm --permanent file.txt",
+                result: None,
+            },
+            Example {
+                description: "Delete a file, and suppress errors if no file is found",
+                example: "rm --force file.txt",
+                result: None,
+            }
+        ]
+    }
 }
 
 fn rm(
@@ -78,6 +104,7 @@ fn rm(
     let permanent = call.has_flag("permanent");
     let recursive = call.has_flag("recursive");
     let force = call.has_flag("force");
+    let quiet = call.has_flag("quiet");
     // let interactive = call.has_flag("interactive");
 
     let ctrlc = engine_state.ctrlc.clone();
@@ -241,6 +268,8 @@ fn rm(
                         Value::Error {
                             error: ShellError::SpannedLabeledError(msg, e.to_string(), span),
                         }
+                    } else if quiet {
+                        Value::Nothing { span }
                     } else {
                         let val = format!("deleted {:}", f.to_string_lossy());
                         Value::String { val, span }
@@ -266,5 +295,6 @@ fn rm(
                 }
             }
         })
+        .filter(|x| !matches!(x.get_type(), Type::Nothing))
         .into_pipeline_data(ctrlc))
 }

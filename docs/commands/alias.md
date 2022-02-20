@@ -1,32 +1,24 @@
-# alias
+---
+title: alias
+layout: command
+version: 0.59.0
+---
 
-This command allows you to define shortcuts for other common commands. By default, they only apply to the current session. To persist them, add them to your config.
+Alias a command (with optional flags) to a new name
 
-Syntax: `alias <name> = <body>`
+## Signature
 
-The command expects two parameters:
+```> alias (name) (initial_value)```
 
-* The name of the alias
-* The body of the alias
+## Parameters
+
+ -  `name`: name of the alias
+ -  `initial_value`: equals sign followed by value
 
 ## Examples
 
-Define a custom `myecho` command as an alias:
-
+Alias ll to ls -l
 ```shell
-> alias myecho = echo
-> myecho "hello world"
-hello world
+> alias ll = ls -l
 ```
 
-The suggested help command works!
-
-```shell
-> myecho -h
-
-Usage:
-  > myecho {flags}
-
-flags:
-  -h, --help: Display this help message
-```

@@ -19,7 +19,7 @@ fn to_column() {
                 | lines
                 | str trim
                 | split column ","
-                | get Column2
+                | get column2
             "#
         ));
 

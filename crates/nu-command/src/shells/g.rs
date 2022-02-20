@@ -15,7 +15,7 @@ impl Command for GotoShell {
     fn signature(&self) -> Signature {
         Signature::build("g")
             .required(
-                "shell-number",
+                "shell_number",
                 SyntaxShape::Int,
                 "shell number to change to",
             )

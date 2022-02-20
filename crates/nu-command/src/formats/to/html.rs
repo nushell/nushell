@@ -90,8 +90,8 @@ impl Command for ToHtml {
 
     fn signature(&self) -> Signature {
         Signature::build("to html")
-            .switch("html_color", "change ansi colors to html colors", Some('c'))
-            .switch("no_color", "remove all ansi colors in output", Some('n'))
+            .switch("html-color", "change ansi colors to html colors", Some('c'))
+            .switch("no-color", "remove all ansi colors in output", Some('n'))
             .switch(
                 "dark",
                 "indicate your background color is a darker color",
@@ -289,8 +289,8 @@ fn to_html(
     stack: &mut Stack,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let html_color = call.has_flag("html_color");
-    let no_color = call.has_flag("no_color");
+    let html_color = call.has_flag("html-color");
+    let no_color = call.has_flag("no-color");
     let dark = call.has_flag("dark");
     let partial = call.has_flag("partial");
     let list = call.has_flag("list");

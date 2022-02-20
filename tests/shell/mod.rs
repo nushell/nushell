@@ -23,7 +23,7 @@ fn plugins_are_declared_with_wix() {
                 | where Directory.attributes.Id == "$(var.PlatformProgramFilesFolder)"
                 | get Directory.children.Directory.children.0 | last
                 | get Directory.children.Component.children
-                | each { echo $it | first }
+                | each { |it| echo $it | first }
                 | skip
                 | where File.attributes.Name =~ "nu_plugin"
                 | str substring [_, -4] File.attributes.Name
@@ -32,7 +32,7 @@ fn plugins_are_declared_with_wix() {
                 | wrap wix
             }
             | default wix _
-            | each { if $it.wix != $it.cargo { 1 } { 0 } }
+            | each { |it| if $it.wix != $it.cargo { 1 } { 0 } }
             | math sum
             "#
     ));

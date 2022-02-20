@@ -1,30 +1,29 @@
-# exit
+---
+title: exit
+layout: command
+version: 0.59.0
+---
 
-Exits the nu shell. If you have multiple nu shells, use `exit --now` to exit all of them.
+Runs a script file in the current context.
+
+## Signature
+
+```> exit (exit_code) --now```
+
+## Parameters
+
+ -  `exit_code`: Exit code to return immediately with
+ -  `--now`: Exit out of the shell immediately
 
 ## Examples
 
+Exit the current shell
 ```shell
 > exit
 ```
 
+Exit all shells (exiting Nu)
 ```shell
-> shells
-━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- # │   │ name       │ path
-───┼───┼────────────┼─────────────────────────────────────
- 0 │   │ filesystem │ /home/jonathanturner/Source/nushell
- 1 │   │ filesystem │ /home
- 2 │ X │ filesystem │ /usr
-━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-> exit
-> shells
-━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- # │   │ name       │ path
-───┼───┼────────────┼─────────────────────────────────────
- 0 │   │ filesystem │ /home/jonathanturner/Source/nushell
- 1 │ X │ filesystem │ /home
-━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 > exit --now
-exits both the shells
 ```
+

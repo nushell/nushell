@@ -194,17 +194,7 @@ impl ProcessInfo {
     pub fn command(&self) -> String {
         if let Ok(cmd) = &self.curr_proc.cmdline() {
             if !cmd.is_empty() {
-                let mut cmd = cmd
-                    .iter()
-                    .cloned()
-                    .map(|mut x| {
-                        x.push(' ');
-                        x
-                    })
-                    .collect::<String>();
-                cmd.pop();
-                cmd = cmd.replace("\n", " ").replace("\t", " ");
-                cmd
+                cmd.join(" ").replace("\n", " ").replace("\t", " ")
             } else {
                 self.curr_proc.stat().comm.clone()
             }

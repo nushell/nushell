@@ -1,26 +1,29 @@
-# exec
-Execute command.
+---
+title: exec
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> exec <command> ...args {flags} 
- ```
+Execute a command, replacing the current process.
+
+## Signature
+
+```> exec (command) ...rest```
 
 ## Parameters
-* `<command>` the command to execute
-* ...args: any additional arguments for command
 
-## Flags
-* -h, --help: Display this help message
+ -  `command`: the command to execute
+ -  `...rest`: any additional arguments for the command
 
 ## Examples
-  Execute 'ps aux'
+
+Execute external 'ps aux' tool
 ```shell
 > exec ps aux
- ```
+```
 
-  Execute 'nautilus'
+Execute 'nautilus'
 ```shell
 > exec nautilus
- ```
+```
 

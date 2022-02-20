@@ -61,6 +61,11 @@ impl Command for Let {
                 example: "let x = 10 + 100",
                 result: None,
             },
+            Example {
+                description: "Set a variable based on the condition",
+                example: "let x = if $false { -1 } else { 1 }",
+                result: None,
+            },
         ]
     }
 }

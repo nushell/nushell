@@ -149,9 +149,9 @@ mod tests {
         let signature = Signature::build("nu-plugin")
             .required("first", SyntaxShape::String, "first required")
             .required("second", SyntaxShape::Int, "second required")
-            .required_named("first_named", SyntaxShape::String, "first named", Some('f'))
+            .required_named("first-named", SyntaxShape::String, "first named", Some('f'))
             .required_named(
-                "second_named",
+                "second-named",
                 SyntaxShape::String,
                 "second named",
                 Some('s'),

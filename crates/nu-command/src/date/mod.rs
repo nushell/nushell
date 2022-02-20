@@ -9,6 +9,7 @@ mod to_timezone;
 mod utils;
 
 pub use date_::Date;
+pub(crate) use format::generate_strftime_list;
 pub use format::SubCommand as DateFormat;
 pub use humanize::SubCommand as DateHumanize;
 pub use list_timezone::SubCommand as DateListTimezones;

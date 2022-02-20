@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -35,6 +35,35 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         split_row(engine_state, stack, call, input)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Split a string into rows of char",
+                example: "echo 'abc' | split row ''",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("a"),
+                        Value::test_string("b"),
+                        Value::test_string("c"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Split a string into rows by the specified separator",
+                example: "echo 'a--b--c' | split row '--'",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("a"),
+                        Value::test_string("b"),
+                        Value::test_string("c"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 

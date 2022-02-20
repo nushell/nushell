@@ -22,7 +22,7 @@ impl Plugin for Query {
             Signature::build("query web")
             .desc("execute selector query on html/web")
             .named("query", SyntaxShape::String, "selector query", Some('q'))
-            .switch("as_html", "return the query output as html", Some('m'))
+            .switch("as-html", "return the query output as html", Some('m'))
             .named(
                 "attribute",
                 SyntaxShape::String,
@@ -30,7 +30,7 @@ impl Plugin for Query {
                 Some('a'),
             )
             .named(
-                "as_table",
+                "as-table",
                 SyntaxShape::Table,
                 "find table based on column header list",
                 Some('t'),

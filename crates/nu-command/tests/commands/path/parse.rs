@@ -114,8 +114,6 @@ fn parses_column_path_extension() {
     assert_eq!(actual.out, "png");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn parses_into_correct_number_of_columns() {
     let actual = nu!(
@@ -123,8 +121,8 @@ fn parses_into_correct_number_of_columns() {
         r#"
             echo 'home/viking/spam.txt'
             | path parse
-            | pivot
-            | get Column0
+            | transpose
+            | get column0
             | length
         "#
     ));

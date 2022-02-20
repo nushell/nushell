@@ -127,7 +127,7 @@ fn converts_to_int() {
             | into int number_as_string
             | rename number
             | where number == 1
-            | get number
+            | get number.0
 
         "#
     ));

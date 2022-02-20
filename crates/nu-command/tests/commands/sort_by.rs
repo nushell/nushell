@@ -1,7 +1,5 @@
 use nu_test_support::{nu, pipeline};
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn by_column() {
     let actual = nu!(
@@ -12,10 +10,10 @@ fn by_column() {
             | skip 1
             | first 4
             | split column "="
-            | sort-by Column1
+            | sort-by column1
             | skip 1
             | first 1
-            | get Column1
+            | get column1
             | str trim
         "#
     ));
@@ -38,7 +36,7 @@ fn by_invalid_column() {
             | sort-by ColumnThatDoesNotExist
             | skip 1
             | first 1
-            | get Column1
+            | get column1
             | str trim
         "#
     ));
@@ -113,7 +111,7 @@ fn ls_sort_by_name_insensitive() {
         "#
     ));
 
-    let json_output = r#"[{"name": "B.txt"},{"name": "C"},{"name": "a.txt"}]"#;
+    let json_output = r#"[{"name": "a.txt"},{"name": "B.txt"},{"name": "C"}]"#;
     assert_eq!(actual.out, json_output);
 }
 
@@ -129,7 +127,7 @@ fn ls_sort_by_type_name_sensitive() {
         "#
     ));
 
-    let json_output = r#"[{"name": "C","type": "Dir"},{"name": "a.txt","type": "File"},{"name": "B.txt","type": "File"}]"#;
+    let json_output = r#"[{"name": "C","type": "Dir"},{"name": "B.txt","type": "File"},{"name": "a.txt","type": "File"}]"#;
     assert_eq!(actual.out, json_output);
 }
 
@@ -146,5 +144,18 @@ fn ls_sort_by_type_name_insensitive() {
     ));
 
     let json_output = r#"[{"name": "C","type": "Dir"},{"name": "a.txt","type": "File"},{"name": "B.txt","type": "File"}]"#;
+    assert_eq!(actual.out, json_output);
+}
+
+#[test]
+fn sort_different_types() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            [a, 1, b, 2, c, 3, [4, 5, 6], d, 4, [1, 2, 3]] | sort-by | to json --raw
+        "#
+    ));
+
+    let json_output = r#"[1,2,3,4,"a","b","c","d",[1,2,3],[4,5,6]]"#;
     assert_eq!(actual.out, json_output);
 }

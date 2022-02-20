@@ -35,12 +35,12 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
         Some(q2) => q2,
         None => "".to_string(),
     };
-    let as_html = call.has_flag("as_html");
+    let as_html = call.has_flag("as-html");
     let attribute: String = match call.get_flag("attribute")? {
         Some(a) => a,
         None => "".to_string(),
     };
-    let as_table: Value = match call.get_flag("as_table")? {
+    let as_table: Value = match call.get_flag("as-table")? {
         Some(v) => v,
         None => Value::nothing(head),
     };
@@ -180,7 +180,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         let mut vals = vec![];
         for row in &table_with_no_empties {
             for (counter, cell) in row.iter().enumerate() {
-                cols.push(format!("Column{}", counter));
+                cols.push(format!("column{}", counter));
                 vals.push(Value::string(cell.to_string(), span))
             }
         }

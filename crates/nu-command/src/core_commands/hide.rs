@@ -17,11 +17,11 @@ impl Command for Hide {
     }
 
     fn usage(&self) -> &str {
-        "Hide definitions in the current scope"
+        "Hide symbols in the current scope"
     }
 
     fn extra_usage(&self) -> &str {
-        "If there is a definition and an environment variable with the same name in the current scope, first the definition will be hidden, then the environment variable."
+        "Symbols are hidden by priority: First aliases, then custom commands, then environment variables."
     }
 
     fn run(
@@ -67,7 +67,7 @@ impl Command for Hide {
                             overlay.env_var_with_head(name, &import_pattern.head.name)
                         {
                             output.push((name, id));
-                        } else if !overlay.has_decl(name) {
+                        } else if !(overlay.has_alias(name) || overlay.has_decl(name)) {
                             return Err(ShellError::EnvVarNotFoundAtRuntime(
                                 String::from_utf8_lossy(name).into(),
                                 *span,
@@ -84,7 +84,7 @@ impl Command for Hide {
                                 overlay.env_var_with_head(name, &import_pattern.head.name)
                             {
                                 output.push((name, id));
-                            } else if !overlay.has_decl(name) {
+                            } else if !(overlay.has_alias(name) || overlay.has_decl(name)) {
                                 return Err(ShellError::EnvVarNotFoundAtRuntime(
                                     String::from_utf8_lossy(name).into(),
                                     *span,

@@ -38,6 +38,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ExportDef,
             ExportDefEnv,
             ExportEnv,
+            Extern,
             For,
             Help,
             Hide,
@@ -75,6 +76,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Flatten,
             Get,
             GroupBy,
+            Headers,
             SplitBy,
             Keep,
             Merge,
@@ -92,6 +94,11 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Reject,
             Rename,
             Reverse,
+            Roll,
+            RollDown,
+            RollUp,
+            RollLeft,
+            RollRight,
             Rotate,
             Select,
             Shuffle,
@@ -307,6 +314,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
         // Network
         bind_command! {
             Fetch,
+            Post,
             Url,
             UrlHost,
             UrlPath,
@@ -345,11 +353,22 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ViewSource,
         };
 
+        // Deprecated
+        bind_command! {
+            InsertDeprecated,
+            PivotDeprecated,
+            StrDatetimeDeprecated,
+            StrDecimalDeprecated,
+            StrIntDeprecated,
+            NthDeprecated,
+            UnaliasDeprecated,
+        };
+
+        #[cfg(feature = "dataframe")]
+        bind_command!(DataframeDeprecated);
+
         #[cfg(feature = "plugin")]
         bind_command!(Register);
-
-        // This is a WIP proof of concept
-        // bind_command!(ListGitBranches, Git, GitCheckout, Source);
 
         working_set.render()
     };

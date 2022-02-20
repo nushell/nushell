@@ -34,8 +34,13 @@ fn alias_2_multi_word() -> TestResult {
 }
 
 #[test]
+fn alias_recursion() -> TestResult {
+    run_test_contains(r#"alias ls = (ls | sort-by type name -i); ls"#, " ")
+}
+
+#[test]
 fn block_param1() -> TestResult {
-    run_test("[3] | each { $it + 10 } | get 0", "13")
+    run_test("[3] | each { |it| $it + 10 } | get 0", "13")
 }
 
 #[test]
@@ -45,7 +50,7 @@ fn block_param2() -> TestResult {
 
 #[test]
 fn block_param3_list_iteration() -> TestResult {
-    run_test("[1,2,3] | each { $it + 10 } | get 1", "12")
+    run_test("[1,2,3] | each { |it| $it + 10 } | get 1", "12")
 }
 
 #[test]
@@ -65,7 +70,7 @@ fn range_iteration2() -> TestResult {
 
 #[test]
 fn simple_value_iteration() -> TestResult {
-    run_test("4 | each { $it + 10 }", "14")
+    run_test("4 | each { |it| $it + 10 }", "14")
 }
 
 #[test]
@@ -111,7 +116,7 @@ fn bad_var_name() -> TestResult {
 #[test]
 fn long_flag() -> TestResult {
     run_test(
-        r#"([a, b, c] | each --numbered { if $it.index == 1 { 100 } else { 0 } }).1"#,
+        r#"([a, b, c] | each --numbered { |it| if $it.index == 1 { 100 } else { 0 } }).1"#,
         "100",
     )
 }
@@ -196,4 +201,131 @@ fn let_env_expressions() -> TestResult {
         r#"let-env PATH = if (env | any? name == VENV_OLD_PATH) { $env.VENV_OLD_PATH } else { $env.PATH }; echo done"#,
         "done",
     )
+}
+
+#[test]
+fn string_interpolation_paren_test() -> TestResult {
+    run_test(r#"$"('(')(')')""#, "()")
+}
+
+#[test]
+fn string_interpolation_paren_test2() -> TestResult {
+    run_test(r#"$"('(')test(')')""#, "(test)")
+}
+
+#[test]
+fn string_interpolation_paren_test3() -> TestResult {
+    run_test(r#"$"('(')("test")test(')')""#, "(testtest)")
+}
+
+#[test]
+fn capture_multiple_commands() -> TestResult {
+    run_test(
+        r#"
+let CONST_A = 'Hello'
+
+def 'say-hi' [] {
+    echo (call-me)
+}
+
+def 'call-me' [] {
+    echo $CONST_A
+}
+
+[(say-hi) (call-me)] | str collect    
+    
+    "#,
+        "HelloHello",
+    )
+}
+
+#[test]
+fn capture_multiple_commands2() -> TestResult {
+    run_test(
+        r#"
+let CONST_A = 'Hello'
+
+def 'call-me' [] {
+    echo $CONST_A
+}
+
+def 'say-hi' [] {
+    echo (call-me)
+}
+
+[(say-hi) (call-me)] | str collect    
+    
+    "#,
+        "HelloHello",
+    )
+}
+
+#[test]
+fn capture_multiple_commands3() -> TestResult {
+    run_test(
+        r#"
+let CONST_A = 'Hello'
+
+def 'say-hi' [] {
+    echo (call-me)
+}
+
+def 'call-me' [] {
+    echo $CONST_A
+}
+
+[(call-me) (say-hi)] | str collect    
+    
+    "#,
+        "HelloHello",
+    )
+}
+
+#[test]
+fn capture_multiple_commands4() -> TestResult {
+    run_test(
+        r#"
+let CONST_A = 'Hello'
+
+def 'call-me' [] {
+    echo $CONST_A
+}
+
+def 'say-hi' [] {
+    echo (call-me)
+}
+
+[(call-me) (say-hi)] | str collect    
+    
+    "#,
+        "HelloHello",
+    )
+}
+
+#[test]
+fn capture_row_condition() -> TestResult {
+    run_test(
+        r#"let name = "foo"; [foo] | where $'($name)' =~ $it | str collect"#,
+        "foo",
+    )
+}
+
+#[test]
+fn proper_missing_param() -> TestResult {
+    fail_test(r#"def foo [x y z w] { }; foo a b c"#, "missing w")
+}
+
+#[test]
+fn block_arity_check1() -> TestResult {
+    fail_test(r#"ls | each { 1 }"#, "expected 1 block parameter")
+}
+
+#[test]
+fn block_arity_check2() -> TestResult {
+    fail_test(r#"ls | reduce { 1 }"#, "expected 2 block parameters")
+}
+
+#[test]
+fn block_arity_check3() -> TestResult {
+    fail_test(r#"ls | each { |x, y| 1}"#, "expected 1 block parameter")
 }

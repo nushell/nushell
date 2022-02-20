@@ -195,8 +195,6 @@ fn moves_a_directory_with_files() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_if_source_doesnt_exist() {
     Playground::setup("mv_test_10", |dirs, sandbox| {
@@ -205,12 +203,10 @@ fn errors_if_source_doesnt_exist() {
             cwd: dirs.test(),
             "mv non-existing-file test_folder/"
         );
-        assert!(actual.err.contains("Invalid file or pattern"));
+        assert!(actual.err.contains("invalid file or pattern"));
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_if_destination_doesnt_exist() {
     Playground::setup("mv_test_10_1", |dirs, sandbox| {
@@ -221,12 +217,10 @@ fn errors_if_destination_doesnt_exist() {
             "mv empty.txt does/not/exist"
         );
 
-        assert!(actual.err.contains("Destination directory does not exist"));
+        assert!(actual.err.contains("directory not found"));
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_if_multiple_sources_but_destination_not_a_directory() {
     Playground::setup("mv_test_10_2", |dirs, sandbox| {
@@ -247,8 +241,6 @@ fn errors_if_multiple_sources_but_destination_not_a_directory() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_if_renaming_directory_to_an_existing_file() {
     Playground::setup("mv_test_10_3", |dirs, sandbox| {
@@ -261,12 +253,11 @@ fn errors_if_renaming_directory_to_an_existing_file() {
             "mv mydir empty.txt"
         );
 
-        assert!(actual.err.contains("Cannot rename a directory to a file"));
+        assert!(actual.err.contains("Can't move a directory"),);
+        assert!(actual.err.contains("to a file"),);
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_if_moving_to_itself() {
     Playground::setup("mv_test_10_4", |dirs, sandbox| {

@@ -5,7 +5,7 @@ use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
 
 use crate::filesystem::util::FileStructure;
 
@@ -175,6 +175,21 @@ impl Command for Cp {
         }
 
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Copy myfile to dir_b",
+                example: "cp myfile dir_b",
+                result: None,
+            },
+            Example {
+                description: "Recursively copy dir_a to dir_b",
+                example: "cp -r dir_a dir_b",
+                result: None,
+            },
+        ]
     }
 
     //     let mut sources =

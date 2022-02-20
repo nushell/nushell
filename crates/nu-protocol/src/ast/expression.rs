@@ -1,4 +1,4 @@
-use super::{Expr, Operator, Statement};
+use super::{Expr, Operator};
 use crate::ast::ImportPattern;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
 
@@ -116,7 +116,7 @@ impl Expression {
                     return true;
                 }
 
-                if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
+                if let Some(pipeline) = block.pipelines.get(0) {
                     match pipeline.expressions.get(0) {
                         Some(expr) => expr.has_in_variable(working_set),
                         None => false,
@@ -218,7 +218,7 @@ impl Expression {
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
+                if let Some(pipeline) = block.pipelines.get(0) {
                     if let Some(expr) = pipeline.expressions.get(0) {
                         expr.has_in_variable(working_set)
                     } else {
@@ -261,7 +261,7 @@ impl Expression {
             Expr::Block(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_expr = if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
+                let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
                     if let Some(expr) = pipeline.expressions.get(0) {
                         let mut new_expr = expr.clone();
                         new_expr.replace_in_variable(working_set, new_var_id);
@@ -276,7 +276,7 @@ impl Expression {
                 let block = working_set.get_block_mut(*block_id);
 
                 if let Some(new_expr) = new_expr {
-                    if let Some(Statement::Pipeline(pipeline)) = block.stmts.get_mut(0) {
+                    if let Some(pipeline) = block.pipelines.get_mut(0) {
                         if let Some(expr) = pipeline.expressions.get_mut(0) {
                             *expr = new_expr
                         }
@@ -353,7 +353,7 @@ impl Expression {
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_expr = if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
+                let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
                     if let Some(expr) = pipeline.expressions.get(0) {
                         let mut new_expr = expr.clone();
                         new_expr.replace_in_variable(working_set, new_var_id);
@@ -368,7 +368,7 @@ impl Expression {
                 let block = working_set.get_block_mut(*block_id);
 
                 if let Some(new_expr) = new_expr {
-                    if let Some(Statement::Pipeline(pipeline)) = block.stmts.get_mut(0) {
+                    if let Some(pipeline) = block.pipelines.get_mut(0) {
                         if let Some(expr) = pipeline.expressions.get_mut(0) {
                             *expr = new_expr
                         }
@@ -399,6 +399,124 @@ impl Expression {
                     *x = new_var_id
                 }
             }
+            Expr::VarDecl(_) => {}
+        }
+    }
+
+    pub fn replace_span(
+        &mut self,
+        working_set: &mut StateWorkingSet,
+        replaced: Span,
+        new_span: Span,
+    ) {
+        if replaced.contains_span(self.span) {
+            self.span = new_span;
+        }
+        match &mut self.expr {
+            Expr::BinaryOp(left, _, right) => {
+                left.replace_span(working_set, replaced, new_span);
+                right.replace_span(working_set, replaced, new_span);
+            }
+            Expr::Block(block_id) => {
+                let mut block = working_set.get_block(*block_id).clone();
+
+                for pipeline in block.pipelines.iter_mut() {
+                    for expr in pipeline.expressions.iter_mut() {
+                        expr.replace_span(working_set, replaced, new_span)
+                    }
+                }
+
+                *block_id = working_set.add_block(block);
+            }
+            Expr::Bool(_) => {}
+            Expr::Call(call) => {
+                if replaced.contains_span(call.head) {
+                    call.head = new_span;
+                }
+                for positional in &mut call.positional {
+                    positional.replace_span(working_set, replaced, new_span);
+                }
+                for named in &mut call.named {
+                    if let Some(expr) = &mut named.1 {
+                        expr.replace_span(working_set, replaced, new_span)
+                    }
+                }
+            }
+            Expr::CellPath(_) => {}
+            Expr::ExternalCall(head, args) => {
+                head.replace_span(working_set, replaced, new_span);
+                for arg in args {
+                    arg.replace_span(working_set, replaced, new_span)
+                }
+            }
+            Expr::Filepath(_) => {}
+            Expr::Float(_) => {}
+            Expr::FullCellPath(full_cell_path) => {
+                full_cell_path
+                    .head
+                    .replace_span(working_set, replaced, new_span);
+            }
+            Expr::ImportPattern(_) => {}
+            Expr::Garbage => {}
+            Expr::Nothing => {}
+            Expr::GlobPattern(_) => {}
+            Expr::Int(_) => {}
+            Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span),
+            Expr::List(list) => {
+                for l in list {
+                    l.replace_span(working_set, replaced, new_span)
+                }
+            }
+            Expr::Operator(_) => {}
+            Expr::Range(left, middle, right, ..) => {
+                if let Some(left) = left {
+                    left.replace_span(working_set, replaced, new_span)
+                }
+                if let Some(middle) = middle {
+                    middle.replace_span(working_set, replaced, new_span)
+                }
+                if let Some(right) = right {
+                    right.replace_span(working_set, replaced, new_span)
+                }
+            }
+            Expr::Record(fields) => {
+                for (field_name, field_value) in fields {
+                    field_name.replace_span(working_set, replaced, new_span);
+                    field_value.replace_span(working_set, replaced, new_span);
+                }
+            }
+            Expr::Signature(_) => {}
+            Expr::String(_) => {}
+            Expr::StringInterpolation(items) => {
+                for i in items {
+                    i.replace_span(working_set, replaced, new_span)
+                }
+            }
+            Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
+                let mut block = working_set.get_block(*block_id).clone();
+
+                for pipeline in block.pipelines.iter_mut() {
+                    for expr in pipeline.expressions.iter_mut() {
+                        expr.replace_span(working_set, replaced, new_span)
+                    }
+                }
+
+                *block_id = working_set.add_block(block);
+            }
+            Expr::Table(headers, cells) => {
+                for header in headers {
+                    header.replace_span(working_set, replaced, new_span)
+                }
+
+                for row in cells {
+                    for cell in row.iter_mut() {
+                        cell.replace_span(working_set, replaced, new_span)
+                    }
+                }
+            }
+
+            Expr::ValueWithUnit(expr, _) => expr.replace_span(working_set, replaced, new_span),
+            Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
         }
     }

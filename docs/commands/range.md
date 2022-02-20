@@ -1,25 +1,33 @@
-# range
+---
+title: range
+layout: command
+version: 0.59.0
+---
+
 Return only the selected rows.
 
-## Usage
-```shell
-> range <rows> {flags} 
- ```
+## Signature
+
+```> range (rows)```
 
 ## Parameters
-* `<rows>` range of rows to return: Eg) 4..7 (=> from 4 to 7)
 
-## Flags
-* -h, --help: Display this help message
+ -  `rows`: range of rows to return: Eg) 4..7 (=> from 4 to 7)
 
 ## Examples
-  Return rows 1 through 3
-```shell
-> echo [1 2 3 4 5] | range 1..3
- ```
 
-  Return the third row from the end, through to the end
+Get the last 2 items
 ```shell
-> echo [1 2 3 4 5] | range (-3..)
- ```
+> [0,1,2,3,4,5] | range 4..5
+```
+
+Get the last 2 items
+```shell
+> [0,1,2,3,4,5] | range (-2)..
+```
+
+Get the next to last 2 items
+```shell
+> [0,1,2,3,4,5] | range (-3)..-2
+```
 

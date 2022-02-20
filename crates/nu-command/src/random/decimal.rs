@@ -70,7 +70,13 @@ fn decimal(
     let range: Option<Range> = call.opt(engine_state, stack, 0)?;
 
     let (min, max) = if let Some(r) = range {
-        (r.from.as_float()?, r.to.as_float()?)
+        if r.is_end_inclusive() {
+            (r.from.as_float()?, r.to.as_float()?)
+        } else if r.to.as_float()? >= 1.0 {
+            (r.from.as_float()?, r.to.as_float()? - 1.0)
+        } else {
+            (0.0, 0.0)
+        }
     } else {
         (0.0, 1.0)
     };

@@ -16,10 +16,14 @@ use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Config, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
+use nu_protocol::{PipelineData, Spanned};
 use reedline::{DefaultHinter, Emacs, Vi};
 use std::{sync::atomic::Ordering, time::Instant};
 
-pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
+pub(crate) fn evaluate(
+    engine_state: &mut EngineState,
+    config_file: Option<Spanned<String>>,
+) -> Result<()> {
     // use crate::logger::{configure, logger};
     use reedline::{FileBackedHistory, Reedline, Signal};
 
@@ -41,22 +45,19 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
         },
     );
 
+    if is_perf_true() {
+        info!("read_plugin_file {}:{}:{}", file!(), line!(), column!());
+    }
+
     #[cfg(feature = "plugin")]
     config_files::read_plugin_file(engine_state, &mut stack);
 
-    config_files::read_config_file(engine_state, &mut stack);
+    if is_perf_true() {
+        info!("read_config_file {}:{}:{}", file!(), line!(), column!());
+    }
+
+    config_files::read_config_file(engine_state, &mut stack, config_file);
     let history_path = config_files::create_history_path();
-
-    // Load config struct form config variable
-    let config = match stack.get_config() {
-        Ok(config) => config,
-        Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-
-            report_error(&working_set, &e);
-            Config::default()
-        }
-    };
 
     // logger(|builder| {
     //     configure(&config.log_level, builder)?;
@@ -66,8 +67,17 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
     //     Ok(())
     // })?;
 
+    if is_perf_true() {
+        info!(
+            "translate environment vars {}:{}:{}",
+            file!(),
+            line!(),
+            column!()
+        );
+    }
+
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, &stack, &config) {
+    if let Some(e) = convert_env_values(engine_state, &stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
     }
@@ -82,6 +92,15 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
     );
 
     loop {
+        if is_perf_true() {
+            info!(
+                "load config each loop {}:{}:{}",
+                file!(),
+                line!(),
+                column!()
+            );
+        }
+
         let config = match stack.get_config() {
             Ok(config) => config,
             Err(e) => {
@@ -97,6 +116,10 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
             ctrlc.store(false, Ordering::SeqCst);
         }
 
+        if is_perf_true() {
+            info!("setup line editor {}:{}:{}", file!(), line!(), column!());
+        }
+
         let mut line_editor = Reedline::create()
             .into_diagnostic()?
             .with_highlighter(Box::new(NuHighlighter {
@@ -107,17 +130,36 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_state.clone(),
             }))
-            .with_completer(Box::new(NuCompleter::new(engine_state.clone())))
+            .with_completer(Box::new(NuCompleter::new(
+                engine_state.clone(),
+                stack.vars.get(&CONFIG_VARIABLE_ID).cloned(),
+            )))
             .with_quick_completions(config.quick_completions)
             .with_ansi_colors(config.use_ansi_coloring);
+
+        if is_perf_true() {
+            info!("setup reedline {}:{}:{}", file!(), line!(), column!());
+        }
 
         line_editor = add_completion_menu(line_editor, &config);
         line_editor = add_history_menu(line_editor, &config);
 
+        if is_perf_true() {
+            info!("setup colors {}:{}:{}", file!(), line!(), column!());
+        }
         //FIXME: if config.use_ansi_coloring is false then we should
         // turn off the hinter but I don't see any way to do that yet.
 
         let color_hm = get_color_config(&config);
+
+        if is_perf_true() {
+            info!(
+                "setup history and hinter {}:{}:{}",
+                file!(),
+                line!(),
+                column!()
+            );
+        }
 
         line_editor = if let Some(history_path) = history_path.clone() {
             let history = std::fs::read_to_string(&history_path);
@@ -140,6 +182,10 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
         } else {
             line_editor
         };
+
+        if is_perf_true() {
+            info!("setup keybindings {}:{}:{}", file!(), line!(), column!());
+        }
 
         // Changing the line editor based on the found keybindings
         line_editor = match reedline_config::create_keybindings(&config) {
@@ -164,21 +210,21 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
         };
 
         if is_perf_true() {
-            info!("setup line editor {}:{}:{}", file!(), line!(), column!());
+            info!("prompt_update {}:{}:{}", file!(), line!(), column!());
         }
 
         let prompt = prompt_update::update_prompt(&config, engine_state, &stack, &mut nu_prompt);
 
+        entry_num += 1;
+
         if is_perf_true() {
             info!(
-                "finished prompt update {}:{}:{}",
+                "finished setup, starting repl {}:{}:{}",
                 file!(),
                 line!(),
                 column!()
             );
         }
-
-        entry_num += 1;
 
         let input = line_editor.read_line(prompt);
         match input {
@@ -250,8 +296,9 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
                     eval_source(
                         engine_state,
                         &mut stack,
-                        &s,
+                        s.as_bytes(),
                         &format!("entry #{}", entry_num),
+                        PipelineData::new(Span::new(0, 0)),
                     );
 
                     stack.add_env_var(

@@ -26,8 +26,8 @@ impl Outcome {
 
 pub fn pipeline(commands: &str) -> String {
     commands
+        .trim()
         .lines()
-        .skip(1)
         .map(|line| line.trim())
         .collect::<Vec<&str>>()
         .join(" ")

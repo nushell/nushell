@@ -42,8 +42,8 @@ impl Command for EachGroup {
         ];
 
         vec![Example {
-            example: "echo [1 2 3 4] | each group 2 { $it.0 + $it.1 }",
-            description: "Multiplies elements in list",
+            example: "echo [1 2 3 4] | each group 2 { |it| $it.0 + $it.1 }",
+            description: "Echo the sum of each pair",
             result: Some(Value::List {
                 vals: stream_test_1,
                 span: Span::test_data(),

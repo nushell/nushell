@@ -27,10 +27,6 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::unclosed_delimiter), url(docsrs))]
     Unclosed(String, #[label("unclosed {0}")] Span),
 
-    #[error("Unknown statement.")]
-    #[diagnostic(code(nu::parser::unknown_statement), url(docsrs))]
-    UnknownStatement(#[label("unknown statement")] Span),
-
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch), url(docsrs))]
     Expected(String, #[label("expected {0}")] Span),
@@ -73,7 +69,7 @@ pub enum ParseError {
             "'{0}' keyword is not allowed in pipeline. Use '{0}' by itself, outside of a pipeline."
         )
     )]
-    StatementInPipeline(String, #[label("not allowed in pipeline")] Span),
+    BuiltinCommandInPipeline(String, #[label("not allowed in pipeline")] Span),
 
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), url(docsrs), help("{2}"))]
@@ -178,6 +174,15 @@ pub enum ParseError {
     #[error("Rest parameter needs a name.")]
     #[diagnostic(code(nu::parser::rest_needs_name), url(docsrs))]
     RestNeedsName(#[label = "needs a parameter name"] Span),
+
+    #[error("Parameter not correct type.")]
+    #[diagnostic(code(nu::parser::parameter_mismatch_type), url(docsrs))]
+    ParameterMismatchType(
+        String,
+        String,
+        String,
+        #[label = "parameter {0} needs to be '{1}' instead of '{2}'"] Span,
+    ),
 
     #[error("Extra columns.")]
     #[diagnostic(code(nu::parser::extra_columns), url(docsrs))]

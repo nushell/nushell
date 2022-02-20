@@ -60,7 +60,9 @@ mod str_;
 mod touch;
 mod uniq;
 mod update;
+mod use_;
 mod where_;
+#[cfg(feature = "which")]
 mod which;
 mod with_env;
 mod wrap;

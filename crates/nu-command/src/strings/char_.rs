@@ -74,18 +74,18 @@ lazy_static! {
         // Unicode names came from https://www.compart.com/en/unicode
         // Private Use Area (U+E000-U+F8FF)
         // Unicode can't be mixed with Ansi or it will break width calculation
-        "nf-branch" => '\u{e0a0}'.to_string(),                     // 
-        "nf-segment" => '\u{e0b0}'.to_string(),                    // 
-        "nf-left-segment" => '\u{e0b0}'.to_string(),               // 
-        "nf-left-segment-thin" => '\u{e0b1}'.to_string(),          // 
-        "nf-right-segment" => '\u{e0b2}'.to_string(),              // 
-        "nf-right-segment-thin" => '\u{e0b3}'.to_string(),         // 
-        "nf-git" => '\u{f1d3}'.to_string(),                        // 
-        "nf-git-branch" => "\u{e709}\u{e0a0}".to_string(),         // 
-        "nf-folder1" => '\u{f07c}'.to_string(),                    // 
-        "nf-folder2" => '\u{f115}'.to_string(),                    // 
-        "nf-house1" => '\u{f015}'.to_string(),                     // 
-        "nf-house2" => '\u{f7db}'.to_string(),                     // 
+        "nf_branch" => '\u{e0a0}'.to_string(),                     // 
+        "nf_segment" => '\u{e0b0}'.to_string(),                    // 
+        "nf_left_segment" => '\u{e0b0}'.to_string(),               // 
+        "nf_left_segment_thin" => '\u{e0b1}'.to_string(),          // 
+        "nf_right_segment" => '\u{e0b2}'.to_string(),              // 
+        "nf_right_segment_thin" => '\u{e0b3}'.to_string(),         // 
+        "nf_git" => '\u{f1d3}'.to_string(),                        // 
+        "nf_git_branch" => "\u{e709}\u{e0a0}".to_string(),         // 
+        "nf_folder1" => '\u{f07c}'.to_string(),                    // 
+        "nf_folder2" => '\u{f115}'.to_string(),                    // 
+        "nf_house1" => '\u{f015}'.to_string(),                     // 
+        "nf_house2" => '\u{f7db}'.to_string(),                     // 
 
         "identical_to" => '\u{2261}'.to_string(),                  // ≡
         "hamburger" => '\u{2261}'.to_string(),                     // ≡

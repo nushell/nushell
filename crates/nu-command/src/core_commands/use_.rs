@@ -42,7 +42,7 @@ impl Command for Use {
             ));
         };
 
-        if let Some(overlay_id) = engine_state.find_overlay(&import_pattern.head.name) {
+        if let Some(overlay_id) = import_pattern.head.id {
             let overlay = engine_state.get_overlay(overlay_id);
 
             let env_vars_to_use = if import_pattern.members.is_empty() {
@@ -102,14 +102,13 @@ impl Command for Use {
         } else {
             // TODO: This is a workaround since call.positional[0].span points at 0 for some reason
             // when this error is triggered
-            let bytes = engine_state.get_span_contents(&call.positional[0].span);
             return Err(ShellError::SpannedLabeledError(
                 format!(
-                    "Could not use '{}' import pattern",
-                    String::from_utf8_lossy(bytes)
+                    "Could not import from '{}'",
+                    String::from_utf8_lossy(&import_pattern.head.name)
                 ),
-                "called here".to_string(),
-                call.head,
+                "module does not exist".to_string(),
+                import_pattern.head.span,
             ));
         }
 

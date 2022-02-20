@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io::Write;
 
 use nu_path::expand_path_with;
-use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
+use nu_protocol::ast::{Block, Call, Expr, Expression, Operator};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
@@ -32,13 +32,12 @@ fn eval_call(
 ) -> Result<PipelineData, ShellError> {
     let decl = engine_state.get_decl(call.decl_id);
 
-    if call.named.iter().any(|(flag, _)| flag.item == "help") {
-        let full_help = get_full_help(
-            &decl.signature(),
-            &decl.examples(),
-            engine_state,
-            caller_stack,
-        );
+    if !decl.is_known_external() && call.named.iter().any(|(flag, _)| flag.item == "help") {
+        let mut signature = decl.signature();
+        signature.usage = decl.usage().to_string();
+        signature.extra_usage = decl.extra_usage().to_string();
+
+        let full_help = get_full_help(&signature, &decl.examples(), engine_state, caller_stack);
         Ok(Value::String {
             val: full_help,
             span: call.head,
@@ -173,7 +172,7 @@ fn eval_external(
     last_expression: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
-        .find_decl("run_external".as_bytes())
+        .find_decl("run-external".as_bytes())
         .ok_or(ShellError::ExternalNotSupported(head.span))?;
 
     let command = engine_state.get_decl(decl_id);
@@ -189,7 +188,7 @@ fn eval_external(
     if last_expression {
         call.named.push((
             Spanned {
-                item: "last_expression".into(),
+                item: "last-expression".into(),
                 span: head.span,
             },
             None,
@@ -472,21 +471,19 @@ pub fn eval_block(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let num_stmts = block.stmts.len();
-    for (stmt_idx, stmt) in block.stmts.iter().enumerate() {
-        if let Statement::Pipeline(pipeline) = stmt {
-            for (i, elem) in pipeline.expressions.iter().enumerate() {
-                input = eval_expression_with_input(
-                    engine_state,
-                    stack,
-                    elem,
-                    input,
-                    i == pipeline.expressions.len() - 1,
-                )?
-            }
+    let num_pipelines = block.len();
+    for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
+        for (i, elem) in pipeline.expressions.iter().enumerate() {
+            input = eval_expression_with_input(
+                engine_state,
+                stack,
+                elem,
+                input,
+                i == pipeline.expressions.len() - 1,
+            )?
         }
 
-        if stmt_idx < (num_stmts) - 1 {
+        if pipeline_idx < (num_pipelines) - 1 {
             match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {}
                 _ => {
@@ -552,15 +549,13 @@ pub fn eval_block_with_redirect(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let num_stmts = block.stmts.len();
-    for (stmt_idx, stmt) in block.stmts.iter().enumerate() {
-        if let Statement::Pipeline(pipeline) = stmt {
-            for elem in pipeline.expressions.iter() {
-                input = eval_expression_with_input(engine_state, stack, elem, input, false)?
-            }
+    let num_pipelines = block.len();
+    for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
+        for elem in pipeline.expressions.iter() {
+            input = eval_expression_with_input(engine_state, stack, elem, input, false)?
         }
 
-        if stmt_idx < (num_stmts) - 1 {
+        if pipeline_idx < (num_pipelines) - 1 {
             match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {}
                 _ => {
@@ -626,11 +621,9 @@ pub fn eval_subexpression(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    for stmt in block.stmts.iter() {
-        if let Statement::Pipeline(pipeline) = stmt {
-            for expr in pipeline.expressions.iter() {
-                input = eval_expression_with_input(engine_state, stack, expr, input, false)?
-            }
+    for pipeline in block.pipelines.iter() {
+        for expr in pipeline.expressions.iter() {
+            input = eval_expression_with_input(engine_state, stack, expr, input, false)?
         }
     }
 
@@ -653,7 +646,6 @@ pub fn eval_variable(
                 config_path.push("nushell");
 
                 let mut history_path = config_path.clone();
-                let mut keybinding_path = config_path.clone();
 
                 history_path.push("history.txt");
 
@@ -670,15 +662,6 @@ pub fn eval_variable(
                     val: config_path.to_string_lossy().to_string(),
                     span,
                 });
-
-                // TODO: keybindings don't exist yet but lets add a file
-                // path for them to be stored in. It doesn't have to be yml.
-                keybinding_path.push("keybindings.yml");
-                output_cols.push("keybinding-path".into());
-                output_vals.push(Value::String {
-                    val: keybinding_path.to_string_lossy().to_string(),
-                    span,
-                })
             }
 
             #[cfg(feature = "plugin")]
@@ -895,6 +878,29 @@ pub fn eval_variable(
                         span,
                     });
 
+                    cols.push("examples".to_string());
+                    vals.push(Value::List {
+                        vals: decl
+                            .examples()
+                            .into_iter()
+                            .map(|x| Value::Record {
+                                cols: vec!["description".into(), "example".into()],
+                                vals: vec![
+                                    Value::String {
+                                        val: x.description.to_string(),
+                                        span,
+                                    },
+                                    Value::String {
+                                        val: x.example.to_string(),
+                                        span,
+                                    },
+                                ],
+                                span,
+                            })
+                            .collect(),
+                        span,
+                    });
+
                     cols.push("is_binary".to_string());
                     vals.push(Value::Bool {
                         val: decl.is_binary(),
@@ -946,9 +952,10 @@ pub fn eval_variable(
                     commands.push(Value::Record { cols, vals, span })
                 }
 
-                for alias in &frame.aliases {
+                for (alias_name, alias_id) in &frame.aliases {
+                    let alias = engine_state.get_alias(*alias_id);
                     let mut alias_text = String::new();
-                    for span in alias.1 {
+                    for span in alias {
                         let contents = engine_state.get_span_contents(span);
                         if !alias_text.is_empty() {
                             alias_text.push(' ');
@@ -957,7 +964,7 @@ pub fn eval_variable(
                     }
                     aliases.push((
                         Value::String {
-                            val: String::from_utf8_lossy(alias.0).to_string(),
+                            val: String::from_utf8_lossy(alias_name).to_string(),
                             span,
                         },
                         Value::string(alias_text, span),

@@ -30,7 +30,7 @@ pub fn get_shape_color(shape: String, conf: &Config) -> Style {
             "flatshape_globpattern" => Style::new().fg(Color::Cyan).bold(),
             "flatshape_variable" => Style::new().fg(Color::Purple),
             "flatshape_flag" => Style::new().fg(Color::Blue).bold(),
-            "flatshape_custom" => Style::new().bold(),
+            "flatshape_custom" => Style::new().fg(Color::Green),
             "flatshape_nothing" => Style::new().fg(Color::LightCyan),
             _ => Style::default(),
         },

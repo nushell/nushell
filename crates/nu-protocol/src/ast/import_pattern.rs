@@ -1,4 +1,4 @@
-use crate::{span, Span};
+use crate::{span, OverlayId, Span};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
@@ -11,6 +11,7 @@ pub enum ImportPatternMember {
 #[derive(Debug, Clone)]
 pub struct ImportPatternHead {
     pub name: Vec<u8>,
+    pub id: Option<OverlayId>,
     pub span: Span,
 }
 
@@ -28,6 +29,7 @@ impl ImportPattern {
         ImportPattern {
             head: ImportPatternHead {
                 name: vec![],
+                id: None,
                 span: Span { start: 0, end: 0 },
             },
             members: vec![],

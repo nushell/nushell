@@ -1,15 +1,14 @@
 use log::trace;
-use nu_cli::CliError;
+use nu_cli::{print_pipeline_data, CliError};
 use nu_engine::eval_block;
 use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
 use nu_protocol::{
-    ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Span, Value,
+    PipelineData, ShellError, Value,
 };
-use std::{io::Write, path::PathBuf};
+use std::path::PathBuf;
 
-// This fill collect environment variables from std::env and adds them to a stack.
+// This will collect environment variables from std::env and adds them to a stack.
 //
 // In order to ensure the values have spans, it first creates a dummy file, writes the collected
 // env vars into it (in a "NAME"="value" format, quite similar to the output of the Unix 'env'
@@ -188,77 +187,12 @@ pub(crate) fn gather_parent_env_vars(engine_state: &mut EngineState) {
     }
 }
 
-fn print_pipeline_data(
-    input: PipelineData,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-) -> Result<(), ShellError> {
-    // If the table function is in the declarations, then we can use it
-    // to create the table value that will be printed in the terminal
-
-    let config = stack.get_config().unwrap_or_default();
-
-    let mut stdout = std::io::stdout();
-
-    if let PipelineData::RawStream(stream, _, _) = input {
-        for s in stream {
-            let _ = stdout.write(s?.as_binary()?);
-        }
-        return Ok(());
-    }
-
-    match engine_state.find_decl("table".as_bytes()) {
-        Some(decl_id) => {
-            let table = engine_state.get_decl(decl_id).run(
-                engine_state,
-                stack,
-                &Call::new(Span::new(0, 0)),
-                input,
-            )?;
-
-            for item in table {
-                let stdout = std::io::stdout();
-
-                if let Value::Error { error } = item {
-                    return Err(error);
-                }
-
-                let mut out = item.into_string("\n", &config);
-                out.push('\n');
-
-                match stdout.lock().write_all(out.as_bytes()) {
-                    Ok(_) => (),
-                    Err(err) => eprintln!("{}", err),
-                };
-            }
-        }
-        None => {
-            for item in input {
-                let stdout = std::io::stdout();
-
-                if let Value::Error { error } = item {
-                    return Err(error);
-                }
-
-                let mut out = item.into_string("\n", &config);
-                out.push('\n');
-
-                match stdout.lock().write_all(out.as_bytes()) {
-                    Ok(_) => (),
-                    Err(err) => eprintln!("{}", err),
-                };
-            }
-        }
-    };
-
-    Ok(())
-}
-
 pub(crate) fn eval_source(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    source: &str,
+    source: &[u8],
     fname: &str,
+    input: PipelineData,
 ) -> bool {
     trace!("eval_source");
 
@@ -267,7 +201,7 @@ pub(crate) fn eval_source(
         let (output, err) = parse(
             &mut working_set,
             Some(fname), // format!("entry #{}", entry_num)
-            source.as_bytes(),
+            source,
             false,
         );
         if let Some(err) = err {
@@ -292,12 +226,7 @@ pub(crate) fn eval_source(
         report_error(&working_set, &err);
     }
 
-    match eval_block(
-        engine_state,
-        stack,
-        &block,
-        PipelineData::new(Span::new(0, 0)),
-    ) {
+    match eval_block(engine_state, stack, &block, input) {
         Ok(pipeline_data) => {
             if let Err(err) = print_pipeline_data(pipeline_data, engine_state, stack) {
                 let working_set = StateWorkingSet::new(engine_state);

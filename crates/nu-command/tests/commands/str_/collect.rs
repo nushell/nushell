@@ -44,7 +44,7 @@ fn sum_one_to_four() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        1..4 | each { $it } | into string | str collect "+" | math eval
+        1..4 | each { |it| $it } | into string | str collect "+" | math eval
         "#
         )
     );

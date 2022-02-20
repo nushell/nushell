@@ -839,8 +839,6 @@ where
         static ref NEEDS_ESCAPE: Regex = Regex::new("[\\\\\"\x00-\x1f\x7f-\u{9f}\u{00ad}\u{0600}-\u{0604}\u{070f}\u{17b4}\u{17b5}\u{200c}-\u{200f}\u{2028}-\u{202f}\u{2060}-\u{206f}\u{feff}\u{fff0}-\u{ffff}]").expect("Internal error: json parsing");
         // NEEDS_QUOTES tests if the string can be written as a quoteless string (includes needsEscape but without \\ and \")
         static ref NEEDS_QUOTES: Regex = Regex::new("^\\s|^\"|^'''|^#|^/\\*|^//|^\\{|^\\}|^\\[|^\\]|^:|^,|\\s$|[\x00-\x1f\x7f-\u{9f}\u{00ad}\u{0600}-\u{0604}\u{070f}\u{17b4}\u{17b5}\u{200c}-\u{200f}\u{2028}-\u{202f}\u{2060}-\u{206f}\u{feff}\u{fff0}-\u{ffff}]").expect("Internal error: json parsing");
-        // NEEDS_ESCAPEML tests if the string can be written as a multiline string (includes needsEscape but without \n, \r, \\ and \")
-        static ref NEEDS_ESCAPEML: Regex = Regex::new("'''|[\x00-\x09\x0b\x0c\x0e-\x1f\x7f-\u{9f}\u{00ad}\u{0600}-\u{0604}\u{070f}\u{17b4}\u{17b5}\u{200c}-\u{200f}\u{2028}-\u{202f}\u{2060}-\u{206f}\u{feff}\u{fff0}-\u{ffff}]").expect("Internal error: json parsing");
         // starts with a keyword and optionally is followed by a comment
         static ref STARTS_WITH_KEYWORD: Regex = Regex::new(r#"^(true|false|null)\s*((,|\]|\}|#|//|/\*).*)?$"#).expect("Internal error: json parsing");
     }
@@ -850,61 +848,8 @@ where
         return escape_bytes(wr, value.as_bytes());
     }
 
-    // Check if we can insert this string without quotes
-    // see hjson syntax (must not parse as true, false, null or number)
-
-    //let mut pn = ParseNumber::new(value.bytes());
-    //let is_number = pn.parse(true).is_ok();
-
-    if true {
-        // is_number || NEEDS_QUOTES.is_match(value) || STARTS_WITH_KEYWORD.is_match(value) {
-        // First check if the string can be expressed in multiline format or
-        // we must replace the offending characters with safe escape sequences.
-
-        if NEEDS_ESCAPE.is_match(value) && !NEEDS_ESCAPEML.is_match(value)
-        /* && !isRootObject */
-        {
-            ml_str(wr, formatter, value)
-        } else {
-            formatter.start_value(wr)?;
-            escape_bytes(wr, value.as_bytes())
-        }
-    } else {
-        // without quotes
-        formatter.start_value(wr)?;
-        wr.write_all(value.as_bytes()).map_err(From::from)
-    }
-}
-
-/// Serializes and escapes a `&str` into a multiline Hjson string.
-pub fn ml_str<W, F>(wr: &mut W, formatter: &mut F, value: &str) -> Result<()>
-where
-    W: io::Write,
-    F: Formatter,
-{
-    // wrap the string into the ''' (multiline) format
-
-    let a: Vec<&str> = value.split('\n').collect();
-
-    if a.len() == 1 {
-        // The string contains only a single line. We still use the multiline
-        // format as it avoids escaping the \ character (e.g. when used in a
-        // regex).
-        formatter.start_value(wr)?;
-        wr.write_all(b"'''")?;
-        wr.write_all(a[0].as_bytes())?;
-        wr.write_all(b"'''")?
-    } else {
-        formatter.newline(wr, 1)?;
-        wr.write_all(b"'''")?;
-        for line in a {
-            formatter.newline(wr, if !line.is_empty() { 1 } else { -999 })?;
-            wr.write_all(line.as_bytes())?;
-        }
-        formatter.newline(wr, 1)?;
-        wr.write_all(b"'''")?;
-    }
-    Ok(())
+    formatter.start_value(wr)?;
+    escape_bytes(wr, value.as_bytes())
 }
 
 /// Serializes and escapes a `&str` into a Hjson key.
@@ -918,12 +863,7 @@ where
             Regex::new(r#"[,\{\[\}\]\s:#"]|//|/\*|'''|^$"#).expect("Internal error: json parsing");
     }
 
-    // Check if we can insert this name without quotes
-    //if NEEDS_ESCAPE_NAME.is_match(value) {
     escape_bytes(wr, value.as_bytes()).map_err(From::from)
-    // } else {
-    //     wr.write_all(value.as_bytes()).map_err(From::from)
-    // }
 }
 
 #[inline]

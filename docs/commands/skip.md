@@ -1,37 +1,28 @@
-# skip
+---
+title: skip
+layout: command
+version: 0.59.0
+---
 
-Skips the first 'n' rows of a table.
+Skip the first n elements of the input.
 
-## Usage
+## Signature
 
-```shell
-> [input-command] | skip (n)
-```
+```> skip (n)```
+
+## Parameters
+
+ -  `n`: the number of elements to skip
 
 ## Examples
 
-If we open a file with a list of contacts, we get all of the contacts.
-
+Skip two elements
 ```shell
-> open contacts.csv
-───┬─────────┬──────┬─────────────────
- # │ first   │ last │ email
-───┼─────────┼──────┼─────────────────
- 0 │ John    │ Doe  │ doe.1@email.com
- 1 │ Jane    │ Doe  │ doe.2@email.com
- 2 │ Chris   │ Doe  │ doe.3@email.com
- 3 │ Francis │ Doe  │ doe.4@email.com
-───┴─────────┴──────┴─────────────────
+> echo [[editions]; [2015] [2018] [2021]] | skip 2
 ```
 
-To ignore the first 2 contacts, we can `skip` them.
-
+Skip the first value
 ```shell
-> open contacts.csv | skip 2
-───┬─────────┬──────┬─────────────────
- # │ first   │ last │ email
-───┼─────────┼──────┼─────────────────
- 0 │ Chris   │ Doe  │ doe.3@email.com
- 1 │ Francis │ Doe  │ doe.4@email.com
-───┴─────────┴──────┴─────────────────
+> echo [2 4 6 8] | skip
 ```
+

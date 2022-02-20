@@ -1,7 +1,7 @@
 use nu_engine::env_to_string;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, IntoPipelineData, PipelineData, Signature, Value};
+use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Value};
 
 #[derive(Clone)]
 pub struct Env;
@@ -58,5 +58,25 @@ impl Command for Env {
         }
 
         Ok(Value::List { vals: values, span }.into_pipeline_data())
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Display current path environment variable",
+                example: "env | where name == PATH",
+                result: None,
+            },
+            Example {
+                description: "Check whether the env variable `MY_ENV_ABC` exists",
+                example: r#"env | any? name == MY_ENV_ABC"#,
+                result: Some(Value::test_bool(false)),
+            },
+            Example {
+                description: "Another way to check whether the env variable `PATH` exists",
+                example: r#"'PATH' in (env).name"#,
+                result: Some(Value::test_bool(true)),
+            },
+        ]
     }
 }

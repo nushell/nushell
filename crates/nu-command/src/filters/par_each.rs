@@ -32,7 +32,7 @@ impl Command for ParEach {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "[1 2 3] | par-each { 2 * $it }",
+            example: "[1 2 3] | par-each { |it| 2 * $it }",
             description: "Multiplies elements in list",
             result: None,
         }]

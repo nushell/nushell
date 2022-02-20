@@ -53,12 +53,12 @@ impl Command for PivotDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "pivot-column",
+                "pivot_column",
                 SyntaxShape::String,
                 "pivot column to perform pivot",
             )
             .required(
-                "value-column",
+                "value_column",
                 SyntaxShape::String,
                 "value column to perform pivot",
             )

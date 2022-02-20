@@ -46,7 +46,7 @@ impl Command for Each {
         ];
 
         vec![Example {
-            example: "[1 2 3] | each { 2 * $it }",
+            example: "[1 2 3] | each { |it| 2 * $it }",
             description: "Multiplies elements in list",
             result: Some(Value::List {
                 vals: stream_test_1,

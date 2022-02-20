@@ -8,7 +8,7 @@ fn from_ods_file_to_table() {
             open sample_data.ods
             | get SalesOrders
             | get 4
-            | get Column2
+            | get column2
         "#
     ));
 

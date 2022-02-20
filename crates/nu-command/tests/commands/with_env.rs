@@ -58,18 +58,6 @@ fn with_env_and_shorthand_same_result() {
 // FIXME: jt: needs more work
 #[ignore]
 #[test]
-fn with_env_shorthand_nested_quotes() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "FOO='-arg \"hello world\"' echo $env | get FOO"
-    );
-
-    assert_eq!(actual.out, "-arg \"hello world\"");
-}
-
-// FIXME: jt: needs more work
-#[ignore]
-#[test]
 fn with_env_hides_variables_in_parent_scope() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",

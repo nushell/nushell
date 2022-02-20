@@ -1,17 +1,16 @@
-# history
+---
+title: history
+layout: command
+version: 0.59.0
+---
 
-Displays the last 100 commands.
+Get the command history
 
-## Example
+## Signature
 
-```shell
-> history
-─────┬────────────────────────────────────────────────────────────────────────
-  #  │
-─────┼────────────────────────────────────────────────────────────────────────
-...
- 97  │ date
- 98  │ ls
- 99  │ ls -la
-─────┴────────────────────────────────────────────────────────────────────────
-```
+```> history --clear```
+
+## Parameters
+
+ -  `--clear`: Clears out the history entries
+

@@ -23,7 +23,7 @@ fn removes_duplicate_rows() {
                 open los_tres_caballeros.csv
                 | uniq
                 | length
-                
+
             "#
         ));
 
@@ -53,7 +53,7 @@ fn uniq_values() {
                 | select type
                 | uniq
                 | length
-                
+
             "#
         ));
 
@@ -120,7 +120,7 @@ fn nested_json_structures() {
                 open nested_json_structures.json
                 | uniq
                 | length
-                
+
             "#
         ));
         assert_eq!(actual.out, "3");
@@ -137,15 +137,13 @@ fn uniq_when_keys_out_of_order() {
             [{"a": "a", "b": [1,2,3]}, {"b": [1,2,3], "a": "a"}]
             | uniq
             | length
-            
+
         "#
     ));
 
     assert_eq!(actual.out, "1");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn uniq_counting() {
     let actual = nu!(
@@ -154,8 +152,10 @@ fn uniq_counting() {
             ["A", "B", "A"]
             | wrap item
             | uniq --count
+            | flatten
             | where item == A
             | get count
+            | get 0
         "#
     ));
     assert_eq!(actual.out, "2");
@@ -166,8 +166,10 @@ fn uniq_counting() {
             echo ["A", "B", "A"]
             | wrap item
             | uniq --count
+            | flatten
             | where item == B
             | get count
+            | get 0
         "#
     ));
     assert_eq!(actual.out, "1");

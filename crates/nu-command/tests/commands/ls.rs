@@ -87,7 +87,7 @@ fn lists_all_files_in_directories_from_stream() {
             cwd: dirs.test(), pipeline(
             r#"
                 echo dir_a dir_b
-                | each { ls $it }
+                | each { |it| ls $it }
                 | flatten | length
             "#
         ));

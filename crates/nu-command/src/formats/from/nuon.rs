@@ -1,9 +1,8 @@
 use nu_engine::eval_expression;
-use nu_protocol::ast::Call;
+use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 #[derive(Clone)]
 pub struct FromNuon;
@@ -18,7 +17,7 @@ impl Command for FromNuon {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("from nuon").category(Category::Formats)
+        Signature::build("from nuon").category(Category::Experimental)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,7 +66,7 @@ impl Command for FromNuon {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
@@ -80,24 +79,62 @@ impl Command for FromNuon {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let file_id = working_set.add_file("nuon file".to_string(), string_input.as_bytes());
+            let _ = working_set.add_file("nuon file".to_string(), string_input.as_bytes());
 
-            let span = Span {
-                start: 0,
-                end: string_input.len(),
+            // let span = Span {
+            //     start: 0,
+            //     end: string_input.len(),
+            // };
+
+            let mut error = None;
+
+            let (lexed, err) =
+                nu_parser::lex(string_input.as_bytes(), 0, &[b'\n', b'\r'], &[], true);
+            error = error.or(err);
+
+            let (lite_block, err) = nu_parser::lite_parse(&lexed);
+            error = error.or(err);
+
+            let (block, err) = nu_parser::parse_block(&mut working_set, &lite_block, true);
+            error = error.or(err);
+
+            if block.pipelines.get(1).is_some() {
+                return Err(ShellError::SpannedLabeledError(
+                    "error when loading".into(),
+                    "excess values when loading".into(),
+                    head,
+                ));
+            }
+
+            let expr = if let Some(pipeline) = block.pipelines.get(0) {
+                if pipeline.expressions.get(1).is_some() {
+                    return Err(ShellError::SpannedLabeledError(
+                        "error when loading".into(),
+                        "detected a pipeline in nuon file".into(),
+                        head,
+                    ));
+                }
+
+                if let Some(expr) = pipeline.expressions.get(0) {
+                    expr.clone()
+                } else {
+                    Expression {
+                        expr: Expr::Nothing,
+                        span: head,
+                        custom_completion: None,
+                        ty: Type::Nothing,
+                    }
+                }
+            } else {
+                Expression {
+                    expr: Expr::Nothing,
+                    span: head,
+                    custom_completion: None,
+                    ty: Type::Nothing,
+                }
             };
 
-            // let mut error = None;
-
-            // let (lexed, err) = nu_parser::lex(string_input.as_bytes(), 0, &['\n', '\r'], &[], true);
-            // error = error.or(err);
-
-            // let (lite_block, err) = nu_parser::lite_parse(&lexed);
-            // error = error.or(err);
-
-            let (expr, err) = nu_parser::parse_value(&mut working_set, span, &SyntaxShape::Any);
-
-            if let Some(err) = err {
+            if let Some(err) = error {
                 return Err(ShellError::SpannedLabeledError(
                     "error when loading".into(),
                     err.to_string(),

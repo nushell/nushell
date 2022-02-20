@@ -48,6 +48,10 @@ impl Span {
         pos >= self.start && pos < self.end
     }
 
+    pub fn contains_span(&self, span: Span) -> bool {
+        span.start >= self.start && span.end <= self.end
+    }
+
     /// Point to the space just past this span, useful for missing
     /// values
     pub fn past(&self) -> Span {

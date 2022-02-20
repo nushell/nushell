@@ -109,8 +109,7 @@ impl Range {
         self.from <= self.to
     }
 
-    #[inline]
-    fn is_end_inclusive(&self) -> bool {
+    pub fn is_end_inclusive(&self) -> bool {
         matches!(self.inclusion, RangeInclusion::Inclusive)
     }
 
@@ -127,6 +126,24 @@ impl Range {
         let span = self.from.span()?;
 
         Ok(RangeIterator::new(self, span))
+    }
+}
+
+impl PartialOrd for Range {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match self.from.partial_cmp(&other.from) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.incr.partial_cmp(&other.incr) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.to.partial_cmp(&other.to) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        self.inclusion.partial_cmp(&other.inclusion)
     }
 }
 

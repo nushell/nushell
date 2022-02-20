@@ -146,7 +146,19 @@ impl Iterator for RawStream {
                     }
                     Err(e) => Some(Err(e)),
                 },
-                None => None,
+                None => {
+                    if !self.leftover.is_empty() {
+                        let output = Ok(Value::Binary {
+                            val: self.leftover.clone(),
+                            span: self.span,
+                        });
+                        self.leftover.clear();
+
+                        Some(output)
+                    } else {
+                        None
+                    }
+                }
             }
         }
     }

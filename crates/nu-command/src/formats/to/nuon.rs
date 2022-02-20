@@ -13,7 +13,7 @@ impl Command for ToNuon {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to nuon").category(Category::Formats)
+        Signature::build("to nuon").category(Category::Experimental)
     }
 
     fn usage(&self) -> &str {

@@ -123,7 +123,7 @@ impl Command for Aggregate {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "operation-name",
+                "operation_name",
                 SyntaxShape::String,
                 "\n\tDataframes: mean, sum, min, max, quantile, median, var, std
 \tGroupBy: mean, sum, min, max, first, last, nunique, quantile, median, var, std, count",

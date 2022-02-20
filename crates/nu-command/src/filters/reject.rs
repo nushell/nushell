@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Value,
+    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -38,6 +38,28 @@ impl Command for Reject {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
         let span = call.head;
         reject(engine_state, span, input, columns)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Lists the files in a directory without showing the modified column",
+                example: "ls | reject modified",
+                result: None,
+            },
+            Example {
+                description: "Reject the specified field in a record",
+                example: "echo {a: 1, b: 2} | reject a",
+                result: Some(Value::Record {
+                    cols: vec!["b".into()],
+                    vals: vec![Value::Int {
+                        val: 2,
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 
@@ -164,7 +186,7 @@ fn get_cellpath_columns(keep_cols: Vec<String>, span: Span) -> Vec<CellPath> {
 fn get_keep_columns(mut input: Vec<String>, rejects: Vec<String>) -> Vec<String> {
     for reject in rejects {
         if let Some(index) = input.iter().position(|value| *value == reject) {
-            input.swap_remove(index);
+            input.remove(index);
         }
     }
     input
@@ -173,8 +195,8 @@ fn get_keep_columns(mut input: Vec<String>, rejects: Vec<String>) -> Vec<String>
 fn reject_record_columns(cols: &mut Vec<String>, vals: &mut Vec<Value>, rejects: &[String]) {
     for reject in rejects {
         if let Some(index) = cols.iter().position(|value| value == reject) {
-            cols.swap_remove(index);
-            vals.swap_remove(index);
+            cols.remove(index);
+            vals.remove(index);
         }
     }
 }

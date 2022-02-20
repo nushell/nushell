@@ -71,8 +71,6 @@ fn errors_if_given_unknown_column_name() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_if_block_given_evaluates_more_than_one_row() {
     Playground::setup("group_by_test_3", |dirs, sandbox| {
@@ -94,7 +92,8 @@ fn errors_if_block_given_evaluates_more_than_one_row() {
             "#
         ));
 
-        assert!(actual.err.contains("Unknown column"));
+        assert!(actual.err.contains("value originates here"),);
+        assert!(actual.err.contains("cannot find column"),);
     })
 }
 

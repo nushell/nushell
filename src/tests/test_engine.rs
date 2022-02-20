@@ -72,7 +72,7 @@ fn in_variable_6() -> TestResult {
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    run_test(r#"each --help | lines | length"#, "20")
+    run_test(r#"each --help | lines | length"#, "22")
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn scope_variable() -> TestResult {
 #[test]
 fn earlier_errors() -> TestResult {
     fail_test(
-        r#"[1, "bob"] | each { $it + 3 } | each { $it / $it } | table"#,
+        r#"[1, "bob"] | each { |it| $it + 3 } | each { |it| $it / $it } | table"#,
         "int",
     )
 }
@@ -149,7 +149,7 @@ fn proper_variable_captures_with_nesting() -> TestResult {
 
 #[test]
 fn proper_variable_for() -> TestResult {
-    run_test(r#"for x in 1..3 { if $x == 2 { "bob" } } | get 1"#, "bob")
+    run_test(r#"for x in 1..3 { if $x == 2 { "bob" } } | get 0"#, "bob")
 }
 
 #[test]
@@ -234,4 +234,20 @@ fn export_def_env() -> TestResult {
 #[test]
 fn dynamic_let_env() -> TestResult {
     run_test(r#"let x = "FOO"; let-env $x = "BAZ"; $env.FOO"#, "BAZ")
+}
+
+#[test]
+fn reduce_spans() -> TestResult {
+    fail_test(
+        r#"let x = ([1, 2, 3] | reduce -f 0 { $it.item + 2 * $it.acc }); error make {msg: "oh that hurts", label: {text: "right here", start: (metadata $x).span.start, end: (metadata $x).span.end } }"#,
+        "right here",
+    )
+}
+
+#[test]
+fn with_env_shorthand_nested_quotes() -> TestResult {
+    run_test(
+        r#"FOO='-arg "hello world"' echo $env | get FOO"#,
+        "-arg \"hello world\"",
+    )
 }

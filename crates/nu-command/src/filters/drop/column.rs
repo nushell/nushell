@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Value,
+    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -46,6 +46,21 @@ impl Command for DropColumn {
         };
 
         dropcol(engine_state, span, input, columns_to_drop)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Remove the last column of a table",
+            example: "echo [[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column",
+            result: Some(Value::List {
+                vals: vec![Value::Record {
+                    cols: vec!["lib".into()],
+                    vals: vec![Value::test_string("nu-lib"), Value::test_string("nu-core")],
+                    span: Span::test_data(),
+                }],
+                span: Span::test_data(),
+            }),
+        }]
     }
 }
 
