@@ -25,6 +25,20 @@ let-env PROMPT_INDICATOR_VI_INSERT = ": "
 let-env PROMPT_INDICATOR_VI_NORMAL = "〉"
 let-env PROMPT_MULTILINE_INDICATOR = "::: "
 
+# Specifies how environment variables are:
+# - converted from a string to a value on Nushell startup (from_string)
+# - converted from a value back to a string when running extrnal commands (to_string)
+let-env ENV_CONVERSIONS = {
+  "PATH": {
+    from_string: { |s| $s | split row (char esep) }
+    to_string: { |v| $v | str collect (char esep) }
+  }
+  "Path": {
+    from_string: { |s| $s | split row (char esep) }
+    to_string: { |v| $v | str collect (char esep) }
+  }
+}
+
 # Custom completions for external commands (those outside of Nushell)
 # Each completions has two parts: the form of the external command, including its flags and parameters
 # and a helper command that knows how to complete values for those flags and parameters
@@ -93,7 +107,7 @@ extern "git push" [
   --ipv6(-6)                                 # use IPv6 addresses only
 ]
 
-# The default config record. This is where much of your global configuration is setup. 
+# The default config record. This is where much of your global configuration is setup.
 let $config = {
   filesize_metric: $false
   table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
@@ -124,12 +138,6 @@ let $config = {
   float_precision: 2
   use_ansi_coloring: $true
   filesize_format: "b" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
-  env_conversions: {
-    "PATH": {
-        from_string: { |s| $s | split row (char esep) }
-        to_string: { |v| $v | str collect (char esep) }
-        }
-  }
   edit_mode: emacs # emacs, vi
   max_history_size: 10000
   menu_config: {
@@ -141,11 +149,11 @@ let $config = {
     marker: "| "
   }
   history_config: {
-   page_size: 10
-   selector: ":"                                                                                                                          
-   text_style: green
-   selected_text_style: green_reverse
-   marker: "? "
+    page_size: 10
+    selector: ":"
+    text_style: green
+    selected_text_style: green_reverse
+    marker: "? "
   }
   keybindings: [
     {
