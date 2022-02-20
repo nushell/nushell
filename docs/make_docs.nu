@@ -1,6 +1,6 @@
 let vers = (version).version
 
-for command in ($scope.commands | where is_custom == $false) {
+for command in ($scope.commands | where is_custom == $false && is_external == $false) {
     let top = $"---
 title: ($command.command)
 layout: command
@@ -61,5 +61,6 @@ $"($example.description)
 
     let safe_name = ($command.command | str find-replace '\?' '' | str find-replace ' ' '_')
     $doc | save --raw $"./docs/commands/($safe_name).md"
+    $"./docs/commands/($safe_name).md"
 } | length | $"($in) commands written"
 

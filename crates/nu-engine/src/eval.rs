@@ -937,6 +937,12 @@ pub fn eval_variable(
                         span,
                     });
 
+                    cols.push("is_extern".to_string());
+                    vals.push(Value::Bool {
+                        val: decl.is_known_external(),
+                        span,
+                    });
+
                     cols.push("creates_scope".to_string());
                     vals.push(Value::Bool {
                         val: signature.creates_scope,
