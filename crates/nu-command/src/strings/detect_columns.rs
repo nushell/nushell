@@ -54,9 +54,9 @@ impl Command for DetectColumns {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec![
-                            "Column0".to_string(),
-                            "Column1".to_string(),
-                            "Column2".to_string(),
+                            "column0".to_string(),
+                            "column1".to_string(),
+                            "column2".to_string(),
                         ],
                         vals: vec![
                             Value::test_string("a"),
@@ -105,7 +105,7 @@ fn detect_columns(
 
         if noheader {
             for header in headers.iter_mut().enumerate() {
-                header.1.item = format!("Column{}", header.0);
+                header.1.item = format!("column{}", header.0);
             }
         }
 

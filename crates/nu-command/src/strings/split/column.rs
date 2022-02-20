@@ -51,9 +51,9 @@ impl Command for SubCommand {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec![
-                            "Column1".to_string(),
-                            "Column2".to_string(),
-                            "Column3".to_string(),
+                            "column1".to_string(),
+                            "column2".to_string(),
+                            "column3".to_string(),
                         ],
                         vals: vec![
                             Value::test_string("a"),
@@ -71,9 +71,9 @@ impl Command for SubCommand {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec![
-                            "Column1".to_string(),
-                            "Column2".to_string(),
-                            "Column3".to_string(),
+                            "column1".to_string(),
+                            "column2".to_string(),
+                            "column3".to_string(),
                         ],
                         vals: vec![
                             Value::test_string("a"),
@@ -131,7 +131,7 @@ fn split_column_helper(
         if positional.is_empty() {
             let mut gen_columns = vec![];
             for i in 0..split_result.len() {
-                gen_columns.push(format!("Column{}", i + 1));
+                gen_columns.push(format!("column{}", i + 1));
             }
 
             for (&k, v) in split_result.iter().zip(&gen_columns) {
