@@ -1,17 +1,14 @@
 # Nushell Config File
 
 def create_left_prompt [] {
-    let path_segment = ([
-        ($nu.cwd)
-        (char space)
-    ] | str collect)
+    let path_segment = ($nu.cwd)
 
     $path_segment
 }
 
 def create_right_prompt [] {
     let time_segment = ([
-        (date now | date format '%m/%d/%Y %I:%M:%S%.3f')
+        (date now | date format '%m/%d/%Y %r')
     ] | str collect)
 
     $time_segment
@@ -29,27 +26,27 @@ let-env PROMPT_INDICATOR_VI_NORMAL = "〉"
 let-env PROMPT_MULTILINE_INDICATOR = "::: "
 
 let $config = {
-  filesize_metric: $true
+  filesize_metric: $false
   table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
   use_ls_colors: $true
   rm_always_trash: $false
   color_config: {
-    separator: yd
+    separator: white
     leading_trailing_space_bg: white
-    header: cb
-    date: pu
-    filesize: ub
-    row_index: yb
+    header: green_bold
+    date: white
+    filesize: white
+    row_index: green_bold
     hints: dark_gray
-    bool: red
-    int: green
-    duration: red
-    range: red
-    float: red
-    string: red
-    nothing: red
-    binary: red
-    cellpath: red
+    bool: white
+    int: white
+    duration: white
+    range: white
+    float: white
+    string: white
+    nothing: white
+    binary: white
+    cellpath: white
   }
   use_grid_icons: $true
   footer_mode: always #always, never, number_of_rows, auto
@@ -70,7 +67,7 @@ let $config = {
     columns: 4
     col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
     col_padding: 2
-    text_style: red
+    text_style: green
     selected_text_style: green_reverse
     marker: "| "
   }
@@ -82,12 +79,12 @@ let $config = {
    marker: "? "
   }
   keybindings: [
-  {
-    name: completion
-    modifier: control
-    keycode: char_t
-    mode: vi_insert # emacs vi_normal vi_insert
-    event: { send: menu name: context_menu }
-  }
+    {
+      name: completion
+      modifier: control
+      keycode: char_t
+      mode: vi_insert # emacs vi_normal vi_insert
+      event: { send: menu name: context_menu }
+    }
   ]
 }

@@ -84,7 +84,7 @@ pub(crate) fn read_config_file(
                 .expect("Failed to read user input");
 
             match answer.to_lowercase().trim() {
-                "y" => {
+                "y" | "" => {
                     let mut output = File::create(&config_path).expect("Unable to create file");
                     let config_file = include_str!("default_config.nu");
                     write!(output, "{}", config_file).expect("Unable to write to config file");
