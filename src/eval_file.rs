@@ -34,18 +34,8 @@ pub(crate) fn evaluate(
         },
     );
 
-    let config = match stack.get_config() {
-        Ok(config) => config,
-        Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-
-            report_error(&working_set, &e);
-            Config::default()
-        }
-    };
-
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, &stack, &config) {
+    if let Some(e) = convert_env_values(engine_state, &stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
         std::process::exit(1);

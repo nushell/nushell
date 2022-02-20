@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use nu_protocol::ast::PathMember;
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{Config, EnvConversion, PipelineData, ShellError, Span, Value};
+use nu_protocol::{Config, PipelineData, ShellError, Value};
 
 use crate::eval_block;
 
@@ -16,9 +16,9 @@ const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
 enum ConversionResult {
     Ok(Value),
-    UnrecoverableError(ShellError), // Fail the conversion loudly
-    GeneralError(ShellError),       // Conversion failed so skip this environment variable entirely
-    DefaultError,                   // Conversion failed but use a default value instead
+    ConversionError(ShellError), // Failure during the conversion itself
+    GeneralError(ShellError),    // Other error not directly connected to running the conversion
+    CellPathError, // Error looking up the ENV_VAR.to_/from_string fields in $env.ENV_CONVERSIONS
 }
 
 /// Translate environment variables from Strings to Values. Requires config to be already set up in
@@ -27,11 +27,7 @@ enum ConversionResult {
 /// It returns Option instead of Result since we do want to translate all the values we can and
 /// skip errors. This function is called in the main() so we want to keep running, we cannot just
 /// exit.
-pub fn convert_env_values(
-    engine_state: &mut EngineState,
-    stack: &Stack,
-    config: &Config,
-) -> Option<ShellError> {
+pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Option<ShellError> {
     let mut error = None;
 
     let mut new_scope = HashMap::new();
@@ -41,9 +37,9 @@ pub fn convert_env_values(
             ConversionResult::Ok(v) => {
                 let _ = new_scope.insert(name.to_string(), v);
             }
-            ConversionResult::UnrecoverableError(e) => error = error.or(Some(e)),
+            ConversionResult::ConversionError(e) => error = error.or(Some(e)),
             ConversionResult::GeneralError(_) => continue,
-            ConversionResult::DefaultError => {
+            ConversionResult::CellPathError => {
                 let _ = new_scope.insert(name.to_string(), val.clone());
             }
         }
@@ -64,36 +60,11 @@ pub fn env_to_string(
     stack: &Stack,
     config: &Config,
 ) -> Result<String, ShellError> {
-    if let Some(env_conv) = config.env_conversions.get(env_name) {
-        if let Some((block_id, to_span)) = env_conv.to_string {
-            let block = engine_state.get_block(block_id);
-
-            if let Some(var) = block.signature.get_positional(0) {
-                let val_span = value.span()?;
-                let mut stack = stack.gather_captures(&block.captures);
-
-                if let Some(var_id) = &var.var_id {
-                    stack.add_var(*var_id, value);
-                }
-
-                Ok(
-                    // This one is OK to fail: We want to know if custom conversion is working
-                    eval_block(engine_state, &mut stack, block, PipelineData::new(val_span))?
-                        .into_value(val_span)
-                        .as_string()?,
-                )
-            } else {
-                Err(ShellError::MissingParameter("block input".into(), to_span))
-            }
-        } else {
-            // Do not fail here. Must succeed, otherwise setting a non-string env var would constantly
-            // throw errors when running externals etc.
-            Ok(value.into_string(ENV_SEP, config))
-        }
-    } else {
-        // Do not fail here. Must succeed, otherwise setting a non-string env var would constantly
-        // throw errors when running externals etc.
-        Ok(value.into_string(ENV_SEP, config))
+    match get_converted_value(engine_state, stack, env_name, &value, "to_string") {
+        ConversionResult::Ok(v) => Ok(v.as_string()?),
+        ConversionResult::ConversionError(e) => Err(e),
+        ConversionResult::GeneralError(e) => Err(e),
+        ConversionResult::CellPathError => Ok(value.into_string(ENV_SEP, config)),
     }
 }
 
@@ -195,19 +166,19 @@ fn get_converted_value(
 
                 match result {
                     Ok(data) => ConversionResult::Ok(data.into_value(val_span)),
-                    Err(e) => ConversionResult::UnrecoverableError(e),
+                    Err(e) => ConversionResult::ConversionError(e),
                 }
             } else {
                 // This one is OK to fail: We want to know if custom conversion is working
-                ConversionResult::UnrecoverableError(ShellError::MissingParameter(
+                ConversionResult::ConversionError(ShellError::MissingParameter(
                     "block input".into(),
                     from_span,
                 ))
             }
         } else {
-            ConversionResult::DefaultError
+            ConversionResult::CellPathError
         }
     } else {
-        ConversionResult::DefaultError
+        ConversionResult::CellPathError
     }
 }
