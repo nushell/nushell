@@ -211,6 +211,26 @@ impl NuCompleter {
                                 let mut output = vec![];
 
                                 for named in &sig.named {
+                                    if let Some(short) = named.short {
+                                        let mut named = vec![0; short.len_utf8()];
+                                        short.encode_utf8(&mut named);
+                                        named.insert(0, b'-');
+                                        println!("{:?}", named);
+                                        if named.starts_with(&prefix) {
+                                            output.push((
+                                                reedline::Span {
+                                                    start: new_span.start - offset,
+                                                    end: new_span.end - offset,
+                                                },
+                                                String::from_utf8_lossy(&named).to_string(),
+                                            ));
+                                        }
+                                    }
+
+                                    if named.long.is_empty() {
+                                        continue;
+                                    }
+
                                     let mut named = named.long.as_bytes().to_vec();
                                     named.insert(0, b'-');
                                     named.insert(0, b'-');
