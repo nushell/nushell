@@ -36,10 +36,9 @@ impl Command for ToNuon {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description:
-                "Outputs an unformatted JSON string representing the contents of this table",
+            description: "Outputs a nuon string representing the contents of this table",
             example: "[1 2 3] | to nuon",
-            result: Some(Value::test_string("[\n  1,\n  2,\n  3\n]")),
+            result: Some(Value::test_string("[1, 2, 3]")),
         }]
     }
 }

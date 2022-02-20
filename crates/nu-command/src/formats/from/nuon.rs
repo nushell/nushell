@@ -1,8 +1,11 @@
-use nu_engine::eval_expression;
+use std::collections::HashMap;
+
+use nu_engine::{current_dir, eval_expression};
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    CONFIG_VARIABLE_ID,
 };
 #[derive(Clone)]
 pub struct FromNuon;
@@ -24,7 +27,7 @@ impl Command for FromNuon {
         vec![
             Example {
                 example: "'{ a:1 }' | from nuon",
-                description: "Converts json formatted string to table",
+                description: "Converts nuon formatted string to table",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string()],
                     vals: vec![Value::Int {
@@ -36,7 +39,7 @@ impl Command for FromNuon {
             },
             Example {
                 example: "'{ a:1, b: [1, 2] }' | from nuon",
-                description: "Converts json formatted string to table",
+                description: "Converts nuon formatted string to table",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
@@ -66,7 +69,7 @@ impl Command for FromNuon {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
@@ -74,17 +77,14 @@ impl Command for FromNuon {
         let head = call.head;
         let config = stack.get_config().unwrap_or_default();
         let string_input = input.collect_string("", &config)?;
+        let cwd = current_dir(engine_state, stack)?;
 
         {
-            let engine_state = EngineState::new();
+            let mut engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
+            let mut stack = stack.captures_to_stack(&HashMap::new());
 
             let _ = working_set.add_file("nuon file".to_string(), string_input.as_bytes());
-
-            // let span = Span {
-            //     start: 0,
-            //     end: string_input.len(),
-            // };
 
             let mut error = None;
 
@@ -141,11 +141,29 @@ impl Command for FromNuon {
                     head,
                 ));
             }
-            let mut stack = Stack::new();
+
+            let delta = working_set.render();
+
+            engine_state.merge_delta(delta, Some(&mut stack), &cwd)?;
+
+            stack.add_var(
+                CONFIG_VARIABLE_ID,
+                Value::Record {
+                    cols: vec![],
+                    vals: vec![],
+                    span: head,
+                },
+            );
+
             let result = eval_expression(&engine_state, &mut stack, &expr);
 
             match result {
                 Ok(result) => Ok(result.into_pipeline_data()),
+                Err(ShellError::ExternalNotSupported(..)) => Err(ShellError::SpannedLabeledError(
+                    "error when loading".into(),
+                    "running commands not supported in nuon".into(),
+                    head,
+                )),
                 Err(err) => Err(ShellError::SpannedLabeledError(
                     "error when loading".into(),
                     err.to_string(),
