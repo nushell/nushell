@@ -64,12 +64,26 @@ impl Command for ToJson {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description:
-                "Outputs an unformatted JSON string representing the contents of this table",
-            example: "[1 2 3] | to json",
-            result: Some(Value::test_string("[\n  1,\n  2,\n  3\n]")),
-        }]
+        vec![
+            Example {
+                description:
+                    "Outputs an unformatted JSON string representing the contents of this table",
+                example: "[1 2 3] | to json -r",
+                result: Some(Value::test_string("[1,2,3]")),
+            },
+            Example {
+                description:
+                    "Outputs a JSON string representing the contents of this table",
+                example: "[a b c] | to json",
+                result: Some(Value::test_string("[\n  \"a\",\n  \"b\",\n  \"c\"\n]")),
+            },
+            Example {
+                description:
+                    "Outputs a JSON string, with 4-space indentation, representing the contents of this table",
+                example: "[Joe Bob Sam] | to json -i 4",
+                result: Some(Value::test_string("[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]")),
+            },
+        ]
     }
 }
 
