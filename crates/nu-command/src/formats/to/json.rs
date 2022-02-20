@@ -45,9 +45,7 @@ impl Command for ToJson {
         let json_result = if raw {
             nu_json::to_string_raw(&json_value)
         } else {
-            let indent: usize = call
-                .get_flag(engine_state, stack, "indent")?
-                .unwrap_or(2);
+            let indent: usize = call.get_flag(engine_state, stack, "indent")?.unwrap_or(2);
 
             nu_json::to_string_with_indent(&json_value, indent)
         };
