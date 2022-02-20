@@ -8,7 +8,7 @@ Post a body to a URL (HTTP POST operation).
 
 ## Signature
 
-```> post (path) (body) --user --password --content-type --content-length --raw --insecure```
+```> post (path) (body) --user --password --content-type --content-length --headers --raw --insecure```
 
 ## Parameters
 
@@ -18,6 +18,7 @@ Post a body to a URL (HTTP POST operation).
  -  `--password {any}`: the password when authenticating
  -  `--content-type {any}`: the MIME type of content to post
  -  `--content-length {any}`: the length of the content being posted
+ -  `--headers {any}`: custom headers you want to add 
  -  `--raw`: return values as a string instead of a table
  -  `--insecure`: allow insecure server connections when using SSL
 
@@ -31,5 +32,10 @@ Post content to url.com
 Post content to url.com, with username and password
 ```shell
 > post -u myuser -p mypass url.com 'body'
+```
+
+Post content to url.com, with custom header
+```shell
+> post -H [my-header-key my-header-value] url.com
 ```
 

@@ -256,6 +256,10 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::missing_config_value), url(docsrs))]
     MissingConfigValue(String, #[label = "missing {0}"] Span),
 
+    #[error("Negative value passed when positive one is required")]
+    #[diagnostic(code(nu::shell::needs_positive_value), url(docsrs))]
+    NeedsPositiveValue(#[label = "use a positive value"] Span),
+
     #[error("{0}")]
     #[diagnostic()]
     SpannedLabeledError(String, String, #[label("{1}")] Span),
