@@ -185,7 +185,7 @@ pub fn get_color_config(config: &Config) -> HashMap<String, Style> {
     // hm.insert("primitive_line".to_string(), Color::White.normal());
     // hm.insert("primitive_pattern".to_string(), Color::White.normal());
     // hm.insert("primitive_path".to_string(), Color::White.normal());
-    // hm.insert("separator_color".to_string(), Color::White.normal());
+    hm.insert("separator".to_string(), Color::White.normal());
     hm.insert(
         "leading_trailing_space_bg".to_string(),
         Style::default().on(Color::Rgb(128, 128, 128)),
@@ -292,14 +292,6 @@ pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> Te
             }
         }
 
-        "record" | "list" | "block" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_left(),
-            }
-        }
-
         "nothing" => {
             let style = color_hm.get(primitive);
             match style {
@@ -334,6 +326,14 @@ pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> Te
                     .alignment(Alignment::Right)
                     .fg(Color::Green)
                     .bold(Some(true)),
+            }
+        }
+
+        "record" | "list" | "block" => {
+            let style = color_hm.get(primitive);
+            match style {
+                Some(s) => TextStyle::with_style(Alignment::Left, *s),
+                None => TextStyle::basic_left(),
             }
         }
 

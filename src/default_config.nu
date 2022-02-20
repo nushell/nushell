@@ -107,37 +107,71 @@ extern "git push" [
   --ipv6(-6)                                 # use IPv6 addresses only
 ]
 
-# The default config record. This is where much of your global configuration is setup.
-let $config = {
-  filesize_metric: $false
-  table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
-  use_ls_colors: $true
-  rm_always_trash: $false
-  color_config: {
+# for more information on themes see
+# https://github.com/nushell/nushell/blob/main/docs/How_To_Coloring_and_Theming.md
+let default_theme = {
+    # color for nushell primitives
     separator: white
     leading_trailing_space_bg: white
     header: green_bold
-    date: white
-    filesize: white
-    row_index: green_bold
-    hints: dark_gray
+    empty: blue
     bool: white
     int: white
+    filesize: white
     duration: white
+    date: white
     range: white
     float: white
     string: white
     nothing: white
     binary: white
     cellpath: white
-  }
+    row_index: green_bold
+    record: white
+    list: white
+    block: white
+    hints: dark_gray
+
+    # flatshapes are used to change the cli syntax highlighting
+    flatshape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
+    flatshape_bool: light_cyan
+    flatshape_int: purple_bold
+    flatshape_float: purple_bold
+    flatshape_range: yellow_bold
+    flatshape_internalcall: cyna_bold
+    flatshape_external: cyan
+    flatshape_externalarg: green_bold
+    flatshape_literal: blue
+    flatshape_operator: yellow
+    flatshape_signature: green_bold
+    flatshape_string: green
+    flatshape_string_interpolation: cyan_bold
+    flatshape_list: cyan_bold
+    flatshape_table: blue_bold
+    flatshape_record: cyan_bold
+    flatshape_block: blue_bold
+    flatshape_filepath: cyan
+    flatshape_globpattern: cyan_bold
+    flatshape_variable: purple
+    flatshape_flag: blue_bold
+    flatshape_custom: green
+    flatshape_nothing: light_cyan
+}
+
+# The default config record. This is where much of your global configuration is setup.
+let $config = {
+  filesize_metric: $false
+  table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
+  use_ls_colors: $true
+  rm_always_trash: $false
+  color_config: $default_theme
   use_grid_icons: $true
-  footer_mode: "30" # always, never, number_of_rows, auto
+  footer_mode: "25" # always, never, number_of_rows, auto
   quick_completions: $true  # set this to $false to prevent auto-selecting completions when only one remains
   animate_prompt: $false # redraw the prompt every second
   float_precision: 2
   use_ansi_coloring: $true
-  filesize_format: "b" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
+  filesize_format: "kb" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
   edit_mode: emacs # emacs, vi
   max_history_size: 10000
   menu_config: {
