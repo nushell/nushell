@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use nu_protocol::ast::PathMember;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{Config, PipelineData, ShellError, Value};
 
@@ -10,6 +11,8 @@ use crate::eval_block;
 const ENV_SEP: &str = ";";
 #[cfg(not(windows))]
 const ENV_SEP: &str = ":";
+
+const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
 /// Translate environment variables from Strings to Values. Requires config to be already set up in
 /// case the user defined custom env conversions in config.nu.
@@ -27,9 +30,22 @@ pub fn convert_env_values(
     let mut new_scope = HashMap::new();
 
     for (name, val) in &engine_state.env_vars {
-        if let Some(env_conv) = config.env_conversions.get(name) {
-            if let Some((block_id, from_span)) = env_conv.from_string {
-                let val_span = match val.span() {
+        if let Some(env_conversions) = stack.get_env_var(engine_state, ENV_CONVERSIONS) {
+            let val_span = match env_conversions.span() {
+                Ok(sp) => sp,
+                Err(e) => {
+                    error = error.or(Some(e));
+                    continue;
+                }
+            };
+
+            let path_member = PathMember::String {
+                val: name.to_string(),
+                span: val_span,
+            };
+
+            if let Ok(env_conversion) = env_conversions.follow_cell_path(&[path_member]) {
+                let conv_span = match env_conversion.span() {
                     Ok(sp) => sp,
                     Err(e) => {
                         error = error.or(Some(e));
@@ -37,31 +53,49 @@ pub fn convert_env_values(
                     }
                 };
 
-                let block = engine_state.get_block(block_id);
+                let path_member = PathMember::String {
+                    val: "from_string".to_string(),
+                    span: conv_span,
+                };
 
-                if let Some(var) = block.signature.get_positional(0) {
-                    let mut stack = stack.gather_captures(&block.captures);
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, val.clone());
-                    }
+                if let Ok(Value::Block {
+                    val: block_id,
+                    span: from_span,
+                    ..
+                }) = env_conversion.follow_cell_path(&[path_member])
+                {
+                    let block = engine_state.get_block(block_id);
 
-                    let result =
-                        eval_block(engine_state, &mut stack, block, PipelineData::new(val_span));
-
-                    match result {
-                        Ok(data) => {
-                            let val = data.into_value(val_span);
-                            new_scope.insert(name.to_string(), val);
+                    if let Some(var) = block.signature.get_positional(0) {
+                        let mut stack = stack.gather_captures(&block.captures);
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(*var_id, val.clone());
                         }
-                        Err(e) => error = error.or(Some(e)),
+
+                        let result = eval_block(
+                            engine_state,
+                            &mut stack,
+                            block,
+                            PipelineData::new(val_span),
+                        );
+
+                        match result {
+                            Ok(data) => {
+                                let val = data.into_value(val_span);
+                                new_scope.insert(name.to_string(), val);
+                            }
+                            Err(e) => error = error.or(Some(e)),
+                        }
+                    } else {
+                        error = error.or_else(|| {
+                            Some(ShellError::MissingParameter(
+                                "block input".into(),
+                                from_span,
+                            ))
+                        });
                     }
                 } else {
-                    error = error.or_else(|| {
-                        Some(ShellError::MissingParameter(
-                            "block input".into(),
-                            from_span,
-                        ))
-                    });
+                    new_scope.insert(name.to_string(), val.clone());
                 }
             } else {
                 new_scope.insert(name.to_string(), val.clone());

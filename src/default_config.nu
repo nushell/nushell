@@ -28,6 +28,20 @@ let-env PROMPT_INDICATOR_VI_INSERT = ": "
 let-env PROMPT_INDICATOR_VI_NORMAL = "〉"
 let-env PROMPT_MULTILINE_INDICATOR = "::: "
 
+# Specifies how environment variables are:
+# - converted from a string to a value on Nushell startup (from_string)
+# - converted from a value back to a string when running extrnal commands (to_string)
+let-env ENV_CONVERSIONS = {
+  "PATH": {
+    from_string: { |s| $s | split row (char esep) }
+    to_string: { |v| $v | str collect (char esep) }
+  }
+  "Path": {
+    from_string: { |s| $s | split row (char esep) }
+    to_string: { |v| $v | str collect (char esep) }
+  }
+}
+
 let $config = {
   filesize_metric: $true
   table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
@@ -58,12 +72,6 @@ let $config = {
   float_precision: 2
   use_ansi_coloring: $true
   filesize_format: "b" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
-  env_conversions: {
-    "PATH": {
-        from_string: { |s| $s | split row (char esep) }
-        to_string: { |v| $v | str collect (char esep) }
-        }
-  }
   edit_mode: emacs # emacs, vi
   max_history_size: 10000
   menu_config: {
@@ -76,7 +84,7 @@ let $config = {
   }
   history_config: {
    page_size: 10
-   selector: ":"                                                                                                                          
+   selector: ":"
    text_style: green
    selected_text_style: green_reverse
    marker: "? "
