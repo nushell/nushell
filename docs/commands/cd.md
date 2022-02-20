@@ -14,3 +14,10 @@ Change directory.
 
  -  `path`: the path to change to
 
+## Examples
+
+Change to your home directory
+```shell
+> cd ~
+```
+

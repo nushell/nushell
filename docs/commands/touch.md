@@ -15,3 +15,15 @@ Creates one or more files.
  -  `filename`: the path of the file you want to create
  -  `...rest`: additional files to create
 
+## Examples
+
+Creates "fixture.json"
+```shell
+> touch fixture.json
+```
+
+Creates files a, b and c
+```shell
+> touch a b c
+```
+

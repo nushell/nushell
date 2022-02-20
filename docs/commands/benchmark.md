@@ -14,3 +14,10 @@ Time the running time of a block
 
  -  `block`: the block to run
 
+## Examples
+
+Benchmarks a command within a block
+```shell
+> benchmark { sleep 500ms }
+```
+

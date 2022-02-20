@@ -19,3 +19,20 @@ List the files in a directory.
  -  `--full-paths`: display paths as absolute paths
  -  `--du`: Display the apparent directory size in place of the directory metadata size
 
+## Examples
+
+List all files in the current directory
+```shell
+> ls
+```
+
+List all files in a subdirectory
+```shell
+> ls subdir
+```
+
+List all rust files
+```shell
+> ls *.rs
+```
+

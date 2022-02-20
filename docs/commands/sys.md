@@ -17,3 +17,13 @@ Show info about the system
 > sys
 ```
 
+Show the os system name with get
+```shell
+> (sys).host | get name
+```
+
+Show the os system name
+```shell
+> (sys).host.name
+```
+

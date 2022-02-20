@@ -8,12 +8,12 @@ Convert table into simple HTML
 
 ## Signature
 
-```> to html --html_color --no_color --dark --partial --theme --list```
+```> to html --html-color --no-color --dark --partial --theme --list```
 
 ## Parameters
 
- -  `--html_color`: change ansi colors to html colors
- -  `--no_color`: remove all ansi colors in output
+ -  `--html-color`: change ansi colors to html colors
+ -  `--no-color`: remove all ansi colors in output
  -  `--dark`: indicate your background color is a darker color
  -  `--partial`: only output the html for the content itself
  -  `--theme {string}`: the name of the theme to use (github, blulocolight, ...)
