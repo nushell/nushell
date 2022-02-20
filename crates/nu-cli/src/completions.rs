@@ -215,7 +215,6 @@ impl NuCompleter {
                                         let mut named = vec![0; short.len_utf8()];
                                         short.encode_utf8(&mut named);
                                         named.insert(0, b'-');
-                                        println!("{:?}", named);
                                         if named.starts_with(&prefix) {
                                             output.push((
                                                 reedline::Span {
