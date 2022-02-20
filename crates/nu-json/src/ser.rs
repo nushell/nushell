@@ -31,6 +31,11 @@ where
     pub fn new(writer: W) -> Self {
         Serializer::with_formatter(writer, HjsonFormatter::new())
     }
+
+    #[inline]
+    pub fn with_indent(writer: W, indent: &'a [u8]) -> Self {
+        Serializer::with_formatter(writer, HjsonFormatter::with_indent(indent))
+    }
 }
 
 impl<W, F> Serializer<W, F>
@@ -941,6 +946,19 @@ where
     Ok(())
 }
 
+/// Encode the specified struct into a Hjson `[u8]` writer.
+#[inline]
+pub fn to_writer_with_indent<W, T>(writer: &mut W, value: &T, indent: usize) -> Result<()>
+where
+    W: io::Write,
+    T: ser::Serialize,
+{
+    let indent_string = " ".repeat(indent);
+    let mut ser = Serializer::with_indent(writer, indent_string.as_bytes());
+    value.serialize(&mut ser)?;
+    Ok(())
+}
+
 /// Encode the specified struct into a Hjson `[u8]` buffer.
 #[inline]
 pub fn to_vec<T>(value: &T) -> Result<Vec<u8>>
@@ -954,6 +972,19 @@ where
     Ok(writer)
 }
 
+/// Encode the specified struct into a Hjson `[u8]` buffer.
+#[inline]
+pub fn to_vec_with_indent<T>(value: &T, indent: usize) -> Result<Vec<u8>>
+where
+    T: ser::Serialize,
+{
+    // We are writing to a Vec, which doesn't fail. So we can ignore
+    // the error.
+    let mut writer = Vec::with_capacity(128);
+    to_writer_with_indent(&mut writer, value, indent)?;
+    Ok(writer)
+}
+
 /// Encode the specified struct into a Hjson `String` buffer.
 #[inline]
 pub fn to_string<T>(value: &T) -> Result<String>
@@ -961,6 +992,17 @@ where
     T: ser::Serialize,
 {
     let vec = to_vec(value)?;
+    let string = String::from_utf8(vec)?;
+    Ok(string)
+}
+
+/// Encode the specified struct into a Hjson `String` buffer.
+#[inline]
+pub fn to_string_with_indent<T>(value: &T, indent: usize) -> Result<String>
+where
+    T: ser::Serialize,
+{
+    let vec = to_vec_with_indent(value, indent)?;
     let string = String::from_utf8(vec)?;
     Ok(string)
 }
