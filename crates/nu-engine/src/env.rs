@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use nu_protocol::ast::PathMember;
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{Config, PipelineData, ShellError, Value};
+use nu_protocol::{Config, EnvConversion, PipelineData, ShellError, Span, Value};
 
 use crate::eval_block;
 
@@ -13,6 +13,13 @@ const ENV_SEP: &str = ";";
 const ENV_SEP: &str = ":";
 
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
+
+enum ConversionResult {
+    Ok(Value),
+    UnrecoverableError(ShellError), // Fail the conversion loudly
+    GeneralError(ShellError),       // Conversion failed so skip this environment variable entirely
+    DefaultError,                   // Conversion failed but use a default value instead
+}
 
 /// Translate environment variables from Strings to Values. Requires config to be already set up in
 /// case the user defined custom env conversions in config.nu.
@@ -30,63 +37,15 @@ pub fn convert_env_values(
     let mut new_scope = HashMap::new();
 
     for (name, val) in &engine_state.env_vars {
-        if let Some(env_conversions) = stack.get_env_var(engine_state, ENV_CONVERSIONS) {
-            let val_span = match env_conversions.span() {
-                Ok(sp) => sp,
-                Err(e) => {
-                    error = error.or(Some(e));
-                    continue;
-                }
-            };
-
-            let path_members = &[
-                PathMember::String {
-                    val: name.to_string(),
-                    span: val_span,
-                },
-                PathMember::String {
-                    val: "from_string".to_string(),
-                    span: val_span,
-                },
-            ];
-
-            if let Ok(Value::Block {
-                val: block_id,
-                span: from_span,
-                ..
-            }) = env_conversions.follow_cell_path(path_members)
-            {
-                let block = engine_state.get_block(block_id);
-
-                if let Some(var) = block.signature.get_positional(0) {
-                    let mut stack = stack.gather_captures(&block.captures);
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, val.clone());
-                    }
-
-                    let result =
-                        eval_block(engine_state, &mut stack, block, PipelineData::new(val_span));
-
-                    match result {
-                        Ok(data) => {
-                            let val = data.into_value(val_span);
-                            new_scope.insert(name.to_string(), val);
-                        }
-                        Err(e) => error = error.or(Some(e)),
-                    }
-                } else {
-                    error = error.or_else(|| {
-                        Some(ShellError::MissingParameter(
-                            "block input".into(),
-                            from_span,
-                        ))
-                    });
-                }
-            } else {
-                new_scope.insert(name.to_string(), val.clone());
+        match get_converted_value(engine_state, stack, name, val, "from_string") {
+            ConversionResult::Ok(v) => {
+                let _ = new_scope.insert(name.to_string(), v);
             }
-        } else {
-            new_scope.insert(name.to_string(), val.clone());
+            ConversionResult::UnrecoverableError(e) => error = error.or(Some(e)),
+            ConversionResult::GeneralError(_) => continue,
+            ConversionResult::DefaultError => {
+                let _ = new_scope.insert(name.to_string(), val.clone());
+            }
         }
     }
 
@@ -183,4 +142,72 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
 /// Calls current_dir_str() and returns the current directory as a PathBuf
 pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf, ShellError> {
     current_dir_str(engine_state, stack).map(PathBuf::from)
+}
+
+fn get_converted_value(
+    engine_state: &EngineState,
+    stack: &Stack,
+    name: &str,
+    orig_val: &Value,
+    direction: &str,
+) -> ConversionResult {
+    if let Some(env_conversions) = stack.get_env_var(engine_state, ENV_CONVERSIONS) {
+        let env_span = match env_conversions.span() {
+            Ok(span) => span,
+            Err(e) => {
+                return ConversionResult::GeneralError(e);
+            }
+        };
+        let val_span = match orig_val.span() {
+            Ok(span) => span,
+            Err(e) => {
+                return ConversionResult::GeneralError(e);
+            }
+        };
+
+        let path_members = &[
+            PathMember::String {
+                val: name.to_string(),
+                span: env_span,
+            },
+            PathMember::String {
+                val: direction.to_string(),
+                span: env_span,
+            },
+        ];
+
+        if let Ok(Value::Block {
+            val: block_id,
+            span: from_span,
+            ..
+        }) = env_conversions.follow_cell_path(path_members)
+        {
+            let block = engine_state.get_block(block_id);
+
+            if let Some(var) = block.signature.get_positional(0) {
+                let mut stack = stack.gather_captures(&block.captures);
+                if let Some(var_id) = &var.var_id {
+                    stack.add_var(*var_id, orig_val.clone());
+                }
+
+                let result =
+                    eval_block(engine_state, &mut stack, block, PipelineData::new(val_span));
+
+                match result {
+                    Ok(data) => ConversionResult::Ok(data.into_value(val_span)),
+                    Err(e) => ConversionResult::UnrecoverableError(e),
+                }
+            } else {
+                // This one is OK to fail: We want to know if custom conversion is working
+                ConversionResult::UnrecoverableError(ShellError::MissingParameter(
+                    "block input".into(),
+                    from_span,
+                ))
+            }
+        } else {
+            ConversionResult::DefaultError
+        }
+    } else {
+        ConversionResult::DefaultError
+    }
 }
