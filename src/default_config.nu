@@ -107,7 +107,7 @@ extern "git push" [
   --ipv6(-6)                                 # use IPv6 addresses only
 ]
 
-# The default config record. This is where much of your global configuration is setup. 
+# The default config record. This is where much of your global configuration is setup.
 let $config = {
   filesize_metric: $false
   table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
@@ -149,11 +149,11 @@ let $config = {
     marker: "| "
   }
   history_config: {
-   page_size: 10
-   selector: ":"
-   text_style: green
-   selected_text_style: green_reverse
-   marker: "? "
+    page_size: 10
+    selector: ":"
+    text_style: green
+    selected_text_style: green_reverse
+    marker: "? "
   }
   keybindings: [
     {
