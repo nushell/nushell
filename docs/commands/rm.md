@@ -19,3 +19,25 @@ Remove file(s).
  -  `--force`: suppress error when no file
  -  `--quiet`: supress output showing files deleted
 
+## Examples
+
+Delete or move a file to the system trash (depending on 'rm_always_trash' config option)
+```shell
+> rm file.txt
+```
+
+Move a file to the system trash
+```shell
+> rm --trash file.txt
+```
+
+Delete a file permanently
+```shell
+> rm --permanent file.txt
+```
+
+Delete a file, and suppress errors if no file is found
+```shell
+> rm --force file.txt
+```
+

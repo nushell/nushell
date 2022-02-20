@@ -10,3 +10,10 @@ List supported time zones.
 
 ```> date list-timezone ```
 
+## Examples
+
+Show timezone(s) that contains 'Shanghai'
+```shell
+> date list-timezone | where timezone =~ Shanghai
+```
+

@@ -8,9 +8,9 @@ Render the table.
 
 ## Signature
 
-```> table --start_number```
+```> table --start-number```
 
 ## Parameters
 
- -  `--start_number {int}`: row number to start viewing from
+ -  `--start-number {int}`: row number to start viewing from
 

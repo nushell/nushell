@@ -24,6 +24,11 @@ Update a column value
 
 Use in block form for more involved updating logic
 ```shell
+> echo [[count fruit]; [1 'apple']] | update count {|f| $f.count + 1}
+```
+
+Use in block form for more involved updating logic
+```shell
 > echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { get authors | str collect ',' }
 ```
 

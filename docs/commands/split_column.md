@@ -16,3 +16,15 @@ splits contents across multiple columns via the separator.
  -  `...rest`: column names to give the new columns
  -  `--collapse-empty`: remove empty columns
 
+## Examples
+
+Split a string into columns by the specified separator
+```shell
+> echo 'a--b--c' | split column '--'
+```
+
+Split a string into columns of char and remove the empty columns
+```shell
+> echo 'abc' | split column -c ''
+```
+

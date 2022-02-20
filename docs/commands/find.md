@@ -39,11 +39,11 @@ Search a char in a list of string
 
 Find the first odd value
 ```shell
-> echo [2 4 3 6 5 8] | find --predicate { ($it mod 2) == 1 }
+> echo [2 4 3 6 5 8] | find --predicate { |it| ($it mod 2) == 1 }
 ```
 
 Find if a service is not running
 ```shell
-> echo [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { $it.patch }
+> echo [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { |it| $it.patch }
 ```
 
