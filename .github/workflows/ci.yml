@@ -3,6 +3,11 @@ on: [pull_request]
 name: Continuous integration
 
 jobs:
+  cancel:
+    name: auto-cancellation-running-action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: fauguste/auto-cancellation-running-action@0.1.4
   ci:
     strategy:
       fail-fast: false
