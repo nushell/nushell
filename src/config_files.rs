@@ -5,6 +5,8 @@ use nu_parser::ParseError;
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
 use nu_protocol::{PipelineData, Span, Spanned};
+use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
 
 const NUSHELL_FOLDER: &str = "nushell";
@@ -71,6 +73,30 @@ pub(crate) fn read_config_file(
         }
 
         config_path.push(CONFIG_FILE);
+
+        if !config_path.exists() {
+            println!("No config file found at {:?}", config_path);
+            println!("Would you like to create one (Y/n): ");
+
+            let mut answer = String::new();
+            std::io::stdin()
+                .read_line(&mut answer)
+                .expect("Failed to read user input");
+
+            match answer.to_lowercase().trim() {
+                "y" => {
+                    let mut output = File::create(&config_path).expect("Unable to create file");
+                    let config_file = include_str!("default_config.nu");
+                    write!(output, "{}", config_file).expect("Unable to write to config file");
+                    println!("Config file created {:?}", config_path);
+                }
+                _ => {
+                    println!("Continuing without config file");
+                    return;
+                }
+            }
+        }
+
         eval_config_contents(config_path, engine_state, stack);
     }
 

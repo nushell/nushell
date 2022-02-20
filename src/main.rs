@@ -105,6 +105,7 @@ fn main() -> Result<()> {
                 || arg == "--perf"
                 || arg == "--threads"
                 || arg == "--version"
+                || arg == "--log-level"
             {
                 collect_arg_nushell = true;
             }
@@ -139,8 +140,13 @@ fn main() -> Result<()> {
             if binary_args.perf {
                 // if we started in perf mode show only the info logs
                 // TODO: what happens when the config log_level is read?
+                let level = binary_args
+                    .log_level
+                    .map(|level| level.item)
+                    .unwrap_or_else(|| "info".to_string());
+
                 logger(|builder| {
-                    configure("info", builder)?;
+                    configure(level.as_str(), builder)?;
                     Ok(())
                 })?;
                 info!("start logging {}:{}:{}", file!(), line!(), column!());
@@ -256,6 +262,7 @@ fn parse_commandline_args(
             let testbin: Option<Expression> = call.get_flag_expr("testbin");
             let perf = call.has_flag("perf");
             let config_file: Option<Expression> = call.get_flag_expr("config");
+            let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
 
             fn extract_contents(
@@ -275,6 +282,7 @@ fn parse_commandline_args(
             let commands = extract_contents(commands, engine_state);
             let testbin = extract_contents(testbin, engine_state);
             let config_file = extract_contents(config_file, engine_state);
+            let log_level = extract_contents(log_level, engine_state);
 
             let help = call.has_flag("help");
 
@@ -309,6 +317,7 @@ fn parse_commandline_args(
                 commands,
                 testbin,
                 config_file,
+                log_level,
                 perf,
                 threads,
             });
@@ -329,6 +338,7 @@ struct NushellCliArgs {
     commands: Option<Spanned<String>>,
     testbin: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
+    log_level: Option<Spanned<String>>,
     perf: bool,
     threads: Option<Value>,
 }
@@ -374,6 +384,12 @@ impl Command for Nu {
                 "config",
                 SyntaxShape::String,
                 "start with an alternate config file",
+                None,
+            )
+            .named(
+                "log-level",
+                SyntaxShape::String,
+                "log level for performance logs",
                 None,
             )
             .named(
