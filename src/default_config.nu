@@ -171,7 +171,7 @@ let $config = {
   animate_prompt: $false # redraw the prompt every second
   float_precision: 2
   use_ansi_coloring: $true
-  filesize_format: "kb" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
+  filesize_format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
   edit_mode: emacs # emacs, vi
   max_history_size: 10000
   menu_config: {
