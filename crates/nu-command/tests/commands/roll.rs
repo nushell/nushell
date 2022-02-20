@@ -8,10 +8,10 @@ mod rows {
             r#"
             echo [
                 [service, status];
-            
-                [ruby,      DOWN] 
-                [db,        DOWN] 
-                [nud,       DOWN] 
+
+                [ruby,      DOWN]
+                [db,        DOWN]
+                [nud,       DOWN]
                 [expected,  HERE]
             ]"#,
         )
@@ -52,10 +52,10 @@ mod columns {
             r#"
             echo [
                 [commit_author, origin,      stars];
-            
-                [     "Andres",     EC, amarillito] 
-                [     "Darren",     US,      black] 
-                [   "Jonathan",     US,      black] 
+
+                [     "Andres",     EC, amarillito]
+                [     "Darren",     US,      black]
+                [   "Jonathan",     US,      black]
                 [     "Yehuda",     US,      black]
                 [      "Jason",     CA,       gold]
             ]"#,
@@ -122,7 +122,7 @@ mod columns {
         //
         // output:
         //  [
-        //   [Column1, Column2, Column3, Column4, Column5, Column6, Column7, Column8];
+        //   [column1, column2, column3, column4, column5, column6, column7, column8];
         //   [      0,       0,       0,       0,       0,       1,       0,       0]
         //  ]
         //

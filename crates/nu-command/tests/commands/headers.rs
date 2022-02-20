@@ -23,7 +23,7 @@ fn headers_adds_missing_column_name() {
             open sample_headers.xlsx
             | get Sheet1
             | headers
-            | get Column1
+            | get column1
             | to json --raw"#
     ));
 

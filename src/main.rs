@@ -383,7 +383,7 @@ impl Command for Nu {
             .named(
                 "config",
                 SyntaxShape::String,
-                "run internal test binary",
+                "start with an alternate config file",
                 None,
             )
             .named(

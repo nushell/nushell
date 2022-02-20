@@ -10,3 +10,10 @@ Get the current date.
 
 ```> date now ```
 
+## Examples
+
+Get the current date and display it in a given format string.
+```shell
+> date now | date format "%Y-%m-%d %H:%M:%S"
+```
+
