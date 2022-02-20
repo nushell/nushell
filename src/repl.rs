@@ -59,17 +59,6 @@ pub(crate) fn evaluate(
     config_files::read_config_file(engine_state, &mut stack, config_file);
     let history_path = config_files::create_history_path();
 
-    // Load config struct form config variable
-    let config = match stack.get_config() {
-        Ok(config) => config,
-        Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-
-            report_error(&working_set, &e);
-            Config::default()
-        }
-    };
-
     // logger(|builder| {
     //     configure(&config.log_level, builder)?;
     //     // trace_filters(self, builder)?;
@@ -88,7 +77,7 @@ pub(crate) fn evaluate(
     }
 
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, &stack, &config) {
+    if let Some(e) = convert_env_values(engine_state, &stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
     }

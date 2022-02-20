@@ -11,7 +11,7 @@ fn lines() {
             | skip 1
             | first 1
             | split column "="
-            | get Column1.0
+            | get column1.0
             | str trim
         "#
     ));

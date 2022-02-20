@@ -63,12 +63,12 @@ impl Command for Transpose {
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
-                            cols: vec!["Column0".to_string(), "Column1".to_string()],
+                            cols: vec!["column0".to_string(), "column1".to_string()],
                             vals: vec![Value::test_string("c1"), Value::test_int(1)],
                             span,
                         },
                         Value::Record {
-                            cols: vec!["Column0".to_string(), "Column1".to_string()],
+                            cols: vec!["column0".to_string(), "column1".to_string()],
                             vals: vec![Value::test_string("c2"), Value::test_int(2)],
                             span,
                         },
@@ -184,7 +184,7 @@ pub fn transpose(
             if let Some(name) = args.rest.get(i) {
                 headers.push(name.item.clone())
             } else {
-                headers.push(format!("Column{}", i));
+                headers.push(format!("column{}", i));
             }
         }
     }

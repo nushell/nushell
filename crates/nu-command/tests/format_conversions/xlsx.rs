@@ -8,7 +8,7 @@ fn from_excel_file_to_table() {
             open sample_data.xlsx
             | get SalesOrders
             | get 4
-            | get Column2
+            | get column2
         "#
     ));
 

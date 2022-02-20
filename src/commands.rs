@@ -89,7 +89,7 @@ pub(crate) fn evaluate(
     }
 
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, &stack, &config) {
+    if let Some(e) = convert_env_values(engine_state, &stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
         std::process::exit(1);

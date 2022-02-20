@@ -37,12 +37,12 @@ impl Command for Rotate {
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
-                            cols: vec!["Column0".to_string(), "Column1".to_string()],
+                            cols: vec!["column0".to_string(), "column1".to_string()],
                             vals: vec![Value::test_int(1), Value::test_string("a")],
                             span: Span::test_data(),
                         },
                         Value::Record {
-                            cols: vec!["Column0".to_string(), "Column1".to_string()],
+                            cols: vec!["column0".to_string(), "column1".to_string()],
                             vals: vec![Value::test_int(2), Value::test_string("b")],
                             span: Span::test_data(),
                         },
@@ -57,10 +57,10 @@ impl Command for Rotate {
                     vals: vec![
                         Value::Record {
                             cols: vec![
-                                "Column0".to_string(),
-                                "Column1".to_string(),
-                                "Column2".to_string(),
-                                "Column3".to_string(),
+                                "column0".to_string(),
+                                "column1".to_string(),
+                                "column2".to_string(),
+                                "column3".to_string(),
                             ],
                             vals: vec![
                                 Value::test_int(5),
@@ -72,10 +72,10 @@ impl Command for Rotate {
                         },
                         Value::Record {
                             cols: vec![
-                                "Column0".to_string(),
-                                "Column1".to_string(),
-                                "Column2".to_string(),
-                                "Column3".to_string(),
+                                "column0".to_string(),
+                                "column1".to_string(),
+                                "column2".to_string(),
+                                "column3".to_string(),
                             ],
                             vals: vec![
                                 Value::test_int(6),
@@ -114,12 +114,12 @@ impl Command for Rotate {
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
-                            cols: vec!["Column0".to_string(), "Column1".to_string()],
+                            cols: vec!["column0".to_string(), "column1".to_string()],
                             vals: vec![Value::test_string("b"), Value::test_int(2)],
                             span: Span::test_data(),
                         },
                         Value::Record {
-                            cols: vec!["Column0".to_string(), "Column1".to_string()],
+                            cols: vec!["column0".to_string(), "column1".to_string()],
                             vals: vec![Value::test_string("a"), Value::test_int(1)],
                             span: Span::test_data(),
                         },
@@ -134,10 +134,10 @@ impl Command for Rotate {
                     vals: vec![
                         Value::Record {
                             cols: vec![
-                                "Column0".to_string(),
-                                "Column1".to_string(),
-                                "Column2".to_string(),
-                                "Column3".to_string(),
+                                "column0".to_string(),
+                                "column1".to_string(),
+                                "column2".to_string(),
+                                "column3".to_string(),
                             ],
                             vals: vec![
                                 Value::test_string("b"),
@@ -149,10 +149,10 @@ impl Command for Rotate {
                         },
                         Value::Record {
                             cols: vec![
-                                "Column0".to_string(),
-                                "Column1".to_string(),
-                                "Column2".to_string(),
-                                "Column3".to_string(),
+                                "column0".to_string(),
+                                "column1".to_string(),
+                                "column2".to_string(),
+                                "column3".to_string(),
                             ],
                             vals: vec![
                                 Value::test_string("a"),
@@ -260,11 +260,11 @@ pub fn rotate(
         *total_rows -= 1;
     }
 
-    // holder for the new column names, particularly if none are provided by the user we create names as Column0, Column1, etc.
+    // holder for the new column names, particularly if none are provided by the user we create names as column0, column1, etc.
     let mut new_column_names = {
         let mut res = vec![];
         for idx in 0..(*total_rows + 1) {
-            res.push(format!("Column{}", idx));
+            res.push(format!("column{}", idx));
         }
         res.to_vec()
     };

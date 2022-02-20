@@ -10,10 +10,10 @@ fn by_column() {
             | skip 1
             | first 4
             | split column "="
-            | sort-by Column1
+            | sort-by column1
             | skip 1
             | first 1
-            | get Column1
+            | get column1
             | str trim
         "#
     ));
@@ -36,7 +36,7 @@ fn by_invalid_column() {
             | sort-by ColumnThatDoesNotExist
             | skip 1
             | first 1
-            | get Column1
+            | get column1
             | str trim
         "#
     ));

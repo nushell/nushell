@@ -16,3 +16,15 @@ Run a block
  -  `...rest`: the parameter(s) for the block
  -  `--ignore-errors`: ignore errors as the block runs
 
+## Examples
+
+Run the block
+```shell
+> do { echo hello }
+```
+
+Run the block and ignore errors
+```shell
+> do -i { thisisnotarealcommand }
+```
+

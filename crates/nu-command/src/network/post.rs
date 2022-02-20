@@ -10,6 +10,7 @@ use std::str::FromStr;
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 
 #[derive(Clone)]
@@ -49,6 +50,12 @@ impl Command for SubCommand {
                 "the length of the content being posted",
                 Some('l'),
             )
+            .named(
+                "headers",
+                SyntaxShape::Any,
+                "custom headers you want to add ",
+                Some('H'),
+            )
             .switch(
                 "raw",
                 "return values as a string instead of a table",
@@ -86,6 +93,11 @@ impl Command for SubCommand {
                 example: "post -u myuser -p mypass url.com 'body'",
                 result: None,
             },
+            Example {
+                description: "Post content to url.com, with custom header",
+                example: "post -H [my-header-key my-header-value] url.com",
+                result: None,
+            },
         ]
     }
 }
@@ -93,6 +105,7 @@ impl Command for SubCommand {
 struct Arguments {
     path: Option<Value>,
     body: Option<Value>,
+    headers: Option<Value>,
     raw: bool,
     insecure: Option<bool>,
     user: Option<String>,
@@ -109,6 +122,7 @@ fn run_post(
     let args = Arguments {
         path: Some(call.req(engine_state, stack, 0)?),
         body: Some(call.req(engine_state, stack, 1)?),
+        headers: call.get_flag(engine_state, stack, "headers")?,
         raw: call.has_flag("raw"),
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
@@ -156,6 +170,7 @@ fn helper(
     };
     let user = args.user.clone();
     let password = args.password;
+    let headers = args.headers;
     let location = url;
     let raw = args.raw;
     let login = match (user, password) {
@@ -185,6 +200,55 @@ fn helper(
     if let Some(login) = login {
         request = request.header("Authorization", format!("Basic {}", login));
     }
+
+    if let Some(headers) = headers {
+        let mut custom_headers: HashMap<String, Value> = HashMap::new();
+
+        match &headers {
+            Value::List { vals: table, .. } => {
+                if table.len() == 1 {
+                    // single row([key1 key2]; [val1 val2])
+                    match &table[0] {
+                        Value::Record { cols, vals, .. } => {
+                            for (k, v) in cols.iter().zip(vals.iter()) {
+                                custom_headers.insert(k.to_string(), v.clone());
+                            }
+                        }
+
+                        x => {
+                            return Err(ShellError::CantConvert(
+                                "string list or single row".into(),
+                                x.get_type().to_string(),
+                                headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                            ));
+                        }
+                    }
+                } else {
+                    // primitive values ([key1 val1 key2 val2])
+                    for row in table.chunks(2) {
+                        if row.len() == 2 {
+                            custom_headers.insert(row[0].as_string()?, (&row[1]).clone());
+                        }
+                    }
+                }
+            }
+
+            x => {
+                return Err(ShellError::CantConvert(
+                    "string list or single row".into(),
+                    x.get_type().to_string(),
+                    headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                ));
+            }
+        };
+
+        for (k, v) in &custom_headers {
+            if let Ok(s) = v.as_string() {
+                request = request.header(k, s);
+            }
+        }
+    }
+
     match request.send() {
         Ok(resp) => match resp.headers().get("content-type") {
             Some(content_type) => {
