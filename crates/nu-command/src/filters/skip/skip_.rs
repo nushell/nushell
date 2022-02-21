@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -75,11 +75,58 @@ impl Command for Skip {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        Ok(input
-            .into_iter()
-            .skip(n)
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+        match input {
+            PipelineData::RawStream(stream, bytes_span, metadata) => {
+                let mut remaining = n;
+                let mut output = vec![];
+
+                for frame in stream {
+                    let frame = frame?;
+
+                    match frame {
+                        Value::String { val, .. } => {
+                            let bytes = val.as_bytes();
+                            if bytes.len() < remaining {
+                                remaining -= bytes.len();
+                                output.extend_from_slice(bytes)
+                            } else {
+                                output.extend_from_slice(&bytes[0..remaining]);
+                                break;
+                            }
+                        }
+                        Value::Binary { val: bytes, .. } => {
+                            if bytes.len() < remaining {
+                                remaining -= bytes.len();
+                                output.extend_from_slice(&bytes)
+                            } else {
+                                output.extend_from_slice(&bytes[0..remaining]);
+                                break;
+                            }
+                        }
+                        _ => unreachable!("Raw streams are either bytes or strings"),
+                    }
+                }
+
+                Ok(Value::Binary {
+                    val: output,
+                    span: bytes_span,
+                }
+                .into_pipeline_data()
+                .set_metadata(metadata))
+            }
+            PipelineData::Value(Value::Binary { val, span }, metadata) => {
+                let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
+
+                Ok(Value::Binary { val: bytes, span }
+                    .into_pipeline_data()
+                    .set_metadata(metadata))
+            }
+            _ => Ok(input
+                .into_iter()
+                .skip(n)
+                .into_pipeline_data(ctrlc)
+                .set_metadata(metadata)),
+        }
     }
 }
 
