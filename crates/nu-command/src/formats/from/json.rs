@@ -149,16 +149,59 @@ fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> Value {
     }
 }
 
+// Converts row+column to a Span, assuming bytes (1-based rows)
+fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
+    let mut cur_row = 1;
+    let mut cur_col = 0;
+
+    for (offset, curr_byte) in contents.bytes().enumerate() {
+        if curr_byte == b'\n' {
+            cur_row += 1;
+            cur_col = 0;
+        }
+        if cur_row >= row && cur_col >= col {
+            return Span {
+                start: offset,
+                end: offset,
+            };
+        } else {
+            cur_col += 1;
+        }
+    }
+
+    Span {
+        start: contents.len(),
+        end: contents.len(),
+    }
+}
+
 fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, ShellError> {
     let result: Result<nu_json::Value, nu_json::Error> = nu_json::from_str(&string_input);
     match result {
         Ok(value) => Ok(convert_nujson_to_value(&value, span)),
 
-        Err(x) => Err(ShellError::CantConvert(
-            format!("structured data from json ({})", x),
-            "string".into(),
-            span,
-        )),
+        Err(x) => match x {
+            nu_json::Error::Syntax(_, row, col) => {
+                let label = x.to_string();
+                let label_span = convert_row_column_to_span(row, col, &string_input);
+                Err(ShellError::SpannedLabeledErrorRelated(
+                    "Error while parsing JSON text".into(),
+                    "error parsing JSON text".into(),
+                    span,
+                    vec![ShellError::OutsideSpannedLabeledError(
+                        string_input,
+                        "Error while parson JSON text".into(),
+                        label,
+                        label_span,
+                    )],
+                ))
+            }
+            x => Err(ShellError::CantConvert(
+                format!("structured data from json ({})", x),
+                "string".into(),
+                span,
+            )),
+        },
     }
 }
 
