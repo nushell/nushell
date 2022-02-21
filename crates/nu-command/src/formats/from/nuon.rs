@@ -94,28 +94,43 @@ impl Command for FromNuon {
 
         if let Some(pipeline) = block.pipelines.get(1) {
             if let Some(expr) = pipeline.expressions.get(0) {
-                return Err(ShellError::OutsideSpannedLabeledError(
-                    string_input,
-                    "error when loading".into(),
-                    "excess values when loading".into(),
-                    expr.span,
+                return Err(ShellError::SpannedLabeledErrorRelated(
+                    "error when loading nuon text".into(),
+                    "could not load nuon text".into(),
+                    head,
+                    vec![ShellError::OutsideSpannedLabeledError(
+                        string_input,
+                        "error when loading".into(),
+                        "excess values when loading".into(),
+                        expr.span,
+                    )],
                 ));
             } else {
-                return Err(ShellError::SpannedLabeledError(
-                    "error when loading".into(),
-                    "excess values when loading".into(),
+                return Err(ShellError::SpannedLabeledErrorRelated(
+                    "error when loading nuon text".into(),
+                    "could not load nuon text".into(),
                     head,
+                    vec![ShellError::SpannedLabeledError(
+                        "error when loading".into(),
+                        "excess values when loading".into(),
+                        head,
+                    )],
                 ));
             }
         }
 
         let expr = if let Some(pipeline) = block.pipelines.get(0) {
             if let Some(expr) = pipeline.expressions.get(1) {
-                return Err(ShellError::OutsideSpannedLabeledError(
-                    string_input,
-                    "error when loading".into(),
-                    "detected a pipeline in nuon file".into(),
-                    expr.span,
+                return Err(ShellError::SpannedLabeledErrorRelated(
+                    "error when loading nuon text".into(),
+                    "could not load nuon text".into(),
+                    head,
+                    vec![ShellError::OutsideSpannedLabeledError(
+                        string_input,
+                        "error when loading".into(),
+                        "detected a pipeline in nuon file".into(),
+                        expr.span,
+                    )],
                 ));
             }
 
@@ -139,11 +154,16 @@ impl Command for FromNuon {
         };
 
         if let Some(err) = error {
-            return Err(ShellError::OutsideSpannedLabeledError(
-                string_input,
-                "error when loading".into(),
-                err.to_string(),
-                err.span(),
+            return Err(ShellError::SpannedLabeledErrorRelated(
+                "error when parsing nuon text".into(),
+                "could not parse nuon text".into(),
+                head,
+                vec![ShellError::OutsideSpannedLabeledError(
+                    string_input,
+                    "error when parsing".into(),
+                    err.to_string(),
+                    err.span(),
+                )],
             ));
         }
 
@@ -151,7 +171,12 @@ impl Command for FromNuon {
 
         match result {
             Ok(result) => Ok(result.into_pipeline_data()),
-            Err(err) => Err(err),
+            Err(err) => Err(ShellError::SpannedLabeledErrorRelated(
+                "error when loading nuon text".into(),
+                "could not load nuon text".into(),
+                head,
+                vec![err],
+            )),
         }
     }
 }

@@ -269,6 +269,15 @@ pub enum ShellError {
     SpannedLabeledErrorHelp(String, String, #[label("{1}")] Span, String),
 
     #[error("{0}")]
+    #[diagnostic()]
+    SpannedLabeledErrorRelated(
+        String,
+        String,
+        #[label("{1}")] Span,
+        #[related] Vec<ShellError>,
+    ),
+
+    #[error("{0}")]
     #[diagnostic(help("{1}"))]
     LabeledError(String, String),
 

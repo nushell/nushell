@@ -47,4 +47,8 @@ impl<'src> miette::Diagnostic for CliError<'src> {
             Some(&self.1)
         }
     }
+
+    fn related<'a>(&'a self) -> Option<Box<dyn Iterator<Item = &'a dyn miette::Diagnostic> + 'a>> {
+        self.0.related()
+    }
 }
