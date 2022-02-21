@@ -190,7 +190,7 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
                     span,
                     vec![ShellError::OutsideSpannedLabeledError(
                         string_input,
-                        "Error while parson JSON text".into(),
+                        "Error while parsing JSON text".into(),
                         label,
                         label_span,
                     )],
