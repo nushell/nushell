@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_redirect, CallExt};
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
@@ -49,6 +49,8 @@ impl Command for ParEachGroup {
         let capture_block: CaptureBlock = call.req(engine_state, stack, 1)?;
         let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
+        let redirect_stdout = call.redirect_stdout;
+        let redirect_stderr = call.redirect_stderr;
 
         let stack = stack.captures_to_stack(&capture_block.captures);
 
@@ -72,11 +74,13 @@ impl Command for ParEachGroup {
                     }
                 }
 
-                match eval_block_with_redirect(
+                match eval_block(
                     engine_state,
                     &mut stack,
                     block,
                     PipelineData::new(span),
+                    redirect_stdout,
+                    redirect_stderr,
                 ) {
                     Ok(v) => v.into_value(span),
                     Err(error) => Value::Error { error },

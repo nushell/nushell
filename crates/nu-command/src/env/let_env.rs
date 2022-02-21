@@ -39,8 +39,9 @@ impl Command for LetEnv {
             .as_keyword()
             .expect("internal error: missing keyword");
 
-        let rhs = eval_expression_with_input(engine_state, stack, keyword_expr, input, false)?
-            .into_value(call.head);
+        let rhs =
+            eval_expression_with_input(engine_state, stack, keyword_expr, input, false, true)?
+                .into_value(call.head);
 
         if env_var == "PWD" {
             let cwd = current_dir(engine_state, stack)?;

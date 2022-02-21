@@ -38,7 +38,14 @@ impl Command for Source {
         let block_id: i64 = call.req(engine_state, stack, 1)?;
 
         let block = engine_state.get_block(block_id as usize).clone();
-        eval_block(engine_state, stack, &block, input)
+        eval_block(
+            engine_state,
+            stack,
+            &block,
+            input,
+            call.redirect_stdout,
+            call.redirect_stderr,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {

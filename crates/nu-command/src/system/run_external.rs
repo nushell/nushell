@@ -36,7 +36,8 @@ impl Command for External {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("run-external")
-            .switch("last-expression", "last-expression", None)
+            .switch("redirect-stdout", "redirect-stdout", None)
+            .switch("redirect-stderr", "redirect-stderr", None)
             .rest("rest", SyntaxShape::Any, "external command to run")
             .category(Category::System)
     }
@@ -50,7 +51,8 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let name: Spanned<String> = call.req(engine_state, stack, 0)?;
         let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
-        let last_expression = call.has_flag("last-expression");
+        let redirect_stdout = call.has_flag("redirect-stdout");
+        let redirect_stderr = call.has_flag("redirect-stderr");
 
         // Translate environment variables from Values to Strings
         let config = stack.get_config().unwrap_or_default();
@@ -93,7 +95,8 @@ impl Command for External {
         let command = ExternalCommand {
             name,
             args: args_strs,
-            last_expression,
+            redirect_stdout,
+            redirect_stderr,
             env_vars: env_vars_str,
         };
         command.run_with_input(engine_state, stack, input)
@@ -103,7 +106,8 @@ impl Command for External {
 pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
-    pub last_expression: bool,
+    pub redirect_stdout: bool,
+    pub redirect_stderr: bool,
     pub env_vars: HashMap<String, String>,
 }
 
@@ -138,8 +142,12 @@ impl ExternalCommand {
 
         // If the external is not the last command, its output will get piped
         // either as a string or binary
-        if !self.last_expression {
+        if self.redirect_stdout {
             process.stdout(Stdio::piped());
+        }
+
+        if self.redirect_stderr {
+            process.stderr(Stdio::piped());
         }
 
         // If there is an input from the pipeline. The stdin from the process
@@ -241,7 +249,8 @@ impl ExternalCommand {
                     }
                 }
 
-                let last_expression = self.last_expression;
+                let redirect_stdout = self.redirect_stdout;
+                let redirect_stderr = self.redirect_stderr;
                 let span = self.name.span;
                 let output_ctrlc = ctrlc.clone();
                 let (tx, rx) = mpsc::channel();
@@ -249,7 +258,12 @@ impl ExternalCommand {
                 std::thread::spawn(move || {
                     // If this external is not the last expression, then its output is piped to a channel
                     // and we create a ValueStream that can be consumed
-                    if !last_expression {
+
+                    if redirect_stderr {
+                        let _ = child.stderr.take();
+                    }
+
+                    if redirect_stdout {
                         let stdout = child.stdout.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stdout from external".to_string(),

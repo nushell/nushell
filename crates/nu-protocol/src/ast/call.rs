@@ -8,6 +8,8 @@ pub struct Call {
     pub head: Span,
     pub positional: Vec<Expression>,
     pub named: Vec<(Spanned<String>, Option<Expression>)>,
+    pub redirect_stdout: bool,
+    pub redirect_stderr: bool,
 }
 
 impl Call {
@@ -17,6 +19,8 @@ impl Call {
             head,
             positional: vec![],
             named: vec![],
+            redirect_stdout: true,
+            redirect_stderr: false,
         }
     }
 

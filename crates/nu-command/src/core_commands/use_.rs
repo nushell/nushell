@@ -96,8 +96,15 @@ impl Command for Use {
 
                 // TODO: Add string conversions (e.g. int to string)
                 // TODO: Later expand env to take all Values
-                let val = eval_block(engine_state, stack, block, PipelineData::new(call.head))?
-                    .into_value(call.head);
+                let val = eval_block(
+                    engine_state,
+                    stack,
+                    block,
+                    PipelineData::new(call.head),
+                    false,
+                    true,
+                )?
+                .into_value(call.head);
 
                 stack.add_env_var(name, val);
             }

@@ -82,6 +82,8 @@ impl Command for Merge {
             &mut stack,
             block,
             PipelineData::new(call.head),
+            call.redirect_stdout,
+            call.redirect_stderr,
         );
 
         let table = match result {

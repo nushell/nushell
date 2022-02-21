@@ -84,7 +84,8 @@ fn exec(
         name,
         args,
         env_vars,
-        last_expression: true,
+        redirect_stdout: true,
+        redirect_stderr: false,
     };
 
     let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy().to_string())?;

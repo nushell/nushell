@@ -251,3 +251,25 @@ fn with_env_shorthand_nested_quotes() -> TestResult {
         "-arg \"hello world\"",
     )
 }
+
+#[test]
+fn test_redirection() -> TestResult {
+    run_test(
+        r#"let x = (nu --testbin cococo niceone); $x | str trim | str length"#,
+        "7",
+    )
+}
+
+#[test]
+fn test_redirection2() -> TestResult {
+    run_test(
+        r#"let x = (FOO=BAR nu --testbin cococo niceenvvar); $x | str trim | str length"#,
+        "10",
+    )
+}
+
+#[test]
+fn test_redirection3() -> TestResult {
+    // try a nonsense binary
+    run_test(r#"do -i { asdjw4j5cnaabw44rd }; echo done"#, "done")
+}

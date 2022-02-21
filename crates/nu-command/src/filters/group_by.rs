@@ -119,8 +119,14 @@ pub fn group_by(
                 if let Some(capture_block) = &block {
                     let mut stack = stack.captures_to_stack(&capture_block.captures);
                     let block = engine_state.get_block(capture_block.block_id);
-                    let pipeline =
-                        eval_block(engine_state, &mut stack, block, value.into_pipeline_data());
+                    let pipeline = eval_block(
+                        engine_state,
+                        &mut stack,
+                        block,
+                        value.into_pipeline_data(),
+                        call.redirect_stdout,
+                        call.redirect_stderr,
+                    );
 
                     match pipeline {
                         Ok(s) => {

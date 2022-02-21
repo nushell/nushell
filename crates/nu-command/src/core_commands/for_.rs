@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_redirect, eval_expression, CallExt};
+use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
@@ -71,6 +71,8 @@ impl Command for For {
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
+        let redirect_stdout = call.redirect_stdout;
+        let redirect_stderr = call.redirect_stderr;
 
         match values {
             Value::List { vals, .. } => Ok(vals
@@ -99,11 +101,13 @@ impl Command for For {
                     );
 
                     //let block = engine_state.get_block(block_id);
-                    match eval_block_with_redirect(
+                    match eval_block(
                         &engine_state,
                         &mut stack,
                         &block,
                         PipelineData::new(head),
+                        redirect_stdout,
+                        redirect_stderr,
                     ) {
                         Ok(pipeline_data) => pipeline_data.into_value(head),
                         Err(error) => Value::Error { error },
@@ -137,11 +141,13 @@ impl Command for For {
                     );
 
                     //let block = engine_state.get_block(block_id);
-                    match eval_block_with_redirect(
+                    match eval_block(
                         &engine_state,
                         &mut stack,
                         &block,
                         PipelineData::new(head),
+                        redirect_stdout,
+                        redirect_stderr,
                     ) {
                         Ok(pipeline_data) => pipeline_data.into_value(head),
                         Err(error) => Value::Error { error },
@@ -152,7 +158,14 @@ impl Command for For {
             x => {
                 stack.add_var(var_id, x);
 
-                eval_block_with_redirect(&engine_state, &mut stack, &block, PipelineData::new(head))
+                eval_block(
+                    &engine_state,
+                    &mut stack,
+                    &block,
+                    PipelineData::new(head),
+                    redirect_stdout,
+                    redirect_stderr,
+                )
             }
         }
     }

@@ -70,6 +70,10 @@ fn update(
 
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
+
+    let redirect_stdout = call.redirect_stdout;
+    let redirect_stderr = call.redirect_stderr;
+
     let engine_state = engine_state.clone();
     let ctrlc = engine_state.ctrlc.clone();
 
@@ -97,6 +101,8 @@ fn update(
                     &mut stack,
                     &block,
                     input.clone().into_pipeline_data(),
+                    redirect_stdout,
+                    redirect_stderr,
                 );
 
                 match output {

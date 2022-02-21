@@ -68,10 +68,17 @@ impl Command for All {
                     stack.add_var(var_id, value);
                 }
 
-                eval_block(&engine_state, &mut stack, block, PipelineData::new(span))
-                    .map_or(false, |pipeline_data| {
-                        pipeline_data.into_value(span).is_true()
-                    })
+                eval_block(
+                    &engine_state,
+                    &mut stack,
+                    block,
+                    PipelineData::new(span),
+                    call.redirect_stdout,
+                    call.redirect_stderr,
+                )
+                .map_or(false, |pipeline_data| {
+                    pipeline_data.into_value(span).is_true()
+                })
             }),
             span,
         }

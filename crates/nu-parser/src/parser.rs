@@ -3420,7 +3420,7 @@ pub fn parse_expression(
                 (
                     Expression {
                         expr: Expr::String(String::new()),
-                        span: spans[pos],
+                        span: Span { start: 0, end: 0 },
                         ty: Type::Nothing,
                         custom_completion: None,
                     },
@@ -3556,6 +3556,8 @@ pub fn parse_expression(
                 decl_id,
                 named: vec![],
                 positional,
+                redirect_stdout: true,
+                redirect_stderr: false,
             }));
 
             (
@@ -4108,6 +4110,8 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 named: vec![],
                 positional: output,
                 decl_id,
+                redirect_stdout: true,
+                redirect_stderr: false,
             })),
             span,
             ty: Type::String,

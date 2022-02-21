@@ -278,6 +278,8 @@ impl NuCompleter {
                                     &mut stack,
                                     &block,
                                     PipelineData::new(new_span),
+                                    true,
+                                    true,
                                 );
 
                                 let v: Vec<_> = match result {
