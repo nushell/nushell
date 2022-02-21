@@ -1,7 +1,7 @@
 use nu_protocol::ast::Expr;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::PipelineData;
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature};
+use nu_protocol::{PipelineData, Spanned};
 
 #[derive(Clone)]
 pub struct KnownExternal {
@@ -61,15 +61,25 @@ impl Command for KnownExternal {
                     call.positional.push(arg.clone())
                 }
 
-                // if last_expression {
-                //     call.named.push((
-                //         Spanned {
-                //             item: "last-expression".into(),
-                //             span: head.span,
-                //         },
-                //         None,
-                //     ))
-                // }
+                if call.redirect_stdout {
+                    call.named.push((
+                        Spanned {
+                            item: "redirect-stdout".into(),
+                            span: call_span,
+                        },
+                        None,
+                    ))
+                }
+
+                if call.redirect_stderr {
+                    call.named.push((
+                        Spanned {
+                            item: "redirect-stderr".into(),
+                            span: call_span,
+                        },
+                        None,
+                    ))
+                }
 
                 command.run(engine_state, stack, &call, input)
             }

@@ -181,8 +181,12 @@ impl ExternalCommand {
 
                     // If the external is not the last command, its output will get piped
                     // either as a string or binary
-                    if !self.last_expression {
+                    if self.redirect_stdout {
                         process.stdout(Stdio::piped());
+                    }
+
+                    if self.redirect_stderr {
+                        process.stderr(Stdio::piped());
                     }
 
                     // If there is an input from the pipeline. The stdin from the process
