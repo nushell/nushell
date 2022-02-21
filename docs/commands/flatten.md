@@ -18,7 +18,7 @@ Flatten the table.
 
 flatten a table
 ```shell
-> [[N, u, s, h, e, l, l]] | flatten
+> [[N, u, s, h, e, l, l]] | flatten 
 ```
 
 flatten a table, get the first item

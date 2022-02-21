@@ -18,7 +18,7 @@ Create a new table splitted.
 
 split items by column named "lang"
 ```shell
->
+> 
                 {
                     '2019': [
                       { name: 'andres', lang: 'rb', year: '2019' },
@@ -28,6 +28,6 @@ split items by column named "lang"
                       { name: 'storm', lang: 'rs', 'year': '2021' }
                     ]
                 } | split-by lang
-
+                
 ```
 

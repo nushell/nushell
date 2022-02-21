@@ -16,3 +16,10 @@ Define a custom command, which participates in the caller environment
  -  `params`: parameters
  -  `block`: body of the definition
 
+## Examples
+
+Set environment variable by call a custom command
+```shell
+> def-env foo [] { let-env BAR = "BAZ" }; foo; $env.BAR
+```
+
