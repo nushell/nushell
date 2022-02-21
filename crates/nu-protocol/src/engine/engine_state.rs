@@ -999,6 +999,16 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.exit_scope();
     }
 
+    pub fn find_predecl(&self, name: &[u8]) -> Option<DeclId> {
+        for scope in self.delta.scope.iter().rev() {
+            if let Some(decl_id) = scope.predecls.get(name) {
+                return Some(*decl_id);
+            }
+        }
+
+        None
+    }
+
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         let mut visibility: Visibility = Visibility::new();
 
