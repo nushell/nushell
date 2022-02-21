@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -70,6 +70,9 @@ fn first_helper(
         None => 1,
     };
 
+    let ctrlc = engine_state.ctrlc.clone();
+    let metadata = input.metadata().clone();
+
     let mut input_peek = input.into_iter().peekable();
     if input_peek.peek().is_some() {
         match input_peek
@@ -125,11 +128,11 @@ fn first_helper(
 
                         _ => todo!(),
                     },
-                    None => Ok(Value::List {
-                        vals: input_peek.into_iter().take(rows_desired).collect(),
-                        span: head,
-                    }
-                    .into_pipeline_data()),
+                    None => Ok(input_peek
+                        .into_iter()
+                        .take(rows_desired)
+                        .into_pipeline_data(ctrlc)
+                        .set_metadata(metadata)),
                 }
             }
             _ => {
@@ -139,11 +142,11 @@ fn first_helper(
                         None => Err(ShellError::AccessBeyondEndOfStream(head)),
                     }
                 } else {
-                    Ok(Value::List {
-                        vals: input_peek.into_iter().take(rows_desired).collect(),
-                        span: head,
-                    }
-                    .into_pipeline_data())
+                    Ok(input_peek
+                        .into_iter()
+                        .take(rows_desired)
+                        .into_pipeline_data(ctrlc)
+                        .set_metadata(metadata))
                 }
             }
         }
