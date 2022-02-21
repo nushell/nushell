@@ -132,30 +132,30 @@ let default_theme = {
     block: white
     hints: dark_gray
 
-    # flatshapes are used to change the cli syntax highlighting
-    flatshape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
-    flatshape_bool: light_cyan
-    flatshape_int: purple_bold
-    flatshape_float: purple_bold
-    flatshape_range: yellow_bold
-    flatshape_internalcall: cyna_bold
-    flatshape_external: cyan
-    flatshape_externalarg: green_bold
-    flatshape_literal: blue
-    flatshape_operator: yellow
-    flatshape_signature: green_bold
-    flatshape_string: green
-    flatshape_string_interpolation: cyan_bold
-    flatshape_list: cyan_bold
-    flatshape_table: blue_bold
-    flatshape_record: cyan_bold
-    flatshape_block: blue_bold
-    flatshape_filepath: cyan
-    flatshape_globpattern: cyan_bold
-    flatshape_variable: purple
-    flatshape_flag: blue_bold
-    flatshape_custom: green
-    flatshape_nothing: light_cyan
+    # shapes are used to change the cli syntax highlighting
+    shape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
+    shape_bool: light_cyan
+    shape_int: purple_bold
+    shape_float: purple_bold
+    shape_range: yellow_bold
+    shape_internalcall: cyna_bold
+    shape_external: cyan
+    shape_externalarg: green_bold
+    shape_literal: blue
+    shape_operator: yellow
+    shape_signature: green_bold
+    shape_string: green
+    shape_string_interpolation: cyan_bold
+    shape_list: cyan_bold
+    shape_table: blue_bold
+    shape_record: cyan_bold
+    shape_block: blue_bold
+    shape_filepath: cyan
+    shape_globpattern: cyan_bold
+    shape_variable: purple
+    shape_flag: blue_bold
+    shape_custom: green
+    shape_nothing: light_cyan
 }
 
 # The default config record. This is where much of your global configuration is setup.

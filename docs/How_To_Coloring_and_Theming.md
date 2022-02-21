@@ -4,14 +4,16 @@ There are a few main parts that nushell allows you to change the color. All of t
 
 1. table borders
 2. primitive values
-3. flatshapes (this is the command line syntax)
+3. shapes (this is the command line syntax)
 4. prompt
 5. LS_COLORS
 
 ## `Table borders`
-___
+
+---
 
 Table borders are controlled by the `table_mode` setting in the `config.nu`. Here is an example:
+
 ```
 let $config = {
     table_mode: rounded
@@ -19,6 +21,7 @@ let $config = {
 ```
 
 Here are the current options for `table_mode`:
+
 1. `rounded` # of course, this is the best one :)
 2. `basic`
 3. `compact`
@@ -33,165 +36,168 @@ Here are the current options for `table_mode`:
 12. `other`
 
 ### `Color symbologies`
+
 ---
 
-* `r` - normal color red's abbreviation
-* `rb` - normal color red's abbreviation with bold attribute
-* `red` - normal color red
-* `red_bold` - normal color red with bold attribute
-* `"#ff0000"` - "#hex" format foreground color red (quotes are required)
-* `{ fg: "#ff0000" bg: "#0000ff" attr: b }` - "full #hex" format foreground red in "#hex" format with a background of blue in "#hex" format with an attribute of bold abbreviated.
+- `r` - normal color red's abbreviation
+- `rb` - normal color red's abbreviation with bold attribute
+- `red` - normal color red
+- `red_bold` - normal color red with bold attribute
+- `"#ff0000"` - "#hex" format foreground color red (quotes are required)
+- `{ fg: "#ff0000" bg: "#0000ff" attr: b }` - "full #hex" format foreground red in "#hex" format with a background of blue in "#hex" format with an attribute of bold abbreviated.
 
 ### `attributes`
+
 ---
 
-|code|meaning|
-|-|-|
-|l|blink|
-|b|bold|
-|d|dimmed|
-|h|hidden|
-|i|italic|
-|r|reverse|
-|s|strikethrough|
-|u|underline|
-|n|nothing|
-||defaults to nothing|
+| code | meaning             |
+| ---- | ------------------- |
+| l    | blink               |
+| b    | bold                |
+| d    | dimmed              |
+| h    | hidden              |
+| i    | italic              |
+| r    | reverse             |
+| s    | strikethrough       |
+| u    | underline           |
+| n    | nothing             |
+|      | defaults to nothing |
 
 ### `normal colors` and `abbreviations`
 
-|code|name|
-|-|-|
-|g|green|
-|gb|green_bold|
-|gu|green_underline|
-|gi|green_italic|
-|gd|green_dimmed|
-|gr|green_reverse|
-|gbl|green_blink|
-|gst|green_strike|
-|lg|light_green|
-|lgb|light_green_bold|
-|lgu|light_green_underline|
-|lgi|light_green_italic|
-|lgd|light_green_dimmed|
-|lgr|light_green_reverse|
-|lgbl|light_green_blink|
-|lgst|light_green_strike|
-|r|red|
-|rb|red_bold|
-|ru|red_underline|
-|ri|red_italic|
-|rd|red_dimmed|
-|rr|red_reverse|
-|rbl|red_blink|
-|rst|red_strike|
-|lr|light_red|
-|lrb|light_red_bold|
-|lru|light_red_underline|
-|lri|light_red_italic|
-|lrd|light_red_dimmed|
-|lrr|light_red_reverse|
-|lrbl|light_red_blink|
-|lrst|light_red_strike|
-|u|blue|
-|ub|blue_bold|
-|uu|blue_underline|
-|ui|blue_italic|
-|ud|blue_dimmed|
-|ur|blue_reverse|
-|ubl|blue_blink|
-|ust|blue_strike|
-|lu|light_blue|
-|lub|light_blue_bold|
-|luu|light_blue_underline|
-|lui|light_blue_italic|
-|lud|light_blue_dimmed|
-|lur|light_blue_reverse|
-|lubl|light_blue_blink|
-|lust|light_blue_strike|
-|b|black|
-|bb|black_bold|
-|bu|black_underline|
-|bi|black_italic|
-|bd|black_dimmed|
-|br|black_reverse|
-|bbl|black_blink|
-|bst|black_strike|
-|ligr|light_gray|
-|ligrb|light_gray_bold|
-|ligru|light_gray_underline|
-|ligri|light_gray_italic|
-|ligrd|light_gray_dimmed|
-|ligrr|light_gray_reverse|
-|ligrbl|light_gray_blink|
-|ligrst|light_gray_strike|
-|y|yellow|
-|yb|yellow_bold|
-|yu|yellow_underline|
-|yi|yellow_italic|
-|yd|yellow_dimmed|
-|yr|yellow_reverse|
-|ybl|yellow_blink|
-|yst|yellow_strike|
-|ly|light_yellow|
-|lyb|light_yellow_bold|
-|lyu|light_yellow_underline|
-|lyi|light_yellow_italic|
-|lyd|light_yellow_dimmed|
-|lyr|light_yellow_reverse|
-|lybl|light_yellow_blink|
-|lyst|light_yellow_strike|
-|p|purple|
-|pb|purple_bold|
-|pu|purple_underline|
-|pi|purple_italic|
-|pd|purple_dimmed|
-|pr|purple_reverse|
-|pbl|purple_blink|
-|pst|purple_strike|
-|lp|light_purple|
-|lpb|light_purple_bold|
-|lpu|light_purple_underline|
-|lpi|light_purple_italic|
-|lpd|light_purple_dimmed|
-|lpr|light_purple_reverse|
-|lpbl|light_purple_blink|
-|lpst|light_purple_strike|
-|c|cyan|
-|cb|cyan_bold|
-|cu|cyan_underline|
-|ci|cyan_italic|
-|cd|cyan_dimmed|
-|cr|cyan_reverse|
-|cbl|cyan_blink|
-|cst|cyan_strike|
-|lc|light_cyan|
-|lcb|light_cyan_bold|
-|lcu|light_cyan_underline|
-|lci|light_cyan_italic|
-|lcd|light_cyan_dimmed|
-|lcr|light_cyan_reverse|
-|lcbl|light_cyan_blink|
-|lcst|light_cyan_strike|
-|w|white|
-|wb|white_bold|
-|wu|white_underline|
-|wi|white_italic|
-|wd|white_dimmed|
-|wr|white_reverse|
-|wbl|white_blink|
-|wst|white_strike|
-|dgr|dark_gray|
-|dgrb|dark_gray_bold|
-|dgru|dark_gray_underline|
-|dgri|dark_gray_italic|
-|dgrd|dark_gray_dimmed|
-|dgrr|dark_gray_reverse|
-|dgrbl|dark_gray_blink|
-|dgrst|dark_gray_strike|
+| code   | name                   |
+| ------ | ---------------------- |
+| g      | green                  |
+| gb     | green_bold             |
+| gu     | green_underline        |
+| gi     | green_italic           |
+| gd     | green_dimmed           |
+| gr     | green_reverse          |
+| gbl    | green_blink            |
+| gst    | green_strike           |
+| lg     | light_green            |
+| lgb    | light_green_bold       |
+| lgu    | light_green_underline  |
+| lgi    | light_green_italic     |
+| lgd    | light_green_dimmed     |
+| lgr    | light_green_reverse    |
+| lgbl   | light_green_blink      |
+| lgst   | light_green_strike     |
+| r      | red                    |
+| rb     | red_bold               |
+| ru     | red_underline          |
+| ri     | red_italic             |
+| rd     | red_dimmed             |
+| rr     | red_reverse            |
+| rbl    | red_blink              |
+| rst    | red_strike             |
+| lr     | light_red              |
+| lrb    | light_red_bold         |
+| lru    | light_red_underline    |
+| lri    | light_red_italic       |
+| lrd    | light_red_dimmed       |
+| lrr    | light_red_reverse      |
+| lrbl   | light_red_blink        |
+| lrst   | light_red_strike       |
+| u      | blue                   |
+| ub     | blue_bold              |
+| uu     | blue_underline         |
+| ui     | blue_italic            |
+| ud     | blue_dimmed            |
+| ur     | blue_reverse           |
+| ubl    | blue_blink             |
+| ust    | blue_strike            |
+| lu     | light_blue             |
+| lub    | light_blue_bold        |
+| luu    | light_blue_underline   |
+| lui    | light_blue_italic      |
+| lud    | light_blue_dimmed      |
+| lur    | light_blue_reverse     |
+| lubl   | light_blue_blink       |
+| lust   | light_blue_strike      |
+| b      | black                  |
+| bb     | black_bold             |
+| bu     | black_underline        |
+| bi     | black_italic           |
+| bd     | black_dimmed           |
+| br     | black_reverse          |
+| bbl    | black_blink            |
+| bst    | black_strike           |
+| ligr   | light_gray             |
+| ligrb  | light_gray_bold        |
+| ligru  | light_gray_underline   |
+| ligri  | light_gray_italic      |
+| ligrd  | light_gray_dimmed      |
+| ligrr  | light_gray_reverse     |
+| ligrbl | light_gray_blink       |
+| ligrst | light_gray_strike      |
+| y      | yellow                 |
+| yb     | yellow_bold            |
+| yu     | yellow_underline       |
+| yi     | yellow_italic          |
+| yd     | yellow_dimmed          |
+| yr     | yellow_reverse         |
+| ybl    | yellow_blink           |
+| yst    | yellow_strike          |
+| ly     | light_yellow           |
+| lyb    | light_yellow_bold      |
+| lyu    | light_yellow_underline |
+| lyi    | light_yellow_italic    |
+| lyd    | light_yellow_dimmed    |
+| lyr    | light_yellow_reverse   |
+| lybl   | light_yellow_blink     |
+| lyst   | light_yellow_strike    |
+| p      | purple                 |
+| pb     | purple_bold            |
+| pu     | purple_underline       |
+| pi     | purple_italic          |
+| pd     | purple_dimmed          |
+| pr     | purple_reverse         |
+| pbl    | purple_blink           |
+| pst    | purple_strike          |
+| lp     | light_purple           |
+| lpb    | light_purple_bold      |
+| lpu    | light_purple_underline |
+| lpi    | light_purple_italic    |
+| lpd    | light_purple_dimmed    |
+| lpr    | light_purple_reverse   |
+| lpbl   | light_purple_blink     |
+| lpst   | light_purple_strike    |
+| c      | cyan                   |
+| cb     | cyan_bold              |
+| cu     | cyan_underline         |
+| ci     | cyan_italic            |
+| cd     | cyan_dimmed            |
+| cr     | cyan_reverse           |
+| cbl    | cyan_blink             |
+| cst    | cyan_strike            |
+| lc     | light_cyan             |
+| lcb    | light_cyan_bold        |
+| lcu    | light_cyan_underline   |
+| lci    | light_cyan_italic      |
+| lcd    | light_cyan_dimmed      |
+| lcr    | light_cyan_reverse     |
+| lcbl   | light_cyan_blink       |
+| lcst   | light_cyan_strike      |
+| w      | white                  |
+| wb     | white_bold             |
+| wu     | white_underline        |
+| wi     | white_italic           |
+| wd     | white_dimmed           |
+| wr     | white_reverse          |
+| wbl    | white_blink            |
+| wst    | white_strike           |
+| dgr    | dark_gray              |
+| dgrb   | dark_gray_bold         |
+| dgru   | dark_gray_underline    |
+| dgri   | dark_gray_italic       |
+| dgrd   | dark_gray_dimmed       |
+| dgrr   | dark_gray_reverse      |
+| dgrbl  | dark_gray_blink        |
+| dgrst  | dark_gray_strike       |
 
 ### `"#hex"` format
+
 ---
 
 The "#hex" format is one way you typically see colors represented. It's simply the `#` character followed by 6 characters. The first two are for `red`, the second two are for `green`, and the third two are for `blue`. It's important that this string be surrounded in quotes, otherwise nushell thinks it's a commented out string.
@@ -201,64 +207,68 @@ Example: The primary `red` color is `"#ff0000"` or `"#FF0000"`. Upper and lower 
 This `"#hex"` format allows us to specify 24-bit truecolor tones to different parts of nushell.
 
 ## `full "#hex"` format
+
 ---
+
 The `full "#hex"` format is a take on the `"#hex"` format but allows one to specify the foreground, background, and attributes in one line.
 
 Example: `{ fg: "#ff0000" bg: "#0000ff" attr: b }`
 
-* foreground of red in "#hex" format
-* background of blue in "#hex" format
-* attribute of bold abbreviated
+- foreground of red in "#hex" format
+- background of blue in "#hex" format
+- attribute of bold abbreviated
 
 ## `Primitive values`
-___
 
-Primitive values are things like `int` and `string`. Primitive values and flatshapes can be set with a variety of color symbologies seen above.
+---
 
-This is the current list of primitives. Not all of these are configurable. The configurable ones are marked with *.
+Primitive values are things like `int` and `string`. Primitive values and shapes can be set with a variety of color symbologies seen above.
 
-| primitive | default color | configurable |
-| - | - | - |
-| `any`|| |
-| `binary`|Color::White.normal()| * |
-| `block`|Color::White.normal()| * |
-| `bool`|Color::White.normal()| * |
-| `cellpath`|Color::White.normal()| * |
-| `condition`|| |
-| `custom`||  |
-| `date`|Color::White.normal()| * |
-| `duration`|Color::White.normal()| * |
-| `expression`|| |
-| `filesize`|Color::White.normal()| * |
-| `float`|Color::White.normal()| * |
-| `glob`|| |
-| `import`|| |
-| `int`|Color::White.normal()| * |
-| `list`|Color::White.normal()| * |
-| `nothing`|Color::White.normal()| * |
-| `number`|| |
-| `operator`|| |
-| `path`|| |
-| `range`|Color::White.normal()| * |
-| `record`|Color::White.normal()| * |
-| `signature`|| |
-| `string`|Color::White.normal()| * |
-| `table`|| |
-| `var`|| |
-| `vardecl`|| |
-| `variable`|| |
+This is the current list of primitives. Not all of these are configurable. The configurable ones are marked with \*.
+
+| primitive    | default color         | configurable |
+| ------------ | --------------------- | ------------ |
+| `any`        |                       |              |
+| `binary`     | Color::White.normal() | \*           |
+| `block`      | Color::White.normal() | \*           |
+| `bool`       | Color::White.normal() | \*           |
+| `cellpath`   | Color::White.normal() | \*           |
+| `condition`  |                       |              |
+| `custom`     |                       |              |
+| `date`       | Color::White.normal() | \*           |
+| `duration`   | Color::White.normal() | \*           |
+| `expression` |                       |              |
+| `filesize`   | Color::White.normal() | \*           |
+| `float`      | Color::White.normal() | \*           |
+| `glob`       |                       |              |
+| `import`     |                       |              |
+| `int`        | Color::White.normal() | \*           |
+| `list`       | Color::White.normal() | \*           |
+| `nothing`    | Color::White.normal() | \*           |
+| `number`     |                       |              |
+| `operator`   |                       |              |
+| `path`       |                       |              |
+| `range`      | Color::White.normal() | \*           |
+| `record`     | Color::White.normal() | \*           |
+| `signature`  |                       |              |
+| `string`     | Color::White.normal() | \*           |
+| `table`      |                       |              |
+| `var`        |                       |              |
+| `vardecl`    |                       |              |
+| `variable`   |                       |              |
 
 #### special "primitives" (not really primitives but they exist solely for coloring)
 
-| primitive | default color | configurable |
-| - | - | - |
-| `leading_trailing_space_bg`|Color::Rgb(128, 128, 128))| *|
-| `header`|Color::Green.bold()| *|
-| `empty`|Color::Blue.normal()| *|
-| `row_index`|Color::Green.bold()| *|
-| `hints`|Color::DarkGray.normal()| *|
+| primitive                   | default color              | configurable |
+| --------------------------- | -------------------------- | ------------ |
+| `leading_trailing_space_bg` | Color::Rgb(128, 128, 128)) | \*           |
+| `header`                    | Color::Green.bold()        | \*           |
+| `empty`                     | Color::Blue.normal()       | \*           |
+| `row_index`                 | Color::Green.bold()        | \*           |
+| `hints`                     | Color::DarkGray.normal()   | \*           |
 
 Here's a small example of changing some of these values.
+
 ```
 let config = {
     color_config: {
@@ -281,7 +291,9 @@ let config = {
     }
 }
 ```
+
 Here's another small example using multiple color syntaxes with some comments.
+
 ```
 let config = {
     color_config: {
@@ -300,46 +312,46 @@ let config = {
 }
 ```
 
-## `FlatShape` values
+## `Shape` values
 
-As mentioned above, `flatshape` is a term used to indicate the sytax coloring.
+As mentioned above, `shape` is a term used to indicate the sytax coloring.
 
 Here's the current list of flat shapes.
 
-| flatshape | default style | configurable |
-| - | - | - |
-| `flatshape_block`| fg(Color::Blue).bold()| * |
-| `flatshape_bool`| fg(Color::LightCyan)| * |
-| `flatshape_custom`| bold()| * |
-| `flatshape_external`| fg(Color::Cyan)| * |
-| `flatshape_externalarg`| fg(Color::Green).bold()| * |
-| `flatshape_filepath`| fg(Color::Cyan)| * |
-| `flatshape_flag`| fg(Color::Blue).bold()| * |
-| `flatshape_float`|fg(Color::Purple).bold() | * |
-| `flatshape_garbage`| fg(Color::White).on(Color::Red).bold()| * |
-| `flatshape_globpattern`| fg(Color::Cyan).bold()| * |
-| `flatshape_int`|fg(Color::Purple).bold() | * |
-| `flatshape_internalcall`| fg(Color::Cyan).bold()| * |
-| `flatshape_list`| fg(Color::Cyan).bold()| * |
-| `flatshape_literal`| fg(Color::Blue)| * |
-| `flatshape_nothing`| fg(Color::LightCyan)| * |
-| `flatshape_operator`| fg(Color::Yellow)| * |
-| `flatshape_range`| fg(Color::Yellow).bold()| * |
-| `flatshape_record`| fg(Color::Cyan).bold()| * |
-| `flatshape_signature`| fg(Color::Green).bold()| * |
-| `flatshape_string`| fg(Color::Green)| * |
-| `flatshape_string_interpolation`| fg(Color::Cyan).bold()| * |
-| `flatshape_table`| fg(Color::Blue).bold()| * |
-| `flatshape_variable`| fg(Color::Purple)| * |
+| shape                        | default style                          | configurable |
+| ---------------------------- | -------------------------------------- | ------------ |
+| `shape_block`                | fg(Color::Blue).bold()                 | \*           |
+| `shape_bool`                 | fg(Color::LightCyan)                   | \*           |
+| `shape_custom`               | bold()                                 | \*           |
+| `shape_external`             | fg(Color::Cyan)                        | \*           |
+| `shape_externalarg`          | fg(Color::Green).bold()                | \*           |
+| `shape_filepath`             | fg(Color::Cyan)                        | \*           |
+| `shape_flag`                 | fg(Color::Blue).bold()                 | \*           |
+| `shape_float`                | fg(Color::Purple).bold()               | \*           |
+| `shape_garbage`              | fg(Color::White).on(Color::Red).bold() | \*           |
+| `shape_globpattern`          | fg(Color::Cyan).bold()                 | \*           |
+| `shape_int`                  | fg(Color::Purple).bold()               | \*           |
+| `shape_internalcall`         | fg(Color::Cyan).bold()                 | \*           |
+| `shape_list`                 | fg(Color::Cyan).bold()                 | \*           |
+| `shape_literal`              | fg(Color::Blue)                        | \*           |
+| `shape_nothing`              | fg(Color::LightCyan)                   | \*           |
+| `shape_operator`             | fg(Color::Yellow)                      | \*           |
+| `shape_range`                | fg(Color::Yellow).bold()               | \*           |
+| `shape_record`               | fg(Color::Cyan).bold()                 | \*           |
+| `shape_signature`            | fg(Color::Green).bold()                | \*           |
+| `shape_string`               | fg(Color::Green)                       | \*           |
+| `shape_string_interpolation` | fg(Color::Cyan).bold()                 | \*           |
+| `shape_table`                | fg(Color::Blue).bold()                 | \*           |
+| `shape_variable`             | fg(Color::Purple)                      | \*           |
 
 Here's a small example of how to apply color to these items. Anything not specified will receive the default color.
 
 ```
 let $config = {
     color_config: {
-        flatshape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
-        flatshape_bool: green
-        flatshape_int: { fg: "#0000ff" attr: b}
+        shape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
+        shape_bool: green
+        shape_int: { fg: "#0000ff" attr: b}
     }
 }
 ```
@@ -348,12 +360,12 @@ let $config = {
 
 The nushell prompt is configurable through these environment variables settings.
 
-* `PROMPT_COMMAND`: Code to execute for setting up the prompt (block)
-* `PROMPT_COMMAND_RIGHT`: Code to execute for setting up the *RIGHT* prompt (block) (see oh-my.nu in nu_scripts)
-* `PROMPT_INDICATOR` = "〉": The indicator printed after the prompt (by default ">"-like Unicode symbol)
-* `PROMPT_INDICATOR_VI_INSERT` = ": "
-* `PROMPT_INDICATOR_VI_NORMAL` = "v "
-* `PROMPT_MULTILINE_INDICATOR` = "::: "
+- `PROMPT_COMMAND`: Code to execute for setting up the prompt (block)
+- `PROMPT_COMMAND_RIGHT`: Code to execute for setting up the _RIGHT_ prompt (block) (see oh-my.nu in nu_scripts)
+- `PROMPT_INDICATOR` = "〉": The indicator printed after the prompt (by default ">"-like Unicode symbol)
+- `PROMPT_INDICATOR_VI_INSERT` = ": "
+- `PROMPT_INDICATOR_VI_NORMAL` = "v "
+- `PROMPT_MULTILINE_INDICATOR` = "::: "
 
 Example: For a simple prompt one could do this. Note that `PROMPT_COMMAND` requires a `block` whereas the others require a `string`.
 
@@ -367,7 +379,7 @@ Coloring of the prompt is controlled by the `block` in `PROMPT_COMMAND` where yo
 
 ## `LS_COLORS` colors for the `ls` command
 
-Nushell will respect and use the `LS_COLORS` environment variable setting on Mac, Linux, and Windows. This setting allows you to define the color of file types when you do a `ls`. For instance, you can make directories one color, *.md markdown files another color, *.toml files yet another color, etc. There are a variety of ways to color your file types.
+Nushell will respect and use the `LS_COLORS` environment variable setting on Mac, Linux, and Windows. This setting allows you to define the color of file types when you do a `ls`. For instance, you can make directories one color, _.md markdown files another color, _.toml files yet another color, etc. There are a variety of ways to color your file types.
 
 There's an exhaustive list [here](https://github.com/trapd00r/LS_COLORS), which is overkill, but gives you an rudimentary understanding of how to create a ls_colors file that `dircolors` can turn into a `LS_COLORS` environment variable.
 
@@ -381,7 +393,7 @@ I like the `vivid` application and currently have it configured in my `config.nu
 
 Theming combines all the coloring above. Here's a quick example of one we put together quickly to demonstrate the ability to theme. This is a spin on the `base16` themes that we see so widespread on the web.
 
-The key to making theming work is to make sure you specify all themes and colors you're going to use in the `config.nu` file *before* you declare the `let config = ` line.
+The key to making theming work is to make sure you specify all themes and colors you're going to use in the `config.nu` file _before_ you declare the `let config = ` line.
 
 ```
 # lets define some colors
@@ -423,25 +435,25 @@ let base16_theme = {
     cellpath: $base08
     hints: dark_gray
 
-    # flatshape_garbage: { fg: $base07 bg: $base08 attr: b} # base16 white on red
+    # shape_garbage: { fg: $base07 bg: $base08 attr: b} # base16 white on red
     # but i like the regular white on red for parse errors
-    flatshape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
-    flatshape_bool: $base0d
-    flatshape_int: { fg: $base0e attr: b}
-    flatshape_float: { fg: $base0e attr: b}
-    flatshape_range: { fg: $base0a attr: b}
-    flatshape_internalcall: { fg: $base0c attr: b}
-    flatshape_external: $base0c
-    flatshape_externalarg: { fg: $base0b attr: b}
-    flatshape_literal: $base0d
-    flatshape_operator: $base0a
-    flatshape_signature: { fg: $base0b attr: b}
-    flatshape_string: $base0b
-    flatshape_filepath: $base0d
-    flatshape_globpattern: { fg: $base0d attr: b}
-    flatshape_variable: $base0e
-    flatshape_flag: { fg: $base0d attr: b}
-    flatshape_custom: {attr: b}
+    shape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
+    shape_bool: $base0d
+    shape_int: { fg: $base0e attr: b}
+    shape_float: { fg: $base0e attr: b}
+    shape_range: { fg: $base0a attr: b}
+    shape_internalcall: { fg: $base0c attr: b}
+    shape_external: $base0c
+    shape_externalarg: { fg: $base0b attr: b}
+    shape_literal: $base0d
+    shape_operator: $base0a
+    shape_signature: { fg: $base0b attr: b}
+    shape_string: $base0b
+    shape_filepath: $base0d
+    shape_globpattern: { fg: $base0d attr: b}
+    shape_variable: $base0e
+    shape_flag: { fg: $base0d attr: b}
+    shape_custom: {attr: b}
 }
 
 # now let's apply our regular config settings but also apply the "color_config:" theme that we specified above.
@@ -462,4 +474,5 @@ let config = {
   log_level: error
 }
 ```
-if you want to go full-tilt on theming, you'll want to theme all the items I mentioned at the very beginning, including LS_COLORS, and the prompt.  Good luck!
+
+if you want to go full-tilt on theming, you'll want to theme all the items I mentioned at the very beginning, including LS_COLORS, and the prompt. Good luck!
