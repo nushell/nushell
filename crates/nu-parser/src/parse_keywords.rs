@@ -328,6 +328,7 @@ pub fn parse_def(
     let block = call.positional.get(2).expect("def call already checked");
 
     let mut error = None;
+
     if let (Some(name), Some(mut signature), Some(block_id)) =
         (&name_expr.as_string(), sig.as_signature(), block.as_block())
     {
