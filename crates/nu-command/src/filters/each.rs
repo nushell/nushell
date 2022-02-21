@@ -25,6 +25,7 @@ impl Command for Each {
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
                 "the block to run",
             )
+            .switch("keep-empty", "keep empty result cells", Some('k'))
             .switch("numbered", "iterate with an index", Some('n'))
             .category(Category::Filters)
     }
@@ -45,14 +46,48 @@ impl Command for Each {
             },
         ];
 
-        vec![Example {
-            example: "[1 2 3] | each { |it| 2 * $it }",
-            description: "Multiplies elements in list",
-            result: Some(Value::List {
-                vals: stream_test_1,
+        let stream_test_2 = vec![
+            Value::Nothing {
                 span: Span::test_data(),
-            }),
-        }]
+            },
+            Value::String {
+                val: "found 2!".to_string(),
+                span: Span::test_data(),
+            },
+            Value::Nothing {
+                span: Span::test_data(),
+            },
+        ];
+
+        vec![
+            Example {
+                example: "[1 2 3] | each { |it| 2 * $it }",
+                description: "Multiplies elements in list",
+                result: Some(Value::List {
+                    vals: stream_test_1,
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: r#"[1 2 3] | each { |it| if $it == 2 { echo "found 2!"} }"#,
+                description: "Iterate over each element, keeping only values that succeed",
+                result: Some(Value::List {
+                    vals: vec![Value::String {
+                        val: "found 2!".to_string(),
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: r#"[1 2 3] | each --keep-empty { |it| if $it == 2 { echo "found 2!"} }"#,
+                description: "Iterate over each element, keeping all results",
+                result: Some(Value::List {
+                    vals: stream_test_2,
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 
     fn run(
@@ -65,7 +100,10 @@ impl Command for Each {
         let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
 
         let numbered = call.has_flag("numbered");
+        let keep_empty = call.has_flag("keep-empty");
+
         let ctrlc = engine_state.ctrlc.clone();
+        let outer_ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(capture_block.block_id).clone();
         let mut stack = stack.captures_to_stack(&capture_block.captures);
@@ -233,6 +271,12 @@ impl Command for Each {
                 eval_block_with_redirect(&engine_state, &mut stack, &block, PipelineData::new(span))
             }
         }
+        .and_then(|x| {
+            x.filter(
+                move |x| if !keep_empty { !x.is_nothing() } else { true },
+                outer_ctrlc,
+            )
+        })
     }
 }
 
