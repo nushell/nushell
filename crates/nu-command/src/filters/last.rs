@@ -47,6 +47,8 @@ impl Command for Last {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let metadata = input.metadata();
+
         let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
         let v: Vec<_> = input.into_iter().collect();
         let vlen: i64 = v.len() as i64;
@@ -54,7 +56,9 @@ impl Command for Last {
 
         let iter = v.into_iter().skip(beginning_rows_to_skip as usize);
 
-        Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(iter
+            .into_pipeline_data(engine_state.ctrlc.clone())
+            .set_metadata(metadata))
     }
 }
 

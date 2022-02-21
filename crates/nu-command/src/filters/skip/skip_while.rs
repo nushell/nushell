@@ -47,6 +47,7 @@ impl Command for SkipWhile {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
+        let metadata = input.metadata();
 
         let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
 
@@ -69,7 +70,8 @@ impl Command for SkipWhile {
                         pipeline_data.into_value(span).is_true()
                     })
             })
-            .into_pipeline_data(ctrlc))
+            .into_pipeline_data(ctrlc)
+            .set_metadata(metadata))
     }
 }
 
