@@ -71,7 +71,7 @@ fn first_helper(
     };
 
     let ctrlc = engine_state.ctrlc.clone();
-    let metadata = input.metadata().clone();
+    let metadata = input.metadata();
 
     let mut input_peek = input.into_iter().peekable();
     if input_peek.peek().is_some() {
