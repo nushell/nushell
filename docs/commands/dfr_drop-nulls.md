@@ -29,4 +29,3 @@ drop null values in dataframe
 > let s = ([1 2 0 0 3 4] | dfr to-df);
     ($s / $s) | dfr drop-nulls
 ```
-

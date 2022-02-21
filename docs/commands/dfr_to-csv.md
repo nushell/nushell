@@ -27,4 +27,3 @@ Saves dataframe to csv file using other delimiter
 ```shell
 > [[a b]; [1 2] [3 4]] | dfr to-df | dfr to-csv test.csv -d '|'
 ```
-

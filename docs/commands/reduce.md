@@ -43,4 +43,3 @@ Find the longest string and its index
         }
     }
 ```
-

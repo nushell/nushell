@@ -34,4 +34,3 @@ Get list with all the available options
 ```shell
 > keybindings list
 ```
-

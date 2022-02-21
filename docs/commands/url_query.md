@@ -25,4 +25,3 @@ No query gives the empty string
 ```shell
 > echo 'http://www.example.com/' | url query
 ```
-

@@ -20,4 +20,3 @@ Create new dataframe with head rows
 ```shell
 > [[a b]; [1 2] [3 4]] | dfr to-df | dfr first 1
 ```
-

@@ -19,4 +19,3 @@ Converts xml formatted string to table
   <remember>Event</remember>
 </note>' | from xml
 ```
-

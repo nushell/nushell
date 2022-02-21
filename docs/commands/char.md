@@ -38,4 +38,3 @@ Output multi-byte Unicode character
 ```shell
 > char -u 1F468 200D 1F466 200D 1F466
 ```
-

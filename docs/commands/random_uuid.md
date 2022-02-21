@@ -16,4 +16,3 @@ Generate a random uuid4 string
 ```shell
 > random uuid
 ```
-

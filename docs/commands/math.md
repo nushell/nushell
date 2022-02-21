@@ -9,4 +9,3 @@ Use mathematical functions as aggregate functions on a list of numbers or tables
 ## Signature
 
 ```> math ```
-

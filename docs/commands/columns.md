@@ -26,4 +26,3 @@ Get the second column from the table
 ```shell
 > [[name,age,grade]; [bill,20,a]] | columns | select 1
 ```
-

@@ -21,4 +21,3 @@ drop duplicates
 ```shell
 > [[a b]; [1 2] [3 4] [1 2]] | dfr to-df | dfr drop-duplicates
 ```
-

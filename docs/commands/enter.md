@@ -13,4 +13,3 @@ Enters a new shell at the given path.
 ## Parameters
 
  -  `path`: the path to enter as a new shell
-

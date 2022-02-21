@@ -56,4 +56,3 @@ Trim a specific character
 ```shell
 > '=== Nu shell ===' | str trim -r -c '='
 ```
-

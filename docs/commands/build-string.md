@@ -25,4 +25,3 @@ Builds a string from letters a b c
 ```shell
 > build-string (1 + 2) = one ' ' plus ' ' two
 ```
-

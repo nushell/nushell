@@ -36,4 +36,3 @@ Join a structured path into a path
 ```shell
 > [[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join
 ```
-

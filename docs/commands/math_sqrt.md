@@ -16,4 +16,3 @@ Apply the square root function to a list of numbers
 ```shell
 > [9 16] | math sqrt
 ```
-

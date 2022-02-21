@@ -9,4 +9,3 @@ Rolling commands for tables
 ## Signature
 
 ```> roll ```
-

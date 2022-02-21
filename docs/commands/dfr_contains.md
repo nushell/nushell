@@ -20,4 +20,3 @@ Returns boolean indicating if pattern was found
 ```shell
 > [abc acb acb] | dfr to-df | dfr contains ab
 ```
-

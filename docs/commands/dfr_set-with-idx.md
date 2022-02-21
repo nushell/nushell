@@ -23,4 +23,3 @@ Set value in selected rows from series
     let indices = ([0 2] | dfr to-df);
     $series | dfr set-with-idx 6 -i $indices
 ```
-

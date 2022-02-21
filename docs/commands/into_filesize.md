@@ -40,4 +40,3 @@ Convert file size to filesize
 ```shell
 > 4KB | into filesize
 ```
-

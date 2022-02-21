@@ -20,4 +20,3 @@ Creates dataframe with selected columns
 ```shell
 > [[a b]; [1 2] [3 4]] | dfr to-df | dfr get a
 ```
-

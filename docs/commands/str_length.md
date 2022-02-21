@@ -25,4 +25,3 @@ Return the lengths of multiple strings
 ```shell
 > ['hi' 'there'] | str length
 ```
-

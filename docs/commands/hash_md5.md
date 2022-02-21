@@ -25,4 +25,3 @@ md5 encode a file
 ```shell
 > open ./nu_0_24_1_windows.zip | hash md5
 ```
-

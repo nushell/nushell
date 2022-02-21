@@ -29,4 +29,3 @@ Converts ssv formatted string to table but not treating the first row as column 
 > 'FOO   BAR
 1   2' | from ssv -n
 ```
-

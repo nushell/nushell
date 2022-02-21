@@ -16,4 +16,3 @@ Calculates value counts
 ```shell
 > [5 5 5 5 6 6] | dfr to-df | dfr value-counts
 ```
-

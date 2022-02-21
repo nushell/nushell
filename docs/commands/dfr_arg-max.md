@@ -16,4 +16,3 @@ Returns index for max value
 ```shell
 > [1 3 2] | dfr to-df | dfr arg-max
 ```
-

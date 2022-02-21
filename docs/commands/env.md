@@ -26,4 +26,3 @@ Another way to check whether the env variable `PATH` exists
 ```shell
 > 'PATH' in (env).name
 ```
-

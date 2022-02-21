@@ -30,4 +30,3 @@ Filter out all instances of nothing from a list (Returns [1,2]
 ```shell
 > echo [1, $nothing, 2] | compact
 ```
-

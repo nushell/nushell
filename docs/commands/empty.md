@@ -31,4 +31,3 @@ use a block if setting the empty cell contents is wanted
 ```shell
 > [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 -b { |_| [33 37] }
 ```
-

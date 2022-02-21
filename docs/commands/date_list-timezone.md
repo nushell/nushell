@@ -16,4 +16,3 @@ Show timezone(s) that contains 'Shanghai'
 ```shell
 > date list-timezone | where timezone =~ Shanghai
 ```
-

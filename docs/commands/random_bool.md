@@ -25,4 +25,3 @@ Generate a random boolean value with a 75% chance of "true"
 ```shell
 > random bool --bias 0.75
 ```
-

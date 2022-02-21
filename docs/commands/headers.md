@@ -21,4 +21,3 @@ Don't panic on rows with different headers
 ```shell
 > "a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers
 ```
-

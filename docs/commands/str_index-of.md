@@ -48,4 +48,3 @@ Returns index of pattern in string
 ```shell
 >  '/this/is/some/path/file.txt' | str index-of '/' -e
 ```
-

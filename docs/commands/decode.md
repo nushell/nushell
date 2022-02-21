@@ -20,4 +20,3 @@ Decode the output of an external command
 ```shell
 > cat myfile.q | decode utf-8
 ```
-

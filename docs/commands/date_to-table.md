@@ -26,4 +26,3 @@ Print the date in a structured table.
 ```shell
 >  '2020-04-12 22:10:57 +0200' | date to-table
 ```
-

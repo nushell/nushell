@@ -30,4 +30,3 @@ Capitalize a column in a table
 ```shell
 > [[lang, gems]; [nu_test, 100]] | str capitalize lang
 ```
-

@@ -21,4 +21,3 @@ Adds a series to the dataframe
 ```shell
 > [[a b]; [1 2] [3 4]] | dfr to-df | dfr with-column ([5 6] | dfr to-df) --name c
 ```
-

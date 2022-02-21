@@ -20,4 +20,3 @@ Grouping by column a
 ```shell
 > [[a b]; [one 1] [one 2]] | dfr to-df | dfr group-by a
 ```
-

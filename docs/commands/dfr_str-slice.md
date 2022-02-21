@@ -21,4 +21,3 @@ Creates slices from the strings
 ```shell
 > [abcded abc321 abc123] | dfr to-df | dfr str-slice 1 -l 2
 ```
-

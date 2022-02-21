@@ -35,4 +35,3 @@ List all rust files
 ```shell
 > ls *.rs
 ```
-

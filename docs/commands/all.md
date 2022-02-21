@@ -25,4 +25,3 @@ Check that all values are even
 ```shell
 > echo [2 4 6 8] | all? ($it mod 2) == 0
 ```
-

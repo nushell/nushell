@@ -21,4 +21,3 @@ Concatenate string
 > let other = ([za xs cd] | dfr to-df);
     [abc abc abc] | dfr to-df | dfr concatenate $other
 ```
-

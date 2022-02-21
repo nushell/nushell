@@ -31,4 +31,3 @@ Return the height (rows) of the terminal
 ```shell
 > term size -r
 ```
-

@@ -43,4 +43,3 @@ Use ansi to color text with a style (blue on red in bold)
 ```shell
 > $"(ansi -e { fg: '#0000ff' bg: '#ff0000' attr: b })Hello Nu World(ansi reset)"
 ```
-

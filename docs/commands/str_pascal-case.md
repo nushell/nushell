@@ -35,4 +35,3 @@ convert a column from a table to PascalCase
 ```shell
 > [[lang, gems]; [nu_test, 100]] | str pascal-case lang
 ```
-

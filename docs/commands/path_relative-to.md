@@ -31,4 +31,3 @@ Find a relative path from two relative paths
 ```shell
 > 'eggs/bacon/sausage/spam' | path relative-to 'eggs/bacon/sausage'
 ```
-

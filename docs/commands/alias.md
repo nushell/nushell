@@ -21,4 +21,3 @@ Alias ll to ls -l
 ```shell
 > alias ll = ls -l
 ```
-

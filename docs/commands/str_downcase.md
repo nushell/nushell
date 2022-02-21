@@ -35,4 +35,3 @@ Downcase contents
 ```shell
 > [[ColA ColB]; [Test ABC]] | str downcase ColA ColB
 ```
-

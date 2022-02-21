@@ -20,4 +20,3 @@ Skip until the element is positive
 ```shell
 > echo [-2 0 2 -1] | skip until $it > 0
 ```
-

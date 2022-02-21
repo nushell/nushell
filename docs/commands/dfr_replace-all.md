@@ -21,4 +21,3 @@ Replaces string
 ```shell
 > [abac abac abac] | dfr to-df | dfr replace-all -p a -r A
 ```
-

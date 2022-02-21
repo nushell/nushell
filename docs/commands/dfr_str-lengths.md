@@ -16,4 +16,3 @@ Returns string lengths
 ```shell
 > [a ab abc] | dfr to-df | dfr str-lengths
 ```
-

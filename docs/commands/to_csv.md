@@ -4,7 +4,7 @@ layout: command
 version: 0.59.0
 ---
 
-Convert table into .csv text
+Convert table into .csv text 
 
 ## Signature
 
@@ -24,6 +24,5 @@ Outputs an CSV string representing the contents of this table
 
 Outputs an CSV string representing the contents of this table
 ```shell
-> [[foo bar]; [1 2]] | to csv -s ';'
+> [[foo bar]; [1 2]] | to csv -s ';' 
 ```
-

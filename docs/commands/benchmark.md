@@ -20,4 +20,3 @@ Benchmarks a command within a block
 ```shell
 > benchmark { sleep 500ms }
 ```
-

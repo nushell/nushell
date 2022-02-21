@@ -16,3 +16,9 @@ Define a custom command and export it from a module
  -  `params`: parameters
  -  `block`: body of the definition
 
+## Examples
+
+Define a custom command in a module and call it
+```shell
+> module spam { export def foo [] { "foo" } }; use spam foo; foo
+```

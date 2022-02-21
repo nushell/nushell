@@ -21,4 +21,3 @@ Renames a dataframe column
 ```shell
 > [[a b]; [1 2] [3 4]] | dfr to-df | dfr rename-col a a_new
 ```
-

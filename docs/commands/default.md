@@ -21,4 +21,3 @@ Give a default 'target' to all file entries
 ```shell
 > ls -la | default target 'nothing'
 ```
-

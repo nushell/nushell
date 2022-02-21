@@ -27,4 +27,3 @@ A sliding window of two elements, with a stride of 3
 ```shell
 > [1, 2, 3, 4, 5, 6, 7, 8] | each window 2 --stride 3 { |x| $x.0 + $x.1 }
 ```
-

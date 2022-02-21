@@ -21,4 +21,3 @@ Echo the sum of each pair
 ```shell
 > echo [1 2 3 4] | each group 2 { |it| $it.0 + $it.1 }
 ```
-

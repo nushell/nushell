@@ -16,7 +16,7 @@ Fetch the contents from a URL (HTTP GET operation).
  -  `--user {any}`: the username when authenticating
  -  `--password {any}`: the password when authenticating
  -  `--timeout {int}`: timeout period in seconds
- -  `--headers {any}`: custom headers you want to add
+ -  `--headers {any}`: custom headers you want to add 
  -  `--raw`: fetch contents as text rather than a table
 
 ## Examples
@@ -35,4 +35,3 @@ Fetch content from url.com, with custom header
 ```shell
 > fetch -H [my-header-key my-header-value] url.com
 ```
-

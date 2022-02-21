@@ -16,4 +16,3 @@ Returns indexes where values are true
 ```shell
 > [$false $true $false] | dfr to-df | dfr arg-true
 ```
-

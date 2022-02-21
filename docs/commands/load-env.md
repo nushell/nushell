@@ -25,4 +25,3 @@ Load variables from an argument
 ```shell
 > load-env {NAME: ABE, AGE: UNKNOWN}; echo $env.NAME
 ```
-

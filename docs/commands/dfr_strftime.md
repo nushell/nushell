@@ -22,4 +22,3 @@ Formats date
     let df = ([$dt $dt] | dfr to-df);
     $df | dfr strftime "%Y/%m/%d"
 ```
-

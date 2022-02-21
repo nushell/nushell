@@ -16,4 +16,3 @@ Outputs an URL string representing the contents of this table
 ```shell
 > [[foo bar]; ["1" "2"]] | to url
 ```
-

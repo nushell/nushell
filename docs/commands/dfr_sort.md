@@ -26,4 +26,3 @@ Create new sorted series
 ```shell
 > [3 4 1 2] | dfr to-df | dfr sort
 ```
-

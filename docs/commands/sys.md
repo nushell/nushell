@@ -26,4 +26,3 @@ Show the os system name
 ```shell
 > (sys).host.name
 ```
-

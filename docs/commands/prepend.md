@@ -30,4 +30,3 @@ Prepend Ints and Strings
 ```shell
 > [2,nu,4,shell] | prepend [0,1,rocks]
 ```
-

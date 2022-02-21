@@ -21,4 +21,3 @@ Get the disk usage for the current directory
 ```shell
 > ls | get size | math sum
 ```
-

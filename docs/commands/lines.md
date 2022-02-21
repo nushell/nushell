@@ -20,4 +20,3 @@ Split multi-line string into lines
 ```shell
 > echo $'two(char nl)lines' | lines
 ```
-

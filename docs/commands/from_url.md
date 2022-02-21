@@ -16,4 +16,3 @@ Convert url encoded string into a table
 ```shell
 > 'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url
 ```
-

@@ -26,4 +26,3 @@ Exit all shells (exiting Nu)
 ```shell
 > exit --now
 ```
-

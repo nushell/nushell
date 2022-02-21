@@ -56,4 +56,3 @@ Convert to integer from hex
 ```shell
 > 'FF' |  into int -r 16
 ```
-

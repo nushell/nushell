@@ -18,4 +18,3 @@ Create mask where values are null
     let res = ($s / $s);
     $res | dfr is-null
 ```
-

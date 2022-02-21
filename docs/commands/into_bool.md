@@ -40,4 +40,3 @@ convert string to boolean
 ```shell
 > 'true' | into bool
 ```
-

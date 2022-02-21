@@ -18,7 +18,7 @@ Post a body to a URL (HTTP POST operation).
  -  `--password {any}`: the password when authenticating
  -  `--content-type {any}`: the MIME type of content to post
  -  `--content-length {any}`: the length of the content being posted
- -  `--headers {any}`: custom headers you want to add
+ -  `--headers {any}`: custom headers you want to add 
  -  `--raw`: return values as a string instead of a table
  -  `--insecure`: allow insecure server connections when using SSL
 
@@ -38,4 +38,3 @@ Post content to url.com, with custom header
 ```shell
 > post -H [my-header-key my-header-value] url.com
 ```
-

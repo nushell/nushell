@@ -25,4 +25,3 @@ Check if any of the values is odd
 ```shell
 > echo [2 4 1 6 8] | any? ($it mod 2) == 1
 ```
-

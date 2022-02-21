@@ -41,4 +41,3 @@ search for string in command usage
 ```shell
 > help --find char
 ```
-

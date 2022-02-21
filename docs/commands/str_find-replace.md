@@ -33,4 +33,3 @@ Find and replace all occurrences of find string in table
 ```shell
 > [[ColA ColB ColC]; [abc abc ads]] | str find-replace -a 'b' 'z' ColA ColC
 ```
-

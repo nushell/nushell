@@ -20,4 +20,3 @@ Wrap a list into a table with a given column name
 ```shell
 > echo [1 2 3] | wrap num
 ```
-

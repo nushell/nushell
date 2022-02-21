@@ -23,4 +23,3 @@ Checks the result from a comparison
     let res = ($s > 9);
     $res | dfr all-false
 ```
-

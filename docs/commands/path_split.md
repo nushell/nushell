@@ -25,4 +25,3 @@ Split all paths under the 'name' column
 ```shell
 > ls ('.' | path expand) | path split -c [ name ]
 ```
-

@@ -30,4 +30,3 @@ Convert decimal to integer
 ```shell
 > '-5.9' | into decimal
 ```
-

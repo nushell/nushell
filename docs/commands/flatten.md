@@ -18,7 +18,7 @@ Flatten the table.
 
 flatten a table
 ```shell
-> [[N, u, s, h, e, l, l]] | flatten
+> [[N, u, s, h, e, l, l]] | flatten 
 ```
 
 flatten a table, get the first item
@@ -40,4 +40,3 @@ Flatten inner table
 ```shell
 > { a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten
 ```
-

@@ -26,4 +26,3 @@ Checks if string ends with '.txt' pattern
 ```shell
 > 'my_library.rb' | str ends-with '.txt'
 ```
-

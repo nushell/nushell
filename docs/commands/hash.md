@@ -9,4 +9,3 @@ Apply hash function.
 ## Signature
 
 ```> hash ```
-

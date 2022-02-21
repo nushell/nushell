@@ -20,4 +20,3 @@ Upcase contents
 ```shell
 > 'nu' | str upcase
 ```
-

@@ -30,4 +30,3 @@ Get the next to last 2 items
 ```shell
 > [0,1,2,3,4,5] | range (-3)..-2
 ```
-

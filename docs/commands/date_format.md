@@ -36,4 +36,3 @@ Format a given date using a given format string.
 ```shell
 > "2021-10-22 20:00:12 +01:00" | date format "%Y-%m-%d"
 ```
-

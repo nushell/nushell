@@ -16,4 +16,3 @@ Modifies strings to lowercase
 ```shell
 > [Abc aBc abC] | dfr to-df | dfr to-lowercase
 ```
-

@@ -9,4 +9,3 @@ Various commands for working with string data.
 ## Signature
 
 ```> str ```
-

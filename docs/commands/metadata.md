@@ -25,4 +25,3 @@ Get the metadata of the input
 ```shell
 > ls | metadata
 ```
-

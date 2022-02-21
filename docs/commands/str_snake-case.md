@@ -35,4 +35,3 @@ convert a column from a table to snake-case
 ```shell
 > [[lang, gems]; [nuTest, 100]] | str snake-case lang
 ```
-

@@ -31,4 +31,3 @@ Treat each row as a markdown element
 ```shell
 > [{"H1": "Welcome to Nushell" } [[foo bar]; [1 2]]] | to md --per-element --pretty
 ```
-

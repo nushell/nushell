@@ -21,4 +21,3 @@ Get input from the user, and assign to a variable
 ```shell
 > let user-input = (input)
 ```
-

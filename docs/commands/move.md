@@ -32,4 +32,3 @@ Move columns of a record
 ```shell
 > { name: foo, value: a, index: 1 } | move name --before index
 ```
-

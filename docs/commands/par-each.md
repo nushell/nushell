@@ -21,4 +21,3 @@ Multiplies elements in list
 ```shell
 > [1 2 3] | par-each { |it| 2 * $it }
 ```
-

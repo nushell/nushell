@@ -20,4 +20,3 @@ Change to your home directory
 ```shell
 > cd ~
 ```
-

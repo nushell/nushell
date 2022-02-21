@@ -41,4 +41,3 @@ Get the characters from the beginning until ending index
 ```shell
 >  'good nushell' | str substring ',7'
 ```
-

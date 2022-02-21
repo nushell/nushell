@@ -23,4 +23,3 @@ Shifts the values by a given period
     let mask = ($s | dfr is-null);
     $s | dfr set 0 --mask $mask
 ```
-

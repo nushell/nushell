@@ -25,4 +25,3 @@ Check if a file exists in a column
 ```shell
 > ls | path exists -c [ name ]
 ```
-

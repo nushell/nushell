@@ -13,4 +13,3 @@ View a block, module, or a definition
 ## Parameters
 
  -  `item`: name or block to view
-

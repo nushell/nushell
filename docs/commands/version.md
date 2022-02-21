@@ -16,4 +16,3 @@ Display Nu version
 ```shell
 > version
 ```
-

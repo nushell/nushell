@@ -13,4 +13,3 @@ Switch to a given shell.
 ## Parameters
 
  -  `shell_number`: shell number to change to
-

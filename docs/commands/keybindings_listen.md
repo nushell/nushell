@@ -16,4 +16,3 @@ Type and see key event codes
 ```shell
 > keybindings listen
 ```
-

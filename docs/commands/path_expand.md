@@ -31,4 +31,3 @@ Expand a relative path
 ```shell
 > 'foo/../bar' | path expand
 ```
-

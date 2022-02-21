@@ -31,4 +31,3 @@ Checks if string starts with 'my' pattern
 ```shell
 > 'Cargo.toml' | str starts-with '.toml'
 ```
-

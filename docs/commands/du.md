@@ -25,4 +25,3 @@ Disk usage of the current directory
 ```shell
 > du
 ```
-

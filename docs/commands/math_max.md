@@ -16,4 +16,3 @@ Find the maximum of list of numbers
 ```shell
 > [-50 100 25] | math max
 ```
-

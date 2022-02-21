@@ -36,4 +36,3 @@ Set by row(e.g. `open x.json` or `from json`)
 ```shell
 > echo '{"X":"Y","W":"Z"}'|from json|with-env $in { echo $env.X $env.W }
 ```
-

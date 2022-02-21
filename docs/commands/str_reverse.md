@@ -20,4 +20,3 @@ Return the reversals of multiple strings
 ```shell
 > 'Nushell' | str reverse
 ```
-

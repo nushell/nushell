@@ -35,4 +35,3 @@ Get the current date in Hawaii
 ```shell
 > "2020-10-10 10:00:00 +02:00" | date to-timezone "+0500"
 ```
-

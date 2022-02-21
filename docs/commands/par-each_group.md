@@ -21,4 +21,3 @@ Multiplies elements in list
 ```shell
 > echo [1 2 3 4] | par-each group 2 { $it.0 + $it.1 }
 ```
-

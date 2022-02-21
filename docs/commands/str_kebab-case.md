@@ -35,4 +35,3 @@ convert a column from a table to kebab-case
 ```shell
 > [[lang, gems]; [nuTest, 100]] | str kebab-case lang
 ```
-

@@ -20,4 +20,3 @@ Use the second value in the stream
 ```shell
 > echo 1 2 3 | collect { |x| echo $x.1 }
 ```
-

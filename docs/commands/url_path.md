@@ -25,4 +25,3 @@ A trailing slash will be reflected in the path
 ```shell
 > echo 'http://www.example.com' | url path
 ```
-

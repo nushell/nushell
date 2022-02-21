@@ -43,4 +43,3 @@ Remove duplicate rows and show counts of a list/table
 ```shell
 > [1 2 2] | uniq -c
 ```
-
