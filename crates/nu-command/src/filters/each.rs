@@ -69,6 +69,17 @@ impl Command for Each {
                 }),
             },
             Example {
+                example: r#"[1 2 3] | each { |it| if $it == 2 { echo "found 2!"} }"#,
+                description: "Iterate over each element, keeping only values that succeed",
+                result: Some(Value::List {
+                    vals: vec![Value::String {
+                        val: "found 2!".to_string(),
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 example: r#"[1 2 3] | each --keep-empty { |it| if $it == 2 { echo "found 2!"} }"#,
                 description: "Iterate over each element, keeping all results",
                 result: Some(Value::List {
