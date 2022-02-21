@@ -68,12 +68,17 @@ fn get_prompt_string(
     stack
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {
-            Value::Block { val: block_id, .. } => {
+            Value::Block {
+                val: block_id,
+                captures,
+                ..
+            } => {
                 let block = engine_state.get_block(block_id);
+                let mut stack = stack.captures_to_stack(&captures);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
                 let ret_val = eval_subexpression(
                     engine_state,
-                    stack,
+                    &mut stack,
                     block,
                     PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
                 )
