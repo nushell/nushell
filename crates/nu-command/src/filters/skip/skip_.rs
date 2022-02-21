@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -75,11 +75,37 @@ impl Command for Skip {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        Ok(input
-            .into_iter()
-            .skip(n)
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+        match input {
+            PipelineData::RawStream(stream, _, metadata) => {
+                let bytes = stream.into_bytes()?;
+
+                let Spanned {
+                    item: bytes,
+                    span: bytes_span,
+                } = bytes;
+
+                let bytes = bytes.into_iter().skip(n).collect::<Vec<_>>();
+
+                Ok(Value::Binary {
+                    val: bytes,
+                    span: bytes_span,
+                }
+                .into_pipeline_data()
+                .set_metadata(metadata))
+            }
+            PipelineData::Value(Value::Binary { val, span }, metadata) => {
+                let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
+
+                Ok(Value::Binary { val: bytes, span }
+                    .into_pipeline_data()
+                    .set_metadata(metadata))
+            }
+            _ => Ok(input
+                .into_iter()
+                .skip(n)
+                .into_pipeline_data(ctrlc)
+                .set_metadata(metadata)),
+        }
     }
 }
 
