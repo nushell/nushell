@@ -5,8 +5,8 @@ use nu_engine::{env_to_string, CallExt};
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, DataSource, IntoPipelineData, ListStream, PipelineData, PipelineMetadata,
-    RawStream, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
+    PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use nu_table::{StyledString, TextStyle, Theme};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -231,6 +231,36 @@ impl Command for Table {
             }
             x => Ok(x),
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        let span = Span::test_data();
+        vec![
+            Example {
+                description: "List the files in current directory with index number start from 1.",
+                example: r#"ls | table -n 1"#,
+                result: None,
+            },
+            Example {
+                description: "Render data in table view",
+                example: r#"echo [[a b]; [1 2] [3 4]] | table"#,
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["a".to_string(), "b".to_string()],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                            span,
+                        },
+                        Value::Record {
+                            cols: vec!["a".to_string(), "b".to_string()],
+                            vals: vec![Value::test_int(3), Value::test_int(4)],
+                            span,
+                        },
+                    ],
+                    span,
+                }),
+            },
+        ]
     }
 }
 
