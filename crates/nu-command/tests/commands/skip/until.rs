@@ -32,11 +32,11 @@ fn condition_is_met() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                open --raw ./caballeros.txt 
-                | lines 
-                | skip 2 
+                open --raw ./caballeros.txt
+                | lines
+                | skip 2
                 | str trim
-                | str collect (char nl) 
+                | str collect (char nl)
                 | from csv
                 | skip until "Chicken Collection" == "Red Chickens"
                 | skip 1

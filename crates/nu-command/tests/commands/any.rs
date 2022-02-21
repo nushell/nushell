@@ -5,7 +5,7 @@ fn checks_any_row_is_true() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-                echo  [ "Ecuador", "USA", "New Zealand" ] 
+                echo  [ "Ecuador", "USA", "New Zealand" ]
                 | any? $it == "New Zealand"
         "#
     ));
