@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, Signature, Span, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct ExportEnv;
@@ -38,5 +38,16 @@ impl Command for ExportEnv {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         //TODO: Add the env to stack
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Import and evaluate environment variable from a module",
+            example: r#"module foo { export env FOO_ENV { "BAZ" } }; use foo FOO_ENV; $env.FOO_ENV"#,
+            result: Some(Value::String {
+                val: "BAZ".to_string(),
+                span: Span::test_data(),
+            }),
+        }]
     }
 }

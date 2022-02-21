@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, Signature, Span, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct ExportDef;
@@ -34,5 +34,16 @@ impl Command for ExportDef {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Define a custom command in a module and call it",
+            example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
+            result: Some(Value::String {
+                val: "foo".to_string(),
+                span: Span::test_data(),
+            }),
+        }]
     }
 }
