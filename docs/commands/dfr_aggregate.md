@@ -12,7 +12,7 @@ Performs an aggregation operation on a dataframe and groupby object
 
 ## Parameters
 
- -  `operation_name`: 
+ -  `operation_name`:
 	Dataframes: mean, sum, min, max, quantile, median, var, std
 	GroupBy: mean, sum, min, max, first, last, nunique, quantile, median, var, std, count
  -  `--quantile {number}`: quantile value for quantile operation

@@ -1,7 +1,7 @@
 # Description
 
 (description of your pull request here)
-  
+
 # Tests
 
 Make sure you've run and fixed any issues with these commands:
