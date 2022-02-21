@@ -331,7 +331,7 @@ pub fn parse_def(
     if let (Some(name), Some(mut signature), Some(block_id)) =
         (&name_expr.as_string(), sig.as_signature(), block.as_block())
     {
-        if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
+        if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             let declaration = working_set.get_decl_mut(decl_id);
 
             signature.name = name.clone();
@@ -430,7 +430,7 @@ pub fn parse_extern(
 
     if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
-            if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
+            if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
                 let declaration = working_set.get_decl_mut(decl_id);
 
                 signature.name = name.clone();
