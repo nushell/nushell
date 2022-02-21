@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
 };
 
 const NEWLINE_ESCAPE_CODE: &str = "<\\n>";
@@ -67,5 +67,25 @@ impl Command for History {
         } else {
             Err(ShellError::FileNotFound(head))
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                example: "history | length",
+                description: "Get current history length",
+                result: None,
+            },
+            Example {
+                example: "history | last 5",
+                description: "Show last 5 commands you have ran",
+                result: None,
+            },
+            Example {
+                example: "history | wrap cmd | where cmd =~ cargo",
+                description: "Search all the commands from history that contains 'cargo'",
+                result: None,
+            },
+        ]
     }
 }
