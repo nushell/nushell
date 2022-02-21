@@ -743,7 +743,6 @@ impl<'a> StateWorkingSet<'a> {
             .expect("internal error: missing required scope frame");
 
         scope_frame.decls.insert(name, decl_id);
-        scope_frame.visibility.use_decl_id(&decl_id);
 
         decl_id
     }
@@ -790,7 +789,6 @@ impl<'a> StateWorkingSet<'a> {
 
         if let Some(decl_id) = scope_frame.predecls.remove(name) {
             scope_frame.decls.insert(name.into(), decl_id);
-            scope_frame.visibility.use_decl_id(&decl_id);
 
             return Some(decl_id);
         }
