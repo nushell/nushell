@@ -354,3 +354,15 @@ fn str_reverse() {
 
     assert!(actual.out.contains("llehsun"));
 }
+
+#[test]
+fn test_redirection_trim() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        let x = (nu --testbin cococo niceone); $x | str trim | str length
+        "#
+    ));
+
+    assert_eq!(actual.out, "7");
+}

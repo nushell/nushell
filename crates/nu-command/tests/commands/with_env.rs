@@ -55,6 +55,16 @@ fn with_env_and_shorthand_same_result() {
     assert_eq!(actual_shorthand.out, actual_normal.out);
 }
 
+#[test]
+fn test_redirection2() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "let x = (FOO=BAR nu --testbin cococo niceenvvar); $x | str trim | str length"
+    );
+
+    assert_eq!(actual.out, "10");
+}
+
 // FIXME: jt: needs more work
 #[ignore]
 #[test]
