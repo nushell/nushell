@@ -222,3 +222,52 @@ pub enum ParseError {
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
 }
+
+impl ParseError {
+    pub fn span(&self) -> Span {
+        match self {
+            ParseError::ExtraTokens(s) => *s,
+            ParseError::ExtraPositional(_, s) => *s,
+            ParseError::UnexpectedEof(_, s) => *s,
+            ParseError::Unclosed(_, s) => *s,
+            ParseError::Expected(_, s) => *s,
+            ParseError::Mismatch(_, _, s) => *s,
+            ParseError::UnsupportedOperation(_, _, _, s, _) => *s,
+            ParseError::ExpectedKeyword(_, s) => *s,
+            ParseError::UnexpectedKeyword(_, s) => *s,
+            ParseError::BuiltinCommandInPipeline(_, s) => *s,
+            ParseError::IncorrectValue(_, s, _) => *s,
+            ParseError::MultipleRestParams(s) => *s,
+            ParseError::VariableNotFound(s) => *s,
+            ParseError::VariableNotValid(s) => *s,
+            ParseError::ModuleNotFound(s) => *s,
+            ParseError::NotFound(s) => *s,
+            ParseError::DuplicateCommandDef(s) => *s,
+            ParseError::UnknownCommand(s) => *s,
+            ParseError::NonUtf8(s) => *s,
+            ParseError::UnknownFlag(_, _, s) => *s,
+            ParseError::UnknownType(s) => *s,
+            ParseError::MissingFlagParam(_, s) => *s,
+            ParseError::ShortFlagBatchCantTakeArg(s) => *s,
+            ParseError::MissingPositional(_, s, _) => *s,
+            ParseError::KeywordMissingArgument(_, _, s) => *s,
+            ParseError::MissingType(s) => *s,
+            ParseError::TypeMismatch(_, _, s) => *s,
+            ParseError::MissingRequiredFlag(_, s) => *s,
+            ParseError::IncompleteMathExpression(s) => *s,
+            ParseError::UnknownState(_, s) => *s,
+            ParseError::InternalError(_, s) => *s,
+            ParseError::IncompleteParser(s) => *s,
+            ParseError::RestNeedsName(s) => *s,
+            ParseError::ParameterMismatchType(_, _, _, s) => *s,
+            ParseError::ExtraColumns(_, s) => *s,
+            ParseError::MissingColumns(_, s) => *s,
+            ParseError::AssignmentMismatch(_, _, s) => *s,
+            ParseError::MissingImportPattern(s) => *s,
+            ParseError::WrongImportPattern(s) => *s,
+            ParseError::ExportNotFound(s) => *s,
+            ParseError::FileNotFound(_, s) => *s,
+            ParseError::LabeledError(_, _, s) => *s,
+        }
+    }
+}
