@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Register;
@@ -49,5 +49,20 @@ impl Command for Register {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Register `nu_plugin_extra_query` plugin from ~/.cargo/bin/ dir",
+                example: r#"register -e capnp ~/.cargo/bin/nu_plugin_extra_query"#,
+                result: None,
+            },
+            Example {
+                description: "Register `nu_plugin_extra_query` plugin from `nu -c`(plugin will be available in that nu session only)",
+                example: r#"let plugin = ((which nu).path.0 | path dirname | path join 'nu_plugin_extra_query'); nu -c $'register -e capnp ($plugin); version'"#,
+                result: None,
+            },
+        ]
     }
 }
