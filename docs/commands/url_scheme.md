@@ -25,4 +25,3 @@ You get an empty string if there is no scheme
 ```shell
 > echo 'test' | url scheme
 ```
-

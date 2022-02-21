@@ -23,4 +23,3 @@ Create a custom error for a custom command
       error make {msg: "this is fishy", label: {text: "fish right here", start: $span.start, end: $span.end } }
     }
 ```
-

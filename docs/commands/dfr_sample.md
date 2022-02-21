@@ -27,4 +27,3 @@ Shows sample row using fraction and replace
 ```shell
 > [[a b]; [1 2] [3 4] [5 6]] | dfr to-df | dfr sample -f 0.5 -e
 ```
-

@@ -16,4 +16,3 @@ Describe the type of a string
 ```shell
 > 'hello' | describe
 ```
-

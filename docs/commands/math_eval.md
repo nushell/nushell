@@ -20,4 +20,3 @@ Evalulate math in the pipeline
 ```shell
 > '10 / 4' | math eval
 ```
-

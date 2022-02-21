@@ -26,4 +26,3 @@ Save a record to foo.json in current directory
 ```shell
 > echo { a: 1, b: 2 } | save foo.json
 ```
-

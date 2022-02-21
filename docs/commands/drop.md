@@ -30,4 +30,3 @@ Remove the last two items of a list/table
 ```shell
 > [0,1,2,3] | drop 2
 ```
-

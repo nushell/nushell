@@ -9,4 +9,3 @@ Apply into function.
 ## Signature
 
 ```> into ```
-

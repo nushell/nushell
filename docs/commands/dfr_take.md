@@ -29,4 +29,3 @@ Takes selected rows from series
     let indices = ([0 2] | dfr to-df);
     $series | dfr take $indices
 ```
-

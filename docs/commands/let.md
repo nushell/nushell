@@ -31,4 +31,3 @@ Set a variable based on the condition
 ```shell
 > let x = if $false { -1 } else { 1 }
 ```
-

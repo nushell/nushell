@@ -21,4 +21,3 @@ Import and evaluate environment variable from a module
 ```shell
 > module foo { export env FOO_ENV { "BAZ" } }; use foo FOO_ENV; $env.FOO_ENV
 ```
-

@@ -21,4 +21,3 @@ Filter dataframe using a bool mask
 > let mask = ([$true $false] | dfr to-df);
     [[a b]; [1 2] [3 4]] | dfr to-df | dfr filter-with $mask
 ```
-

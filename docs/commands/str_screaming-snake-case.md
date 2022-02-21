@@ -35,4 +35,3 @@ convert a column from a table to SCREAMING_SNAKE_CASE
 ```shell
 > [[lang, gems]; [nu_test, 100]] | str screaming-snake-case lang
 ```
-

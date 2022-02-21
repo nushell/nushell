@@ -45,4 +45,3 @@ convert a decimal to a nushell binary primitive
 ```shell
 > 1.234 | into binary
 ```
-

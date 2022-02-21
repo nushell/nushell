@@ -40,4 +40,3 @@ Delete a file, and suppress errors if no file is found
 ```shell
 > rm --force file.txt
 ```
-

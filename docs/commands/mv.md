@@ -31,4 +31,3 @@ Move many files into a directory
 ```shell
 > mv *.txt my/subdirectory
 ```
-

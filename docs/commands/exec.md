@@ -26,4 +26,3 @@ Execute 'nautilus'
 ```shell
 > exec nautilus
 ```
-

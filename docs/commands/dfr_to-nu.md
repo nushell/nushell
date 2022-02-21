@@ -26,4 +26,3 @@ Shows tail rows from dataframe
 ```shell
 > [[a b]; [1 2] [3 4] [5 6]] | dfr to-df | dfr to-nu -t -n 1
 ```
-

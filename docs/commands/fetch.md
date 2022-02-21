@@ -35,4 +35,3 @@ Fetch content from url.com, with custom header
 ```shell
 > fetch -H [my-header-key my-header-value] url.com
 ```
-

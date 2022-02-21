@@ -15,4 +15,3 @@ Renders the output to a textual terminal grid.
  -  `--width {int}`: number of terminal columns wide (not output columns)
  -  `--color`: draw output with color
  -  `--separator {string}`: character to separate grid with
-

@@ -37,4 +37,3 @@ Use rpad to pad Unicode
 ```shell
 > '▉' | str rpad -l 10 -c '▉'
 ```
-

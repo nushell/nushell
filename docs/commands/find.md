@@ -46,4 +46,3 @@ Find if a service is not running
 ```shell
 > echo [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { |it| $it.patch }
 ```
-

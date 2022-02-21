@@ -20,4 +20,3 @@ List the system processes
 ```shell
 > ps
 ```
-

@@ -25,4 +25,3 @@ Create a tsv file without header columns and open it
 ```shell
 > echo $'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv -n
 ```
-

@@ -16,4 +16,3 @@ Describe the type of a string
 ```shell
 > 'let x = 3' | nu-highlight
 ```
-

@@ -27,4 +27,3 @@ Recursively copy dir_a to dir_b
 ```shell
 > cp -r dir_a dir_b
 ```
-

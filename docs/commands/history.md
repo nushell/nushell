@@ -30,4 +30,3 @@ Search all the commands from history that contains 'cargo'
 ```shell
 > history | wrap cmd | where cmd =~ cargo
 ```
-

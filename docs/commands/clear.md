@@ -16,4 +16,3 @@ Clear the terminal
 ```shell
 > clear
 ```
-

@@ -25,4 +25,3 @@ Create a string from input with a separator
 ```shell
 > ['nu', 'shell'] | str collect '-'
 ```
-

@@ -30,4 +30,3 @@ Define a custom command that participates in the environment in a module and cal
 ```shell
 > module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR
 ```
-

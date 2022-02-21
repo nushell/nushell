@@ -30,4 +30,3 @@ Append Ints and Strings
 ```shell
 > [0,1] | append [2,nu,4,shell]
 ```
-

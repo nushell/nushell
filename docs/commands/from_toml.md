@@ -22,4 +22,3 @@ Converts toml formatted string to table
 > 'a = 1
 b = [1, 2]' | from toml
 ```
-

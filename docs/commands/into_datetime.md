@@ -44,4 +44,3 @@ Convert timestamp (no larger than 8e+12) to datetime using a specified timezone 
 ```shell
 > '1614434140' | into datetime -o +9
 ```
-

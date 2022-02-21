@@ -25,4 +25,3 @@ Apply the round function with precision specified
 ```shell
 > [1.555 2.333 -3.111] | math round -p 2
 ```
-

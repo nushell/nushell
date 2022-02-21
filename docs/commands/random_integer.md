@@ -35,4 +35,3 @@ Generate a random integer between 1 and 10
 ```shell
 > random integer 1..10
 ```
-

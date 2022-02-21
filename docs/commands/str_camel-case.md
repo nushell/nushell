@@ -35,4 +35,3 @@ convert a column from a table to camelCase
 ```shell
 > [[lang, gems]; [nu_test, 100]] | str camel-case lang
 ```
-

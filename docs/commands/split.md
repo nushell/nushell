@@ -9,4 +9,3 @@ Split contents across desired subcommand (like row, column) via the separator.
 ## Signature
 
 ```> split ```
-

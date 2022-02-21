@@ -28,4 +28,3 @@ Register `nu_plugin_extra_query` plugin from `nu -c`(plugin will be available in
 ```shell
 > let plugin = ((which nu).path.0 | path dirname | path join 'nu_plugin_extra_query'); nu -c $'register -e capnp ($plugin); version'
 ```
-

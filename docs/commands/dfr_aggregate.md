@@ -34,4 +34,3 @@ Aggregate sum in series
 ```shell
 > [4 1 5 6] | dfr to-df | dfr aggregate sum
 ```
-

@@ -30,4 +30,3 @@ Runs foo.nu in current context and call the `main` command automatically, suppos
 ```shell
 > source ./foo.nu
 ```
-

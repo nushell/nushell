@@ -35,4 +35,3 @@ This month's calendar with the week starting on monday
 ```shell
 > cal --week-start monday
 ```
-

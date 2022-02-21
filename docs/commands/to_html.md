@@ -35,4 +35,3 @@ Optionally, output the string with a dark background
 ```shell
 > [[foo bar]; [1 2]] | to html --dark
 ```
-

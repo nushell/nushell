@@ -31,4 +31,3 @@ Open a file, using the input to get filename
 ```shell
 > echo 'myfile.txt' | open
 ```
-

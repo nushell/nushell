@@ -40,4 +40,3 @@ Flatten inner table
 ```shell
 > { a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten
 ```
-

@@ -20,4 +20,3 @@ Remove the last column of a table
 ```shell
 > echo [[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column
 ```
-

@@ -25,4 +25,3 @@ Split a string into rows by the specified separator
 ```shell
 > echo 'a--b--c' | split row '--'
 ```
-

@@ -32,4 +32,3 @@ Transposes the table without column names and specify a new column name
 ```shell
 > echo [[c1 c2]; [1 2]] | transpose -i val
 ```
-

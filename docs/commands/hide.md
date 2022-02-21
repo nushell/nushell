@@ -30,4 +30,3 @@ Hide an environment variable
 ```shell
 > let-env HZ_ENV_ABC = 1; hide HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name
 ```
-

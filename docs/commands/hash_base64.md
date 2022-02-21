@@ -34,4 +34,3 @@ Base64 decode a value
 ```shell
 > echo 'dXNlcm5hbWU6cGFzc3dvcmQ=' | hash base64 --decode
 ```
-

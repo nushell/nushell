@@ -26,4 +26,3 @@ Make multiple directories and show the paths created
 ```shell
 > mkdir -s foo/bar foo2
 ```
-

@@ -22,4 +22,3 @@ Define a custom command in a module and call it
 ```shell
 > module spam { export def foo [] { "foo" } }; use spam foo; foo
 ```
-

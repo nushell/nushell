@@ -47,4 +47,3 @@ Check if string contains pattern
 ```shell
 > 'hello' | str contains 'banana'
 ```
-

@@ -16,4 +16,3 @@ Split the string's characters into separate rows
 ```shell
 > 'hello' | split chars
 ```
-

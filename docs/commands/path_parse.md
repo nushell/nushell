@@ -36,4 +36,3 @@ Parse all paths under the 'name' column
 ```shell
 > ls | path parse -c [ name ]
 ```
-

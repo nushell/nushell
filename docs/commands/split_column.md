@@ -27,4 +27,3 @@ Split a string into columns of char and remove the empty columns
 ```shell
 > echo 'abc' | split column -c ''
 ```
-

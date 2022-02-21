@@ -21,4 +21,3 @@ Create an environment variable and display it
 ```shell
 > let-env MY_ENV_VAR = 1; $env.MY_ENV_VAR
 ```
-

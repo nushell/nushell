@@ -22,4 +22,3 @@ Pivot a dataframe on b and aggregation on col c
 ```shell
 > [[a b c]; [one x 1] [two y 2]] | dfr to-df | dfr group-by a | dfr pivot b c sum
 ```
-

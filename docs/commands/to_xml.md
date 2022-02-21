@@ -25,4 +25,3 @@ Optionally, formats the text with a custom indentation setting
 ```shell
 > { "note": { "children": [{ "remember": {"attributes" : {}, "children": [Event]}}], "attributes": {} } } | to xml -p 3
 ```
-

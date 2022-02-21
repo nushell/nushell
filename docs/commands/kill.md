@@ -34,4 +34,3 @@ Send INT signal
 ```shell
 > kill -s 2 12345
 ```
-

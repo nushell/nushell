@@ -41,4 +41,3 @@ Drop range rows from second to fourth
 ```shell
 > echo [first second third fourth fifth] | drop nth (1..3)
 ```
-

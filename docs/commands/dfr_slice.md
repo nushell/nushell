@@ -21,4 +21,3 @@ Create new dataframe from a slice of the rows
 ```shell
 > [[a b]; [1 2] [3 4]] | dfr to-df | dfr slice 0 1
 ```
-

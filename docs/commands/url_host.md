@@ -20,4 +20,3 @@ Get host of a url
 ```shell
 > echo 'http://www.example.com/foo/bar' | url host
 ```
-

@@ -21,4 +21,3 @@ Converts yaml formatted string to table
 ```shell
 > '[ a: 1, b: [1, 2] ]' | from yaml
 ```
-

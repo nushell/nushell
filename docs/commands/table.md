@@ -25,4 +25,3 @@ Render data in table view
 ```shell
 > echo [[a b]; [1 2] [3 4]] | table
 ```
-

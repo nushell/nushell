@@ -20,4 +20,3 @@ FN:Bar
 EMAIL:foo@bar.com
 END:VCARD' | from vcf
 ```
-

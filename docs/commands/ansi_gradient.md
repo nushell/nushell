@@ -39,4 +39,3 @@ draw text in a gradient by specifying foreground end color - start color is assu
 ```shell
 > echo 'Hello, Nushell! This is a gradient.' | ansi gradient --fgend 0xe81cff
 ```
-

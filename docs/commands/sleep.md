@@ -31,4 +31,3 @@ Send output after 1sec
 ```shell
 > sleep 1sec; echo done
 ```
-

@@ -18,4 +18,3 @@ Converts ini formatted string to table
 a=1
 b=2' | from ini
 ```
-

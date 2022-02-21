@@ -26,4 +26,3 @@ Creates files a, b and c
 ```shell
 > touch a b c
 ```
-

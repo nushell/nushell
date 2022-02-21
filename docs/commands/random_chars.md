@@ -25,4 +25,3 @@ Generate random chars with specified length
 ```shell
 > random chars -l 20
 ```
-

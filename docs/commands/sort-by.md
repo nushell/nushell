@@ -47,4 +47,3 @@ Sort strings (reversed case-insensitive)
 ```shell
 > echo [airplane Truck Car] | sort-by -i -r
 ```
-

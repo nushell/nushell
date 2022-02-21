@@ -14,4 +14,3 @@ Runs external command
 
  -  `...rest`: external command to run
  -  `--last-expression`: last-expression
-

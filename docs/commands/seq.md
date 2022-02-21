@@ -43,4 +43,3 @@ sequence 1 to 10 with pipe separator padded by 2s
 ```shell
 > seq -s ' | ' -w 1 2 10
 ```
-

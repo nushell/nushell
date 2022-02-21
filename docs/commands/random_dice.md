@@ -26,4 +26,3 @@ Roll 10 dice with 12 sides each
 ```shell
 > random dice -d 10 -s 12
 ```
-

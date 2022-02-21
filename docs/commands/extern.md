@@ -14,4 +14,3 @@ Define a signature for an external command
 
  -  `def_name`: definition name
  -  `params`: parameters
-

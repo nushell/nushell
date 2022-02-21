@@ -26,4 +26,3 @@ Rolling max for a series
 ```shell
 > [1 2 3 4 5] | dfr to-df | dfr rolling max 2 | dfr drop-nulls
 ```
-

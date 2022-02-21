@@ -52,4 +52,3 @@ starting on May 5th, 2020, print the next 10 days in your locale's date format, 
 ```shell
 > seq date -o %x -s ':' -d 10 -b '2020-05-01'
 ```
-

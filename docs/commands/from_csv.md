@@ -36,4 +36,3 @@ Convert semicolon-separated data to a table
 ```shell
 > open data.txt | from csv --separator ';'
 ```
-

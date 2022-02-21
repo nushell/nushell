@@ -37,4 +37,3 @@ Extract the cpu list from the sys information record
 ```shell
 > sys | get cpu
 ```
-

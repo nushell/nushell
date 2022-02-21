@@ -18,4 +18,3 @@ Returns nanosecond from a date
     let df = ([$dt $dt] | dfr to-df);
     $df | dfr get-nanosecond
 ```
-

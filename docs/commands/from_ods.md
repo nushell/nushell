@@ -25,4 +25,3 @@ Convert binary .ods data to a table, specifying the tables
 ```shell
 > open test.txt | from ods -s [Spreadsheet1]
 ```
-

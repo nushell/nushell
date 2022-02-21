@@ -17,4 +17,3 @@ Converts ics formatted string to table
 > 'BEGIN:VCALENDAR
 END:VCALENDAR' | from ics
 ```
-

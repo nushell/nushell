@@ -27,4 +27,3 @@ Define a command and run it with parameter(s)
 ```shell
 > def say-sth [sth: string] { echo $sth }; say-sth hi
 ```
-

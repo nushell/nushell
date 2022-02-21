@@ -9,4 +9,3 @@ Deprecated command
 ## Signature
 
 ```> str to-int ```
-

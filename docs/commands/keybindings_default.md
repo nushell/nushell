@@ -16,4 +16,3 @@ Get list with default keybindings
 ```shell
 > keybindings default
 ```
-

@@ -37,4 +37,3 @@ Replace the part that would be returned with a custom path
 ```shell
 > '/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking
 ```
-

@@ -33,4 +33,3 @@ Number each item and echo a message
 ```shell
 > for $it in ['bob' 'fred'] --numbered { $"($it.index) is ($it.item)" }
 ```
-

@@ -20,4 +20,3 @@ Keep until the element is positive
 ```shell
 > echo [-1 -2 9 1] | keep until $it > 0
 ```
-

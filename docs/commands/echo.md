@@ -25,4 +25,3 @@ Print the value of the special '$nu' variable
 ```shell
 > echo $nu
 ```
-

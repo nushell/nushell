@@ -26,4 +26,3 @@ Search a tutorial by phrase
 ```shell
 > tutor -f "$in"
 ```
-

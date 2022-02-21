@@ -32,4 +32,3 @@ Chain multiple if's together
 ```shell
 > if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }
 ```
-

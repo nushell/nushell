@@ -35,4 +35,3 @@ Generate a random decimal between 1.0 and 1.1
 ```shell
 > random decimal 1.0..1.1
 ```
-

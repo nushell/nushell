@@ -9,4 +9,3 @@ Apply url function.
 ## Signature
 
 ```> url ```
-

@@ -21,4 +21,3 @@ Counts Unicode characters correctly in a string
 ```shell
 > "Amélie Amelie" | size
 ```
-

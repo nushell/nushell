@@ -25,4 +25,3 @@ Select the name and size columns
 ```shell
 > ls | select name size
 ```
-

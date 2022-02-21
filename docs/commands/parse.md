@@ -26,4 +26,3 @@ Parse a string using regex pattern
 ```shell
 > echo "hi there" | parse -r "(?P<foo>\w+) (?P<bar>\w+)"
 ```
-

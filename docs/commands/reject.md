@@ -25,4 +25,3 @@ Reject the specified field in a record
 ```shell
 > echo {a: 1, b: 2} | reject a
 ```
-

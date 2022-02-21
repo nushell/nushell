@@ -25,4 +25,3 @@ Merge two records
 ```shell
 > {a: 1, b: 2} | merge { {c: 3} }
 ```
-

@@ -17,4 +17,3 @@ Counts null values
 > let s = ([1 1 0 0 3 3 4] | dfr to-df);
     ($s / $s) | dfr count-null
 ```
-

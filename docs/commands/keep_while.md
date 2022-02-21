@@ -20,4 +20,3 @@ Keep while the element is negative
 ```shell
 > echo [-1 -2 9 1] | keep while $it < 0
 ```
-

@@ -25,4 +25,3 @@ Convert binary .xlsx data to a table, specifying the tables
 ```shell
 > open test.txt | from xlsx -s [Spreadsheet1]
 ```
-

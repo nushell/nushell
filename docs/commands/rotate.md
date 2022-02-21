@@ -46,4 +46,3 @@ Rotate table counter-clockwise and change columns names
 ```shell
 > [[a b]; [1 2]] | rotate --ccw col_a col_b
 ```
-

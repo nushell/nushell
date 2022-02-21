@@ -25,4 +25,3 @@ Show type of a filepath in a column
 ```shell
 > ls | path type -c [ name ]
 ```
-

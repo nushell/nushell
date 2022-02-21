@@ -25,4 +25,3 @@ Get the sample variance of a list of numbers
 ```shell
 > [1 2 3 4 5] | math variance -s
 ```
-

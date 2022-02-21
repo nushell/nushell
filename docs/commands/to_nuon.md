@@ -16,4 +16,3 @@ Outputs a nuon string representing the contents of this table
 ```shell
 > [1 2 3] | to nuon
 ```
-

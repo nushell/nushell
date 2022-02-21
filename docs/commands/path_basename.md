@@ -31,4 +31,3 @@ Replace basename of a path
 ```shell
 > '/home/joe/test.txt' | path basename -r 'spam.png'
 ```
-

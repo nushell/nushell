@@ -21,4 +21,3 @@ Create new dataframe with dummy variables from a series
 ```shell
 > [1 2 2 3 3] | dfr to-df | dfr to-dummies
 ```
-

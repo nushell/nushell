@@ -26,4 +26,3 @@ Splits a multi-line string into columns with headers detected
 ```shell
 > echo $'c1 c2 c3(char nl)a b c' | detect columns
 ```
-

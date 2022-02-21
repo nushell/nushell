@@ -16,4 +16,3 @@ Get the minimum of a list of numbers
 ```shell
 > [-50 100 25] | math min
 ```
-

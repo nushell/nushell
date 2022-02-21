@@ -25,4 +25,3 @@ Count the number of columns in the calendar table
 ```shell
 > cal | length -c
 ```
-

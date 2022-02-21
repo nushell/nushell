@@ -27,4 +27,3 @@ Run the block and ignore errors
 ```shell
 > do -i { thisisnotarealcommand }
 ```
-
