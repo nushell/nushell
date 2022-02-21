@@ -272,6 +272,10 @@ pub enum ShellError {
     #[diagnostic(help("{1}"))]
     LabeledError(String, String),
 
+    #[error("{1}")]
+    #[diagnostic()]
+    OutsideSpannedLabeledError(#[source_code] String, String, String, #[label("{2}")] Span),
+
     #[error("Deprecated command {0}")]
     #[diagnostic(code(nu::shell::deprecated_command), url(docsrs))]
     DeprecatedCommand(

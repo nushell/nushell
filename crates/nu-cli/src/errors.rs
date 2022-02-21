@@ -41,6 +41,10 @@ impl<'src> miette::Diagnostic for CliError<'src> {
 
     // Finally, we redirect the source_code method to our own source.
     fn source_code(&self) -> Option<&dyn SourceCode> {
-        Some(&self.1)
+        if let Some(source_code) = self.0.source_code() {
+            Some(source_code)
+        } else {
+            Some(&self.1)
+        }
     }
 }
