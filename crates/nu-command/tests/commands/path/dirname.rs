@@ -7,7 +7,7 @@ fn returns_dirname_of_empty_input() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo "" 
+            echo ""
             | path dirname
         "#
     ));
@@ -20,7 +20,7 @@ fn replaces_dirname_of_empty_input() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo "" 
+            echo ""
             | path dirname -r newdir
         "#
     ));
@@ -33,8 +33,8 @@ fn returns_dirname_of_path_ending_with_dot() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo "some/dir/." 
-            | path dirname 
+            echo "some/dir/."
+            | path dirname
         "#
     ));
 
@@ -46,7 +46,7 @@ fn replaces_dirname_of_path_ending_with_dot() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo "some/dir/." 
+            echo "some/dir/."
             | path dirname -r eggs
         "#
     ));
@@ -60,8 +60,8 @@ fn returns_dirname_of_path_ending_with_double_dot() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo "some/dir/.." 
-            | path dirname 
+            echo "some/dir/.."
+            | path dirname
         "#
     ));
 
@@ -73,7 +73,7 @@ fn replaces_dirname_of_path_with_double_dot() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo "some/dir/.." 
+            echo "some/dir/.."
             | path dirname -r eggs
         "#
     ));

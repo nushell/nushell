@@ -140,7 +140,7 @@ error: aborting due to previous error
 
 That's not certainly what we expected.
 
-It happens that Nu needs to know more about the command, including it's name and signature. We didn't do any of that and the compiler is telling us so. We seem to be missing implementing the `WholeStreamCommand` trait. This is the trait that, when implemented, allows us to state it's name, signature, and the like. 
+It happens that Nu needs to know more about the command, including it's name and signature. We didn't do any of that and the compiler is telling us so. We seem to be missing implementing the `WholeStreamCommand` trait. This is the trait that, when implemented, allows us to state it's name, signature, and the like.
 
 ## WholeStreamCommand
 

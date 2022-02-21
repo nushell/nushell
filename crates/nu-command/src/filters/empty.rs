@@ -77,7 +77,7 @@ impl Command for Empty {
                     Value::List {
                         vals: vec![
                             Value::Record{
-                            cols: vec!["2020/04/16".to_string(), "2020/07/10".to_string(), "2020/11/16".to_string()], 
+                            cols: vec!["2020/04/16".to_string(), "2020/07/10".to_string(), "2020/11/16".to_string()],
                             vals: vec![
                                 Value::List{vals: vec![
                                     Value::Int{val: 33, span: Span::test_data()},

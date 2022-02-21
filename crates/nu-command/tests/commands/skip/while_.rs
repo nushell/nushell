@@ -33,10 +33,10 @@ fn condition_is_met() {
             cwd: dirs.test(), pipeline(
             r#"
                 open --raw caballeros.txt
-                | lines 
-                | skip 2 
+                | lines
+                | skip 2
                 | str trim
-                | str collect (char nl) 
+                | str collect (char nl)
                 | from csv
                 | skip while "Chicken Collection" != "Red Chickens"
                 | skip 1

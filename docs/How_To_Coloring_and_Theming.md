@@ -206,8 +206,8 @@ The `full "#hex"` format is a take on the `"#hex"` format but allows one to spec
 
 Example: `{ fg: "#ff0000" bg: "#0000ff" attr: b }`
 
-* foreground of red in "#hex" format 
-* background of blue in "#hex" format 
+* foreground of red in "#hex" format
+* background of blue in "#hex" format
 * attribute of bold abbreviated
 
 ## `Primitive values`

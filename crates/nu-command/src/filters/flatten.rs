@@ -77,22 +77,22 @@ impl Command for Flatten {
                 result: Some(Value::List{
                     vals: vec![
                         Value::Record{
-                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()], 
+                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
                             vals: vec![Value::test_string("b"), Value::test_int(1), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
                             span: Span::test_data()
                         },
                         Value::Record{
-                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()], 
+                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
                             vals: vec![Value::test_string("b"), Value::test_int(2), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
                             span: Span::test_data()
                         },
                         Value::Record{
-                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()], 
+                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
                             vals: vec![Value::test_string("b"), Value::test_int(3), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
                             span: Span::test_data()
                         },
                         Value::Record{
-                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()], 
+                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
                             vals: vec![Value::test_string("b"), Value::test_int(4), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
                             span: Span::test_data()
                         }

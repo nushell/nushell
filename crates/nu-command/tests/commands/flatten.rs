@@ -28,7 +28,7 @@ fn flatten_nested_tables_that_have_many_columns() {
         cwd: ".", pipeline(
         r#"
             echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]]
-                 [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]] 
+                 [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]]
             | flatten
             | get meal
             | str collect ','
