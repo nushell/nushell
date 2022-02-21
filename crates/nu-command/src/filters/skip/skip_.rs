@@ -5,7 +5,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Value,
+    Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -76,18 +76,39 @@ impl Command for Skip {
         let ctrlc = engine_state.ctrlc.clone();
 
         match input {
-            PipelineData::RawStream(stream, _, metadata) => {
-                let bytes = stream.into_bytes()?;
+            PipelineData::RawStream(stream, bytes_span, metadata) => {
+                let mut remaining = n;
+                let mut output = vec![];
 
-                let Spanned {
-                    item: bytes,
-                    span: bytes_span,
-                } = bytes;
+                for frame in stream {
+                    let frame = frame?;
 
-                let bytes = bytes.into_iter().skip(n).collect::<Vec<_>>();
+                    match frame {
+                        Value::String { val, .. } => {
+                            let bytes = val.as_bytes();
+                            if bytes.len() < remaining {
+                                remaining -= bytes.len();
+                                output.extend_from_slice(bytes)
+                            } else {
+                                output.extend_from_slice(&bytes[0..remaining]);
+                                break;
+                            }
+                        }
+                        Value::Binary { val: bytes, .. } => {
+                            if bytes.len() < remaining {
+                                remaining -= bytes.len();
+                                output.extend_from_slice(&bytes)
+                            } else {
+                                output.extend_from_slice(&bytes[0..remaining]);
+                                break;
+                            }
+                        }
+                        _ => unreachable!("Raw streams are either bytes or strings"),
+                    }
+                }
 
                 Ok(Value::Binary {
-                    val: bytes,
+                    val: output,
                     span: bytes_span,
                 }
                 .into_pipeline_data()
