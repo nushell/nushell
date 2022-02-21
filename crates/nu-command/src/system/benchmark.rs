@@ -39,6 +39,9 @@ impl Command for Benchmark {
         let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
 
+        let redirect_stdout = call.redirect_stdout;
+        let redirect_stderr = call.redirect_stderr;
+
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let start_time = Instant::now();
         eval_block(
@@ -46,6 +49,8 @@ impl Command for Benchmark {
             &mut stack,
             block,
             PipelineData::new(call.head),
+            redirect_stdout,
+            redirect_stderr,
         )?
         .into_value(call.head);
 

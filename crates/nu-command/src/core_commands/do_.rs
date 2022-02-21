@@ -84,7 +84,14 @@ impl Command for Do {
                 )
             }
         }
-        let result = eval_block(engine_state, &mut stack, block, input);
+        let result = eval_block(
+            engine_state,
+            &mut stack,
+            block,
+            input,
+            call.redirect_stdout,
+            ignore_errors,
+        );
 
         if ignore_errors {
             match result {

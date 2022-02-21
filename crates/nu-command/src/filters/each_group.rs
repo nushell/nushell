@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_redirect, CallExt};
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
@@ -69,6 +69,8 @@ impl Command for EachGroup {
             engine_state: engine_state.clone(),
             stack: stack.clone(),
             group_size: group_size.item,
+            redirect_stdout: call.redirect_stdout,
+            redirect_stderr: call.redirect_stderr,
             input: Box::new(input.into_iter()),
             span: call.head,
         };
@@ -82,6 +84,8 @@ struct EachGroupIterator {
     engine_state: EngineState,
     stack: Stack,
     group_size: usize,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
     input: Box<dyn Iterator<Item = Value> + Send>,
     span: Span,
 }
@@ -118,6 +122,8 @@ impl Iterator for EachGroupIterator {
             self.block.clone(),
             self.engine_state.clone(),
             self.stack.clone(),
+            self.redirect_stdout,
+            self.redirect_stderr,
             self.span,
         ))
     }
@@ -128,6 +134,8 @@ pub(crate) fn run_block_on_vec(
     capture_block: CaptureBlock,
     engine_state: EngineState,
     stack: Stack,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
     span: Span,
 ) -> Value {
     let value = Value::List { vals: input, span };
@@ -142,7 +150,14 @@ pub(crate) fn run_block_on_vec(
         }
     }
 
-    match eval_block_with_redirect(&engine_state, &mut stack, block, PipelineData::new(span)) {
+    match eval_block(
+        &engine_state,
+        &mut stack,
+        block,
+        PipelineData::new(span),
+        redirect_stdout,
+        redirect_stderr,
+    ) {
         Ok(pipeline) => pipeline.into_value(span),
         Err(error) => Value::Error { error },
     }

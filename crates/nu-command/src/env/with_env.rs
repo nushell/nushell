@@ -132,7 +132,14 @@ fn with_env(
         stack.add_env_var(k, v);
     }
 
-    eval_block(engine_state, &mut stack, block, input)
+    eval_block(
+        engine_state,
+        &mut stack,
+        block,
+        input,
+        call.redirect_stdout,
+        call.redirect_stderr,
+    )
 }
 
 #[cfg(test)]

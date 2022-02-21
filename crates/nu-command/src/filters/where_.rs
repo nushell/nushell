@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_redirect, CallExt};
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
@@ -41,6 +41,9 @@ impl Command for Where {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
+        let redirect_stdout = call.redirect_stdout;
+        let redirect_stderr = call.redirect_stderr;
+
         Ok(input
             .into_iter()
             .filter_map(move |value| {
@@ -49,11 +52,13 @@ impl Command for Where {
                         stack.add_var(*var_id, value.clone());
                     }
                 }
-                let result = eval_block_with_redirect(
+                let result = eval_block(
                     &engine_state,
                     &mut stack,
                     &block,
                     PipelineData::new(span),
+                    redirect_stdout,
+                    redirect_stderr,
                 );
 
                 match result {

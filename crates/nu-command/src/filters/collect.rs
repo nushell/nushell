@@ -50,6 +50,8 @@ impl Command for Collect {
             &mut stack,
             &block,
             PipelineData::new(call.head),
+            call.redirect_stdout,
+            call.redirect_stderr,
         )
     }
 

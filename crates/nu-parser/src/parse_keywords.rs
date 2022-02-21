@@ -579,6 +579,8 @@ pub fn parse_export(
         decl_id: export_decl_id,
         positional: vec![],
         named: vec![],
+        redirect_stdout: true,
+        redirect_stderr: false,
     });
 
     let exportable = if let Some(kw_span) = spans.get(1) {
@@ -986,6 +988,8 @@ pub fn parse_module(
             decl_id: module_decl_id,
             positional: vec![module_name_expr, block_expr],
             named: vec![],
+            redirect_stdout: true,
+            redirect_stderr: false,
         });
 
         (
@@ -1200,6 +1204,8 @@ pub fn parse_use(
         decl_id: use_decl_id,
         positional: vec![import_pattern_expr],
         named: vec![],
+        redirect_stdout: true,
+        redirect_stderr: false,
     });
 
     (
@@ -1399,6 +1405,8 @@ pub fn parse_hide(
             decl_id: hide_decl_id,
             positional: vec![import_pattern_expr],
             named: vec![],
+            redirect_stdout: true,
+            redirect_stderr: false,
         });
 
         (
@@ -1480,6 +1488,8 @@ pub fn parse_let(
                             head: spans[0],
                             positional: vec![lvalue, rvalue],
                             named: vec![],
+                            redirect_stdout: true,
+                            redirect_stderr: false,
                         });
 
                         return (

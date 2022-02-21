@@ -51,7 +51,14 @@ impl Command for If {
                 if *val {
                     let block = engine_state.get_block(then_block.block_id);
                     let mut stack = stack.captures_to_stack(&then_block.captures);
-                    eval_block(engine_state, &mut stack, block, input)
+                    eval_block(
+                        engine_state,
+                        &mut stack,
+                        block,
+                        input,
+                        call.redirect_stdout,
+                        call.redirect_stderr,
+                    )
                 } else if let Some(else_case) = else_case {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
@@ -60,7 +67,14 @@ impl Command for If {
 
                             let mut stack = stack.captures_to_stack(&else_block.captures);
                             let block = engine_state.get_block(block_id);
-                            eval_block(engine_state, &mut stack, block, input)
+                            eval_block(
+                                engine_state,
+                                &mut stack,
+                                block,
+                                input,
+                                call.redirect_stdout,
+                                call.redirect_stderr,
+                            )
                         } else {
                             eval_expression(engine_state, stack, else_expr)
                                 .map(|x| x.into_pipeline_data())

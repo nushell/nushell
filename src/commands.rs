@@ -95,7 +95,7 @@ pub(crate) fn evaluate(
         std::process::exit(1);
     }
 
-    match eval_block(engine_state, &mut stack, &block, input) {
+    match eval_block(engine_state, &mut stack, &block, input, false, false) {
         Ok(pipeline_data) => {
             crate::eval_file::print_table_or_error(engine_state, &mut stack, pipeline_data, &config)
         }

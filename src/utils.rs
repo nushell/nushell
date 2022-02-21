@@ -226,7 +226,7 @@ pub(crate) fn eval_source(
         report_error(&working_set, &err);
     }
 
-    match eval_block(engine_state, stack, &block, input) {
+    match eval_block(engine_state, stack, &block, input, false, false) {
         Ok(pipeline_data) => {
             if let Err(err) = print_pipeline_data(pipeline_data, engine_state, stack) {
                 let working_set = StateWorkingSet::new(engine_state);

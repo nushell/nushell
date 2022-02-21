@@ -93,6 +93,9 @@ impl Command for Find {
         let metadata = input.metadata();
         let config = stack.get_config()?;
 
+        let redirect_stdout = call.redirect_stdout;
+        let redirect_stderr = call.redirect_stderr;
+
         match call.get_flag::<CaptureBlock>(&engine_state, stack, "predicate")? {
             Some(predicate) => {
                 let capture_block = predicate;
@@ -121,6 +124,8 @@ impl Command for Find {
                             &mut stack,
                             &block,
                             PipelineData::new_with_metadata(metadata.clone(), span),
+                            redirect_stdout,
+                            redirect_stderr,
                         )
                         .map_or(false, |pipeline_data| {
                             pipeline_data.into_value(span).is_true()

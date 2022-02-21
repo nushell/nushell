@@ -109,6 +109,9 @@ impl Command for Reduce {
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
+        let redirect_stdout = call.redirect_stdout;
+        let redirect_stderr = call.redirect_stderr;
+
         let mut input_iter = input.into_iter();
 
         let (off, start_val) = if let Some(val) = fold {
@@ -170,7 +173,14 @@ impl Command for Reduce {
                     }
                 }
 
-                let v = match eval_block(engine_state, &mut stack, block, PipelineData::new(span)) {
+                let v = match eval_block(
+                    engine_state,
+                    &mut stack,
+                    block,
+                    PipelineData::new(span),
+                    redirect_stdout,
+                    redirect_stderr,
+                ) {
                     Ok(v) => v.into_value(span),
                     Err(error) => Value::Error { error },
                 };

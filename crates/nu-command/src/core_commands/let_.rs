@@ -41,7 +41,14 @@ impl Command for Let {
             .as_keyword()
             .expect("internal error: missing keyword");
 
-        let rhs = eval_expression_with_input(engine_state, stack, keyword_expr, input, false)?;
+        let rhs = eval_expression_with_input(
+            engine_state,
+            stack,
+            keyword_expr,
+            input,
+            call.redirect_stdout,
+            call.redirect_stderr,
+        )?;
 
         //println!("Adding: {:?} to {}", rhs, var_id);
 

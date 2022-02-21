@@ -118,7 +118,14 @@ fn empty(
             .ok_or_else(|| ShellError::TypeMismatch("expected row condition".to_owned(), head))?;
 
         let b = engine_state.get_block(block_id);
-        let evaluated_block = eval_block(engine_state, stack, b, PipelineData::new(head))?;
+        let evaluated_block = eval_block(
+            engine_state,
+            stack,
+            b,
+            PipelineData::new(head),
+            call.redirect_stdout,
+            call.redirect_stderr,
+        )?;
         Some(evaluated_block.into_value(head))
     } else {
         None

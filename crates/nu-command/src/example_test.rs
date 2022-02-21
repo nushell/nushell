@@ -121,6 +121,8 @@ pub fn test_examples(cmd: impl Command + 'static) {
             &mut stack,
             &block,
             PipelineData::new(Span::test_data()),
+            true,
+            true,
         ) {
             Err(err) => panic!("test eval error in `{}`: {:?}", example.example, err),
             Ok(result) => {

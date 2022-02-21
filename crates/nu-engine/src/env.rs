@@ -161,8 +161,14 @@ fn get_converted_value(
                     stack.add_var(*var_id, orig_val.clone());
                 }
 
-                let result =
-                    eval_block(engine_state, &mut stack, block, PipelineData::new(val_span));
+                let result = eval_block(
+                    engine_state,
+                    &mut stack,
+                    block,
+                    PipelineData::new(val_span),
+                    true,
+                    true,
+                );
 
                 match result {
                     Ok(data) => ConversionResult::Ok(data.into_value(val_span)),

@@ -133,7 +133,7 @@ fn eval_call(
             }
         }
 
-        let result = eval_block(engine_state, &mut callee_stack, block, input);
+        let result = eval_block(engine_state, &mut callee_stack, block, input, false, true);
 
         if block.redirect_env {
             let caller_env_vars = caller_stack.get_env_var_names(engine_state);
@@ -169,7 +169,8 @@ fn eval_external(
     head: &Expression,
     args: &[Expression],
     input: PipelineData,
-    last_expression: bool,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes())
@@ -185,10 +186,20 @@ fn eval_external(
         call.positional.push(arg.clone())
     }
 
-    if last_expression {
+    if redirect_stdout {
         call.named.push((
             Spanned {
-                item: "last-expression".into(),
+                item: "redirect-stdout".into(),
+                span: head.span,
+            },
+            None,
+        ))
+    }
+
+    if redirect_stderr {
+        call.named.push((
+            Spanned {
+                item: "redirect-stderr".into(),
                 span: head.span,
             },
             None,
@@ -276,6 +287,7 @@ pub fn eval_expression(
                 head,
                 args,
                 PipelineData::new(span),
+                false,
                 false,
             )?
             .into_value(span))
@@ -431,20 +443,37 @@ pub fn eval_expression_with_input(
     stack: &mut Stack,
     expr: &Expression,
     mut input: PipelineData,
-    last_expression: bool,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
     match expr {
         Expression {
             expr: Expr::Call(call),
             ..
         } => {
-            input = eval_call(engine_state, stack, call, input)?;
+            if !redirect_stdout || redirect_stderr {
+                // we're doing something different than the defaults
+                let mut call = call.clone();
+                call.redirect_stdout = redirect_stdout;
+                call.redirect_stderr = redirect_stderr;
+                input = eval_call(engine_state, stack, &call, input)?;
+            } else {
+                input = eval_call(engine_state, stack, call, input)?;
+            }
         }
         Expression {
             expr: Expr::ExternalCall(head, args),
             ..
         } => {
-            input = eval_external(engine_state, stack, head, args, input, last_expression)?;
+            input = eval_external(
+                engine_state,
+                stack,
+                head,
+                args,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            )?;
         }
 
         Expression {
@@ -470,6 +499,8 @@ pub fn eval_block(
     stack: &mut Stack,
     block: &Block,
     mut input: PipelineData,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
     let num_pipelines = block.len();
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
@@ -479,80 +510,9 @@ pub fn eval_block(
                 stack,
                 elem,
                 input,
-                i == pipeline.expressions.len() - 1,
+                redirect_stdout || (i != pipeline.expressions.len() - 1),
+                redirect_stderr,
             )?
-        }
-
-        if pipeline_idx < (num_pipelines) - 1 {
-            match input {
-                PipelineData::Value(Value::Nothing { .. }, ..) => {}
-                _ => {
-                    // Drain the input to the screen via tabular output
-                    let config = stack.get_config().unwrap_or_default();
-
-                    match engine_state.find_decl("table".as_bytes()) {
-                        Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id).run(
-                                engine_state,
-                                stack,
-                                &Call::new(Span::new(0, 0)),
-                                input,
-                            )?;
-
-                            for item in table {
-                                let stdout = std::io::stdout();
-
-                                if let Value::Error { error } = item {
-                                    return Err(error);
-                                }
-
-                                let mut out = item.into_string("\n", &config);
-                                out.push('\n');
-
-                                match stdout.lock().write_all(out.as_bytes()) {
-                                    Ok(_) => (),
-                                    Err(err) => eprintln!("{}", err),
-                                };
-                            }
-                        }
-                        None => {
-                            for item in input {
-                                let stdout = std::io::stdout();
-
-                                if let Value::Error { error } = item {
-                                    return Err(error);
-                                }
-
-                                let mut out = item.into_string("\n", &config);
-                                out.push('\n');
-
-                                match stdout.lock().write_all(out.as_bytes()) {
-                                    Ok(_) => (),
-                                    Err(err) => eprintln!("{}", err),
-                                };
-                            }
-                        }
-                    };
-                }
-            }
-
-            input = PipelineData::new(Span { start: 0, end: 0 })
-        }
-    }
-
-    Ok(input)
-}
-
-pub fn eval_block_with_redirect(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block: &Block,
-    mut input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let num_pipelines = block.len();
-    for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        for elem in pipeline.expressions.iter() {
-            input = eval_expression_with_input(engine_state, stack, elem, input, false)?
         }
 
         if pipeline_idx < (num_pipelines) - 1 {
@@ -623,7 +583,7 @@ pub fn eval_subexpression(
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
         for expr in pipeline.expressions.iter() {
-            input = eval_expression_with_input(engine_state, stack, expr, input, false)?
+            input = eval_expression_with_input(engine_state, stack, expr, input, true, false)?
         }
     }
 
