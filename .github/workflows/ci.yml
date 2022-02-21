@@ -3,11 +3,6 @@ on: [pull_request]
 name: Continuous integration
 
 jobs:
-  cancel:
-    name: auto-cancellation-running-action
-    runs-on: ubuntu-latest
-    steps:
-      - uses: fauguste/auto-cancellation-running-action@0.1.4
   ci:
     strategy:
       fail-fast: false
@@ -36,6 +31,11 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+
       - uses: actions/checkout@v2
 
       - name: Setup Rust toolchain
