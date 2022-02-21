@@ -1,7 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+};
 use std::io::Write;
 
 use std::path::Path;
@@ -21,7 +23,7 @@ impl Command for Save {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("save")
             .required("filename", SyntaxShape::Filepath, "the filename to use")
-            .switch("raw", "open file as raw binary", Some('r'))
+            .switch("raw", "save file as raw binary", Some('r'))
             .category(Category::FileSystem)
     }
 
@@ -114,5 +116,20 @@ impl Command for Save {
                 v => Err(ShellError::UnsupportedInput(v.get_type().to_string(), span)),
             }
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Save a string to foo.txt in current directory",
+                example: r#"echo 'save me' | save foo.txt"#,
+                result: None,
+            },
+            Example {
+                description: "Save a record to foo.json in current directory",
+                example: r#"echo { a: 1, b: 2 } | save foo.json"#,
+                result: None,
+            },
+        ]
     }
 }

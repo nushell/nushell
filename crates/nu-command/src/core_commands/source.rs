@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -39,5 +39,25 @@ impl Command for Source {
 
         let block = engine_state.get_block(block_id as usize).clone();
         eval_block(engine_state, stack, &block, input)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Runs foo.nu in the current context",
+                example: r#"source foo.nu"#,
+                result: None,
+            },
+            Example {
+                description: "Runs foo.nu in current context and call the command defined, suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`",
+                example: r#"source ./foo.nu; say-hi"#,
+                result: None,
+            },
+            Example {
+                description: "Runs foo.nu in current context and call the `main` command automatically, suppose foo.nu has content: `def main [] { echo 'Hi!' }`",
+                example: r#"source ./foo.nu"#,
+                result: None,
+            },
+        ]
     }
 }
