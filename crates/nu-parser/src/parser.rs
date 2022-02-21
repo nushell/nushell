@@ -3551,14 +3551,16 @@ pub fn parse_expression(
                 },
             ];
 
+            let expr = Expr::Call(Box::new(Call {
+                head: Span { start: 0, end: 0 },
+                decl_id,
+                named: vec![],
+                positional,
+            }));
+
             (
                 Expression {
-                    expr: Expr::Call(Box::new(Call {
-                        head: span(spans),
-                        decl_id,
-                        named: vec![],
-                        positional,
-                    })),
+                    expr,
                     custom_completion: None,
                     span: span(spans),
                     ty: Type::Unknown,
