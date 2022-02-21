@@ -1,4 +1,4 @@
-use crate::is_perf_true;
+use crate::{is_perf_true, utils::report_error};
 use log::info;
 use nu_cli::NushellPrompt;
 use nu_engine::eval_subexpression;
@@ -81,8 +81,7 @@ fn get_prompt_string(
                     &mut stack,
                     block,
                     PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
-                )
-                .ok();
+                );
                 if is_perf_true() {
                     info!(
                         "get_prompt_string (block) {}:{}:{}",
@@ -92,7 +91,14 @@ fn get_prompt_string(
                     );
                 }
 
-                ret_val
+                match ret_val {
+                    Ok(ret_val) => Some(ret_val),
+                    Err(err) => {
+                        let working_set = StateWorkingSet::new(engine_state);
+                        report_error(&working_set, &err);
+                        None
+                    }
+                }
             }
             Value::String { val: source, .. } => {
                 let mut working_set = StateWorkingSet::new(engine_state);
