@@ -1,6 +1,6 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::lookup_ansi_color_style;
-use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Type, Value};
+use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Value};
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
     CompletionMenu, EditCommand, HistoryMenu, Keybindings, Reedline, ReedlineEvent,
@@ -297,100 +297,122 @@ fn add_keybinding(
         }
     };
 
-    let event = parse_event(keybinding.event.clone(), config)?;
+    let event = parse_event(&keybinding.event, config)?;
 
     keybindings.add_binding(modifier, keycode, event);
 
     Ok(())
 }
 
-fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellError> {
+enum EventType<'config> {
+    Send(&'config Value),
+    Edit(&'config Value),
+    Until(&'config Value),
+}
+
+impl<'config> EventType<'config> {
+    fn try_from_columns(
+        cols: &'config [String],
+        vals: &'config [Value],
+        span: &'config Span,
+    ) -> Result<Self, ShellError> {
+        extract_value("send", cols, vals, span)
+            .map(Self::Send)
+            .or_else(|_| extract_value("edit", cols, vals, span).map(Self::Edit))
+            .or_else(|_| extract_value("until", cols, vals, span).map(Self::Until))
+            .map_err(|_| ShellError::MissingConfigValue("send, edit or until".to_string(), *span))
+    }
+}
+
+fn parse_event(value: &Value, config: &Config) -> Result<ReedlineEvent, ShellError> {
     match value {
         Value::Record { cols, vals, span } => {
-            let event = match extract_value("send", &cols, &vals, &span) {
-                Ok(event) => match event.into_string("", config).to_lowercase().as_str() {
-                    "none" => ReedlineEvent::None,
-                    "actionhandler" => ReedlineEvent::ActionHandler,
-                    "clearscreen" => ReedlineEvent::ClearScreen,
-                    "historyhintcomplete" => ReedlineEvent::HistoryHintComplete,
-                    "historyhintwordcomplete" => ReedlineEvent::HistoryHintWordComplete,
-                    "ctrld" => ReedlineEvent::CtrlD,
-                    "ctrlc" => ReedlineEvent::CtrlC,
-                    "enter" => ReedlineEvent::Enter,
-                    "esc" | "escape" => ReedlineEvent::Esc,
-                    "up" => ReedlineEvent::Up,
-                    "down" => ReedlineEvent::Down,
-                    "right" => ReedlineEvent::Right,
-                    "left" => ReedlineEvent::Left,
-                    "searchhistory" => ReedlineEvent::SearchHistory,
-                    "nexthistory" => ReedlineEvent::NextHistory,
-                    "previoushistory" => ReedlineEvent::PreviousHistory,
-                    "repaint" => ReedlineEvent::Repaint,
-                    "menudown" => ReedlineEvent::MenuDown,
-                    "menuup" => ReedlineEvent::MenuUp,
-                    "menuleft" => ReedlineEvent::MenuLeft,
-                    "menuright" => ReedlineEvent::MenuRight,
-                    "menunext" => ReedlineEvent::MenuNext,
-                    "menuprevious" => ReedlineEvent::MenuPrevious,
-                    "menupagenext" => ReedlineEvent::MenuPageNext,
-                    "menupageprevious" => ReedlineEvent::MenuPagePrevious,
-                    "menu" => {
-                        let menu = extract_value("name", &cols, &vals, &span)?;
-                        ReedlineEvent::Menu(menu.into_string("", config))
-                    }
-                    "edit" => {
-                        let edit = extract_value("edit", &cols, &vals, &span)?;
-                        let edit = parse_edit(edit, config)?;
-
-                        ReedlineEvent::Edit(vec![edit])
-                    }
-                    v => {
-                        return Err(ShellError::UnsupportedConfigValue(
-                            "Reedline event".to_string(),
-                            v.to_string(),
-                            span,
-                        ))
-                    }
-                },
-                Err(_) => {
-                    let edit = extract_value("edit", &cols, &vals, &span);
-                    let edit = match edit {
-                        Ok(edit_value) => parse_edit(edit_value, config)?,
-                        Err(_) => {
-                            return Err(ShellError::MissingConfigValue(
-                                "send or edit".to_string(),
-                                span,
-                            ))
-                        }
-                    };
-
-                    ReedlineEvent::Edit(vec![edit])
+            match EventType::try_from_columns(cols, vals, span)? {
+                EventType::Send(value) => event_from_record(
+                    value.into_string("", config).to_lowercase().as_str(),
+                    cols,
+                    vals,
+                    config,
+                    span,
+                ),
+                EventType::Edit(value) => {
+                    let edit = parse_edit(value, config)?;
+                    Ok(ReedlineEvent::Edit(vec![edit]))
                 }
-            };
+                EventType::Until(value) => match value {
+                    Value::List { vals, .. } => {
+                        let events = vals
+                            .iter()
+                            .map(|value| parse_event(value, config))
+                            .collect::<Result<Vec<ReedlineEvent>, ShellError>>()?;
 
-            Ok(event)
+                        Ok(ReedlineEvent::UntilFound(events))
+                    }
+                    v => Err(ShellError::UnsupportedConfigValue(
+                        "list of events".to_string(),
+                        v.into_abbreviated_string(config),
+                        v.span()?,
+                    )),
+                },
+            }
         }
         Value::List { vals, .. } => {
-            // If all the elements in the list are lists, then they represent an UntilFound event.
-            // This means that only one of the parsed events from the list will be executed.
-            // Otherwise, the expect shape should be lists of records which indicates a sequence
-            // of events that will happen one after the other
-            let until_found = vals.iter().all(|v| matches!(v.get_type(), Type::List(..)));
             let events = vals
-                .into_iter()
+                .iter()
                 .map(|value| parse_event(value, config))
                 .collect::<Result<Vec<ReedlineEvent>, ShellError>>()?;
 
-            if until_found {
-                Ok(ReedlineEvent::UntilFound(events))
-            } else {
-                Ok(ReedlineEvent::Multiple(events))
-            }
+            Ok(ReedlineEvent::Multiple(events))
         }
         v => Err(ShellError::UnsupportedConfigValue(
             "record or list of records".to_string(),
             v.into_abbreviated_string(config),
             v.span()?,
+        )),
+    }
+}
+
+fn event_from_record(
+    name: &str,
+    cols: &[String],
+    vals: &[Value],
+    config: &Config,
+    span: &Span,
+) -> Result<ReedlineEvent, ShellError> {
+    match name {
+        "none" => Ok(ReedlineEvent::None),
+        "actionhandler" => Ok(ReedlineEvent::ActionHandler),
+        "clearscreen" => Ok(ReedlineEvent::ClearScreen),
+        "historyhintcomplete" => Ok(ReedlineEvent::HistoryHintComplete),
+        "historyhintwordcomplete" => Ok(ReedlineEvent::HistoryHintWordComplete),
+        "ctrld" => Ok(ReedlineEvent::CtrlD),
+        "ctrlc" => Ok(ReedlineEvent::CtrlC),
+        "enter" => Ok(ReedlineEvent::Enter),
+        "esc" | "escape" => Ok(ReedlineEvent::Esc),
+        "up" => Ok(ReedlineEvent::Up),
+        "down" => Ok(ReedlineEvent::Down),
+        "right" => Ok(ReedlineEvent::Right),
+        "left" => Ok(ReedlineEvent::Left),
+        "searchhistory" => Ok(ReedlineEvent::SearchHistory),
+        "nexthistory" => Ok(ReedlineEvent::NextHistory),
+        "previoushistory" => Ok(ReedlineEvent::PreviousHistory),
+        "repaint" => Ok(ReedlineEvent::Repaint),
+        "menudown" => Ok(ReedlineEvent::MenuDown),
+        "menuup" => Ok(ReedlineEvent::MenuUp),
+        "menuleft" => Ok(ReedlineEvent::MenuLeft),
+        "menuright" => Ok(ReedlineEvent::MenuRight),
+        "menunext" => Ok(ReedlineEvent::MenuNext),
+        "menuprevious" => Ok(ReedlineEvent::MenuPrevious),
+        "menupagenext" => Ok(ReedlineEvent::MenuPageNext),
+        "menupageprevious" => Ok(ReedlineEvent::MenuPagePrevious),
+        "menu" => {
+            let menu = extract_value("name", cols, vals, span)?;
+            Ok(ReedlineEvent::Menu(menu.into_string("", config)))
+        }
+        v => Err(ShellError::UnsupportedConfigValue(
+            "Reedline event".to_string(),
+            v.to_string(),
+            *span,
         )),
     }
 }
@@ -510,4 +532,217 @@ fn extract_char<'record>(
         .chars()
         .next()
         .ok_or_else(|| ShellError::MissingConfigValue("char to insert".to_string(), *span))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_send_event() {
+        let cols = vec!["send".to_string()];
+        let vals = vec![Value::String {
+            val: "Enter".to_string(),
+            span: Span::test_data(),
+        }];
+
+        let span = Span::test_data();
+        let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
+        assert!(matches!(b, EventType::Send(_)));
+
+        let event = Value::Record {
+            vals,
+            cols,
+            span: Span::test_data(),
+        };
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(parsed_event, ReedlineEvent::Enter);
+    }
+
+    #[test]
+    fn test_edit_event() {
+        let cols = vec!["edit".to_string()];
+        let vals = vec![Value::Record {
+            cols: vec!["cmd".to_string()],
+            vals: vec![Value::String {
+                val: "Clear".to_string(),
+                span: Span::test_data(),
+            }],
+            span: Span::test_data(),
+        }];
+
+        let span = Span::test_data();
+        let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
+        assert!(matches!(b, EventType::Edit(_)));
+
+        let event = Value::Record {
+            vals,
+            cols,
+            span: Span::test_data(),
+        };
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(parsed_event, ReedlineEvent::Edit(vec![EditCommand::Clear]));
+    }
+
+    #[test]
+    fn test_send_menu() {
+        let cols = vec!["send".to_string(), "name".to_string()];
+        let vals = vec![
+            Value::String {
+                val: "Menu".to_string(),
+                span: Span::test_data(),
+            },
+            Value::String {
+                val: "history_menu".to_string(),
+                span: Span::test_data(),
+            },
+        ];
+
+        let span = Span::test_data();
+        let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
+        assert!(matches!(b, EventType::Send(_)));
+
+        let event = Value::Record {
+            vals,
+            cols,
+            span: Span::test_data(),
+        };
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            ReedlineEvent::Menu("history_menu".to_string())
+        );
+    }
+
+    #[test]
+    fn test_until_event() {
+        // Menu event
+        let cols = vec!["send".to_string(), "name".to_string()];
+        let vals = vec![
+            Value::String {
+                val: "Menu".to_string(),
+                span: Span::test_data(),
+            },
+            Value::String {
+                val: "history_menu".to_string(),
+                span: Span::test_data(),
+            },
+        ];
+
+        let menu_event = Value::Record {
+            cols,
+            vals,
+            span: Span::test_data(),
+        };
+
+        // Enter event
+        let cols = vec!["send".to_string()];
+        let vals = vec![Value::String {
+            val: "Enter".to_string(),
+            span: Span::test_data(),
+        }];
+
+        let enter_event = Value::Record {
+            cols,
+            vals,
+            span: Span::test_data(),
+        };
+
+        // Until event
+        let cols = vec!["until".to_string()];
+        let vals = vec![Value::List {
+            vals: vec![menu_event, enter_event],
+            span: Span::test_data(),
+        }];
+
+        let span = Span::test_data();
+        let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
+        assert!(matches!(b, EventType::Until(_)));
+
+        let event = Value::Record {
+            cols,
+            vals,
+            span: Span::test_data(),
+        };
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            ReedlineEvent::UntilFound(vec![
+                ReedlineEvent::Menu("history_menu".to_string()),
+                ReedlineEvent::Enter,
+            ])
+        );
+    }
+
+    #[test]
+    fn test_multiple_event() {
+        // Menu event
+        let cols = vec!["send".to_string(), "name".to_string()];
+        let vals = vec![
+            Value::String {
+                val: "Menu".to_string(),
+                span: Span::test_data(),
+            },
+            Value::String {
+                val: "history_menu".to_string(),
+                span: Span::test_data(),
+            },
+        ];
+
+        let menu_event = Value::Record {
+            cols,
+            vals,
+            span: Span::test_data(),
+        };
+
+        // Enter event
+        let cols = vec!["send".to_string()];
+        let vals = vec![Value::String {
+            val: "Enter".to_string(),
+            span: Span::test_data(),
+        }];
+
+        let enter_event = Value::Record {
+            cols,
+            vals,
+            span: Span::test_data(),
+        };
+
+        // Multiple event
+        let event = Value::List {
+            vals: vec![menu_event, enter_event],
+            span: Span::test_data(),
+        };
+
+        let config = Config::default();
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            ReedlineEvent::Multiple(vec![
+                ReedlineEvent::Menu("history_menu".to_string()),
+                ReedlineEvent::Enter,
+            ])
+        );
+    }
+
+    #[test]
+    fn test_error() {
+        let cols = vec!["not_exist".to_string()];
+        let vals = vec![Value::String {
+            val: "Enter".to_string(),
+            span: Span::test_data(),
+        }];
+
+        let span = Span::test_data();
+        let b = EventType::try_from_columns(&cols, &vals, &span);
+        assert!(matches!(b, Err(ShellError::MissingConfigValue(_, _))));
+    }
 }

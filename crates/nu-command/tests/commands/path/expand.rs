@@ -14,7 +14,7 @@ fn expands_path_with_dot() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                echo "menu/./spam.txt" 
+                echo "menu/./spam.txt"
                 | path expand
             "#
         ));
@@ -34,7 +34,7 @@ fn expands_path_with_double_dot() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                echo "menu/../menu/spam.txt" 
+                echo "menu/../menu/spam.txt"
                 | path expand
             "#
         ));

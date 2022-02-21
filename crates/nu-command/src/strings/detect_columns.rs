@@ -5,8 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Value,
 };
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -44,6 +44,37 @@ impl Command for DetectColumns {
     ) -> Result<PipelineData, ShellError> {
         detect_columns(engine_state, stack, call, input)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        let span = Span::test_data();
+        vec![
+            Example {
+                description: "Splits string across multiple columns",
+                example: "echo 'a b c' | detect columns -n",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec![
+                            "column0".to_string(),
+                            "column1".to_string(),
+                            "column2".to_string(),
+                        ],
+                        vals: vec![
+                            Value::test_string("a"),
+                            Value::test_string("b"),
+                            Value::test_string("c"),
+                        ],
+                        span,
+                    }],
+                    span,
+                }),
+            },
+            Example {
+                description: "Splits a multi-line string into columns with headers detected",
+                example: "echo $'c1 c2 c3(char nl)a b c' | detect columns",
+                result: None,
+            },
+        ]
+    }
 }
 
 fn detect_columns(
@@ -74,7 +105,7 @@ fn detect_columns(
 
         if noheader {
             for header in headers.iter_mut().enumerate() {
-                header.1.item = format!("Column{}", header.0);
+                header.1.item = format!("column{}", header.0);
             }
         }
 

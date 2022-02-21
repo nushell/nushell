@@ -195,7 +195,7 @@ can use the `get` command.
 ls | get name
 ```
 This allows us to get to the list of strings that are the filenames rather
-than having a full table. In some cases, this can make the names easier to 
+than having a full table. In some cases, this can make the names easier to
 work with.
 
 You can continue to learn more about working with cells of the table by
@@ -255,7 +255,7 @@ expressions, but they're wrapped in parentheses `()`.
 ```
 10 * (3 + 4)
 ```
-Here we use parentheses to create a higher math precedence in the math 
+Here we use parentheses to create a higher math precedence in the math
 expression.
 ```
 echo (2 + 3)
@@ -375,7 +375,7 @@ the shorthand path to retrieve only the cell data inside the "cwd" column.
 ```
 (ls).name.4
 ```
-This will retrieve the cell data in the "name" column on the 5th row (note: 
+This will retrieve the cell data in the "name" column on the 5th row (note:
 row numbers are zero-based).
 
 Rows and columns don't need to come in any specific order. You can get the
@@ -388,8 +388,8 @@ same value using:
 
 fn engineq_tutor() -> &'static str {
     r#"
-Engine-q is the upcoming engine for Nushell. Build for speed and correctness, 
-it also comes with a set of changes from Nushell versions prior to 0.60. To 
+Engine-q is the upcoming engine for Nushell. Build for speed and correctness,
+it also comes with a set of changes from Nushell versions prior to 0.60. To
 get ready for engine-q look for some of these changes that might impact your
 current scripts:
 
@@ -398,7 +398,7 @@ current scripts:
 * Environment variables can now contain more than just strings. Structured
   values are converted to strings for external commands using converters.
 * `if` will now use an `else` keyword before the else block.
-* We're moving from "config.toml" to "config.nu". This means startup will 
+* We're moving from "config.toml" to "config.nu". This means startup will
   now be a script file.
 * `config` and its subcommands are being replaced by a record that you can
   update in the shell which contains all the settings under the variable

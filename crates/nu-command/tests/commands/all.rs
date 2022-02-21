@@ -5,7 +5,7 @@ fn checks_all_rows_are_true() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-                echo  [ "Andrés", "Andrés", "Andrés" ] 
+                echo  [ "Andrés", "Andrés", "Andrés" ]
                 | all? $it == "Andrés"
         "#
     ));

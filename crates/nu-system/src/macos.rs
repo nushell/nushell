@@ -303,31 +303,15 @@ impl ProcessInfo {
 
     /// Name of command
     pub fn name(&self) -> String {
-        // self.command()
-        //     .split(' ')
-        //     .collect::<Vec<_>>()
-        //     .first()
-        //     .map(|x| x.to_string())
-        //     .unwrap_or_default()
-        self.command_only()
-    }
-
-    /// Full name of command, with arguments
-    pub fn command(&self) -> String {
         if let Some(path) = &self.curr_path {
             if !path.cmd.is_empty() {
-                let mut cmd = path
-                    .cmd
-                    .iter()
-                    .cloned()
-                    .map(|mut x| {
-                        x.push(' ');
-                        x
-                    })
-                    .collect::<String>();
-                cmd.pop();
-                cmd = cmd.replace("\n", " ").replace("\t", " ");
-                cmd
+                let command_path = &path.exe;
+
+                if let Some(command_name) = command_path.file_name() {
+                    command_name.to_string_lossy().to_string()
+                } else {
+                    command_path.to_string_lossy().to_string()
+                }
             } else {
                 String::from("")
             }
@@ -336,11 +320,11 @@ impl ProcessInfo {
         }
     }
 
-    /// Full name of comand only
-    pub fn command_only(&self) -> String {
+    /// Full name of command, with arguments
+    pub fn command(&self) -> String {
         if let Some(path) = &self.curr_path {
             if !path.cmd.is_empty() {
-                path.exe.to_string_lossy().to_string()
+                path.cmd.join(" ").replace("\n", " ").replace("\t", " ")
             } else {
                 String::from("")
             }

@@ -1935,9 +1935,9 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "3.3.0"
+version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd2adcfcced5d625bf90a958a82ae5b93231f57f3df1383fee28c9b5096d35ed"
+checksum = "634ab44733e6bc9b1aef1a628a92b882edbc1ded2bd6c1fb337e6c7b53c6349a"
 dependencies = [
  "atty",
  "backtrace",
@@ -1950,13 +1950,14 @@ dependencies = [
  "terminal_size",
  "textwrap",
  "thiserror",
+ "unicode-width",
 ]
 
 [[package]]
 name = "miette-derive"
-version = "3.3.0"
+version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c01a8b61312d367ce87956bb686731f87e4c6dd5dbc550e8f06e3c24fb1f67f"
+checksum = "a90e3c6812fbfa0837645b73aa220bb07795066a037b611b4274f3219c1efec2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3312,7 +3313,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.2.0"
-source = "git+https://github.com/nushell/reedline?branch=main#8c565e4f1de2c6dd4f67b18876d011756bfbe16d"
+source = "git+https://github.com/nushell/reedline?branch=main#e87e9d1fd3d392308975fb6f89c1a67cc43bc8b9"
 dependencies = [
  "chrono",
  "crossterm",

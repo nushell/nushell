@@ -4,7 +4,7 @@ description = "Support for writing Nushell tests"
 edition = "2018"
 license = "MIT"
 name = "nu-test-support"
-version = "0.59.0" 
+version = "0.59.0"
 
 [lib]
 doctest = false

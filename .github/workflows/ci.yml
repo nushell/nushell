@@ -31,6 +31,11 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+
       - uses: actions/checkout@v2
 
       - name: Setup Rust toolchain

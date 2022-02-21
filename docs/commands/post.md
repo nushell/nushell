@@ -1,20 +1,41 @@
-# post
-Post content to a URL and retrieve data as a table if possible.
+---
+title: post
+layout: command
+version: 0.59.0
+---
 
-## Usage
-```shell
-> post <path> <body> {flags} 
- ```
+Post a body to a URL (HTTP POST operation).
+
+## Signature
+
+```> post (path) (body) --user --password --content-type --content-length --headers --raw --insecure```
 
 ## Parameters
-* `<path>` the URL to post to
-* `<body>` the contents of the post body
 
-## Flags
-* -h, --help: Display this help message
-* -u, --user <any>: the username when authenticating
-* -p, --password <any>: the password when authenticating
-* -t, --content-type <any>: the MIME type of content to post
-* -l, --content-length <any>: the length of the content being posted
-* -r, --raw: return values as a string instead of a table
+ -  `path`: the URL to post to
+ -  `body`: the contents of the post body
+ -  `--user {any}`: the username when authenticating
+ -  `--password {any}`: the password when authenticating
+ -  `--content-type {any}`: the MIME type of content to post
+ -  `--content-length {any}`: the length of the content being posted
+ -  `--headers {any}`: custom headers you want to add
+ -  `--raw`: return values as a string instead of a table
+ -  `--insecure`: allow insecure server connections when using SSL
+
+## Examples
+
+Post content to url.com
+```shell
+> post url.com 'body'
+```
+
+Post content to url.com, with username and password
+```shell
+> post -u myuser -p mypass url.com 'body'
+```
+
+Post content to url.com, with custom header
+```shell
+> post -H [my-header-key my-header-value] url.com
+```
 

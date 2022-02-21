@@ -25,42 +25,7 @@ impl Command for FromYaml {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                example: "'a: 1' | from yaml",
-                description: "Converts yaml formatted string to table",
-                result: Some(Value::Record {
-                    cols: vec!["a".to_string()],
-                    vals: vec![Value::Int {
-                        val: 1,
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                example: "'[ a: 1, b: [1, 2] ]' | from yaml",
-                description: "Converts yaml formatted string to table",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec!["a".to_string()],
-                            vals: vec![Value::test_int(1)],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
-                            cols: vec!["b".to_string()],
-                            vals: vec![Value::List {
-                                vals: vec![Value::test_int(1), Value::test_int(2)],
-                                span: Span::test_data(),
-                            }],
-                            span: Span::test_data(),
-                        },
-                    ],
-                    span: Span::test_data(),
-                }),
-            },
-        ]
+        get_examples()
     }
 
     fn run(
@@ -102,6 +67,10 @@ impl Command for FromYml {
         let head = call.head;
         let config = stack.get_config().unwrap_or_default();
         from_yaml(input, head, &config)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        get_examples()
     }
 }
 
@@ -203,6 +172,45 @@ pub fn from_yaml_string_to_value(s: String, span: Span) -> Result<Value, ShellEr
             span,
         }),
     }
+}
+
+pub fn get_examples() -> Vec<Example> {
+    vec![
+        Example {
+            example: "'a: 1' | from yaml",
+            description: "Converts yaml formatted string to table",
+            result: Some(Value::Record {
+                cols: vec!["a".to_string()],
+                vals: vec![Value::Int {
+                    val: 1,
+                    span: Span::test_data(),
+                }],
+                span: Span::test_data(),
+            }),
+        },
+        Example {
+            example: "'[ a: 1, b: [1, 2] ]' | from yaml",
+            description: "Converts yaml formatted string to table",
+            result: Some(Value::List {
+                vals: vec![
+                    Value::Record {
+                        cols: vec!["a".to_string()],
+                        vals: vec![Value::test_int(1)],
+                        span: Span::test_data(),
+                    },
+                    Value::Record {
+                        cols: vec!["b".to_string()],
+                        vals: vec![Value::List {
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                            span: Span::test_data(),
+                        }],
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }),
+        },
+    ]
 }
 
 fn from_yaml(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {

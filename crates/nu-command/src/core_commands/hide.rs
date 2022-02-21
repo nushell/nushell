@@ -1,6 +1,8 @@
 use nu_protocol::ast::{Call, Expr, Expression, ImportPatternMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Hide;
@@ -115,5 +117,25 @@ impl Command for Hide {
         }
 
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Hide the alias just defined",
+                example: r#"alias lll = ls -l; hide lll"#,
+                result: None,
+            },
+            Example {
+                description: "Hide a custom command",
+                example: r#"def say-hi [] { echo 'Hi!' }; hide say-hi"#,
+                result: None,
+            },
+            Example {
+                description: "Hide an environment variable",
+                example: r#"let-env HZ_ENV_ABC = 1; hide HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
+                result: Some(Value::boolean(false, Span::test_data())),
+            },
+        ]
     }
 }

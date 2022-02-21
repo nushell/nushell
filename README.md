@@ -243,19 +243,19 @@ Nu is in heavy development and will naturally change as it matures and people us
 
 | Features      | Not started | Prototype | MVP | Preview | Mature | Notes                                                                |
 | ------------- | :---------: | :-------: | :-: | :-----: | :----: | -------------------------------------------------------------------- |
-| Aliases       |             |           |  X  |         |        | Aliases allow for shortening large commands, while passing flags     |
+| Aliases       |             |           |     |    X    |        | Aliases allow for shortening large commands, while passing flags     |
 | Notebook      |             |     X     |     |         |        | Initial jupyter support, but it loses state and lacks features       |
-| File ops      |             |           |  X  |         |        | cp, mv, rm, mkdir have some support, but lacking others              |
-| Environment   |             |           |  X  |         |        | Temporary environment and scoped environment variables               |
-| Shells        |             |     X     |     |         |        | Basic value and file shells, but no opt-in/opt-out for commands      |
-| Protocol      |             |           |  X  |         |        | Streaming protocol is serviceable                                    |
-| Plugins       |             |     X     |     |         |        | Plugins work on one row at a time, lack batching and expression eval |
-| Errors        |             |           |  X  |         |        | Error reporting works, but could use usability polish                |
+| File ops      |             |           |     |    X    |        | cp, mv, rm, mkdir have some support, but lacking others              |
+| Environment   |             |           |     |    X    |        | Temporary environment and scoped environment variables               |
+| Shells        |             |           |     |    X    |        | Basic value and file shells, but no opt-in/opt-out for commands      |
+| Protocol      |             |           |     |    X    |        | Streaming protocol is serviceable                                    |
+| Plugins       |             |           |  X  |         |        | Plugins work on one row at a time, lack batching and expression eval |
+| Errors        |             |           |     |    X    |        | Error reporting works, but could use usability polish                |
 | Documentation |             |           |  X  |         |        | Book updated to latest release, including usage examples             |
-| Paging        |             |     X     |     |         |        | Textview has paging, but we'd like paging for tables                 |
-| Functions     |             |           |  X  |         |        | Functions and aliases are supported                                  |
-| Variables     |             |           |  X  |         |        | Nu supports variables and environment variables                      |
-| Completions   |             |           |  X  |         |        | Completions for filepaths                                            |
+| Paging        |             |           |     |    X    |        | Textview has paging, but we'd like paging for tables                 |
+| Functions     |             |           |     |    X    |        | Functions and aliases are supported                                  |
+| Variables     |             |           |     |    X    |        | Nu supports variables and environment variables                      |
+| Completions   |             |           |     |    X    |        | Completions for filepaths                                            |
 | Type-checking |             |           |  X  |         |        | Commands check basic types, but input/output isn't checked           |
 
 ## Officially Supported By

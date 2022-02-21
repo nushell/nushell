@@ -7,7 +7,7 @@ fn returns_type_of_missing_file() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo "spam.txt" 
+            echo "spam.txt"
             | path type
         "#
     ));
@@ -27,7 +27,7 @@ fn returns_type_of_existing_file() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                echo "menu" 
+                echo "menu"
                 | path type
             "#
         ));
@@ -48,7 +48,7 @@ fn returns_type_of_existing_directory() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                echo "menu/spam.txt" 
+                echo "menu/spam.txt"
                 | path type
             "#
         ));

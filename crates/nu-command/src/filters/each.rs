@@ -2,8 +2,8 @@ use nu_engine::{eval_block_with_redirect, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, SyntaxShape,
+    Value,
 };
 
 #[derive(Clone)]
@@ -25,6 +25,7 @@ impl Command for Each {
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
                 "the block to run",
             )
+            .switch("keep-empty", "keep empty result cells", Some('k'))
             .switch("numbered", "iterate with an index", Some('n'))
             .category(Category::Filters)
     }
@@ -45,14 +46,37 @@ impl Command for Each {
             },
         ];
 
-        vec![Example {
-            example: "[1 2 3] | each { |it| 2 * $it }",
-            description: "Multiplies elements in list",
-            result: Some(Value::List {
-                vals: stream_test_1,
+        let stream_test_2 = vec![
+            Value::Nothing {
                 span: Span::test_data(),
-            }),
-        }]
+            },
+            Value::String {
+                val: "found 2!".to_string(),
+                span: Span::test_data(),
+            },
+            Value::Nothing {
+                span: Span::test_data(),
+            },
+        ];
+
+        vec![
+            Example {
+                example: "[1 2 3] | each { |it| 2 * $it }",
+                description: "Multiplies elements in list",
+                result: Some(Value::List {
+                    vals: stream_test_1,
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: r#"[1 2 3] | each --keep-empty { |it| if $it == 2 { echo "found 2!"} }"#,
+                description: "Iterate over each element, keeping all results",
+                result: Some(Value::List {
+                    vals: stream_test_2,
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 
     fn run(
@@ -65,7 +89,10 @@ impl Command for Each {
         let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
 
         let numbered = call.has_flag("numbered");
+        let keep_empty = call.has_flag("keep-empty");
+
         let ctrlc = engine_state.ctrlc.clone();
+        let outer_ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(capture_block.block_id).clone();
         let mut stack = stack.captures_to_stack(&capture_block.captures);
@@ -115,7 +142,7 @@ impl Command for Each {
                         Err(error) => Value::Error { error },
                     }
                 })
-                .into_pipeline_data(ctrlc.clone())),
+                .into_pipeline_data(ctrlc)),
             PipelineData::RawStream(stream, ..) => Ok(stream
                 .into_iter()
                 .enumerate()
@@ -160,65 +187,67 @@ impl Command for Each {
                         Err(error) => Value::Error { error },
                     }
                 })
-                .into_pipeline_data(ctrlc.clone())),
-            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
-                let mut output_cols = vec![];
-                let mut output_vals = vec![];
+                .into_pipeline_data(ctrlc)),
+            // JT: we'll turn this off for now until we get a better design
+            // leaving it here, but commented-out, for the time being
+            // PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
+            //     let mut output_cols = vec![];
+            //     let mut output_vals = vec![];
 
-                for (col, val) in cols.into_iter().zip(vals.into_iter()) {
-                    //let block = engine_state.get_block(block_id);
+            //     for (col, val) in cols.into_iter().zip(vals.into_iter()) {
+            //         //let block = engine_state.get_block(block_id);
 
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+            //         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Record {
-                                    cols: vec!["column".into(), "value".into()],
-                                    vals: vec![
-                                        Value::String {
-                                            val: col.clone(),
-                                            span: call.head,
-                                        },
-                                        val,
-                                    ],
-                                    span: call.head,
-                                },
-                            );
-                        }
-                    }
+            //         if let Some(var) = block.signature.get_positional(0) {
+            //             if let Some(var_id) = &var.var_id {
+            //                 stack.add_var(
+            //                     *var_id,
+            //                     Value::Record {
+            //                         cols: vec!["column".into(), "value".into()],
+            //                         vals: vec![
+            //                             Value::String {
+            //                                 val: col.clone(),
+            //                                 span: call.head,
+            //                             },
+            //                             val,
+            //                         ],
+            //                         span: call.head,
+            //                     },
+            //                 );
+            //             }
+            //         }
 
-                    match eval_block_with_redirect(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        PipelineData::new(span),
-                    )? {
-                        PipelineData::Value(
-                            Value::Record {
-                                mut cols, mut vals, ..
-                            },
-                            ..,
-                        ) => {
-                            // TODO check that the lengths match when traversing record
-                            output_cols.append(&mut cols);
-                            output_vals.append(&mut vals);
-                        }
-                        x => {
-                            output_cols.push(col);
-                            output_vals.push(x.into_value(span));
-                        }
-                    }
-                }
+            //         match eval_block_with_redirect(
+            //             &engine_state,
+            //             &mut stack,
+            //             &block,
+            //             PipelineData::new(span),
+            //         )? {
+            //             PipelineData::Value(
+            //                 Value::Record {
+            //                     mut cols, mut vals, ..
+            //                 },
+            //                 ..,
+            //             ) => {
+            //                 // TODO check that the lengths match when traversing record
+            //                 output_cols.append(&mut cols);
+            //                 output_vals.append(&mut vals);
+            //             }
+            //             x => {
+            //                 output_cols.push(col);
+            //                 output_vals.push(x.into_value(span));
+            //             }
+            //         }
+            //     }
 
-                Ok(Value::Record {
-                    cols: output_cols,
-                    vals: output_vals,
-                    span: call.head,
-                }
-                .into_pipeline_data())
-            }
+            //     Ok(Value::Record {
+            //         cols: output_cols,
+            //         vals: output_vals,
+            //         span: call.head,
+            //     }
+            //     .into_pipeline_data())
+            // }
             PipelineData::Value(x, ..) => {
                 //let block = engine_state.get_block(block_id);
 
@@ -231,7 +260,12 @@ impl Command for Each {
                 eval_block_with_redirect(&engine_state, &mut stack, &block, PipelineData::new(span))
             }
         }
-        .and_then(|x| x.filter(|x| !x.is_nothing(), ctrlc))
+        .and_then(|x| {
+            x.filter(
+                move |x| if !keep_empty { !x.is_nothing() } else { true },
+                outer_ctrlc,
+            )
+        })
     }
 }
 

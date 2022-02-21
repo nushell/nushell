@@ -1,42 +1,8 @@
-use crate::{BlockId, ShellError, Span, Value};
+use crate::{ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 const ANIMATE_PROMPT_DEFAULT: bool = true;
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct EnvConversion {
-    pub from_string: Option<(BlockId, Span)>,
-    pub to_string: Option<(BlockId, Span)>,
-}
-
-impl EnvConversion {
-    pub fn from_record(value: &Value) -> Result<Self, ShellError> {
-        let record = value.as_record()?;
-
-        let mut conv_map = HashMap::new();
-
-        for (k, v) in record.0.iter().zip(record.1) {
-            if (k == "from_string") || (k == "to_string") {
-                conv_map.insert(k.as_str(), (v.as_block()?, v.span()?));
-            } else {
-                return Err(ShellError::UnsupportedConfigValue(
-                    "'from_string' and 'to_string' fields".into(),
-                    k.into(),
-                    value.span()?,
-                ));
-            }
-        }
-
-        let from_string = conv_map.get("from_string").cloned();
-        let to_string = conv_map.get("to_string").cloned();
-
-        Ok(EnvConversion {
-            from_string,
-            to_string,
-        })
-    }
-}
 
 /// Definition of a parsed keybinding from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -60,7 +26,6 @@ pub struct Config {
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
-    pub env_conversions: HashMap<String, EnvConversion>,
     pub edit_mode: String,
     pub max_history_size: i64,
     pub log_level: String,
@@ -78,13 +43,12 @@ impl Default for Config {
             use_ls_colors: true,
             color_config: HashMap::new(),
             use_grid_icons: false,
-            footer_mode: FooterMode::Never,
+            footer_mode: FooterMode::RowCount(25),
             animate_prompt: ANIMATE_PROMPT_DEFAULT,
             float_precision: 4,
             filesize_format: "auto".into(),
             use_ansi_coloring: true,
-            quick_completions: false,
-            env_conversions: HashMap::new(), // TODO: Add default conversoins
+            quick_completions: true,
             edit_mode: "emacs".into(),
             max_history_size: 1000,
             log_level: String::new(),
@@ -208,24 +172,6 @@ impl Value {
                             config.filesize_format = v.to_lowercase();
                         } else {
                             eprintln!("$config.filesize_format is not a string")
-                        }
-                    }
-                    "env_conversions" => {
-                        if let Ok((env_vars, conversions)) = value.as_record() {
-                            let mut env_conversions = HashMap::new();
-
-                            for (env_var, record) in env_vars.iter().zip(conversions) {
-                                // println!("{}: {:?}", env_var, record);
-                                if let Ok(conversion) = EnvConversion::from_record(record) {
-                                    env_conversions.insert(env_var.into(), conversion);
-                                } else {
-                                    eprintln!("$config.env_conversions has incorrect conversion")
-                                }
-                            }
-
-                            config.env_conversions = env_conversions;
-                        } else {
-                            eprintln!("$config.env_conversions is not a record")
                         }
                     }
                     "edit_mode" => {

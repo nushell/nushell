@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Value,
 };
 
 #[derive(Clone)]
@@ -143,5 +144,16 @@ impl Command for Lines {
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Split multi-line string into lines",
+            example: "echo $'two(char nl)lines' | lines",
+            result: Some(Value::List {
+                vals: vec![Value::test_string("two"), Value::test_string("lines")],
+                span: Span::test_data(),
+            }),
+        }]
     }
 }

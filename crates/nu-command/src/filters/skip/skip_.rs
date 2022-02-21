@@ -60,6 +60,7 @@ impl Command for Skip {
     ) -> Result<PipelineData, ShellError> {
         let n: Option<Value> = call.opt(engine_state, stack, 0)?;
         let span = call.head;
+        let metadata = input.metadata();
 
         let n: usize = match n {
             Some(Value::Int { val, span }) => val.try_into().map_err(|err| {
@@ -74,7 +75,11 @@ impl Command for Skip {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        Ok(input.into_iter().skip(n).into_pipeline_data(ctrlc))
+        Ok(input
+            .into_iter()
+            .skip(n)
+            .into_pipeline_data(ctrlc)
+            .set_metadata(metadata))
     }
 }
 

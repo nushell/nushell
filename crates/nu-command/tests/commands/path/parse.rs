@@ -122,7 +122,7 @@ fn parses_into_correct_number_of_columns() {
             echo 'home/viking/spam.txt'
             | path parse
             | transpose
-            | get Column0
+            | get column0
             | length
         "#
     ));

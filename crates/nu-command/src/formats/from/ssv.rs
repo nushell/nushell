@@ -49,7 +49,7 @@ impl Command for FromSsv {
 1   2' | from ssv -n"#,
             description: "Converts ssv formatted string to table but not treating the first row as column names",
             result: Some(
-                Value::List { vals: vec![Value::Record { cols: vec!["Column1".to_string(), "Column2".to_string()], vals: vec![Value::String { val: "FOO".to_string(), span: Span::test_data() }, Value::String { val: "BAR".to_string(), span: Span::test_data() }], span: Span::test_data() }, Value::Record { cols: vec!["Column1".to_string(), "Column2".to_string()], vals: vec![Value::String { val: "1".to_string(), span: Span::test_data() }, Value::String { val: "2".to_string(), span: Span::test_data() }], span: Span::test_data() }], span: Span::test_data() }),
+                Value::List { vals: vec![Value::Record { cols: vec!["column1".to_string(), "column2".to_string()], vals: vec![Value::String { val: "FOO".to_string(), span: Span::test_data() }, Value::String { val: "BAR".to_string(), span: Span::test_data() }], span: Span::test_data() }, Value::Record { cols: vec!["column1".to_string(), "column2".to_string()], vals: vec![Value::String { val: "1".to_string(), span: Span::test_data() }, Value::String { val: "2".to_string(), span: Span::test_data() }], span: Span::test_data() }], span: Span::test_data() }),
         }]
     }
 
@@ -150,7 +150,7 @@ fn parse_aligned_columns<'a>(
         let headers: Vec<(String, usize)> = indices
             .iter()
             .enumerate()
-            .map(|(i, position)| (format!("Column{}", i + 1), *position))
+            .map(|(i, position)| (format!("column{}", i + 1), *position))
             .collect();
 
         construct(ls.iter().map(|s| s.to_owned()), headers)
@@ -196,7 +196,7 @@ fn parse_separated_columns<'a>(
         let num_columns = ls.iter().map(|r| r.len()).max().unwrap_or(0);
 
         let headers = (1..=num_columns)
-            .map(|i| format!("Column{}", i))
+            .map(|i| format!("column{}", i))
             .collect::<Vec<String>>();
         collect(headers, ls.into_iter(), separator)
     };
@@ -337,9 +337,9 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                vec![owned("Column1", "a"), owned("Column2", "b")],
-                vec![owned("Column1", "1"), owned("Column2", "2")],
-                vec![owned("Column1", "3"), owned("Column2", "4")]
+                vec![owned("column1", "a"), owned("column2", "b")],
+                vec![owned("column1", "1"), owned("column2", "2")],
+                vec![owned("column1", "3"), owned("column2", "4")]
             ]
         );
     }
@@ -451,25 +451,25 @@ mod tests {
             result,
             vec![
                 vec![
-                    owned("Column1", "a multi-word value"),
-                    owned("Column2", "b"),
-                    owned("Column3", ""),
-                    owned("Column4", "d"),
-                    owned("Column5", "")
+                    owned("column1", "a multi-word value"),
+                    owned("column2", "b"),
+                    owned("column3", ""),
+                    owned("column4", "d"),
+                    owned("column5", "")
                 ],
                 vec![
-                    owned("Column1", "1"),
-                    owned("Column2", ""),
-                    owned("Column3", "3-3"),
-                    owned("Column4", "4"),
-                    owned("Column5", "")
+                    owned("column1", "1"),
+                    owned("column2", ""),
+                    owned("column3", "3-3"),
+                    owned("column4", "4"),
+                    owned("column5", "")
                 ],
                 vec![
-                    owned("Column1", ""),
-                    owned("Column2", ""),
-                    owned("Column3", ""),
-                    owned("Column4", ""),
-                    owned("Column5", "last")
+                    owned("column1", ""),
+                    owned("column2", ""),
+                    owned("column3", ""),
+                    owned("column4", ""),
+                    owned("column5", "last")
                 ],
             ]
         );

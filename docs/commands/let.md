@@ -27,3 +27,8 @@ Set a variable to the result of an expression
 > let x = 10 + 100
 ```
 
+Set a variable based on the condition
+```shell
+> let x = if $false { -1 } else { 1 }
+```
+

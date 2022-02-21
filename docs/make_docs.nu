@@ -1,6 +1,6 @@
 let vers = (version).version
 
-for command in ($scope.commands | where is_custom == $false) {
+for command in ($scope.commands | where is_custom == $false && is_external == $false) {
     let top = $"---
 title: ($command.command)
 layout: command
@@ -10,7 +10,7 @@ version: ($vers)
 ($command.usage)
 
 "
-    let sig = ($command.signature | each { |param| 
+    let sig = ($command.signature | each { |param|
         if $param.parameter_type == "positional" {
             $"('(')($param.parameter_name)(')')"
         } else if $param.parameter_type == "switch" {
@@ -56,10 +56,11 @@ $"($example.description)
 
         $example_top + $examples
     } else { "" }
-    
+
     let doc = ($top + $signature + $parameters + $examples)
 
     let safe_name = ($command.command | str find-replace '\?' '' | str find-replace ' ' '_')
     $doc | save --raw $"./docs/commands/($safe_name).md"
+    $"./docs/commands/($safe_name).md"
 } | length | $"($in) commands written"
 

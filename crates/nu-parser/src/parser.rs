@@ -114,7 +114,10 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
                 } else {
                     return Some(ParseError::MissingPositional(
                         argument.name.clone(),
-                        command,
+                        Span {
+                            start: command.end,
+                            end: command.end,
+                        },
                         sig.call_signature(),
                     ));
                 }
@@ -134,7 +137,10 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
         } else {
             Some(ParseError::MissingPositional(
                 missing.name.clone(),
-                command,
+                Span {
+                    start: command.end,
+                    end: command.end,
+                },
                 sig.call_signature(),
             ))
         }

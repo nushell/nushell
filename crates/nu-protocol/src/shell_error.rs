@@ -74,7 +74,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::feature_not_enabled), url(docsrs))]
     FeatureNotEnabled(#[label = "feature not enabled"] Span),
 
-    #[error("External commands not yet supported")]
+    #[error("Running external commands not supported")]
     #[diagnostic(code(nu::shell::external_commands), url(docsrs))]
     ExternalNotSupported(#[label = "external not supported"] Span),
 
@@ -152,7 +152,7 @@ pub enum ShellError {
 
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
-    UnsupportedInput(String, #[label("{0}")] Span),
+    UnsupportedInput(String, #[label("{0} not supported")] Span),
 
     #[error("Network failure")]
     #[diagnostic(code(nu::shell::network_failure), url(docsrs))]
@@ -256,6 +256,10 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::missing_config_value), url(docsrs))]
     MissingConfigValue(String, #[label = "missing {0}"] Span),
 
+    #[error("Negative value passed when positive one is required")]
+    #[diagnostic(code(nu::shell::needs_positive_value), url(docsrs))]
+    NeedsPositiveValue(#[label = "use a positive value"] Span),
+
     #[error("{0}")]
     #[diagnostic()]
     SpannedLabeledError(String, String, #[label("{1}")] Span),
@@ -265,8 +269,21 @@ pub enum ShellError {
     SpannedLabeledErrorHelp(String, String, #[label("{1}")] Span, String),
 
     #[error("{0}")]
+    #[diagnostic()]
+    SpannedLabeledErrorRelated(
+        String,
+        String,
+        #[label("{1}")] Span,
+        #[related] Vec<ShellError>,
+    ),
+
+    #[error("{0}")]
     #[diagnostic(help("{1}"))]
     LabeledError(String, String),
+
+    #[error("{1}")]
+    #[diagnostic()]
+    OutsideSpannedLabeledError(#[source_code] String, String, String, #[label("{2}")] Span),
 
     #[error("Deprecated command {0}")]
     #[diagnostic(code(nu::shell::deprecated_command), url(docsrs))]

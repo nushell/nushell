@@ -20,7 +20,7 @@ Runs a block on window groups of `window_size` that slide by n rows.
 
 A sliding window of two elements
 ```shell
-> echo [1 2 3 4] | each window 2 { $it.0 + $it.1 }
+> echo [1 2 3 4] | each window 2 { |it| $it.0 + $it.1 }
 ```
 
 A sliding window of two elements, with a stride of 3

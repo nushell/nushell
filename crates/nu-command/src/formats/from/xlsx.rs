@@ -146,7 +146,7 @@ fn from_xlsx(
                         _ => Value::nothing(head),
                     };
 
-                    row_output.insert(format!("Column{}", i), value);
+                    row_output.insert(format!("column{}", i), value);
                 }
 
                 let (cols, vals) =

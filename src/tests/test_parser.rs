@@ -232,8 +232,8 @@ def 'call-me' [] {
     echo $CONST_A
 }
 
-[(say-hi) (call-me)] | str collect    
-    
+[(say-hi) (call-me)] | str collect
+
     "#,
         "HelloHello",
     )
@@ -253,8 +253,8 @@ def 'say-hi' [] {
     echo (call-me)
 }
 
-[(say-hi) (call-me)] | str collect    
-    
+[(say-hi) (call-me)] | str collect
+
     "#,
         "HelloHello",
     )
@@ -274,8 +274,8 @@ def 'call-me' [] {
     echo $CONST_A
 }
 
-[(call-me) (say-hi)] | str collect    
-    
+[(call-me) (say-hi)] | str collect
+
     "#,
         "HelloHello",
     )
@@ -295,8 +295,8 @@ def 'say-hi' [] {
     echo (call-me)
 }
 
-[(call-me) (say-hi)] | str collect    
-    
+[(call-me) (say-hi)] | str collect
+
     "#,
         "HelloHello",
     )

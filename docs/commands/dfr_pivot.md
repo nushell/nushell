@@ -8,12 +8,12 @@ Performs a pivot operation on a groupby object
 
 ## Signature
 
-```> dfr pivot (pivot-column) (value-column) (operation)```
+```> dfr pivot (pivot_column) (value_column) (operation)```
 
 ## Parameters
 
- -  `pivot-column`: pivot column to perform pivot
- -  `value-column`: value column to perform pivot
+ -  `pivot_column`: pivot column to perform pivot
+ -  `value_column`: value column to perform pivot
  -  `operation`: aggregate operation
 
 ## Examples
