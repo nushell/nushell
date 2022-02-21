@@ -1,7 +1,9 @@
 use nu_engine::eval_block;
 use nu_protocol::ast::{Call, Expr, Expression, ImportPatternMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Use;
@@ -113,5 +115,34 @@ impl Command for Use {
         }
 
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Define a custom command in a module and call it",
+                example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
+                result: Some(Value::String {
+                    val: "foo".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Define an environment variable in a module and evaluate it",
+                example: r#"module foo { export env FOO_ENV { "BAZ" } }; use foo FOO_ENV; $env.FOO_ENV"#,
+                result: Some(Value::String {
+                    val: "BAZ".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Define a custom command that participates in the environment in a module and call it",
+                example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
+                result: Some(Value::String {
+                    val: "BAZ".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
