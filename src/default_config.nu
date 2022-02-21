@@ -112,7 +112,7 @@ extern "git push" [
 let default_theme = {
     # color for nushell primitives
     separator: white
-    leading_trailing_space_bg: white
+    leading_trailing_space_bg: { attr: b }
     header: green_bold
     empty: blue
     bool: white
