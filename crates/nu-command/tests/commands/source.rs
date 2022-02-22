@@ -101,8 +101,6 @@ fn try_source_foo_without_quotes_in(testdir: &str, playdir: &str) {
     });
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn sources_unicode_file_in_normal_dir() {
     try_source_foo_with_single_quotes_in("foo", "source_test_1");
@@ -110,8 +108,6 @@ fn sources_unicode_file_in_normal_dir() {
     try_source_foo_without_quotes_in("foo", "source_test_3");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn sources_unicode_file_in_unicode_dir_without_spaces_1() {
     try_source_foo_with_single_quotes_in("🚒", "source_test_4");
@@ -119,8 +115,6 @@ fn sources_unicode_file_in_unicode_dir_without_spaces_1() {
     try_source_foo_without_quotes_in("🚒", "source_test_6");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[cfg(not(windows))] // ':' is not allowed in Windows paths
 #[test]
 fn sources_unicode_file_in_unicode_dir_without_spaces_2() {

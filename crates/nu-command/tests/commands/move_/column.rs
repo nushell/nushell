@@ -107,8 +107,6 @@ fn moves_a_column_after() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn moves_columns_after() {
     Playground::setup("move_column_test_4", |dirs, sandbox| {
@@ -132,7 +130,7 @@ fn moves_columns_after() {
             r#"
                 open sample.csv
                 | move letters and_more --after column1
-                | get
+                | columns
                 | select 1 2
                 | str collect
             "#

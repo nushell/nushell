@@ -54,7 +54,7 @@ fn reduce_numbered_example() {
         cwd: ".", pipeline(
         r#"
         echo one longest three bar
-        reduce -n { |it, acc| if ($it | str length) > ($acc | str length) {echo $it} else {echo $acc}}
+        | reduce -n { |it, acc| if ($it.item | str length) > ($acc | str length) {echo $it.item} else {echo $acc}}
         | get index
         "#
         )
