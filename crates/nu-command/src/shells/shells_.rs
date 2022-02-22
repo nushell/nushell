@@ -2,7 +2,7 @@ use nu_engine::current_dir;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
 };
 
 /// Source a file for environment variables.
@@ -68,5 +68,20 @@ impl Command for Shells {
             });
 
         Ok(output.into_pipeline_data(None))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Enter a new shell at parent path '..' and show all opened shells",
+                example: r#"enter ..; shells"#,
+                result: None,
+            },
+            Example {
+                description: "Show currently active shell",
+                example: r#"shells | where active == $true"#,
+                result: None,
+            },
+        ]
     }
 }

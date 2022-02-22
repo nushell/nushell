@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Value,
 };
 
 #[derive(Clone)]
@@ -98,5 +99,42 @@ impl Command for ViewSource {
                 arg_span,
             )),
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "View the source of a code block",
+                example: r#"let abc = { echo 'hi' }; view-source $abc"#,
+                result: Some(Value::String {
+                    val: "{ echo 'hi' }".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "View the source of a custom command",
+                example: r#"def hi [] { echo 'Hi!' }; view-source hi"#,
+                result: Some(Value::String {
+                    val: "{ echo 'Hi!' }".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "View the source of a custom command, which participates in the caller environment",
+                example: r#"def-env foo [] { let-env BAR = 'BAZ' }; view-source foo"#,
+                result: Some(Value::String {
+                    val: "{ let-env BAR = 'BAZ' }".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "View the source of a module",
+                example: r#"module mod-foo { export env FOO_ENV { 'BAZ' } }; view-source mod-foo"#,
+                result: Some(Value::String {
+                    val: " export env FOO_ENV { 'BAZ' }".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
