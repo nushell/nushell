@@ -13,7 +13,9 @@ pub use known_external::KnownExternal;
 pub use lex::{lex, Token, TokenContents};
 pub use lite_parse::{lite_parse, LiteBlock};
 
-pub use parser::{parse, parse_block, parse_external_call, trim_quotes, Import};
+pub use parser::{
+    is_math_expression_like, parse, parse_block, parse_external_call, trim_quotes, Import,
+};
 
 #[cfg(feature = "plugin")]
 pub use parse_keywords::parse_register;

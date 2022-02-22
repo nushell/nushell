@@ -2100,6 +2100,7 @@ dependencies = [
  "crossterm_winapi",
  "ctrlc",
  "hamcrest2",
+ "is_executable",
  "itertools",
  "log",
  "miette",

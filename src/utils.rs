@@ -254,6 +254,32 @@ pub(crate) fn eval_source(
     true
 }
 
+/// Finds externals that have names that look like math expressions
+pub fn external_exceptions() -> Vec<Vec<u8>> {
+    let mut executables = vec![];
+
+    if let Ok(path) = std::env::var("PATH") {
+        for path in std::env::split_paths(&path) {
+            let path = path.to_string_lossy().to_string();
+
+            if let Ok(mut contents) = std::fs::read_dir(path) {
+                while let Some(Ok(item)) = contents.next() {
+                    if is_executable::is_executable(&item.path()) {
+                        if let Ok(name) = item.file_name().into_string() {
+                            let name = name.as_bytes().to_vec();
+                            if nu_parser::is_math_expression_like(&name) {
+                                executables.push(name);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    executables
+}
+
 #[cfg(windows)]
 pub fn enable_vt_processing() -> Result<(), ShellError> {
     use crossterm_winapi::{ConsoleMode, Handle};
