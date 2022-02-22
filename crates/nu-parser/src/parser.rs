@@ -1710,6 +1710,8 @@ pub fn parse_duration(
     let bytes = working_set.get_span_contents(span);
     let token = String::from_utf8_lossy(bytes).to_string();
 
+    let upper = token.to_uppercase();
+
     let unit_groups = [
         (Unit::Nanosecond, "NS", None),
         (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
@@ -1720,11 +1722,8 @@ pub fn parse_duration(
         (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
         (Unit::Week, "WK", Some((Unit::Day, 7))),
     ];
-    if let Some(unit) = unit_groups
-        .iter()
-        .find(|&x| token.to_uppercase().ends_with(x.1))
-    {
-        let mut lhs = token.clone();
+    if let Some(unit) = unit_groups.iter().find(|&x| upper.ends_with(x.1)) {
+        let mut lhs = token;
         for _ in 0..unit.1.len() {
             lhs.pop();
         }
@@ -1806,6 +1805,8 @@ pub fn parse_filesize(
     let bytes = working_set.get_span_contents(span);
     let token = String::from_utf8_lossy(bytes).to_string();
 
+    let upper = token.to_uppercase();
+
     let unit_groups = [
         (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
         (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
@@ -1819,11 +1820,8 @@ pub fn parse_filesize(
         (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
         (Unit::Byte, "B", None),
     ];
-    if let Some(unit) = unit_groups
-        .iter()
-        .find(|&x| token.to_uppercase().ends_with(x.1))
-    {
-        let mut lhs = token.clone();
+    if let Some(unit) = unit_groups.iter().find(|&x| upper.ends_with(x.1)) {
+        let mut lhs = token;
         for _ in 0..unit.1.len() {
             lhs.pop();
         }
