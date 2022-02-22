@@ -41,7 +41,13 @@ fn is_identifier_byte(b: u8) -> bool {
     b != b'.' && b != b'[' && b != b'(' && b != b'{'
 }
 
-fn is_math_expression_byte(b: u8) -> bool {
+pub fn is_math_expression_like(bytes: &[u8]) -> bool {
+    if bytes.is_empty() {
+        return false;
+    }
+
+    let b = bytes[0];
+
     b == b'0'
         || b == b'1'
         || b == b'2'
@@ -826,7 +832,13 @@ pub fn parse_call(
         // Find the longest group of words that could form a command
         let bytes = working_set.get_span_contents(*word_span);
 
-        if is_math_expression_byte(bytes[0]) {
+        if is_math_expression_like(bytes)
+            && !working_set
+                .permanent_state
+                .external_exceptions
+                .iter()
+                .any(|x| x == bytes)
+        {
             break;
         }
 
@@ -3446,7 +3458,13 @@ pub fn parse_expression(
 
     let bytes = working_set.get_span_contents(spans[pos]);
 
-    let (output, err) = if is_math_expression_byte(bytes[0]) {
+    let (output, err) = if is_math_expression_like(bytes)
+        && !working_set
+            .permanent_state
+            .external_exceptions
+            .iter()
+            .any(|x| x == bytes)
+    {
         parse_math_expression(working_set, &spans[pos..], None)
     } else {
         // For now, check for special parses of certain keywords
