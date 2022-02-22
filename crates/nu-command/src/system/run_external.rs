@@ -35,7 +35,7 @@ impl Command for External {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("run-external")
+        Signature::build(self.name())
             .switch("redirect-stdout", "redirect-stdout", None)
             .switch("redirect-stderr", "redirect-stderr", None)
             .rest("rest", SyntaxShape::Any, "external command to run")
