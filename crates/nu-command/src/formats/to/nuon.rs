@@ -1,3 +1,4 @@
+use nu_engine::get_columns;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -63,11 +64,36 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         Value::Float { val, .. } => Ok(format!("{}", *val)),
         Value::Int { val, .. } => Ok(format!("{}", *val)),
         Value::List { vals, .. } => {
-            let mut collection = vec![];
-            for val in vals {
-                collection.push(value_to_string(val, span)?);
+            let headers = get_columns(vals);
+            if vals.iter().all(|x| x.columns() == headers) {
+                // Table output
+                let headers_output = headers.join(", ");
+
+                let mut table_output = vec![];
+                for val in vals {
+                    let mut row = vec![];
+
+                    if let Value::Record { vals, .. } = val {
+                        for val in vals {
+                            row.push(value_to_string(val, span)?);
+                        }
+                    }
+
+                    table_output.push(row.join(", "));
+                }
+
+                Ok(format!(
+                    "[[{}]; [{}]]",
+                    headers_output,
+                    table_output.join("], [")
+                ))
+            } else {
+                let mut collection = vec![];
+                for val in vals {
+                    collection.push(value_to_string(val, span)?);
+                }
+                Ok(format!("[{}]", collection.join(", ")))
             }
-            Ok(format!("[{}]", collection.join(", ")))
         }
         Value::Nothing { .. } => Ok("$nothing".to_string()),
         Value::Range { val, .. } => Ok(format!(
