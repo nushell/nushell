@@ -13,4 +13,3 @@ Get the git status of a repo
 ## Parameters
 
  -  `path`: path to repo
-

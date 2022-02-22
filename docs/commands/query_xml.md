@@ -13,4 +13,3 @@ execute xpath query on xml
 ## Parameters
 
  -  `query`: xpath query
-

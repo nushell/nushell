@@ -13,4 +13,3 @@ execute json query on json file (open --raw <file> | query json 'query string')
 ## Parameters
 
  -  `query`: json query
-

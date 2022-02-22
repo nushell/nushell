@@ -9,4 +9,3 @@ Show all the query commands
 ## Signature
 
 ```> query ```
-
