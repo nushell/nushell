@@ -122,79 +122,14 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let mut process = if let Some(d) = self.env_vars.get("PWD") {
-            let mut process = self.create_command(d)?;
-            process.current_dir(d);
-            process
-        } else {
-            return Err(ShellError::SpannedLabeledErrorHelp(
-                "Current directory not found".to_string(),
-                "did not find PWD environment variable".to_string(),
-                head,
-                concat!(
-                    "The environment variable 'PWD' was not found. ",
-                    "It is required to define the current directory when running an external command."
-                ).to_string(),
-            ));
-        };
-
-        process.envs(&self.env_vars);
-
-        // If the external is not the last command, its output will get piped
-        // either as a string or binary
-        if self.redirect_stdout {
-            process.stdout(Stdio::piped());
-        }
-
-        if self.redirect_stderr {
-            process.stderr(Stdio::piped());
-        }
-
-        // If there is an input from the pipeline. The stdin from the process
-        // is piped so it can be used to send the input information
-        if !matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
-            process.stdin(Stdio::piped());
-        }
-
+        let mut process = self.create_process(&input, false, head)?;
         let child;
 
         #[cfg(windows)]
         {
             match process.spawn() {
                 Err(_) => {
-                    let mut process = self.spawn_cmd_command();
-                    if let Some(d) = self.env_vars.get("PWD") {
-                        process.current_dir(d);
-                    } else {
-                        return Err(ShellError::SpannedLabeledErrorHelp(
-                            "Current directory not found".to_string(),
-                            "did not find PWD environment variable".to_string(),
-                            head,
-                            concat!(
-                                "The environment variable 'PWD' was not found. ",
-                                "It is required to define the current directory when running an external command."
-                            ).to_string(),
-                        ));
-                    };
-
-                    process.envs(&self.env_vars);
-
-                    // If the external is not the last command, its output will get piped
-                    // either as a string or binary
-                    if self.redirect_stdout {
-                        process.stdout(Stdio::piped());
-                    }
-
-                    if self.redirect_stderr {
-                        process.stderr(Stdio::piped());
-                    }
-
-                    // If there is an input from the pipeline. The stdin from the process
-                    // is piped so it can be used to send the input information
-                    if !matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
-                        process.stdin(Stdio::piped());
-                    }
-
+                    let mut process = self.create_process(&input, true, head)?;
                     child = process.spawn();
                 }
                 Ok(process) => {
@@ -324,6 +259,54 @@ impl ExternalCommand {
                 ))
             }
         }
+    }
+
+    fn create_process(
+        &self,
+        input: &PipelineData,
+        use_cmd: bool,
+        span: Span,
+    ) -> Result<CommandSys, ShellError> {
+        let mut process = if let Some(d) = self.env_vars.get("PWD") {
+            let mut process = if use_cmd {
+                self.spawn_cmd_command()
+            } else {
+                self.create_command(d)?
+            };
+
+            process.current_dir(d);
+            process
+        } else {
+            return Err(ShellError::SpannedLabeledErrorHelp(
+                "Current directory not found".to_string(),
+                "did not find PWD environment variable".to_string(),
+                span,
+                concat!(
+                    "The environment variable 'PWD' was not found. ",
+                    "It is required to define the current directory when running an external command."
+                ).to_string(),
+            ));
+        };
+
+        process.envs(&self.env_vars);
+
+        // If the external is not the last command, its output will get piped
+        // either as a string or binary
+        if self.redirect_stdout {
+            process.stdout(Stdio::piped());
+        }
+
+        if self.redirect_stderr {
+            process.stderr(Stdio::piped());
+        }
+
+        // If there is an input from the pipeline. The stdin from the process
+        // is piped so it can be used to send the input information
+        if !matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
+            process.stdin(Stdio::piped());
+        }
+
+        Ok(process)
     }
 
     fn create_command(&self, cwd: &str) -> Result<CommandSys, ShellError> {
