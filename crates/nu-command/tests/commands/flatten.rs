@@ -2,8 +2,6 @@ use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn flatten_nested_tables_with_columns() {
     let actual = nu!(
@@ -11,7 +9,7 @@ fn flatten_nested_tables_with_columns() {
         r#"
             echo [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
                  [[origin, people]; [Nu, ('nuno' | wrap name)]]
-            | flatten
+            | flatten | flatten
             | get name
             | str collect ','
         "#
@@ -20,16 +18,14 @@ fn flatten_nested_tables_with_columns() {
     assert_eq!(actual.out, "Andres,nuno");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn flatten_nested_tables_that_have_many_columns() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
             echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]]
-                 [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]]
-            | flatten
+            [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]]
+            | flatten | flatten
             | get meal
             | str collect ','
         "#

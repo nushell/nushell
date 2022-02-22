@@ -21,8 +21,6 @@ fn by_column() {
     assert_eq!(actual.out, "description");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn by_invalid_column() {
     let actual = nu!(
@@ -41,8 +39,8 @@ fn by_invalid_column() {
         "#
     ));
 
-    assert!(actual.err.contains("Can not find column to sort by"));
-    assert!(actual.err.contains("invalid column"));
+    assert!(actual.err.contains("Cannot find column"));
+    assert!(actual.err.contains("value originates here"));
 }
 
 // FIXME: jt: needs more work
@@ -53,15 +51,14 @@ fn by_invalid_types() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open cargo_sample.toml --raw
-            | echo [1 "foo"]
+            | echo ["foo" 1]
             | sort-by
+            | json -r
         "#
     ));
 
-    assert!(actual.err.contains("Not all values can be compared"));
-    assert!(actual
-        .err
-        .contains("Unable to sort values, as \"integer\" cannot compare against \"string\""));
+    let json_output = r#"[1,"foo"]"#;
+    assert_eq!(actual.out, json_output);
 }
 
 #[test]
@@ -93,7 +90,6 @@ fn ls_sort_by_name_sensitive() {
         "#
     ));
 
-    //let json_output = r#"[{"name":"B.txt"},{"name":"C"},{"name":"a.txt"}]"#;
     let json_output = r#"[{"name": "B.txt"},{"name": "C"},{"name": "a.txt"}]"#;
 
     assert_eq!(actual.out, json_output);
