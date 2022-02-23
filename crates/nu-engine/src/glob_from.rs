@@ -25,11 +25,7 @@ pub fn glob_from(
     ShellError,
 > {
     let path = PathBuf::from(&pattern.item);
-    let path = if path.is_relative() {
-        expand_path_with(path, cwd)
-    } else {
-        path
-    };
+    let path = expand_path_with(path, cwd);
 
     let (prefix, pattern) = if path.to_string_lossy().contains('*') {
         // Path is a glob pattern => do not check for existence
