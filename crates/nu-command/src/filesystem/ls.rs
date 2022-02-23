@@ -73,12 +73,15 @@ impl Command for Ls {
             Some(p) => {
                 let p_tag = p.span;
                 let mut p = PathBuf::from(p.item);
-                if p.is_dir() {
+
+                let expanded = nu_path::expand_path_with(&p, &cwd);
+                if expanded.is_dir() {
                     if permission_denied(&p) {
                         #[cfg(unix)]
                         let error_msg = format!(
                             "The permissions of {:o} do not allow access for this user",
-                            p.metadata()
+                            expanded
+                                .metadata()
                                 .expect(
                                     "this shouldn't be called since we already know there is a dir"
                                 )
@@ -94,7 +97,7 @@ impl Command for Ls {
                             p_tag,
                         ));
                     }
-                    if is_empty_dir(&p) {
+                    if is_empty_dir(&expanded) {
                         return Ok(Value::nothing(call_span).into_pipeline_data());
                     }
                     p.push("*");
