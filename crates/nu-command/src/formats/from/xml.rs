@@ -1,9 +1,7 @@
-use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -15,7 +13,13 @@ impl Command for FromXml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from xml").category(Category::Formats)
+        Signature::build("from xml")
+            .switch(
+                "flatten",
+                "use flatter/smaller representation where attributes are joined with nodes",
+                Some('f'),
+            )
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
@@ -31,7 +35,8 @@ impl Command for FromXml {
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
         let config = stack.get_config().unwrap_or_default();
-        from_xml(input, head, &config)
+        let flat = call.has_flag("flatten");
+        from_xml(input, head, &config, flat)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -85,35 +90,59 @@ impl Command for FromXml {
     }
 }
 
-fn from_attributes_to_value(attributes: &[roxmltree::Attribute], span: Span) -> Value {
-    let mut collected = IndexMap::new();
-    for a in attributes {
-        collected.insert(String::from(a.name()), Value::string(a.value(), span));
+fn add_row(cols: &mut Vec<String>, vals: &mut Vec<Value>, name: String, value: Value, span: Span) {
+    for (idx, col) in cols.iter_mut().enumerate() {
+        if col == &name {
+            match &mut vals[idx] {
+                Value::List { vals, .. } => {
+                    vals.push(value);
+                }
+                x => {
+                    let prev = x.clone();
+
+                    *x = Value::List {
+                        vals: vec![prev],
+                        span,
+                    }
+                }
+            }
+            return;
+        }
     }
 
-    let (cols, vals) = collected
-        .into_iter()
-        .fold((vec![], vec![]), |mut acc, (k, v)| {
-            acc.0.push(k);
-            acc.1.push(v);
-            acc
-        });
-
-    Value::Record { cols, vals, span }
+    cols.push(name);
+    vals.push(value);
 }
 
-fn from_node_to_value(n: &roxmltree::Node, span: Span) -> Value {
+// fn from_attributes_to_value(attributes: &[roxmltree::Attribute], span: Span) -> Value {
+//     let mut collected = IndexMap::new();
+//     for a in attributes {
+//         collected.insert(String::from(a.name()), Value::string(a.value(), span));
+//     }
+
+//     let (cols, vals) = collected
+//         .into_iter()
+//         .fold((vec![], vec![]), |mut acc, (k, v)| {
+//             acc.0.push(k);
+//             acc.1.push(v);
+//             acc
+//         });
+
+//     Value::Record { cols, vals, span }
+// }
+
+fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, Value) {
     if n.is_element() {
         let name = n.tag_name().name().trim().to_string();
 
         let mut children_values = vec![];
         for c in n.children() {
-            children_values.push(from_node_to_value(&c, span));
+            children_values.push(from_node_to_value(&c, span, flat));
         }
 
-        let children_values: Vec<Value> = children_values
+        let children_values: Vec<(String, Value)> = children_values
             .into_iter()
-            .filter(|x| match x {
+            .filter(|x| match &x.1 {
                 Value::String { val: f, .. } => {
                     !f.trim().is_empty() // non-whitespace characters?
                 }
@@ -121,67 +150,144 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span) -> Value {
             })
             .collect();
 
-        let mut collected = IndexMap::new();
+        let mut row_cols = vec![];
+        let mut row_vals = vec![];
 
-        let attribute_value: Value = from_attributes_to_value(n.attributes(), span);
+        if flat {
+            for a in n.attributes() {
+                add_row(
+                    &mut row_cols,
+                    &mut row_vals,
+                    a.name().to_string(),
+                    Value::String {
+                        val: a.value().to_string(),
+                        span,
+                    },
+                    span,
+                );
+            }
 
-        let mut row = IndexMap::new();
-        row.insert(
-            String::from("children"),
-            Value::List {
-                vals: children_values,
+            for (children_col, children_val) in children_values {
+                add_row(
+                    &mut row_cols,
+                    &mut row_vals,
+                    children_col,
+                    children_val,
+                    span,
+                );
+            }
+        } else {
+            let attribute_value: Value = {
+                let mut collected_cols = vec![];
+                let mut collected_vals = vec![];
+                for a in n.attributes() {
+                    collected_cols.push(a.name().to_string());
+                    collected_vals.push(Value::String {
+                        val: a.value().to_string(),
+                        span,
+                    });
+                }
+
+                Value::Record {
+                    cols: collected_cols,
+                    vals: collected_vals,
+                    span,
+                }
+            };
+            row_cols.push("attributes".to_string());
+            row_vals.push(attribute_value);
+
+            let mut children_cols = vec![];
+            let mut children_vals = vec![];
+
+            for (children_col, children_val) in children_values {
+                children_cols.push(children_col);
+                children_vals.push(children_val);
+            }
+
+            row_cols.push("children".to_string());
+            row_vals.push(Value::Record {
+                cols: children_cols,
+                vals: children_vals,
+                span,
+            });
+        }
+
+        (
+            name,
+            Value::Record {
+                cols: row_cols,
+                vals: row_vals,
                 span,
             },
-        );
-        row.insert(String::from("attributes"), attribute_value);
-        collected.insert(name, Value::from(Spanned { item: row, span }));
-
-        Value::from(Spanned {
-            item: collected,
-            span,
-        })
+        )
     } else if n.is_comment() {
-        Value::String {
-            val: "<comment>".to_string(),
-            span,
-        }
+        (
+            String::new(),
+            Value::String {
+                val: "<comment>".to_string(),
+                span,
+            },
+        )
     } else if n.is_pi() {
-        Value::String {
-            val: "<processing_instruction>".to_string(),
-            span,
-        }
+        (
+            String::new(),
+            Value::String {
+                val: "<processing_instruction>".to_string(),
+                span,
+            },
+        )
     } else if n.is_text() {
         match n.text() {
-            Some(text) => Value::String {
-                val: text.to_string(),
-                span,
-            },
-            None => Value::String {
-                val: "<error>".to_string(),
-                span,
-            },
+            Some(text) => (
+                text.to_string(),
+                Value::String {
+                    val: text.to_string(),
+                    span,
+                },
+            ),
+            None => (
+                "<error>".to_string(),
+                Value::String {
+                    val: "<error>".to_string(),
+                    span,
+                },
+            ),
         }
     } else {
-        Value::String {
-            val: "<unknown>".to_string(),
-            span,
-        }
+        (
+            "<unknown>".to_string(),
+            Value::String {
+                val: "<unknown>".to_string(),
+                span,
+            },
+        )
     }
 }
 
-fn from_document_to_value(d: &roxmltree::Document, span: Span) -> Value {
-    from_node_to_value(&d.root_element(), span)
+fn from_document_to_value(d: &roxmltree::Document, span: Span, flat: bool) -> Value {
+    let (_, output) = from_node_to_value(&d.root_element(), span, flat);
+    output
 }
 
-pub fn from_xml_string_to_value(s: String, span: Span) -> Result<Value, roxmltree::Error> {
+pub fn from_xml_string_to_value(
+    s: String,
+    span: Span,
+    flat: bool,
+) -> Result<Value, roxmltree::Error> {
     let parsed = roxmltree::Document::parse(&s)?;
-    Ok(from_document_to_value(&parsed, span))
+    Ok(from_document_to_value(&parsed, span, flat))
 }
 
-fn from_xml(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
+fn from_xml(
+    input: PipelineData,
+    head: Span,
+    config: &Config,
+    flat: bool,
+) -> Result<PipelineData, ShellError> {
     let concat_string = input.collect_string("", config)?;
 
-    match from_xml_string_to_value(concat_string, head) {
+    match from_xml_string_to_value(concat_string, head, flat) {
         Ok(x) => Ok(x.into_pipeline_data()),
         _ => Err(ShellError::UnsupportedInput(
             "Could not parse string as xml".to_string(),
@@ -220,7 +326,7 @@ mod tests {
     }
 
     fn parse(xml: &str) -> Result<Value, roxmltree::Error> {
-        from_xml_string_to_value(xml.to_string(), Span::test_data())
+        from_xml_string_to_value(xml.to_string(), Span::test_data(), false)
     }
 
     #[test]
