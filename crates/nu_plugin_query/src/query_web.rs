@@ -296,11 +296,11 @@ mod tests {
         )
     }
 
-    //     #[test]
-    //     fn test_first_child() {
-    //         assert_eq!(
-    //             vec!["Coffee".to_string()],
-    //             execute_selector_query(SIMPLE_LIST, "li:first-child", false)
-    //         )
-    //     }
+    #[test]
+    fn test_first_child() {
+        let item = execute_selector_query(SIMPLE_LIST, "li:first-child", false, Span::test_data());
+        let config = nu_protocol::Config::default();
+        let out = item.into_string("\n", &config);
+        assert_eq!("[Coffee]".to_string(), out)
+    }
 }
