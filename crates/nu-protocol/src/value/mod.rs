@@ -173,6 +173,8 @@ impl Clone for Value {
 impl Value {
     pub fn as_string(&self) -> Result<String, ShellError> {
         match self {
+            Value::Int { val, .. } => Ok(val.to_string()),
+            Value::Float { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val.to_string()),
             Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
                 Ok(s) => s.to_string(),
