@@ -2,8 +2,9 @@ use crate::DirBuilder;
 use crate::DirInfo;
 use chrono::{DateTime, Utc};
 use nu_engine::env::current_dir;
-use nu_engine::CallExt;
 use nu_protocol::ast::Call;
+use nu_protocol::ast::Expr;
+use nu_protocol::ast::Expression;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
@@ -69,7 +70,18 @@ impl Command for Ls {
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
-        let pattern_arg = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
+        let pattern_arg = call.nth(0);
+        let pattern_arg = pattern_arg.map(|x| match x {
+            Expression {
+                expr: Expr::GlobPattern(s),
+                span,
+                ..
+            } => Spanned { item: s, span },
+            _ => Spanned {
+                item: String::new(),
+                span: call.head,
+            },
+        });
 
         let (path, p_tag, absolute_path) = match pattern_arg {
             Some(p) => {
