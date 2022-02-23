@@ -58,7 +58,7 @@ impl Command for External {
         let config = stack.get_config().unwrap_or_default();
         let env_vars_str = env_to_strings(engine_state, stack, &config)?;
 
-        fn value_as_spanned(value: &Value) -> Result<Spanned<String>, ShellError> {
+        fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
             let span = value.span()?;
 
             value
@@ -74,10 +74,10 @@ impl Command for External {
         }
 
         let args = args
-            .iter()
+            .into_iter()
             .flat_map(|arg| match arg {
                 Value::List { vals, .. } => vals
-                    .iter()
+                    .into_iter()
                     .map(value_as_spanned)
                     .collect::<Vec<Result<Spanned<String>, ShellError>>>(),
                 val => vec![value_as_spanned(val)],
