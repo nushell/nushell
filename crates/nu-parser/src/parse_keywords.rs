@@ -1543,6 +1543,18 @@ pub fn parse_source(
             let (call, err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
             error = error.or(err);
 
+            if error.is_some() || call.has_flag("help") {
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: span(spans),
+                        ty: Type::Unknown,
+                        custom_completion: None,
+                    }]),
+                    error,
+                );
+            }
+
             // Command and one file name
             if spans.len() >= 2 {
                 let name_expr = working_set.get_span_contents(spans[1]);
