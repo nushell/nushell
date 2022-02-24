@@ -324,12 +324,12 @@ impl ProcessInfo {
     pub fn command(&self) -> String {
         if let Some(path) = &self.curr_path {
             if !path.cmd.is_empty() {
-                path.cmd.join(" ").replace("\n", " ").replace("\t", " ")
+                path.cmd.join(" ").replace('\n', " ").replace('\t', " ")
             } else {
-                String::from("")
+                String::new()
             }
         } else {
-            String::from("")
+            String::new()
         }
     }
 
