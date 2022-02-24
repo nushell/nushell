@@ -35,10 +35,22 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get the current date and display it in a given format string.",
-            example: r#"date now | date format "%Y-%m-%d %H:%M:%S""#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Get the current date and display it in a given format string.",
+                example: r#"date now | date format "%Y-%m-%d %H:%M:%S""#,
+                result: None,
+            },
+            Example {
+                description: "Get the time duration from 2019-04-30 to now",
+                example: r#"(date now) - 2019-05-01"#,
+                result: None,
+            },
+            Example {
+                description: "Get the time duration since a more accurate time",
+                example: r#"(date now) - 2019-05-01T04:12:05.20+08:00"#,
+                result: None,
+            },
+        ]
     }
 }
