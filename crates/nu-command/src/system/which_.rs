@@ -7,13 +7,17 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value,
 };
+#[cfg(target_family = "windows")]
 use std::ffi::OsStr;
+#[cfg(target_family = "windows")]
 use std::path::Path;
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
+#[cfg(feature = "which")]
 #[cfg(target_family = "windows")]
 const ENV_PATH_SEPARATOR_CHAR: &str = ";";
 // Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
+#[cfg(feature = "which")]
 #[cfg(not(target_family = "windows"))]
 const ENV_PATH_SEPARATOR_CHAR: &str = ":";
 
