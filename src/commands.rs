@@ -19,10 +19,6 @@ pub(crate) fn evaluate(
     // First, set up env vars as strings only
     gather_parent_env_vars(engine_state);
 
-    // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::utils::external_exceptions();
-    engine_state.external_exceptions = exceptions;
-
     // Run a command (or commands) given to us by the user
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
@@ -77,6 +73,10 @@ pub(crate) fn evaluate(
             Config::default()
         }
     };
+
+    // Make a note of the exceptions we see for externals that look like math expressions
+    let exceptions = crate::utils::external_exceptions(engine_state, &stack);
+    engine_state.external_exceptions = exceptions;
 
     // Merge the delta in case env vars changed in the config
     match nu_engine::env::current_dir(engine_state, &stack) {
