@@ -194,7 +194,7 @@ impl ProcessInfo {
     pub fn command(&self) -> String {
         if let Ok(cmd) = &self.curr_proc.cmdline() {
             if !cmd.is_empty() {
-                cmd.join(" ").replace("\n", " ").replace("\t", " ")
+                cmd.join(" ").replace('\n', " ").replace('\t', " ")
             } else {
                 self.curr_proc.stat().comm.clone()
             }

@@ -343,7 +343,7 @@ pub fn report_error(
 pub(crate) fn get_init_cwd() -> PathBuf {
     match std::env::current_dir() {
         Ok(cwd) => cwd,
-        Err(_) => match std::env::var("PWD".to_string()) {
+        Err(_) => match std::env::var("PWD") {
             Ok(cwd) => PathBuf::from(cwd),
             Err(_) => match nu_path::home_dir() {
                 Some(cwd) => cwd,

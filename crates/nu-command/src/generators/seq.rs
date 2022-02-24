@@ -248,7 +248,7 @@ pub fn run_seq(
     };
     let last = {
         let slice = &free[free.len() - 1][..];
-        padding = cmp::max(padding, slice.find('.').unwrap_or_else(|| slice.len()));
+        padding = cmp::max(padding, slice.find('.').unwrap_or(slice.len()));
         match parse_float(slice) {
             Ok(n) => n,
             Err(s) => {
