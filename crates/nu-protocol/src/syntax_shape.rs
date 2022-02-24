@@ -55,6 +55,9 @@ pub enum SyntaxShape {
     /// A duration value is allowed, eg `19day`
     Duration,
 
+    /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
+    DateTime,
+
     /// An operator
     Operator,
 
@@ -94,6 +97,7 @@ impl SyntaxShape {
             SyntaxShape::Block(_) => Type::Block,
             SyntaxShape::CellPath => Type::Unknown,
             SyntaxShape::Custom(custom, _) => custom.to_type(),
+            SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Unknown,
             SyntaxShape::Filepath => Type::String,
@@ -145,6 +149,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Record => write!(f, "record"),
             SyntaxShape::Filesize => write!(f, "filesize"),
             SyntaxShape::Duration => write!(f, "duration"),
+            SyntaxShape::DateTime => write!(f, "datetime"),
             SyntaxShape::Operator => write!(f, "operator"),
             SyntaxShape::RowCondition => write!(f, "condition"),
             SyntaxShape::MathExpression => write!(f, "variable"),

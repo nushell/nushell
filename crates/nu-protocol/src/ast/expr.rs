@@ -1,3 +1,5 @@
+use chrono::FixedOffset;
+
 use super::{Call, CellPath, Expression, FullCellPath, Operator, RangeOperator};
 use crate::{ast::ImportPattern, BlockId, Signature, Span, Spanned, Unit, VarId};
 
@@ -26,6 +28,7 @@ pub enum Expr {
     Record(Vec<(Expression, Expression)>),
     Keyword(Vec<u8>, Span, Box<Expression>),
     ValueWithUnit(Box<Expression>, Spanned<Unit>),
+    DateTime(chrono::DateTime<FixedOffset>),
     Filepath(String),
     GlobPattern(String),
     String(String),

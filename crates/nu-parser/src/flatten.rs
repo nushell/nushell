@@ -23,6 +23,7 @@ pub enum FlatShape {
     Record,
     Block,
     Filepath,
+    DateTime,
     GlobPattern,
     Variable,
     Flag,
@@ -45,6 +46,7 @@ impl Display for FlatShape {
             FlatShape::Operator => write!(f, "shape_operator"),
             FlatShape::Signature => write!(f, "shape_signature"),
             FlatShape::String => write!(f, "shape_string"),
+            FlatShape::DateTime => write!(f, "shape_datetime"),
             FlatShape::StringInterpolation => write!(f, "shape_string_interpolation"),
             FlatShape::List => write!(f, "shape_list"),
             FlatShape::Table => write!(f, "shape_table"),
@@ -183,6 +185,9 @@ pub fn flatten_expression(
         }
         Expr::Nothing => {
             vec![(expr.span, FlatShape::Nothing)]
+        }
+        Expr::DateTime(_) => {
+            vec![(expr.span, FlatShape::DateTime)]
         }
         Expr::Int(_) => {
             vec![(expr.span, FlatShape::Int)]

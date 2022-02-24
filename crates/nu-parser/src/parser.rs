@@ -1091,11 +1091,22 @@ pub fn parse_range(
     //     looks like parent directory)
 
     let contents = working_set.get_span_contents(span);
+
     let token = if let Ok(s) = String::from_utf8(contents.into()) {
         s
     } else {
         return (garbage(span), Some(ParseError::NonUtf8(span)));
     };
+
+    if !token.contains("..") {
+        return (
+            garbage(span),
+            Some(ParseError::Expected(
+                "at least one range bound set".into(),
+                span,
+            )),
+        );
+    }
 
     // First, figure out what exact operators are used and determine their positions
     let dotdot_pos: Vec<_> = token.match_indices("..").map(|(pos, _)| pos).collect();
@@ -1224,6 +1235,7 @@ pub(crate) fn parse_dollar_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: dollar expression");
     let contents = working_set.get_span_contents(span);
 
     if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
@@ -1704,6 +1716,78 @@ pub fn parse_filepath(
     }
 }
 
+/// Parse a datetime type, eg '2022-02-02'
+pub fn parse_datetime(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    trace!("parsing: datetime");
+
+    let bytes = working_set.get_span_contents(span);
+
+    if bytes.is_empty() || !bytes[0].is_ascii_digit() {
+        return (
+            garbage(span),
+            Some(ParseError::Mismatch(
+                "datetime".into(),
+                "non-datetime".into(),
+                span,
+            )),
+        );
+    }
+
+    let token = String::from_utf8_lossy(bytes).to_string();
+
+    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&token) {
+        return (
+            Expression {
+                expr: Expr::DateTime(datetime),
+                span,
+                ty: Type::Date,
+                custom_completion: None,
+            },
+            None,
+        );
+    }
+
+    // Just the date
+    let just_date = token.clone() + "T00:00:00+00:00";
+    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&just_date) {
+        return (
+            Expression {
+                expr: Expr::DateTime(datetime),
+                span,
+                ty: Type::Date,
+                custom_completion: None,
+            },
+            None,
+        );
+    }
+
+    // Date and time, assume UTC
+    let datetime = token + "+00:00";
+    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&datetime) {
+        return (
+            Expression {
+                expr: Expr::DateTime(datetime),
+                span,
+                ty: Type::Date,
+                custom_completion: None,
+            },
+            None,
+        );
+    }
+
+    (
+        garbage(span),
+        Some(ParseError::Mismatch(
+            "datetime".into(),
+            "non-datetime".into(),
+            span,
+        )),
+    )
+}
+
 /// Parse a duration type, eg '10day'
 pub fn parse_duration(
     working_set: &mut StateWorkingSet,
@@ -1720,6 +1804,18 @@ pub fn parse_duration(
     }
 
     let bytes = working_set.get_span_contents(span);
+
+    if bytes.is_empty() || (!bytes[0].is_ascii_digit() && bytes[0] != b'-') {
+        return (
+            garbage(span),
+            Some(ParseError::Mismatch(
+                "duration".into(),
+                "non-duration unit".into(),
+                span,
+            )),
+        );
+    }
+
     let token = String::from_utf8_lossy(bytes).to_string();
 
     let upper = token.to_uppercase();
@@ -1815,6 +1911,18 @@ pub fn parse_filesize(
     }
 
     let bytes = working_set.get_span_contents(span);
+
+    if bytes.is_empty() || (!bytes[0].is_ascii_digit() && bytes[0] != b'-') {
+        return (
+            garbage(span),
+            Some(ParseError::Mismatch(
+                "filesize".into(),
+                "non-filesize unit".into(),
+                span,
+            )),
+        );
+    }
+
     let token = String::from_utf8_lossy(bytes).to_string();
 
     let upper = token.to_uppercase();
@@ -3052,6 +3160,10 @@ pub fn parse_value(
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
 
+    if bytes.is_empty() {
+        return (garbage(span), Some(ParseError::IncompleteParser(span)));
+    }
+
     // First, check the special-cases. These will likely represent specific values as expressions
     // and may fit a variety of shapes.
     //
@@ -3062,37 +3174,35 @@ pub fn parse_value(
         trace!("parsing: variable");
 
         return parse_variable_expr(working_set, span);
-    } else if bytes.starts_with(b"$") {
-        trace!("parsing: dollar expression");
+    }
 
-        return parse_dollar_expr(working_set, span);
-    } else if bytes.starts_with(b"(") {
-        trace!("parsing: range or full path");
-
-        if let (expr, None) = parse_range(working_set, span) {
-            return (expr, None);
-        } else {
-            return parse_full_cell_path(working_set, None, span);
-        }
-    } else if bytes.starts_with(b"{") {
-        trace!("parsing: block or full path");
-        if !matches!(shape, SyntaxShape::Block(..)) {
-            if let (expr, None) = parse_full_cell_path(working_set, None, span) {
+    match bytes[0] {
+        b'$' => return parse_dollar_expr(working_set, span),
+        b'(' => {
+            if let (expr, None) = parse_range(working_set, span) {
                 return (expr, None);
+            } else {
+                return parse_full_cell_path(working_set, None, span);
             }
         }
-        if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
-            return parse_block_expression(working_set, shape, span);
-        } else if matches!(shape, SyntaxShape::Record) {
-            return parse_record(working_set, span);
-        } else {
-            return (
-                Expression::garbage(span),
-                Some(ParseError::Expected("non-block value".into(), span)),
-            );
+        b'{' => {
+            if !matches!(shape, SyntaxShape::Block(..)) {
+                if let (expr, None) = parse_full_cell_path(working_set, None, span) {
+                    return (expr, None);
+                }
+            }
+            if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
+                return parse_block_expression(working_set, shape, span);
+            } else if matches!(shape, SyntaxShape::Record) {
+                return parse_record(working_set, span);
+            } else {
+                return (
+                    Expression::garbage(span),
+                    Some(ParseError::Expected("non-block value".into(), span)),
+                );
+            }
         }
-    } else if bytes.starts_with(b"[") {
-        match shape {
+        b'[' => match shape {
             SyntaxShape::Any
             | SyntaxShape::List(_)
             | SyntaxShape::Table
@@ -3103,7 +3213,8 @@ pub fn parse_value(
                     Some(ParseError::Expected("non-[] value".into(), span)),
                 );
             }
-        }
+        },
+        _ => {}
     }
 
     match shape {
@@ -3115,6 +3226,7 @@ pub fn parse_value(
         SyntaxShape::Number => parse_number(bytes, span),
         SyntaxShape::Int => parse_int(bytes, span),
         SyntaxShape::Duration => parse_duration(working_set, span),
+        SyntaxShape::DateTime => parse_datetime(working_set, span),
         SyntaxShape::Filesize => parse_filesize(working_set, span),
         SyntaxShape::Range => parse_range(working_set, span),
         SyntaxShape::Filepath => parse_filepath(working_set, span),
@@ -3212,6 +3324,7 @@ pub fn parse_value(
                     SyntaxShape::Int,
                     SyntaxShape::Number,
                     SyntaxShape::Range,
+                    SyntaxShape::DateTime,
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
                     SyntaxShape::Block(None),
@@ -3950,6 +4063,7 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::CellPath(_) => {}
+        Expr::DateTime(_) => {}
         Expr::ExternalCall(head, exprs) => {
             let result = discover_captures_in_expr(working_set, head, seen, seen_blocks);
             output.extend(&result);

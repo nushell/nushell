@@ -146,6 +146,7 @@ let default_theme = {
     shape_signature: green_bold
     shape_string: green
     shape_string_interpolation: cyan_bold
+    shape_datetime: cyan_bold
     shape_list: cyan_bold
     shape_table: blue_bold
     shape_record: cyan_bold

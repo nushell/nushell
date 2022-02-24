@@ -195,7 +195,7 @@ impl ListStream {
 
 impl Debug for ListStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ValueStream").finish()
+        f.debug_struct("ListStream").finish()
     }
 }
 

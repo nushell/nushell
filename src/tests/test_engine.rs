@@ -257,3 +257,8 @@ fn test_redirection_stderr() -> TestResult {
     // try a nonsense binary
     run_test(r#"do -i { asdjw4j5cnaabw44rd }; echo done"#, "done")
 }
+
+#[test]
+fn datetime_literal() -> TestResult {
+    run_test(r#"(date now) - 2019-08-23 > 1hr"#, "true")
+}

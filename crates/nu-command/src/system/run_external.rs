@@ -58,43 +58,35 @@ impl Command for External {
         let config = stack.get_config().unwrap_or_default();
         let env_vars_str = env_to_strings(engine_state, stack, &config)?;
 
-        let mut args_strs = vec![];
+        fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
+            let span = value.span()?;
 
-        for arg in args {
-            let span = if let Ok(span) = arg.span() {
-                span
-            } else {
-                Span { start: 0, end: 0 }
-            };
-
-            if let Ok(s) = arg.as_string() {
-                args_strs.push(Spanned { item: s, span });
-            } else if let Value::List { vals, span } = arg {
-                // Interpret a list as a series of arguments
-                for val in vals {
-                    if let Ok(s) = val.as_string() {
-                        args_strs.push(Spanned { item: s, span });
-                    } else {
-                        return Err(ShellError::ExternalCommand(
-                            "Cannot convert argument to a string".into(),
-                            "All arguments to an external command need to be string-compatible"
-                                .into(),
-                            val.span()?,
-                        ));
-                    }
-                }
-            } else {
-                return Err(ShellError::ExternalCommand(
-                    "Cannot convert argument to a string".into(),
-                    "All arguments to an external command need to be string-compatible".into(),
-                    arg.span()?,
-                ));
-            }
+            value
+                .as_string()
+                .map(|item| Spanned { item, span })
+                .map_err(|_| {
+                    ShellError::ExternalCommand(
+                        "Cannot convert argument to a string".into(),
+                        "All arguments to an external command need to be string-compatible".into(),
+                        span,
+                    )
+                })
         }
+
+        let args = args
+            .into_iter()
+            .flat_map(|arg| match arg {
+                Value::List { vals, .. } => vals
+                    .into_iter()
+                    .map(value_as_spanned)
+                    .collect::<Vec<Result<Spanned<String>, ShellError>>>(),
+                val => vec![value_as_spanned(val)],
+            })
+            .collect::<Result<Vec<Spanned<String>>, ShellError>>()?;
 
         let command = ExternalCommand {
             name,
-            args: args_strs,
+            args,
             redirect_stdout,
             redirect_stderr,
             env_vars: env_vars_str,
@@ -196,7 +188,7 @@ impl ExternalCommand {
 
                 std::thread::spawn(move || {
                     // If this external is not the last expression, then its output is piped to a channel
-                    // and we create a ValueStream that can be consumed
+                    // and we create a ListStream that can be consumed
 
                     if redirect_stderr {
                         let _ = child.stderr.take();
@@ -452,8 +444,8 @@ fn trim_enclosing_quotes(input: &str) -> String {
     }
 }
 
-// Receiver used for the ValueStream
-// It implements iterator so it can be used as a ValueStream
+// Receiver used for the ListStream
+// It implements iterator so it can be used as a ListStream
 struct ChannelReceiver {
     rx: mpsc::Receiver<Vec<u8>>,
 }
