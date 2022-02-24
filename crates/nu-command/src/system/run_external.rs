@@ -188,7 +188,7 @@ impl ExternalCommand {
 
                 std::thread::spawn(move || {
                     // If this external is not the last expression, then its output is piped to a channel
-                    // and we create a ValueStream that can be consumed
+                    // and we create a ListStream that can be consumed
 
                     if redirect_stderr {
                         let _ = child.stderr.take();
@@ -444,8 +444,8 @@ fn trim_enclosing_quotes(input: &str) -> String {
     }
 }
 
-// Receiver used for the ValueStream
-// It implements iterator so it can be used as a ValueStream
+// Receiver used for the ListStream
+// It implements iterator so it can be used as a ListStream
 struct ChannelReceiver {
     rx: mpsc::Receiver<Vec<u8>>,
 }
