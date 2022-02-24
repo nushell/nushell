@@ -89,7 +89,7 @@ impl Command for FromNuon {
         let (lite_block, err) = nu_parser::lite_parse(&lexed);
         error = error.or(err);
 
-        let (block, err) = nu_parser::parse_block(&mut working_set, &lite_block, true);
+        let (mut block, err) = nu_parser::parse_block(&mut working_set, &lite_block, true);
         error = error.or(err);
 
         if let Some(pipeline) = block.pipelines.get(1) {
@@ -119,7 +119,16 @@ impl Command for FromNuon {
             }
         }
 
-        let expr = if let Some(pipeline) = block.pipelines.get(0) {
+        let expr = if block.pipelines.is_empty() {
+            Expression {
+                expr: Expr::Nothing,
+                span: head,
+                custom_completion: None,
+                ty: Type::Nothing,
+            }
+        } else {
+            let mut pipeline = block.pipelines.remove(0);
+
             if let Some(expr) = pipeline.expressions.get(1) {
                 return Err(ShellError::SpannedLabeledErrorRelated(
                     "error when loading nuon text".into(),
@@ -134,22 +143,15 @@ impl Command for FromNuon {
                 ));
             }
 
-            if let Some(expr) = pipeline.expressions.get(0) {
-                expr.clone()
-            } else {
+            if pipeline.expressions.is_empty() {
                 Expression {
                     expr: Expr::Nothing,
                     span: head,
                     custom_completion: None,
                     ty: Type::Nothing,
                 }
-            }
-        } else {
-            Expression {
-                expr: Expr::Nothing,
-                span: head,
-                custom_completion: None,
-                ty: Type::Nothing,
+            } else {
+                pipeline.expressions.remove(0)
             }
         };
 
