@@ -22,10 +22,6 @@ pub(crate) fn evaluate(
     // First, set up env vars as strings only
     gather_parent_env_vars(engine_state);
 
-    // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::utils::external_exceptions();
-    engine_state.external_exceptions = exceptions;
-
     let mut stack = nu_protocol::engine::Stack::new();
 
     // Set up our initial config to start from
@@ -44,6 +40,10 @@ pub(crate) fn evaluate(
         report_error(&working_set, &e);
         std::process::exit(1);
     }
+
+    // Make a note of the exceptions we see for externals that look like math expressions
+    let exceptions = crate::utils::external_exceptions(engine_state, &stack);
+    engine_state.external_exceptions = exceptions;
 
     let file = std::fs::read(&path).into_diagnostic()?;
 

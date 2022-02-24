@@ -102,7 +102,7 @@ fn did_chop_arguments() -> bool {
 
         for arg in arguments {
             let chopped = if arg.is_empty() {
-                &arg
+                arg
             } else {
                 let to = arg.len() - 1;
                 &arg[..to]

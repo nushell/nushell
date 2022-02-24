@@ -35,10 +35,6 @@ pub(crate) fn evaluate(
     // First, set up env vars as strings only
     gather_parent_env_vars(engine_state);
 
-    // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::utils::external_exceptions();
-    engine_state.external_exceptions = exceptions;
-
     // Set up our initial config to start from
     stack.vars.insert(
         CONFIG_VARIABLE_ID,
@@ -85,6 +81,10 @@ pub(crate) fn evaluate(
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
     }
+
+    // Make a note of the exceptions we see for externals that look like math expressions
+    let exceptions = crate::utils::external_exceptions(engine_state, &stack);
+    engine_state.external_exceptions = exceptions;
 
     // seed the cmd_duration_ms env var
     stack.add_env_var(
@@ -322,7 +322,7 @@ pub(crate) fn evaluate(
                 }
 
                 // Make a note of the exceptions we see for externals that look like math expressions
-                let exceptions = crate::utils::external_exceptions();
+                let exceptions = crate::utils::external_exceptions(engine_state, &stack);
                 engine_state.external_exceptions = exceptions;
             }
             Ok(Signal::CtrlC) => {

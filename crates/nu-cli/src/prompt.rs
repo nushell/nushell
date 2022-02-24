@@ -86,26 +86,26 @@ impl NushellPrompt {
 impl Prompt for NushellPrompt {
     fn render_prompt_left(&self) -> Cow<str> {
         if let Some(prompt_string) = &self.left_prompt_string {
-            prompt_string.replace("\n", "\r\n").into()
+            prompt_string.replace('\n', "\r\n").into()
         } else {
             let default = DefaultPrompt::new();
             default
                 .render_prompt_left()
                 .to_string()
-                .replace("\n", "\r\n")
+                .replace('\n', "\r\n")
                 .into()
         }
     }
 
     fn render_prompt_right(&self) -> Cow<str> {
         if let Some(prompt_string) = &self.right_prompt_string {
-            prompt_string.replace("\n", "\r\n").into()
+            prompt_string.replace('\n', "\r\n").into()
         } else {
             let default = DefaultPrompt::new();
             default
                 .render_prompt_right()
                 .to_string()
-                .replace("\n", "\r\n")
+                .replace('\n', "\r\n")
                 .into()
         }
     }

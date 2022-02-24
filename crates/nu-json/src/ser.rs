@@ -928,7 +928,7 @@ where
     if f1.len() <= f2.len() + 1 {
         f1
     } else if !f2.contains("e-") {
-        f2.replace("e", "e+")
+        f2.replace('e', "e+")
     } else {
         f2
     }
