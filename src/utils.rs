@@ -274,6 +274,14 @@ pub fn external_exceptions(engine_state: &EngineState, stack: &Stack) -> Vec<Vec
                                             executables.push(name);
                                         }
                                     }
+
+                                    if let Some(name) = item.path().file_stem() {
+                                        let name = name.to_string_lossy();
+                                        let name = name.as_bytes().to_vec();
+                                        if nu_parser::is_math_expression_like(&name) {
+                                            executables.push(name);
+                                        }
+                                    }
                                 }
                             }
                         }
