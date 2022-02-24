@@ -15,7 +15,7 @@ use std::path::Path;
 const ENV_PATH_SEPARATOR_CHAR: &str = ";";
 // Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
 #[cfg(not(target_family = "windows"))]
-const ENV_PATH_SEPARATOR_CHAR: char = ":";
+const ENV_PATH_SEPARATOR_CHAR: &str = ":";
 
 #[derive(Clone)]
 pub struct Which;
@@ -173,10 +173,6 @@ fn get_first_entry_in_path_in(
                     .map(|f| f.into_string("", &config))
                     .join(ENV_PATH_SEPARATOR_CHAR);
                 let paths_os = OsStr::new(&paths_str);
-                // eprintln!(
-                //     "looking for {}\nin {:?}\nwith pwd {:?}\n{}",
-                //     &item, &paths_os, &pwd_os, &paths_str
-                // );
                 which::which_in(item, Some(paths_os), pwd_os)
                     .map(|path| entry_path!(item, path.to_string_lossy().to_string(), span))
                     .ok()
@@ -232,10 +228,6 @@ fn get_all_entries_in_path_in(
                     .map(|f| f.into_string("", &config))
                     .join(ENV_PATH_SEPARATOR_CHAR);
                 let paths_os = OsStr::new(&paths_str);
-                // eprintln!(
-                //     "looking for {}\nin {:?}\nwith pwd {:?}\n{}",
-                //     &item, &paths_os, &pwd_os, &paths_str
-                // );
                 which::which_in_all(item, Some(paths_os), pwd_os)
                     .map(|iter| {
                         iter.map(|path| entry_path!(item, path.to_string_lossy().to_string(), span))
