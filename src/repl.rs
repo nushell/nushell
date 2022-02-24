@@ -35,6 +35,10 @@ pub(crate) fn evaluate(
     // First, set up env vars as strings only
     gather_parent_env_vars(engine_state);
 
+    // Make a note of the exceptions we see for externals that look like math expressions
+    let exceptions = crate::utils::external_exceptions();
+    engine_state.external_exceptions = exceptions;
+
     // Set up our initial config to start from
     stack.vars.insert(
         CONFIG_VARIABLE_ID,
@@ -316,6 +320,10 @@ pub(crate) fn evaluate(
                     let _ = std::env::set_current_dir(path);
                     engine_state.env_vars.insert("PWD".into(), cwd);
                 }
+
+                // Make a note of the exceptions we see for externals that look like math expressions
+                let exceptions = crate::utils::external_exceptions();
+                engine_state.external_exceptions = exceptions;
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown

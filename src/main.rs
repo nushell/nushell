@@ -57,10 +57,6 @@ fn main() -> Result<()> {
     };
     let _ = engine_state.merge_delta(delta, None, &init_cwd);
 
-    // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::utils::external_exceptions();
-    engine_state.external_exceptions = exceptions;
-
     // TODO: make this conditional in the future
     // Ctrl-c protection section
     let ctrlc = Arc::new(AtomicBool::new(false));
