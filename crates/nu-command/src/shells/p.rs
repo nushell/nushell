@@ -1,7 +1,7 @@
 use nu_engine::current_dir;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Value};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -75,5 +75,20 @@ impl Command for PrevShell {
         stack.add_env_var("PWD".into(), new_path);
 
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Make two directories and enter new shells for them, use `p` to jump to the previous shell",
+                example: r#"mkdir foo bar; enter foo; enter ../bar; p"#,
+                result: None,
+            },
+            Example {
+                description: "Run `p` several times and note the changes of current directory",
+                example: r#"p"#,
+                result: None,
+            },
+        ]
     }
 }
