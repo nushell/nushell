@@ -22,6 +22,7 @@ pub fn get_shape_color(shape: String, conf: &Config) -> Style {
             "shape_signature" => Style::new().fg(Color::Green).bold(),
             "shape_string" => Style::new().fg(Color::Green),
             "shape_string_interpolation" => Style::new().fg(Color::Cyan).bold(),
+            "shape_datetime" => Style::new().fg(Color::Cyan).bold(),
             "shape_list" => Style::new().fg(Color::Cyan).bold(),
             "shape_table" => Style::new().fg(Color::Blue).bold(),
             "shape_record" => Style::new().fg(Color::Cyan).bold(),

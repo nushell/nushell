@@ -142,6 +142,7 @@ impl Expression {
                 false
             }
             Expr::CellPath(_) => false,
+            Expr::DateTime(_) => false,
             Expr::ExternalCall(head, args) => {
                 if head.has_in_variable(working_set) {
                     return true;
@@ -301,6 +302,7 @@ impl Expression {
                 }
             }
             Expr::CellPath(_) => {}
+            Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args) => {
                 head.replace_in_variable(working_set, new_var_id);
                 for arg in args {
@@ -443,6 +445,7 @@ impl Expression {
                 }
             }
             Expr::CellPath(_) => {}
+            Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args) => {
                 head.replace_span(working_set, replaced, new_span);
                 for arg in args {

@@ -212,6 +212,7 @@ fn convert_to_value(
             "subexpressions and cellpaths not supported in nuon".into(),
             expr.span,
         )),
+        Expr::DateTime(dt) => Ok(Value::Date { val: dt, span }),
         Expr::ExternalCall(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),
