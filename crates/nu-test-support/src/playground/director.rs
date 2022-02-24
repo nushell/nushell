@@ -157,5 +157,5 @@ fn read_std(std: &[u8]) -> Vec<u8> {
     let out = String::from_utf8_lossy(std);
     let out = out.lines().collect::<Vec<_>>().join("\n");
     let out = out.replace("\r\n", "");
-    out.replace("\n", "").into_bytes()
+    out.replace('\n', "").into_bytes()
 }

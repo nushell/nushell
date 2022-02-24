@@ -26,8 +26,7 @@ impl NuCompleter {
     fn external_command_completion(&self, prefix: &str) -> Vec<String> {
         let mut executables = vec![];
 
-        let paths;
-        paths = self.engine_state.env_vars.get("PATH");
+        let paths = self.engine_state.env_vars.get("PATH");
 
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {
@@ -470,7 +469,7 @@ fn file_path_completion(
 ) -> Vec<(nu_protocol::Span, String)> {
     use std::path::{is_separator, Path};
 
-    let partial = partial.replace("\"", "");
+    let partial = partial.replace('\"', "");
 
     let (base_dir_name, partial) = {
         // If partial is only a word we want to search in the current dir

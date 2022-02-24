@@ -2120,7 +2120,7 @@ fn format_filesize(num_bytes: i64, config: &Config) -> String {
             // Since get_locale() and Locale::from_name() don't always return the same items
             // we need to try and parse it to match. For instance, a valid locale is de_DE
             // however Locale::from_name() wants only de so we split and parse it out.
-            let locale_string = locale_string.replace("_", "-"); // en_AU -> en-AU
+            let locale_string = locale_string.replace('_', "-"); // en_AU -> en-AU
             let locale = match Locale::from_name(&locale_string) {
                 Ok(loc) => loc,
                 _ => {
