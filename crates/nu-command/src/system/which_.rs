@@ -7,6 +7,15 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value,
 };
+use std::ffi::OsStr;
+use std::path::Path;
+
+// Character used to separate directories in a Path Environment variable on windows is ";"
+#[cfg(target_family = "windows")]
+const ENV_PATH_SEPARATOR_CHAR: &str = ";";
+// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
+#[cfg(not(target_family = "windows"))]
+const ENV_PATH_SEPARATOR_CHAR: char = ":";
 
 #[derive(Clone)]
 pub struct Which;
@@ -144,28 +153,123 @@ macro_rules! entry_path {
 }
 
 #[cfg(feature = "which")]
-fn get_first_entry_in_path(item: &str, span: Span) -> Option<Value> {
-    which::which(item)
-        .map(|path| entry_path!(item, path.to_string_lossy().to_string(), span))
-        .ok()
+fn get_first_entry_in_path_in(
+    item: &str,
+    span: Span,
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> Option<Value> {
+    if let Ok(config) = stack.get_config() {
+        if let Some(pwd) = stack.get_env_var(engine_state, "PWD") {
+            let pwd_str = pwd.into_string("", &config);
+            let pwd_os = Path::new(&pwd_str);
+            if let Some(paths) = engine_state.env_vars.get("PATH") {
+                let paths_list = match paths.as_list() {
+                    Ok(p) => p.to_vec(),
+                    Err(_) => vec![],
+                };
+                let paths_str = paths_list
+                    .iter()
+                    .map(|f| f.into_string("", &config))
+                    .join(ENV_PATH_SEPARATOR_CHAR);
+                let paths_os = OsStr::new(&paths_str);
+                // eprintln!(
+                //     "looking for {}\nin {:?}\nwith pwd {:?}\n{}",
+                //     &item, &paths_os, &pwd_os, &paths_str
+                // );
+                which::which_in(item, Some(paths_os), pwd_os)
+                    .map(|path| entry_path!(item, path.to_string_lossy().to_string(), span))
+                    .ok()
+            } else {
+                Some(Value::Error {
+                    error: ShellError::LabeledError(
+                        "error converting path".to_string(),
+                        "error converting path".to_string(),
+                    ),
+                })
+            }
+        } else {
+            Some(Value::Error {
+                error: ShellError::LabeledError(
+                    "error converting pwd".to_string(),
+                    "error converting pwd".to_string(),
+                ),
+            })
+        }
+    } else {
+        Some(Value::Error {
+            error: ShellError::LabeledError(
+                "error finding config".to_string(),
+                "error finding config".to_string(),
+            ),
+        })
+    }
 }
 
 #[cfg(not(feature = "which"))]
-fn get_first_entry_in_path(_: &str, _: Span) -> Option<Value> {
+fn get_first_entry_in_path_in(_: &str, _: Span, _: &EngineState, _: &Stack) -> Option<Value> {
     None
 }
 
 #[cfg(feature = "which")]
-fn get_all_entries_in_path(item: &str, span: Span) -> Vec<Value> {
-    which::which_all(&item)
-        .map(|iter| {
-            iter.map(|path| entry_path!(item, path.to_string_lossy().to_string(), span))
-                .collect()
-        })
-        .unwrap_or_default()
+fn get_all_entries_in_path_in(
+    item: &str,
+    span: Span,
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> Vec<Value> {
+    if let Ok(config) = stack.get_config() {
+        if let Some(pwd) = stack.get_env_var(engine_state, "PWD") {
+            let pwd_str = pwd.into_string("", &config);
+            let pwd_os = Path::new(&pwd_str);
+            if let Some(paths) = engine_state.env_vars.get("PATH") {
+                let paths_list = match paths.as_list() {
+                    Ok(p) => p.to_vec(),
+                    Err(_) => vec![],
+                };
+                let paths_str = paths_list
+                    .iter()
+                    .map(|f| f.into_string("", &config))
+                    .join(ENV_PATH_SEPARATOR_CHAR);
+                let paths_os = OsStr::new(&paths_str);
+                // eprintln!(
+                //     "looking for {}\nin {:?}\nwith pwd {:?}\n{}",
+                //     &item, &paths_os, &pwd_os, &paths_str
+                // );
+                which::which_in_all(item, Some(paths_os), pwd_os)
+                    .map(|iter| {
+                        iter.map(|path| entry_path!(item, path.to_string_lossy().to_string(), span))
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            } else {
+                vec![Value::Error {
+                    error: ShellError::LabeledError(
+                        "error converting path".to_string(),
+                        "error converting path".to_string(),
+                    ),
+                }]
+            }
+        } else {
+            vec![Value::Error {
+                error: ShellError::LabeledError(
+                    "error converting pwd".to_string(),
+                    "error converting pwd".to_string(),
+                ),
+            }]
+        }
+    } else {
+        vec![Value::Error {
+            error: ShellError::LabeledError(
+                "error finding config".to_string(),
+                "error finding config".to_string(),
+            ),
+        }]
+    }
 }
+
 #[cfg(not(feature = "which"))]
-fn get_all_entries_in_path(_: &str, _: Span) -> Vec<Value> {
+fn get_all_entries_in_path_in(_: &str, _: Span, _: &EngineState, _: &Stack) -> Vec<Value> {
     vec![]
 }
 
@@ -175,7 +279,12 @@ struct WhichArgs {
     all: bool,
 }
 
-fn which_single(application: Spanned<String>, all: bool, engine_state: &EngineState) -> Vec<Value> {
+fn which_single(
+    application: Spanned<String>,
+    all: bool,
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> Vec<Value> {
     let (external, prog_name) = if application.item.starts_with('^') {
         (true, application.item[1..].to_string())
     } else {
@@ -187,7 +296,9 @@ fn which_single(application: Spanned<String>, all: bool, engine_state: &EngineSt
     //program
     //This match handles all different cases
     match (all, external) {
-        (true, true) => get_all_entries_in_path(&prog_name, application.span),
+        (true, true) => {
+            get_all_entries_in_path_in(&prog_name, application.span, engine_state, stack)
+        }
         (true, false) => {
             let mut output: Vec<Value> = vec![];
             output.extend(get_entries_in_nu(
@@ -196,11 +307,18 @@ fn which_single(application: Spanned<String>, all: bool, engine_state: &EngineSt
                 application.span,
                 false,
             ));
-            output.extend(get_all_entries_in_path(&prog_name, application.span));
+            output.extend(get_all_entries_in_path_in(
+                &prog_name,
+                application.span,
+                engine_state,
+                stack,
+            ));
             output
         }
         (false, true) => {
-            if let Some(entry) = get_first_entry_in_path(&prog_name, application.span) {
+            if let Some(entry) =
+                get_first_entry_in_path_in(&prog_name, application.span, engine_state, stack)
+            {
                 return vec![entry];
             }
             vec![]
@@ -209,7 +327,9 @@ fn which_single(application: Spanned<String>, all: bool, engine_state: &EngineSt
             let nu_entries = get_entries_in_nu(engine_state, &prog_name, application.span, true);
             if !nu_entries.is_empty() {
                 return vec![nu_entries[0].clone()];
-            } else if let Some(entry) = get_first_entry_in_path(&prog_name, application.span) {
+            } else if let Some(entry) =
+                get_first_entry_in_path_in(&prog_name, application.span, engine_state, stack)
+            {
                 return vec![entry];
             }
             vec![]
@@ -238,7 +358,7 @@ fn which(
     let mut output = vec![];
 
     for app in which_args.applications {
-        let values = which_single(app, which_args.all, engine_state);
+        let values = which_single(app, which_args.all, engine_state, stack);
         output.extend(values);
     }
 
