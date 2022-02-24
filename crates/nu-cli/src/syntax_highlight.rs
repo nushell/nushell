@@ -131,6 +131,13 @@ impl Highlighter for NuHighlighter {
                         next_token,
                     ))
                 }
+                FlatShape::DateTime => {
+                    // nushell ???
+                    output.push((
+                        get_shape_color(shape.1.to_string(), &self.config),
+                        next_token,
+                    ))
+                }
                 FlatShape::List => {
                     // nushell ???
                     output.push((

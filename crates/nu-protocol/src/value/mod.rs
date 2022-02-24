@@ -1306,6 +1306,17 @@ impl Value {
                 val: lhs - rhs,
                 span,
             }),
+            (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
+                let result = lhs.signed_duration_since(*rhs);
+
+                match result.num_nanoseconds() {
+                    Some(v) => Ok(Value::Duration { val: v, span }),
+                    None => Err(ShellError::OperatorOverflow(
+                        "subtraction operation overflowed".into(),
+                        span,
+                    )),
+                }
+            }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 match lhs.checked_sub_signed(chrono::Duration::nanoseconds(*rhs)) {
                     Some(val) => Ok(Value::Date { val, span }),

@@ -292,6 +292,10 @@ pub fn eval_expression(
             )?
             .into_value(span))
         }
+        Expr::DateTime(dt) => Ok(Value::Date {
+            val: *dt,
+            span: expr.span,
+        }),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;

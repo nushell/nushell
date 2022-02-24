@@ -1704,6 +1704,65 @@ pub fn parse_filepath(
     }
 }
 
+/// Parse a datetime type, eg '2022-02-02'
+pub fn parse_datetime(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    trace!("parsing: datetime");
+
+    let bytes = working_set.get_span_contents(span);
+    let token = String::from_utf8_lossy(bytes).to_string();
+
+    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&token) {
+        return (
+            Expression {
+                expr: Expr::DateTime(datetime),
+                span,
+                ty: Type::Date,
+                custom_completion: None,
+            },
+            None,
+        );
+    }
+
+    // Just the date
+    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&format!("{}T00:00:00+00:00", token))
+    {
+        return (
+            Expression {
+                expr: Expr::DateTime(datetime),
+                span,
+                ty: Type::Date,
+                custom_completion: None,
+            },
+            None,
+        );
+    }
+
+    // Date and time, assume UTC
+    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&format!("{}+00:00", token)) {
+        return (
+            Expression {
+                expr: Expr::DateTime(datetime),
+                span,
+                ty: Type::Date,
+                custom_completion: None,
+            },
+            None,
+        );
+    }
+
+    (
+        garbage(span),
+        Some(ParseError::Mismatch(
+            "datetime".into(),
+            "non-datetime".into(),
+            span,
+        )),
+    )
+}
+
 /// Parse a duration type, eg '10day'
 pub fn parse_duration(
     working_set: &mut StateWorkingSet,
@@ -3115,6 +3174,7 @@ pub fn parse_value(
         SyntaxShape::Number => parse_number(bytes, span),
         SyntaxShape::Int => parse_int(bytes, span),
         SyntaxShape::Duration => parse_duration(working_set, span),
+        SyntaxShape::DateTime => parse_datetime(working_set, span),
         SyntaxShape::Filesize => parse_filesize(working_set, span),
         SyntaxShape::Range => parse_range(working_set, span),
         SyntaxShape::Filepath => parse_filepath(working_set, span),
@@ -3212,6 +3272,7 @@ pub fn parse_value(
                     SyntaxShape::Int,
                     SyntaxShape::Number,
                     SyntaxShape::Range,
+                    SyntaxShape::DateTime,
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
                     SyntaxShape::Block(None),
@@ -3950,6 +4011,7 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::CellPath(_) => {}
+        Expr::DateTime(_) => {}
         Expr::ExternalCall(head, exprs) => {
             let result = discover_captures_in_expr(working_set, head, seen, seen_blocks);
             output.extend(&result);
