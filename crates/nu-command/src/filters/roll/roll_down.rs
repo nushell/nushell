@@ -68,12 +68,11 @@ impl Command for RollDown {
         let value = input.into_value(call.head);
         let rotated_value = vertical_rotate_value(value, by, VerticalDirection::Down)?;
 
-        Ok(rotated_value
-            .as_list()
-            .unwrap()
-            .to_owned()
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+        rotated_value.as_list().map(|x| {
+            x.to_owned()
+                .into_pipeline_data(ctrlc)
+                .set_metadata(metadata)
+        })
     }
 }
 

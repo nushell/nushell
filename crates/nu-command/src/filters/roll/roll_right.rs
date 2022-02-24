@@ -97,12 +97,11 @@ impl Command for RollRight {
         let rotated_value =
             horizontal_rotate_value(value, &by, cells_only, &HorizontalDirection::Right)?;
 
-        Ok(rotated_value
-            .as_list()
-            .unwrap()
-            .to_owned()
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+        rotated_value.as_list().map(|x| {
+            x.to_owned()
+                .into_pipeline_data(ctrlc)
+                .set_metadata(metadata)
+        })
     }
 }
 
