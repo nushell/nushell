@@ -1091,11 +1091,22 @@ pub fn parse_range(
     //     looks like parent directory)
 
     let contents = working_set.get_span_contents(span);
+
     let token = if let Ok(s) = String::from_utf8(contents.into()) {
         s
     } else {
         return (garbage(span), Some(ParseError::NonUtf8(span)));
     };
+
+    if !token.contains("..") {
+        return (
+            garbage(span),
+            Some(ParseError::Expected(
+                "at least one range bound set".into(),
+                span,
+            )),
+        );
+    }
 
     // First, figure out what exact operators are used and determine their positions
     let dotdot_pos: Vec<_> = token.match_indices("..").map(|(pos, _)| pos).collect();
@@ -1224,6 +1235,7 @@ pub(crate) fn parse_dollar_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: dollar expression");
     let contents = working_set.get_span_contents(span);
 
     if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
@@ -1712,6 +1724,18 @@ pub fn parse_datetime(
     trace!("parsing: datetime");
 
     let bytes = working_set.get_span_contents(span);
+
+    if bytes.is_empty() || !bytes[0].is_ascii_digit() {
+        return (
+            garbage(span),
+            Some(ParseError::Mismatch(
+                "datetime".into(),
+                "non-datetime".into(),
+                span,
+            )),
+        );
+    }
+
     let token = String::from_utf8_lossy(bytes).to_string();
 
     if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&token) {
@@ -1727,8 +1751,8 @@ pub fn parse_datetime(
     }
 
     // Just the date
-    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&format!("{}T00:00:00+00:00", token))
-    {
+    let just_date = token.clone() + "T00:00:00+00:00";
+    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&just_date) {
         return (
             Expression {
                 expr: Expr::DateTime(datetime),
@@ -1741,7 +1765,8 @@ pub fn parse_datetime(
     }
 
     // Date and time, assume UTC
-    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&format!("{}+00:00", token)) {
+    let datetime = token + "+00:00";
+    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&datetime) {
         return (
             Expression {
                 expr: Expr::DateTime(datetime),
@@ -1779,6 +1804,18 @@ pub fn parse_duration(
     }
 
     let bytes = working_set.get_span_contents(span);
+
+    if bytes.is_empty() || (!bytes[0].is_ascii_digit() && bytes[0] != b'-') {
+        return (
+            garbage(span),
+            Some(ParseError::Mismatch(
+                "duration".into(),
+                "non-duration unit".into(),
+                span,
+            )),
+        );
+    }
+
     let token = String::from_utf8_lossy(bytes).to_string();
 
     let upper = token.to_uppercase();
@@ -1874,6 +1911,18 @@ pub fn parse_filesize(
     }
 
     let bytes = working_set.get_span_contents(span);
+
+    if bytes.is_empty() || (!bytes[0].is_ascii_digit() && bytes[0] != b'-') {
+        return (
+            garbage(span),
+            Some(ParseError::Mismatch(
+                "filesize".into(),
+                "non-filesize unit".into(),
+                span,
+            )),
+        );
+    }
+
     let token = String::from_utf8_lossy(bytes).to_string();
 
     let upper = token.to_uppercase();
@@ -3111,6 +3160,10 @@ pub fn parse_value(
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
 
+    if bytes.is_empty() {
+        return (garbage(span), Some(ParseError::IncompleteParser(span)));
+    }
+
     // First, check the special-cases. These will likely represent specific values as expressions
     // and may fit a variety of shapes.
     //
@@ -3121,37 +3174,35 @@ pub fn parse_value(
         trace!("parsing: variable");
 
         return parse_variable_expr(working_set, span);
-    } else if bytes.starts_with(b"$") {
-        trace!("parsing: dollar expression");
+    }
 
-        return parse_dollar_expr(working_set, span);
-    } else if bytes.starts_with(b"(") {
-        trace!("parsing: range or full path");
-
-        if let (expr, None) = parse_range(working_set, span) {
-            return (expr, None);
-        } else {
-            return parse_full_cell_path(working_set, None, span);
-        }
-    } else if bytes.starts_with(b"{") {
-        trace!("parsing: block or full path");
-        if !matches!(shape, SyntaxShape::Block(..)) {
-            if let (expr, None) = parse_full_cell_path(working_set, None, span) {
+    match bytes[0] {
+        b'$' => return parse_dollar_expr(working_set, span),
+        b'(' => {
+            if let (expr, None) = parse_range(working_set, span) {
                 return (expr, None);
+            } else {
+                return parse_full_cell_path(working_set, None, span);
             }
         }
-        if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
-            return parse_block_expression(working_set, shape, span);
-        } else if matches!(shape, SyntaxShape::Record) {
-            return parse_record(working_set, span);
-        } else {
-            return (
-                Expression::garbage(span),
-                Some(ParseError::Expected("non-block value".into(), span)),
-            );
+        b'{' => {
+            if !matches!(shape, SyntaxShape::Block(..)) {
+                if let (expr, None) = parse_full_cell_path(working_set, None, span) {
+                    return (expr, None);
+                }
+            }
+            if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
+                return parse_block_expression(working_set, shape, span);
+            } else if matches!(shape, SyntaxShape::Record) {
+                return parse_record(working_set, span);
+            } else {
+                return (
+                    Expression::garbage(span),
+                    Some(ParseError::Expected("non-block value".into(), span)),
+                );
+            }
         }
-    } else if bytes.starts_with(b"[") {
-        match shape {
+        b'[' => match shape {
             SyntaxShape::Any
             | SyntaxShape::List(_)
             | SyntaxShape::Table
@@ -3162,7 +3213,8 @@ pub fn parse_value(
                     Some(ParseError::Expected("non-[] value".into(), span)),
                 );
             }
-        }
+        },
+        _ => {}
     }
 
     match shape {
