@@ -7,9 +7,9 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value,
 };
-#[cfg(target_family = "windows")]
+#[allow(unused_imports)]
 use std::ffi::OsStr;
-#[cfg(target_family = "windows")]
+#[allow(unused_imports)]
 use std::path::Path;
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
