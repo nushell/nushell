@@ -50,7 +50,7 @@ impl Command for Wrap {
                     span,
                 })
                 .into_pipeline_data(engine_state.ctrlc.clone())),
-            PipelineData::RawStream(..) => Ok(Value::Record {
+            PipelineData::ExternalStream { .. } => Ok(Value::Record {
                 cols: vec![name],
                 vals: vec![input.into_value(call.head)],
                 span,

@@ -110,7 +110,7 @@ impl Command for Lines {
                 format!("Not supported input: {}", val.as_string()?),
                 call.head,
             )),
-            PipelineData::RawStream(..) => {
+            PipelineData::ExternalStream { .. } => {
                 let config = stack.get_config()?;
 
                 //FIXME: Make sure this can fail in the future to let the user

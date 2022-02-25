@@ -171,15 +171,17 @@ fn main() -> Result<()> {
                 let stdin = std::io::stdin();
                 let buf_reader = BufReader::new(stdin);
 
-                PipelineData::RawStream(
-                    RawStream::new(
+                PipelineData::ExternalStream {
+                    stdout: RawStream::new(
                         Box::new(BufferedReader::new(buf_reader)),
                         Some(ctrlc),
                         redirect_stdin.span,
                     ),
-                    redirect_stdin.span,
-                    None,
-                )
+                    stderr: None,
+                    exit_code: None,
+                    span: redirect_stdin.span,
+                    metadata: None,
+                }
             } else {
                 PipelineData::new(Span::new(0, 0))
             };

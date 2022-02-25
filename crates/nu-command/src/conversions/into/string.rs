@@ -150,7 +150,7 @@ fn string_helper(
     }
 
     match input {
-        PipelineData::RawStream(stream, ..) => {
+        PipelineData::ExternalStream { stdout: stream, .. } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_string()?;
             Ok(Value::String {

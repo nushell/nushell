@@ -158,7 +158,7 @@ impl Command for Each {
                     }
                 })
                 .into_pipeline_data(ctrlc)),
-            PipelineData::RawStream(stream, ..) => Ok(stream
+            PipelineData::ExternalStream { stdout: stream, .. } => Ok(stream
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {

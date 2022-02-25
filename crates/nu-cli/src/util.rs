@@ -18,7 +18,7 @@ pub fn print_pipeline_data(
 
     let stdout = std::io::stdout();
 
-    if let PipelineData::RawStream(stream, _, _) = input {
+    if let PipelineData::ExternalStream { stdout: stream, .. } = input {
         for s in stream {
             let _ = stdout.lock().write_all(s?.as_binary()?);
         }

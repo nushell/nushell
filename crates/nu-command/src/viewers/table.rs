@@ -62,21 +62,25 @@ impl Command for Table {
         };
 
         match input {
-            PipelineData::RawStream(..) => Ok(input),
-            PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::RawStream(
-                RawStream::new(
-                    Box::new(
-                        vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
-                            .as_bytes()
-                            .to_vec())]
-                        .into_iter(),
+            PipelineData::ExternalStream { .. } => Ok(input),
+            PipelineData::Value(Value::Binary { val, .. }, ..) => {
+                Ok(PipelineData::ExternalStream {
+                    stdout: RawStream::new(
+                        Box::new(
+                            vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
+                                .as_bytes()
+                                .to_vec())]
+                            .into_iter(),
+                        ),
+                        ctrlc,
+                        head,
                     ),
-                    ctrlc,
-                    head,
-                ),
-                head,
-                None,
-            )),
+                    stderr: None,
+                    exit_code: None,
+                    span: head,
+                    metadata: None,
+                })
+            }
             PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
                 engine_state,
                 stack,
@@ -255,8 +259,8 @@ fn handle_row_stream(
 
     let head = call.head;
 
-    Ok(PipelineData::RawStream(
-        RawStream::new(
+    Ok(PipelineData::ExternalStream {
+        stdout: RawStream::new(
             Box::new(PagingTableCreator {
                 row_offset,
                 config,
@@ -267,9 +271,11 @@ fn handle_row_stream(
             ctrlc,
             head,
         ),
-        head,
-        None,
-    ))
+        stderr: None,
+        exit_code: None,
+        span: head,
+        metadata: None,
+    })
 }
 
 fn convert_to_table(
