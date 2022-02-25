@@ -66,7 +66,7 @@ impl Command for Base64 {
             },
             Example {
                 description: "Base64 encode a string with the binhex character set",
-                example: "echo 'username:password' | hash base64 --character_set binhex --encode",
+                example: "echo 'username:password' | hash base64 --character-set binhex --encode",
                 result: Some(Value::string("F@0NEPjJD97kE'&bEhFZEP3", Span::test_data())),
             },
             Example {

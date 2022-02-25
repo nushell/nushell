@@ -15,3 +15,10 @@ Runs external command
  -  `...rest`: external command to run
  -  `--redirect-stdout`: redirect-stdout
  -  `--redirect-stderr`: redirect-stderr
+
+## Examples
+
+Run an external command
+```shell
+> run-external "echo" "-n" "hello"
+```
