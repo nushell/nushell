@@ -75,10 +75,7 @@ pub(crate) fn read_config_file(
         config_path.push(CONFIG_FILE);
 
         if !config_path.exists() {
-            println!(
-                "No config file found at {}",
-                config_path.to_string_lossy().to_string()
-            );
+            println!("No config file found at {}", config_path.to_string_lossy());
             println!("Would you like to create one with defaults (Y/n): ");
 
             let mut answer = String::new();
@@ -91,10 +88,7 @@ pub(crate) fn read_config_file(
                     let mut output = File::create(&config_path).expect("Unable to create file");
                     let config_file = include_str!("default_config.nu");
                     write!(output, "{}", config_file).expect("Unable to write to config file");
-                    println!(
-                        "Config file created at: {}",
-                        config_path.to_string_lossy().to_string()
-                    );
+                    println!("Config file created at: {}", config_path.to_string_lossy());
                 }
                 _ => {
                     println!("Continuing without config file");
