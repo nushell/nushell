@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Extern;
@@ -29,5 +29,13 @@ impl Command for Extern {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Write a signature for an external command",
+            example: r#"extern echo [text: string]"#,
+            result: None,
+        }]
     }
 }
