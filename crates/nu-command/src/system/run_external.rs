@@ -8,7 +8,7 @@ use std::sync::mpsc;
 use nu_engine::env_to_strings;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{Category, PipelineData, RawStream, Span, Spanned};
+use nu_protocol::{Category, Example, PipelineData, RawStream, Span, Spanned};
 
 use itertools::Itertools;
 
@@ -92,6 +92,14 @@ impl Command for External {
             env_vars: env_vars_str,
         };
         command.run_with_input(engine_state, stack, input)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Run an external command",
+            example: r#"run-external "echo" "-n" "hello""#,
+            result: None,
+        }]
     }
 }
 
