@@ -89,12 +89,14 @@ impl Command for RollLeft {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
+        let metadata = input.metadata();
+
         let cells_only = call.has_flag("cells-only");
         let value = input.into_value(call.head);
         let rotated_value =
             horizontal_rotate_value(value, &by, cells_only, &HorizontalDirection::Left)?;
 
-        Ok(rotated_value.into_pipeline_data())
+        Ok(rotated_value.into_pipeline_data().set_metadata(metadata))
     }
 }
 
