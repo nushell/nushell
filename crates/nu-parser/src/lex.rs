@@ -276,7 +276,7 @@ pub fn lex(
             let mut start = curr_offset;
 
             while let Some(input) = input.get(curr_offset) {
-                if *input == b'\n' || *input == b'\r' {
+                if *input == b'\n' {
                     if !skip_comment {
                         output.push(Token::new(
                             TokenContents::Comment,
