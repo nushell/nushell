@@ -59,7 +59,7 @@ impl Command for Compact {
                 }),
             },
             Example {
-                description: "Filter out all instances of nothing from a list (Returns [1,2]",
+                description: "Filter out all instances of nothing from a list (Returns [1,2])",
                 example: r#"echo [1, $nothing, 2] | compact"#,
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(2)],

@@ -27,7 +27,7 @@ Base64 encode a string with default settings
 
 Base64 encode a string with the binhex character set
 ```shell
-> echo 'username:password' | hash base64 --character_set binhex --encode
+> echo 'username:password' | hash base64 --character-set binhex --encode
 ```
 
 Base64 decode a value

@@ -26,7 +26,7 @@ Filter out all records where 'World' is null (Returns the table)
 > echo [["Hello" "World"]; [$nothing 3]]| compact World
 ```
 
-Filter out all instances of nothing from a list (Returns [1,2]
+Filter out all instances of nothing from a list (Returns [1,2])
 ```shell
 > echo [1, $nothing, 2] | compact
 ```
