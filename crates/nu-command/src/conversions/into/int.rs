@@ -188,7 +188,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
         Value::Int { val, .. } => val.to_string(),
         Value::String { val, .. } => {
             if val.starts_with("0x") || val.starts_with("0b") {
-                match int_from_string(&val.to_string(), head) {
+                match int_from_string(val, head) {
                     Ok(x) => return Value::Int { val: x, span: head },
                     Err(e) => return Value::Error { error: e },
                 }

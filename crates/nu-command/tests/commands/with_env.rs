@@ -65,8 +65,6 @@ fn test_redirection2() {
     assert_eq!(actual.out, "10");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn with_env_hides_variables_in_parent_scope() {
     let actual = nu!(
@@ -82,8 +80,6 @@ fn with_env_hides_variables_in_parent_scope() {
     );
 
     assert_eq!(actual.out, "11");
-    assert!(actual.err.contains("error"));
-    assert!(actual.err.contains("Unknown column"));
 }
 
 // FIXME: jt: needs more work

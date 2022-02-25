@@ -13,3 +13,10 @@ Enters a new shell at the given path.
 ## Parameters
 
  -  `path`: the path to enter as a new shell
+
+## Examples
+
+Enter a new shell at path '../dir-foo'
+```shell
+> enter ../dir-foo
+```

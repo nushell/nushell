@@ -106,8 +106,6 @@ fn column_names_with_spaces() {
     assert_eq!(actual.out, "Robalino Jnth");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn ignores_duplicate_columns_selected() {
     let actual = nu!(cwd: ".", pipeline(
@@ -119,7 +117,7 @@ fn ignores_duplicate_columns_selected() {
                 [Andrés Jnth]
             ]
             | select "first name" "last name" "first name"
-            | get
+            | columns
             | str collect " "
         "#
     ));

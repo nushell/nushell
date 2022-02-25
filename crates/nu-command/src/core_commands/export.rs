@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, Signature, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -38,5 +38,16 @@ impl Command for ExportCommand {
             span: call.head,
         }
         .into_pipeline_data())
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Export a definition from a module",
+            example: r#"module utils { export def my-command [] { "hello" } }; use utils my-command; my-command"#,
+            result: Some(Value::String {
+                val: "hello".to_string(),
+                span: Span::test_data(),
+            }),
+        }]
     }
 }

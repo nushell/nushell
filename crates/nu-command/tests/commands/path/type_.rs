@@ -15,8 +15,6 @@ fn returns_type_of_missing_file() {
     assert_eq!(actual.out, "");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn returns_type_of_existing_file() {
     Playground::setup("path_expand_1", |dirs, sandbox| {
@@ -36,8 +34,6 @@ fn returns_type_of_existing_file() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn returns_type_of_existing_directory() {
     Playground::setup("path_expand_1", |dirs, sandbox| {

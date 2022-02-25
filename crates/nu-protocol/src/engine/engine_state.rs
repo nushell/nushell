@@ -169,6 +169,9 @@ pub struct EngineState {
     pub env_vars: im::HashMap<String, Value>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
+
+    // A list of external commands that look like math expressions
+    pub external_exceptions: Vec<Vec<u8>>,
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
@@ -199,6 +202,7 @@ impl EngineState {
             env_vars: im::HashMap::new(),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
+            external_exceptions: vec![],
         }
     }
 
@@ -633,6 +637,7 @@ impl Default for EngineState {
 pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
+    pub external_commands: Vec<Vec<u8>>,
 }
 
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
@@ -707,6 +712,7 @@ impl<'a> StateWorkingSet<'a> {
         Self {
             delta: StateDelta::new(),
             permanent_state,
+            external_commands: vec![],
         }
     }
 

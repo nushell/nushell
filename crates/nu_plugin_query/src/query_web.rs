@@ -276,28 +276,31 @@ pub fn css(selector: &str) -> ScraperSelector {
     ScraperSelector::parse(selector).expect("this should never trigger")
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//         const SIMPLE_LIST: &str = r#"
-//         <ul>
-//             <li>Coffee</li>
-//             <li>Tea</li>
-//             <li>Milk</li>
-//         </ul>
-//     "#;
+    const SIMPLE_LIST: &str = r#"
+         <ul>
+             <li>Coffee</li>
+             <li>Tea</li>
+             <li>Milk</li>
+         </ul>
+     "#;
 
-//     #[test]
-//     fn test_first_child_is_not_empty() {
-//         assert!(!execute_selector_query(SIMPLE_LIST, "li:first-child", false).is_empty())
-//     }
+    #[test]
+    fn test_first_child_is_not_empty() {
+        assert!(
+            !execute_selector_query(SIMPLE_LIST, "li:first-child", false, Span::test_data())
+                .is_empty()
+        )
+    }
 
-//     #[test]
-//     fn test_first_child() {
-//         assert_eq!(
-//             vec!["Coffee".to_string()],
-//             execute_selector_query(SIMPLE_LIST, "li:first-child", false)
-//         )
-//     }
-// }
+    #[test]
+    fn test_first_child() {
+        let item = execute_selector_query(SIMPLE_LIST, "li:first-child", false, Span::test_data());
+        let config = nu_protocol::Config::default();
+        let out = item.into_string("\n", &config);
+        assert_eq!("[Coffee]".to_string(), out)
+    }
+}

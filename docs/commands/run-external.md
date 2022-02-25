@@ -8,9 +8,10 @@ Runs external command
 
 ## Signature
 
-```> run-external ...rest --last-expression```
+```> run-external ...rest --redirect-stdout --redirect-stderr```
 
 ## Parameters
 
  -  `...rest`: external command to run
- -  `--last-expression`: last-expression
+ -  `--redirect-stdout`: redirect-stdout
+ -  `--redirect-stderr`: redirect-stderr

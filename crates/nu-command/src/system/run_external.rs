@@ -8,7 +8,7 @@ use std::sync::mpsc;
 use nu_engine::env_to_strings;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{Category, PipelineData, RawStream, Span, Spanned};
+use nu_protocol::{Category, Example, PipelineData, RawStream, Span, Spanned};
 
 use itertools::Itertools;
 
@@ -35,7 +35,7 @@ impl Command for External {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("run-external")
+        Signature::build(self.name())
             .switch("redirect-stdout", "redirect-stdout", None)
             .switch("redirect-stderr", "redirect-stderr", None)
             .rest("rest", SyntaxShape::Any, "external command to run")
@@ -58,48 +58,48 @@ impl Command for External {
         let config = stack.get_config().unwrap_or_default();
         let env_vars_str = env_to_strings(engine_state, stack, &config)?;
 
-        let mut args_strs = vec![];
+        fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
+            let span = value.span()?;
 
-        for arg in args {
-            let span = if let Ok(span) = arg.span() {
-                span
-            } else {
-                Span { start: 0, end: 0 }
-            };
-
-            if let Ok(s) = arg.as_string() {
-                args_strs.push(Spanned { item: s, span });
-            } else if let Value::List { vals, span } = arg {
-                // Interpret a list as a series of arguments
-                for val in vals {
-                    if let Ok(s) = val.as_string() {
-                        args_strs.push(Spanned { item: s, span });
-                    } else {
-                        return Err(ShellError::ExternalCommand(
-                            "Cannot convert argument to a string".into(),
-                            "All arguments to an external command need to be string-compatible"
-                                .into(),
-                            val.span()?,
-                        ));
-                    }
-                }
-            } else {
-                return Err(ShellError::ExternalCommand(
-                    "Cannot convert argument to a string".into(),
-                    "All arguments to an external command need to be string-compatible".into(),
-                    arg.span()?,
-                ));
-            }
+            value
+                .as_string()
+                .map(|item| Spanned { item, span })
+                .map_err(|_| {
+                    ShellError::ExternalCommand(
+                        "Cannot convert argument to a string".into(),
+                        "All arguments to an external command need to be string-compatible".into(),
+                        span,
+                    )
+                })
         }
+
+        let args = args
+            .into_iter()
+            .flat_map(|arg| match arg {
+                Value::List { vals, .. } => vals
+                    .into_iter()
+                    .map(value_as_spanned)
+                    .collect::<Vec<Result<Spanned<String>, ShellError>>>(),
+                val => vec![value_as_spanned(val)],
+            })
+            .collect::<Result<Vec<Spanned<String>>, ShellError>>()?;
 
         let command = ExternalCommand {
             name,
-            args: args_strs,
+            args,
             redirect_stdout,
             redirect_stderr,
             env_vars: env_vars_str,
         };
         command.run_with_input(engine_state, stack, input)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Run an external command",
+            example: r#"run-external "echo" "-n" "hello""#,
+            result: None,
+        }]
     }
 }
 
@@ -122,79 +122,14 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let mut process = if let Some(d) = self.env_vars.get("PWD") {
-            let mut process = self.create_command(d)?;
-            process.current_dir(d);
-            process
-        } else {
-            return Err(ShellError::SpannedLabeledErrorHelp(
-                "Current directory not found".to_string(),
-                "did not find PWD environment variable".to_string(),
-                head,
-                concat!(
-                    "The environment variable 'PWD' was not found. ",
-                    "It is required to define the current directory when running an external command."
-                ).to_string(),
-            ));
-        };
-
-        process.envs(&self.env_vars);
-
-        // If the external is not the last command, its output will get piped
-        // either as a string or binary
-        if self.redirect_stdout {
-            process.stdout(Stdio::piped());
-        }
-
-        if self.redirect_stderr {
-            process.stderr(Stdio::piped());
-        }
-
-        // If there is an input from the pipeline. The stdin from the process
-        // is piped so it can be used to send the input information
-        if !matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
-            process.stdin(Stdio::piped());
-        }
-
+        let mut process = self.create_process(&input, false, head)?;
         let child;
 
         #[cfg(windows)]
         {
             match process.spawn() {
                 Err(_) => {
-                    let mut process = self.spawn_cmd_command();
-                    if let Some(d) = self.env_vars.get("PWD") {
-                        process.current_dir(d);
-                    } else {
-                        return Err(ShellError::SpannedLabeledErrorHelp(
-                            "Current directory not found".to_string(),
-                            "did not find PWD environment variable".to_string(),
-                            head,
-                            concat!(
-                                "The environment variable 'PWD' was not found. ",
-                                "It is required to define the current directory when running an external command."
-                            ).to_string(),
-                        ));
-                    };
-
-                    process.envs(&self.env_vars);
-
-                    // If the external is not the last command, its output will get piped
-                    // either as a string or binary
-                    if self.redirect_stdout {
-                        process.stdout(Stdio::piped());
-                    }
-
-                    if self.redirect_stderr {
-                        process.stderr(Stdio::piped());
-                    }
-
-                    // If there is an input from the pipeline. The stdin from the process
-                    // is piped so it can be used to send the input information
-                    if !matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
-                        process.stdin(Stdio::piped());
-                    }
-
+                    let mut process = self.create_process(&input, true, head)?;
                     child = process.spawn();
                 }
                 Ok(process) => {
@@ -261,7 +196,7 @@ impl ExternalCommand {
 
                 std::thread::spawn(move || {
                     // If this external is not the last expression, then its output is piped to a channel
-                    // and we create a ValueStream that can be consumed
+                    // and we create a ListStream that can be consumed
 
                     if redirect_stderr {
                         let _ = child.stderr.take();
@@ -324,6 +259,54 @@ impl ExternalCommand {
                 ))
             }
         }
+    }
+
+    fn create_process(
+        &self,
+        input: &PipelineData,
+        use_cmd: bool,
+        span: Span,
+    ) -> Result<CommandSys, ShellError> {
+        let mut process = if let Some(d) = self.env_vars.get("PWD") {
+            let mut process = if use_cmd {
+                self.spawn_cmd_command()
+            } else {
+                self.create_command(d)?
+            };
+
+            process.current_dir(d);
+            process
+        } else {
+            return Err(ShellError::SpannedLabeledErrorHelp(
+                "Current directory not found".to_string(),
+                "did not find PWD environment variable".to_string(),
+                span,
+                concat!(
+                    "The environment variable 'PWD' was not found. ",
+                    "It is required to define the current directory when running an external command."
+                ).to_string(),
+            ));
+        };
+
+        process.envs(&self.env_vars);
+
+        // If the external is not the last command, its output will get piped
+        // either as a string or binary
+        if self.redirect_stdout {
+            process.stdout(Stdio::piped());
+        }
+
+        if self.redirect_stderr {
+            process.stderr(Stdio::piped());
+        }
+
+        // If there is an input from the pipeline. The stdin from the process
+        // is piped so it can be used to send the input information
+        if !matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
+            process.stdin(Stdio::piped());
+        }
+
+        Ok(process)
     }
 
     fn create_command(&self, cwd: &str) -> Result<CommandSys, ShellError> {
@@ -422,7 +405,7 @@ impl ExternalCommand {
             // Clean the args before we use them:
             // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
             // cmd.exe needs to have a caret to escape a pipe
-            let arg = arg.item.replace("|", "^|");
+            let arg = arg.item.replace('|', "^|");
             process.arg(&arg);
         }
         process
@@ -469,8 +452,8 @@ fn trim_enclosing_quotes(input: &str) -> String {
     }
 }
 
-// Receiver used for the ValueStream
-// It implements iterator so it can be used as a ValueStream
+// Receiver used for the ListStream
+// It implements iterator so it can be used as a ListStream
 struct ChannelReceiver {
     rx: mpsc::Receiver<Vec<u8>>,
 }

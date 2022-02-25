@@ -168,5 +168,5 @@ pub fn read_std(std: &[u8]) -> String {
     let out = String::from_utf8_lossy(std);
     let out = out.lines().collect::<Vec<_>>().join("\n");
     let out = out.replace("\r\n", "");
-    out.replace("\n", "")
+    out.replace('\n', "")
 }

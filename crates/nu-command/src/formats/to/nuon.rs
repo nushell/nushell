@@ -57,7 +57,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         }
         Value::CellPath { .. } => Err(ShellError::UnsupportedInput("cellpath".to_string(), span)),
         Value::CustomValue { .. } => Err(ShellError::UnsupportedInput("custom".to_string(), span)),
-        Value::Date { .. } => Err(ShellError::UnsupportedInput("date".to_string(), span)),
+        Value::Date { val, .. } => Ok(val.to_rfc3339()),
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
         Value::Error { .. } => Err(ShellError::UnsupportedInput("error".to_string(), span)),
         Value::Filesize { val, .. } => Ok(format!("{}b", *val)),

@@ -1,7 +1,9 @@
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -74,5 +76,20 @@ impl Command for GotoShell {
         stack.add_env_var("PWD".into(), new_path);
 
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Make two directories and enter new shells for them, use `g` to jump to the specific shell",
+                example: r#"mkdir foo bar; enter foo; enter ../bar; g 1"#,
+                result: None,
+            },
+            Example {
+                description: "Use `shells` to show all the opened shells and run `g 2` to jump to the third one",
+                example: r#"shells; g 2"#,
+                result: None,
+            },
+        ]
     }
 }

@@ -254,6 +254,72 @@ pub(crate) fn eval_source(
     true
 }
 
+/// Finds externals that have names that look like math expressions
+pub fn external_exceptions(engine_state: &EngineState, stack: &Stack) -> Vec<Vec<u8>> {
+    let mut executables = vec![];
+
+    if let Some(path) = stack.get_env_var(engine_state, "PATH") {
+        match path {
+            Value::List { vals, .. } => {
+                for val in vals {
+                    let path = val.as_string();
+
+                    if let Ok(path) = path {
+                        if let Ok(mut contents) = std::fs::read_dir(path) {
+                            while let Some(Ok(item)) = contents.next() {
+                                if is_executable::is_executable(&item.path()) {
+                                    if let Ok(name) = item.file_name().into_string() {
+                                        let name = name.as_bytes().to_vec();
+                                        if nu_parser::is_math_expression_like(&name) {
+                                            executables.push(name);
+                                        }
+                                    }
+
+                                    if let Some(name) = item.path().file_stem() {
+                                        let name = name.to_string_lossy();
+                                        let name = name.as_bytes().to_vec();
+                                        if nu_parser::is_math_expression_like(&name) {
+                                            executables.push(name);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Value::String { val, .. } => {
+                for path in std::env::split_paths(&val) {
+                    let path = path.to_string_lossy().to_string();
+
+                    if let Ok(mut contents) = std::fs::read_dir(path) {
+                        while let Some(Ok(item)) = contents.next() {
+                            if is_executable::is_executable(&item.path()) {
+                                if let Ok(name) = item.file_name().into_string() {
+                                    let name = name.as_bytes().to_vec();
+                                    if nu_parser::is_math_expression_like(&name) {
+                                        executables.push(name);
+                                    }
+                                }
+                                if let Some(name) = item.path().file_stem() {
+                                    let name = name.to_string_lossy();
+                                    let name = name.as_bytes().to_vec();
+                                    if nu_parser::is_math_expression_like(&name) {
+                                        executables.push(name);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    executables
+}
+
 #[cfg(windows)]
 pub fn enable_vt_processing() -> Result<(), ShellError> {
     use crossterm_winapi::{ConsoleMode, Handle};
@@ -292,7 +358,7 @@ pub fn report_error(
 pub(crate) fn get_init_cwd() -> PathBuf {
     match std::env::current_dir() {
         Ok(cwd) => cwd,
-        Err(_) => match std::env::var("PWD".to_string()) {
+        Err(_) => match std::env::var("PWD") {
             Ok(cwd) => PathBuf::from(cwd),
             Err(_) => match nu_path::home_dir() {
                 Some(cwd) => cwd,

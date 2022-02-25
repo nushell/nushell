@@ -31,6 +31,7 @@ pub fn math_result_type(
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
                 (Type::String, Type::String) => (Type::String, None),
+                (Type::Date, Type::Duration) => (Type::Date, None),
                 (Type::Duration, Type::Duration) => (Type::Duration, None),
                 (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
 
@@ -69,6 +70,7 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+                (Type::Date, Type::Date) => (Type::Duration, None),
                 (Type::Duration, Type::Duration) => (Type::Duration, None),
                 (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
 

@@ -259,7 +259,7 @@ impl PipelineData {
     }
 
     /// Simplified flatmapper. For full iterator support use `.into_iter()` instead
-    pub fn flat_map<U, F>(
+    pub fn flat_map<U: 'static, F>(
         self,
         mut f: F,
         ctrlc: Option<Arc<AtomicBool>>,
@@ -272,10 +272,10 @@ impl PipelineData {
     {
         match self {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Ok(vals.into_iter().map(f).flatten().into_pipeline_data(ctrlc))
+                Ok(vals.into_iter().flat_map(f).into_pipeline_data(ctrlc))
             }
             PipelineData::ListStream(stream, ..) => {
-                Ok(stream.map(f).flatten().into_pipeline_data(ctrlc))
+                Ok(stream.flat_map(f).into_pipeline_data(ctrlc))
             }
             PipelineData::RawStream(stream, ..) => {
                 let collected = stream.into_bytes()?;
@@ -297,7 +297,7 @@ impl PipelineData {
                 }
             }
             PipelineData::Value(Value::Range { val, .. }, ..) => match val.into_range_iter() {
-                Ok(iter) => Ok(iter.map(f).flatten().into_pipeline_data(ctrlc)),
+                Ok(iter) => Ok(iter.flat_map(f).into_pipeline_data(ctrlc)),
                 Err(error) => Err(error),
             },
             PipelineData::Value(v, ..) => Ok(f(v).into_iter().into_pipeline_data(ctrlc)),

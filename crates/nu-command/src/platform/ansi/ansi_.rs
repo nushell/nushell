@@ -423,7 +423,7 @@ fn generate_ansi_code_list(
             let cols = vec!["name".into(), "short name".into(), "code".into()];
             let name: Value = Value::string(String::from(ansi_code.long_name), call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
-            let code_string = String::from(&ansi_code.code.replace("\u{1b}", ""));
+            let code_string = String::from(&ansi_code.code.replace('\u{1b}', ""));
             let code = Value::string(code_string, call_span);
             let vals = vec![name, short_name, code];
             Value::Record {
