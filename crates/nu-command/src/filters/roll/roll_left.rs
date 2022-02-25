@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Value,
 };
 
 use super::{horizontal_rotate_value, HorizontalDirection};
@@ -89,7 +89,6 @@ impl Command for RollLeft {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
-        let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 
         let cells_only = call.has_flag("cells-only");
@@ -97,11 +96,7 @@ impl Command for RollLeft {
         let rotated_value =
             horizontal_rotate_value(value, &by, cells_only, &HorizontalDirection::Left)?;
 
-        rotated_value.as_list().map(|x| {
-            x.to_owned()
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata)
-        })
+        Ok(rotated_value.into_pipeline_data().set_metadata(metadata))
     }
 }
 
