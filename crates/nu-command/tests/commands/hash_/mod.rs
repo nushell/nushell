@@ -33,7 +33,7 @@ fn error_when_invalid_character_set_given() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 'username:password' | hash base64 --character_set 'this is invalid' --encode
+        echo 'username:password' | hash base64 --character-set 'this is invalid' --encode
         "#
         )
     );
@@ -43,19 +43,17 @@ fn error_when_invalid_character_set_given() {
         .contains("this is invalid is not a valid character-set"));
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn base64_decode_characterset_binhex() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo "F@0NEPjJD97kE'&bEhFZEP3" | hash base64 --character_set binhex --decode
+        echo "F@0NELS[A@0bFepaB!" | hash base64 --character-set binhex --decode
         "#
         )
     );
 
-    assert_eq!(actual.out, "username:password");
+    assert_eq!(actual.out, "user:password");
 }
 
 #[test]

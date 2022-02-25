@@ -34,8 +34,6 @@ fn moves_a_column_before() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn moves_columns_before() {
     Playground::setup("move_column_test_2", |dirs, sandbox| {
@@ -61,17 +59,16 @@ fn moves_columns_before() {
                 | move column99 column3 --before column2
                 | rename _ chars_1 chars_2
                 | get chars_2 chars_1
+                | flatten
                 | str trim
                 | str collect
             "#
         ));
 
-        assert!(actual.out.contains("ANDRES::JONATHAN"));
+        assert!(actual.out.contains("ADE:JNTANRS:OAHN"));
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn moves_a_column_after() {
     Playground::setup("move_column_test_3", |dirs, sandbox| {
@@ -98,12 +95,13 @@ fn moves_a_column_after() {
                 | move letters and_more --before column2
                 | rename _ chars_1 chars_2
                 | get chars_1 chars_2
+                | flatten
                 | str trim
                 | str collect
             "#
         ));
 
-        assert!(actual.out.contains("ANDRES::JONATHAN"));
+        assert!(actual.out.contains("ADE:JNTANRS:OAHN"));
     })
 }
 

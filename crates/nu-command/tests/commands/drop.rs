@@ -16,8 +16,6 @@ fn columns() {
     assert_eq!(actual.out, "1");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn more_columns_than_table_has() {
     let actual = nu!(
@@ -27,11 +25,11 @@ fn more_columns_than_table_has() {
               [3,  white]
               [8, yellow]
               [4,  white]
-            ] | drop column 3 | columns | empty?
+            ] | drop column 3 | columns | length
         "#)
     );
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual.out, "0");
 }
 
 #[test]
