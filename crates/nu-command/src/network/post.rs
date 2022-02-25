@@ -378,17 +378,19 @@ fn response_to_buffer(
 ) -> nu_protocol::PipelineData {
     let buffered_input = BufReader::new(response);
 
-    PipelineData::RawStream(
-        RawStream::new(
+    PipelineData::ExternalStream {
+        stdout: RawStream::new(
             Box::new(BufferedReader {
                 input: buffered_input,
             }),
             engine_state.ctrlc.clone(),
             span,
         ),
+        stderr: None,
+        exit_code: None,
         span,
-        None,
-    )
+        metadata: None,
+    }
 }
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails

@@ -39,6 +39,9 @@ impl Command for KnownExternal {
         let call_span = call.span();
         let contents = engine_state.get_span_contents(&call_span);
 
+        let redirect_stdout = call.redirect_stdout;
+        let redirect_stderr = call.redirect_stderr;
+
         let (lexed, _) = crate::lex(contents, call_span.start, &[], &[], true);
 
         let spans: Vec<_> = lexed.into_iter().map(|x| x.span).collect();
@@ -61,7 +64,7 @@ impl Command for KnownExternal {
                     call.positional.push(arg.clone())
                 }
 
-                if call.redirect_stdout {
+                if redirect_stdout {
                     call.named.push((
                         Spanned {
                             item: "redirect-stdout".into(),
@@ -71,7 +74,7 @@ impl Command for KnownExternal {
                     ))
                 }
 
-                if call.redirect_stderr {
+                if redirect_stderr {
                     call.named.push((
                         Spanned {
                             item: "redirect-stderr".into(),

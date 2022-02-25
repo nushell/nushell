@@ -120,15 +120,17 @@ impl Command for Open {
 
             let buf_reader = BufReader::new(file);
 
-            let output = PipelineData::RawStream(
-                RawStream::new(
+            let output = PipelineData::ExternalStream {
+                stdout: RawStream::new(
                     Box::new(BufferedReader { input: buf_reader }),
                     ctrlc,
                     call_span,
                 ),
-                call_span,
-                None,
-            );
+                stderr: None,
+                exit_code: None,
+                span: call_span,
+                metadata: None,
+            };
 
             let ext = if raw {
                 None

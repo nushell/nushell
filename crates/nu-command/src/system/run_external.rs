@@ -8,7 +8,7 @@ use std::sync::mpsc;
 use nu_engine::env_to_strings;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{Category, Example, PipelineData, RawStream, Span, Spanned};
+use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
 
 use itertools::Itertools;
 
@@ -192,14 +192,51 @@ impl ExternalCommand {
                 let redirect_stderr = self.redirect_stderr;
                 let span = self.name.span;
                 let output_ctrlc = ctrlc.clone();
-                let (tx, rx) = mpsc::channel();
+                let (stdout_tx, stdout_rx) = mpsc::channel();
+                let (stderr_tx, stderr_rx) = mpsc::channel();
+                let (exit_code_tx, exit_code_rx) = mpsc::channel();
 
                 std::thread::spawn(move || {
                     // If this external is not the last expression, then its output is piped to a channel
                     // and we create a ListStream that can be consumed
 
                     if redirect_stderr {
-                        let _ = child.stderr.take();
+                        let stderr = child.stderr.take().ok_or_else(|| {
+                            ShellError::ExternalCommand(
+                                "Error taking stderr from external".to_string(),
+                                "Redirects need access to stderr of an external command"
+                                    .to_string(),
+                                span,
+                            )
+                        })?;
+
+                        // Stderr is read using the Buffer reader. It will do so until there is an
+                        // error or there are no more bytes to read
+                        let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stderr);
+                        while let Ok(bytes) = buf_read.fill_buf() {
+                            if bytes.is_empty() {
+                                break;
+                            }
+
+                            // The Cow generated from the function represents the conversion
+                            // from bytes to String. If no replacements are required, then the
+                            // borrowed value is a proper UTF-8 string. The Owned option represents
+                            // a string where the values had to be replaced, thus marking it as bytes
+                            let bytes = bytes.to_vec();
+                            let length = bytes.len();
+                            buf_read.consume(length);
+
+                            if let Some(ctrlc) = &ctrlc {
+                                if ctrlc.load(Ordering::SeqCst) {
+                                    break;
+                                }
+                            }
+
+                            match stderr_tx.send(bytes) {
+                                Ok(_) => continue,
+                                Err(_) => break,
+                            }
+                        }
                     }
 
                     if redirect_stdout {
@@ -234,7 +271,7 @@ impl ExternalCommand {
                                 }
                             }
 
-                            match tx.send(bytes) {
+                            match stdout_tx.send(bytes) {
                                 Ok(_) => continue,
                                 Err(_) => break,
                             }
@@ -247,16 +284,42 @@ impl ExternalCommand {
                             err.to_string(),
                             span,
                         )),
-                        Ok(_) => Ok(()),
+                        Ok(x) => {
+                            if let Some(code) = x.code() {
+                                let _ = exit_code_tx.send(Value::Int {
+                                    val: code as i64,
+                                    span: head,
+                                });
+                            } else if x.success() {
+                                let _ = exit_code_tx.send(Value::Int { val: 0, span: head });
+                            } else {
+                                let _ = exit_code_tx.send(Value::Int {
+                                    val: -1,
+                                    span: head,
+                                });
+                            }
+                            Ok(())
+                        }
                     }
                 });
-                let receiver = ChannelReceiver::new(rx);
+                let stdout_receiver = ChannelReceiver::new(stdout_rx);
+                let stderr_receiver = ChannelReceiver::new(stderr_rx);
+                let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 
-                Ok(PipelineData::RawStream(
-                    RawStream::new(Box::new(receiver), output_ctrlc, head),
-                    head,
-                    None,
-                ))
+                Ok(PipelineData::ExternalStream {
+                    stdout: RawStream::new(Box::new(stdout_receiver), output_ctrlc.clone(), head),
+                    stderr: Some(RawStream::new(
+                        Box::new(stderr_receiver),
+                        output_ctrlc.clone(),
+                        head,
+                    )),
+                    exit_code: Some(ListStream::from_stream(
+                        Box::new(exit_code_receiver),
+                        output_ctrlc,
+                    )),
+                    span: head,
+                    metadata: None,
+                })
             }
         }
     }
@@ -452,8 +515,8 @@ fn trim_enclosing_quotes(input: &str) -> String {
     }
 }
 
-// Receiver used for the ListStream
-// It implements iterator so it can be used as a ListStream
+// Receiver used for the RawStream
+// It implements iterator so it can be used as a RawStream
 struct ChannelReceiver {
     rx: mpsc::Receiver<Vec<u8>>,
 }
@@ -470,6 +533,29 @@ impl Iterator for ChannelReceiver {
     fn next(&mut self) -> Option<Self::Item> {
         match self.rx.recv() {
             Ok(v) => Some(Ok(v)),
+            Err(_) => None,
+        }
+    }
+}
+
+// Receiver used for the ListStream
+// It implements iterator so it can be used as a ListStream
+struct ValueReceiver {
+    rx: mpsc::Receiver<Value>,
+}
+
+impl ValueReceiver {
+    pub fn new(rx: mpsc::Receiver<Value>) -> Self {
+        Self { rx }
+    }
+}
+
+impl Iterator for ValueReceiver {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.rx.recv() {
+            Ok(v) => Some(v),
             Err(_) => None,
         }
     }

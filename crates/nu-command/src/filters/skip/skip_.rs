@@ -76,7 +76,12 @@ impl Command for Skip {
         let ctrlc = engine_state.ctrlc.clone();
 
         match input {
-            PipelineData::RawStream(stream, bytes_span, metadata) => {
+            PipelineData::ExternalStream {
+                stdout: stream,
+                span: bytes_span,
+                metadata,
+                ..
+            } => {
                 let mut remaining = n;
                 let mut output = vec![];
 

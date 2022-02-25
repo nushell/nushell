@@ -200,7 +200,7 @@ impl Command for ParEach {
                 .into_iter()
                 .flatten()
                 .into_pipeline_data(ctrlc)),
-            PipelineData::RawStream(stream, ..) => Ok(stream
+            PipelineData::ExternalStream { stdout: stream, .. } => Ok(stream
                 .enumerate()
                 .par_bridge()
                 .map(move |(idx, x)| {

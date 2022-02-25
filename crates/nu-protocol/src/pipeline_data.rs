@@ -35,7 +35,13 @@ use crate::{ast::PathMember, Config, ListStream, RawStream, ShellError, Span, Va
 pub enum PipelineData {
     Value(Value, Option<PipelineMetadata>),
     ListStream(ListStream, Option<PipelineMetadata>),
-    RawStream(RawStream, Span, Option<PipelineMetadata>),
+    ExternalStream {
+        stdout: RawStream,
+        stderr: Option<RawStream>,
+        exit_code: Option<ListStream>,
+        span: Span,
+        metadata: Option<PipelineMetadata>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -60,7 +66,7 @@ impl PipelineData {
     pub fn metadata(&self) -> Option<PipelineMetadata> {
         match self {
             PipelineData::ListStream(_, x) => x.clone(),
-            PipelineData::RawStream(_, _, x) => x.clone(),
+            PipelineData::ExternalStream { metadata: x, .. } => x.clone(),
             PipelineData::Value(_, x) => x.clone(),
         }
     }
@@ -68,7 +74,7 @@ impl PipelineData {
     pub fn set_metadata(mut self, metadata: Option<PipelineMetadata>) -> Self {
         match &mut self {
             PipelineData::ListStream(_, x) => *x = metadata,
-            PipelineData::RawStream(_, _, x) => *x = metadata,
+            PipelineData::ExternalStream { metadata: x, .. } => *x = metadata,
             PipelineData::Value(_, x) => *x = metadata,
         }
 
@@ -87,7 +93,7 @@ impl PipelineData {
                 vals: s.collect(),
                 span, // FIXME?
             },
-            PipelineData::RawStream(mut s, ..) => {
+            PipelineData::ExternalStream { stdout: mut s, .. } => {
                 let mut items = vec![];
 
                 for val in &mut s {
@@ -151,7 +157,7 @@ impl PipelineData {
         match self {
             PipelineData::Value(v, ..) => Ok(v.into_string(separator, config)),
             PipelineData::ListStream(s, ..) => Ok(s.into_string(separator, config)),
-            PipelineData::RawStream(s, ..) => {
+            PipelineData::ExternalStream { stdout: s, .. } => {
                 let mut items = vec![];
 
                 for val in s {
@@ -230,7 +236,7 @@ impl PipelineData {
                 Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.map(f).into_pipeline_data(ctrlc)),
-            PipelineData::RawStream(stream, ..) => {
+            PipelineData::ExternalStream { stdout: stream, .. } => {
                 let collected = stream.into_bytes()?;
 
                 if let Ok(st) = String::from_utf8(collected.clone().item) {
@@ -277,7 +283,7 @@ impl PipelineData {
             PipelineData::ListStream(stream, ..) => {
                 Ok(stream.flat_map(f).into_pipeline_data(ctrlc))
             }
-            PipelineData::RawStream(stream, ..) => {
+            PipelineData::ExternalStream { stdout: stream, .. } => {
                 let collected = stream.into_bytes()?;
 
                 if let Ok(st) = String::from_utf8(collected.clone().item) {
@@ -318,7 +324,7 @@ impl PipelineData {
                 Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.filter(f).into_pipeline_data(ctrlc)),
-            PipelineData::RawStream(stream, ..) => {
+            PipelineData::ExternalStream { stdout: stream, .. } => {
                 let collected = stream.into_bytes()?;
 
                 if let Ok(st) = String::from_utf8(collected.clone().item) {
@@ -408,7 +414,7 @@ impl Iterator for PipelineIterator {
             PipelineData::Value(Value::Nothing { .. }, ..) => None,
             PipelineData::Value(v, ..) => Some(std::mem::take(v)),
             PipelineData::ListStream(stream, ..) => stream.next(),
-            PipelineData::RawStream(stream, ..) => stream.next().map(|x| match x {
+            PipelineData::ExternalStream { stdout: stream, .. } => stream.next().map(|x| match x {
                 Ok(x) => x,
                 Err(err) => Value::Error { error: err },
             }),
