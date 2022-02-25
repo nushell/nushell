@@ -52,7 +52,6 @@ fn is_item_terminator(
         && (c == b' '
             || c == b'\t'
             || c == b'\n'
-            || c == b'\r'
             || c == b'|'
             || c == b';'
             || c == b'#'
@@ -112,7 +111,7 @@ pub fn lex_item(
                 break;
             }
             in_comment = true;
-        } else if c == b'\n' || c == b'\r' {
+        } else if c == b'\n' {
             in_comment = false;
             if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
                 break;
@@ -259,7 +258,7 @@ pub fn lex(
                 TokenContents::Semicolon,
                 Span::new(span_offset + idx, span_offset + idx + 1),
             ));
-        } else if c == b'\n' || c == b'\r' {
+        } else if c == b'\n' {
             // If the next character is a newline, we're looking at an EOL (end of line) token.
 
             let idx = curr_offset;
@@ -276,7 +275,7 @@ pub fn lex(
             let mut start = curr_offset;
 
             while let Some(input) = input.get(curr_offset) {
-                if *input == b'\n' || *input == b'\r' {
+                if *input == b'\n' {
                     if !skip_comment {
                         output.push(Token::new(
                             TokenContents::Comment,

@@ -201,7 +201,7 @@ fn build_usage(working_set: &StateWorkingSet, spans: &[Span]) -> String {
     for comment_part in spans {
         let contents = working_set.get_span_contents(*comment_part);
 
-        let comment_line = if first {
+        let mut comment_line = if first {
             // Count the number of spaces still at the front, skipping the '#'
             let mut pos = 1;
             while pos < contents.len() {
@@ -235,6 +235,10 @@ fn build_usage(working_set: &StateWorkingSet, spans: &[Span]) -> String {
 
         if !usage.is_empty() {
             usage.push('\n');
+        }
+
+        if comment_line.ends_with('\r') {
+            comment_line.pop();
         }
         usage.push_str(&comment_line);
     }
