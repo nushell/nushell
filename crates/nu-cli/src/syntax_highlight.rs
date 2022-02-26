@@ -12,7 +12,7 @@ pub struct NuHighlighter {
 }
 
 impl Highlighter for NuHighlighter {
-    fn highlight(&self, line: &str) -> StyledText {
+    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         trace!("highlighting: {}", line);
 
         let (shapes, global_span_offset) = {
