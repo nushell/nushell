@@ -131,7 +131,7 @@ impl Command for Find {
             (Some(regex), None) => find_with_regex(regex, engine_state, stack, call, input),
             (None, None) => find_with_rest(engine_state, stack, call, input),
             (Some(_), Some(_)) => Err(ShellError::IncompatibleParametersSingle(
-                "expected either predicate or regex, not both".to_owned(),
+                "expected either predicate or regex flag, not both".to_owned(),
                 call.head,
             )),
         }
