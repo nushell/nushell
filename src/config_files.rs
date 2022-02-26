@@ -19,12 +19,10 @@ const PLUGIN_FILE: &str = "plugin.nu";
 pub(crate) fn read_plugin_file(engine_state: &mut EngineState, stack: &mut Stack) {
     // Reading signatures from signature file
     // The plugin.nu file stores the parsed signature collected from each registered plugin
-    if let Some(mut plugin_path) = nu_path::config_dir() {
-        // Path to store plugins signatures
-        plugin_path.push(NUSHELL_FOLDER);
-        plugin_path.push(PLUGIN_FILE);
-        engine_state.plugin_signatures = Some(plugin_path.clone());
+    add_plugin_file(engine_state);
 
+    let plugin_path = engine_state.plugin_signatures.clone();
+    if let Some(plugin_path) = plugin_path {
         let plugin_filename = plugin_path.to_string_lossy().to_owned();
 
         if let Ok(contents) = std::fs::read(&plugin_path) {
@@ -37,8 +35,19 @@ pub(crate) fn read_plugin_file(engine_state: &mut EngineState, stack: &mut Stack
             );
         }
     }
+
     if is_perf_true() {
         info!("read_plugin_file {}:{}:{}", file!(), line!(), column!());
+    }
+}
+
+#[cfg(feature = "plugin")]
+pub(crate) fn add_plugin_file(engine_state: &mut EngineState) {
+    if let Some(mut plugin_path) = nu_path::config_dir() {
+        // Path to store plugins signatures
+        plugin_path.push(NUSHELL_FOLDER);
+        plugin_path.push(PLUGIN_FILE);
+        engine_state.plugin_signatures = Some(plugin_path.clone());
     }
 }
 

@@ -191,6 +191,9 @@ fn main() -> Result<()> {
             }
 
             if let Some(commands) = &binary_args.commands {
+                #[cfg(feature = "plugin")]
+                config_files::add_plugin_file(&mut engine_state);
+
                 let ret_val = commands::evaluate(commands, &init_cwd, &mut engine_state, input);
                 if is_perf_true() {
                     info!("-c command execution {}:{}:{}", file!(), line!(), column!());
@@ -198,6 +201,9 @@ fn main() -> Result<()> {
 
                 ret_val
             } else if !script_name.is_empty() && binary_args.interactive_shell.is_none() {
+                #[cfg(feature = "plugin")]
+                config_files::add_plugin_file(&mut engine_state);
+
                 let ret_val =
                     eval_file::evaluate(script_name, &args_to_script, &mut engine_state, input);
                 if is_perf_true() {
