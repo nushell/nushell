@@ -191,6 +191,9 @@ fn main() -> Result<()> {
             }
 
             if let Some(commands) = &binary_args.commands {
+                #[cfg(feature = "plugin")]
+                config_files::add_plugin_file(&mut engine_state);
+
                 let ret_val = commands::evaluate(commands, &init_cwd, &mut engine_state, input);
                 if is_perf_true() {
                     info!("-c command execution {}:{}:{}", file!(), line!(), column!());
