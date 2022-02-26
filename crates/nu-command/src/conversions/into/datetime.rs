@@ -277,7 +277,7 @@ fn action(
                         span: head,
                     },
                     Err(err) => err,
-                }
+                },
             };
 
             out

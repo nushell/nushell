@@ -3,16 +3,14 @@ use nu_protocol::{ShellError, Span, Value};
 
 pub fn unsupported_input_error(span: Span) -> Value {
     Value::Error {
-        error: ShellError::UnsupportedInput(
-            String::from(
-                "Unable to parse into datetime.",
-            ),
-            span,
-        ),
+        error: ShellError::UnsupportedInput(String::from("Unable to parse into datetime."), span),
     }
 }
 
-pub(crate) fn parse_date_from_string(input: &str, span: Span) -> Result<DateTime<FixedOffset>, Value> {
+pub(crate) fn parse_date_from_string(
+    input: &str,
+    span: Span,
+) -> Result<DateTime<FixedOffset>, Value> {
     match dtparse::parse(input) {
         Ok((native_dt, fixed_offset)) => {
             let offset = match fixed_offset {
