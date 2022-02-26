@@ -227,7 +227,13 @@ pub(crate) fn eval_source(
     }
 
     match eval_block(engine_state, stack, &block, input, false, false) {
-        Ok(pipeline_data) => {
+        Ok(mut pipeline_data) => {
+            if let PipelineData::ExternalStream { exit_code, .. } = &mut pipeline_data {
+                if let Some(exit_code) = exit_code.take().and_then(|it| it.last()) {
+                    stack.add_env_var("LAST_EXIT_CODE".to_string(), exit_code);
+                }
+            }
+
             if let Err(err) = print_pipeline_data(pipeline_data, engine_state, stack) {
                 let working_set = StateWorkingSet::new(engine_state);
 

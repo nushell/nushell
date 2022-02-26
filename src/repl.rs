@@ -86,11 +86,19 @@ pub(crate) fn evaluate(
     let exceptions = crate::utils::external_exceptions(engine_state, &stack);
     engine_state.external_exceptions = exceptions;
 
-    // seed the cmd_duration_ms env var
+    // seed env vars
     stack.add_env_var(
         "CMD_DURATION_MS".into(),
         Value::String {
             val: "0823".to_string(),
+            span: Span { start: 0, end: 0 },
+        },
+    );
+
+    stack.add_env_var(
+        "LAST_EXIT_CODE".into(),
+        Value::Int {
+            val: 0,
             span: Span { start: 0, end: 0 },
         },
     );
