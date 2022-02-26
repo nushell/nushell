@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset, Local, LocalResult, Offset, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone, Utc};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -8,6 +8,7 @@ use nu_protocol::{
 };
 
 use crate::generate_strftime_list;
+use crate::parse_date_from_string;
 
 struct Arguments {
     timezone: Option<Spanned<String>>,
@@ -253,7 +254,7 @@ fn action(
                     return stampout;
                 }
             };
-            // if it's not, continue and negelect the timezone option.
+            // if it's not, continue and default to the system's local timezone.
             let out = match dateformat {
                 Some(dt) => match DateTime::parse_from_str(s, &dt.0) {
                     Ok(d) => Value::Date { val: d, span: head },
@@ -267,36 +268,16 @@ fn action(
                         }
                     }
                 },
-                None => match dtparse::parse(s) {
-                    Ok((native_dt, fixed_offset)) => {
-                        let offset = match fixed_offset {
-                            Some(fo) => fo,
-                            None => FixedOffset::east(0).fix(),
-                        };
-                        match offset.from_local_datetime(&native_dt) {
-                            LocalResult::Single(d) => Value::Date { val: d, span: head },
-                            LocalResult::Ambiguous(d, _) => Value::Date { val: d, span: head },
-                            LocalResult::None => {
-                                return Value::Error {
-                                    error: ShellError::CantConvert(
-                                        "could not convert to a timezone-aware datetime"
-                                            .to_string(),
-                                        "local time representation is invalid".to_string(),
-                                        head,
-                                    ),
-                                }
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        return Value::Error {
-                            error: ShellError::UnsupportedInput(
-                                "Cannot convert input string as datetime. Might be missing timezone or offset".to_string(),
-                                *span,
-                            ),
-                        }
-                    }
-                },
+                // Tries to automatically parse the date
+                // (i.e. without a format string)
+                // and assumes the system's local timezone if none is specified
+                None => match parse_date_from_string(s, head) {
+                    Ok(date) => Value::Date {
+                        val: date,
+                        span: head,
+                    },
+                    Err(err) => err,
+                }
             };
 
             out

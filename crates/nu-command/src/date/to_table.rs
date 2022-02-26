@@ -140,7 +140,7 @@ fn helper(val: Value, head: Span) -> Value {
             val,
             span: val_span,
         } => {
-            let date = parse_date_from_string(val, val_span);
+            let date = parse_date_from_string(&val, val_span);
             parse_date_into_table(date, head)
         }
         Value::Nothing { span: _ } => {

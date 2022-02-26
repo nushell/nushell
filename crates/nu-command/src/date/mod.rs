@@ -10,6 +10,7 @@ mod utils;
 
 pub use date_::Date;
 pub(crate) use format::generate_strftime_list;
+pub(crate) use utils::parse_date_from_string;
 pub use format::SubCommand as DateFormat;
 pub use humanize::SubCommand as DateHumanize;
 pub use list_timezone::SubCommand as DateListTimezones;

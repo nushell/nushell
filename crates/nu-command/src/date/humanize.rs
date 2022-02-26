@@ -63,7 +63,7 @@ fn helper(value: Value, head: Span) -> Value {
             val,
             span: val_span,
         } => {
-            let dt = parse_date_from_string(val, val_span);
+            let dt = parse_date_from_string(&val, val_span);
             match dt {
                 Ok(x) => Value::String {
                     val: humanize_date(x),

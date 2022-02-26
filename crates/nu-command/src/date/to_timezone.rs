@@ -93,7 +93,7 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
             val,
             span: val_span,
         } => {
-            let time = parse_date_from_string(val, val_span);
+            let time = parse_date_from_string(&val, val_span);
             match time {
                 Ok(dt) => _to_timezone(dt, timezone, head),
                 Err(e) => e,

@@ -96,7 +96,7 @@ fn format_helper(value: Value, formatter: &str, span: Span) -> Value {
             val,
             span: val_span,
         } => {
-            let dt = parse_date_from_string(val, val_span);
+            let dt = parse_date_from_string(&val, val_span);
             match dt {
                 Ok(x) => Value::String {
                     val: x.format(formatter).to_string(),
@@ -126,7 +126,7 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
             val,
             span: val_span,
         } => {
-            let dt = parse_date_from_string(val, val_span);
+            let dt = parse_date_from_string(&val, val_span);
             match dt {
                 Ok(x) => Value::String {
                     val: x.to_rfc2822(),
