@@ -2,7 +2,8 @@ use std::borrow::Cow;
 
 // use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
 use super::icons::icon_for_file;
-use lscolors::{LsColors, Style};
+use super::lscolor_ansiterm::ToNuAnsiStyle;
+use lscolors::LsColors;
 use nu_engine::env_to_string;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -239,28 +240,26 @@ fn create_grid_output(
                     let path = std::path::Path::new(no_ansi.as_ref());
                     let icon = icon_for_file(path, call.head)?;
                     let ls_colors_style = ls_colors.style_for_path(path);
-                    // eprintln!("ls_colors_style: {:?}", &ls_colors_style);
-
-                    let icon_style = match ls_colors_style {
-                        Some(c) => c.to_crossterm_style(),
-                        None => crossterm::style::ContentStyle::default(),
-                    };
-                    // eprintln!("icon_style: {:?}", &icon_style);
 
                     let ansi_style = ls_colors_style
-                        .map(Style::to_crossterm_style)
+                        .map(ToNuAnsiStyle::to_nu_ansi_style)
                         .unwrap_or_default();
-                    // eprintln!("ansi_style: {:?}", &ansi_style);
 
-                    let item = format!("{} {}", icon_style.apply(icon), ansi_style.apply(value));
+                    let item = format!(
+                        "{} {}",
+                        ansi_style.paint(icon.to_string()),
+                        ansi_style.paint(value)
+                    );
 
                     let mut cell = Cell::from(item);
                     cell.alignment = Alignment::Left;
                     grid.add(cell);
                 } else {
                     let style = ls_colors.style_for_path(value.clone());
-                    let ansi_style = style.map(Style::to_crossterm_style).unwrap_or_default();
-                    let mut cell = Cell::from(ansi_style.apply(value).to_string());
+                    let ansi_style = style
+                        .map(ToNuAnsiStyle::to_nu_ansi_style)
+                        .unwrap_or_default();
+                    let mut cell = Cell::from(ansi_style.paint(value).to_string());
                     cell.alignment = Alignment::Left;
                     grid.add(cell);
                 }
