@@ -5,11 +5,7 @@ pub fn unsupported_input_error(span: Span) -> Value {
     Value::Error {
         error: ShellError::UnsupportedInput(
             String::from(
-                "Only dates with timezones are supported. The following formats are allowed \n
-            * %Y-%m-%d %H:%M:%S %z -- 2020-04-12 22:10:57 +02:00 \n
-            * %Y-%m-%d %H:%M:%S%.6f %z -- 2020-04-12 22:10:57.213231 +02:00 \n
-            * rfc3339 -- 2020-04-12T22:10:57+02:00 \n
-            * rfc2822 -- Tue, 1 Jul 2003 10:52:37 +0200",
+                "Unable to parse into datetime.",
             ),
             span,
         ),
@@ -41,7 +37,7 @@ pub(crate) fn parse_date_from_string(input: &str, span: Span) -> Result<DateTime
         Err(_) => {
             Err(Value::Error {
                 error: ShellError::UnsupportedInput(
-                    "Cannot convert input string as datetime. Might be missing timezone or offset".to_string(),
+                    "Cannot parse input string as datetime. Might be be using unsupported timezone or offset.".to_string(),
                     span,
                 ),
             })
