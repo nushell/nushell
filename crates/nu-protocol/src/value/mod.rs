@@ -171,6 +171,7 @@ impl Clone for Value {
 }
 
 impl Value {
+    /// Converts into string values that can be changed into string natively 
     pub fn as_string(&self) -> Result<String, ShellError> {
         match self {
             Value::Int { val, .. } => Ok(val.to_string()),

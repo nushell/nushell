@@ -5,6 +5,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Value,
 };
+use regex::Regex;
 
 #[derive(Clone)]
 pub struct Find;
@@ -21,6 +22,12 @@ impl Command for Find {
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
                 "the predicate to satisfy",
                 Some('p'),
+            )
+            .named(
+                "regex",
+                SyntaxShape::String,
+                "regex to match with",
+                Some('r'),
             )
             .rest("rest", SyntaxShape::Any, "terms to search")
             .category(Category::Filters)
@@ -59,8 +66,8 @@ impl Command for Find {
                 })
             },
             Example {
-                description: "Find the first odd value",
-                example: "echo [2 4 3 6 5 8] | find --predicate { |it| ($it mod 2) == 1 }",
+                description: "Find odd values",
+                example: "[2 4 3 6 5 8] | find --predicate { |it| ($it mod 2) == 1 }",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(3), Value::test_int(5)],
                     span: Span::test_data()
@@ -68,11 +75,38 @@ impl Command for Find {
             },
             Example {
                 description: "Find if a service is not running",
-                example: "echo [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { |it| $it.patch }",
+                example: "[[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { |it| $it.patch }",
                 result: Some(Value::List {
                     vals: vec![Value::test_record(
                             vec!["version", "patch"],
                             vec![Value::test_string("0.1.1"), Value::test_bool(true)]
+                        )],
+                    span: Span::test_data()
+                }),
+            },
+            Example {
+                description: "Find using regex",
+                example: r#"[abc bde arc abf] | find --regex "ab""#,
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("abc".to_string()), Value::test_string("abf".to_string())],
+                    span: Span::test_data()
+                })
+            },
+            Example {
+                description: "Find using regex case insensitive",
+                example: r#"[aBc bde Arc abf] | find --regex "(?i)ab""#,
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("aBc".to_string()), Value::test_string("abf".to_string())],
+                    span: Span::test_data()
+                })
+            },
+            Example {
+                description: "Find value in records",
+                example: r#"[[version name]; [0.1.0 nushell] [0.1.1 fish] [0.2.0 zsh]] | find -r "nu""#,
+                result: Some(Value::List {
+                    vals: vec![Value::test_record(
+                            vec!["version", "name"],
+                            vec![Value::test_string("0.1.0"), Value::test_string("nushell".to_string())]
                         )],
                     span: Span::test_data()
                 }),
@@ -87,11 +121,44 @@ impl Command for Find {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        match call.get_flag::<CaptureBlock>(engine_state, stack, "predicate")? {
-            Some(predicate) => find_with_predicate(predicate, engine_state, stack, call, input),
-            None => find_with_rest(engine_state, stack, call, input),
+        let predicate = call.get_flag::<CaptureBlock>(engine_state, stack, "predicate")?;
+        let regex = call.get_flag::<String>(engine_state, stack, "regex")?;
+
+        match (regex, predicate) {
+            (None, Some(predicate)) => {
+                find_with_predicate(predicate, engine_state, stack, call, input)
+            }
+            (Some(regex), None) => find_with_regex(regex, engine_state, stack, call, input),
+            (None, None) => find_with_rest(engine_state, stack, call, input),
+            (Some(_), Some(_)) => Err(ShellError::IncompatibleParametersSingle(
+                "expected either predicate or regex, not both".to_owned(),
+                call.head,
+            )),
         }
     }
+}
+
+fn find_with_regex(
+    regex: String,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let span = call.head;
+    let ctrlc = engine_state.ctrlc.clone();
+    let config = stack.get_config()?;
+
+    let re = Regex::new(regex.as_str())
+        .map_err(|e| ShellError::UnsupportedInput(format!("incorrect regex: {}", e), span))?;
+
+    input.filter(
+        move |value| {
+            let string = value.into_string(" ", &config);
+            re.is_match(string.as_str())
+        },
+        ctrlc,
+    )
 }
 
 fn find_with_predicate(
@@ -176,6 +243,7 @@ fn find_with_rest(
             } else {
                 value.clone()
             };
+
             lower_terms.iter().any(|term| match value {
                 Value::Bool { .. }
                 | Value::Int { .. }
