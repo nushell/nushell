@@ -143,8 +143,6 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
                 }
             }
 
-            println!("test");
-
             Ok(KeybindingsMode::Emacs(keybindings))
         }
         _ => {
