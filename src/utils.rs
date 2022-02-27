@@ -4,7 +4,7 @@ use nu_engine::eval_block;
 use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Value,
+    PipelineData, ShellError, Span, Value,
 };
 use std::path::PathBuf;
 
@@ -231,7 +231,23 @@ pub(crate) fn eval_source(
             if let PipelineData::ExternalStream { exit_code, .. } = &mut pipeline_data {
                 if let Some(exit_code) = exit_code.take().and_then(|it| it.last()) {
                     stack.add_env_var("LAST_EXIT_CODE".to_string(), exit_code);
+                } else {
+                    stack.add_env_var(
+                        "LAST_EXIT_CODE".to_string(),
+                        Value::Int {
+                            val: 0,
+                            span: Span { start: 0, end: 0 },
+                        },
+                    );
                 }
+            } else {
+                stack.add_env_var(
+                    "LAST_EXIT_CODE".to_string(),
+                    Value::Int {
+                        val: 0,
+                        span: Span { start: 0, end: 0 },
+                    },
+                );
             }
 
             if let Err(err) = print_pipeline_data(pipeline_data, engine_state, stack) {
@@ -249,6 +265,14 @@ pub(crate) fn eval_source(
             }
         }
         Err(err) => {
+            stack.add_env_var(
+                "LAST_EXIT_CODE".to_string(),
+                Value::Int {
+                    val: 1,
+                    span: Span { start: 0, end: 0 },
+                },
+            );
+
             let working_set = StateWorkingSet::new(engine_state);
 
             report_error(&working_set, &err);
