@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -206,7 +206,7 @@ fn action(
     head: Span,
 ) -> Value {
     match input {
-        Value::String { val: s, span, .. } => {
+        Value::String { val: s, span } => {
             let ts = s.parse::<i64>();
             // if timezone if specified, first check if the input is a timestamp.
             if let Some(tz) = timezone {
@@ -271,10 +271,10 @@ fn action(
                 // Tries to automatically parse the date
                 // (i.e. without a format string)
                 // and assumes the system's local timezone if none is specified
-                None => match parse_date_from_string(s, head) {
+                None => match parse_date_from_string(s, *span) {
                     Ok(date) => Value::Date {
                         val: date,
-                        span: head,
+                        span: *span,
                     },
                     Err(err) => err,
                 },
