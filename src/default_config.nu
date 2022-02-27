@@ -224,8 +224,8 @@ let $config = {
     }
     {
       name: history_previous
-      modifier: "control | shift"
-      keycode: char_x
+      modifier: control
+      keycode: char_z
       mode: emacs # emacs vi_normal vi_insert
       event: { send: menupageprevious }
     }
