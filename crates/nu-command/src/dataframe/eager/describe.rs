@@ -118,7 +118,7 @@ fn command(
             .iter()
             .map(|value| match value {
                 Value::Float { val, span } => {
-                    if val >= &0.0 && val <= &1.0 {
+                    if (&0.0..=&1.0).contains(&val) {
                         Ok(*val)
                     } else {
                         Err(ShellError::SpannedLabeledError(
