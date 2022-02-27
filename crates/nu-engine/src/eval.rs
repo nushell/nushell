@@ -301,27 +301,94 @@ pub fn eval_expression(
             let op_span = op.span;
             let lhs = eval_expression(engine_state, stack, lhs)?;
             let op = eval_operator(op)?;
-            let rhs = eval_expression(engine_state, stack, rhs)?;
 
             match op {
-                Operator::Plus => lhs.add(op_span, &rhs),
-                Operator::Minus => lhs.sub(op_span, &rhs),
-                Operator::Multiply => lhs.mul(op_span, &rhs),
-                Operator::Divide => lhs.div(op_span, &rhs),
-                Operator::LessThan => lhs.lt(op_span, &rhs),
-                Operator::LessThanOrEqual => lhs.lte(op_span, &rhs),
-                Operator::GreaterThan => lhs.gt(op_span, &rhs),
-                Operator::GreaterThanOrEqual => lhs.gte(op_span, &rhs),
-                Operator::Equal => lhs.eq(op_span, &rhs),
-                Operator::NotEqual => lhs.ne(op_span, &rhs),
-                Operator::In => lhs.r#in(op_span, &rhs),
-                Operator::NotIn => lhs.not_in(op_span, &rhs),
-                Operator::Contains => lhs.contains(op_span, &rhs),
-                Operator::NotContains => lhs.not_contains(op_span, &rhs),
-                Operator::Modulo => lhs.modulo(op_span, &rhs),
-                Operator::And => lhs.and(op_span, &rhs),
-                Operator::Or => lhs.or(op_span, &rhs),
-                Operator::Pow => lhs.pow(op_span, &rhs),
+                Operator::And => {
+                    if !lhs.is_true() {
+                        Ok(Value::Bool {
+                            val: false,
+                            span: expr.span,
+                        })
+                    } else {
+                        let rhs = eval_expression(engine_state, stack, rhs)?;
+                        lhs.and(op_span, &rhs)
+                    }
+                }
+                Operator::Or => {
+                    if lhs.is_true() {
+                        Ok(Value::Bool {
+                            val: true,
+                            span: expr.span,
+                        })
+                    } else {
+                        let rhs = eval_expression(engine_state, stack, rhs)?;
+                        lhs.or(op_span, &rhs)
+                    }
+                }
+                Operator::Plus => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.add(op_span, &rhs)
+                }
+                Operator::Minus => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.sub(op_span, &rhs)
+                }
+                Operator::Multiply => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.mul(op_span, &rhs)
+                }
+                Operator::Divide => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.div(op_span, &rhs)
+                }
+                Operator::LessThan => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.lt(op_span, &rhs)
+                }
+                Operator::LessThanOrEqual => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.lte(op_span, &rhs)
+                }
+                Operator::GreaterThan => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.gt(op_span, &rhs)
+                }
+                Operator::GreaterThanOrEqual => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.gte(op_span, &rhs)
+                }
+                Operator::Equal => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.eq(op_span, &rhs)
+                }
+                Operator::NotEqual => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.ne(op_span, &rhs)
+                }
+                Operator::In => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.r#in(op_span, &rhs)
+                }
+                Operator::NotIn => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.not_in(op_span, &rhs)
+                }
+                Operator::Contains => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.contains(op_span, &rhs)
+                }
+                Operator::NotContains => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.not_contains(op_span, &rhs)
+                }
+                Operator::Modulo => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.modulo(op_span, &rhs)
+                }
+                Operator::Pow => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.pow(op_span, &rhs)
+                }
             }
         }
         Expr::Subexpression(block_id) => {
