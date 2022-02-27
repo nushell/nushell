@@ -2956,9 +2956,8 @@ pub fn parse_table_expression(
                 {
                     match values.len().cmp(&table_headers.len()) {
                         std::cmp::Ordering::Less => {
-                            error = error.or_else(|| {
-                                Some(ParseError::MissingColumns(table_headers.len(), span))
-                            })
+                            error = error
+                                .or(Some(ParseError::MissingColumns(table_headers.len(), span)))
                         }
                         std::cmp::Ordering::Equal => {}
                         std::cmp::Ordering::Greater => {
