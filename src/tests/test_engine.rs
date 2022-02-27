@@ -262,3 +262,13 @@ fn test_redirection_stderr() -> TestResult {
 fn datetime_literal() -> TestResult {
     run_test(r#"(date now) - 2019-08-23 > 1hr"#, "true")
 }
+
+#[test]
+fn shortcircuiting_and() -> TestResult {
+    run_test(r#"$false && (5 / 0; $false)"#, "false")
+}
+
+#[test]
+fn shortcircuiting_or() -> TestResult {
+    run_test(r#"$true || (5 / 0; $false)"#, "true")
+}
