@@ -105,7 +105,7 @@ fn command(
 
     let mut groupby = nu_groupby.to_groupby()?;
 
-    let pivot = groupby.pivot(&pivot_col.item, &value_col.item);
+    let pivot = groupby.pivot(vec![&pivot_col.item], vec![&value_col.item]);
 
     match op {
         Operation::Mean => pivot.mean(),

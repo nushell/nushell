@@ -82,7 +82,7 @@ fn command(
     })?;
 
     let value = Value::Bool {
-        val: bool.all_true(),
+        val: bool.all(),
         span: call.head,
     };
 

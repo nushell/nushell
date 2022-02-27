@@ -1,23 +1,45 @@
 mod custom_value;
 
 use nu_protocol::{PipelineData, ShellError, Span, Value};
-use polars::frame::groupby::{GroupBy, GroupTuples};
+use polars::frame::groupby::{GroupBy, GroupsProxy};
 use polars::prelude::DataFrame;
 use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum NuGroupsProxy {
+    Idx(Vec<(u32, Vec<u32>)>),
+    Slice(Vec<[u32; 2]>),
+}
+
+impl NuGroupsProxy {
+    fn from_polars(groups: &GroupsProxy) -> Self {
+        match groups {
+            GroupsProxy::Idx(indexes) => NuGroupsProxy::Idx(indexes.clone()),
+            GroupsProxy::Slice(slice) => NuGroupsProxy::Slice(slice.clone()),
+        }
+    }
+
+    fn to_polars(&self) -> GroupsProxy {
+        match self {
+            Self::Idx(indexes) => GroupsProxy::Idx(indexes.clone()),
+            Self::Slice(slice) => GroupsProxy::Slice(slice.clone()),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NuGroupBy {
     dataframe: DataFrame,
     by: Vec<String>,
-    groups: GroupTuples,
+    groups: NuGroupsProxy,
 }
 
 impl NuGroupBy {
-    pub fn new(dataframe: DataFrame, by: Vec<String>, groups: GroupTuples) -> Self {
+    pub fn new(dataframe: DataFrame, by: Vec<String>, groups: &GroupsProxy) -> Self {
         NuGroupBy {
             dataframe,
             by,
-            groups,
+            groups: NuGroupsProxy::from_polars(groups),
         }
     }
 
@@ -60,7 +82,12 @@ impl NuGroupBy {
             ShellError::LabeledError("Error creating groupby".into(), e.to_string())
         })?;
 
-        Ok(GroupBy::new(&self.dataframe, by, self.groups.clone(), None))
+        Ok(GroupBy::new(
+            &self.dataframe,
+            by,
+            self.groups.to_polars(),
+            None,
+        ))
     }
 
     pub fn print(&self, span: Span) -> Result<Vec<Value>, ShellError> {
