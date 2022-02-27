@@ -192,11 +192,42 @@ let $config = {
   }
   keybindings: [
     {
-      name: completion
+      name: completion_menu
+      modifier: none
+      keycode: tab
+      mode: emacs # emacs vi_normal vi_insert
+      event: { 
+        until: [
+          { send: menu name: completion_menu }
+          { send: menunext }
+        ]
+      }
+    }
+    {
+      name: completion_previous
+      modifier: shift
+      keycode: backtab
+      mode: emacs # emacs vi_normal vi_insert
+      event: { send: menuprevious }
+    }
+    {
+      name: history_menu
       modifier: control
-      keycode: char_t
-      mode: vi_insert # emacs vi_normal vi_insert
-      event: { send: menu name: context_menu }
+      keycode: char_x
+      mode: emacs # emacs vi_normal vi_insert
+      event: { 
+        until: [
+          { send: menu name: history_menu }
+          { send: menupagenext }
+        ]
+      }
+    }
+    {
+      name: history_previous
+      modifier: control
+      keycode: char_z
+      mode: emacs # emacs vi_normal vi_insert
+      event: { send: menupageprevious }
     }
   ]
 }

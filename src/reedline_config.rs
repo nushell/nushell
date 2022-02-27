@@ -123,38 +123,6 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
     line_editor.with_menu(Box::new(history_menu))
 }
 
-fn add_menu_keybindings(keybindings: &mut Keybindings) {
-    keybindings.add_binding(
-        KeyModifiers::CONTROL,
-        KeyCode::Char('x'),
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("history_menu".to_string()),
-            ReedlineEvent::MenuPageNext,
-        ]),
-    );
-
-    keybindings.add_binding(
-        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-        KeyCode::Char('x'),
-        ReedlineEvent::MenuPagePrevious,
-    );
-
-    keybindings.add_binding(
-        KeyModifiers::NONE,
-        KeyCode::Tab,
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("completion_menu".to_string()),
-            ReedlineEvent::MenuNext,
-        ]),
-    );
-
-    keybindings.add_binding(
-        KeyModifiers::SHIFT,
-        KeyCode::BackTab,
-        ReedlineEvent::MenuPrevious,
-    );
-}
-
 pub enum KeybindingsMode {
     Emacs(Keybindings),
     Vi {
@@ -168,17 +136,6 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     match config.edit_mode.as_str() {
         "emacs" => {
             let mut keybindings = default_emacs_keybindings();
-            add_menu_keybindings(&mut keybindings);
-
-            // temporal keybinding with multiple events
-            keybindings.add_binding(
-                KeyModifiers::SHIFT,
-                KeyCode::BackTab,
-                ReedlineEvent::Multiple(vec![
-                    ReedlineEvent::Edit(vec![EditCommand::InsertChar('p')]),
-                    ReedlineEvent::Enter,
-                ]),
-            );
 
             for parsed_keybinding in parsed_keybindings {
                 if parsed_keybinding.mode.into_string("", config).as_str() == "emacs" {
@@ -191,9 +148,6 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         _ => {
             let mut insert_keybindings = default_vi_insert_keybindings();
             let mut normal_keybindings = default_vi_normal_keybindings();
-
-            add_menu_keybindings(&mut insert_keybindings);
-            add_menu_keybindings(&mut normal_keybindings);
 
             for parsed_keybinding in parsed_keybindings {
                 if parsed_keybinding.mode.into_string("", config).as_str() == "vi_insert" {
