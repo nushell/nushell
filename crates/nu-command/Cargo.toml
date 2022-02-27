@@ -85,12 +85,12 @@ umask = "1.0.0"
 users = "0.11.0"
 
 [dependencies.polars]
-version = "0.18.0"
+version = "0.19.1"
 optional = true
 features = [
 	"default", "parquet", "json", "serde", "object",
 	"checked_arithmetic", "strings", "cum_agg", "is_in",
-	"rolling_window", "strings", "pivot", "random"
+	"rolling_window", "strings", "rows", "random"
 ]
 
 [features]

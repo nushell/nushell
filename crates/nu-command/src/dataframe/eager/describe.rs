@@ -1,14 +1,16 @@
 use super::super::values::{Column, NuDataFrame};
 
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::{
     chunked_array::ChunkedArray,
     prelude::{
-        AnyValue, DataFrame, DataType, Float64Type, IntoSeries, NewChunkedArray, Series, Utf8Type,
+        AnyValue, DataFrame, DataType, Float64Type, IntoSeries, NewChunkedArray,
+        QuantileInterpolOptions, Series, Utf8Type,
     },
 };
 
@@ -25,7 +27,14 @@ impl Command for DescribeDF {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
+        Signature::build(self.name())
+            .category(Category::Custom("dataframe".into()))
+            .named(
+                "quantiles",
+                SyntaxShape::Table,
+                "optional quantiles for describe",
+                Some('q'),
+            )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -98,29 +107,62 @@ impl Command for DescribeDF {
 }
 
 fn command(
-    _engine_state: &EngineState,
-    _stack: &mut Stack,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let quantiles: Option<Vec<Value>> = call.get_flag(engine_state, stack, "quantiles")?;
+    let quantiles = quantiles.map(|values| {
+        values
+            .iter()
+            .map(|value| match value {
+                Value::Float { val, span } => {
+                    if val >= &0.0 && val <= &1.0 {
+                        Ok(*val)
+                    } else {
+                        Err(ShellError::SpannedLabeledError(
+                            "Incorrect value for quantile".to_string(),
+                            "value should be between 0 and 1".to_string(),
+                            *span,
+                        ))
+                    }
+                }
+                _ => match value.span() {
+                    Ok(span) => Err(ShellError::SpannedLabeledError(
+                        "Incorrect value for quantile".to_string(),
+                        "value should be a float".to_string(),
+                        span,
+                    )),
+                    Err(e) => Err(e),
+                },
+            })
+            .collect::<Result<Vec<f64>, ShellError>>()
+    });
+
+    let quantiles = match quantiles {
+        Some(quantiles) => quantiles?,
+        None => vec![0.25, 0.50, 0.75],
+    };
+
+    let mut quantiles_labels = quantiles
+        .iter()
+        .map(|q| Some(format!("{}%", q * 100.0)))
+        .collect::<Vec<Option<String>>>();
+    let mut labels = vec![
+        Some("count".to_string()),
+        Some("sum".to_string()),
+        Some("mean".to_string()),
+        Some("median".to_string()),
+        Some("std".to_string()),
+        Some("min".to_string()),
+    ];
+    labels.append(&mut quantiles_labels);
+    labels.push(Some("max".to_string()));
+
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
-    let names = ChunkedArray::<Utf8Type>::new_from_opt_slice(
-        "descriptor",
-        &[
-            Some("count"),
-            Some("sum"),
-            Some("mean"),
-            Some("median"),
-            Some("std"),
-            Some("min"),
-            Some("25%"),
-            Some("50%"),
-            Some("75%"),
-            Some("max"),
-        ],
-    )
-    .into_series();
+    let names = ChunkedArray::<Utf8Type>::new_from_opt_slice("descriptor", &labels).into_series();
 
     let head = std::iter::once(names);
 
@@ -165,32 +207,19 @@ fn command(
                     _ => None,
                 });
 
-            let q_25 = col
-                .quantile_as_series(0.25)
-                .ok()
-                .and_then(|ca| ca.cast(&DataType::Float64).ok())
-                .and_then(|ca| match ca.get(0) {
-                    AnyValue::Float64(v) => Some(v),
-                    _ => None,
-                });
-
-            let q_50 = col
-                .quantile_as_series(0.50)
-                .ok()
-                .and_then(|ca| ca.cast(&DataType::Float64).ok())
-                .and_then(|ca| match ca.get(0) {
-                    AnyValue::Float64(v) => Some(v),
-                    _ => None,
-                });
-
-            let q_75 = col
-                .quantile_as_series(0.75)
-                .ok()
-                .and_then(|ca| ca.cast(&DataType::Float64).ok())
-                .and_then(|ca| match ca.get(0) {
-                    AnyValue::Float64(v) => Some(v),
-                    _ => None,
-                });
+            let mut quantiles = quantiles
+                .clone()
+                .into_iter()
+                .map(|q| {
+                    col.quantile_as_series(q, QuantileInterpolOptions::default())
+                        .ok()
+                        .and_then(|ca| ca.cast(&DataType::Float64).ok())
+                        .and_then(|ca| match ca.get(0) {
+                            AnyValue::Float64(v) => Some(v),
+                            _ => None,
+                        })
+                })
+                .collect::<Vec<Option<f64>>>();
 
             let max = col
                 .max_as_series()
@@ -201,23 +230,12 @@ fn command(
                     _ => None,
                 });
 
+            let mut descriptors = vec![Some(count), sum, mean, median, std, min];
+            descriptors.append(&mut quantiles);
+            descriptors.push(max);
+
             let name = format!("{} ({})", col.name(), col.dtype());
-            ChunkedArray::<Float64Type>::new_from_opt_slice(
-                &name,
-                &[
-                    Some(count),
-                    sum,
-                    mean,
-                    median,
-                    std,
-                    min,
-                    q_25,
-                    q_50,
-                    q_75,
-                    max,
-                ],
-            )
-            .into_series()
+            ChunkedArray::<Float64Type>::new_from_opt_slice(&name, &descriptors).into_series()
         });
 
     let res = head.chain(tail).collect::<Vec<Series>>();

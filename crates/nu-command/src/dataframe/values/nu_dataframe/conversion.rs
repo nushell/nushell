@@ -7,7 +7,7 @@ use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
 use polars::prelude::{
     DataFrame, DataType, DatetimeChunked, Int64Type, IntoSeries, NamedFrom, NewChunkedArray,
-    ObjectType, Series,
+    ObjectType, Series, TimeUnit,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -399,7 +399,7 @@ pub fn create_column(
 
             Ok(Column::new(casted.name().into(), values))
         }
-        DataType::Datetime => {
+        DataType::Datetime(_, _) => {
             let casted = series.datetime().map_err(|e| {
                 ShellError::LabeledError("Error casting column to datetime".into(), e.to_string())
             })?;
@@ -596,7 +596,8 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     });
 
                     let res: DatetimeChunked =
-                        ChunkedArray::<Int64Type>::new_from_opt_iter(&name, it).into();
+                        ChunkedArray::<Int64Type>::new_from_opt_iter(&name, it)
+                            .into_datetime(TimeUnit::Milliseconds, None);
 
                     df_series.push(res.into_series())
                 }
