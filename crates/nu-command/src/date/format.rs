@@ -3,10 +3,10 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
-use super::utils::{parse_date_from_string, unsupported_input_error};
+use super::utils::parse_date_from_string;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -112,7 +112,9 @@ fn format_helper(value: Value, formatter: &str, span: Span) -> Value {
                 span,
             }
         }
-        _ => unsupported_input_error(span),
+        _ => Value::Error {
+            error: ShellError::DatetimeParseError(span),
+        },
     }
 }
 
@@ -142,7 +144,9 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
                 span,
             }
         }
-        _ => unsupported_input_error(span),
+        _ => Value::Error {
+            error: ShellError::DatetimeParseError(span),
+        },
     }
 }
 

@@ -1,5 +1,5 @@
 use super::parser::datetime_in_timezone;
-use crate::date::utils::{parse_date_from_string, unsupported_input_error};
+use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, Local};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -104,7 +104,9 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
             let dt = Local::now();
             _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
         }
-        _ => unsupported_input_error(head),
+        _ => Value::Error {
+            error: ShellError::DatetimeParseError(head),
+        },
     }
 }
 

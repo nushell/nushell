@@ -77,10 +77,7 @@ fn helper(value: Value, head: Span) -> Value {
             span: head,
         },
         _ => Value::Error {
-            error: ShellError::UnsupportedInput(
-                String::from("Date cannot be parsed / date format is not supported"),
-                head,
-            ),
+            error: ShellError::DatetimeParseError(head),
         },
     }
 }
