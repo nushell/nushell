@@ -194,12 +194,10 @@ impl NuCompleter {
                         prefix.remove(pos - flat.0.start);
 
                         if prefix.starts_with(b"$") {
-                            return self.complete_variables(
-                                &working_set,
-                                &prefix,
-                                new_span,
-                                offset,
-                            );
+                            let mut output =
+                                self.complete_variables(&working_set, &prefix, new_span, offset);
+                            output.sort_by(|a, b| a.1.cmp(&b.1));
+                            return output;
                         }
                         if prefix.starts_with(b"-") {
                             // this might be a flag, let's see
@@ -242,6 +240,7 @@ impl NuCompleter {
                                         ));
                                     }
                                 }
+                                output.sort_by(|a, b| a.1.cmp(&b.1));
                                 return output;
                             }
                         }
@@ -281,29 +280,127 @@ impl NuCompleter {
                                     true,
                                 );
 
-                                let v: Vec<_> = match result {
-                                    Ok(pd) => pd
-                                        .into_iter()
-                                        .filter_map(move |x| {
-                                            let s = x.as_string();
+                                struct CompletionData {
+                                    case_sensitive: bool,
+                                    positional: bool,
+                                    sort: bool,
+                                    completions: Vec<(reedline::Span, String)>,
+                                }
 
-                                            match s {
-                                                Ok(s) => Some((
-                                                    reedline::Span {
-                                                        start: new_span.start - offset,
-                                                        end: new_span.end - offset,
-                                                    },
-                                                    s,
-                                                )),
-                                                Err(_) => None,
+                                impl Default for CompletionData {
+                                    fn default() -> Self {
+                                        Self {
+                                            case_sensitive: true,
+                                            positional: true,
+                                            sort: true,
+                                            completions: Vec::default(),
+                                        }
+                                    }
+                                }
+
+                                let data = match result {
+                                    Ok(pd) => {
+                                        let value = pd.into_value(new_span);
+                                        match &value {
+                                            Value::Record { .. } => CompletionData {
+                                                case_sensitive: value
+                                                    .get_data_by_key("case_sensitive")
+                                                    .and_then(|val| val.as_bool().ok())
+                                                    .unwrap_or(true),
+                                                positional: value
+                                                    .get_data_by_key("positional")
+                                                    .and_then(|val| val.as_bool().ok())
+                                                    .unwrap_or(true),
+                                                sort: value
+                                                    .get_data_by_key("sort")
+                                                    .and_then(|val| val.as_bool().ok())
+                                                    .unwrap_or(true),
+                                                completions: value
+                                                    .get_data_by_key("completions")
+                                                    .and_then(|val| {
+                                                        val.as_list().ok().map(|list| {
+                                                            list.iter()
+                                                                .filter_map(move |x| {
+                                                                    let s = x.as_string();
+
+                                                                    match s {
+                                                                        Ok(s) => Some((
+                                                                            reedline::Span {
+                                                                                start: new_span
+                                                                                    .start
+                                                                                    - offset,
+                                                                                end: new_span.end
+                                                                                    - offset,
+                                                                            },
+                                                                            s,
+                                                                        )),
+                                                                        Err(_) => None,
+                                                                    }
+                                                                })
+                                                                .collect()
+                                                        })
+                                                    })
+                                                    .unwrap_or_else(|| vec![]),
+                                            },
+                                            Value::List { vals, .. } => {
+                                                let completions = vals
+                                                    .iter()
+                                                    .filter_map(move |x| {
+                                                        let s = x.as_string();
+
+                                                        match s {
+                                                            Ok(s) => Some((
+                                                                reedline::Span {
+                                                                    start: new_span.start - offset,
+                                                                    end: new_span.end - offset,
+                                                                },
+                                                                s,
+                                                            )),
+                                                            Err(_) => None,
+                                                        }
+                                                    })
+                                                    .collect();
+                                                CompletionData {
+                                                    completions,
+                                                    ..Default::default()
+                                                }
                                             }
-                                        })
-                                        .filter(|x| x.1.as_bytes().starts_with(&prefix))
-                                        .collect(),
-                                    _ => vec![],
+                                            _ => Default::default(),
+                                        }
+                                    }
+                                    _ => CompletionData::default(),
                                 };
 
-                                return v;
+                                let mut completions: Vec<_> = data
+                                    .completions
+                                    .into_iter()
+                                    .filter(|it| {
+                                        // Minimise clones for new functionality
+                                        match (data.case_sensitive, data.positional) {
+                                            (true, true) => it.1.as_bytes().starts_with(&prefix),
+                                            (true, false) => it.1.contains(
+                                                std::str::from_utf8(&prefix).unwrap_or(""),
+                                            ),
+                                            (false, positional) => {
+                                                let value = it.1.to_lowercase();
+                                                let prefix = std::str::from_utf8(&prefix)
+                                                    .unwrap_or("")
+                                                    .to_lowercase();
+                                                if positional {
+                                                    value.starts_with(&prefix)
+                                                } else {
+                                                    value.contains(&prefix)
+                                                }
+                                            }
+                                        }
+                                    })
+                                    .collect();
+
+                                if data.sort {
+                                    completions.sort_by(|a, b| a.1.cmp(&b.1));
+                                }
+
+                                return completions;
                             }
                             FlatShape::Filepath | FlatShape::GlobPattern => {
                                 let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
@@ -315,18 +412,21 @@ impl NuCompleter {
                                     "".to_string()
                                 };
                                 let prefix = String::from_utf8_lossy(&prefix).to_string();
-                                return file_path_completion(new_span, &prefix, &cwd)
-                                    .into_iter()
-                                    .map(move |x| {
-                                        (
-                                            reedline::Span {
-                                                start: x.0.start - offset,
-                                                end: x.0.end - offset,
-                                            },
-                                            x.1,
-                                        )
-                                    })
-                                    .collect();
+                                let mut output: Vec<_> =
+                                    file_path_completion(new_span, &prefix, &cwd)
+                                        .into_iter()
+                                        .map(move |x| {
+                                            (
+                                                reedline::Span {
+                                                    start: x.0.start - offset,
+                                                    end: x.0.end - offset,
+                                                },
+                                                x.1,
+                                            )
+                                        })
+                                        .collect();
+                                output.sort_by(|a, b| a.1.cmp(&b.1));
+                                return output;
                             }
                             flat_shape => {
                                 let last = flattened
@@ -396,7 +496,7 @@ impl NuCompleter {
                                 };
                                 // let prefix = working_set.get_span_contents(flat.0);
                                 let prefix = String::from_utf8_lossy(&prefix).to_string();
-                                let output = file_path_completion(new_span, &prefix, &cwd)
+                                let mut output = file_path_completion(new_span, &prefix, &cwd)
                                     .into_iter()
                                     .map(move |x| {
                                         if flat_idx == 0 {
@@ -439,6 +539,7 @@ impl NuCompleter {
                                     .chain(commands.into_iter())
                                     .collect::<Vec<_>>();
                                 //output.dedup_by(|a, b| a.1 == b.1);
+                                output.sort_by(|a, b| a.1.cmp(&b.1));
 
                                 return output;
                             }
@@ -454,9 +555,9 @@ impl NuCompleter {
 
 impl Completer for NuCompleter {
     fn complete(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
-        let mut output = self.completion_helper(line, pos);
+        let output = self.completion_helper(line, pos);
 
-        output.sort_by(|a, b| a.1.cmp(&b.1));
+        //output.sort_by(|a, b| a.1.cmp(&b.1));
 
         output
     }
