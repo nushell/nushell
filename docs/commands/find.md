@@ -8,12 +8,17 @@ Searches terms in the input or for elements of the input that satisfies the pred
 
 ## Signature
 
-```> find ...rest --predicate```
+```> find ...rest --predicate --regex --insensitive --multiline --dotall --invert```
 
 ## Parameters
 
  -  `...rest`: terms to search
  -  `--predicate {block}`: the predicate to satisfy
+ -  `--regex {string}`: regex to match with
+ -  `--insensitive`: case-insensitive search for regex (?i)
+ -  `--multiline`: multi-line mode: ^ and $ match begin/end of line for regex (?m)
+ -  `--dotall`: dotall mode: allow a dot . to match newline character \n for regex (?s)
+ -  `--invert`: invert the match
 
 ## Examples
 
@@ -37,12 +42,27 @@ Search a char in a list of string
 > [moe larry curly] | find l
 ```
 
-Find the first odd value
+Find odd values
 ```shell
-> echo [2 4 3 6 5 8] | find --predicate { |it| ($it mod 2) == 1 }
+> [2 4 3 6 5 8] | find --predicate { |it| ($it mod 2) == 1 }
 ```
 
 Find if a service is not running
 ```shell
-> echo [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { |it| $it.patch }
+> [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { |it| $it.patch }
+```
+
+Find using regex
+```shell
+> [abc bde arc abf] | find --regex "ab"
+```
+
+Find using regex case insensitive
+```shell
+> [aBc bde Arc abf] | find --regex "ab" -i
+```
+
+Find value in records
+```shell
+> [[version name]; [0.1.0 nushell] [0.1.1 fish] [0.2.0 zsh]] | find -r "nu"
 ```

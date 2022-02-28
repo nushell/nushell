@@ -227,6 +227,10 @@ pub fn eval_expression(
             val: *f,
             span: expr.span,
         }),
+        Expr::Binary(b) => Ok(Value::Binary {
+            val: b.clone(),
+            span: expr.span,
+        }),
         Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
             Value::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
             x => Err(ShellError::CantConvert(

@@ -134,6 +134,7 @@ let default_theme = {
 
     # shapes are used to change the cli syntax highlighting
     shape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
+    shape_binary: purple_bold
     shape_bool: light_cyan
     shape_int: purple_bold
     shape_float: purple_bold

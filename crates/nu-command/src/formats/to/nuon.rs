@@ -1,3 +1,4 @@
+use core::fmt::Write;
 use nu_engine::get_columns;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -46,10 +47,18 @@ impl Command for ToNuon {
 
 fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     match v {
-        Value::Binary { .. } => Err(ShellError::UnsupportedInput(
-            "binary not supported".into(),
-            span,
-        )),
+        Value::Binary { val, .. } => {
+            let mut s = String::with_capacity(2 * val.len());
+            for byte in val {
+                if write!(s, "{:02X}", byte).is_err() {
+                    return Err(ShellError::UnsupportedInput(
+                        "binary could not translate to string".into(),
+                        span,
+                    ));
+                }
+            }
+            Ok(format!("0x[{}]", s))
+        }
         Value::Block { .. } => Err(ShellError::UnsupportedInput(
             "block not supported".into(),
             span,
