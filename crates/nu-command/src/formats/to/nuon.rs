@@ -65,7 +65,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         Value::Int { val, .. } => Ok(format!("{}", *val)),
         Value::List { vals, .. } => {
             let headers = get_columns(vals);
-            if vals.iter().all(|x| x.columns() == headers) {
+            if !headers.is_empty() && vals.iter().all(|x| x.columns() == headers) {
                 // Table output
                 let headers_output = headers.join(", ");
 
