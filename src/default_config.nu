@@ -138,7 +138,7 @@ let default_theme = {
     shape_int: purple_bold
     shape_float: purple_bold
     shape_range: yellow_bold
-    shape_internalcall: cyna_bold
+    shape_internalcall: cyan_bold
     shape_external: cyan
     shape_externalarg: green_bold
     shape_literal: blue
