@@ -403,6 +403,17 @@ fn event_from_record(
             let menu = extract_value("name", cols, vals, span)?;
             Ok(ReedlineEvent::Menu(menu.into_string("", config)))
         }
+        "edit" => {
+            let edit_command = parse_edit(
+                &Value::Record {
+                    cols: cols.to_vec(),
+                    vals: vals.to_vec(),
+                    span: *span,
+                },
+                config,
+            )?;
+            Ok(ReedlineEvent::Edit(vec![edit_command]))
+        }
         v => Err(ShellError::UnsupportedConfigValue(
             "Reedline event".to_string(),
             v.to_string(),
