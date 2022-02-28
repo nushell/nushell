@@ -340,7 +340,7 @@ impl NuCompleter {
                                                                 .collect()
                                                         })
                                                     })
-                                                    .unwrap_or_else(|| vec![]),
+                                                    .unwrap_or_default(),
                                             },
                                             Value::List { vals, .. } => {
                                                 let completions = vals
@@ -555,11 +555,7 @@ impl NuCompleter {
 
 impl Completer for NuCompleter {
     fn complete(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
-        let output = self.completion_helper(line, pos);
-
-        //output.sort_by(|a, b| a.1.cmp(&b.1));
-
-        output
+        self.completion_helper(line, pos)
     }
 }
 
