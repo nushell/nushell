@@ -272,3 +272,8 @@ fn shortcircuiting_and() -> TestResult {
 fn shortcircuiting_or() -> TestResult {
     run_test(r#"$true || (5 / 0; $false)"#, "true")
 }
+
+#[test]
+fn open_ended_range() -> TestResult {
+    run_test(r#"1.. | first 100000 | length"#, "100000")
+}
