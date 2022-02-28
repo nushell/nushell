@@ -94,7 +94,10 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
         Value::Int { .. } => value,
         other => Value::Error {
             error: ShellError::UnsupportedInput(
-                String::from("Only numerical values are supported"),
+                format!(
+                    "Only numerical values are supported, input type: {:?}",
+                    other.get_type()
+                ),
                 other.span().unwrap_or(head),
             ),
         },

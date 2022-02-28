@@ -46,8 +46,14 @@ impl Command for ToNuon {
 
 fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     match v {
-        Value::Binary { .. } => Err(ShellError::UnsupportedInput("binary".into(), span)),
-        Value::Block { .. } => Err(ShellError::UnsupportedInput("block".into(), span)),
+        Value::Binary { .. } => Err(ShellError::UnsupportedInput(
+            "binary not supported".into(),
+            span,
+        )),
+        Value::Block { .. } => Err(ShellError::UnsupportedInput(
+            "block not supported".into(),
+            span,
+        )),
         Value::Bool { val, .. } => {
             if *val {
                 Ok("$true".to_string())
@@ -55,11 +61,20 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                 Ok("$false".to_string())
             }
         }
-        Value::CellPath { .. } => Err(ShellError::UnsupportedInput("cellpath".to_string(), span)),
-        Value::CustomValue { .. } => Err(ShellError::UnsupportedInput("custom".to_string(), span)),
+        Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
+            "cellpath not supported".to_string(),
+            span,
+        )),
+        Value::CustomValue { .. } => Err(ShellError::UnsupportedInput(
+            "custom not supported".to_string(),
+            span,
+        )),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
-        Value::Error { .. } => Err(ShellError::UnsupportedInput("error".to_string(), span)),
+        Value::Error { .. } => Err(ShellError::UnsupportedInput(
+            "error not supported".to_string(),
+            span,
+        )),
         Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
         Value::Float { val, .. } => Ok(format!("{}", *val)),
         Value::Int { val, .. } => Ok(format!("{}", *val)),
