@@ -45,11 +45,3 @@ fn to_json_escaped() -> TestResult {
         r#"{"foo":{"bar": "[{\"a\":\"b\",\"c\": 2}]"}}"#,
     )
 }
-
-#[test]
-fn to_nuon_correct_compaction() -> TestResult {
-    run_test(
-        r#"open ./tests/fixtures/formats/appveyor.yml | to nuon | str length | $in > 500"#,
-        "true",
-    )
-}
