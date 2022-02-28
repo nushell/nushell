@@ -95,7 +95,10 @@ impl Command for Save {
 
                     Ok(PipelineData::new(span))
                 }
-                v => Err(ShellError::UnsupportedInput(format!("{:?} not supported", v.get_type()), span)),
+                v => Err(ShellError::UnsupportedInput(
+                    format!("{:?} not supported", v.get_type()),
+                    span,
+                )),
             }
         } else {
             match input.into_value(span) {
@@ -113,7 +116,10 @@ impl Command for Save {
 
                     Ok(PipelineData::new(span))
                 }
-                v => Err(ShellError::UnsupportedInput(format!("{:?} not supported", v.get_type()), span)),
+                v => Err(ShellError::UnsupportedInput(
+                    format!("{:?} not supported", v.get_type()),
+                    span,
+                )),
             }
         }
     }
