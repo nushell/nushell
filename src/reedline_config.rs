@@ -123,6 +123,41 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
     line_editor.with_menu(Box::new(history_menu))
 }
 
+fn add_menu_keybindings(keybindings: &mut Keybindings) {
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char('x'),
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::Menu("history_menu".to_string()),
+            ReedlineEvent::MenuPageNext,
+        ]),
+    );
+
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char('z'),
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::MenuPagePrevious,
+            ReedlineEvent::Edit(vec![EditCommand::Undo]),
+        ]),
+    );
+
+    keybindings.add_binding(
+        KeyModifiers::NONE,
+        KeyCode::Tab,
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::Menu("completion_menu".to_string()),
+            ReedlineEvent::MenuNext,
+        ]),
+    );
+
+    keybindings.add_binding(
+        KeyModifiers::SHIFT,
+        KeyCode::BackTab,
+        ReedlineEvent::MenuPrevious,
+    );
+}
+
 pub enum KeybindingsMode {
     Emacs(Keybindings),
     Vi {
@@ -137,6 +172,8 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         "emacs" => {
             let mut keybindings = default_emacs_keybindings();
 
+            add_menu_keybindings(&mut keybindings);
+
             for parsed_keybinding in parsed_keybindings {
                 if parsed_keybinding.mode.into_string("", config).as_str() == "emacs" {
                     add_keybinding(&mut keybindings, parsed_keybinding, config)?
@@ -148,6 +185,9 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         _ => {
             let mut insert_keybindings = default_vi_insert_keybindings();
             let mut normal_keybindings = default_vi_normal_keybindings();
+
+            add_menu_keybindings(&mut insert_keybindings);
+            add_menu_keybindings(&mut normal_keybindings);
 
             for parsed_keybinding in parsed_keybindings {
                 if parsed_keybinding.mode.into_string("", config).as_str() == "vi_insert" {
@@ -362,6 +402,17 @@ fn event_from_record(
         "menu" => {
             let menu = extract_value("name", cols, vals, span)?;
             Ok(ReedlineEvent::Menu(menu.into_string("", config)))
+        }
+        "edit" => {
+            let edit_command = parse_edit(
+                &Value::Record {
+                    cols: cols.to_vec(),
+                    vals: vals.to_vec(),
+                    span: *span,
+                },
+                config,
+            )?;
+            Ok(ReedlineEvent::Edit(vec![edit_command]))
         }
         v => Err(ShellError::UnsupportedConfigValue(
             "Reedline event".to_string(),

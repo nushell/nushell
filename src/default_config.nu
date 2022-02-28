@@ -227,7 +227,12 @@ let $config = {
       modifier: control
       keycode: char_z
       mode: emacs # emacs vi_normal vi_insert
-      event: { send: menupageprevious }
+      event: {
+        until: [
+          { send: menupageprevious }
+          { send: edit, cmd: undo }
+        ]
+      }
     }
   ]
 }
