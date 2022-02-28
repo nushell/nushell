@@ -125,6 +125,7 @@ impl Expression {
                     false
                 }
             }
+            Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
                 for positional in &call.positional {
@@ -290,6 +291,7 @@ impl Expression {
                     .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
                     .collect();
             }
+            Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
                 for positional in &mut call.positional {
@@ -430,6 +432,7 @@ impl Expression {
 
                 *block_id = working_set.add_block(block);
             }
+            Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
                 if replaced.contains_span(call.head) {

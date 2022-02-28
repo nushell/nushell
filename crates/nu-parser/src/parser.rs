@@ -21,7 +21,10 @@ use crate::parse_keywords::{
 };
 
 use log::trace;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    num::ParseIntError,
+};
 
 #[cfg(feature = "plugin")]
 use crate::parse_keywords::parse_register;
@@ -962,6 +965,85 @@ pub fn parse_call(
         // Otherwise, try external command
         parse_external_call(working_set, spans)
     }
+}
+
+pub fn parse_binary(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
+    let token = working_set.get_span_contents(span);
+
+    if let Some(token) = token.strip_prefix(b"0x[") {
+        if let Some(token) = token.strip_suffix(b"]") {
+            let (lexed, err) = lex(token, span.start + 3, &[b',', b'\r', b'\n'], &[], true);
+
+            let mut hex_value = vec![];
+            for token in lexed {
+                match token.contents {
+                    TokenContents::Item => {
+                        let contents = working_set.get_span_contents(token.span);
+
+                        hex_value.extend_from_slice(contents);
+                    }
+                    TokenContents::Pipe => {
+                        return (
+                            garbage(span),
+                            Some(ParseError::Expected("binary".into(), span)),
+                        );
+                    }
+                    TokenContents::Comment | TokenContents::Semicolon | TokenContents::Eol => {}
+                }
+            }
+
+            if hex_value.len() % 2 != 0 {
+                return (
+                    garbage(span),
+                    Some(ParseError::IncorrectValue(
+                        "incomplete binary".into(),
+                        span,
+                        "number of binary digits needs to be a multiple of 2".into(),
+                    )),
+                );
+            }
+
+            let str = String::from_utf8_lossy(&hex_value).to_string();
+
+            match decode_hex(&str) {
+                Ok(v) => {
+                    return (
+                        Expression {
+                            expr: Expr::Binary(v),
+                            span,
+                            ty: Type::Binary,
+                            custom_completion: None,
+                        },
+                        err,
+                    )
+                }
+                Err(x) => {
+                    return (
+                        garbage(span),
+                        Some(ParseError::IncorrectValue(
+                            "not a binary value".into(),
+                            span,
+                            x.to_string(),
+                        )),
+                    )
+                }
+            }
+        }
+    }
+    (
+        garbage(span),
+        Some(ParseError::Expected("binary".into(), span)),
+    )
 }
 
 pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
@@ -2132,6 +2214,7 @@ pub fn parse_shape_name(
 ) -> (SyntaxShape, Option<ParseError>) {
     let result = match bytes {
         b"any" => SyntaxShape::Any,
+        b"binary" => SyntaxShape::Binary,
         b"block" => SyntaxShape::Block(None), //FIXME: Blocks should have known output types
         b"cell-path" => SyntaxShape::CellPath,
         b"duration" => SyntaxShape::Duration,
@@ -3231,6 +3314,7 @@ pub fn parse_value(
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
+        SyntaxShape::Binary => parse_binary(working_set, span),
         SyntaxShape::Block(_) => {
             if bytes.starts_with(b"{") {
                 trace!("parsing value as a block expression");
@@ -3320,6 +3404,7 @@ pub fn parse_value(
                 parse_full_cell_path(working_set, None, span)
             } else {
                 let shapes = [
+                    SyntaxShape::Binary,
                     SyntaxShape::Int,
                     SyntaxShape::Number,
                     SyntaxShape::Range,
@@ -4020,6 +4105,7 @@ pub fn discover_captures_in_expr(
                 }
             }
         }
+        Expr::Binary(_) => {}
         Expr::Bool(_) => {}
         Expr::Call(call) => {
             let decl = working_set.get_decl(call.decl_id);
