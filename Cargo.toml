@@ -97,6 +97,14 @@ dataframe = ["nu-command/dataframe"]
 
 [profile.release]
 opt-level = "s" # Optimize for size
+strip = "debuginfo"
+
+# build with `cargo build --profile profiling` 
+# to analyze performance with tooling like linux perf
+[profile.profiling]
+inherits = "release"
+strip = false
+debug = true
 
 # Build plugins
 [[bin]]
