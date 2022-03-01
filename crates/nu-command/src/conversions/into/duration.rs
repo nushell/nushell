@@ -49,7 +49,7 @@ impl Command for SubCommand {
                         Value::Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
-                                val: 1 * 1000 * 1000 * 1000,
+                                val: 1000 * 1000 * 1000,
                                 span,
                             }],
                             span,
@@ -133,11 +133,16 @@ fn into_duration(
 }
 
 fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
-    let re = Regex::new(r"^(?P<num>\d+)(?P<unit>[a-z]+)$").unwrap();
+    let re = Regex::new(r"^(?P<num>\d+)(?P<unit>[a-z]+)$").expect("invalid regex");
     match re.captures(s.trim().to_lowercase().as_str()) {
         Some(caps) => {
-            let num: i64 = caps.name("num").unwrap().as_str().parse().unwrap();
-            match caps.name("unit").unwrap().as_str() {
+            let num: i64 = caps
+                .name("num")
+                .expect("invalid capture group")
+                .as_str()
+                .parse()
+                .expect("cannot parse");
+            match caps.name("unit").expect("invalid capture group").as_str() {
                 "sec" => Ok(num * 1000 * 1000 * 1000),
                 "min" => Ok(num * 1000 * 1000 * 1000 * 60),
                 "hr" => Ok(num * 1000 * 1000 * 1000 * 60 * 60),
