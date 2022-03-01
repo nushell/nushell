@@ -52,7 +52,7 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Get current time in full RFC3399 format with timezone",
+                description: "Get current time in full RFC3339 format with timezone",
                 example: r#"date now | debug"#,
                 result: None,
             },
