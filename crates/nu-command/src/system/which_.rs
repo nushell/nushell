@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use log::trace;
+use nu_engine::env;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -7,6 +8,9 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value,
 };
+
+use std::ffi::OsStr;
+use std::path::Path;
 
 #[derive(Clone)]
 pub struct Which;
@@ -144,8 +148,13 @@ macro_rules! entry_path {
 }
 
 #[cfg(feature = "which")]
-fn get_first_entry_in_path(item: &str, span: Span) -> Option<Value> {
-    which::which(item)
+fn get_first_entry_in_path(
+    item: &str,
+    span: Span,
+    cwd: impl AsRef<Path>,
+    paths: impl AsRef<OsStr>,
+) -> Option<Value> {
+    which::which_in(item, Some(paths), cwd)
         .map(|path| entry_path!(item, path.to_string_lossy().to_string(), span))
         .ok()
 }
@@ -156,8 +165,13 @@ fn get_first_entry_in_path(_: &str, _: Span) -> Option<Value> {
 }
 
 #[cfg(feature = "which")]
-fn get_all_entries_in_path(item: &str, span: Span) -> Vec<Value> {
-    which::which_all(&item)
+fn get_all_entries_in_path(
+    item: &str,
+    span: Span,
+    cwd: impl AsRef<Path>,
+    paths: impl AsRef<OsStr>,
+) -> Vec<Value> {
+    which::which_in_all(&item, Some(paths), cwd)
         .map(|iter| {
             iter.map(|path| entry_path!(item, path.to_string_lossy().to_string(), span))
                 .collect()
@@ -175,7 +189,13 @@ struct WhichArgs {
     all: bool,
 }
 
-fn which_single(application: Spanned<String>, all: bool, engine_state: &EngineState) -> Vec<Value> {
+fn which_single(
+    application: Spanned<String>,
+    all: bool,
+    engine_state: &EngineState,
+    cwd: impl AsRef<Path>,
+    paths: impl AsRef<OsStr>,
+) -> Vec<Value> {
     let (external, prog_name) = if application.item.starts_with('^') {
         (true, application.item[1..].to_string())
     } else {
@@ -187,7 +207,7 @@ fn which_single(application: Spanned<String>, all: bool, engine_state: &EngineSt
     //program
     //This match handles all different cases
     match (all, external) {
-        (true, true) => get_all_entries_in_path(&prog_name, application.span),
+        (true, true) => get_all_entries_in_path(&prog_name, application.span, cwd, paths),
         (true, false) => {
             let mut output: Vec<Value> = vec![];
             output.extend(get_entries_in_nu(
@@ -196,11 +216,16 @@ fn which_single(application: Spanned<String>, all: bool, engine_state: &EngineSt
                 application.span,
                 false,
             ));
-            output.extend(get_all_entries_in_path(&prog_name, application.span));
+            output.extend(get_all_entries_in_path(
+                &prog_name,
+                application.span,
+                cwd,
+                paths,
+            ));
             output
         }
         (false, true) => {
-            if let Some(entry) = get_first_entry_in_path(&prog_name, application.span) {
+            if let Some(entry) = get_first_entry_in_path(&prog_name, application.span, cwd, paths) {
                 return vec![entry];
             }
             vec![]
@@ -209,7 +234,9 @@ fn which_single(application: Spanned<String>, all: bool, engine_state: &EngineSt
             let nu_entries = get_entries_in_nu(engine_state, &prog_name, application.span, true);
             if !nu_entries.is_empty() {
                 return vec![nu_entries[0].clone()];
-            } else if let Some(entry) = get_first_entry_in_path(&prog_name, application.span) {
+            } else if let Some(entry) =
+                get_first_entry_in_path(&prog_name, application.span, cwd, paths)
+            {
                 return vec![entry];
             }
             vec![]
@@ -237,8 +264,11 @@ fn which(
 
     let mut output = vec![];
 
+    let cwd = env::current_dir_str(engine_state, stack)?;
+    let paths = env::path_str(engine_state, stack, call.head)?;
+
     for app in which_args.applications {
-        let values = which_single(app, which_args.all, engine_state);
+        let values = which_single(app, which_args.all, engine_state, &cwd, &paths);
         output.extend(values);
     }
 
