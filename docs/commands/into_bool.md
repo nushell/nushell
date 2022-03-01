@@ -26,7 +26,7 @@ Convert bool to boolean
 > $true | into bool
 ```
 
-convert decimal to boolean
+convert integer to boolean
 ```shell
 > 1 | into bool
 ```

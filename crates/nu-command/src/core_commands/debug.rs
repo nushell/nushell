@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
 
 #[derive(Clone)]
 pub struct Debug;
@@ -52,11 +52,26 @@ impl Command for Debug {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Describe the type of a string",
-            example: "'hello' | debug",
-            result: Some(Value::test_string("hello")),
-        }]
+        vec![
+            Example {
+                description: "Print the value of a string",
+                example: "'hello' | debug",
+                result: Some(Value::test_string("hello")),
+            },
+            Example {
+                description: "Print the value of a table",
+                example:
+                    "echo [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | debug",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("{version: 0.1.0, patch: false}"),
+                        Value::test_string("{version: 0.1.1, patch: true}"),
+                        Value::test_string("{version: 0.2.0, patch: false}"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 

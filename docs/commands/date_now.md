@@ -26,3 +26,8 @@ Get the time duration since a more accurate time
 ```shell
 > (date now) - 2019-05-01T04:12:05.20+08:00
 ```
+
+Get current time in full RFC3339 format with timezone
+```shell
+> date now | debug
+```
