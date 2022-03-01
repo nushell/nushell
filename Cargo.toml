@@ -31,7 +31,7 @@ members = [
 
 [dependencies]
 chrono = "0.4.19"
-crossterm = "0.22.1"
+crossterm = "0.23.0"
 crossterm_winapi = "0.9.0"
 ctrlc = "3.2.1"
 # lazy_static = "1.4.0"
