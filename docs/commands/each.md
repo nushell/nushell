@@ -28,6 +28,11 @@ Iterate over each element, keeping only values that succeed
 > [1 2 3] | each { |it| if $it == 2 { echo "found 2!"} }
 ```
 
+Iterate over each element, print the matching value and it's index
+```shell
+> [1 2 3] | each -n { |it| if $it.item == 2 { echo $"found 2 at ($it.index)!"} }
+```
+
 Iterate over each element, keeping all results
 ```shell
 > [1 2 3] | each --keep-empty { |it| if $it == 2 { echo "found 2!"} }
