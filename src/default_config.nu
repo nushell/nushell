@@ -162,17 +162,17 @@ let default_theme = {
 
 # The default config record. This is where much of your global configuration is setup.
 let $config = {
-  filesize_metric: $false
+  filesize_metric: false
   table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
-  use_ls_colors: $true
-  rm_always_trash: $false
+  use_ls_colors: true
+  rm_always_trash: false
   color_config: $default_theme
-  use_grid_icons: $true
+  use_grid_icons: true
   footer_mode: "25" # always, never, number_of_rows, auto
-  quick_completions: $true  # set this to $false to prevent auto-selecting completions when only one remains
-  animate_prompt: $false # redraw the prompt every second
+  quick_completions: true  # set this to false to prevent auto-selecting completions when only one remains
+  animate_prompt: false # redraw the prompt every second
   float_precision: 2
-  use_ansi_coloring: $true
+  use_ansi_coloring: true
   filesize_format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
   edit_mode: emacs # emacs, vi
   max_history_size: 10000

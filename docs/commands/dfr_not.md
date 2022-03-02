@@ -14,5 +14,5 @@ Inverts boolean mask
 
 Inverts boolean mask
 ```shell
-> [$true $false $true] | dfr to-df | dfr not
+> [true false true] | dfr to-df | dfr not
 ```

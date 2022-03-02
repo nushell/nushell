@@ -284,6 +284,32 @@ pub(crate) fn eval_source(
     true
 }
 
+fn seems_like_number(bytes: &[u8]) -> bool {
+    if bytes.len() == 0 {
+        false
+    } else {
+        let b = bytes[0];
+
+        b == b'0'
+            || b == b'1'
+            || b == b'2'
+            || b == b'3'
+            || b == b'4'
+            || b == b'5'
+            || b == b'6'
+            || b == b'7'
+            || b == b'8'
+            || b == b'9'
+            || b == b'('
+            || b == b'{'
+            || b == b'['
+            || b == b'$'
+            || b == b'"'
+            || b == b'\''
+            || b == b'-'
+    }
+}
+
 /// Finds externals that have names that look like math expressions
 pub fn external_exceptions(engine_state: &EngineState, stack: &Stack) -> Vec<Vec<u8>> {
     let mut executables = vec![];
@@ -299,16 +325,16 @@ pub fn external_exceptions(engine_state: &EngineState, stack: &Stack) -> Vec<Vec
                             while let Some(Ok(item)) = contents.next() {
                                 if is_executable::is_executable(&item.path()) {
                                     if let Ok(name) = item.file_name().into_string() {
-                                        let name = name.as_bytes().to_vec();
-                                        if nu_parser::is_math_expression_like(&name) {
+                                        if seems_like_number(name.as_bytes()) {
+                                            let name = name.as_bytes().to_vec();
                                             executables.push(name);
                                         }
                                     }
 
                                     if let Some(name) = item.path().file_stem() {
                                         let name = name.to_string_lossy();
-                                        let name = name.as_bytes().to_vec();
-                                        if nu_parser::is_math_expression_like(&name) {
+                                        if seems_like_number(name.as_bytes()) {
+                                            let name = name.as_bytes().to_vec();
                                             executables.push(name);
                                         }
                                     }
@@ -326,15 +352,15 @@ pub fn external_exceptions(engine_state: &EngineState, stack: &Stack) -> Vec<Vec
                         while let Some(Ok(item)) = contents.next() {
                             if is_executable::is_executable(&item.path()) {
                                 if let Ok(name) = item.file_name().into_string() {
-                                    let name = name.as_bytes().to_vec();
-                                    if nu_parser::is_math_expression_like(&name) {
+                                    if seems_like_number(name.as_bytes()) {
+                                        let name = name.as_bytes().to_vec();
                                         executables.push(name);
                                     }
                                 }
                                 if let Some(name) = item.path().file_stem() {
                                     let name = name.to_string_lossy();
-                                    let name = name.as_bytes().to_vec();
-                                    if nu_parser::is_math_expression_like(&name) {
+                                    if seems_like_number(name.as_bytes()) {
+                                        let name = name.as_bytes().to_vec();
                                         executables.push(name);
                                     }
                                 }

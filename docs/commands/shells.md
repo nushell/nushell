@@ -19,5 +19,5 @@ Enter a new shell at parent path '..' and show all opened shells
 
 Show currently active shell
 ```shell
-> shells | where active == $true
+> shells | where active == true
 ```

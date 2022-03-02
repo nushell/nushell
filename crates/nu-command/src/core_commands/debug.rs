@@ -60,8 +60,7 @@ impl Command for Debug {
             },
             Example {
                 description: "Print the value of a table",
-                example:
-                    "echo [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | debug",
+                example: "echo [[version patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | debug",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_string("{version: 0.1.0, patch: false}"),

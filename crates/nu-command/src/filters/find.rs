@@ -91,7 +91,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find if a service is not running",
-                example: "[[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { |it| $it.patch }",
+                example: "[[version patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | find -p { |it| $it.patch }",
                 result: Some(Value::List {
                     vals: vec![Value::test_record(
                             vec!["version", "patch"],
