@@ -1482,7 +1482,27 @@ pub fn parse_variable_expr(
 ) -> (Expression, Option<ParseError>) {
     let contents = working_set.get_span_contents(span);
 
-    if contents == b"$nothing" {
+    if contents == b"$true" {
+        return (
+            Expression {
+                expr: Expr::Bool(true),
+                span,
+                ty: Type::Bool,
+                custom_completion: None,
+            },
+            None,
+        );
+    } else if contents == b"$false" {
+        return (
+            Expression {
+                expr: Expr::Bool(false),
+                span,
+                ty: Type::Bool,
+                custom_completion: None,
+            },
+            None,
+        );
+    } else if contents == b"$nothing" {
         return (
             Expression {
                 expr: Expr::Nothing,
