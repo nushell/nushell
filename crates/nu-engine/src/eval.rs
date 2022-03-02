@@ -133,7 +133,14 @@ fn eval_call(
             }
         }
 
-        let result = eval_block(engine_state, &mut callee_stack, block, input, false, true);
+        let result = eval_block(
+            engine_state,
+            &mut callee_stack,
+            block,
+            input,
+            call.redirect_stdout,
+            call.redirect_stderr,
+        );
 
         if block.redirect_env {
             let caller_env_vars = caller_stack.get_env_var_names(engine_state);
