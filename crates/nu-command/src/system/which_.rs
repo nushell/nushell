@@ -160,7 +160,12 @@ fn get_first_entry_in_path(
 }
 
 #[cfg(not(feature = "which"))]
-fn get_first_entry_in_path(_: &str, _: Span) -> Option<Value> {
+fn get_first_entry_in_path(
+    _item: &str,
+    _span: Span,
+    _cwd: impl AsRef<Path>,
+    _paths: impl AsRef<OsStr>,
+) -> Option<Value> {
     None
 }
 
@@ -179,7 +184,12 @@ fn get_all_entries_in_path(
         .unwrap_or_default()
 }
 #[cfg(not(feature = "which"))]
-fn get_all_entries_in_path(_: &str, _: Span) -> Vec<Value> {
+fn get_all_entries_in_path(
+    _item: &str,
+    _span: Span,
+    _cwd: impl AsRef<Path>,
+    _paths: impl AsRef<OsStr>,
+) -> Vec<Value> {
     vec![]
 }
 
