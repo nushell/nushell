@@ -8,7 +8,11 @@ Describes dataframes numeric columns
 
 ## Signature
 
-```> dfr describe ```
+```> dfr describe --quantiles```
+
+## Parameters
+
+ -  `--quantiles {table}`: optional quantiles for describe
 
 ## Examples
 

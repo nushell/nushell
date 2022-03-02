@@ -102,3 +102,27 @@ fn to_nuon_records() {
 
     assert_eq!(actual.out, "true");
 }
+
+#[test]
+fn binary_to() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            0x[ab cd ef] | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "0x[ABCDEF]");
+}
+
+#[test]
+fn binary_roundtrip() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "0x[1f ff]" | from nuon | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "0x[1FFF]");
+}

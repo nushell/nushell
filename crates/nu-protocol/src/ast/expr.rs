@@ -8,6 +8,7 @@ pub enum Expr {
     Bool(bool),
     Int(i64),
     Float(f64),
+    Binary(Vec<u8>),
     Range(
         Option<Box<Expression>>, // from
         Option<Box<Expression>>, // next value after "from"

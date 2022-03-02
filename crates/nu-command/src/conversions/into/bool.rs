@@ -80,7 +80,7 @@ impl Command for SubCommand {
                 result: Some(Value::boolean(true, span)),
             },
             Example {
-                description: "convert decimal to boolean",
+                description: "convert integer to boolean",
                 example: "1 | into bool",
                 result: Some(Value::boolean(true, span)),
             },

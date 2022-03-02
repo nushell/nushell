@@ -40,6 +40,9 @@ pub enum SyntaxShape {
     /// A module path pattern used for imports
     ImportPattern,
 
+    /// A binary literal
+    Binary,
+
     /// A block is allowed, eg `{start this thing}`
     Block(Option<Vec<SyntaxShape>>),
 
@@ -95,6 +98,7 @@ impl SyntaxShape {
         match self {
             SyntaxShape::Any => Type::Unknown,
             SyntaxShape::Block(_) => Type::Block,
+            SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Unknown,
             SyntaxShape::Custom(custom, _) => custom.to_type(),
             SyntaxShape::DateTime => Type::Date,
@@ -144,6 +148,7 @@ impl Display for SyntaxShape {
             SyntaxShape::GlobPattern => write!(f, "glob"),
             SyntaxShape::ImportPattern => write!(f, "import"),
             SyntaxShape::Block(_) => write!(f, "block"),
+            SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
             SyntaxShape::List(x) => write!(f, "list<{}>", x),
             SyntaxShape::Record => write!(f, "record"),

@@ -55,6 +55,13 @@ impl Highlighter for NuHighlighter {
                     get_shape_color(shape.1.to_string(), &self.config),
                     next_token,
                 )),
+                FlatShape::Binary => {
+                    // nushell ?
+                    output.push((
+                        get_shape_color(shape.1.to_string(), &self.config),
+                        next_token,
+                    ))
+                }
                 FlatShape::Bool => {
                     // nushell ?
                     output.push((

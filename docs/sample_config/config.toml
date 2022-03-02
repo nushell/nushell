@@ -4,7 +4,8 @@ skip_welcome_message = false # Note to nushell developer: This is expected to be
 disable_table_indexes = false
 nonzero_exit_errors = true
 startup = [
-    "alias la = ls --long",
+    "alias la = ls --all",
+    "alias ll = ls --long",
     "def nudown [] {fetch https://api.github.com/repos/nushell/nushell/releases | get assets | select name download_count}",
     "def nuver [] {version | pivot key value}",
     ]

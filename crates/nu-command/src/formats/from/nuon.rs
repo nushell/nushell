@@ -201,6 +201,7 @@ fn convert_to_value(
             "blocks not supported in nuon".into(),
             expr.span,
         )),
+        Expr::Binary(val) => Ok(Value::Binary { val, span }),
         Expr::Bool(val) => Ok(Value::Bool { val, span }),
         Expr::Call(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),

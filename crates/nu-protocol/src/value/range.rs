@@ -37,12 +37,12 @@ impl Range {
         let to = if let Value::Nothing { .. } = to {
             if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, &from) {
                 Value::Int {
-                    val: -100i64,
+                    val: i64::MIN,
                     span: expr_span,
                 }
             } else {
                 Value::Int {
-                    val: 100i64,
+                    val: i64::MAX,
                     span: expr_span,
                 }
             }

@@ -51,6 +51,11 @@ impl Command for SubCommand {
                 example: r#"(date now) - 2019-05-01T04:12:05.20+08:00"#,
                 result: None,
             },
+            Example {
+                description: "Get current time in full RFC3339 format with timezone",
+                example: r#"date now | debug"#,
+                result: None,
+            },
         ]
     }
 }
