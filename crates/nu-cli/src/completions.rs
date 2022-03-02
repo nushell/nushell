@@ -9,6 +9,22 @@ use reedline::Completer;
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
+pub struct CompletionOptions {
+    case_sensitive: bool,
+    positional: bool,
+    sort: bool,
+}
+
+impl Default for CompletionOptions {
+    fn default() -> Self {
+        Self {
+            case_sensitive: true,
+            positional: true,
+            sort: true,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct NuCompleter {
     engine_state: EngineState,
@@ -280,103 +296,86 @@ impl NuCompleter {
                                     true,
                                 );
 
-                                struct CompletionData {
-                                    case_sensitive: bool,
-                                    positional: bool,
-                                    sort: bool,
-                                    completions: Vec<(reedline::Span, String)>,
-                                }
+                                fn map_completions<'a>(
+                                    list: impl Iterator<Item = &'a Value>,
+                                    new_span: Span,
+                                    offset: usize,
+                                ) -> Vec<(reedline::Span, String)> {
+                                    list.filter_map(move |x| {
+                                        let s = x.as_string();
 
-                                impl Default for CompletionData {
-                                    fn default() -> Self {
-                                        Self {
-                                            case_sensitive: true,
-                                            positional: true,
-                                            sort: true,
-                                            completions: Vec::default(),
+                                        match s {
+                                            Ok(s) => Some((
+                                                reedline::Span {
+                                                    start: new_span.start - offset,
+                                                    end: new_span.end - offset,
+                                                },
+                                                s,
+                                            )),
+                                            Err(_) => None,
                                         }
-                                    }
+                                    })
+                                    .collect()
                                 }
 
-                                let data = match result {
+                                let (completions, options) = match result {
                                     Ok(pd) => {
                                         let value = pd.into_value(new_span);
                                         match &value {
-                                            Value::Record { .. } => CompletionData {
-                                                case_sensitive: value
-                                                    .get_data_by_key("case_sensitive")
-                                                    .and_then(|val| val.as_bool().ok())
-                                                    .unwrap_or(true),
-                                                positional: value
-                                                    .get_data_by_key("positional")
-                                                    .and_then(|val| val.as_bool().ok())
-                                                    .unwrap_or(true),
-                                                sort: value
-                                                    .get_data_by_key("sort")
-                                                    .and_then(|val| val.as_bool().ok())
-                                                    .unwrap_or(true),
-                                                completions: value
+                                            Value::Record { .. } => {
+                                                let completions = value
                                                     .get_data_by_key("completions")
                                                     .and_then(|val| {
-                                                        val.as_list().ok().map(|list| {
-                                                            list.iter()
-                                                                .filter_map(move |x| {
-                                                                    let s = x.as_string();
-
-                                                                    match s {
-                                                                        Ok(s) => Some((
-                                                                            reedline::Span {
-                                                                                start: new_span
-                                                                                    .start
-                                                                                    - offset,
-                                                                                end: new_span.end
-                                                                                    - offset,
-                                                                            },
-                                                                            s,
-                                                                        )),
-                                                                        Err(_) => None,
-                                                                    }
-                                                                })
-                                                                .collect()
+                                                        val.as_list().ok().map(|it| {
+                                                            map_completions(
+                                                                it.iter(),
+                                                                new_span,
+                                                                offset,
+                                                            )
                                                         })
                                                     })
-                                                    .unwrap_or_default(),
-                                            },
-                                            Value::List { vals, .. } => {
-                                                let completions = vals
-                                                    .iter()
-                                                    .filter_map(move |x| {
-                                                        let s = x.as_string();
+                                                    .unwrap_or_default();
+                                                let options = value.get_data_by_key("options");
 
-                                                        match s {
-                                                            Ok(s) => Some((
-                                                                reedline::Span {
-                                                                    start: new_span.start - offset,
-                                                                    end: new_span.end - offset,
-                                                                },
-                                                                s,
-                                                            )),
-                                                            Err(_) => None,
+                                                let options =
+                                                    if let Some(Value::Record { .. }) = &options {
+                                                        let options = options.unwrap_or_default();
+                                                        CompletionOptions {
+                                                            case_sensitive: options
+                                                                .get_data_by_key("case_sensitive")
+                                                                .and_then(|val| val.as_bool().ok())
+                                                                .unwrap_or(true),
+                                                            positional: options
+                                                                .get_data_by_key("positional")
+                                                                .and_then(|val| val.as_bool().ok())
+                                                                .unwrap_or(true),
+                                                            sort: options
+                                                                .get_data_by_key("sort")
+                                                                .and_then(|val| val.as_bool().ok())
+                                                                .unwrap_or(true),
                                                         }
-                                                    })
-                                                    .collect();
-                                                CompletionData {
-                                                    completions,
-                                                    ..Default::default()
-                                                }
+                                                    } else {
+                                                        CompletionOptions::default()
+                                                    };
+
+                                                (completions, options)
                                             }
-                                            _ => Default::default(),
+                                            Value::List { vals, .. } => {
+                                                let completions =
+                                                    map_completions(vals.iter(), new_span, offset);
+                                                (completions, CompletionOptions::default())
+                                            }
+                                            _ => (vec![], CompletionOptions::default()),
                                         }
                                     }
-                                    _ => CompletionData::default(),
+                                    _ => (vec![], CompletionOptions::default()),
                                 };
 
-                                let mut completions: Vec<_> = data
-                                    .completions
+                                let mut completions: Vec<_> = completions
                                     .into_iter()
                                     .filter(|it| {
                                         // Minimise clones for new functionality
-                                        match (data.case_sensitive, data.positional) {
+                                        match (options.case_sensitive, options.positional) {
                                             (true, true) => it.1.as_bytes().starts_with(&prefix),
                                             (true, false) => it.1.contains(
                                                 std::str::from_utf8(&prefix).unwrap_or(""),
@@ -396,7 +395,7 @@ impl NuCompleter {
                                     })
                                     .collect();
 
-                                if data.sort {
+                                if options.sort {
                                     completions.sort_by(|a, b| a.1.cmp(&b.1));
                                 }
 
