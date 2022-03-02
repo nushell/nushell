@@ -285,7 +285,7 @@ pub(crate) fn eval_source(
 }
 
 fn seems_like_number(bytes: &[u8]) -> bool {
-    if bytes.len() == 0 {
+    if bytes.is_empty() {
         false
     } else {
         let b = bytes[0];
