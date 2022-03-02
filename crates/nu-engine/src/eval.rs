@@ -133,7 +133,14 @@ fn eval_call(
             }
         }
 
-        let result = eval_block(engine_state, &mut callee_stack, block, input, false, true);
+        let result = eval_block(
+            engine_state,
+            &mut callee_stack,
+            block,
+            input,
+            call.redirect_stdout,
+            call.redirect_stderr,
+        );
 
         if block.redirect_env {
             let caller_env_vars = caller_stack.get_env_var_names(engine_state);
@@ -225,6 +232,10 @@ pub fn eval_expression(
         }),
         Expr::Float(f) => Ok(Value::Float {
             val: *f,
+            span: expr.span,
+        }),
+        Expr::Binary(b) => Ok(Value::Binary {
+            val: b.clone(),
             span: expr.span,
         }),
         Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {

@@ -152,7 +152,7 @@ pub enum ShellError {
 
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
-    UnsupportedInput(String, #[label("{0} not supported")] Span),
+    UnsupportedInput(String, #[label("{0}")] Span),
 
     #[error("Unable to parse datetime")]
     #[diagnostic(

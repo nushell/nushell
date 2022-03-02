@@ -7,6 +7,7 @@ pub enum FlatShape {
     Garbage,
     Nothing,
     Bool,
+    Binary,
     Int,
     Float,
     Range,
@@ -35,6 +36,7 @@ impl Display for FlatShape {
         match self {
             FlatShape::Garbage => write!(f, "shape_garbage"),
             FlatShape::Nothing => write!(f, "shape_nothing"),
+            FlatShape::Binary => write!(f, "shape_binary"),
             FlatShape::Bool => write!(f, "shape_bool"),
             FlatShape::Int => write!(f, "shape_int"),
             FlatShape::Float => write!(f, "shape_float"),
@@ -188,6 +190,9 @@ pub fn flatten_expression(
         }
         Expr::DateTime(_) => {
             vec![(expr.span, FlatShape::DateTime)]
+        }
+        Expr::Binary(_) => {
+            vec![(expr.span, FlatShape::Binary)]
         }
         Expr::Int(_) => {
             vec![(expr.span, FlatShape::Int)]

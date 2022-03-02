@@ -72,7 +72,7 @@ fn in_variable_6() -> TestResult {
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    run_test(r#"each --help | lines | length"#, "30")
+    run_test(r#"each --help | lines | length"#, "33")
 }
 
 #[test]
@@ -271,4 +271,9 @@ fn shortcircuiting_and() -> TestResult {
 #[test]
 fn shortcircuiting_or() -> TestResult {
     run_test(r#"$true || (5 / 0; $false)"#, "true")
+}
+
+#[test]
+fn open_ended_range() -> TestResult {
+    run_test(r#"1.. | first 100000 | length"#, "100000")
 }

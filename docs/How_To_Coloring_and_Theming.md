@@ -387,7 +387,7 @@ There's an exhaustive list [here](https://github.com/trapd00r/LS_COLORS), which 
 
 I like the `vivid` application and currently have it configured in my `config.nu` like this. You can find `vivid` [here](https://github.com/sharkdp/vivid).
 
-`let-env LS_COLORS = (vivid generate molokai | decode utf-8 | str trim)`
+`let-env LS_COLORS = (vivid generate molokai | str trim)`
 
 ## Theming
 

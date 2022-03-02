@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    SyntaxShape, Value,
+    Span, SyntaxShape, Value,
 };
 use rayon::prelude::*;
 
@@ -31,11 +31,24 @@ impl Command for ParEach {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: "[1 2 3] | par-each { |it| 2 * $it }",
-            description: "Multiplies elements in list",
-            result: None,
-        }]
+        vec![
+            Example {
+                example: "[1 2 3] | par-each { |it| 2 * $it }",
+                description: "Multiplies elements in list",
+                result: None,
+            },
+            Example {
+                example: r#"[1 2 3] | par-each -n { |it| if $it.item == 2 { echo $"found 2 at ($it.index)!"} }"#,
+                description: "Iterate over each element, print the matching value and it's index",
+                result: Some(Value::List {
+                    vals: vec![Value::String {
+                        val: "found 2 at 1!".to_string(),
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 
     fn run(

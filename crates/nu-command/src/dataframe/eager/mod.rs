@@ -14,6 +14,7 @@ mod get;
 mod groupby;
 mod join;
 mod last;
+mod list;
 mod melt;
 mod open;
 mod pivot;
@@ -47,6 +48,7 @@ pub use get::GetDF;
 pub use groupby::CreateGroupBy;
 pub use join::JoinDF;
 pub use last::LastDF;
+pub use list::ListDF;
 pub use melt::MeltDF;
 pub use open::OpenDataFrame;
 pub use pivot::PivotDF;
@@ -90,6 +92,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         GetDF,
         JoinDF,
         LastDF,
+        ListDF,
         MeltDF,
         OpenDataFrame,
         PivotDF,
