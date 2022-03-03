@@ -462,6 +462,16 @@ impl EngineState {
         output
     }
 
+    pub fn find_aliases_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+        self.scope
+            .iter()
+            .rev()
+            .flat_map(|scope| &scope.aliases)
+            .filter(|decl| decl.0.starts_with(name))
+            .map(|decl| decl.0.clone())
+            .collect()
+    }
+
     pub fn get_span_contents(&self, span: &Span) -> &[u8] {
         for (contents, start, finish) in &self.file_contents {
             if span.start >= *start && span.end <= *finish {
@@ -1246,6 +1256,18 @@ impl<'a> StateWorkingSet<'a> {
         output.append(&mut permanent);
 
         output
+    }
+
+    pub fn find_aliases_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+        self.delta
+            .scope
+            .iter()
+            .rev()
+            .flat_map(|scope| &scope.aliases)
+            .filter(|decl| decl.0.starts_with(name))
+            .map(|decl| decl.0.clone())
+            .chain(self.permanent_state.find_aliases_by_prefix(name))
+            .collect()
     }
 
     pub fn get_block(&self, block_id: BlockId) -> &Block {
