@@ -3,7 +3,8 @@ pub use self::de::{
 };
 pub use self::error::{Error, ErrorCode, Result};
 pub use self::ser::{
-    to_string, to_string_raw, to_string_with_indent, to_vec, to_writer, Serializer,
+    to_string, to_string_raw, to_string_with_indent, to_string_with_tab_indentation, to_vec,
+    to_writer, Serializer,
 };
 pub use self::value::{from_value, to_value, Map, Value};
 
