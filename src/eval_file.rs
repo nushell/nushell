@@ -55,22 +55,26 @@ pub(crate) fn evaluate(
     if working_set.find_decl(b"main").is_some() {
         let args = format!("main {}", args.join(" "));
 
-        eval_source(
+        if !eval_source(
             engine_state,
             &mut stack,
             &file,
             &path,
             PipelineData::new(Span::new(0, 0)),
-        );
-        eval_source(
+        ) {
+            std::process::exit(1);
+        }
+        if !eval_source(
             engine_state,
             &mut stack,
             args.as_bytes(),
             "<commandline>",
             input,
-        );
-    } else {
-        eval_source(engine_state, &mut stack, &file, &path, input);
+        ) {
+            std::process::exit(1);
+        }
+    } else if !eval_source(engine_state, &mut stack, &file, &path, input) {
+        std::process::exit(1);
     }
 
     if is_perf_true() {

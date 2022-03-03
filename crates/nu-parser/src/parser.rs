@@ -3354,18 +3354,6 @@ pub fn parse_value(
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
-        SyntaxShape::Block(_) => {
-            if bytes.starts_with(b"{") {
-                trace!("parsing value as a block expression");
-
-                parse_block_expression(working_set, shape, span)
-            } else {
-                (
-                    Expression::garbage(span),
-                    Some(ParseError::Expected("block".into(), span)),
-                )
-            }
-        }
         SyntaxShape::Signature => {
             if bytes.starts_with(b"[") {
                 parse_signature(working_set, span)
@@ -3450,6 +3438,7 @@ pub fn parse_value(
                     SyntaxShape::DateTime,
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
+                    SyntaxShape::Record,
                     SyntaxShape::Block(None),
                     SyntaxShape::String,
                 ];
