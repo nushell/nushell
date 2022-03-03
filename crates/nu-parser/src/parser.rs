@@ -49,6 +49,10 @@ pub fn is_math_expression_like(bytes: &[u8]) -> bool {
         return false;
     }
 
+    if bytes == b"true" || bytes == b"false" {
+        return true;
+    }
+
     let b = bytes[0];
 
     b == b'0'
@@ -3258,6 +3262,41 @@ pub fn parse_value(
         return parse_variable_expr(working_set, span);
     }
 
+    if bytes == b"true" {
+        if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
+            return (
+                Expression {
+                    expr: Expr::Bool(true),
+                    span,
+                    ty: Type::Bool,
+                    custom_completion: None,
+                },
+                None,
+            );
+        } else {
+            return (
+                Expression::garbage(span),
+                Some(ParseError::Expected("non-boolean value".into(), span)),
+            );
+        }
+    } else if bytes == b"false" {
+        if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
+            return (
+                Expression {
+                    expr: Expr::Bool(false),
+                    span,
+                    ty: Type::Bool,
+                    custom_completion: None,
+                },
+                None,
+            );
+        } else {
+            return (
+                Expression::garbage(span),
+                Some(ParseError::Expected("non-boolean value".into(), span)),
+            );
+        }
+    }
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span),
         b'(' => {
@@ -3381,7 +3420,7 @@ pub fn parse_value(
         }
         SyntaxShape::Boolean => {
             // Redundant, though we catch bad boolean parses here
-            if bytes == b"$true" || bytes == b"$false" {
+            if bytes == b"true" || bytes == b"false" {
                 (
                     Expression {
                         expr: Expr::Bool(true),
@@ -3603,6 +3642,7 @@ pub fn parse_expression(
     while pos < spans.len() {
         // Check if there is any environment shorthand
         let name = working_set.get_span_contents(spans[pos]);
+
         let split = name.split(|x| *x == b'=');
         let split: Vec<_> = split.collect();
         if split.len() == 2 && !split[0].is_empty() {

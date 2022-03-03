@@ -79,7 +79,7 @@ impl Command for Shells {
             },
             Example {
                 description: "Show currently active shell",
-                example: r#"shells | where active == $true"#,
+                example: r#"shells | where active == true"#,
                 result: None,
             },
         ]

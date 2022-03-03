@@ -44,7 +44,7 @@ Convert file size to integer
 
 Convert bool to integer
 ```shell
-> [$false, $true] | into int
+> [false, true] | into int
 ```
 
 Convert to integer from binary

@@ -169,7 +169,7 @@ prints out the list properly."#
             },
             Example {
                 description: "Render a table with 'name' column in it to a grid",
-                example: "[[name patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | grid",
+                example: "[[name patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | grid",
                 result: Some(Value::String {
                     val: "0.1.0 │ 0.1.1 │ 0.2.0".to_string(),
                     span: Span::test_data(),

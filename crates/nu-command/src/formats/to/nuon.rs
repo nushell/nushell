@@ -65,9 +65,9 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         )),
         Value::Bool { val, .. } => {
             if *val {
-                Ok("$true".to_string())
+                Ok("true".to_string())
             } else {
-                Ok("$false".to_string())
+                Ok("false".to_string())
             }
         }
         Value::CellPath { .. } => Err(ShellError::UnsupportedInput(

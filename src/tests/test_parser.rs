@@ -4,7 +4,7 @@ use super::run_test_contains;
 
 #[test]
 fn env_shorthand() -> TestResult {
-    run_test("FOO=BAR if $false { 3 } else { 4 }", "4")
+    run_test("FOO=BAR if false { 3 } else { 4 }", "4")
 }
 
 #[test]

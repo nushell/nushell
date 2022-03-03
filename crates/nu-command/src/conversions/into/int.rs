@@ -75,7 +75,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert bool to integer",
-                example: "[$false, $true] | into int",
+                example: "[false, true] | into int",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(0), Value::test_int(1)],
                     span: Span::test_data(),

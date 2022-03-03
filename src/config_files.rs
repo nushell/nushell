@@ -92,7 +92,7 @@ pub(crate) fn read_config_file(
                 .read_line(&mut answer)
                 .expect("Failed to read user input");
 
-            let config_file = include_str!("default_config.nu");
+            let config_file = include_str!("../docs/sample_config/default_config.nu");
 
             match answer.to_lowercase().trim() {
                 "y" | "" => {

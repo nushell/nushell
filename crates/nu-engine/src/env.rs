@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use nu_protocol::ast::PathMember;
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{Config, PipelineData, ShellError, Value};
+use nu_protocol::{Config, PipelineData, ShellError, Span, Value};
 
 use crate::eval_block;
 
@@ -11,6 +11,13 @@ use crate::eval_block;
 const ENV_SEP: &str = ";";
 #[cfg(not(windows))]
 const ENV_SEP: &str = ":";
+
+#[cfg(windows)]
+const ENV_PATH_NAME: &str = "Path";
+#[cfg(windows)]
+const ENV_PATH_NAME_SECONDARY: &str = "PATH";
+#[cfg(not(windows))]
+const ENV_PATH_NAME: &str = "PATH";
 
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
@@ -93,7 +100,6 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
                 if Path::new(&cwd).is_absolute() {
                     Ok(cwd)
                 } else {
-                    println!("cwd is: {}", cwd);
                     Err(ShellError::LabeledError(
                             "Invalid current directory".to_string(),
                             format!("The 'PWD' environment variable must be set to an absolute path. Found: '{}'", cwd)
@@ -113,6 +119,51 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
 /// Calls current_dir_str() and returns the current directory as a PathBuf
 pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf, ShellError> {
     current_dir_str(engine_state, stack).map(PathBuf::from)
+}
+
+/// Get the contents of path environment variable as a list of strings
+///
+/// On non-Windows: It will fetch PATH
+/// On Windows: It will try to fetch Path first but if not present, try PATH
+pub fn path_str(
+    engine_state: &EngineState,
+    stack: &Stack,
+    span: Span,
+) -> Result<String, ShellError> {
+    let (pathname, pathval) = match stack.get_env_var(engine_state, ENV_PATH_NAME) {
+        Some(v) => Ok((ENV_PATH_NAME, v)),
+        None => {
+            #[cfg(windows)]
+            match stack.get_env_var(engine_state, ENV_PATH_NAME_SECONDARY) {
+                Some(v) => Ok((ENV_PATH_NAME_SECONDARY, v)),
+                None => Err(ShellError::EnvVarNotFoundAtRuntime(
+                    ENV_PATH_NAME_SECONDARY.to_string(),
+                    span,
+                )),
+            }
+            #[cfg(not(windows))]
+            Err(ShellError::EnvVarNotFoundAtRuntime(
+                ENV_PATH_NAME.to_string(),
+                span,
+            ))
+        }
+    }?;
+
+    if let Value::String { val, .. } = pathval {
+        Ok(val)
+    } else {
+        match get_converted_value(engine_state, stack, pathname, &pathval, "to_string") {
+        ConversionResult::Ok(v) => Ok(v.as_string()?),
+        ConversionResult::ConversionError(e) => Err(e),
+        ConversionResult::GeneralError(e) => Err(e),
+        ConversionResult::CellPathError => Err(ShellError::SpannedLabeledErrorHelp(
+            format!("Missing environment conversion of {} to string", pathname),
+            "Could not convert to string".to_string(),
+            pathval.span()?,
+            "The 'to_string' field of ENV_CONVERSIONS environment variable must be set up correctly".to_string()
+        ))
+        }
+    }
 }
 
 fn get_converted_value(

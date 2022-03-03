@@ -103,7 +103,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert boolean to string",
-                example: "$true | into string",
+                example: "true | into string",
                 result: Some(Value::String {
                     val: "true".to_string(),
                     span: Span::test_data(),
