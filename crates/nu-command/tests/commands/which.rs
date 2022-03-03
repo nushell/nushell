@@ -68,7 +68,6 @@ fn multiple_reports_of_multiple_alias() {
     assert_eq!(length, 2);
 }
 
-#[ignore]
 #[test]
 fn multiple_reports_of_multiple_defs() {
     let actual = nu!(
