@@ -147,6 +147,7 @@ pub(crate) fn evaluate(
                 stack.vars.get(&CONFIG_VARIABLE_ID).cloned(),
             )))
             .with_quick_completions(config.quick_completions)
+            .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring);
 
         if is_perf_true() {

@@ -26,6 +26,7 @@ pub struct Config {
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
+    pub partial_completions: bool,
     pub edit_mode: String,
     pub max_history_size: i64,
     pub log_level: String,
@@ -49,6 +50,7 @@ impl Default for Config {
             filesize_format: "auto".into(),
             use_ansi_coloring: true,
             quick_completions: true,
+            partial_completions: true,
             edit_mode: "emacs".into(),
             max_history_size: 1000,
             log_level: String::new(),
@@ -158,6 +160,13 @@ impl Value {
                             config.quick_completions = b;
                         } else {
                             eprintln!("$config.quick_completions is not a bool")
+                        }
+                    }
+                    "partial_completions" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.partial_completions = b;
+                        } else {
+                            eprintln!("$config.partial_completions is not a bool")
                         }
                     }
                     "rm_always_trash" => {
