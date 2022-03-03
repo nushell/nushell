@@ -329,3 +329,13 @@ fn block_arity_check2() -> TestResult {
 fn block_arity_check3() -> TestResult {
     fail_test(r#"ls | each { |x, y| 1}"#, "expected 1 block parameter")
 }
+
+#[test]
+fn string_escape() -> TestResult {
+    run_test(r#""\u015B""#, "ś")
+}
+
+#[test]
+fn string_escape_interpolation() -> TestResult {
+    run_test(r#"$"\u015B(char hamburger)abc""#, "ś≡abc")
+}

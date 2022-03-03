@@ -467,7 +467,7 @@ fn file_path_completion(
 ) -> Vec<(nu_protocol::Span, String)> {
     use std::path::{is_separator, Path};
 
-    let partial = partial.replace('\"', "");
+    let partial = partial.replace('\'', "");
 
     let (base_dir_name, partial) = {
         // If partial is only a word we want to search in the current dir
@@ -500,7 +500,7 @@ fn file_path_completion(
                         }
 
                         if path.contains(' ') {
-                            path = format!("\"{}\"", path);
+                            path = format!("\'{}\'", path);
                         }
 
                         Some((span, path))

@@ -45,7 +45,7 @@ let-env ENV_CONVERSIONS = {
 #
 # This is a simplified version of completions for git branches and git remotes
 def "nu-complete git branches" [] {
-  ^git branch | lines | each { |line| $line | str find-replace "\* " "" | str trim }
+  ^git branch | lines | each { |line| $line | str find-replace '\* ' '' | str trim }
 }
 
 def "nu-complete git remotes" [] {
