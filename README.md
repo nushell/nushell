@@ -69,6 +69,12 @@ To install Nu via the [Windows Package Manager](https://aka.ms/winget-cli):
 winget install nushell
 ```
 
+To install Nu via the [Chocolatey](https://chocolatey.org) package manager:
+
+```shell
+choco install nushell
+```
+
 You can also build Nu yourself with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/installation.html#dependencies) for your platform), once you have checked out this repo with git:
 
 ```shell
