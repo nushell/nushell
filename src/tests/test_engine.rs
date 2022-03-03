@@ -277,3 +277,13 @@ fn shortcircuiting_or() -> TestResult {
 fn open_ended_range() -> TestResult {
     run_test(r#"1.. | first 100000 | length"#, "100000")
 }
+
+#[test]
+fn bool_variable() -> TestResult {
+    run_test(r#"$true"#, "true")
+}
+
+#[test]
+fn bool_variable2() -> TestResult {
+    run_test(r#"$false"#, "false")
+}
