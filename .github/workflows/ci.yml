@@ -73,8 +73,8 @@ jobs:
         platform: [ubuntu-latest, macos-latest, windows-latest]
         rust:
           - stable
-        py:
-          - py
+        # py:
+        #   - py
 
     runs-on: ${{ matrix.platform }}
 
@@ -95,20 +95,20 @@ jobs:
           command: install
           args: --path=. --no-default-features
 
-      - name: Setup Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: "3.10"
+      # - name: Setup Python
+      #   uses: actions/setup-python@v2
+      #   with:
+      #     python-version: "3.10"
 
-      - run: python -m pip install tox
+      # - run: python -m pip install tox
 
-      - name: Install virtualenv
-        run: |
-          git clone https://github.com/kubouch/virtualenv.git && \
-          cd virtualenv && \
-          git checkout engine-q-update
-        shell: bash
+      # - name: Install virtualenv
+      #   run: |
+      #     git clone https://github.com/kubouch/virtualenv.git && \
+      #     cd virtualenv && \
+      #     git checkout engine-q-update
+      #   shell: bash
 
-      - name: Test Nushell in virtualenv
-        run: cd virtualenv && tox -e ${{ matrix.py }} -- -k nushell
-        shell: bash
+      # - name: Test Nushell in virtualenv
+      #   run: cd virtualenv && tox -e ${{ matrix.py }} -- -k nushell
+      #   shell: bash

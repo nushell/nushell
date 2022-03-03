@@ -23,5 +23,5 @@ Print the value of a string
 
 Print the value of a table
 ```shell
-> echo [[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | debug
+> echo [[version patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | debug
 ```

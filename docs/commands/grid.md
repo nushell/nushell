@@ -40,5 +40,5 @@ Render a list of records to a grid
 
 Render a table with 'name' column in it to a grid
 ```shell
-> [[name patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | grid
+> [[name patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | grid
 ```

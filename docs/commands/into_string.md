@@ -49,7 +49,7 @@ convert string to string
 
 convert boolean to string
 ```shell
-> $true | into string
+> true | into string
 ```
 
 convert date to string

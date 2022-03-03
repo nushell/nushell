@@ -2,22 +2,22 @@ use crate::tests::{run_test, TestResult};
 
 #[test]
 fn if_test1() -> TestResult {
-    run_test("if $true { 10 } else { 20 } ", "10")
+    run_test("if true { 10 } else { 20 } ", "10")
 }
 
 #[test]
 fn if_test2() -> TestResult {
-    run_test("if $false { 10 } else { 20 } ", "20")
+    run_test("if false { 10 } else { 20 } ", "20")
 }
 
 #[test]
 fn simple_if() -> TestResult {
-    run_test("if $true { 10 } ", "10")
+    run_test("if true { 10 } ", "10")
 }
 
 #[test]
 fn simple_if2() -> TestResult {
-    run_test("if $false { 10 } ", "")
+    run_test("if false { 10 } ", "")
 }
 
 #[test]

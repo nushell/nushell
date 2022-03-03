@@ -563,7 +563,7 @@ fn proper_shadow_let_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let DEBUG = $false; echo $DEBUG | table; do { let DEBUG = $true; echo $DEBUG } | table; echo $DEBUG
+        let DEBUG = false; echo $DEBUG | table; do { let DEBUG = true; echo $DEBUG } | table; echo $DEBUG
         "#
     );
     assert_eq!(actual.out, "falsetruefalse");

@@ -28,7 +28,7 @@ convert a number to a nushell binary primitive
 
 convert a boolean to a nushell binary primitive
 ```shell
-> $true | into binary
+> true | into binary
 ```
 
 convert a filesize to a nushell binary primitive

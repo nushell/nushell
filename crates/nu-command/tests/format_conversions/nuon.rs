@@ -65,7 +65,7 @@ fn to_nuon_bool() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            $false
+            false
             | to nuon
             | from nuon
         "#

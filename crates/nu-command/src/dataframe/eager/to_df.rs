@@ -86,7 +86,7 @@ impl Command for ToDataFrame {
             },
             Example {
                 description: "Takes a list of booleans and creates a dataframe",
-                example: "[$true $true $false] | dfr to-df",
+                example: "[true true false] | dfr to-df",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),

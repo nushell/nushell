@@ -14,7 +14,7 @@ Returns true if all values are false
 
 Returns true if all values are false
 ```shell
-> [$false $false $false] | dfr to-df | dfr all-false
+> [false false false] | dfr to-df | dfr all-false
 ```
 
 Checks the result from a comparison

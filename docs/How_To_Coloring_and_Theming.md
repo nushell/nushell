@@ -459,15 +459,15 @@ let base16_theme = {
 # now let's apply our regular config settings but also apply the "color_config:" theme that we specified above.
 
 let config = {
-  filesize_metric: $true
+  filesize_metric: true
   table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
-  use_ls_colors: $true
+  use_ls_colors: true
   color_config: $base16_theme # <-- this is the theme
-  use_grid_icons: $true
+  use_grid_icons: true
   footer_mode: always #always, never, number_of_rows, auto
-  animate_prompt: $false
+  animate_prompt: false
   float_precision: 2
-  without_color: $false
+  without_color: false
   filesize_format: "b" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
   edit_mode: emacs # vi
   max_history_size: 10000

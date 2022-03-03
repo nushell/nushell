@@ -26,7 +26,7 @@ impl Command for AllTrue {
         vec![
             Example {
                 description: "Returns true if all values are true",
-                example: "[$true $true $true] | dfr to-df | dfr all-true",
+                example: "[true true true] | dfr to-df | dfr all-true",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_true".to_string(),
