@@ -23,7 +23,7 @@ pub(crate) fn gather_parent_env_vars(engine_state: &mut EngineState) {
                 Some('\'')
             }
         } else {
-            Some('"')
+            Some('\'')
         }
     }
 
