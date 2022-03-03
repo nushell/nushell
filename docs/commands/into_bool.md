@@ -18,12 +18,12 @@ Convert value to boolean
 
 Convert value to boolean in table
 ```shell
-> echo [[value]; ['false'] ['1'] [0] [1.0] [$true]] | into bool value
+> echo [[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value
 ```
 
 Convert bool to boolean
 ```shell
-> $true | into bool
+> true | into bool
 ```
 
 convert integer to boolean

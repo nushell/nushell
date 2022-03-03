@@ -139,9 +139,9 @@ function end_filter {
 function Write-TraceMessage {
     Param
     (
-        [Parameter(Mandatory = $false, Position = 0)]
+        [Parameter(Mandatory = false, Position = 0)]
         [string] $label,
-        [Parameter(Mandatory = $false, Position = 1)]
+        [Parameter(Mandatory = false, Position = 1)]
         [string] $message
     )
 
@@ -196,9 +196,9 @@ function Get-PipedData {
     param(
         [Parameter(
             Position = 0,
-            Mandatory = $true,
-            ValueFromPipeline = $true,
-            ValueFromPipelineByPropertyName = $true)
+            Mandatory = true,
+            ValueFromPipeline = true,
+            ValueFromPipelineByPropertyName = true)
         ]
         [Alias('piped')]
         [String]$piped_input

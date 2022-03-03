@@ -17,7 +17,7 @@ fn proper_shadow() -> TestResult {
 fn config_filesize_format_with_metric_true() -> TestResult {
     // Note: this tests both the config variable and that it is properly captured into a block
     run_test(
-        r#"let config = {"filesize_metric": $true "filesize_format": "kib" }; do { 40kb | into string } "#,
+        r#"let config = {"filesize_metric": true "filesize_format": "kib" }; do { 40kb | into string } "#,
         "39.1 KiB",
     )
 }
@@ -26,7 +26,7 @@ fn config_filesize_format_with_metric_true() -> TestResult {
 fn config_filesize_format_with_metric_false_kib() -> TestResult {
     // Note: this tests both the config variable and that it is properly captured into a block
     run_test(
-        r#"let config = {"filesize_metric": $false "filesize_format": "kib" }; do { 40kb | into string } "#,
+        r#"let config = {"filesize_metric": false "filesize_format": "kib" }; do { 40kb | into string } "#,
         "39.1 KiB",
     )
 }
@@ -35,7 +35,7 @@ fn config_filesize_format_with_metric_false_kib() -> TestResult {
 fn config_filesize_format_with_metric_false_kb() -> TestResult {
     // Note: this tests both the config variable and that it is properly captured into a block
     run_test(
-        r#"let config = {"filesize_metric": $false "filesize_format": "kb" }; do { 40kb | into string } "#,
+        r#"let config = {"filesize_metric": false "filesize_format": "kb" }; do { 40kb | into string } "#,
         "40.0 KB",
     )
 }
@@ -265,15 +265,25 @@ fn datetime_literal() -> TestResult {
 
 #[test]
 fn shortcircuiting_and() -> TestResult {
-    run_test(r#"$false && (5 / 0; $false)"#, "false")
+    run_test(r#"false && (5 / 0; false)"#, "false")
 }
 
 #[test]
 fn shortcircuiting_or() -> TestResult {
-    run_test(r#"$true || (5 / 0; $false)"#, "true")
+    run_test(r#"true || (5 / 0; false)"#, "true")
 }
 
 #[test]
 fn open_ended_range() -> TestResult {
     run_test(r#"1.. | first 100000 | length"#, "100000")
+}
+
+#[test]
+fn bool_variable() -> TestResult {
+    run_test(r#"$true"#, "true")
+}
+
+#[test]
+fn bool_variable2() -> TestResult {
+    run_test(r#"$false"#, "false")
 }

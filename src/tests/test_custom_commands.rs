@@ -3,7 +3,7 @@ use crate::tests::{fail_test, run_test, TestResult};
 #[test]
 fn no_scope_leak1() -> TestResult {
     fail_test(
-        "if $false { let $x = 10 } else { let $x = 20 }; $x",
+        "if false { let $x = 10 } else { let $x = 20 }; $x",
         "Variable not found",
     )
 }

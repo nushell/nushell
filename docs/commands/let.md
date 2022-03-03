@@ -29,5 +29,5 @@ Set a variable to the result of an expression
 
 Set a variable based on the condition
 ```shell
-> let x = if $false { -1 } else { 1 }
+> let x = if false { -1 } else { 1 }
 ```

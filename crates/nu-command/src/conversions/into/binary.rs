@@ -61,7 +61,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a boolean to a nushell binary primitive",
-                example: "$true | into binary",
+                example: "true | into binary",
                 result: Some(Value::Binary {
                     val: i64::from(1).to_le_bytes().to_vec(),
                     span: Span::test_data(),

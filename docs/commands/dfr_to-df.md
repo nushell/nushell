@@ -29,5 +29,5 @@ Takes a list and creates a dataframe
 
 Takes a list of booleans and creates a dataframe
 ```shell
-> [$true $true $false] | dfr to-df
+> [true true false] | dfr to-df
 ```
