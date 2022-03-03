@@ -226,7 +226,7 @@ mod test {
         let span = Span::test_data();
         let word = Value::test_string("1sec");
         let expected = Value::Duration {
-            val: 1 * 1000 * 1000 * 1000,
+            val: 1000 * 1000 * 1000,
             span,
         };
 

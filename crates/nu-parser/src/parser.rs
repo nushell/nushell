@@ -49,7 +49,7 @@ pub fn is_math_expression_like(bytes: &[u8]) -> bool {
         return false;
     }
 
-    if bytes == b"true" || bytes == b"false" {
+    if bytes == b"true" || bytes == b"false" || bytes == b"null" {
         return true;
     }
 
@@ -1346,7 +1346,10 @@ pub fn parse_string_interpolation(
 
     let contents = working_set.get_span_contents(span);
 
+    let mut double_quote = false;
+
     let (start, end) = if contents.starts_with(b"$\"") {
+        double_quote = true;
         let end = if contents.ends_with(b"\"") && contents.len() > 2 {
             span.end - 1
         } else {
@@ -1384,8 +1387,18 @@ pub fn parse_string_interpolation(
                     end: b,
                 };
                 let str_contents = working_set.get_span_contents(span);
+
+                let str_contents = if double_quote {
+                    let (str_contents, err) = unescape_string(str_contents, span);
+                    error = error.or(err);
+
+                    str_contents
+                } else {
+                    str_contents.to_vec()
+                };
+
                 output.push(Expression {
-                    expr: Expr::String(String::from_utf8_lossy(str_contents).to_string()),
+                    expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
                     span,
                     ty: Type::String,
                     custom_completion: None,
@@ -2116,6 +2129,151 @@ pub fn parse_glob_pattern(
     }
 }
 
+pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>) {
+    let mut output = Vec::new();
+
+    let mut idx = 0;
+    let mut err = None;
+
+    while idx < bytes.len() {
+        if bytes[idx] == b'\\' {
+            // We're in an escape
+            idx += 1;
+
+            match bytes.get(idx) {
+                Some(b'"') => {
+                    output.push(b'"');
+                    idx += 1;
+                }
+                Some(b'\'') => {
+                    output.push(b'\'');
+                    idx += 1;
+                }
+                Some(b'\\') => {
+                    output.push(b'\\');
+                    idx += 1;
+                }
+                Some(b'/') => {
+                    output.push(b'/');
+                    idx += 1;
+                }
+                Some(b'b') => {
+                    output.push(0x8);
+                    idx += 1;
+                }
+                Some(b'f') => {
+                    output.push(0xc);
+                    idx += 1;
+                }
+                Some(b'n') => {
+                    output.push(b'\n');
+                    idx += 1;
+                }
+                Some(b'r') => {
+                    output.push(b'\r');
+                    idx += 1;
+                }
+                Some(b't') => {
+                    output.push(b'\t');
+                    idx += 1;
+                }
+                Some(b'u') => {
+                    match (
+                        bytes.get(idx + 1),
+                        bytes.get(idx + 2),
+                        bytes.get(idx + 3),
+                        bytes.get(idx + 4),
+                    ) {
+                        (Some(h1), Some(h2), Some(h3), Some(h4)) => {
+                            let s = String::from_utf8(vec![*h1, *h2, *h3, *h4]);
+
+                            if let Ok(s) = s {
+                                let int = u32::from_str_radix(&s, 16);
+
+                                if let Ok(int) = int {
+                                    let result = char::from_u32(int);
+
+                                    if let Some(result) = result {
+                                        let mut buffer = vec![0; 4];
+                                        let result = result.encode_utf8(&mut buffer);
+
+                                        for elem in result.bytes() {
+                                            output.push(elem);
+                                        }
+
+                                        idx += 5;
+                                        continue;
+                                    }
+                                }
+                            }
+                            err = Some(ParseError::Expected(
+                                "unicode hex value".into(),
+                                Span {
+                                    start: (span.start + idx),
+                                    end: span.end,
+                                },
+                            ));
+                        }
+                        _ => {
+                            err = Some(ParseError::Expected(
+                                "unicode hex value".into(),
+                                Span {
+                                    start: (span.start + idx),
+                                    end: span.end,
+                                },
+                            ));
+                        }
+                    }
+                    idx += 5;
+                }
+                _ => {
+                    err = Some(ParseError::Expected(
+                        "supported escape character".into(),
+                        Span {
+                            start: (span.start + idx),
+                            end: span.end,
+                        },
+                    ));
+                }
+            }
+        } else {
+            output.push(bytes[idx]);
+            idx += 1;
+        }
+    }
+
+    (output, err)
+}
+
+pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<ParseError>) {
+    if bytes.starts_with(b"\"") {
+        // Needs unescaping
+        let bytes = trim_quotes(bytes);
+
+        let (bytes, err) = unescape_string(bytes, span);
+
+        if let Ok(token) = String::from_utf8(bytes) {
+            (token, err)
+        } else {
+            (
+                String::new(),
+                Some(ParseError::Expected("string".into(), span)),
+            )
+        }
+    } else {
+        let bytes = trim_quotes(bytes);
+
+        if let Ok(token) = String::from_utf8(bytes.into()) {
+            (token, None)
+        } else {
+            (
+                String::new(),
+                Some(ParseError::Expected("string".into(), span)),
+            )
+        }
+    }
+}
+
 pub fn parse_string(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -2124,26 +2282,17 @@ pub fn parse_string(
 
     let bytes = working_set.get_span_contents(span);
 
-    let bytes = trim_quotes(bytes);
+    let (s, err) = unescape_unquote_string(bytes, span);
 
-    if let Ok(token) = String::from_utf8(bytes.into()) {
-        trace!("-- found {}", token);
-
-        (
-            Expression {
-                expr: Expr::String(token),
-                span,
-                ty: Type::String,
-                custom_completion: None,
-            },
-            None,
-        )
-    } else {
-        (
-            garbage(span),
-            Some(ParseError::Expected("string".into(), span)),
-        )
-    }
+    (
+        Expression {
+            expr: Expr::String(s),
+            span,
+            ty: Type::String,
+            custom_completion: None,
+        },
+        err,
+    )
 }
 
 pub fn parse_string_strict(
@@ -3259,41 +3408,59 @@ pub fn parse_value(
         return parse_variable_expr(working_set, span);
     }
 
-    if bytes == b"true" {
-        if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
+    // Check for reserved keyword values
+    match bytes {
+        b"true" => {
+            if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
+                return (
+                    Expression {
+                        expr: Expr::Bool(true),
+                        span,
+                        ty: Type::Bool,
+                        custom_completion: None,
+                    },
+                    None,
+                );
+            } else {
+                return (
+                    Expression::garbage(span),
+                    Some(ParseError::Expected("non-boolean value".into(), span)),
+                );
+            }
+        }
+        b"false" => {
+            if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
+                return (
+                    Expression {
+                        expr: Expr::Bool(false),
+                        span,
+                        ty: Type::Bool,
+                        custom_completion: None,
+                    },
+                    None,
+                );
+            } else {
+                return (
+                    Expression::garbage(span),
+                    Some(ParseError::Expected("non-boolean value".into(), span)),
+                );
+            }
+        }
+        b"null" => {
             return (
                 Expression {
-                    expr: Expr::Bool(true),
+                    expr: Expr::Nothing,
                     span,
-                    ty: Type::Bool,
+                    ty: Type::Nothing,
                     custom_completion: None,
                 },
                 None,
             );
-        } else {
-            return (
-                Expression::garbage(span),
-                Some(ParseError::Expected("non-boolean value".into(), span)),
-            );
         }
-    } else if bytes == b"false" {
-        if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
-            return (
-                Expression {
-                    expr: Expr::Bool(false),
-                    span,
-                    ty: Type::Bool,
-                    custom_completion: None,
-                },
-                None,
-            );
-        } else {
-            return (
-                Expression::garbage(span),
-                Some(ParseError::Expected("non-boolean value".into(), span)),
-            );
-        }
+
+        _ => {}
     }
+
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span),
         b'(' => {
@@ -3351,18 +3518,6 @@ pub fn parse_value(
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
-        SyntaxShape::Block(_) => {
-            if bytes.starts_with(b"{") {
-                trace!("parsing value as a block expression");
-
-                parse_block_expression(working_set, shape, span)
-            } else {
-                (
-                    Expression::garbage(span),
-                    Some(ParseError::Expected("block".into(), span)),
-                )
-            }
-        }
         SyntaxShape::Signature => {
             if bytes.starts_with(b"[") {
                 parse_signature(working_set, span)
@@ -3447,6 +3602,7 @@ pub fn parse_value(
                     SyntaxShape::DateTime,
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
+                    SyntaxShape::Record,
                     SyntaxShape::Block(None),
                     SyntaxShape::String,
                 ];

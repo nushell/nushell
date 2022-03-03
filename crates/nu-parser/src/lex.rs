@@ -89,7 +89,7 @@ pub fn lex_item(
 
     // The process of slurping up a baseline token repeats:
     //
-    // - String literal, which begins with `'`, `"` or `\``, and continues until
+    // - String literal, which begins with `'` or `"`, and continues until
     //   the same character is encountered again.
     // - Delimiter pair, which begins with `[`, `(`, or `{`, and continues until
     //   the matching closing delimiter is found, skipping comments and string
@@ -101,10 +101,33 @@ pub fn lex_item(
     while let Some(c) = input.get(*curr_offset) {
         let c = *c;
 
-        if quote_start.is_some() {
+        if let Some(start) = quote_start {
+            // Check if we're in an escape sequence
+            if c == b'\\' && start == b'"' {
+                // Go ahead and consume the escape character if possible
+                if input.get(*curr_offset + 1).is_some() {
+                    // Successfully escaped the character
+                    *curr_offset += 2;
+                    continue;
+                } else {
+                    let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+
+                    return (
+                        span,
+                        Some(ParseError::UnexpectedEof(
+                            (start as char).to_string(),
+                            Span {
+                                start: span.end,
+                                end: span.end,
+                            },
+                        )),
+                    );
+                }
+            }
             // If we encountered the closing quote character for the current
             // string, we're done with the current string.
-            if Some(c) == quote_start {
+            if c == start {
+                // Also need to check to make sure we aren't escaped
                 quote_start = None;
             }
         } else if c == b'#' {

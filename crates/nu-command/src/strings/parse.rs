@@ -48,7 +48,7 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using regex pattern",
-                example: "echo \"hi there\" | parse -r \"(?P<foo>\\w+) (?P<bar>\\w+)\"",
+                example: "echo \"hi there\" | parse -r '(?P<foo>\\w+) (?P<bar>\\w+)'",
                 result: Some(result),
             },
         ]
