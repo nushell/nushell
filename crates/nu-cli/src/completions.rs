@@ -371,7 +371,7 @@ impl NuCompleter {
                                     _ => (vec![], CompletionOptions::default()),
                                 };
 
-                                let mut completions: Vec<_> = completions
+                                let mut completions: Vec<(reedline::Span, String)> = completions
                                     .into_iter()
                                     .filter(|it| {
                                         // Minimise clones for new functionality
