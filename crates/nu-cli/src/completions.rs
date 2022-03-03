@@ -141,7 +141,7 @@ impl NuCompleter {
     ) -> Vec<(reedline::Span, String)> {
         let prefix = working_set.get_span_contents(span);
 
-        let mut results = working_set
+        let results = working_set
             .find_commands_by_prefix(prefix)
             .into_iter()
             .map(move |x| {
@@ -152,8 +152,23 @@ impl NuCompleter {
                     },
                     String::from_utf8_lossy(&x).to_string(),
                 )
-            })
-            .collect::<Vec<_>>();
+            });
+
+        let results_aliases =
+            working_set
+                .find_aliases_by_prefix(prefix)
+                .into_iter()
+                .map(move |x| {
+                    (
+                        reedline::Span {
+                            start: span.start - offset,
+                            end: span.end - offset,
+                        },
+                        String::from_utf8_lossy(&x).to_string(),
+                    )
+                });
+
+        let mut results = results.chain(results_aliases).collect::<Vec<_>>();
 
         let prefix = working_set.get_span_contents(span);
         let prefix = String::from_utf8_lossy(prefix).to_string();
