@@ -1,10 +1,10 @@
 use nu_engine::CallExt;
+use nu_parser::parse_duration_bytes;
 use nu_protocol::{
-    ast::{Call, CellPath},
+    ast::{Call, CellPath, Expr},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Unit, Value,
 };
-use regex::Regex;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -133,34 +133,29 @@ fn into_duration(
 }
 
 fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
-    let re = Regex::new(r"^(?P<num>\d+)(?P<unit>[a-z]+)$").expect("invalid regex");
-    match re.captures(s.trim().to_lowercase().as_str()) {
-        Some(caps) => {
-            let num: i64 = caps
-                .name("num")
-                .expect("invalid capture group")
-                .as_str()
-                .parse()
-                .expect("cannot parse");
-            match caps.name("unit").expect("invalid capture group").as_str() {
-                "sec" => Ok(num * 1000 * 1000 * 1000),
-                "min" => Ok(num * 1000 * 1000 * 1000 * 60),
-                "hr" => Ok(num * 1000 * 1000 * 1000 * 60 * 60),
-                "day" => Ok(num * 1000 * 1000 * 1000 * 60 * 60 * 24),
-                "wk" => Ok(num * 1000 * 1000 * 1000 * 60 * 60 * 24 * 7),
-                _ => Err(ShellError::CantConvert(
-                    "duration".to_string(),
-                    "string".to_string(),
-                    span,
-                )),
+    if let Some(expression) = parse_duration_bytes(s.as_bytes(), span) {
+        if let Expr::ValueWithUnit(value, unit) = expression.expr {
+            if let Expr::Int(x) = value.expr {
+                match unit.item {
+                    Unit::Nanosecond => return Ok(x),
+                    Unit::Microsecond => return Ok(x * 1000),
+                    Unit::Millisecond => return Ok(x * 1000 * 1000),
+                    Unit::Second => return Ok(x * 1000 * 1000 * 1000),
+                    Unit::Minute => return Ok(x * 60 * 1000 * 1000 * 1000),
+                    Unit::Hour => return Ok(x * 60 * 60 * 1000 * 1000 * 1000),
+                    Unit::Day => return Ok(x * 24 * 60 * 60 * 1000 * 1000 * 1000),
+                    Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000),
+                    _ => {}
+                }
             }
         }
-        None => Err(ShellError::CantConvert(
-            "duration".to_string(),
-            "string".to_string(),
-            span,
-        )),
     }
+
+    Err(ShellError::CantConvert(
+        "duration".to_string(),
+        "string".to_string(),
+        span,
+    ))
 }
 
 fn action(input: &Value, span: Span) -> Value {
@@ -188,6 +183,42 @@ mod test {
         use crate::test_examples;
 
         test_examples(SubCommand {})
+    }
+
+    #[test]
+    fn turns_ns_to_duration() {
+        let span = Span::test_data();
+        let word = Value::test_string("3ns");
+        let expected = Value::Duration { val: 3, span };
+
+        let actual = action(&word, span);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn turns_us_to_duration() {
+        let span = Span::test_data();
+        let word = Value::test_string("4us");
+        let expected = Value::Duration {
+            val: 4 * 1000,
+            span,
+        };
+
+        let actual = action(&word, span);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn turns_ms_to_duration() {
+        let span = Span::test_data();
+        let word = Value::test_string("5ms");
+        let expected = Value::Duration {
+            val: 5 * 1000 * 1000,
+            span,
+        };
+
+        let actual = action(&word, span);
+        assert_eq!(actual, expected);
     }
 
     #[test]

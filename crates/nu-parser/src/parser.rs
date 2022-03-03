@@ -1877,6 +1877,22 @@ pub fn parse_duration(
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: duration");
 
+    let bytes = working_set.get_span_contents(span);
+
+    match parse_duration_bytes(bytes, span) {
+        Some(expression) => (expression, None),
+        None => (
+            garbage(span),
+            Some(ParseError::Mismatch(
+                "duration".into(),
+                "non-duration unit".into(),
+                span,
+            )),
+        ),
+    }
+}
+
+pub fn parse_duration_bytes(bytes: &[u8], span: Span) -> Option<Expression> {
     fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
         let string_to_parse = format!("0.{}", decimal);
         if let Ok(x) = string_to_parse.parse::<f64>() {
@@ -1885,17 +1901,8 @@ pub fn parse_duration(
         None
     }
 
-    let bytes = working_set.get_span_contents(span);
-
     if bytes.is_empty() || (!bytes[0].is_ascii_digit() && bytes[0] != b'-') {
-        return (
-            garbage(span),
-            Some(ParseError::Mismatch(
-                "duration".into(),
-                "non-duration unit".into(),
-                span,
-            )),
-        );
+        return None;
     }
 
     let token = String::from_utf8_lossy(bytes).to_string();
@@ -1944,37 +1951,27 @@ pub fn parse_duration(
 
             let lhs_span = Span::new(span.start, span.start + lhs.len());
             let unit_span = Span::new(span.start + lhs.len(), span.end);
-            return (
-                Expression {
-                    expr: Expr::ValueWithUnit(
-                        Box::new(Expression {
-                            expr: Expr::Int(x),
-                            span: lhs_span,
-                            ty: Type::Number,
-                            custom_completion: None,
-                        }),
-                        Spanned {
-                            item: unit_to_use,
-                            span: unit_span,
-                        },
-                    ),
-                    span,
-                    ty: Type::Duration,
-                    custom_completion: None,
-                },
-                None,
-            );
+            return Some(Expression {
+                expr: Expr::ValueWithUnit(
+                    Box::new(Expression {
+                        expr: Expr::Int(x),
+                        span: lhs_span,
+                        ty: Type::Number,
+                        custom_completion: None,
+                    }),
+                    Spanned {
+                        item: unit_to_use,
+                        span: unit_span,
+                    },
+                ),
+                span,
+                ty: Type::Duration,
+                custom_completion: None,
+            });
         }
     }
 
-    (
-        garbage(span),
-        Some(ParseError::Mismatch(
-            "duration".into(),
-            "non-duration unit".into(),
-            span,
-        )),
-    )
+    None
 }
 
 /// Parse a unit type, eg '10kb'
