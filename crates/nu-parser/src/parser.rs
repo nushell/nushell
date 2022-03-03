@@ -222,7 +222,27 @@ pub fn parse_external_call(
         spans[0]
     };
 
-    let head_contents = working_set.get_span_contents(head_span);
+    let head_contents = working_set.get_span_contents(head_span).to_vec();
+
+    // If the word is an alias, expand it and re-parse the expression
+    if let Some(alias_id) = working_set.find_alias(&head_contents) {
+        let expansion = working_set.get_alias(alias_id);
+        let expansion_span = span(expansion);
+
+        let orig_span = span(&[spans[0], spans[0]]);
+        let mut new_spans: Vec<Span> = expansion.to_vec();
+        if spans.len() > 1 {
+            new_spans.extend(&spans[1..])
+        }
+
+        working_set.enter_scope();
+        working_set.hide_alias(&head_contents);
+        let (mut result, err) = parse_external_call(working_set, &new_spans);
+        working_set.exit_scope();
+        result.replace_span(working_set, expansion_span, orig_span);
+
+        return (result, err);
+    }
 
     let mut error = None;
 
@@ -232,7 +252,7 @@ pub fn parse_external_call(
         Box::new(arg)
     } else {
         Box::new(Expression {
-            expr: Expr::String(String::from_utf8_lossy(head_contents).to_string()),
+            expr: Expr::String(String::from_utf8_lossy(&head_contents).to_string()),
             span: head_span,
             ty: Type::String,
             custom_completion: None,
@@ -872,6 +892,7 @@ pub fn parse_call(
                 let mut new_spans: Vec<Span> = vec![];
                 new_spans.extend(&spans[0..cmd_start]);
                 new_spans.extend(expansion);
+                // TODO: This seems like it should be `pos + 1`. `pos` starts as 0
                 if spans.len() > pos {
                     new_spans.extend(&spans[(pos + 1)..]);
                 }
