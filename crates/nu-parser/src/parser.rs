@@ -1556,16 +1556,6 @@ pub fn parse_variable_expr(
             },
             None,
         );
-    } else if contents == b"$scope" {
-        return (
-            Expression {
-                expr: Expr::Var(nu_protocol::SCOPE_VARIABLE_ID),
-                span,
-                ty: Type::Unknown,
-                custom_completion: None,
-            },
-            None,
-        );
     } else if contents == b"$in" {
         return (
             Expression {

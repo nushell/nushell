@@ -25,7 +25,7 @@ You can say that the module `greetings` exports an overlay which consists of two
 By itself, the module does not do anything.
 We can verify its existence by printing all available overlays:
 ```
-> $scope.overlays
+> $nu.scope.overlays
 ╭───┬───────────╮
 │ 0 │ greetings │
 ╰───┴───────────╯
@@ -306,7 +306,7 @@ It creates the `$config` variable using the module system.
 
 ## Known Issues
 
-* It might be more appropriate to use `$scope.modules` instead of `$scope.overlays`
+* It might be more appropriate to use `$nu.scope.modules` instead of `$nu.scope.overlays`
 
 ## Future Design Ideas
 
