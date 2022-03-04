@@ -106,9 +106,9 @@
                         <Component Id='binary2' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe2'
-                                Name='nu_plugin_inc.exe'
+                                Name='nu_plugin_core_inc.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_inc.exe'
+                                Source='target\$(var.Profile)\nu_plugin_core_inc.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <!-- <Component Id='binary3' Guid='*' Win64='$(var.Win64)'>
@@ -203,9 +203,9 @@
                         <Component Id='binary14' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe14'
-                                Name='nu_plugin_query.exe'
+                                Name='nu_plugin_extra_query.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_query.exe'
+                                Source='target\$(var.Profile)\nu_plugin_extra_query.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <!-- <Component Id='binary15' Guid='*' Win64='$(var.Win64)'>
@@ -255,21 +255,21 @@
                                 DiskId='1'
                                 Source='target\$(var.Profile)\nu_plugin_query_json.exe'
                                 KeyPath='yes'/>
-                        </Component> 
+                        </Component>
                         <Component Id='binary21' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe21'
-                                Name='nu_plugin_example.exe'
+                                Name='nu_plugin_core_example.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_example.exe'
+                                Source='target\$(var.Profile)\nu_plugin_core_example.exe'
                                 KeyPath='yes'/>
                         </Component> -->
                         <Component Id='binary22' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe22'
-                                Name='nu_plugin_gstat.exe'
+                                Name='nu_plugin_extra_gstat.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_gstat.exe'
+                                Source='target\$(var.Profile)\nu_plugin_extra_gstat.exe'
                                 KeyPath='yes'/>
                         </Component>
                     </Directory>
@@ -312,7 +312,7 @@
             <ComponentRef Id='binary17'/>
             <ComponentRef Id='binary18'/>
             <ComponentRef Id='binary19'/>
-            <ComponentRef Id='binary20'/> 
+            <ComponentRef Id='binary20'/>
             <ComponentRef Id='binary21'/> -->
             <ComponentRef Id='binary22'/>
 
