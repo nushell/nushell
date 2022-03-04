@@ -112,7 +112,7 @@ extern "git push" [
 let default_theme = {
     # color for nushell primitives
     separator: white
-    leading_trailing_space_bg: { attr: b }
+    leading_trailing_space_bg: { attr: n } # no fg, no bg, attr non effectively turns this off
     header: green_bold
     empty: blue
     bool: white
@@ -198,7 +198,7 @@ let $config = {
       modifier: none
       keycode: tab
       mode: emacs # emacs vi_normal vi_insert
-      event: { 
+      event: {
         until: [
           { send: menu name: completion_menu }
           { send: menunext }
@@ -217,7 +217,7 @@ let $config = {
       modifier: control
       keycode: char_x
       mode: emacs # emacs vi_normal vi_insert
-      event: { 
+      event: {
         until: [
           { send: menu name: history_menu }
           { send: menupagenext }
