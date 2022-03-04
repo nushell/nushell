@@ -84,11 +84,13 @@ pub(crate) fn evaluate(
             if let Err(e) = engine_state.merge_delta(StateDelta::new(), Some(&mut stack), cwd) {
                 let working_set = StateWorkingSet::new(engine_state);
                 report_error(&working_set, &e);
+                std::process::exit(1);
             }
         }
         Err(e) => {
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &e);
+            std::process::exit(1);
         }
     }
 
@@ -107,7 +109,6 @@ pub(crate) fn evaluate(
             let working_set = StateWorkingSet::new(engine_state);
 
             report_error(&working_set, &err);
-
             std::process::exit(1);
         }
     }

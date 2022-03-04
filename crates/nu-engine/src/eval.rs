@@ -600,6 +600,66 @@ pub fn eval_block(
         if pipeline_idx < (num_pipelines) - 1 {
             match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {}
+                PipelineData::ExternalStream {
+                    ref mut exit_code, ..
+                } => {
+                    let exit_code = exit_code.take();
+
+                    // Drain the input to the screen via tabular output
+                    let config = stack.get_config().unwrap_or_default();
+
+                    match engine_state.find_decl("table".as_bytes()) {
+                        Some(decl_id) => {
+                            let table = engine_state.get_decl(decl_id).run(
+                                engine_state,
+                                stack,
+                                &Call::new(Span::new(0, 0)),
+                                input,
+                            )?;
+
+                            for item in table {
+                                let stdout = std::io::stdout();
+
+                                if let Value::Error { error } = item {
+                                    return Err(error);
+                                }
+
+                                let mut out = item.into_string("\n", &config);
+                                out.push('\n');
+
+                                match stdout.lock().write_all(out.as_bytes()) {
+                                    Ok(_) => (),
+                                    Err(err) => eprintln!("{}", err),
+                                };
+                            }
+                        }
+                        None => {
+                            for item in input {
+                                let stdout = std::io::stdout();
+
+                                if let Value::Error { error } = item {
+                                    return Err(error);
+                                }
+
+                                let mut out = item.into_string("\n", &config);
+                                out.push('\n');
+
+                                match stdout.lock().write_all(out.as_bytes()) {
+                                    Ok(_) => (),
+                                    Err(err) => eprintln!("{}", err),
+                                };
+                            }
+                        }
+                    };
+
+                    if let Some(exit_code) = exit_code {
+                        let mut v: Vec<_> = exit_code.collect();
+
+                        if let Some(v) = v.pop() {
+                            stack.add_env_var("LAST_EXIT_CODE".into(), v);
+                        }
+                    }
+                }
                 _ => {
                     // Drain the input to the screen via tabular output
                     let config = stack.get_config().unwrap_or_default();
