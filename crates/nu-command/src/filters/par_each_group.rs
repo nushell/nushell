@@ -32,7 +32,7 @@ impl Command for ParEachGroup {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "echo [1 2 3 4] | par-each group 2 { $it.0 + $it.1 }",
+            example: "echo [1 2 3 4] | par-each group 2 {|it| $it.0 + $it.1 }",
             description: "Multiplies elements in list",
             result: None,
         }]

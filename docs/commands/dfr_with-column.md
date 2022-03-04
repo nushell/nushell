@@ -1,7 +1,7 @@
 ---
 title: dfr with-column
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Adds a series to the dataframe

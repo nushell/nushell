@@ -1,7 +1,7 @@
 ---
 title: columns
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Show the columns in the input.

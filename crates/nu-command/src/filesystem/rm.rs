@@ -48,7 +48,7 @@ impl Command for Rm {
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
-            .switch("quiet", "supress output showing files deleted", Some('q'))
+            .switch("quiet", "suppress output showing files deleted", Some('q'))
             // .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",

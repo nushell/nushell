@@ -1,7 +1,7 @@
 ---
 title: str rpad
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 pad a string with a character a certain length

@@ -1,7 +1,7 @@
 ---
 title: compact
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Creates a table with non-empty rows.

@@ -1,7 +1,7 @@
 ---
 title: update
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Update an existing column to have a new value.

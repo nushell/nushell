@@ -36,7 +36,7 @@ fn sets_block_run_value_for_an_empty_column() {
                      [       Jason,     Gedge, 10/11/2013,   1    ]
                      [      Yehuda,      Katz, 10/11/2013,  ''    ]
             ]
-            | empty? likes -b { 1 }
+            | empty? likes -b {|_| 1 }
             | get likes
             | math sum
         "#

@@ -1,7 +1,7 @@
 ---
 title: last
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Show only the last number of rows.

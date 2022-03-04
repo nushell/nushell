@@ -1,7 +1,7 @@
 ---
 title: from tsv
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Parse text as .tsv and create table.

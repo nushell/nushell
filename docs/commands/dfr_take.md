@@ -1,7 +1,7 @@
 ---
 title: dfr take
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Creates new dataframe using the given indices

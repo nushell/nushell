@@ -1,7 +1,7 @@
 ---
 title: roll right
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Roll table columns right

@@ -1,7 +1,7 @@
 ---
 title: dfr concatenate
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Concatenates strings with other array

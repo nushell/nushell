@@ -1,7 +1,7 @@
 ---
 title: dfr arg-true
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Returns indexes where values are true

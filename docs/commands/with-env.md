@@ -1,7 +1,7 @@
 ---
 title: with-env
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Runs a block with an environment variable set.

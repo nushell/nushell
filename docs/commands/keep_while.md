@@ -1,7 +1,7 @@
 ---
 title: keep while
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Keep elements of the input while a predicate is true.

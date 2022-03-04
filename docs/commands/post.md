@@ -1,7 +1,7 @@
 ---
 title: post
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Post a body to a URL (HTTP POST operation).

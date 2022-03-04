@@ -1,7 +1,7 @@
 ---
 title: dfr to-dummies
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Creates a new dataframe with dummy variables

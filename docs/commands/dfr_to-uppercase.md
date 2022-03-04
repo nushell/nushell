@@ -1,7 +1,7 @@
 ---
 title: dfr to-uppercase
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Uppercase the strings in the column

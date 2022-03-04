@@ -1,7 +1,7 @@
 ---
 title: def-env
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Define a custom command, which participates in the caller environment

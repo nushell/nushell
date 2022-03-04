@@ -1,7 +1,7 @@
 ---
 title: source
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Runs a script file in the current context.

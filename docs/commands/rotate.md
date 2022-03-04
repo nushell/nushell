@@ -1,7 +1,7 @@
 ---
 title: rotate
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Rotates a table clockwise (default) or counter-clockwise (use --ccw flag).

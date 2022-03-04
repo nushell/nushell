@@ -1,7 +1,7 @@
 ---
 title: dfr to-df
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Converts a List, Table or Dictionary into a dataframe

@@ -1,7 +1,7 @@
 ---
 title: path parse
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Convert a path into structured data.

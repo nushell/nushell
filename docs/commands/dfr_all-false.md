@@ -1,7 +1,7 @@
 ---
 title: dfr all-false
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Returns true if all values are false

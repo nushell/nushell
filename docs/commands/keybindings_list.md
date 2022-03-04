@@ -1,7 +1,7 @@
 ---
 title: keybindings list
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 List available options that can be used to create keybindings

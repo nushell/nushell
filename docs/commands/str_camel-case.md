@@ -1,7 +1,7 @@
 ---
 title: str camel-case
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 converts a string to camelCase

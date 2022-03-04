@@ -1,7 +1,7 @@
 ---
 title: dfr contains
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Checks if a pattern is contained in a string

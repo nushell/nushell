@@ -1,7 +1,7 @@
 ---
 title: tutor
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Run the tutorial. To begin, run: tutor

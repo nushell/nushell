@@ -1,7 +1,7 @@
 ---
 title: par-each
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Run a block on each element of input in parallel
@@ -22,7 +22,7 @@ Multiplies elements in list
 > [1 2 3] | par-each { |it| 2 * $it }
 ```
 
-Iterate over each element, print the matching value and it's index
+Iterate over each element, print the matching value and its index
 ```shell
 > [1 2 3] | par-each -n { |it| if $it.item == 2 { echo $"found 2 at ($it.index)!"} }
 ```

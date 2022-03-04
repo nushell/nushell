@@ -1,7 +1,7 @@
 ---
 title: dfr strftime
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Formats date based on string rule
