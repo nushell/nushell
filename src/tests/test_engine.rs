@@ -78,7 +78,7 @@ fn help_works_with_missing_requirements() -> TestResult {
 #[test]
 fn scope_variable() -> TestResult {
     run_test(
-        r#"let x = 3; $scope.vars | where name == "$x" | get type.0"#,
+        r#"let x = 3; $nu.scope.vars | where name == "$x" | get type.0"#,
         "int",
     )
 }
