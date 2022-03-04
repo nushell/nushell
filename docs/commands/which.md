@@ -1,7 +1,7 @@
 ---
 title: which
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Finds a program file, alias or custom command.

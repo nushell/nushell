@@ -1,7 +1,7 @@
 ---
 title: parse
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Parse columns from string data using a simple pattern.
@@ -24,5 +24,5 @@ Parse a string into two named columns
 
 Parse a string using regex pattern
 ```shell
-> echo "hi there" | parse -r "(?P<foo>\w+) (?P<bar>\w+)"
+> echo "hi there" | parse -r '(?P<foo>\w+) (?P<bar>\w+)'
 ```

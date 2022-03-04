@@ -1,7 +1,7 @@
 ---
 title: keep until
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Keep elements of the input until a predicate is true.

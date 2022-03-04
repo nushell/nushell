@@ -1,7 +1,7 @@
 ---
 title: path split
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Split a path into parts by a separator.

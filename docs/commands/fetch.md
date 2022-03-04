@@ -1,7 +1,7 @@
 ---
 title: fetch
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Fetch the contents from a URL (HTTP GET operation).

@@ -1,7 +1,7 @@
 ---
 title: ansi gradient
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 draw text with a provided start and end code making a gradient

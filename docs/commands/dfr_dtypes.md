@@ -1,7 +1,7 @@
 ---
 title: dfr dtypes
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Show dataframe data types

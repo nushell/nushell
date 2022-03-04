@@ -1,7 +1,7 @@
 ---
 title: math sqrt
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Applies the square root function to a list of numbers

@@ -1,7 +1,7 @@
 ---
 title: let-env
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Create an environment variable and give it a value.

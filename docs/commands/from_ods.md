@@ -1,7 +1,7 @@
 ---
 title: from ods
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Parse OpenDocument Spreadsheet(.ods) data and create table.

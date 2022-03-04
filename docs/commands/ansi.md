@@ -1,7 +1,7 @@
 ---
 title: ansi
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Output ANSI codes to change color.
@@ -34,7 +34,7 @@ Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)
 > echo [(ansi rb) Hello " " (ansi gb) Nu " " (ansi pb) World (ansi reset)] | str collect
 ```
 
-Use ansi to color text (italic bright yellow on red 'Hello' with green bold 'Nu' and purble bold 'World')
+Use ansi to color text (italic bright yellow on red 'Hello' with green bold 'Nu' and purple bold 'World')
 ```shell
 > echo [(ansi -e '3;93;41m') Hello (ansi reset) " " (ansi gb) Nu " " (ansi pb) World (ansi reset)] | str collect
 ```

@@ -1,7 +1,7 @@
 ---
 title: headers
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Use the first row of the table as column names.

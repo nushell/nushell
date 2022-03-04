@@ -1,7 +1,7 @@
 ---
 title: reject
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Remove the given columns from the table. If you want to remove rows, try 'drop'.

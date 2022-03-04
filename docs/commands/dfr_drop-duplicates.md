@@ -1,7 +1,7 @@
 ---
 title: dfr drop-duplicates
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Drops duplicate values in dataframe

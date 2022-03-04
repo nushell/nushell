@@ -1,7 +1,7 @@
 ---
 title: build-string
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Create a string from the arguments.

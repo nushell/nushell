@@ -1,7 +1,7 @@
 ---
 title: dfr rolling
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Rolling calculation for a series

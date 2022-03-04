@@ -1,7 +1,7 @@
 ---
 title: dfr value-counts
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Returns a dataframe with the counts for unique values in series

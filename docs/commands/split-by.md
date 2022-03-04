@@ -1,7 +1,7 @@
 ---
 title: split-by
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Create a new table splitted.

@@ -81,7 +81,7 @@ impl Command for Each {
             },
             Example {
                 example: r#"[1 2 3] | each -n { |it| if $it.item == 2 { echo $"found 2 at ($it.index)!"} }"#,
-                description: "Iterate over each element, print the matching value and it's index",
+                description: "Iterate over each element, print the matching value and its index",
                 result: Some(Value::List {
                     vals: vec![Value::String {
                         val: "found 2 at 1!".to_string(),

@@ -1,7 +1,7 @@
 ---
 title: each group
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Runs a block on groups of `group_size` rows of a table at a time.

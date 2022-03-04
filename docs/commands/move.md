@@ -1,7 +1,7 @@
 ---
 title: move
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Move columns before or after other columns

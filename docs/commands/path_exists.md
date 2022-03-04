@@ -1,7 +1,7 @@
 ---
 title: path exists
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Check whether a path exists

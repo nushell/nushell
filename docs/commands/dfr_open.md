@@ -1,7 +1,7 @@
 ---
 title: dfr open
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Opens csv, json or parquet file to create dataframe

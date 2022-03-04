@@ -1,7 +1,7 @@
 ---
 title: help
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Display help information about commands.

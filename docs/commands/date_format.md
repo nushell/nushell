@@ -1,7 +1,7 @@
 ---
 title: date format
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Format a given date using a format string.

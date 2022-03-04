@@ -1,7 +1,7 @@
 ---
 title: from nuon
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Convert from nuon to structured data

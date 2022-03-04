@@ -1,7 +1,7 @@
 ---
 title: dfr aggregate
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Performs an aggregation operation on a dataframe and groupby object

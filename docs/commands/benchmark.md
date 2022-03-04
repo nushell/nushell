@@ -1,7 +1,7 @@
 ---
 title: benchmark
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Time the running time of a block

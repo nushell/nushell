@@ -1,7 +1,7 @@
 ---
 title: date now
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Get the current date.

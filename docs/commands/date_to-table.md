@@ -1,7 +1,7 @@
 ---
 title: date to-table
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Print the date in a structured table.

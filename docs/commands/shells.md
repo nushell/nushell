@@ -1,7 +1,7 @@
 ---
 title: shells
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Lists all open shells.

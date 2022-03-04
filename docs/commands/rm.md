@@ -1,7 +1,7 @@
 ---
 title: rm
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Remove file(s).
@@ -17,7 +17,7 @@ Remove file(s).
  -  `--permanent`: don't use recycle bin, delete permanently
  -  `--recursive`: delete subdirectories recursively
  -  `--force`: suppress error when no file
- -  `--quiet`: supress output showing files deleted
+ -  `--quiet`: suppress output showing files deleted
 
 ## Examples
 
