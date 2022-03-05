@@ -16,10 +16,3 @@ do
     echo "----------------------------------------------"
     cd crates/$plugin && cargo install --path . && cd ../../
 done
-
-# Uncomment the followding lines to UNINSTALL:
-# echo '' && cargo uninstall nu
-# for plugin in "${NU_PLUGINS[@]}"
-# do
-#     cargo uninstall $plugin
-# done
