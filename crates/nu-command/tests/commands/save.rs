@@ -48,6 +48,24 @@ fn writes_out_csv() {
     })
 }
 
+#[test]
+fn writes_out_list() {
+    Playground::setup("save_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![]);
+
+        let expected_file = dirs.test().join("list_sample.txt");
+
+        nu!(
+            cwd: dirs.root(),
+            r#"echo [a b c d] | save save_test_3/list_sample.txt"#,
+        );
+
+        let actual = file_contents(expected_file);
+        println!("{actual}");
+        assert_eq!(actual, "a\nb\nc\nd\n")
+    })
+}
+
 // FIXME: jt: needs more work
 #[ignore]
 #[test]
