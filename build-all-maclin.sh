@@ -5,28 +5,19 @@ echo "Building nushell (nu) with --features=extra and all the plugins"
 echo "---------------------------------------------------------------"
 echo ""
 
+NU_PLUGINS=(
+    'nu_plugin_example'
+    'nu_plugin_gstat'
+    'nu_plugin_inc'
+    'nu_plugin_query'
+)
+
 echo "Building nushell"
 cargo build --features=extra
-echo ""
-
-cd crates/nu_plugin_example
-echo "Building nu_plugin_example"
-cargo build
-echo ""
-
-cd ../../crates/nu_plugin_gstat
-echo "Building nu_plugin_gstat"
-cargo build
-echo ""
-
-cd ../../crates/nu_plugin_inc
-echo "Building nu_plugin_inc"
-cargo build
-echo ""
-
-cd ../../crates/nu_plugin_query
-echo "Building nu_plugin_query"
-cargo build
-echo ""
-
-cd ../..
+for plugin in "${NU_PLUGINS[@]}"
+do
+    echo '' && cd crates/$plugin
+    echo "Building $plugin..."
+    echo "-----------------------------"
+    cargo build && cd ../..
+done
