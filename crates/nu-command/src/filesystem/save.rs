@@ -105,6 +105,20 @@ impl Command for Save {
 
                     Ok(PipelineData::new(span))
                 }
+                Value::List { vals, .. } => {
+                    let val = vals
+                        .into_iter()
+                        .map(|it| it.as_string())
+                        .collect::<Result<Vec<String>, ShellError>>()?
+                        .join("\n")
+                        + "\n";
+
+                    if let Err(err) = file.write_all(val.as_bytes()) {
+                        return Err(ShellError::IOError(err.to_string()));
+                    }
+
+                    Ok(PipelineData::new(span))
+                }
                 v => Err(ShellError::UnsupportedInput(
                     format!("{:?} not supported", v.get_type()),
                     span,
@@ -121,6 +135,20 @@ impl Command for Save {
                 }
                 Value::Binary { val, .. } => {
                     if let Err(err) = file.write_all(&val) {
+                        return Err(ShellError::IOError(err.to_string()));
+                    }
+
+                    Ok(PipelineData::new(span))
+                }
+                Value::List { vals, .. } => {
+                    let val = vals
+                        .into_iter()
+                        .map(|it| it.as_string())
+                        .collect::<Result<Vec<String>, ShellError>>()?
+                        .join("\n")
+                        + "\n";
+
+                    if let Err(err) = file.write_all(val.as_bytes()) {
                         return Err(ShellError::IOError(err.to_string()));
                     }
 
