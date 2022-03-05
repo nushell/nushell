@@ -243,7 +243,6 @@ pub fn lex(
         let c = *c;
         if c == b'|' {
             // If the next character is `|`, it's either `|` or `||`.
-
             let idx = curr_offset;
             let prev_idx = idx;
             curr_offset += 1;
@@ -262,10 +261,31 @@ pub fn lex(
             }
 
             // Otherwise, it's just a regular `|` token.
-            output.push(Token::new(
-                TokenContents::Pipe,
-                Span::new(span_offset + idx, span_offset + idx + 1),
-            ));
+
+            // Before we push, check to see if the previous character was a newline.
+            // If so, then this is a continuation of the previous line
+            if let Some(prev) = output.last_mut() {
+                match prev.contents {
+                    TokenContents::Eol => {
+                        *prev = Token::new(
+                            TokenContents::Pipe,
+                            Span::new(span_offset + idx, span_offset + idx + 1),
+                        )
+                    }
+                    _ => {
+                        output.push(Token::new(
+                            TokenContents::Pipe,
+                            Span::new(span_offset + idx, span_offset + idx + 1),
+                        ));
+                    }
+                }
+            } else {
+                output.push(Token::new(
+                    TokenContents::Pipe,
+                    Span::new(span_offset + idx, span_offset + idx + 1),
+                ));
+            }
+
             is_complete = false;
         } else if c == b';' {
             // If the next character is a `;`, we're looking at a semicolon token.
@@ -282,9 +302,11 @@ pub fn lex(
                 TokenContents::Semicolon,
                 Span::new(span_offset + idx, span_offset + idx + 1),
             ));
-        } else if c == b'\n' || c == b'\r' {
+        } else if c == b'\r' {
+            // Ignore a stand-alone carriage return
+            curr_offset += 1;
+        } else if c == b'\n' {
             // If the next character is a newline, we're looking at an EOL (end of line) token.
-
             let idx = curr_offset;
             curr_offset += 1;
             if !additional_whitespace.contains(&c) {
