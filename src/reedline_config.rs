@@ -88,7 +88,7 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
     {
         Some(value) => {
             let char = value.chars().next().unwrap_or(':');
-            history_menu.with_row_char(char)
+            history_menu.with_selection_char(char)
         }
         None => history_menu,
     };
