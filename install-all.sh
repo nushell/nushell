@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# Usage: Just run `sh install-all.sh` in nushell root directory
+
 echo "-----------------------------------------------------------------"
 echo "Installing nushell (nu) with --features=extra and all the plugins"
 echo "-----------------------------------------------------------------"

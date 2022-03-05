@@ -1,4 +1,6 @@
 
+# Usage: Just run `powershell install-all.ps1` in nushell root directory
+
 Write-Output "-----------------------------------------------------------------"
 Write-Output "Installing nushell (nu) with --features=extra and all the plugins"
 Write-Output "-----------------------------------------------------------------"
