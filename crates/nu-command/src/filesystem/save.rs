@@ -24,6 +24,7 @@ impl Command for Save {
         Signature::build("save")
             .required("filename", SyntaxShape::Filepath, "the filename to use")
             .switch("raw", "save file as raw binary", Some('r'))
+            .switch("append", "append input to the end of the file", None)
             .category(Category::FileSystem)
     }
 
@@ -35,6 +36,7 @@ impl Command for Save {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let raw = call.has_flag("raw");
+        let append = call.has_flag("append");
 
         let span = call.head;
 
@@ -42,7 +44,15 @@ impl Command for Save {
         let arg_span = path.span;
         let path = Path::new(&path.item);
 
-        let mut file = match std::fs::File::create(path) {
+        let file = match (append, path.exists()) {
+            (true, true) => std::fs::OpenOptions::new()
+                .write(true)
+                .append(true)
+                .open(path),
+            _ => std::fs::File::create(path),
+        };
+
+        let mut file = match file {
             Ok(file) => file,
             Err(err) => {
                 return Ok(PipelineData::Value(
