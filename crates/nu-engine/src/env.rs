@@ -3,14 +3,9 @@ use std::path::{Path, PathBuf};
 
 use nu_protocol::ast::PathMember;
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{Config, PipelineData, ShellError, Span, Value};
+use nu_protocol::{PipelineData, ShellError, Span, Value};
 
 use crate::eval_block;
-
-#[cfg(windows)]
-const ENV_SEP: &str = ";";
-#[cfg(not(windows))]
-const ENV_SEP: &str = ":";
 
 #[cfg(windows)]
 const ENV_PATH_NAME: &str = "Path";
@@ -60,18 +55,25 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
 }
 
 /// Translate one environment variable from Value to String
+///
+/// Returns Ok(None) if the env var is not
 pub fn env_to_string(
     env_name: &str,
-    value: Value,
+    value: &Value,
     engine_state: &EngineState,
     stack: &Stack,
-    config: &Config,
 ) -> Result<String, ShellError> {
-    match get_converted_value(engine_state, stack, env_name, &value, "to_string") {
+    match get_converted_value(engine_state, stack, env_name, value, "to_string") {
         ConversionResult::Ok(v) => Ok(v.as_string()?),
         ConversionResult::ConversionError(e) => Err(e),
         ConversionResult::GeneralError(e) => Err(e),
-        ConversionResult::CellPathError => Ok(value.into_string(ENV_SEP, config)),
+        ConversionResult::CellPathError => match value.as_string() {
+            Ok(s) => Ok(s),
+            Err(_) => Err(ShellError::EnvVarNotAString(
+                env_name.to_string(),
+                value.span()?,
+            )),
+        },
     }
 }
 
@@ -79,13 +81,17 @@ pub fn env_to_string(
 pub fn env_to_strings(
     engine_state: &EngineState,
     stack: &Stack,
-    config: &Config,
 ) -> Result<HashMap<String, String>, ShellError> {
     let env_vars = stack.get_env_vars(engine_state);
     let mut env_vars_str = HashMap::new();
     for (env_name, val) in env_vars {
-        let val_str = env_to_string(&env_name, val, engine_state, stack, config)?;
-        env_vars_str.insert(env_name, val_str);
+        match env_to_string(&env_name, &val, engine_state, stack) {
+            Ok(val_str) => {
+                env_vars_str.insert(env_name, val_str);
+            }
+            Err(ShellError::EnvVarNotAString(..)) => {} // ignore non-string values
+            Err(e) => return Err(e),
+        }
     }
 
     Ok(env_vars_str)
@@ -93,16 +99,16 @@ pub fn env_to_strings(
 
 /// Shorthand for env_to_string() for PWD with custom error
 pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<String, ShellError> {
-    let config = stack.get_config()?;
     if let Some(pwd) = stack.get_env_var(engine_state, "PWD") {
-        match env_to_string("PWD", pwd, engine_state, stack, &config) {
+        match env_to_string("PWD", &pwd, engine_state, stack) {
             Ok(cwd) => {
                 if Path::new(&cwd).is_absolute() {
                     Ok(cwd)
                 } else {
-                    Err(ShellError::LabeledError(
+                    Err(ShellError::SpannedLabeledError(
                             "Invalid current directory".to_string(),
-                            format!("The 'PWD' environment variable must be set to an absolute path. Found: '{}'", cwd)
+                            format!("The 'PWD' environment variable must be set to an absolute path. Found: '{}'", cwd),
+                            pwd.span()?
                     ))
                 }
             }
@@ -226,7 +232,6 @@ fn get_converted_value(
                     Err(e) => ConversionResult::ConversionError(e),
                 }
             } else {
-                // This one is OK to fail: We want to know if custom conversion is working
                 ConversionResult::ConversionError(ShellError::MissingParameter(
                     "block input".into(),
                     from_span,

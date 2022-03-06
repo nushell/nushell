@@ -55,8 +55,7 @@ impl Command for External {
         let redirect_stderr = call.has_flag("redirect-stderr");
 
         // Translate environment variables from Values to Strings
-        let config = stack.get_config().unwrap_or_default();
-        let env_vars_str = env_to_strings(engine_state, stack, &config)?;
+        let env_vars_str = env_to_strings(engine_state, stack)?;
 
         fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
             let span = value.span()?;

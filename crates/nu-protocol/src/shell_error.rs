@@ -112,6 +112,17 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::cant_convert), url(docsrs))]
     CantConvert(String, String, #[label("can't convert {1} to {0}")] Span),
 
+    #[error("{0} is not representable as a string.")]
+    #[diagnostic(
+        code(nu::shell::env_var_not_a_string),
+        url(docsrs),
+        help(
+            r#"The '{0}' environment variable must be a string or be convertible to a string.
+Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVERSIONS."#
+        )
+    )]
+    EnvVarNotAString(String, #[label("value not representable as a string")] Span),
+
     #[error("Division by zero.")]
     #[diagnostic(code(nu::shell::division_by_zero), url(docsrs))]
     DivisionByZero(#[label("division by zero")] Span),
