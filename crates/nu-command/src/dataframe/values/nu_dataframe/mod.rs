@@ -275,6 +275,10 @@ impl NuDataFrame {
         }
     }
 
+    pub fn height(&self) -> usize {
+        self.0.height()
+    }
+
     pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
         let to_row = rows.unwrap_or(5);
         let values = self.to_rows(0, to_row, span)?;
