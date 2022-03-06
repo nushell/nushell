@@ -1,8 +1,8 @@
 # Dataframe
 
-This dataframe directory holds all of definitions of the dataframe datastructures and commands.
+This dataframe directory holds all of the definitions of the dataframe data structures and commands.
 
-There three sections of commands:
+There are three sections of commands:
 
 * [eager](./eager)
 * [series](./series)
