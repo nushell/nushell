@@ -71,7 +71,12 @@ fn command(
     let values = if tail {
         df.tail(rows, call.head)?
     } else {
-        df.head(rows, call.head)?
+        // if rows is specified, return those rows, otherwise return everything
+        if rows.is_some() {
+            df.head(rows, call.head)?
+        } else {
+            df.head(Some(df.height()), call.head)?
+        }
     };
 
     let value = Value::List {
