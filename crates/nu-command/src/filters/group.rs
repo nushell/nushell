@@ -1,49 +1,62 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, Spanned,
     SyntaxShape, Value,
 };
 
 #[derive(Clone)]
-pub struct EachGroup;
+pub struct Group;
 
-impl Command for EachGroup {
+impl Command for Group {
     fn name(&self) -> &str {
-        "each group"
+        "group"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("each group")
+        Signature::build("group")
             .required("group_size", SyntaxShape::Int, "the size of each group")
-            .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run on each group",
-            )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Runs a block on groups of `group_size` rows of a table at a time."
+        "Groups input into groups of `group_size`."
     }
 
     fn examples(&self) -> Vec<Example> {
         let stream_test_1 = vec![
-            Value::Int {
-                val: 3,
+            Value::List {
+                vals: vec![
+                    Value::Int {
+                        val: 1,
+                        span: Span::test_data(),
+                    },
+                    Value::Int {
+                        val: 2,
+                        span: Span::test_data(),
+                    },
+                ],
                 span: Span::test_data(),
             },
-            Value::Int {
-                val: 7,
+            Value::List {
+                vals: vec![
+                    Value::Int {
+                        val: 3,
+                        span: Span::test_data(),
+                    },
+                    Value::Int {
+                        val: 4,
+                        span: Span::test_data(),
+                    },
+                ],
                 span: Span::test_data(),
             },
         ];
 
         vec![Example {
-            example: "echo [1 2 3 4] | each group 2 { |it| $it.0 + $it.1 }",
-            description: "Echo the sum of each pair",
+            example: "echo [1 2 3 4] | group 2",
+            description: "Group the a list by pairs",
             result: Some(Value::List {
                 vals: stream_test_1,
                 span: Span::test_data(),
@@ -59,18 +72,12 @@ impl Command for EachGroup {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 1)?;
         let ctrlc = engine_state.ctrlc.clone();
 
         //FIXME: add in support for external redirection when engine-q supports it generally
 
         let each_group_iterator = EachGroupIterator {
-            block: capture_block,
-            engine_state: engine_state.clone(),
-            stack: stack.clone(),
             group_size: group_size.item,
-            redirect_stdout: call.redirect_stdout,
-            redirect_stderr: call.redirect_stderr,
             input: Box::new(input.into_iter()),
             span: call.head,
         };
@@ -80,12 +87,7 @@ impl Command for EachGroup {
 }
 
 struct EachGroupIterator {
-    block: CaptureBlock,
-    engine_state: EngineState,
-    stack: Stack,
     group_size: usize,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
     input: Box<dyn Iterator<Item = Value> + Send>,
     span: Span,
 }
@@ -117,49 +119,10 @@ impl Iterator for EachGroupIterator {
             return None;
         }
 
-        Some(run_block_on_vec(
-            group,
-            self.block.clone(),
-            self.engine_state.clone(),
-            self.stack.clone(),
-            self.redirect_stdout,
-            self.redirect_stderr,
-            self.span,
-        ))
-    }
-}
-
-pub(crate) fn run_block_on_vec(
-    input: Vec<Value>,
-    capture_block: CaptureBlock,
-    engine_state: EngineState,
-    stack: Stack,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
-    span: Span,
-) -> Value {
-    let value = Value::List { vals: input, span };
-
-    let mut stack = stack.captures_to_stack(&capture_block.captures);
-
-    let block = engine_state.get_block(capture_block.block_id);
-
-    if let Some(var) = block.signature.get_positional(0) {
-        if let Some(var_id) = &var.var_id {
-            stack.add_var(*var_id, value);
-        }
-    }
-
-    match eval_block(
-        &engine_state,
-        &mut stack,
-        block,
-        PipelineData::new(span),
-        redirect_stdout,
-        redirect_stderr,
-    ) {
-        Ok(pipeline) => pipeline.into_value(span),
-        Err(error) => Value::Error { error },
+        Some(Value::List {
+            vals: group,
+            span: self.span,
+        })
     }
 }
 
@@ -171,6 +134,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(EachGroup {})
+        test_examples(Group {})
     }
 }

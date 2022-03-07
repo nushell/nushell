@@ -17,7 +17,7 @@ fn each_group_works() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [1 2 3 4 5 6] | each group 3 { |it| $it } | to json --raw
+        echo [1 2 3 4 5 6] | group 3 | to json --raw
         "#
     ));
 
@@ -29,7 +29,7 @@ fn each_window() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [1 2 3 4] | each window 3 { |it| $it } | to json --raw
+        echo [1 2 3 4] | window 3 | to json --raw
         "#
     ));
 
@@ -41,7 +41,7 @@ fn each_window_stride() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [1 2 3 4 5 6] | each window 3 -s 2 { |it| echo $it } | to json --raw
+        echo [1 2 3 4 5 6] | window 3 -s 2 | to json --raw
         "#
     ));
 
