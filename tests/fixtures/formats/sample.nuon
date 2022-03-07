@@ -1,0 +1,20 @@
+# Some sample nuon values
+[
+    # The nuon compact table format
+    [[a, nuon, table]; [1, 2, 3], [4, 5, 6]],
+
+    # A filesize
+    100kib,
+
+    # A duration
+    100sec
+
+    # A boolean
+    true,
+
+    # A record
+    {name: "Bobby", age: 99}
+
+    # Binary data
+    0x[11, ff, ee, 1f]
+]

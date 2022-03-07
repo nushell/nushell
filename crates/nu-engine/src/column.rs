@@ -11,6 +11,8 @@ pub fn get_columns(input: &[Value]) -> Vec<String> {
                     columns.push(col.to_string());
                 }
             }
+        } else {
+            return vec![];
         }
     }
 

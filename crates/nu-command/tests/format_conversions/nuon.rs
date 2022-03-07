@@ -126,3 +126,39 @@ fn binary_roundtrip() {
 
     assert_eq!(actual.out, "0x[1FFF]");
 }
+
+#[test]
+fn read_binary_data() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample.nuon | get 5.3
+        "#
+    ));
+
+    assert_eq!(actual.out, "31")
+}
+
+#[test]
+fn read_record() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample.nuon | get 4.name
+        "#
+    ));
+
+    assert_eq!(actual.out, "Bobby")
+}
+
+#[test]
+fn read_bool() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample.nuon | get 3 | $in == $true
+        "#
+    ));
+
+    assert_eq!(actual.out, "true")
+}
