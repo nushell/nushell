@@ -2749,6 +2749,7 @@ pub fn parse_signature_helper(
 
     enum Arg {
         Positional(PositionalArg, bool), // bool - required
+        RestPositional(PositionalArg),
         Flag(Flag),
     }
 
@@ -2759,7 +2760,6 @@ pub fn parse_signature_helper(
     error = error.or(err);
 
     let mut args: Vec<Arg> = vec![];
-    let mut rest_arg = None;
     let mut parse_mode = ParseMode::ArgMode;
 
     for token in &output {
@@ -2930,19 +2930,12 @@ pub fn parse_signature_helper(
 
                                 let var_id = working_set.add_variable(contents_vec, Type::Unknown);
 
-                                if rest_arg.is_none() {
-                                    rest_arg = Some(Arg::Positional(
-                                        PositionalArg {
-                                            desc: String::new(),
-                                            name,
-                                            shape: SyntaxShape::Any,
-                                            var_id: Some(var_id),
-                                        },
-                                        false,
-                                    ));
-                                } else {
-                                    error = error.or(Some(ParseError::MultipleRestParams(span)))
-                                }
+                                args.push(Arg::RestPositional(PositionalArg {
+                                    desc: String::new(),
+                                    name,
+                                    shape: SyntaxShape::Any,
+                                    var_id: Some(var_id),
+                                }));
                             } else {
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec = contents.to_vec();
@@ -2969,6 +2962,12 @@ pub fn parse_signature_helper(
                                 //TODO check if we're replacing a custom parameter already
                                 match last {
                                     Arg::Positional(PositionalArg { shape, var_id, .. }, ..) => {
+                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        *shape = syntax_shape;
+                                    }
+                                    Arg::RestPositional(PositionalArg {
+                                        shape, var_id, ..
+                                    }) => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
                                         *shape = syntax_shape;
                                     }
@@ -3012,6 +3011,12 @@ pub fn parse_signature_helper(
                             }
                             positional.desc.push_str(&contents);
                         }
+                        Arg::RestPositional(positional) => {
+                            if !positional.desc.is_empty() {
+                                positional.desc.push('\n');
+                            }
+                            positional.desc.push_str(&contents);
+                        }
                     }
                 }
             }
@@ -3021,19 +3026,6 @@ pub fn parse_signature_helper(
 
     let mut sig = Signature::new(String::new());
 
-    if let Some(Arg::Positional(positional, ..)) = rest_arg {
-        if positional.name.is_empty() {
-            error = error.or(Some(ParseError::RestNeedsName(span)))
-        } else if sig.rest_positional.is_none() {
-            sig.rest_positional = Some(PositionalArg {
-                name: positional.name,
-                ..positional
-            })
-        } else {
-            // Too many rest params
-            error = error.or(Some(ParseError::MultipleRestParams(span)))
-        }
-    }
     for arg in args {
         match arg {
             Arg::Positional(positional, required) => {
@@ -3044,6 +3036,19 @@ pub fn parse_signature_helper(
                 }
             }
             Arg::Flag(flag) => sig.named.push(flag),
+            Arg::RestPositional(positional) => {
+                if positional.name.is_empty() {
+                    error = error.or(Some(ParseError::RestNeedsName(span)))
+                } else if sig.rest_positional.is_none() {
+                    sig.rest_positional = Some(PositionalArg {
+                        name: positional.name,
+                        ..positional
+                    })
+                } else {
+                    // Too many rest params
+                    error = error.or(Some(ParseError::MultipleRestParams(span)))
+                }
+            }
         }
     }
 
