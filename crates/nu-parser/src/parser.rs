@@ -2168,6 +2168,14 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     output.push(b'/');
                     idx += 1;
                 }
+                Some(b'(') => {
+                    output.push(b'(');
+                    idx += 1;
+                }
+                Some(b')') => {
+                    output.push(b')');
+                    idx += 1;
+                }
                 Some(b'b') => {
                     output.push(0x8);
                     idx += 1;
