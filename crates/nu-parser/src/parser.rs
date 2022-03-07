@@ -2677,6 +2677,7 @@ pub fn parse_row_condition(
                 desc: "row condition".into(),
                 shape: SyntaxShape::Any,
                 var_id: Some(var_id),
+                default_value: None,
             });
 
             working_set.add_block(block)
@@ -2742,11 +2743,14 @@ pub fn parse_signature_helper(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Box<Signature>, Option<ParseError>) {
+    #[allow(clippy::enum_variant_names)]
     enum ParseMode {
         ArgMode,
         TypeMode,
+        DefaultValueMode,
     }
 
+    #[derive(Debug)]
     enum Arg {
         Positional(PositionalArg, bool), // bool - required
         RestPositional(PositionalArg),
@@ -2756,7 +2760,13 @@ pub fn parse_signature_helper(
     let mut error = None;
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(source, span.start, &[b'\n', b'\r', b','], &[b':'], false);
+    let (output, err) = lex(
+        source,
+        span.start,
+        &[b'\n', b'\r', b','],
+        &[b':', b'='],
+        false,
+    );
     error = error.or(err);
 
     let mut args: Vec<Arg> = vec![];
@@ -2776,10 +2786,22 @@ pub fn parse_signature_helper(
                         ParseMode::ArgMode => {
                             parse_mode = ParseMode::TypeMode;
                         }
-                        ParseMode::TypeMode => {
+                        ParseMode::TypeMode | ParseMode::DefaultValueMode => {
                             // We're seeing two types for the same thing for some reason, error
                             error =
                                 error.or_else(|| Some(ParseError::Expected("type".into(), span)));
+                        }
+                    }
+                } else if contents == b"=" {
+                    match parse_mode {
+                        ParseMode::ArgMode | ParseMode::TypeMode => {
+                            parse_mode = ParseMode::DefaultValueMode;
+                        }
+                        ParseMode::DefaultValueMode => {
+                            // We're seeing two default values for some reason, error
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("default value".into(), span))
+                            });
                         }
                     }
                 } else {
@@ -2802,6 +2824,7 @@ pub fn parse_signature_helper(
                                         short: None,
                                         required: false,
                                         var_id: Some(var_id),
+                                        default_value: None,
                                     }));
                                 } else {
                                     let short_flag = &flags[1];
@@ -2832,6 +2855,7 @@ pub fn parse_signature_helper(
                                             short: Some(chars[0]),
                                             required: false,
                                             var_id: Some(var_id),
+                                            default_value: None,
                                         }));
                                     } else {
                                         error = error.or_else(|| {
@@ -2864,6 +2888,7 @@ pub fn parse_signature_helper(
                                     short: Some(chars[0]),
                                     required: false,
                                     var_id: Some(var_id),
+                                    default_value: None,
                                 }));
                             } else if contents.starts_with(b"(-") {
                                 let short_flag = &contents[2..];
@@ -2921,6 +2946,7 @@ pub fn parse_signature_helper(
                                         name,
                                         shape: SyntaxShape::Any,
                                         var_id: Some(var_id),
+                                        default_value: None,
                                     },
                                     false,
                                 ))
@@ -2935,6 +2961,7 @@ pub fn parse_signature_helper(
                                     name,
                                     shape: SyntaxShape::Any,
                                     var_id: Some(var_id),
+                                    default_value: None,
                                 }));
                             } else {
                                 let name = String::from_utf8_lossy(contents).to_string();
@@ -2949,6 +2976,7 @@ pub fn parse_signature_helper(
                                         name,
                                         shape: SyntaxShape::Any,
                                         var_id: Some(var_id),
+                                        default_value: None,
                                     },
                                     true,
                                 ))
@@ -2976,6 +3004,97 @@ pub fn parse_signature_helper(
                                         if syntax_shape != SyntaxShape::Boolean {
                                             working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
                                             *arg = Some(syntax_shape)
+                                        }
+                                    }
+                                }
+                            }
+                            parse_mode = ParseMode::ArgMode;
+                        }
+                        ParseMode::DefaultValueMode => {
+                            if let Some(last) = args.last_mut() {
+                                let (expression, err) =
+                                    parse_value(working_set, span, &SyntaxShape::Any);
+                                error = error.or(err);
+
+                                //TODO check if we're replacing a custom parameter already
+                                match last {
+                                    Arg::Positional(
+                                        PositionalArg {
+                                            shape,
+                                            var_id,
+                                            default_value,
+                                            ..
+                                        },
+                                        required,
+                                    ) => {
+                                        let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
+                                        let var_type = working_set.get_variable(var_id);
+                                        match var_type {
+                                            Type::Unknown => {
+                                                working_set.set_variable_type(
+                                                    var_id,
+                                                    expression.ty.clone(),
+                                                );
+                                            }
+                                            t => {
+                                                if t != &expression.ty {
+                                                    error = error.or_else(|| {
+                                                        Some(ParseError::AssignmentMismatch(
+                                                            "Default value wrong type".into(),
+                                                            format!("default value not {}", t),
+                                                            expression.span,
+                                                        ))
+                                                    })
+                                                }
+                                            }
+                                        }
+                                        *shape = expression.ty.to_shape();
+                                        *default_value = Some(expression);
+                                        *required = false;
+                                    }
+                                    Arg::RestPositional(..) => {
+                                        error = error.or_else(|| {
+                                            Some(ParseError::AssignmentMismatch(
+                                                "Rest parameter given default value".into(),
+                                                "can't have default value".into(),
+                                                expression.span,
+                                            ))
+                                        })
+                                    }
+                                    Arg::Flag(Flag {
+                                        arg,
+                                        var_id,
+                                        default_value,
+                                        ..
+                                    }) => {
+                                        let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
+                                        let var_type = working_set.get_variable(var_id);
+
+                                        let expression_ty = expression.ty.clone();
+                                        let expression_span = expression.span;
+
+                                        *default_value = Some(expression);
+
+                                        // Flags with a boolean type are just present/not-present switches
+                                        if var_type != &Type::Bool {
+                                            match var_type {
+                                                Type::Unknown => {
+                                                    *arg = Some(expression_ty.to_shape());
+                                                    working_set
+                                                        .set_variable_type(var_id, expression_ty);
+                                                }
+                                                t => {
+                                                    if t != &expression_ty {
+                                                        error = error.or_else(|| {
+                                                            Some(ParseError::AssignmentMismatch(
+                                                                "Default value wrong type".into(),
+                                                                format!("default value not {}", t),
+                                                                expression_span,
+                                                            ))
+                                                        })
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -3030,6 +3149,14 @@ pub fn parse_signature_helper(
         match arg {
             Arg::Positional(positional, required) => {
                 if required {
+                    if !sig.optional_positional.is_empty() {
+                        error = error.or_else(|| {
+                            Some(ParseError::RequiredAfterOptional(
+                                positional.name.clone(),
+                                span,
+                            ))
+                        })
+                    }
                     sig.required_positional.push(positional)
                 } else {
                     sig.optional_positional.push(positional)
@@ -3379,6 +3506,7 @@ pub fn parse_block_expression(
                 name: "$it".into(),
                 desc: String::new(),
                 shape: SyntaxShape::Any,
+                default_value: None,
             });
             output.signature = Box::new(signature);
         }
@@ -4503,6 +4631,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             name: "$in".into(),
             desc: String::new(),
             shape: SyntaxShape::Any,
+            default_value: None,
         });
 
         let mut expr = expr.clone();

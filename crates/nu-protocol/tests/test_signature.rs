@@ -46,7 +46,8 @@ fn test_signature_chained() {
             name: "required".to_string(),
             desc: "required description".to_string(),
             shape: SyntaxShape::String,
-            var_id: None
+            var_id: None,
+            default_value: None,
         })
     );
     assert_eq!(
@@ -55,7 +56,8 @@ fn test_signature_chained() {
             name: "optional".to_string(),
             desc: "optional description".to_string(),
             shape: SyntaxShape::String,
-            var_id: None
+            var_id: None,
+            default_value: None,
         })
     );
     assert_eq!(
@@ -64,7 +66,8 @@ fn test_signature_chained() {
             name: "rest".to_string(),
             desc: "rest description".to_string(),
             shape: SyntaxShape::String,
-            var_id: None
+            var_id: None,
+            default_value: None,
         })
     );
 
@@ -76,7 +79,8 @@ fn test_signature_chained() {
             arg: Some(SyntaxShape::String),
             required: true,
             desc: "required named description".to_string(),
-            var_id: None
+            var_id: None,
+            default_value: None,
         })
     );
 
@@ -88,7 +92,8 @@ fn test_signature_chained() {
             arg: Some(SyntaxShape::String),
             required: true,
             desc: "required named description".to_string(),
-            var_id: None
+            var_id: None,
+            default_value: None,
         })
     );
 }

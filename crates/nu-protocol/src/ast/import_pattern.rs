@@ -1,21 +1,23 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{span, OverlayId, Span};
 use std::collections::HashSet;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ImportPatternMember {
     Glob { span: Span },
     Name { name: Vec<u8>, span: Span },
     List { names: Vec<(Vec<u8>, Span)> },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ImportPatternHead {
     pub name: Vec<u8>,
     pub id: Option<OverlayId>,
     pub span: Span,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ImportPattern {
     pub head: ImportPatternHead,
     pub members: Vec<ImportPatternMember>,

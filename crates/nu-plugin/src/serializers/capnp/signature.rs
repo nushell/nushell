@@ -218,6 +218,7 @@ fn deserialize_argument(reader: argument::Reader) -> Result<PositionalArg, Shell
         desc: desc.to_string(),
         shape,
         var_id: None,
+        default_value: None,
     })
 }
 
@@ -262,6 +263,7 @@ fn deserialize_flag(reader: flag::Reader) -> Result<Flag, ShellError> {
         required,
         desc: desc.to_string(),
         var_id: None,
+        default_value: None,
     })
 }
 
