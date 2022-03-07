@@ -339,3 +339,13 @@ fn string_escape() -> TestResult {
 fn string_escape_interpolation() -> TestResult {
     run_test(r#"$"\u015B(char hamburger)abc""#, "ś≡abc")
 }
+
+#[test]
+fn proper_rest_types() -> TestResult {
+    run_test(
+        r#"def foo [--verbose(-v): bool, # my test flag
+                   ...rest: int # my rest comment
+                ] { if $verbose { print "verbose!" } else { print "not verbose!" } }; foo"#,
+        "not verbose!",
+    )
+}
