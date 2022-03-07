@@ -57,7 +57,7 @@ quick-xml = "0.22"
 rand = "0.8"
 rayon = "1.5.1"
 regex = "1.5.4"
-reqwest = {version = "0.11", features = ["blocking"] }
+reqwest = {version = "0.11", features = ["blocking", "json"] }
 roxmltree = "0.14.0"
 rust-embed = "6.3.0"
 serde = { version="1.0.123", features=["derive"] }
