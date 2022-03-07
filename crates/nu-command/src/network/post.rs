@@ -1,3 +1,4 @@
+use crate::formats::value_to_json_value;
 use base64::encode;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -6,7 +7,6 @@ use nu_protocol::RawStream;
 use reqwest::{blocking::Response, StatusCode};
 use std::path::PathBuf;
 use std::str::FromStr;
-use crate::formats::value_to_json_value;
 
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
