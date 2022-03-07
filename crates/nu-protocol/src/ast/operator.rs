@@ -56,7 +56,7 @@ pub enum RangeInclusion {
     RightExclusive,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RangeOperator {
     pub inclusion: RangeInclusion,
     pub span: Span,

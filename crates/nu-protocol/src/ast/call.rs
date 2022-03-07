@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use super::Expression;
 use crate::{DeclId, Span, Spanned};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Call {
     /// identifier of the declaration to call
     pub decl_id: DeclId,

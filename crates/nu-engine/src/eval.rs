@@ -62,6 +62,9 @@ fn eval_call(
             if let Some(arg) = call.positional.get(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
                 callee_stack.add_var(var_id, result);
+            } else if let Some(arg) = &param.default_value {
+                let result = eval_expression(engine_state, caller_stack, arg)?;
+                callee_stack.add_var(var_id, result);
             } else {
                 callee_stack.add_var(var_id, Value::nothing(call.head));
             }
@@ -104,6 +107,10 @@ fn eval_call(
                             let result = eval_expression(engine_state, caller_stack, arg)?;
 
                             callee_stack.add_var(var_id, result);
+                        } else if let Some(arg) = &named.default_value {
+                            let result = eval_expression(engine_state, caller_stack, arg)?;
+
+                            callee_stack.add_var(var_id, result);
                         } else {
                             callee_stack.add_var(
                                 var_id,
@@ -126,6 +133,10 @@ fn eval_call(
                                 span: call.head,
                             },
                         )
+                    } else if let Some(arg) = &named.default_value {
+                        let result = eval_expression(engine_state, caller_stack, arg)?;
+
+                        callee_stack.add_var(var_id, result);
                     } else {
                         callee_stack.add_var(var_id, Value::Nothing { span: call.head })
                     }

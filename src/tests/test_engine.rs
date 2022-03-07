@@ -287,3 +287,66 @@ fn bool_variable() -> TestResult {
 fn bool_variable2() -> TestResult {
     run_test(r#"$false"#, "false")
 }
+
+#[test]
+fn default_value1() -> TestResult {
+    run_test(r#"def foo [x = 3] { $x }; foo"#, "3")
+}
+
+#[test]
+fn default_value2() -> TestResult {
+    run_test(r#"def foo [x: int = 3] { $x }; foo"#, "3")
+}
+
+#[test]
+fn default_value3() -> TestResult {
+    run_test(r#"def foo [--x = 3] { $x }; foo"#, "3")
+}
+
+#[test]
+fn default_value4() -> TestResult {
+    run_test(r#"def foo [--x: int = 3] { $x }; foo"#, "3")
+}
+
+#[test]
+fn default_value5() -> TestResult {
+    run_test(r#"def foo [x = 3] { $x }; foo 10"#, "10")
+}
+
+#[test]
+fn default_value6() -> TestResult {
+    run_test(r#"def foo [x: int = 3] { $x }; foo 10"#, "10")
+}
+
+#[test]
+fn default_value7() -> TestResult {
+    run_test(r#"def foo [--x = 3] { $x }; foo --x 10"#, "10")
+}
+
+#[test]
+fn default_value8() -> TestResult {
+    run_test(r#"def foo [--x: int = 3] { $x }; foo --x 10"#, "10")
+}
+
+#[test]
+fn default_value9() -> TestResult {
+    fail_test(r#"def foo [--x = 3] { $x }; foo --x a"#, "expected int")
+}
+
+#[test]
+fn default_value10() -> TestResult {
+    fail_test(r#"def foo [x = 3] { $x }; foo a"#, "expected int")
+}
+
+#[test]
+fn default_value11() -> TestResult {
+    fail_test(
+        r#"def foo [x = 3, y] { $x }; foo a"#,
+        "after optional parameter",
+    )
+}
+
+#[test]
+fn default_value12() -> TestResult {
+    fail_test(r#"def foo [--x:int = "a"] { $x }"#, "default value not int")
+}

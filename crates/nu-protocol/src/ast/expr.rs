@@ -1,9 +1,10 @@
 use chrono::FixedOffset;
+use serde::{Deserialize, Serialize};
 
 use super::{Call, CellPath, Expression, FullCellPath, Operator, RangeOperator};
 use crate::{ast::ImportPattern, BlockId, Signature, Span, Spanned, Unit, VarId};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
     Bool(bool),
     Int(i64),
