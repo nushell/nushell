@@ -1,21 +1,21 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, Spanned,
     SyntaxShape, Value,
 };
 
 #[derive(Clone)]
-pub struct EachWindow;
+pub struct Window;
 
-impl Command for EachWindow {
+impl Command for Window {
     fn name(&self) -> &str {
-        "each window"
+        "window"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("each window")
+        Signature::build("window")
             .required("window_size", SyntaxShape::Int, "the size of each window")
             .named(
                 "stride",
@@ -23,52 +23,101 @@ impl Command for EachWindow {
                 "the number of rows to slide over between windows",
                 Some('s'),
             )
-            .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run on each window",
-            )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Runs a block on window groups of `window_size` that slide by n rows."
+        "Creates a sliding window of `window_size` that slide by n rows/elements across input."
     }
 
     fn examples(&self) -> Vec<Example> {
         let stream_test_1 = vec![
-            Value::Int {
-                val: 3,
+            Value::List {
+                vals: vec![
+                    Value::Int {
+                        val: 1,
+                        span: Span::test_data(),
+                    },
+                    Value::Int {
+                        val: 2,
+                        span: Span::test_data(),
+                    },
+                ],
                 span: Span::test_data(),
             },
-            Value::Int {
-                val: 5,
+            Value::List {
+                vals: vec![
+                    Value::Int {
+                        val: 2,
+                        span: Span::test_data(),
+                    },
+                    Value::Int {
+                        val: 3,
+                        span: Span::test_data(),
+                    },
+                ],
                 span: Span::test_data(),
             },
-            Value::Int {
-                val: 7,
+            Value::List {
+                vals: vec![
+                    Value::Int {
+                        val: 3,
+                        span: Span::test_data(),
+                    },
+                    Value::Int {
+                        val: 4,
+                        span: Span::test_data(),
+                    },
+                ],
                 span: Span::test_data(),
             },
         ];
 
         let stream_test_2 = vec![
-            Value::Int {
-                val: 3,
+            Value::List {
+                vals: vec![
+                    Value::Int {
+                        val: 1,
+                        span: Span::test_data(),
+                    },
+                    Value::Int {
+                        val: 2,
+                        span: Span::test_data(),
+                    },
+                ],
                 span: Span::test_data(),
             },
-            Value::Int {
-                val: 9,
+            Value::List {
+                vals: vec![
+                    Value::Int {
+                        val: 4,
+                        span: Span::test_data(),
+                    },
+                    Value::Int {
+                        val: 5,
+                        span: Span::test_data(),
+                    },
+                ],
                 span: Span::test_data(),
             },
-            Value::Int {
-                val: 15,
+            Value::List {
+                vals: vec![
+                    Value::Int {
+                        val: 7,
+                        span: Span::test_data(),
+                    },
+                    Value::Int {
+                        val: 8,
+                        span: Span::test_data(),
+                    },
+                ],
                 span: Span::test_data(),
             },
         ];
 
         vec![
             Example {
-                example: "echo [1 2 3 4] | each window 2 { |it| $it.0 + $it.1 }",
+                example: "echo [1 2 3 4] | window 2",
                 description: "A sliding window of two elements",
                 result: Some(Value::List {
                     vals: stream_test_1,
@@ -76,7 +125,7 @@ impl Command for EachWindow {
                 }),
             },
             Example {
-                example: "[1, 2, 3, 4, 5, 6, 7, 8] | each window 2 --stride 3 { |x| $x.0 + $x.1 }",
+                example: "[1, 2, 3, 4, 5, 6, 7, 8] | window 2 --stride 3",
                 description: "A sliding window of two elements, with a stride of 3",
                 result: Some(Value::List {
                     vals: stream_test_2,
@@ -94,7 +143,6 @@ impl Command for EachWindow {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 1)?;
         let ctrlc = engine_state.ctrlc.clone();
         let stride: Option<usize> = call.get_flag(engine_state, stack, "stride")?;
 
@@ -103,13 +151,8 @@ impl Command for EachWindow {
         //FIXME: add in support for external redirection when engine-q supports it generally
 
         let each_group_iterator = EachWindowIterator {
-            block: capture_block,
-            engine_state: engine_state.clone(),
-            stack: stack.clone(),
             group_size: group_size.item,
             input: Box::new(input.into_iter()),
-            redirect_stdout: call.redirect_stdout,
-            redirect_stderr: call.redirect_stderr,
             span: call.head,
             previous: vec![],
             stride,
@@ -120,13 +163,8 @@ impl Command for EachWindow {
 }
 
 struct EachWindowIterator {
-    block: CaptureBlock,
-    engine_state: EngineState,
-    stack: Stack,
     group_size: usize,
     input: Box<dyn Iterator<Item = Value> + Send>,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
     span: Span,
     previous: Vec<Value>,
     stride: usize,
@@ -185,49 +223,10 @@ impl Iterator for EachWindowIterator {
 
         self.previous = group.clone();
 
-        Some(run_block_on_vec(
-            group,
-            self.block.clone(),
-            self.engine_state.clone(),
-            self.stack.clone(),
-            self.redirect_stdout,
-            self.redirect_stderr,
-            self.span,
-        ))
-    }
-}
-
-pub(crate) fn run_block_on_vec(
-    input: Vec<Value>,
-    capture_block: CaptureBlock,
-    engine_state: EngineState,
-    stack: Stack,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
-    span: Span,
-) -> Value {
-    let value = Value::List { vals: input, span };
-
-    let mut stack = stack.captures_to_stack(&capture_block.captures);
-
-    let block = engine_state.get_block(capture_block.block_id);
-
-    if let Some(var) = block.signature.get_positional(0) {
-        if let Some(var_id) = &var.var_id {
-            stack.add_var(*var_id, value);
-        }
-    }
-
-    match eval_block(
-        &engine_state,
-        &mut stack,
-        block,
-        PipelineData::new(span),
-        redirect_stdout,
-        redirect_stderr,
-    ) {
-        Ok(pipeline) => pipeline.into_value(span),
-        Err(error) => Value::Error { error },
+        Some(Value::List {
+            vals: group,
+            span: self.span,
+        })
     }
 }
 
@@ -239,6 +238,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(EachWindow {})
+        test_examples(Window {})
     }
 }
