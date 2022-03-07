@@ -1,5 +1,4 @@
 #include <winver.h>
-#include <ntdef.h>
 
 #define VER_FILEVERSION 0,59,1,0
 #define VER_FILEVERSION_STR "0.59.1"
