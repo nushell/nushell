@@ -150,7 +150,15 @@ fn string_helper(
     }
 
     match input {
-        PipelineData::ExternalStream { stdout: stream, .. } => {
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::String {
+            val: String::new(),
+            span: head,
+        }
+        .into_pipeline_data()),
+        PipelineData::ExternalStream {
+            stdout: Some(stream),
+            ..
+        } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_string()?;
             Ok(Value::String {

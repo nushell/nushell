@@ -213,7 +213,11 @@ impl Command for ParEach {
                 .into_iter()
                 .flatten()
                 .into_pipeline_data(ctrlc)),
-            PipelineData::ExternalStream { stdout: stream, .. } => Ok(stream
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                ..
+            } => Ok(stream
                 .enumerate()
                 .par_bridge()
                 .map(move |(idx, x)| {

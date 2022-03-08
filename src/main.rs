@@ -172,11 +172,11 @@ fn main() -> Result<()> {
                 let buf_reader = BufReader::new(stdin);
 
                 PipelineData::ExternalStream {
-                    stdout: RawStream::new(
+                    stdout: Some(RawStream::new(
                         Box::new(BufferedReader::new(buf_reader)),
                         Some(ctrlc),
                         redirect_stdin.span,
-                    ),
+                    )),
                     stderr: None,
                     exit_code: None,
                     span: redirect_stdin.span,

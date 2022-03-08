@@ -77,7 +77,7 @@ impl Command for Skip {
 
         match input {
             PipelineData::ExternalStream {
-                stdout: stream,
+                stdout: Some(stream),
                 span: bytes_span,
                 metadata,
                 ..

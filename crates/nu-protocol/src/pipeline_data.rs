@@ -36,7 +36,7 @@ pub enum PipelineData {
     Value(Value, Option<PipelineMetadata>),
     ListStream(ListStream, Option<PipelineMetadata>),
     ExternalStream {
-        stdout: RawStream,
+        stdout: Option<RawStream>,
         stderr: Option<RawStream>,
         exit_code: Option<ListStream>,
         span: Span,
@@ -93,7 +93,11 @@ impl PipelineData {
                 vals: s.collect(),
                 span, // FIXME?
             },
-            PipelineData::ExternalStream { stdout: mut s, .. } => {
+            PipelineData::ExternalStream { stdout: None, .. } => Value::Nothing { span },
+            PipelineData::ExternalStream {
+                stdout: Some(mut s),
+                ..
+            } => {
                 let mut items = vec![];
 
                 for val in &mut s {
@@ -157,7 +161,10 @@ impl PipelineData {
         match self {
             PipelineData::Value(v, ..) => Ok(v.into_string(separator, config)),
             PipelineData::ListStream(s, ..) => Ok(s.into_string(separator, config)),
-            PipelineData::ExternalStream { stdout: s, .. } => {
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(String::new()),
+            PipelineData::ExternalStream {
+                stdout: Some(s), ..
+            } => {
                 let mut items = vec![];
 
                 for val in s {
@@ -236,7 +243,13 @@ impl PipelineData {
                 Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.map(f).into_pipeline_data(ctrlc)),
-            PipelineData::ExternalStream { stdout: stream, .. } => {
+            PipelineData::ExternalStream { stdout: None, .. } => {
+                Ok(PipelineData::new(Span { start: 0, end: 0 }))
+            }
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                ..
+            } => {
                 let collected = stream.into_bytes()?;
 
                 if let Ok(st) = String::from_utf8(collected.clone().item) {
@@ -283,7 +296,13 @@ impl PipelineData {
             PipelineData::ListStream(stream, ..) => {
                 Ok(stream.flat_map(f).into_pipeline_data(ctrlc))
             }
-            PipelineData::ExternalStream { stdout: stream, .. } => {
+            PipelineData::ExternalStream { stdout: None, .. } => {
+                Ok(PipelineData::new(Span { start: 0, end: 0 }))
+            }
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                ..
+            } => {
                 let collected = stream.into_bytes()?;
 
                 if let Ok(st) = String::from_utf8(collected.clone().item) {
@@ -324,7 +343,13 @@ impl PipelineData {
                 Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.filter(f).into_pipeline_data(ctrlc)),
-            PipelineData::ExternalStream { stdout: stream, .. } => {
+            PipelineData::ExternalStream { stdout: None, .. } => {
+                Ok(PipelineData::new(Span { start: 0, end: 0 }))
+            }
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                ..
+            } => {
                 let collected = stream.into_bytes()?;
 
                 if let Ok(st) = String::from_utf8(collected.clone().item) {
@@ -414,7 +439,11 @@ impl Iterator for PipelineIterator {
             PipelineData::Value(Value::Nothing { .. }, ..) => None,
             PipelineData::Value(v, ..) => Some(std::mem::take(v)),
             PipelineData::ListStream(stream, ..) => stream.next(),
-            PipelineData::ExternalStream { stdout: stream, .. } => stream.next().map(|x| match x {
+            PipelineData::ExternalStream { stdout: None, .. } => None,
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                ..
+            } => stream.next().map(|x| match x {
                 Ok(x) => x,
                 Err(err) => Value::Error { error: err },
             }),

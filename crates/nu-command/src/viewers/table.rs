@@ -67,7 +67,7 @@ impl Command for Table {
             PipelineData::ExternalStream { .. } => Ok(input),
             PipelineData::Value(Value::Binary { val, .. }, ..) => {
                 Ok(PipelineData::ExternalStream {
-                    stdout: RawStream::new(
+                    stdout: Some(RawStream::new(
                         Box::new(
                             vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
                                 .as_bytes()
@@ -76,7 +76,7 @@ impl Command for Table {
                         ),
                         ctrlc,
                         head,
-                    ),
+                    )),
                     stderr: None,
                     exit_code: None,
                     span: head,
@@ -269,7 +269,7 @@ fn handle_row_stream(
     let head = call.head;
 
     Ok(PipelineData::ExternalStream {
-        stdout: RawStream::new(
+        stdout: Some(RawStream::new(
             Box::new(PagingTableCreator {
                 row_offset,
                 config,
@@ -279,7 +279,7 @@ fn handle_row_stream(
             }),
             ctrlc,
             head,
-        ),
+        )),
         stderr: None,
         exit_code: None,
         span: head,
