@@ -150,6 +150,11 @@ impl Command for If {
                 example: "if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }",
                 result: Some(Value::test_string("no!")),
             },
+            Example {
+                description: "Update the environment based on a condition",
+                example: r#"if true { let-env ENV_VAR = "new value" }"#,
+                result: None,
+            },
         ]
     }
 }
