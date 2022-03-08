@@ -55,22 +55,26 @@ pub(crate) fn evaluate(
     if working_set.find_decl(b"main").is_some() {
         let args = format!("main {}", args.join(" "));
 
-        eval_source(
+        if !eval_source(
             engine_state,
             &mut stack,
             &file,
             &path,
             PipelineData::new(Span::new(0, 0)),
-        );
-        eval_source(
+        ) {
+            std::process::exit(1);
+        }
+        if !eval_source(
             engine_state,
             &mut stack,
             args.as_bytes(),
             "<commandline>",
             input,
-        );
-    } else {
-        eval_source(engine_state, &mut stack, &file, &path, input);
+        ) {
+            std::process::exit(1);
+        }
+    } else if !eval_source(engine_state, &mut stack, &file, &path, input) {
+        std::process::exit(1);
     }
 
     if is_perf_true() {
@@ -96,7 +100,12 @@ pub fn print_table_or_error(
             );
 
             match table {
-                Ok(table) => {
+                Ok(mut table) => {
+                    let exit_code = match &mut table {
+                        PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
+                        _ => None,
+                    };
+
                     for item in table {
                         let stdout = std::io::stdout();
 
@@ -115,6 +124,10 @@ pub fn print_table_or_error(
                             Ok(_) => (),
                             Err(err) => eprintln!("{}", err),
                         };
+                    }
+
+                    if let Some(exit_code) = exit_code {
+                        let _: Vec<_> = exit_code.into_iter().collect();
                     }
                 }
                 Err(error) => {

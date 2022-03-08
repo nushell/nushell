@@ -1,7 +1,7 @@
 ---
 title: dfr get
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Creates dataframe with the selected columns

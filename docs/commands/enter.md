@@ -1,7 +1,7 @@
 ---
 title: enter
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Enters a new shell at the given path.

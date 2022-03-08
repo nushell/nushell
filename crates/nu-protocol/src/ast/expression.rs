@@ -1,8 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use super::{Expr, Operator};
 use crate::ast::ImportPattern;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
     pub expr: Expr,
     pub span: Span,
@@ -125,6 +127,7 @@ impl Expression {
                     false
                 }
             }
+            Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
                 for positional in &call.positional {
@@ -290,6 +293,7 @@ impl Expression {
                     .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
                     .collect();
             }
+            Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
                 for positional in &mut call.positional {
@@ -430,6 +434,7 @@ impl Expression {
 
                 *block_id = working_set.add_block(block);
             }
+            Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
                 if replaced.contains_span(call.head) {

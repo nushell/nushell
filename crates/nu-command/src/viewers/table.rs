@@ -1,4 +1,4 @@
-use lscolors::LsColors;
+use lscolors::{LsColors, Style};
 use nu_color_config::{get_color_config, style_primitive};
 use nu_engine::column::get_columns;
 use nu_engine::{env_to_string, CallExt};
@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use terminal_size::{Height, Width};
 
-use super::lscolor_ansiterm::ToNuAnsiStyle;
+//use super::lscolor_ansiterm::ToNuAnsiStyle;
 
 const STREAM_PAGE_SIZE: usize = 1000;
 const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
@@ -67,7 +67,7 @@ impl Command for Table {
             PipelineData::ExternalStream { .. } => Ok(input),
             PipelineData::Value(Value::Binary { val, .. }, ..) => {
                 Ok(PipelineData::ExternalStream {
-                    stdout: RawStream::new(
+                    stdout: Some(RawStream::new(
                         Box::new(
                             vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
                                 .as_bytes()
@@ -76,7 +76,7 @@ impl Command for Table {
                         ),
                         ctrlc,
                         head,
-                    ),
+                    )),
                     stderr: None,
                     exit_code: None,
                     span: head,
@@ -138,6 +138,11 @@ impl Command for Table {
                 let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
                 self.run(engine_state, stack, call, base_pipeline)
             }
+            PipelineData::Value(x @ Value::Range { .. }, ..) => Ok(Value::String {
+                val: x.into_string("", &config),
+                span: call.head,
+            }
+            .into_pipeline_data()),
             x => Ok(x),
         }
     }
@@ -217,13 +222,14 @@ fn handle_row_stream(
                                                 Some(&metadata),
                                             );
                                             let ansi_style = style
-                                                .map(ToNuAnsiStyle::to_nu_ansi_style)
+                                                .map(Style::to_crossterm_style)
+                                                // .map(ToNuAnsiStyle::to_nu_ansi_style)
                                                 .unwrap_or_default();
                                             let use_ls_colors = config.use_ls_colors;
 
                                             if use_ls_colors {
                                                 vals[idx] = Value::String {
-                                                    val: ansi_style.paint(path).to_string(),
+                                                    val: ansi_style.apply(path).to_string(),
                                                     span: *span,
                                                 };
                                             }
@@ -231,13 +237,14 @@ fn handle_row_stream(
                                         Err(_) => {
                                             let style = ls_colors.style_for_path(path.clone());
                                             let ansi_style = style
-                                                .map(ToNuAnsiStyle::to_nu_ansi_style)
+                                                .map(Style::to_crossterm_style)
+                                                // .map(ToNuAnsiStyle::to_nu_ansi_style)
                                                 .unwrap_or_default();
                                             let use_ls_colors = config.use_ls_colors;
 
                                             if use_ls_colors {
                                                 vals[idx] = Value::String {
-                                                    val: ansi_style.paint(path).to_string(),
+                                                    val: ansi_style.apply(path).to_string(),
                                                     span: *span,
                                                 };
                                             }
@@ -262,7 +269,7 @@ fn handle_row_stream(
     let head = call.head;
 
     Ok(PipelineData::ExternalStream {
-        stdout: RawStream::new(
+        stdout: Some(RawStream::new(
             Box::new(PagingTableCreator {
                 row_offset,
                 config,
@@ -272,7 +279,7 @@ fn handle_row_stream(
             }),
             ctrlc,
             head,
-        ),
+        )),
         stderr: None,
         exit_code: None,
         span: head,

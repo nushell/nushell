@@ -1,7 +1,7 @@
 ---
 title: into int
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Convert value to integer
@@ -44,7 +44,7 @@ Convert file size to integer
 
 Convert bool to integer
 ```shell
-> [$false, $true] | into int
+> [false, true] | into int
 ```
 
 Convert to integer from binary

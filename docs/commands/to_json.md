@@ -1,19 +1,20 @@
 ---
 title: to json
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Converts table data into JSON text.
 
 ## Signature
 
-```> to json --raw --indent```
+```> to json --raw --indent --tabs```
 
 ## Parameters
 
  -  `--raw`: remove all of the whitespace
  -  `--indent {number}`: specify indentation width
+ -  `--tabs {number}`: specify indentation tab quantity
 
 ## Examples
 

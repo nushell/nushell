@@ -1,7 +1,7 @@
 ---
 title: dfr filter-with
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Filters dataframe using a mask as reference
@@ -18,6 +18,6 @@ Filters dataframe using a mask as reference
 
 Filter dataframe using a bool mask
 ```shell
-> let mask = ([$true $false] | dfr to-df);
+> let mask = ([true false] | dfr to-df);
     [[a b]; [1 2] [3 4]] | dfr to-df | dfr filter-with $mask
 ```

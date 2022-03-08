@@ -17,7 +17,7 @@ fn proper_shadow() -> TestResult {
 fn config_filesize_format_with_metric_true() -> TestResult {
     // Note: this tests both the config variable and that it is properly captured into a block
     run_test(
-        r#"let config = {"filesize_metric": $true "filesize_format": "kib" }; do { 40kb | into string } "#,
+        r#"let config = {"filesize_metric": true "filesize_format": "kib" }; do { 40kb | into string } "#,
         "39.1 KiB",
     )
 }
@@ -26,7 +26,7 @@ fn config_filesize_format_with_metric_true() -> TestResult {
 fn config_filesize_format_with_metric_false_kib() -> TestResult {
     // Note: this tests both the config variable and that it is properly captured into a block
     run_test(
-        r#"let config = {"filesize_metric": $false "filesize_format": "kib" }; do { 40kb | into string } "#,
+        r#"let config = {"filesize_metric": false "filesize_format": "kib" }; do { 40kb | into string } "#,
         "39.1 KiB",
     )
 }
@@ -35,7 +35,7 @@ fn config_filesize_format_with_metric_false_kib() -> TestResult {
 fn config_filesize_format_with_metric_false_kb() -> TestResult {
     // Note: this tests both the config variable and that it is properly captured into a block
     run_test(
-        r#"let config = {"filesize_metric": $false "filesize_format": "kb" }; do { 40kb | into string } "#,
+        r#"let config = {"filesize_metric": false "filesize_format": "kb" }; do { 40kb | into string } "#,
         "40.0 KB",
     )
 }
@@ -72,13 +72,13 @@ fn in_variable_6() -> TestResult {
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    run_test(r#"each --help | lines | length"#, "30")
+    run_test(r#"each --help | lines | length"#, "29")
 }
 
 #[test]
 fn scope_variable() -> TestResult {
     run_test(
-        r#"let x = 3; $scope.vars | where name == "$x" | get type.0"#,
+        r#"let x = 3; $nu.scope.vars | where name == "$x" | get type.0"#,
         "int",
     )
 }
@@ -261,4 +261,92 @@ fn test_redirection_stderr() -> TestResult {
 #[test]
 fn datetime_literal() -> TestResult {
     run_test(r#"(date now) - 2019-08-23 > 1hr"#, "true")
+}
+
+#[test]
+fn shortcircuiting_and() -> TestResult {
+    run_test(r#"false && (5 / 0; false)"#, "false")
+}
+
+#[test]
+fn shortcircuiting_or() -> TestResult {
+    run_test(r#"true || (5 / 0; false)"#, "true")
+}
+
+#[test]
+fn open_ended_range() -> TestResult {
+    run_test(r#"1.. | first 100000 | length"#, "100000")
+}
+
+#[test]
+fn bool_variable() -> TestResult {
+    run_test(r#"$true"#, "true")
+}
+
+#[test]
+fn bool_variable2() -> TestResult {
+    run_test(r#"$false"#, "false")
+}
+
+#[test]
+fn default_value1() -> TestResult {
+    run_test(r#"def foo [x = 3] { $x }; foo"#, "3")
+}
+
+#[test]
+fn default_value2() -> TestResult {
+    run_test(r#"def foo [x: int = 3] { $x }; foo"#, "3")
+}
+
+#[test]
+fn default_value3() -> TestResult {
+    run_test(r#"def foo [--x = 3] { $x }; foo"#, "3")
+}
+
+#[test]
+fn default_value4() -> TestResult {
+    run_test(r#"def foo [--x: int = 3] { $x }; foo"#, "3")
+}
+
+#[test]
+fn default_value5() -> TestResult {
+    run_test(r#"def foo [x = 3] { $x }; foo 10"#, "10")
+}
+
+#[test]
+fn default_value6() -> TestResult {
+    run_test(r#"def foo [x: int = 3] { $x }; foo 10"#, "10")
+}
+
+#[test]
+fn default_value7() -> TestResult {
+    run_test(r#"def foo [--x = 3] { $x }; foo --x 10"#, "10")
+}
+
+#[test]
+fn default_value8() -> TestResult {
+    run_test(r#"def foo [--x: int = 3] { $x }; foo --x 10"#, "10")
+}
+
+#[test]
+fn default_value9() -> TestResult {
+    fail_test(r#"def foo [--x = 3] { $x }; foo --x a"#, "expected int")
+}
+
+#[test]
+fn default_value10() -> TestResult {
+    fail_test(r#"def foo [x = 3] { $x }; foo a"#, "expected int")
+}
+
+#[test]
+fn default_value11() -> TestResult {
+    fail_test(
+        r#"def foo [x = 3, y] { $x }; foo a"#,
+        "after optional parameter",
+    )
+}
+
+#[test]
+fn default_value12() -> TestResult {
+    fail_test(r#"def foo [--x:int = "a"] { $x }"#, "default value not int")
 }

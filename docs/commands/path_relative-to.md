@@ -1,7 +1,7 @@
 ---
 title: path relative-to
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Get a path as relative to another path.

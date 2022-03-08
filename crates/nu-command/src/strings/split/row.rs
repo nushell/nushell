@@ -86,8 +86,7 @@ fn split_row_helper(v: &Value, separator: &Spanned<String>, name: Span) -> Vec<V
     match v.span() {
         Ok(v_span) => {
             if let Ok(s) = v.as_string() {
-                let splitter = separator.item.replace("\\n", "\n");
-                s.split(&splitter)
+                s.split(&separator.item)
                     .filter_map(|s| {
                         if s.trim() != "" {
                             Some(Value::string(s, v_span))

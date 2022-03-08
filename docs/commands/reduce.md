@@ -1,7 +1,7 @@
 ---
 title: reduce
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Aggregate a list table to a single value using an accumulator block.

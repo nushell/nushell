@@ -1,7 +1,7 @@
 ---
 title: dfr get-nanosecond
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Gets nanosecond from date

@@ -1,7 +1,7 @@
 ---
 title: drop
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Remove the last number of rows or columns.

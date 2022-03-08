@@ -1,7 +1,7 @@
 ---
 title: empty?
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Check for empty values.

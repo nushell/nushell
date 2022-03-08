@@ -1,7 +1,7 @@
 ---
 title: dfr is-in
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Checks if elements from a series are contained in right series

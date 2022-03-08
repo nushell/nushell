@@ -1,7 +1,7 @@
 ---
 title: dfr melt
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Unpivot a DataFrame from wide to long format

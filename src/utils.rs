@@ -4,7 +4,7 @@ use nu_engine::eval_block;
 use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Value,
+    PipelineData, ShellError, Span, Value,
 };
 use std::path::PathBuf;
 
@@ -23,7 +23,7 @@ pub(crate) fn gather_parent_env_vars(engine_state: &mut EngineState) {
                 Some('\'')
             }
         } else {
-            Some('"')
+            Some('\'')
         }
     }
 
@@ -231,7 +231,23 @@ pub(crate) fn eval_source(
             if let PipelineData::ExternalStream { exit_code, .. } = &mut pipeline_data {
                 if let Some(exit_code) = exit_code.take().and_then(|it| it.last()) {
                     stack.add_env_var("LAST_EXIT_CODE".to_string(), exit_code);
+                } else {
+                    stack.add_env_var(
+                        "LAST_EXIT_CODE".to_string(),
+                        Value::Int {
+                            val: 0,
+                            span: Span { start: 0, end: 0 },
+                        },
+                    );
                 }
+            } else {
+                stack.add_env_var(
+                    "LAST_EXIT_CODE".to_string(),
+                    Value::Int {
+                        val: 0,
+                        span: Span { start: 0, end: 0 },
+                    },
+                );
             }
 
             if let Err(err) = print_pipeline_data(pipeline_data, engine_state, stack) {
@@ -249,6 +265,14 @@ pub(crate) fn eval_source(
             }
         }
         Err(err) => {
+            stack.add_env_var(
+                "LAST_EXIT_CODE".to_string(),
+                Value::Int {
+                    val: 1,
+                    span: Span { start: 0, end: 0 },
+                },
+            );
+
             let working_set = StateWorkingSet::new(engine_state);
 
             report_error(&working_set, &err);
@@ -258,6 +282,32 @@ pub(crate) fn eval_source(
     }
 
     true
+}
+
+fn seems_like_number(bytes: &[u8]) -> bool {
+    if bytes.is_empty() {
+        false
+    } else {
+        let b = bytes[0];
+
+        b == b'0'
+            || b == b'1'
+            || b == b'2'
+            || b == b'3'
+            || b == b'4'
+            || b == b'5'
+            || b == b'6'
+            || b == b'7'
+            || b == b'8'
+            || b == b'9'
+            || b == b'('
+            || b == b'{'
+            || b == b'['
+            || b == b'$'
+            || b == b'"'
+            || b == b'\''
+            || b == b'-'
+    }
 }
 
 /// Finds externals that have names that look like math expressions
@@ -275,16 +325,16 @@ pub fn external_exceptions(engine_state: &EngineState, stack: &Stack) -> Vec<Vec
                             while let Some(Ok(item)) = contents.next() {
                                 if is_executable::is_executable(&item.path()) {
                                     if let Ok(name) = item.file_name().into_string() {
-                                        let name = name.as_bytes().to_vec();
-                                        if nu_parser::is_math_expression_like(&name) {
+                                        if seems_like_number(name.as_bytes()) {
+                                            let name = name.as_bytes().to_vec();
                                             executables.push(name);
                                         }
                                     }
 
                                     if let Some(name) = item.path().file_stem() {
                                         let name = name.to_string_lossy();
-                                        let name = name.as_bytes().to_vec();
-                                        if nu_parser::is_math_expression_like(&name) {
+                                        if seems_like_number(name.as_bytes()) {
+                                            let name = name.as_bytes().to_vec();
                                             executables.push(name);
                                         }
                                     }
@@ -302,15 +352,15 @@ pub fn external_exceptions(engine_state: &EngineState, stack: &Stack) -> Vec<Vec
                         while let Some(Ok(item)) = contents.next() {
                             if is_executable::is_executable(&item.path()) {
                                 if let Ok(name) = item.file_name().into_string() {
-                                    let name = name.as_bytes().to_vec();
-                                    if nu_parser::is_math_expression_like(&name) {
+                                    if seems_like_number(name.as_bytes()) {
+                                        let name = name.as_bytes().to_vec();
                                         executables.push(name);
                                     }
                                 }
                                 if let Some(name) = item.path().file_stem() {
                                     let name = name.to_string_lossy();
-                                    let name = name.as_bytes().to_vec();
-                                    if nu_parser::is_math_expression_like(&name) {
+                                    if seems_like_number(name.as_bytes()) {
+                                        let name = name.as_bytes().to_vec();
                                         executables.push(name);
                                     }
                                 }

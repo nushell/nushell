@@ -1,7 +1,7 @@
 ---
 title: exec
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Execute a command, replacing the current process.

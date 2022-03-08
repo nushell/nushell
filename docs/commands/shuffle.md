@@ -1,7 +1,7 @@
 ---
 title: shuffle
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Shuffle rows randomly.
@@ -14,5 +14,5 @@ Shuffle rows randomly.
 
 Shuffle rows randomly (execute it several times and see the difference)
 ```shell
-> echo [[version patch]; [1.0.0 $false] [3.0.1 $true] [2.0.0 $false]] | shuffle
+> echo [[version patch]; [1.0.0 false] [3.0.1 true] [2.0.0 false]] | shuffle
 ```

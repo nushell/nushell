@@ -1,7 +1,7 @@
 ---
 title: skip while
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Skip elements of the input while a predicate is true.

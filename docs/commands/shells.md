@@ -1,7 +1,7 @@
 ---
 title: shells
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Lists all open shells.
@@ -19,5 +19,5 @@ Enter a new shell at parent path '..' and show all opened shells
 
 Show currently active shell
 ```shell
-> shells | where active == $true
+> shells | where active == true
 ```

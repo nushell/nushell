@@ -1,7 +1,7 @@
 ---
 title: cd
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Change directory.

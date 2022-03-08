@@ -1,7 +1,7 @@
 ---
 title: dfr all-true
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Returns true if all values are true
@@ -14,7 +14,7 @@ Returns true if all values are true
 
 Returns true if all values are true
 ```shell
-> [$true $true $true] | dfr to-df | dfr all-true
+> [true true true] | dfr to-df | dfr all-true
 ```
 
 Checks the result from a comparison

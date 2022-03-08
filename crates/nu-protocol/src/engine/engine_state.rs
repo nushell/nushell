@@ -175,10 +175,9 @@ pub struct EngineState {
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
-pub const SCOPE_VARIABLE_ID: usize = 1;
-pub const IN_VARIABLE_ID: usize = 2;
-pub const CONFIG_VARIABLE_ID: usize = 3;
-pub const ENV_VARIABLE_ID: usize = 4;
+pub const IN_VARIABLE_ID: usize = 1;
+pub const CONFIG_VARIABLE_ID: usize = 2;
+pub const ENV_VARIABLE_ID: usize = 3;
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
 impl EngineState {
@@ -460,6 +459,16 @@ impl EngineState {
         }
 
         output
+    }
+
+    pub fn find_aliases_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+        self.scope
+            .iter()
+            .rev()
+            .flat_map(|scope| &scope.aliases)
+            .filter(|decl| decl.0.starts_with(name))
+            .map(|decl| decl.0.clone())
+            .collect()
     }
 
     pub fn get_span_contents(&self, span: &Span) -> &[u8] {
@@ -1246,6 +1255,18 @@ impl<'a> StateWorkingSet<'a> {
         output.append(&mut permanent);
 
         output
+    }
+
+    pub fn find_aliases_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+        self.delta
+            .scope
+            .iter()
+            .rev()
+            .flat_map(|scope| &scope.aliases)
+            .filter(|decl| decl.0.starts_with(name))
+            .map(|decl| decl.0.clone())
+            .chain(self.permanent_state.find_aliases_by_prefix(name))
+            .collect()
     }
 
     pub fn get_block(&self, block_id: BlockId) -> &Block {

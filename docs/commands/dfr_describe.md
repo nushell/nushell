@@ -1,14 +1,18 @@
 ---
 title: dfr describe
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Describes dataframes numeric columns
 
 ## Signature
 
-```> dfr describe ```
+```> dfr describe --quantiles```
+
+## Parameters
+
+ -  `--quantiles {table}`: optional quantiles for describe
 
 ## Examples
 

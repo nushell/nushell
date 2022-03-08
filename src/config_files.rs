@@ -92,15 +92,24 @@ pub(crate) fn read_config_file(
                 .read_line(&mut answer)
                 .expect("Failed to read user input");
 
+            let config_file = include_str!("../docs/sample_config/default_config.nu");
+
             match answer.to_lowercase().trim() {
                 "y" | "" => {
                     let mut output = File::create(&config_path).expect("Unable to create file");
-                    let config_file = include_str!("default_config.nu");
                     write!(output, "{}", config_file).expect("Unable to write to config file");
                     println!("Config file created at: {}", config_path.to_string_lossy());
                 }
                 _ => {
                     println!("Continuing without config file");
+                    // Just use the contents of "default_config.nu"
+                    eval_source(
+                        engine_state,
+                        stack,
+                        config_file.as_bytes(),
+                        "default_config.nu",
+                        PipelineData::new(Span::new(0, 0)),
+                    );
                     return;
                 }
             }

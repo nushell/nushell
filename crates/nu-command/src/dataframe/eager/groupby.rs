@@ -64,7 +64,7 @@ fn command(
         ShellError::SpannedLabeledError("Error creating groupby".into(), e.to_string(), col_span)
     })?;
 
-    let groups = groupby.get_groups().to_vec();
+    let groups = groupby.get_groups();
     let groupby = NuGroupBy::new(df.as_ref().clone(), col_string, groups);
 
     Ok(PipelineData::Value(groupby.into_value(call.head), None))

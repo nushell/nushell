@@ -1,7 +1,7 @@
 ---
 title: dfr replace-all
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Replace all (sub)strings by a regex pattern

@@ -89,7 +89,7 @@ pub fn lex_item(
 
     // The process of slurping up a baseline token repeats:
     //
-    // - String literal, which begins with `'`, `"` or `\``, and continues until
+    // - String literal, which begins with `'` or `"`, and continues until
     //   the same character is encountered again.
     // - Delimiter pair, which begins with `[`, `(`, or `{`, and continues until
     //   the matching closing delimiter is found, skipping comments and string
@@ -101,10 +101,33 @@ pub fn lex_item(
     while let Some(c) = input.get(*curr_offset) {
         let c = *c;
 
-        if quote_start.is_some() {
+        if let Some(start) = quote_start {
+            // Check if we're in an escape sequence
+            if c == b'\\' && start == b'"' {
+                // Go ahead and consume the escape character if possible
+                if input.get(*curr_offset + 1).is_some() {
+                    // Successfully escaped the character
+                    *curr_offset += 2;
+                    continue;
+                } else {
+                    let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+
+                    return (
+                        span,
+                        Some(ParseError::UnexpectedEof(
+                            (start as char).to_string(),
+                            Span {
+                                start: span.end,
+                                end: span.end,
+                            },
+                        )),
+                    );
+                }
+            }
             // If we encountered the closing quote character for the current
             // string, we're done with the current string.
-            if Some(c) == quote_start {
+            if c == start {
+                // Also need to check to make sure we aren't escaped
                 quote_start = None;
             }
         } else if c == b'#' {
@@ -220,7 +243,6 @@ pub fn lex(
         let c = *c;
         if c == b'|' {
             // If the next character is `|`, it's either `|` or `||`.
-
             let idx = curr_offset;
             let prev_idx = idx;
             curr_offset += 1;
@@ -239,10 +261,31 @@ pub fn lex(
             }
 
             // Otherwise, it's just a regular `|` token.
-            output.push(Token::new(
-                TokenContents::Pipe,
-                Span::new(span_offset + idx, span_offset + idx + 1),
-            ));
+
+            // Before we push, check to see if the previous character was a newline.
+            // If so, then this is a continuation of the previous line
+            if let Some(prev) = output.last_mut() {
+                match prev.contents {
+                    TokenContents::Eol => {
+                        *prev = Token::new(
+                            TokenContents::Pipe,
+                            Span::new(span_offset + idx, span_offset + idx + 1),
+                        )
+                    }
+                    _ => {
+                        output.push(Token::new(
+                            TokenContents::Pipe,
+                            Span::new(span_offset + idx, span_offset + idx + 1),
+                        ));
+                    }
+                }
+            } else {
+                output.push(Token::new(
+                    TokenContents::Pipe,
+                    Span::new(span_offset + idx, span_offset + idx + 1),
+                ));
+            }
+
             is_complete = false;
         } else if c == b';' {
             // If the next character is a `;`, we're looking at a semicolon token.
@@ -259,9 +302,11 @@ pub fn lex(
                 TokenContents::Semicolon,
                 Span::new(span_offset + idx, span_offset + idx + 1),
             ));
-        } else if c == b'\n' || c == b'\r' {
+        } else if c == b'\r' {
+            // Ignore a stand-alone carriage return
+            curr_offset += 1;
+        } else if c == b'\n' {
             // If the next character is a newline, we're looking at an EOL (end of line) token.
-
             let idx = curr_offset;
             curr_offset += 1;
             if !additional_whitespace.contains(&c) {

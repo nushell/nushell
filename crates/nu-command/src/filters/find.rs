@@ -29,6 +29,22 @@ impl Command for Find {
                 "regex to match with",
                 Some('r'),
             )
+            .switch(
+                "insensitive",
+                "case-insensitive search for regex (?i)",
+                Some('i'),
+            )
+            .switch(
+                "multiline",
+                "multi-line mode: ^ and $ match begin/end of line for regex (?m)",
+                Some('m'),
+            )
+            .switch(
+                "dotall",
+                "dotall mode: allow a dot . to match newline character \\n for regex (?s)",
+                Some('s'),
+            )
+            .switch("invert", "invert the match", Some('v'))
             .rest("rest", SyntaxShape::Any, "terms to search")
             .category(Category::Filters)
     }
@@ -75,7 +91,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find if a service is not running",
-                example: "[[version patch]; [0.1.0 $false] [0.1.1 $true] [0.2.0 $false]] | find -p { |it| $it.patch }",
+                example: "[[version patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | find -p { |it| $it.patch }",
                 result: Some(Value::List {
                     vals: vec![Value::test_record(
                             vec!["version", "patch"],
@@ -94,7 +110,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find using regex case insensitive",
-                example: r#"[aBc bde Arc abf] | find --regex "(?i)ab""#,
+                example: r#"[aBc bde Arc abf] | find --regex "ab" -i"#,
                 result: Some(Value::List {
                     vals: vec![Value::test_string("aBc".to_string()), Value::test_string("abf".to_string())],
                     span: Span::test_data()
@@ -149,13 +165,31 @@ fn find_with_regex(
     let ctrlc = engine_state.ctrlc.clone();
     let config = stack.get_config()?;
 
+    let insensitive = call.has_flag("insensitive");
+    let multiline = call.has_flag("multiline");
+    let dotall = call.has_flag("dotall");
+    let invert = call.has_flag("invert");
+
+    let flags = match (insensitive, multiline, dotall) {
+        (false, false, false) => "",
+        (true, false, false) => "(?i)",
+        (false, true, false) => "(?m)",
+        (false, false, true) => "(?s)",
+        (true, true, false) => "(?im)",
+        (true, false, true) => "(?is)",
+        (false, true, true) => "(?ms)",
+        (true, true, true) => "(?ims)",
+    };
+
+    let regex = flags.to_string() + &regex;
+
     let re = Regex::new(regex.as_str())
         .map_err(|e| ShellError::UnsupportedInput(format!("incorrect regex: {}", e), span))?;
 
     input.filter(
         move |value| {
             let string = value.into_string(" ", &config);
-            re.is_match(string.as_str())
+            re.is_match(string.as_str()) != invert
         },
         ctrlc,
     )
@@ -174,6 +208,7 @@ fn find_with_predicate(
     let redirect_stdout = call.redirect_stdout;
     let redirect_stderr = call.redirect_stderr;
     let engine_state = engine_state.clone();
+    let invert = call.has_flag("invert");
 
     let capture_block = predicate;
     let block_id = capture_block.block_id;
@@ -205,7 +240,7 @@ fn find_with_predicate(
                 redirect_stderr,
             )
             .map_or(false, |pipeline_data| {
-                pipeline_data.into_value(span).is_true()
+                pipeline_data.into_value(span).is_true() != invert
             })
         },
         ctrlc,
@@ -223,6 +258,7 @@ fn find_with_rest(
     let metadata = input.metadata();
     let engine_state = engine_state.clone();
     let config = stack.get_config()?;
+    let invert = call.has_flag("invert");
 
     let terms = call.rest::<Value>(&engine_state, stack, 0)?;
     let lower_terms = terms
@@ -277,7 +313,7 @@ fn find_with_rest(
                     }
                 }),
                 Value::Binary { .. } => false,
-            })
+            }) != invert
         },
         ctrlc,
     )?;

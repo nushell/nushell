@@ -1,7 +1,7 @@
 ---
 title: dfr all-false
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Returns true if all values are false
@@ -14,7 +14,7 @@ Returns true if all values are false
 
 Returns true if all values are false
 ```shell
-> [$false $false $false] | dfr to-df | dfr all-false
+> [false false false] | dfr to-df | dfr all-false
 ```
 
 Checks the result from a comparison

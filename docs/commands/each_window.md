@@ -1,7 +1,7 @@
 ---
 title: each window
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Runs a block on window groups of `window_size` that slide by n rows.

@@ -1,7 +1,7 @@
 ---
 title: math product
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Finds the product of a list of numbers or tables

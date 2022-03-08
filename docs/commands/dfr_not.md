@@ -1,7 +1,7 @@
 ---
 title: dfr not
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Inverts boolean mask
@@ -14,5 +14,5 @@ Inverts boolean mask
 
 Inverts boolean mask
 ```shell
-> [$true $false $true] | dfr to-df | dfr not
+> [true false true] | dfr to-df | dfr not
 ```

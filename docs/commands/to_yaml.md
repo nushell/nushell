@@ -1,7 +1,7 @@
 ---
 title: to yaml
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Convert table into .yaml/.yml text

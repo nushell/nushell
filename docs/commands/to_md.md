@@ -1,7 +1,7 @@
 ---
 title: to md
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Convert table into simple Markdown

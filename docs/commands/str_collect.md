@@ -1,7 +1,7 @@
 ---
 title: str collect
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 creates a string from the input, optionally using a separator

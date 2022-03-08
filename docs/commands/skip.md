@@ -1,7 +1,7 @@
 ---
 title: skip
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Skip the first n elements of the input.

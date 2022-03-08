@@ -1,7 +1,7 @@
 ---
 title: into string
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Convert value to string
@@ -49,7 +49,7 @@ convert string to string
 
 convert boolean to string
 ```shell
-> $true | into string
+> true | into string
 ```
 
 convert date to string

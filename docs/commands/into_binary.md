@@ -1,7 +1,7 @@
 ---
 title: into binary
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Convert value to a binary primitive
@@ -28,7 +28,7 @@ convert a number to a nushell binary primitive
 
 convert a boolean to a nushell binary primitive
 ```shell
-> $true | into binary
+> true | into binary
 ```
 
 convert a filesize to a nushell binary primitive

@@ -1,7 +1,7 @@
 ---
 title: dfr str-slice
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Slices the string from the start position until the selected length

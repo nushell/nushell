@@ -57,7 +57,7 @@ Optional dependencies:
 
 To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the latest stable compiler via `rustup install stable`):
 
-For Windows users, you may also need to install the [Microsoft Visual C++ 2015 Redistributables](https://www.microsoft.com/en-us/download/details.aspx?id=52685).
+For Windows users, you may also need to install the [Microsoft Visual C++ 2015 Redistributables](https://docs.microsoft.com/cpp/windows/latest-supported-vc-redist).
 
 ```shell
 cargo install nu
@@ -67,6 +67,12 @@ To install Nu via the [Windows Package Manager](https://aka.ms/winget-cli):
 
 ```shell
 winget install nushell
+```
+
+To install Nu via the [Chocolatey](https://chocolatey.org) package manager:
+
+```shell
+choco install nushell
 ```
 
 You can also build Nu yourself with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/installation.html#dependencies) for your platform), once you have checked out this repo with git:

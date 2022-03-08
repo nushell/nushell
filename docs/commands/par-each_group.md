@@ -1,7 +1,7 @@
 ---
 title: par-each group
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Runs a block on groups of `group_size` rows of a table at a time.
@@ -19,5 +19,5 @@ Runs a block on groups of `group_size` rows of a table at a time.
 
 Multiplies elements in list
 ```shell
-> echo [1 2 3 4] | par-each group 2 { $it.0 + $it.1 }
+> echo [1 2 3 4] | par-each group 2 {|it| $it.0 + $it.1 }
 ```

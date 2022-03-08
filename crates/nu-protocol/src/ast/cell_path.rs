@@ -41,7 +41,7 @@ impl CellPath {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FullCellPath {
     pub head: Expression,
     pub tail: Vec<PathMember>,

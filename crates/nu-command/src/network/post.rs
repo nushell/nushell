@@ -1,3 +1,4 @@
+use crate::formats::value_to_json_value;
 use base64::encode;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -98,6 +99,11 @@ impl Command for SubCommand {
                 example: "post -H [my-header-key my-header-value] url.com",
                 result: None,
             },
+            Example {
+                description: "Post content to url.com with a json body",
+                example: "post -t application/json url.com { field: value }",
+                result: None,
+            },
         ]
     }
 }
@@ -113,6 +119,14 @@ struct Arguments {
     content_type: Option<String>,
     content_length: Option<String>,
 }
+
+#[derive(PartialEq, Eq)]
+enum BodyType {
+    Json,
+    Form,
+    Unknown,
+}
+
 fn run_post(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -127,8 +141,8 @@ fn run_post(
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         insecure: call.get_flag(engine_state, stack, "insecure")?,
-        content_type: call.get_flag(engine_state, stack, "content_type")?,
-        content_length: call.get_flag(engine_state, stack, "content_length")?,
+        content_type: call.get_flag(engine_state, stack, "content-type")?,
+        content_length: call.get_flag(engine_state, stack, "content-length")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -178,6 +192,13 @@ fn helper(
         (Some(user), _) => Some(encode(&format!("{}:", user))),
         _ => None,
     };
+
+    let body_type = match &args.content_type {
+        Some(it) if it == "application/json" => BodyType::Json,
+        Some(it) if it == "application/x-www-form-urlencoded" => BodyType::Form,
+        _ => BodyType::Unknown,
+    };
+
     let mut request = http_client(args.insecure.is_some()).post(location);
     match body {
         Value::Binary { val, .. } => {
@@ -185,6 +206,24 @@ fn helper(
         }
         Value::String { val, .. } => {
             request = request.body(val);
+        }
+        Value::Record { .. } if body_type == BodyType::Json => {
+            let data = value_to_json_value(&body)?;
+            request = request.json(&data);
+        }
+        Value::Record { .. } if body_type == BodyType::Form => {
+            let data = value_to_json_value(&body)?;
+            request = request.form(&data);
+        }
+        Value::List { vals, .. } if body_type == BodyType::Form => {
+            if vals.len() % 2 != 0 {
+                return Err(ShellError::IOError("unsupported body input".into()));
+            }
+            let data = vals
+                .chunks(2)
+                .map(|it| Ok((it[0].as_string()?, it[1].as_string()?)))
+                .collect::<Result<Vec<(String, String)>, ShellError>>()?;
+            request = request.form(&data)
         }
         _ => {
             return Err(ShellError::IOError("unsupported body input".into()));
@@ -379,13 +418,13 @@ fn response_to_buffer(
     let buffered_input = BufReader::new(response);
 
     PipelineData::ExternalStream {
-        stdout: RawStream::new(
+        stdout: Some(RawStream::new(
             Box::new(BufferedReader {
                 input: buffered_input,
             }),
             engine_state.ctrlc.clone(),
             span,
-        ),
+        )),
         stderr: None,
         exit_code: None,
         span,

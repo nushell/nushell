@@ -283,7 +283,7 @@ Format: #
                 )),
             },
             Example {
-                description: "Use ansi to color text (italic bright yellow on red 'Hello' with green bold 'Nu' and purble bold 'World')",
+                description: "Use ansi to color text (italic bright yellow on red 'Hello' with green bold 'Nu' and purple bold 'World')",
                 example: r#"echo [(ansi -e '3;93;41m') Hello (ansi reset) " " (ansi gb) Nu " " (ansi pb) World (ansi reset)] | str collect"#,
                 result: Some(Value::test_string(
                     "\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld\u{1b}[0m",

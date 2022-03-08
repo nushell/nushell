@@ -176,6 +176,7 @@ pub fn parse_for(
                 desc: String::new(),
                 shape: SyntaxShape::Any,
                 var_id: Some(*var_id),
+                default_value: None,
             },
         );
     }

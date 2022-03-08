@@ -1,6 +1,6 @@
 let vers = (version).version
 
-for command in ($scope.commands | where is_custom == $false && is_extern == $false) {
+for command in ($nu.scope.commands | where is_custom == false && is_extern == false) {
     let top = $"---
 title: ($command.command)
 layout: command

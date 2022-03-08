@@ -152,7 +152,23 @@ pub enum ShellError {
 
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
-    UnsupportedInput(String, #[label("{0} not supported")] Span),
+    UnsupportedInput(String, #[label("{0}")] Span),
+
+    #[error("Unable to parse datetime")]
+    #[diagnostic(
+        code(nu::shell::datetime_parse_error),
+        url(docsrs),
+        help(
+            r#"Examples of supported inputs:
+ * "5 pm"
+ * "2020/12/4"
+ * "2020.12.04 22:10 +2"
+ * "2020-04-12 22:10:57 +02:00"
+ * "2020-04-12T22:10:57.213231+02:00"
+ * "Tue, 1 Jul 2003 10:52:37 +0200""#
+        )
+    )]
+    DatetimeParseError(#[label("datetime parsing failed")] Span),
 
     #[error("Network failure")]
     #[diagnostic(code(nu::shell::network_failure), url(docsrs))]

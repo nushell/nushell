@@ -1,7 +1,7 @@
 ---
 title: dfr shift
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Shifts the values by a given period

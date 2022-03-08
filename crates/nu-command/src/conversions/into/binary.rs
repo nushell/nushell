@@ -61,7 +61,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a boolean to a nushell binary primitive",
-                example: "$true | into binary",
+                example: "true | into binary",
                 result: Some(Value::Binary {
                     val: i64::from(1).to_le_bytes().to_vec(),
                     span: Span::test_data(),
@@ -99,7 +99,15 @@ fn into_binary(
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     match input {
-        PipelineData::ExternalStream { stdout: stream, .. } => {
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::Binary {
+            val: vec![],
+            span: head,
+        }
+        .into_pipeline_data()),
+        PipelineData::ExternalStream {
+            stdout: Some(stream),
+            ..
+        } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_bytes()?;
             Ok(Value::Binary {

@@ -1,7 +1,7 @@
 ---
 title: from url
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Parse url-encoded string as a table.

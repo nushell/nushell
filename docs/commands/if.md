@@ -1,7 +1,7 @@
 ---
 title: if
 layout: command
-version: 0.59.0
+version: 0.59.1
 ---
 
 Conditionally run a block.

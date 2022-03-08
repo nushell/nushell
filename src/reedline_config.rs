@@ -87,8 +87,8 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
         .and_then(|value| value.as_string().ok())
     {
         Some(value) => {
-            let char = value.chars().next().unwrap_or(':');
-            history_menu.with_row_char(char)
+            let char = value.chars().next().unwrap_or('!');
+            history_menu.with_selection_char(char)
         }
         None => history_menu,
     };
@@ -134,9 +134,12 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
     );
 
     keybindings.add_binding(
-        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-        KeyCode::Char('x'),
-        ReedlineEvent::MenuPagePrevious,
+        KeyModifiers::CONTROL,
+        KeyCode::Char('z'),
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::MenuPagePrevious,
+            ReedlineEvent::Edit(vec![EditCommand::Undo]),
+        ]),
     );
 
     keybindings.add_binding(
@@ -168,17 +171,8 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     match config.edit_mode.as_str() {
         "emacs" => {
             let mut keybindings = default_emacs_keybindings();
-            add_menu_keybindings(&mut keybindings);
 
-            // temporal keybinding with multiple events
-            keybindings.add_binding(
-                KeyModifiers::SHIFT,
-                KeyCode::BackTab,
-                ReedlineEvent::Multiple(vec![
-                    ReedlineEvent::Edit(vec![EditCommand::InsertChar('p')]),
-                    ReedlineEvent::Enter,
-                ]),
-            );
+            add_menu_keybindings(&mut keybindings);
 
             for parsed_keybinding in parsed_keybindings {
                 if parsed_keybinding.mode.into_string("", config).as_str() == "emacs" {
@@ -408,6 +402,17 @@ fn event_from_record(
         "menu" => {
             let menu = extract_value("name", cols, vals, span)?;
             Ok(ReedlineEvent::Menu(menu.into_string("", config)))
+        }
+        "edit" => {
+            let edit_command = parse_edit(
+                &Value::Record {
+                    cols: cols.to_vec(),
+                    vals: vals.to_vec(),
+                    span: *span,
+                },
+                config,
+            )?;
+            Ok(ReedlineEvent::Edit(vec![edit_command]))
         }
         v => Err(ShellError::UnsupportedConfigValue(
             "Reedline event".to_string(),
