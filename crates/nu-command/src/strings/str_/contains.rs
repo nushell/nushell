@@ -24,6 +24,7 @@ impl Command for SubCommand {
                 "optionally check if string contains pattern by column paths",
             )
             .switch("insensitive", "search is case insensitive", Some('i'))
+            .switch("not", "does not contain", Some('n'))
             .category(Category::Strings)
     }
 
@@ -124,6 +125,48 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Check if list contains pattern",
+                example: "[one two three] | str contains o",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Bool {
+                            val: true,
+                            span: Span::test_data(),
+                        },
+                        Value::Bool {
+                            val: true,
+                            span: Span::test_data(),
+                        },
+                        Value::Bool {
+                            val: false,
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Check if list does not contain pattern",
+                example: "[one two three] | str contains -n o",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Bool {
+                            val: false,
+                            span: Span::test_data(),
+                        },
+                        Value::Bool {
+                            val: false,
+                            span: Span::test_data(),
+                        },
+                        Value::Bool {
+                            val: true,
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -138,18 +181,19 @@ fn operate(
     let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
     let case_insensitive = call.has_flag("insensitive");
+    let not_contain = call.has_flag("not");
 
     input.map(
         move |v| {
             if column_paths.is_empty() {
-                action(&v, case_insensitive, &pattern.item, head)
+                action(&v, case_insensitive, not_contain, &pattern.item, head)
             } else {
                 let mut ret = v;
                 for path in &column_paths {
                     let p = pattern.item.clone();
                     let r = ret.update_cell_path(
                         &path.members,
-                        Box::new(move |old| action(old, case_insensitive, &p, head)),
+                        Box::new(move |old| action(old, case_insensitive, not_contain, &p, head)),
                     );
                     if let Err(error) = r {
                         return Value::Error { error };
@@ -162,12 +206,30 @@ fn operate(
     )
 }
 
-fn action(input: &Value, case_insensitive: bool, pattern: &str, head: Span) -> Value {
+fn action(
+    input: &Value,
+    case_insensitive: bool,
+    not_contain: bool,
+    pattern: &str,
+    head: Span,
+) -> Value {
     match input {
         Value::String { val, .. } => Value::Bool {
             val: match case_insensitive {
-                true => val.to_lowercase().contains(pattern.to_lowercase().as_str()),
-                false => val.contains(pattern),
+                true => {
+                    if not_contain {
+                        !val.to_lowercase().contains(pattern.to_lowercase().as_str())
+                    } else {
+                        val.to_lowercase().contains(pattern.to_lowercase().as_str())
+                    }
+                }
+                false => {
+                    if not_contain {
+                        !val.contains(pattern)
+                    } else {
+                        val.contains(pattern)
+                    }
+                }
             },
             span: head,
         },
