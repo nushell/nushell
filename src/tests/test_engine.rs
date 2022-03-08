@@ -350,16 +350,3 @@ fn default_value11() -> TestResult {
 fn default_value12() -> TestResult {
     fail_test(r#"def foo [--x:int = "a"] { $x }"#, "default value not int")
 }
-
-#[test]
-fn def_env_if() -> TestResult {
-    run_test(r#"if true { let-env FOO = "QUX" }; $env.FOO"#, "QUX")
-}
-
-#[test]
-fn def_env_if2() -> TestResult {
-    run_test(
-        r#"if false { let-env FOO = "QUX" } else { let-env FOO = "QUUX" }; $env.FOO"#,
-        "QUUX",
-    )
-}
