@@ -57,7 +57,7 @@ Optional dependencies:
 
 To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the latest stable compiler via `rustup install stable`):
 
-For Windows users, you may also need to install the [Microsoft Visual C++ 2015 Redistributables](https://www.microsoft.com/en-us/download/details.aspx?id=52685).
+For Windows users, you may also need to install the [Microsoft Visual C++ 2015 Redistributables](https://docs.microsoft.com/cpp/windows/latest-supported-vc-redist).
 
 ```shell
 cargo install nu
