@@ -44,7 +44,11 @@ impl Command for Decode {
         let encoding: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         match input {
-            PipelineData::ExternalStream { stdout: stream, .. } => {
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                ..
+            } => {
                 let bytes: Vec<u8> = stream.into_bytes()?.item;
 
                 let encoding = match Encoding::for_label(encoding.item.as_bytes()) {

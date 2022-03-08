@@ -34,21 +34,24 @@ impl Command for Complete {
                 exit_code,
                 ..
             } => {
-                let mut cols = vec!["stdout".to_string()];
+                let mut cols = vec![];
                 let mut vals = vec![];
 
-                let stdout = stdout.into_bytes()?;
-                if let Ok(st) = String::from_utf8(stdout.item.clone()) {
-                    vals.push(Value::String {
-                        val: st,
-                        span: stdout.span,
-                    })
-                } else {
-                    vals.push(Value::Binary {
-                        val: stdout.item,
-                        span: stdout.span,
-                    })
-                };
+                if let Some(stdout) = stdout {
+                    cols.push("stdout".to_string());
+                    let stdout = stdout.into_bytes()?;
+                    if let Ok(st) = String::from_utf8(stdout.item.clone()) {
+                        vals.push(Value::String {
+                            val: st,
+                            span: stdout.span,
+                        })
+                    } else {
+                        vals.push(Value::Binary {
+                            val: stdout.item,
+                            span: stdout.span,
+                        })
+                    }
+                }
 
                 if let Some(stderr) = stderr {
                     cols.push("stderr".to_string());

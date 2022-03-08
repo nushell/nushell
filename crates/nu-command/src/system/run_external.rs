@@ -307,7 +307,15 @@ impl ExternalCommand {
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 
                 Ok(PipelineData::ExternalStream {
-                    stdout: RawStream::new(Box::new(stdout_receiver), output_ctrlc.clone(), head),
+                    stdout: if redirect_stdout {
+                        Some(RawStream::new(
+                            Box::new(stdout_receiver),
+                            output_ctrlc.clone(),
+                            head,
+                        ))
+                    } else {
+                        None
+                    },
                     stderr: Some(RawStream::new(
                         Box::new(stderr_receiver),
                         output_ctrlc.clone(),

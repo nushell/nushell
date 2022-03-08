@@ -169,7 +169,11 @@ impl Command for Each {
                     }
                 })
                 .into_pipeline_data(ctrlc)),
-            PipelineData::ExternalStream { stdout: stream, .. } => Ok(stream
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                ..
+            } => Ok(stream
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {

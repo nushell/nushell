@@ -418,13 +418,13 @@ fn response_to_buffer(
     let buffered_input = BufReader::new(response);
 
     PipelineData::ExternalStream {
-        stdout: RawStream::new(
+        stdout: Some(RawStream::new(
             Box::new(BufferedReader {
                 input: buffered_input,
             }),
             engine_state.ctrlc.clone(),
             span,
-        ),
+        )),
         stderr: None,
         exit_code: None,
         span,

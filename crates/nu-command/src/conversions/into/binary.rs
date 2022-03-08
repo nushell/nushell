@@ -99,7 +99,15 @@ fn into_binary(
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     match input {
-        PipelineData::ExternalStream { stdout: stream, .. } => {
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::Binary {
+            val: vec![],
+            span: head,
+        }
+        .into_pipeline_data()),
+        PipelineData::ExternalStream {
+            stdout: Some(stream),
+            ..
+        } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_bytes()?;
             Ok(Value::Binary {
