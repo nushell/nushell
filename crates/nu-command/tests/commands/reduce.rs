@@ -70,7 +70,6 @@ fn reduce_numbered_integer_addition_example() {
         r#"
         echo [1 2 3 4]
         | reduce -n { |it, acc| $acc + $it.item }
-        | get item
         "#
         )
     );
