@@ -1703,6 +1703,8 @@ pub fn parse_register(
         .get(0)
         .map(|expr| {
             let name_expr = working_set.get_span_contents(expr.span);
+
+            let name_expr = trim_quotes(name_expr);
             String::from_utf8(name_expr.to_vec())
                 .map_err(|_| ParseError::NonUtf8(expr.span))
                 .and_then(move |name| {
