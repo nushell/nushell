@@ -8,12 +8,13 @@ Save a file.
 
 ## Signature
 
-```> save (filename) --raw```
+```> save (filename) --raw --append```
 
 ## Parameters
 
  -  `filename`: the filename to use
  -  `--raw`: save file as raw binary
+ -  `--append`: append input to the end of the file
 
 ## Examples
 
