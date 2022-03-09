@@ -1,4 +1,3 @@
-use crate::is_perf_true;
 use crate::utils::{eval_source, gather_parent_env_vars, report_error};
 use log::info;
 use log::trace;
@@ -18,6 +17,7 @@ pub(crate) fn evaluate(
     args: &[String],
     engine_state: &mut EngineState,
     input: PipelineData,
+    is_perf_true: bool,
 ) -> Result<()> {
     // First, set up env vars as strings only
     gather_parent_env_vars(engine_state);
@@ -77,7 +77,7 @@ pub(crate) fn evaluate(
         std::process::exit(1);
     }
 
-    if is_perf_true() {
+    if is_perf_true {
         info!("evaluate {}:{}:{}", file!(), line!(), column!());
     }
 

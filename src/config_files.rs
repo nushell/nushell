@@ -1,4 +1,3 @@
-use crate::is_perf_true;
 use crate::utils::{eval_source, report_error};
 use log::info;
 use nu_parser::ParseError;
@@ -16,7 +15,7 @@ const HISTORY_FILE: &str = "history.txt";
 const PLUGIN_FILE: &str = "plugin.nu";
 
 #[cfg(feature = "plugin")]
-pub(crate) fn read_plugin_file(engine_state: &mut EngineState, stack: &mut Stack) {
+pub(crate) fn read_plugin_file(engine_state: &mut EngineState, stack: &mut Stack, is_perf_true: bool) {
     // Reading signatures from signature file
     // The plugin.nu file stores the parsed signature collected from each registered plugin
     add_plugin_file(engine_state);
@@ -36,7 +35,7 @@ pub(crate) fn read_plugin_file(engine_state: &mut EngineState, stack: &mut Stack
         }
     }
 
-    if is_perf_true() {
+    if is_perf_true {
         info!("read_plugin_file {}:{}:{}", file!(), line!(), column!());
     }
 }
@@ -55,6 +54,7 @@ pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
+    is_perf_true: bool,
 ) {
     // Load config startup file
     if let Some(file) = config_file {
@@ -118,7 +118,7 @@ pub(crate) fn read_config_file(
         eval_config_contents(config_path, engine_state, stack);
     }
 
-    if is_perf_true() {
+    if is_perf_true {
         info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     }
 }

@@ -1,4 +1,3 @@
-use crate::is_perf_true;
 use crate::utils::{gather_parent_env_vars, report_error};
 use log::info;
 use miette::Result;
@@ -15,6 +14,7 @@ pub(crate) fn evaluate(
     init_cwd: &Path,
     engine_state: &mut EngineState,
     input: PipelineData,
+    is_perf_true: bool,
 ) -> Result<()> {
     // First, set up env vars as strings only
     gather_parent_env_vars(engine_state);
@@ -108,7 +108,7 @@ pub(crate) fn evaluate(
         }
     }
 
-    if is_perf_true() {
+    if is_perf_true {
         info!("evaluate {}:{}:{}", file!(), line!(), column!());
     }
 

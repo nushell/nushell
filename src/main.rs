@@ -190,7 +190,7 @@ fn main() -> Result<()> {
                 #[cfg(feature = "plugin")]
                 config_files::add_plugin_file(&mut engine_state);
 
-                let ret_val = commands::evaluate(commands, &init_cwd, &mut engine_state, input);
+                let ret_val = commands::evaluate(commands, &init_cwd, &mut engine_state, input, is_perf_true());
                 if is_perf_true() {
                     info!("-c command execution {}:{}:{}", file!(), line!(), column!());
                 }
@@ -201,14 +201,14 @@ fn main() -> Result<()> {
                 config_files::add_plugin_file(&mut engine_state);
 
                 let ret_val =
-                    eval_file::evaluate(script_name, &args_to_script, &mut engine_state, input);
+                    eval_file::evaluate(script_name, &args_to_script, &mut engine_state, input, is_perf_true());
                 if is_perf_true() {
                     info!("eval_file execution {}:{}:{}", file!(), line!(), column!());
                 }
 
                 ret_val
             } else {
-                let ret_val = repl::evaluate(&mut engine_state, binary_args.config_file);
+                let ret_val = repl::evaluate(&mut engine_state, binary_args.config_file, is_perf_true());
                 if is_perf_true() {
                     info!("repl eval {}:{}:{}", file!(), line!(), column!());
                 }

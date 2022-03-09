@@ -1,4 +1,3 @@
-use crate::is_perf_true;
 use crate::reedline_config::{add_completion_menu, add_history_menu};
 use crate::{config_files, prompt_update, reedline_config};
 use crate::{
@@ -23,6 +22,7 @@ use std::{sync::atomic::Ordering, time::Instant};
 pub(crate) fn evaluate(
     engine_state: &mut EngineState,
     config_file: Option<Spanned<String>>,
+    is_perf_true: bool,
 ) -> Result<()> {
     // use crate::logger::{configure, logger};
     use reedline::{FileBackedHistory, Reedline, Signal};
@@ -45,18 +45,18 @@ pub(crate) fn evaluate(
         },
     );
 
-    if is_perf_true() {
+    if is_perf_true {
         info!("read_plugin_file {}:{}:{}", file!(), line!(), column!());
     }
 
     #[cfg(feature = "plugin")]
-    config_files::read_plugin_file(engine_state, &mut stack);
+    config_files::read_plugin_file(engine_state, &mut stack, is_perf_true);
 
-    if is_perf_true() {
+    if is_perf_true {
         info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     }
 
-    config_files::read_config_file(engine_state, &mut stack, config_file);
+    config_files::read_config_file(engine_state, &mut stack, config_file, is_perf_true);
     let history_path = config_files::create_history_path();
 
     // logger(|builder| {
@@ -67,7 +67,7 @@ pub(crate) fn evaluate(
     //     Ok(())
     // })?;
 
-    if is_perf_true() {
+    if is_perf_true {
         info!(
             "translate environment vars {}:{}:{}",
             file!(),
@@ -104,7 +104,7 @@ pub(crate) fn evaluate(
     );
 
     loop {
-        if is_perf_true() {
+        if is_perf_true {
             info!(
                 "load config each loop {}:{}:{}",
                 file!(),
@@ -128,7 +128,7 @@ pub(crate) fn evaluate(
             ctrlc.store(false, Ordering::SeqCst);
         }
 
-        if is_perf_true() {
+        if is_perf_true {
             info!("setup line editor {}:{}:{}", file!(), line!(), column!());
         }
 
@@ -150,14 +150,14 @@ pub(crate) fn evaluate(
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring);
 
-        if is_perf_true() {
+        if is_perf_true {
             info!("setup reedline {}:{}:{}", file!(), line!(), column!());
         }
 
         line_editor = add_completion_menu(line_editor, &config);
         line_editor = add_history_menu(line_editor, &config);
 
-        if is_perf_true() {
+        if is_perf_true {
             info!("setup colors {}:{}:{}", file!(), line!(), column!());
         }
         //FIXME: if config.use_ansi_coloring is false then we should
@@ -165,7 +165,7 @@ pub(crate) fn evaluate(
 
         let color_hm = get_color_config(&config);
 
-        if is_perf_true() {
+        if is_perf_true {
             info!(
                 "setup history and hinter {}:{}:{}",
                 file!(),
@@ -196,7 +196,7 @@ pub(crate) fn evaluate(
             line_editor
         };
 
-        if is_perf_true() {
+        if is_perf_true {
             info!("setup keybindings {}:{}:{}", file!(), line!(), column!());
         }
 
@@ -222,15 +222,15 @@ pub(crate) fn evaluate(
             }
         };
 
-        if is_perf_true() {
+        if is_perf_true {
             info!("prompt_update {}:{}:{}", file!(), line!(), column!());
         }
 
-        let prompt = prompt_update::update_prompt(&config, engine_state, &stack, &mut nu_prompt);
+        let prompt = prompt_update::update_prompt(&config, engine_state, &stack, &mut nu_prompt, is_perf_true);
 
         entry_num += 1;
 
-        if is_perf_true() {
+        if is_perf_true {
             info!(
                 "finished setup, starting repl {}:{}:{}",
                 file!(),
