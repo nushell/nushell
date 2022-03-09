@@ -55,14 +55,6 @@ rayon = "1.5.1"
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 is_executable = "1.0.1"
 
-# mimalloc = { version = "*", default-features = false }
-
-# Plugins
-# nu_plugin_example = { version = "0.59.1", path = "./crates/nu_plugin_example", optional = true }
-# nu_plugin_gstat = { version = "0.59.1", path = "./crates/nu_plugin_gstat", optional = true }
-# nu_plugin_inc = { version = "0.59.1", path = "./crates/nu_plugin_inc", optional = true }
-# nu_plugin_query = { version = "0.59.1", path = "./crates/nu_plugin_query", optional = true }
-
 [dev-dependencies]
 nu-test-support = { path="./crates/nu-test-support" }
 tempfile = "3.2.0"
@@ -85,14 +77,10 @@ wasi = []
 trash-support = ["nu-command/trash-support"]
 
 # Stable (Default)
-# inc = ["nu_plugin_inc"]
-# example = ["nu_plugin_example"]
 which = ["nu-command/which"]
 
 # Extra
-# gstat = ["nu_plugin_gstat"]
 zip-support = ["nu-command/zip"]
-# query = ["nu_plugin_query"]
 
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe"]
