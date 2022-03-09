@@ -50,7 +50,7 @@ fn keeps_remaining_original_names_given_less_new_names_than_total_original_names
                 open los_cuatro_mosqueteros.txt
                 | lines
                 | wrap name
-                | default hit "arepa!"
+                | default "arepa!" hit
                 | rename mosqueteros
                 | get hit
                 | length
