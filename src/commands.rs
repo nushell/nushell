@@ -39,11 +39,6 @@ pub(crate) fn evaluate(
             std::process::exit(1);
         }
 
-        if let Some(err) = err {
-            report_error(&working_set, &err);
-
-            std::process::exit(1);
-        }
         (output, working_set.render())
     };
 
