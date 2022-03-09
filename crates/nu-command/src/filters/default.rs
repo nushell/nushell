@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, Spanned, SyntaxShape, Value};
+use nu_protocol::{Category, Example, PipelineData, Signature, Span, Spanned, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Default;
@@ -13,12 +13,12 @@ impl Command for Default {
 
     fn signature(&self) -> Signature {
         Signature::build("default")
-            .required("column name", SyntaxShape::String, "the name of the column")
             .required(
-                "column value",
+                "default value",
                 SyntaxShape::Any,
-                "the value of the column to default",
+                "the value to use as a default",
             )
+            .optional("column name", SyntaxShape::String, "the name of the column")
             .category(Category::Filters)
     }
 
@@ -37,11 +37,26 @@ impl Command for Default {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Give a default 'target' to all file entries",
-            example: "ls -la | default target 'nothing'",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Give a default 'target' column to all file entries",
+                example: "ls -la | default 'nothing' target ",
+                result: None,
+            },
+            Example {
+                description: "Default the `$nothing` value in a list",
+                example: "[1, 2, $nothing, 4] | default 3",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                        Value::test_int(4),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 
@@ -51,42 +66,52 @@ fn default(
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-    let column: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let value: Value = call.req(engine_state, stack, 1)?;
+    let value: Value = call.req(engine_state, stack, 0)?;
+    let column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    input.map(
-        move |item| match item {
-            Value::Record {
-                mut cols,
-                mut vals,
-                span,
-            } => {
-                let mut idx = 0;
-                let mut found = false;
+    if let Some(column) = column {
+        input.map(
+            move |item| match item {
+                Value::Record {
+                    mut cols,
+                    mut vals,
+                    span,
+                } => {
+                    let mut idx = 0;
+                    let mut found = false;
 
-                while idx < cols.len() {
-                    if cols[idx] == column.item {
-                        found = true;
-                        if matches!(vals[idx], Value::Nothing { .. }) {
-                            vals[idx] = value.clone();
+                    while idx < cols.len() {
+                        if cols[idx] == column.item {
+                            found = true;
+                            if matches!(vals[idx], Value::Nothing { .. }) {
+                                vals[idx] = value.clone();
+                            }
                         }
+                        idx += 1;
                     }
-                    idx += 1;
-                }
 
-                if !found {
-                    cols.push(column.item.clone());
-                    vals.push(value.clone());
-                }
+                    if !found {
+                        cols.push(column.item.clone());
+                        vals.push(value.clone());
+                    }
 
-                Value::Record { cols, vals, span }
-            }
-            _ => item,
-        },
-        ctrlc,
-    )
+                    Value::Record { cols, vals, span }
+                }
+                _ => item,
+            },
+            ctrlc,
+        )
+    } else {
+        input.map(
+            move |item| match item {
+                Value::Nothing { .. } => value.clone(),
+                x => x,
+            },
+            ctrlc,
+        )
+    }
 }
 
 #[cfg(test)]
