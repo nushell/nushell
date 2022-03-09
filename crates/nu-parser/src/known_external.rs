@@ -36,6 +36,11 @@ impl Command for KnownExternal {
     ) -> Result<PipelineData, ShellError> {
         // FIXME: This is a bit of a hack, and it'd be nice for the parser/AST to be able to handle the original
         // order of the parameters. Until then, we need to recover the original order.
+
+        // FIXME: This is going to be a bit expensive, but we need to do it to ensure any new block/subexpression
+        // we find when parsing the external call is handled properly.
+        let mut engine_state = engine_state.clone();
+
         let call_span = call.span();
         let contents = engine_state.get_span_contents(&call_span);
 
@@ -45,8 +50,10 @@ impl Command for KnownExternal {
         let (lexed, _) = crate::lex(contents, call_span.start, &[], &[], true);
 
         let spans: Vec<_> = lexed.into_iter().map(|x| x.span).collect();
-        let mut working_set = StateWorkingSet::new(engine_state);
+        let mut working_set = StateWorkingSet::new(&engine_state);
         let (external_call, _) = crate::parse_external_call(&mut working_set, &spans);
+        let delta = working_set.render();
+        engine_state.merge_delta(delta, None, ".")?;
 
         match external_call.expr {
             Expr::ExternalCall(head, args) => {
@@ -84,7 +91,7 @@ impl Command for KnownExternal {
                     ))
                 }
 
-                command.run(engine_state, stack, &call, input)
+                command.run(&engine_state, stack, &call, input)
             }
             x => {
                 println!("{:?}", x);
