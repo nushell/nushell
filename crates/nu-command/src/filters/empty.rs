@@ -40,8 +40,16 @@ impl Command for Empty {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Check if a value is empty",
+                description: "Check if a string is empty",
                 example: "'' | empty?",
+                result: Some(Value::Bool {
+                    val: true,
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Check if a list is empty",
+                example: "[] | empty?",
                 result: Some(Value::Bool {
                     val: true,
                     span: Span::test_data(),
