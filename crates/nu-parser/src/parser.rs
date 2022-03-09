@@ -1752,7 +1752,7 @@ pub fn parse_full_cell_path(
             (
                 Expression {
                     expr: Expr::Var(var_id),
-                    span,
+                    span: Span::new(0, 0),
                     ty: Type::Unknown,
                     custom_completion: None,
                 },
