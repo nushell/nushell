@@ -98,14 +98,10 @@ fn main() -> Result<()> {
             if arg == "-c"
                 || arg == "--commands"
                 || arg == "--testbin"
-                || arg == "--develop"
-                || arg == "--debug"
-                || arg == "--loglevel"
-                || arg == "--config"
-                || arg == "--perf"
-                || arg == "--threads"
-                || arg == "--version"
                 || arg == "--log-level"
+                || arg == "--config"
+                || arg == "--threads"
+                || arg == "-t"
             {
                 collect_arg_nushell = true;
             }
@@ -383,11 +379,6 @@ impl Command for Nu {
                 "run the given commands and then exit",
                 Some('c'),
             )
-            .optional(
-                "script file",
-                SyntaxShape::Filepath,
-                "name of the optional script file to run",
-            )
             .named(
                 "config",
                 SyntaxShape::String,
@@ -405,6 +396,11 @@ impl Command for Nu {
                 SyntaxShape::Int,
                 "threads to use for parallel commands",
                 Some('t'),
+            )
+            .optional(
+                "script file",
+                SyntaxShape::Filepath,
+                "name of the optional script file to run",
             )
             .rest(
                 "script args",
