@@ -38,3 +38,8 @@ Post content to url.com, with custom header
 ```shell
 > post -H [my-header-key my-header-value] url.com
 ```
+
+Post content to url.com with a json body
+```shell
+> post -t application/json url.com { field: value }
+```
