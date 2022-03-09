@@ -51,7 +51,7 @@ impl Type {
             Type::Unknown => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,
             Type::Binary => SyntaxShape::Binary,
-            Type::Custom => SyntaxShape::Custom(Box::new(SyntaxShape::Any), String::new()),
+            Type::Custom => SyntaxShape::Any,
             Type::Signature => SyntaxShape::Signature,
         }
     }

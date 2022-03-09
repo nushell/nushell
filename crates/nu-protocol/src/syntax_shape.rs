@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Type;
+use crate::{Type, DeclId};
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -90,7 +90,7 @@ pub enum SyntaxShape {
     Record,
 
     /// A custom shape with custom completion logic
-    Custom(Box<SyntaxShape>, String),
+    Custom(Box<SyntaxShape>, DeclId),
 }
 
 impl SyntaxShape {
