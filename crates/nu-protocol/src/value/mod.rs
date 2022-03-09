@@ -428,7 +428,7 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => HumanTime::from(*val).to_string(),
+            Value::Date { val, .. } => format!("{} ({})", val.to_rfc2822(), HumanTime::from(*val)),
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
