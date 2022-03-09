@@ -1596,7 +1596,7 @@ pub fn parse_variable_expr(
                 Expression {
                     expr: Expr::Var(id),
                     span,
-                    ty: working_set.get_variable(id).clone(),
+                    ty: working_set.get_variable(id).ty.clone(),
                     custom_completion: None,
                 },
                 None,
@@ -2632,7 +2632,11 @@ pub fn parse_var_with_opt_type(
 
             let ty = parse_type(working_set, type_bytes);
 
-            let id = working_set.add_variable(bytes[0..(bytes.len() - 1)].to_vec(), ty.clone());
+            let id = working_set.add_variable(
+                bytes[0..(bytes.len() - 1)].to_vec(),
+                spans[*spans_idx - 1],
+                ty.clone(),
+            );
 
             (
                 Expression {
@@ -2644,7 +2648,11 @@ pub fn parse_var_with_opt_type(
                 None,
             )
         } else {
-            let id = working_set.add_variable(bytes[0..(bytes.len() - 1)].to_vec(), Type::Unknown);
+            let id = working_set.add_variable(
+                bytes[0..(bytes.len() - 1)].to_vec(),
+                spans[*spans_idx],
+                Type::Unknown,
+            );
             (
                 Expression {
                     expr: Expr::VarDecl(id),
@@ -2666,7 +2674,11 @@ pub fn parse_var_with_opt_type(
             None,
         )
     } else {
-        let id = working_set.add_variable(bytes, Type::Unknown);
+        let id = working_set.add_variable(
+            bytes,
+            span(&spans[*spans_idx..*spans_idx + 1]),
+            Type::Unknown,
+        );
 
         (
             Expression {
@@ -2702,7 +2714,7 @@ pub fn parse_row_condition(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Expression, Option<ParseError>) {
-    let var_id = working_set.add_variable(b"$it".to_vec(), Type::Unknown);
+    let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Unknown);
     let (expression, err) = parse_math_expression(working_set, spans, Some(var_id));
     let span = span(spans);
 
@@ -2858,7 +2870,8 @@ pub fn parse_signature_helper(
 
                                 let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
                                 let variable_name = flags[0][2..].to_vec();
-                                let var_id = working_set.add_variable(variable_name, Type::Unknown);
+                                let var_id =
+                                    working_set.add_variable(variable_name, span, Type::Unknown);
 
                                 if flags.len() == 1 {
                                     args.push(Arg::Flag(Flag {
@@ -2888,8 +2901,11 @@ pub fn parse_signature_helper(
                                     let chars: Vec<char> = short_flag.chars().collect();
                                     let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
                                     let variable_name = flags[0][2..].to_vec();
-                                    let var_id =
-                                        working_set.add_variable(variable_name, Type::Unknown);
+                                    let var_id = working_set.add_variable(
+                                        variable_name,
+                                        span,
+                                        Type::Unknown,
+                                    );
 
                                     if chars.len() == 1 {
                                         args.push(Arg::Flag(Flag {
@@ -2923,7 +2939,8 @@ pub fn parse_signature_helper(
                                 let mut encoded_var_name = vec![0u8; 4];
                                 let len = chars[0].encode_utf8(&mut encoded_var_name).len();
                                 let variable_name = encoded_var_name[0..len].to_vec();
-                                let var_id = working_set.add_variable(variable_name, Type::Unknown);
+                                let var_id =
+                                    working_set.add_variable(variable_name, span, Type::Unknown);
 
                                 args.push(Arg::Flag(Flag {
                                     arg: None,
@@ -2981,7 +2998,8 @@ pub fn parse_signature_helper(
                                 let contents: Vec<_> = contents[..(contents.len() - 1)].into();
                                 let name = String::from_utf8_lossy(&contents).to_string();
 
-                                let var_id = working_set.add_variable(contents, Type::Unknown);
+                                let var_id =
+                                    working_set.add_variable(contents, span, Type::Unknown);
 
                                 // Positional arg, optional
                                 args.push(Arg::Positional(
@@ -2998,7 +3016,8 @@ pub fn parse_signature_helper(
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec: Vec<u8> = contents.to_vec();
 
-                                let var_id = working_set.add_variable(contents_vec, Type::Unknown);
+                                let var_id =
+                                    working_set.add_variable(contents_vec, span, Type::Unknown);
 
                                 args.push(Arg::RestPositional(PositionalArg {
                                     desc: String::new(),
@@ -3011,7 +3030,8 @@ pub fn parse_signature_helper(
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec = contents.to_vec();
 
-                                let var_id = working_set.add_variable(contents_vec, Type::Unknown);
+                                let var_id =
+                                    working_set.add_variable(contents_vec, span, Type::Unknown);
 
                                 // Positional arg, required
                                 args.push(Arg::Positional(
@@ -3072,7 +3092,7 @@ pub fn parse_signature_helper(
                                         required,
                                     ) => {
                                         let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
-                                        let var_type = working_set.get_variable(var_id);
+                                        let var_type = &working_set.get_variable(var_id).ty;
                                         match var_type {
                                             Type::Unknown => {
                                                 working_set.set_variable_type(
@@ -3112,7 +3132,7 @@ pub fn parse_signature_helper(
                                         ..
                                     }) => {
                                         let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
-                                        let var_type = working_set.get_variable(var_id);
+                                        let var_type = &working_set.get_variable(var_id).ty;
 
                                         let expression_ty = expression.ty.clone();
                                         let expression_span = expression.span;

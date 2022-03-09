@@ -1,7 +1,7 @@
 use super::{Command, Stack};
 use crate::{
     ast::Block, AliasId, BlockId, DeclId, Example, Overlay, OverlayId, ShellError, Signature, Span,
-    Type, VarId,
+    Type, VarId, Variable,
 };
 use core::panic;
 use std::{
@@ -159,7 +159,7 @@ impl Default for ScopeFrame {
 pub struct EngineState {
     files: im::Vector<(String, usize, usize)>,
     file_contents: im::Vector<(Vec<u8>, usize, usize)>,
-    vars: im::Vector<Type>,
+    vars: im::Vector<Variable>,
     decls: im::Vector<Box<dyn Command + 'static>>,
     aliases: im::Vector<Vec<Span>>,
     blocks: im::Vector<Block>,
@@ -186,11 +186,11 @@ impl EngineState {
             files: im::vector![],
             file_contents: im::vector![],
             vars: im::vector![
-                Type::Unknown,
-                Type::Unknown,
-                Type::Unknown,
-                Type::Unknown,
-                Type::Unknown
+                Variable::new(Span::new(0, 0), Type::Unknown),
+                Variable::new(Span::new(0, 0), Type::Unknown),
+                Variable::new(Span::new(0, 0), Type::Unknown),
+                Variable::new(Span::new(0, 0), Type::Unknown),
+                Variable::new(Span::new(0, 0), Type::Unknown)
             ],
             decls: im::vector![],
             aliases: im::vector![],
@@ -481,7 +481,7 @@ impl EngineState {
         panic!("internal error: span missing in file contents cache")
     }
 
-    pub fn get_var(&self, var_id: VarId) -> &Type {
+    pub fn get_var(&self, var_id: VarId) -> &Variable {
         self.vars
             .get(var_id)
             .expect("internal error: missing variable")
@@ -655,7 +655,7 @@ pub struct StateWorkingSet<'a> {
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
-    vars: Vec<Type>,              // indexed by VarId
+    vars: Vec<Variable>,          // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
     aliases: Vec<Vec<Span>>,      // indexed by AliasId
     pub blocks: Vec<Block>,       // indexed by BlockId
@@ -1136,7 +1136,7 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn add_variable(&mut self, mut name: Vec<u8>, ty: Type) -> VarId {
+    pub fn add_variable(&mut self, mut name: Vec<u8>, span: Span, ty: Type) -> VarId {
         let next_id = self.next_var_id();
 
         // correct name if necessary
@@ -1152,7 +1152,7 @@ impl<'a> StateWorkingSet<'a> {
 
         last.vars.insert(name, next_id);
 
-        self.delta.vars.push(ty);
+        self.delta.vars.push(Variable::new(span, ty));
 
         next_id
     }
@@ -1185,11 +1185,11 @@ impl<'a> StateWorkingSet<'a> {
         if var_id < num_permanent_vars {
             panic!("Internal error: attempted to set into permanent state from working set")
         } else {
-            self.delta.vars[var_id - num_permanent_vars] = ty;
+            self.delta.vars[var_id - num_permanent_vars].ty = ty;
         }
     }
 
-    pub fn get_variable(&self, var_id: VarId) -> &Type {
+    pub fn get_variable(&self, var_id: VarId) -> &Variable {
         let num_permanent_vars = self.permanent_state.num_vars();
         if var_id < num_permanent_vars {
             self.permanent_state.get_var(var_id)

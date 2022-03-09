@@ -761,7 +761,7 @@ pub fn create_scope(
         for var in &frame.vars {
             let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
 
-            let var_type = Value::string(engine_state.get_var(*var.1).to_string(), span);
+            let var_type = Value::string(engine_state.get_var(*var.1).ty.to_string(), span);
 
             let var_value = if let Ok(val) = stack.get_var(*var.1, span) {
                 val
