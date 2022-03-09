@@ -147,9 +147,9 @@ fn select(
                                 cols.push(path.into_string());
                                 vals.push(value);
                             }
-                            Err(error) => {
+                            Err(_) => {
                                 cols.push(path.into_string());
-                                vals.push(Value::Error { error });
+                                vals.push(Value::Nothing { span });
                             }
                         }
                     }
