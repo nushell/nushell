@@ -1,4 +1,5 @@
 use nu_protocol::ast::{Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline};
+use nu_protocol::DeclId;
 use nu_protocol::{engine::StateWorkingSet, Span};
 use std::fmt::{Display, Formatter, Result};
 
@@ -28,7 +29,7 @@ pub enum FlatShape {
     GlobPattern,
     Variable,
     Flag,
-    Custom(String),
+    Custom(DeclId),
 }
 
 impl Display for FlatShape {
@@ -76,7 +77,7 @@ pub fn flatten_expression(
     expr: &Expression,
 ) -> Vec<(Span, FlatShape)> {
     if let Some(custom_completion) = &expr.custom_completion {
-        return vec![(expr.span, FlatShape::Custom(custom_completion.clone()))];
+        return vec![(expr.span, FlatShape::Custom(*custom_completion))];
     }
 
     match &expr.expr {

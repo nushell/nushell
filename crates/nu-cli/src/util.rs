@@ -19,13 +19,22 @@ pub fn print_pipeline_data(
     let stdout = std::io::stdout();
 
     if let PipelineData::ExternalStream {
-        stdout: Some(stream),
+        stdout: stream,
+        exit_code,
         ..
     } = input
     {
-        for s in stream {
-            let _ = stdout.lock().write_all(s?.as_binary()?);
+        if let Some(stream) = stream {
+            for s in stream {
+                let _ = stdout.lock().write_all(s?.as_binary()?);
+            }
         }
+
+        // Make sure everything has finished
+        if let Some(exit_code) = exit_code {
+            let _: Vec<_> = exit_code.into_iter().collect();
+        }
+
         return Ok(());
     }
 

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{Expr, Operator};
 use crate::ast::ImportPattern;
+use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -9,7 +10,7 @@ pub struct Expression {
     pub expr: Expr,
     pub span: Span,
     pub ty: Type,
-    pub custom_completion: Option<String>,
+    pub custom_completion: Option<DeclId>,
 }
 
 impl Expression {

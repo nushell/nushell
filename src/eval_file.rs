@@ -87,9 +87,14 @@ pub(crate) fn evaluate(
 pub fn print_table_or_error(
     engine_state: &EngineState,
     stack: &mut Stack,
-    pipeline_data: PipelineData,
+    mut pipeline_data: PipelineData,
     config: &Config,
 ) {
+    let exit_code = match &mut pipeline_data {
+        PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
+        _ => None,
+    };
+
     match engine_state.find_decl("table".as_bytes()) {
         Some(decl_id) => {
             let table = engine_state.get_decl(decl_id).run(
@@ -100,12 +105,7 @@ pub fn print_table_or_error(
             );
 
             match table {
-                Ok(mut table) => {
-                    let exit_code = match &mut table {
-                        PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
-                        _ => None,
-                    };
-
+                Ok(table) => {
                     for item in table {
                         let stdout = std::io::stdout();
 
@@ -124,10 +124,6 @@ pub fn print_table_or_error(
                             Ok(_) => (),
                             Err(err) => eprintln!("{}", err),
                         };
-                    }
-
-                    if let Some(exit_code) = exit_code {
-                        let _: Vec<_> = exit_code.into_iter().collect();
                     }
                 }
                 Err(error) => {
@@ -161,4 +157,9 @@ pub fn print_table_or_error(
             }
         }
     };
+
+    // Make sure everything has finished
+    if let Some(exit_code) = exit_code {
+        let _: Vec<_> = exit_code.into_iter().collect();
+    }
 }
