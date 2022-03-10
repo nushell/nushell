@@ -1,7 +1,7 @@
-use nu_engine::eval_block;
+use nu_engine::eval_call;
 use nu_parser::{flatten_expression, parse, trim_quotes, FlatShape};
 use nu_protocol::{
-    ast::Expr,
+    ast::{Call, Expr},
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Value, CONFIG_VARIABLE_ID,
 };
@@ -275,15 +275,8 @@ impl NuCompleter {
                         }
 
                         match &flat.1 {
-                            FlatShape::Custom(custom_completion) => {
+                            FlatShape::Custom(decl_id) => {
                                 //let prefix = working_set.get_span_contents(flat.0).to_vec();
-
-                                let (block, ..) = parse(
-                                    &mut working_set,
-                                    None,
-                                    custom_completion.as_bytes(),
-                                    false,
-                                );
 
                                 let mut stack = Stack::new();
                                 // Set up our initial config to start from
@@ -300,13 +293,18 @@ impl NuCompleter {
                                     );
                                 }
 
-                                let result = eval_block(
+                                let result = eval_call(
                                     &self.engine_state,
                                     &mut stack,
-                                    &block,
+                                    &Call {
+                                        decl_id: *decl_id,
+                                        head: new_span,
+                                        positional: vec![],
+                                        named: vec![],
+                                        redirect_stdout: true,
+                                        redirect_stderr: true,
+                                    },
                                     PipelineData::new(new_span),
-                                    true,
-                                    true,
                                 );
 
                                 fn map_completions<'a>(

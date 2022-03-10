@@ -24,7 +24,7 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     }
 }
 
-fn eval_call(
+pub fn eval_call(
     engine_state: &EngineState,
     caller_stack: &mut Stack,
     call: &Call,

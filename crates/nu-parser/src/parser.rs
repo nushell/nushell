@@ -2451,13 +2451,19 @@ pub fn parse_shape_name(
                 );
                 let command_name = trim_quotes(split[1].as_bytes());
 
-                return (
-                    SyntaxShape::Custom(
-                        Box::new(shape),
-                        String::from_utf8_lossy(command_name).to_string(),
-                    ),
-                    err,
-                );
+                let decl_id = working_set.find_decl(command_name);
+
+                if let Some(decl_id) = decl_id {
+                    return (SyntaxShape::Custom(Box::new(shape), decl_id), err);
+                } else {
+                    return (
+                        shape,
+                        Some(ParseError::UnknownCommand(Span {
+                            start: span.start + split[0].len() + 1,
+                            end: span.end,
+                        })),
+                    );
+                }
             } else {
                 return (SyntaxShape::Any, Some(ParseError::UnknownType(span)));
             }
@@ -3713,7 +3719,7 @@ pub fn parse_value(
     match shape {
         SyntaxShape::Custom(shape, custom_completion) => {
             let (mut expression, err) = parse_value(working_set, span, shape);
-            expression.custom_completion = Some(custom_completion.clone());
+            expression.custom_completion = Some(*custom_completion);
             (expression, err)
         }
         SyntaxShape::Number => parse_number(bytes, span),
