@@ -93,9 +93,20 @@ impl PipelineData {
                 vals: s.collect(),
                 span, // FIXME?
             },
-            PipelineData::ExternalStream { stdout: None, .. } => Value::Nothing { span },
+            PipelineData::ExternalStream {
+                stdout: None,
+                exit_code,
+                ..
+            } => {
+                // Make sure everything has finished
+                if let Some(exit_code) = exit_code {
+                    let _: Vec<_> = exit_code.into_iter().collect();
+                }
+                Value::Nothing { span }
+            }
             PipelineData::ExternalStream {
                 stdout: Some(mut s),
+                exit_code,
                 ..
             } => {
                 let mut items = vec![];
@@ -109,6 +120,11 @@ impl PipelineData {
                             return Value::Error { error: e };
                         }
                     }
+                }
+
+                // Make sure everything has finished
+                if let Some(exit_code) = exit_code {
+                    let _: Vec<_> = exit_code.into_iter().collect();
                 }
 
                 if s.is_binary {
