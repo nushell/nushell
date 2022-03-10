@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::{Expr, Operator};
-use crate::DeclId;
 use crate::ast::ImportPattern;
+use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
