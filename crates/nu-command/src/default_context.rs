@@ -361,6 +361,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             StrDatetimeDeprecated,
             StrDecimalDeprecated,
             StrIntDeprecated,
+            MatchDeprecated,
             NthDeprecated,
             UnaliasDeprecated,
         };

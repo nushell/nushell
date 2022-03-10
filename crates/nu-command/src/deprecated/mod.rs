@@ -1,4 +1,5 @@
 mod insert;
+mod match_;
 mod nth;
 mod pivot;
 mod str_datetime;
@@ -7,6 +8,7 @@ mod str_int;
 mod unalias;
 
 pub use insert::InsertDeprecated;
+pub use match_::MatchDeprecated;
 pub use nth::NthDeprecated;
 pub use pivot::PivotDeprecated;
 pub use str_datetime::StrDatetimeDeprecated;
