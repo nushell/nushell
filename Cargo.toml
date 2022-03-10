@@ -70,17 +70,17 @@ embed-resource = "1"
 
 [features]
 plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
-default = ["plugin", "which"]
+default = ["plugin", "which", "zip-support", "trash-support"]
 stable = ["default"]
-extra = ["default", "dataframe", "zip-support", "trash-support"]
+extra = ["default", "dataframe"]
 wasi = []
-trash-support = ["nu-command/trash-support"]
 
 # Stable (Default)
 which = ["nu-command/which"]
+zip-support = ["nu-command/zip"]
+trash-support = ["nu-command/trash-support"]
 
 # Extra
-zip-support = ["nu-command/zip"]
 
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe"]
@@ -88,7 +88,7 @@ dataframe = ["nu-command/dataframe"]
 [profile.release]
 opt-level = "s" # Optimize for size
 strip = "debuginfo"
-lto = "fat"
+lto = "thin"
 
 # build with `cargo build --profile profiling` 
 # to analyze performance with tooling like linux perf
