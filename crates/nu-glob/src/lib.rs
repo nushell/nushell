@@ -616,7 +616,6 @@ impl Pattern {
     /// use nu_glob::Pattern;
     ///
     /// assert!(Pattern::new("c?t").unwrap().matches("cat"));
-    /// assert!(Pattern::new("k[!e]tteh").unwrap().matches("kitteh"));
     /// assert!(Pattern::new("d*g").unwrap().matches("doog"));
     /// ```
     pub fn matches(&self, str: &str) -> bool {
