@@ -20,7 +20,7 @@ impl Command for Open {
     }
 
     fn usage(&self) -> &str {
-        "Load a file into a cell, convert to table if possible (avoid by appending '--raw')."
+        "Load a file into a cell, converting to table if possible (avoid by appending '--raw')."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
