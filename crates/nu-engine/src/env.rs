@@ -47,6 +47,23 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
         }
     }
 
+    #[cfg(not(windows))]
+    {
+        error = error.or_else(|| ensure_path(&mut new_scope, ENV_PATH_NAME));
+    }
+
+    #[cfg(windows)]
+    {
+        let first_result = ensure_path(&mut new_scope, ENV_PATH_NAME);
+        if first_result.is_some() {
+            let second_result = ensure_path(&mut new_scope, ENV_PATH_NAME_SECONDARY);
+
+            if second_result.is_some() {
+                error = error.or(first_result);
+            }
+        }
+    }
+
     for (k, v) in new_scope {
         engine_state.env_vars.insert(k, v);
     }
@@ -69,10 +86,36 @@ pub fn env_to_string(
         ConversionResult::GeneralError(e) => Err(e),
         ConversionResult::CellPathError => match value.as_string() {
             Ok(s) => Ok(s),
-            Err(_) => Err(ShellError::EnvVarNotAString(
-                env_name.to_string(),
-                value.span()?,
-            )),
+            Err(_) => {
+                if env_name == ENV_PATH_NAME {
+                    // Try to convert PATH/Path list to a string
+                    match value {
+                        Value::List { vals, .. } => {
+                            let paths = vals
+                                .iter()
+                                .map(|v| v.as_string())
+                                .collect::<Result<Vec<_>, _>>()?;
+
+                            match std::env::join_paths(paths) {
+                                Ok(p) => Ok(p.to_string_lossy().to_string()),
+                                Err(_) => Err(ShellError::EnvVarNotAString(
+                                    env_name.to_string(),
+                                    value.span()?,
+                                )),
+                            }
+                        }
+                        _ => Err(ShellError::EnvVarNotAString(
+                            env_name.to_string(),
+                            value.span()?,
+                        )),
+                    }
+                } else {
+                    Err(ShellError::EnvVarNotAString(
+                        env_name.to_string(),
+                        value.span()?,
+                    ))
+                }
+            }
         },
     }
 }
@@ -155,21 +198,7 @@ pub fn path_str(
         }
     }?;
 
-    if let Value::String { val, .. } = pathval {
-        Ok(val)
-    } else {
-        match get_converted_value(engine_state, stack, pathname, &pathval, "to_string") {
-        ConversionResult::Ok(v) => Ok(v.as_string()?),
-        ConversionResult::ConversionError(e) => Err(e),
-        ConversionResult::GeneralError(e) => Err(e),
-        ConversionResult::CellPathError => Err(ShellError::SpannedLabeledErrorHelp(
-            format!("Missing environment conversion of {} to string", pathname),
-            "Could not convert to string".to_string(),
-            pathval.span()?,
-            "The 'to_string' field of ENV_CONVERSIONS environment variable must be set up correctly".to_string()
-        ))
-        }
-    }
+    env_to_string(pathname, &pathval, engine_state, stack)
 }
 
 fn get_converted_value(
@@ -243,4 +272,57 @@ fn get_converted_value(
     } else {
         ConversionResult::CellPathError
     }
+}
+
+fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Option<ShellError> {
+    let mut error = None;
+
+    // If PATH/Path is still a string, force-convert it to a list
+    match scope.get(env_path_name) {
+        Some(Value::String { val, span }) => {
+            // Force-split path into a list
+            let span = *span;
+            let paths = std::env::split_paths(val)
+                .map(|p| Value::String {
+                    val: p.to_string_lossy().to_string(),
+                    span,
+                })
+                .collect();
+
+            scope.insert(env_path_name.to_string(), Value::List { vals: paths, span });
+        }
+        Some(Value::List { vals, span }) => {
+            // Must be a list of strings
+            if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
+                error = error.or_else(|| {
+                    Some(ShellError::SpannedLabeledError(
+                        format!("Wrong {} environment variable value", env_path_name),
+                        format!("{} must be a list of strings", env_path_name),
+                        *span,
+                    ))
+                });
+            }
+        }
+        Some(val) => {
+            // All other values are errors
+            let span = match val.span() {
+                Ok(sp) => sp,
+                Err(e) => {
+                    error = error.or(Some(e));
+                    Span::test_data() // FIXME: any better span to use here?
+                }
+            };
+
+            error = error.or_else(|| {
+                Some(ShellError::SpannedLabeledError(
+                    format!("Wrong {} environment variable value", env_path_name),
+                    format!("{} must be a list of strings", env_path_name),
+                    span,
+                ))
+            });
+        }
+        None => { /* not preset, do nothing */ }
+    }
+
+    error
 }
