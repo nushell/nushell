@@ -4,7 +4,7 @@ layout: command
 version: 0.59.1
 ---
 
-Load a file into a cell, convert to table if possible (avoid by appending '--raw').
+Load a file into a cell, converting to table if possible (avoid by appending '--raw').
 
 ## Signature
 
