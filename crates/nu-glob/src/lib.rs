@@ -209,14 +209,23 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
 
     let rest = components.map(|s| s.as_os_str()).collect::<PathBuf>();
     let normalized_pattern = Path::new(pattern).iter().collect::<PathBuf>();
-    let root_len = normalized_pattern.to_str().unwrap().len() - rest.to_str().unwrap().len();
+    let root_len = normalized_pattern
+        .to_str()
+        .expect("internal error: expected string")
+        .len()
+        - rest
+            .to_str()
+            .expect("internal error: expected string")
+            .len();
     let root = if root_len > 0 {
         Some(Path::new(&pattern[..root_len]))
     } else {
         None
     };
 
-    if root_len > 0 && check_windows_verbatim(root.unwrap()) {
+    if root_len > 0
+        && check_windows_verbatim(root.expect("internal error: already checked for len > 0"))
+    {
         // FIXME: How do we want to handle verbatim paths? I'm inclined to
         // return nothing, since we can't very well find all UNC shares with a
         // 1-letter server name.
@@ -338,7 +347,11 @@ impl Iterator for Paths {
                 return None;
             }
 
-            let (path, mut idx) = match self.todo.pop().unwrap() {
+            let (path, mut idx) = match self
+                .todo
+                .pop()
+                .expect("internal error: already checked for non-empty")
+            {
                 Ok(pair) => pair,
                 Err(e) => return Some(Err(e)),
             };
@@ -779,7 +792,11 @@ fn fill_todo(
                 d.map(|e| {
                     e.map(|e| {
                         if curdir {
-                            PathBuf::from(e.path().file_name().unwrap())
+                            PathBuf::from(
+                                e.path()
+                                    .file_name()
+                                    .expect("internal error: missing filename"),
+                            )
                         } else {
                             e.path()
                         }
