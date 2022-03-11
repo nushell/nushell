@@ -8,26 +8,25 @@ Check for empty values.
 
 ## Signature
 
-```> empty? ...rest --block```
+```> empty? ...rest```
 
 ## Parameters
 
  -  `...rest`: the names of the columns to check emptiness
- -  `--block {block}`: an optional block to replace if empty
 
 ## Examples
 
-Check if a value is empty
+Check if a string is empty
 ```shell
 > '' | empty?
 ```
 
-more than one column
+Check if a list is empty
 ```shell
-> [[meal size]; [arepa small] [taco '']] | empty? meal size
+> [] | empty?
 ```
 
-use a block if setting the empty cell contents is wanted
+Check if more than one column are empty
 ```shell
-> [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 -b { |_| [33 37] }
+> [[meal size]; [arepa small] [taco '']] | empty? meal size
 ```

@@ -25,6 +25,14 @@ impl Command for Decode {
             .category(Category::Strings)
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"Multiple encodings are supported, here is an example of a few:
+big5, euc-jp, euc-kr, gbk, iso-8859-1, utf-16, cp1252, latin5
+
+For a more complete list of encodings please refer to the encoding_rs
+documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Decode the output of an external command",

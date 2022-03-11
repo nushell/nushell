@@ -27,3 +27,8 @@ Run the block and ignore errors
 ```shell
 > do -i { thisisnotarealcommand }
 ```
+
+Run the block, with a positional parameter
+```shell
+> do {|x| 100 + $x } 50
+```
