@@ -1,7 +1,9 @@
 use nu_engine::env_to_string;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
+};
 
 #[derive(Clone)]
 pub struct Env;
@@ -27,7 +29,6 @@ impl Command for Env {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let span = call.head;
-        let config = stack.get_config().unwrap_or_default();
 
         let mut env_vars: Vec<(String, Value)> =
             stack.get_env_vars(engine_state).into_iter().collect();
@@ -39,7 +40,12 @@ impl Command for Env {
             let mut cols = vec![];
             let mut vals = vec![];
 
-            let raw = env_to_string(&name, val.clone(), engine_state, stack, &config)?;
+            let raw_val = match env_to_string(&name, &val, engine_state, stack) {
+                Ok(raw) => Value::string(raw, span),
+                Err(ShellError::EnvVarNotAString(..)) => Value::nothing(span),
+                Err(e) => return Err(e),
+            };
+
             let val_type = val.get_type();
 
             cols.push("name".into());
@@ -52,7 +58,7 @@ impl Command for Env {
             vals.push(val);
 
             cols.push("raw".into());
-            vals.push(Value::string(raw, span));
+            vals.push(raw_val);
 
             values.push(Value::Record { cols, vals, span });
         }
