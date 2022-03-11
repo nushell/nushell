@@ -20,7 +20,7 @@ impl Command for Open {
     }
 
     fn usage(&self) -> &str {
-        "Opens a file."
+        "Load a file into a cell, converting to table if possible (avoid by appending '--raw')."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -170,6 +170,11 @@ impl Command for Open {
             Example {
                 description: "Open a file, using the input to get filename",
                 example: "echo 'myfile.txt' | open",
+                result: None,
+            },
+            Example {
+                description: "Open a file, and decode it by the specified encoding",
+                example: "open myfile.txt --raw | decode utf-8",
                 result: None,
             },
         ]

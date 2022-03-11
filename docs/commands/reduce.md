@@ -36,10 +36,10 @@ Replace selected characters in a string with 'X'
 Find the longest string and its index
 ```shell
 > [ one longest three bar ] | reduce -n { |it, acc|
-        if ($it.item | str length) > ($acc | str length) {
-            $it.item
-        } else {
-            $acc
-        }
-    }
+                    if ($it.item | str length) > ($acc | str length) {
+                        $it.item
+                    } else {
+                        $acc
+                    }
+                }
 ```
