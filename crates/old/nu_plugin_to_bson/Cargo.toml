@@ -1,5 +1,5 @@
 [package]
-authors = ["The Nu Project Contributors"]
+authors = ["The Nushell Project Developers"]
 description = "A converter plugin to the bson format for Nushell"
 edition = "2018"
 license = "MIT"

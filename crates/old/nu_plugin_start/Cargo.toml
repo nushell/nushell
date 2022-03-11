@@ -1,5 +1,5 @@
 [package]
-authors = ["The Nu Project Contributors"]
+authors = ["The Nushell Project Developers"]
 description = "A plugin to open files/URLs directly from Nushell"
 edition = "2018"
 license = "MIT"

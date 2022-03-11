@@ -75,7 +75,7 @@ fn sort_primitive_values() {
         "#
     ));
 
-    assert_eq!(actual.out, "authors = [\"The Nu Project Contributors\"]");
+    assert_eq!(actual.out, "authors = [\"The Nushell Project Developers\"]");
 }
 
 #[test]

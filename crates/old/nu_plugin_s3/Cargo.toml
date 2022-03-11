@@ -1,5 +1,5 @@
 [package]
-authors = ["The Nu Project Contributors"]
+authors = ["The Nushell Project Developers"]
 description = "An S3 plugin for Nushell"
 edition = "2018"
 license = "MIT"
