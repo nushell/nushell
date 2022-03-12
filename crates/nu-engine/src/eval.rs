@@ -1125,12 +1125,6 @@ pub fn eval_variable(
                 }
             }
 
-            // since the env var PWD doesn't exist on all platforms
-            // lets just get the current directory
-            let cwd = current_dir_str(engine_state, stack)?;
-            output_cols.push("cwd".into());
-            output_vals.push(Value::String { val: cwd, span });
-
             output_cols.push("scope".into());
             output_vals.push(create_scope(engine_state, stack, span)?);
 

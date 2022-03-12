@@ -368,10 +368,10 @@ rows, columns, or cells inside of the table.
 Shorthand paths are made from rows numbers, column names, or both. You can use
 them on any variable or subexpression.
 ```
-$nu.cwd
+$env.PWD
 ```
-The above accesses the built-in `$nu` variable, gets its table, and then uses
-the shorthand path to retrieve only the cell data inside the "cwd" column.
+The above accesses the built-in `$env` variable, gets its table, and then uses
+the shorthand path to retrieve only the cell data inside the "PWD" column.
 ```
 (ls).name.4
 ```
