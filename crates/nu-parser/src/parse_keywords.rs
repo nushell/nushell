@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 static LIB_DIRS_ENV: &str = "NU_LIB_DIRS";
+#[cfg(feature = "plugin")]
 static PLUGIN_DIRS_ENV: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
