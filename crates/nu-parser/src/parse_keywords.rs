@@ -8,6 +8,10 @@ use nu_protocol::{
     span, Exportable, Overlay, PositionalArg, Span, SyntaxShape, Type, CONFIG_VARIABLE_ID,
 };
 use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+
+static LIB_DIRS_ENV: &str = "NU_LIB_DIRS";
+static PLUGIN_DIRS_ENV: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
     known_external::KnownExternal,
@@ -1097,7 +1101,9 @@ pub fn parse_use(
             if let Ok(module_filename) =
                 String::from_utf8(trim_quotes(&import_pattern.head.name).to_vec())
             {
-                if let Ok(module_path) = canonicalize_with(&module_filename, cwd) {
+                if let Some(module_path) =
+                    find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
+                {
                     let module_name = if let Some(stem) = module_path.file_stem() {
                         stem.to_string_lossy().to_string()
                     } else {
@@ -1561,7 +1567,7 @@ pub fn parse_source(
                 let name_expr = working_set.get_span_contents(spans[1]);
                 let name_expr = trim_quotes(name_expr);
                 if let Ok(filename) = String::from_utf8(name_expr.to_vec()) {
-                    if let Ok(path) = canonicalize_with(&filename, cwd) {
+                    if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_ENV) {
                         if let Ok(contents) = std::fs::read(&path) {
                             // This will load the defs from the file into the
                             // working set, if it was a successful parse.
@@ -1697,7 +1703,6 @@ pub fn parse_register(
     // Extracting the required arguments from the call and keeping them together in a tuple
     // The ? operator is not used because the error has to be kept to be printed in the shell
     // For that reason the values are kept in a result that will be passed at the end of this call
-    let cwd_clone = cwd.clone();
     let arguments = call
         .positional
         .get(0)
@@ -1707,9 +1712,12 @@ pub fn parse_register(
             let name_expr = trim_quotes(name_expr);
             String::from_utf8(name_expr.to_vec())
                 .map_err(|_| ParseError::NonUtf8(expr.span))
-                .and_then(move |name| {
-                    canonicalize_with(&name, cwd_clone)
-                        .map_err(|_| ParseError::FileNotFound(name, expr.span))
+                .and_then(|name| {
+                    if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_ENV) {
+                        Ok(p)
+                    } else {
+                        Err(ParseError::FileNotFound(name, expr.span))
+                    }
                 })
                 .and_then(|path| {
                     if path.exists() & path.is_file() {
@@ -1831,4 +1839,42 @@ pub fn parse_register(
         }]),
         error,
     )
+}
+
+fn find_in_dirs(
+    filename: &str,
+    working_set: &StateWorkingSet,
+    cwd: &str,
+    dirs_env: &str,
+) -> Option<PathBuf> {
+    if let Ok(p) = canonicalize_with(filename, cwd) {
+        Some(p)
+    } else {
+        let path = Path::new(filename);
+
+        if path.is_relative() {
+            if let Some(lib_dirs) = working_set.get_env(dirs_env) {
+                if let Ok(dirs) = lib_dirs.as_list() {
+                    for lib_dir in dirs {
+                        if let Ok(dir) = lib_dir.as_path() {
+                            if let Ok(dir_abs) = canonicalize_with(&dir, cwd) {
+                                // make sure the dir is absolute path
+                                if let Ok(path) = canonicalize_with(filename, dir_abs) {
+                                    return Some(path);
+                                }
+                            }
+                        }
+                    }
+
+                    None
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
 }
