@@ -266,6 +266,10 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::equal, lhs_span)
             }
+            Value::String { val, .. } => {
+                let equal_pattern = format!("^{}$", val);
+                contains_series_pat(&lhs, &equal_pattern, lhs_span)
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type(),
