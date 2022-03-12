@@ -168,34 +168,31 @@ pub enum KeybindingsMode {
 
 pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, ShellError> {
     let parsed_keybindings = &config.keybindings;
+
+    let mut emacs_keybindings = default_emacs_keybindings();
+    let mut insert_keybindings = default_vi_insert_keybindings();
+    let mut normal_keybindings = default_vi_normal_keybindings();
+
+    for keybinding in parsed_keybindings {
+        add_keybinding(
+            &keybinding.mode,
+            keybinding,
+            config,
+            &mut emacs_keybindings,
+            &mut insert_keybindings,
+            &mut normal_keybindings,
+        )?
+    }
+
     match config.edit_mode.as_str() {
         "emacs" => {
-            let mut keybindings = default_emacs_keybindings();
+            add_menu_keybindings(&mut emacs_keybindings);
 
-            add_menu_keybindings(&mut keybindings);
-
-            for parsed_keybinding in parsed_keybindings {
-                if parsed_keybinding.mode.into_string("", config).as_str() == "emacs" {
-                    add_keybinding(&mut keybindings, parsed_keybinding, config)?
-                }
-            }
-
-            Ok(KeybindingsMode::Emacs(keybindings))
+            Ok(KeybindingsMode::Emacs(emacs_keybindings))
         }
         _ => {
-            let mut insert_keybindings = default_vi_insert_keybindings();
-            let mut normal_keybindings = default_vi_normal_keybindings();
-
             add_menu_keybindings(&mut insert_keybindings);
             add_menu_keybindings(&mut normal_keybindings);
-
-            for parsed_keybinding in parsed_keybindings {
-                if parsed_keybinding.mode.into_string("", config).as_str() == "vi_insert" {
-                    add_keybinding(&mut insert_keybindings, parsed_keybinding, config)?
-                } else if parsed_keybinding.mode.into_string("", config).as_str() == "vi_normal" {
-                    add_keybinding(&mut normal_keybindings, parsed_keybinding, config)?
-                }
-            }
 
             Ok(KeybindingsMode::Vi {
                 insert_keybindings,
@@ -206,6 +203,47 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
 }
 
 fn add_keybinding(
+    mode: &Value,
+    keybinding: &ParsedKeybinding,
+    config: &Config,
+    emacs_keybindings: &mut Keybindings,
+    insert_keybindings: &mut Keybindings,
+    normal_keybindings: &mut Keybindings,
+) -> Result<(), ShellError> {
+    match &mode {
+        Value::String { val, span } => match val.as_str() {
+            "emacs" => add_parsed_keybinding(emacs_keybindings, keybinding, config),
+            "vi_insert" => add_parsed_keybinding(insert_keybindings, keybinding, config),
+            "vi_normal" => add_parsed_keybinding(normal_keybindings, keybinding, config),
+            m => Err(ShellError::UnsupportedConfigValue(
+                "emacs, vi_insert or vi_normal".to_string(),
+                m.to_string(),
+                *span,
+            )),
+        },
+        Value::List { vals, .. } => {
+            for inner_mode in vals {
+                add_keybinding(
+                    inner_mode,
+                    keybinding,
+                    config,
+                    emacs_keybindings,
+                    insert_keybindings,
+                    normal_keybindings,
+                )?
+            }
+
+            Ok(())
+        }
+        v => Err(ShellError::UnsupportedConfigValue(
+            "string or list of strings".to_string(),
+            v.into_abbreviated_string(config),
+            v.span()?,
+        )),
+    }
+}
+
+fn add_parsed_keybinding(
     keybindings: &mut Keybindings,
     keybinding: &ParsedKeybinding,
     config: &Config,
@@ -403,16 +441,11 @@ fn event_from_record(
             let menu = extract_value("name", cols, vals, span)?;
             Ok(ReedlineEvent::Menu(menu.into_string("", config)))
         }
-        "edit" => {
-            let edit_command = parse_edit(
-                &Value::Record {
-                    cols: cols.to_vec(),
-                    vals: vals.to_vec(),
-                    span: *span,
-                },
-                config,
-            )?;
-            Ok(ReedlineEvent::Edit(vec![edit_command]))
+        "executehostcommand" => {
+            let cmd = extract_value("cmd", cols, vals, span)?;
+            Ok(ReedlineEvent::ExecuteHostCommand(
+                cmd.into_string("", config),
+            ))
         }
         v => Err(ShellError::UnsupportedConfigValue(
             "Reedline event".to_string(),
