@@ -1147,6 +1147,10 @@ pub fn eval_variable(
                 })
             }
 
+            let pid = std::process::id();
+            output_cols.push("pid".into());
+            output_vals.push(Value::int(pid as i64, span));
+
             Ok(Value::Record {
                 cols: output_cols,
                 vals: output_vals,
