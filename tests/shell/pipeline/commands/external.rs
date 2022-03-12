@@ -195,8 +195,6 @@ mod stdin_evaluation {
         assert_eq!(actual.err, "");
     }
 
-    // FIXME: JT: `lines` doesn't currently support this kind of streaming
-    #[ignore]
     #[test]
     fn does_not_block_indefinitely() {
         let stdout = nu!(
