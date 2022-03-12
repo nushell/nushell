@@ -198,7 +198,7 @@ let $config = {
       name: completion_menu
       modifier: none
       keycode: tab
-      mode: emacs # emacs vi_normal vi_insert
+      mode: emacs # Options: emacs vi_normal vi_insert
       event: {
         until: [
           { send: menu name: completion_menu }
@@ -210,14 +210,14 @@ let $config = {
       name: completion_previous
       modifier: shift
       keycode: backtab
-      mode: emacs # emacs vi_normal vi_insert
+      mode: [emacs, vi_normal, vi_insert] # Note: You can add the same keybinding to all modes by using a list
       event: { send: menuprevious }
     }
     {
       name: history_menu
       modifier: control
       keycode: char_x
-      mode: emacs # emacs vi_normal vi_insert
+      mode: emacs
       event: {
         until: [
           { send: menu name: history_menu }
@@ -229,7 +229,7 @@ let $config = {
       name: history_previous
       modifier: control
       keycode: char_z
-      mode: emacs # emacs vi_normal vi_insert
+      mode: emacs 
       event: {
         until: [
           { send: menupageprevious }
