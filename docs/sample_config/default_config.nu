@@ -40,6 +40,20 @@ let-env ENV_CONVERSIONS = {
   }
 }
 
+# Directories to search for scripts when calling source or use
+#
+# By default, <nushell-config-dir>/scripts is added
+let-env NU_LIB_DIRS = [
+    ($nu.config-path | path dirname | path join 'scripts')
+]
+
+# Directories to search for plugin binaries when calling register
+#
+# By default, <nushell-config-dir>/plugins is added
+let-env NU_PLUGIN_DIRS = [
+    ($nu.config-path | path dirname | path join 'plugins')
+]
+
 # Custom completions for external commands (those outside of Nushell)
 # Each completions has two parts: the form of the external command, including its flags and parameters
 # and a helper command that knows how to complete values for those flags and parameters
@@ -229,7 +243,7 @@ let $config = {
       name: history_previous
       modifier: control
       keycode: char_z
-      mode: emacs 
+      mode: emacs
       event: {
         until: [
           { send: menupageprevious }

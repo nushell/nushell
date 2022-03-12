@@ -16,6 +16,8 @@ use std::path::Path;
 #[cfg(feature = "plugin")]
 use std::path::PathBuf;
 
+static PWD_ENV: &str = "PWD";
+
 // Tells whether a decl etc. is visible or not
 #[derive(Debug, Clone)]
 struct Visibility {
@@ -1175,9 +1177,13 @@ impl<'a> StateWorkingSet<'a> {
         let pwd = self
             .permanent_state
             .env_vars
-            .get("PWD")
+            .get(PWD_ENV)
             .expect("internal error: can't find PWD");
         pwd.as_string().expect("internal error: PWD not a string")
+    }
+
+    pub fn get_env(&self, name: &str) -> Option<&Value> {
+        self.permanent_state.env_vars.get(name)
     }
 
     pub fn set_variable_type(&mut self, var_id: VarId, ty: Type) {
