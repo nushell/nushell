@@ -1,7 +1,7 @@
 # Nushell Config File
 
 def create_left_prompt [] {
-    let path_segment = ($nu.cwd)
+    let path_segment = ($env.PWD)
 
     $path_segment
 }
