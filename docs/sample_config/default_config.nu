@@ -233,7 +233,7 @@ let $config = {
       event: {
         until: [
           { send: menupageprevious }
-          { send: edit, cmd: undo }
+          { edit: { cmd: undo } }
         ]
       }
     }
