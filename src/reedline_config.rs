@@ -368,7 +368,13 @@ fn parse_event(value: &Value, config: &Config) -> Result<ReedlineEvent, ShellErr
                     span,
                 ),
                 EventType::Edit(value) => {
-                    let edit = parse_edit(value, config)?;
+                    let edit = edit_from_record(
+                        value.into_string("", config).to_lowercase().as_str(),
+                        cols,
+                        vals,
+                        config,
+                        span,
+                    )?;
                     Ok(ReedlineEvent::Edit(vec![edit]))
                 }
                 EventType::Until(value) => match value {
@@ -411,144 +417,144 @@ fn event_from_record(
     config: &Config,
     span: &Span,
 ) -> Result<ReedlineEvent, ShellError> {
-    match name {
-        "none" => Ok(ReedlineEvent::None),
-        "actionhandler" => Ok(ReedlineEvent::ActionHandler),
-        "clearscreen" => Ok(ReedlineEvent::ClearScreen),
-        "historyhintcomplete" => Ok(ReedlineEvent::HistoryHintComplete),
-        "historyhintwordcomplete" => Ok(ReedlineEvent::HistoryHintWordComplete),
-        "ctrld" => Ok(ReedlineEvent::CtrlD),
-        "ctrlc" => Ok(ReedlineEvent::CtrlC),
-        "enter" => Ok(ReedlineEvent::Enter),
-        "esc" | "escape" => Ok(ReedlineEvent::Esc),
-        "up" => Ok(ReedlineEvent::Up),
-        "down" => Ok(ReedlineEvent::Down),
-        "right" => Ok(ReedlineEvent::Right),
-        "left" => Ok(ReedlineEvent::Left),
-        "searchhistory" => Ok(ReedlineEvent::SearchHistory),
-        "nexthistory" => Ok(ReedlineEvent::NextHistory),
-        "previoushistory" => Ok(ReedlineEvent::PreviousHistory),
-        "repaint" => Ok(ReedlineEvent::Repaint),
-        "menudown" => Ok(ReedlineEvent::MenuDown),
-        "menuup" => Ok(ReedlineEvent::MenuUp),
-        "menuleft" => Ok(ReedlineEvent::MenuLeft),
-        "menuright" => Ok(ReedlineEvent::MenuRight),
-        "menunext" => Ok(ReedlineEvent::MenuNext),
-        "menuprevious" => Ok(ReedlineEvent::MenuPrevious),
-        "menupagenext" => Ok(ReedlineEvent::MenuPageNext),
-        "menupageprevious" => Ok(ReedlineEvent::MenuPagePrevious),
+    let event = match name {
+        "none" => ReedlineEvent::None,
+        "actionhandler" => ReedlineEvent::ActionHandler,
+        "clearscreen" => ReedlineEvent::ClearScreen,
+        "historyhintcomplete" => ReedlineEvent::HistoryHintComplete,
+        "historyhintwordcomplete" => ReedlineEvent::HistoryHintWordComplete,
+        "ctrld" => ReedlineEvent::CtrlD,
+        "ctrlc" => ReedlineEvent::CtrlC,
+        "enter" => ReedlineEvent::Enter,
+        "esc" | "escape" => ReedlineEvent::Esc,
+        "up" => ReedlineEvent::Up,
+        "down" => ReedlineEvent::Down,
+        "right" => ReedlineEvent::Right,
+        "left" => ReedlineEvent::Left,
+        "searchhistory" => ReedlineEvent::SearchHistory,
+        "nexthistory" => ReedlineEvent::NextHistory,
+        "previoushistory" => ReedlineEvent::PreviousHistory,
+        "repaint" => ReedlineEvent::Repaint,
+        "menudown" => ReedlineEvent::MenuDown,
+        "menuup" => ReedlineEvent::MenuUp,
+        "menuleft" => ReedlineEvent::MenuLeft,
+        "menuright" => ReedlineEvent::MenuRight,
+        "menunext" => ReedlineEvent::MenuNext,
+        "menuprevious" => ReedlineEvent::MenuPrevious,
+        "menupagenext" => ReedlineEvent::MenuPageNext,
+        "menupageprevious" => ReedlineEvent::MenuPagePrevious,
         "menu" => {
             let menu = extract_value("name", cols, vals, span)?;
-            Ok(ReedlineEvent::Menu(menu.into_string("", config)))
+            ReedlineEvent::Menu(menu.into_string("", config))
         }
         "executehostcommand" => {
             let cmd = extract_value("cmd", cols, vals, span)?;
-            Ok(ReedlineEvent::ExecuteHostCommand(
-                cmd.into_string("", config),
+            ReedlineEvent::ExecuteHostCommand(cmd.into_string("", config))
+        }
+        v => {
+            return Err(ShellError::UnsupportedConfigValue(
+                "Reedline event".to_string(),
+                v.to_string(),
+                *span,
             ))
         }
-        v => Err(ShellError::UnsupportedConfigValue(
-            "Reedline event".to_string(),
-            v.to_string(),
-            *span,
-        )),
-    }
+    };
+
+    Ok(event)
 }
 
-fn parse_edit(edit: &Value, config: &Config) -> Result<EditCommand, ShellError> {
-    let edit = match edit {
-        Value::Record {
-            cols: edit_cols,
-            vals: edit_vals,
-            span: edit_span,
-        } => {
-            let cmd = extract_value("cmd", edit_cols, edit_vals, edit_span)?;
-
-            match cmd.into_string("", config).to_lowercase().as_str() {
-                "movetostart" => EditCommand::MoveToStart,
-                "movetolinestart" => EditCommand::MoveToLineStart,
-                "movetoend" => EditCommand::MoveToEnd,
-                "movetolineend" => EditCommand::MoveToLineEnd,
-                "moveleft" => EditCommand::MoveLeft,
-                "moveright" => EditCommand::MoveRight,
-                "movewordleft" => EditCommand::MoveWordLeft,
-                "movewordright" => EditCommand::MoveWordRight,
-                "insertchar" => {
-                    let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
-                    EditCommand::InsertChar(char)
-                }
-                "insertstring" => {
-                    let value = extract_value("value", edit_cols, edit_vals, edit_span)?;
-                    EditCommand::InsertString(value.into_string("", config))
-                }
-                "backspace" => EditCommand::Backspace,
-                "delete" => EditCommand::Delete,
-                "backspaceword" => EditCommand::BackspaceWord,
-                "deleteword" => EditCommand::DeleteWord,
-                "clear" => EditCommand::Clear,
-                "cleartolineend" => EditCommand::ClearToLineEnd,
-                "cutcurrentline" => EditCommand::CutCurrentLine,
-                "cutfromstart" => EditCommand::CutFromStart,
-                "cutfromlinestart" => EditCommand::CutFromLineStart,
-                "cuttoend" => EditCommand::CutToEnd,
-                "cuttolineend" => EditCommand::CutToLineEnd,
-                "cutwordleft" => EditCommand::CutWordLeft,
-                "cutwordright" => EditCommand::CutWordRight,
-                "pastecutbufferbefore" => EditCommand::PasteCutBufferBefore,
-                "pastecutbufferafter" => EditCommand::PasteCutBufferAfter,
-                "uppercaseword" => EditCommand::UppercaseWord,
-                "lowercaseword" => EditCommand::LowercaseWord,
-                "capitalizechar" => EditCommand::CapitalizeChar,
-                "swapwords" => EditCommand::SwapWords,
-                "swapgraphemes" => EditCommand::SwapGraphemes,
-                "undo" => EditCommand::Undo,
-                "redo" => EditCommand::Redo,
-                "cutrightuntil" => {
-                    let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
-                    EditCommand::CutRightUntil(char)
-                }
-                "cutrightbefore" => {
-                    let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
-                    EditCommand::CutRightBefore(char)
-                }
-                "moverightuntil" => {
-                    let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
-                    EditCommand::MoveRightUntil(char)
-                }
-                "moverightbefore" => {
-                    let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
-                    EditCommand::MoveRightBefore(char)
-                }
-                "cutleftuntil" => {
-                    let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
-                    EditCommand::CutLeftUntil(char)
-                }
-                "cutleftbefore" => {
-                    let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
-                    EditCommand::CutLeftBefore(char)
-                }
-                "moveleftuntil" => {
-                    let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
-                    EditCommand::MoveLeftUntil(char)
-                }
-                "moveleftbefore" => {
-                    let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
-                    EditCommand::MoveLeftBefore(char)
-                }
-                e => {
-                    return Err(ShellError::UnsupportedConfigValue(
-                        "reedline EditCommand".to_string(),
-                        e.to_string(),
-                        edit.span()?,
-                    ))
-                }
-            }
+fn edit_from_record(
+    name: &str,
+    cols: &[String],
+    vals: &[Value],
+    config: &Config,
+    span: &Span,
+) -> Result<EditCommand, ShellError> {
+    let edit = match name {
+        "movetostart" => EditCommand::MoveToStart,
+        "movetolinestart" => EditCommand::MoveToLineStart,
+        "movetoend" => EditCommand::MoveToEnd,
+        "movetolineend" => EditCommand::MoveToLineEnd,
+        "moveleft" => EditCommand::MoveLeft,
+        "moveright" => EditCommand::MoveRight,
+        "movewordleft" => EditCommand::MoveWordLeft,
+        "movewordright" => EditCommand::MoveWordRight,
+        "insertchar" => {
+            let value = extract_value("value", cols, vals, span)?;
+            let char = extract_char(value, config)?;
+            EditCommand::InsertChar(char)
+        }
+        "insertstring" => {
+            let value = extract_value("value", cols, vals, span)?;
+            EditCommand::InsertString(value.into_string("", config))
+        }
+        "backspace" => EditCommand::Backspace,
+        "delete" => EditCommand::Delete,
+        "backspaceword" => EditCommand::BackspaceWord,
+        "deleteword" => EditCommand::DeleteWord,
+        "clear" => EditCommand::Clear,
+        "cleartolineend" => EditCommand::ClearToLineEnd,
+        "cutcurrentline" => EditCommand::CutCurrentLine,
+        "cutfromstart" => EditCommand::CutFromStart,
+        "cutfromlinestart" => EditCommand::CutFromLineStart,
+        "cuttoend" => EditCommand::CutToEnd,
+        "cuttolineend" => EditCommand::CutToLineEnd,
+        "cutwordleft" => EditCommand::CutWordLeft,
+        "cutwordright" => EditCommand::CutWordRight,
+        "pastecutbufferbefore" => EditCommand::PasteCutBufferBefore,
+        "pastecutbufferafter" => EditCommand::PasteCutBufferAfter,
+        "uppercaseword" => EditCommand::UppercaseWord,
+        "lowercaseword" => EditCommand::LowercaseWord,
+        "capitalizechar" => EditCommand::CapitalizeChar,
+        "swapwords" => EditCommand::SwapWords,
+        "swapgraphemes" => EditCommand::SwapGraphemes,
+        "undo" => EditCommand::Undo,
+        "redo" => EditCommand::Redo,
+        "cutrightuntil" => {
+            let value = extract_value("value", cols, vals, span)?;
+            let char = extract_char(value, config)?;
+            EditCommand::CutRightUntil(char)
+        }
+        "cutrightbefore" => {
+            let value = extract_value("value", cols, vals, span)?;
+            let char = extract_char(value, config)?;
+            EditCommand::CutRightBefore(char)
+        }
+        "moverightuntil" => {
+            let value = extract_value("value", cols, vals, span)?;
+            let char = extract_char(value, config)?;
+            EditCommand::MoveRightUntil(char)
+        }
+        "moverightbefore" => {
+            let value = extract_value("value", cols, vals, span)?;
+            let char = extract_char(value, config)?;
+            EditCommand::MoveRightBefore(char)
+        }
+        "cutleftuntil" => {
+            let value = extract_value("value", cols, vals, span)?;
+            let char = extract_char(value, config)?;
+            EditCommand::CutLeftUntil(char)
+        }
+        "cutleftbefore" => {
+            let value = extract_value("value", cols, vals, span)?;
+            let char = extract_char(value, config)?;
+            EditCommand::CutLeftBefore(char)
+        }
+        "moveleftuntil" => {
+            let value = extract_value("value", cols, vals, span)?;
+            let char = extract_char(value, config)?;
+            EditCommand::MoveLeftUntil(char)
+        }
+        "moveleftbefore" => {
+            let value = extract_value("value", cols, vals, span)?;
+            let char = extract_char(value, config)?;
+            EditCommand::MoveLeftBefore(char)
         }
         e => {
             return Err(ShellError::UnsupportedConfigValue(
-                "record with EditCommand".to_string(),
-                e.into_abbreviated_string(config),
-                edit.span()?,
+                "reedline EditCommand".to_string(),
+                e.to_string(),
+                *span,
             ))
         }
     };
@@ -556,20 +562,13 @@ fn parse_edit(edit: &Value, config: &Config) -> Result<EditCommand, ShellError> 
     Ok(edit)
 }
 
-fn extract_char<'record>(
-    name: &str,
-    cols: &'record [String],
-    vals: &'record [Value],
-    config: &Config,
-    span: &Span,
-) -> Result<char, ShellError> {
-    let value = extract_value(name, cols, vals, span)?;
-
+fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
+    let span = value.span()?;
     value
         .into_string("", config)
         .chars()
         .next()
-        .ok_or_else(|| ShellError::MissingConfigValue("char to insert".to_string(), *span))
+        .ok_or_else(|| ShellError::MissingConfigValue("char to insert".to_string(), span))
 }
 
 #[cfg(test)]
@@ -602,12 +601,8 @@ mod test {
     #[test]
     fn test_edit_event() {
         let cols = vec!["edit".to_string()];
-        let vals = vec![Value::Record {
-            cols: vec!["cmd".to_string()],
-            vals: vec![Value::String {
-                val: "Clear".to_string(),
-                span: Span::test_data(),
-            }],
+        let vals = vec![Value::String {
+            val: "Clear".to_string(),
             span: Span::test_data(),
         }];
 
