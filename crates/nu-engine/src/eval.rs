@@ -4,7 +4,7 @@ use std::io::Write;
 
 use nu_path::expand_path_with;
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator};
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, Visibility};
 use nu_protocol::{
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
     Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
@@ -752,41 +752,55 @@ pub fn create_scope(
     let mut output_vals = vec![];
 
     let mut vars = vec![];
-
     let mut commands = vec![];
     let mut aliases = vec![];
     let mut overlays = vec![];
 
+    let mut vars_map = HashMap::new();
+    let mut commands_map = HashMap::new();
+    let mut aliases_map = HashMap::new();
+    let mut overlays_map = HashMap::new();
+    let mut visibility = Visibility::new();
+
     for frame in &engine_state.scope {
-        for var in &frame.vars {
-            let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
+        vars_map.extend(&frame.vars);
+        commands_map.extend(&frame.decls);
+        aliases_map.extend(&frame.aliases);
+        overlays_map.extend(&frame.overlays);
 
-            let var_type = Value::string(engine_state.get_var(*var.1).ty.to_string(), span);
+        visibility.merge_with(frame.visibility.clone());
+    }
 
-            let var_value = if let Ok(val) = stack.get_var(*var.1, span) {
-                val
-            } else {
-                Value::nothing(span)
-            };
+    for var in vars_map {
+        let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
 
-            vars.push(Value::Record {
-                cols: vec!["name".to_string(), "type".to_string(), "value".to_string()],
-                vals: vec![var_name, var_type, var_value],
-                span,
-            })
-        }
+        let var_type = Value::string(engine_state.get_var(*var.1).ty.to_string(), span);
 
-        for command in &frame.decls {
+        let var_value = if let Ok(val) = stack.get_var(*var.1, span) {
+            val
+        } else {
+            Value::nothing(span)
+        };
+
+        vars.push(Value::Record {
+            cols: vec!["name".to_string(), "type".to_string(), "value".to_string()],
+            vals: vec![var_name, var_type, var_value],
+            span,
+        })
+    }
+
+    for (command_name, decl_id) in commands_map {
+        if visibility.is_decl_id_visible(decl_id) {
             let mut cols = vec![];
             let mut vals = vec![];
 
             cols.push("command".into());
             vals.push(Value::String {
-                val: String::from_utf8_lossy(command.0).to_string(),
+                val: String::from_utf8_lossy(command_name).to_string(),
                 span,
             });
 
-            let decl = engine_state.get_decl(*command.1);
+            let decl = engine_state.get_decl(*decl_id);
             let signature = decl.signature();
             cols.push("category".to_string());
             vals.push(Value::String {
@@ -998,8 +1012,10 @@ pub fn create_scope(
 
             commands.push(Value::Record { cols, vals, span })
         }
+    }
 
-        for (alias_name, alias_id) in &frame.aliases {
+    for (alias_name, alias_id) in aliases_map {
+        if visibility.is_alias_id_visible(alias_id) {
             let alias = engine_state.get_alias(*alias_id);
             let mut alias_text = String::new();
             for span in alias {
@@ -1017,13 +1033,13 @@ pub fn create_scope(
                 Value::string(alias_text, span),
             ));
         }
+    }
 
-        for overlay in &frame.overlays {
-            overlays.push(Value::String {
-                val: String::from_utf8_lossy(overlay.0).to_string(),
-                span,
-            });
-        }
+    for overlay in overlays_map {
+        overlays.push(Value::String {
+            val: String::from_utf8_lossy(overlay.0).to_string(),
+            span,
+        });
     }
 
     output_cols.push("vars".to_string());
