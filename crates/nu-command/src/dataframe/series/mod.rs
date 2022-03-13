@@ -57,6 +57,7 @@ pub fn add_series_decls(working_set: &mut StateWorkingSet) {
         ArgSort,
         ArgTrue,
         ArgUnique,
+        AsDateTime,
         Concatenate,
         Contains,
         Cumulative,

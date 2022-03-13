@@ -90,7 +90,8 @@ optional = true
 features = [
 	"default", "parquet", "json", "serde", "object",
 	"checked_arithmetic", "strings", "cum_agg", "is_in",
-	"rolling_window", "strings", "rows", "random"
+	"rolling_window", "strings", "rows", "random",
+    "dtype-datetime"
 ]
 
 [features]
