@@ -1,4 +1,3 @@
-mod alias;
 mod all;
 mod any;
 mod append;

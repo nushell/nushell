@@ -897,19 +897,10 @@ pub fn parse_call(
                     new_spans.extend(&spans[(pos + 1)..]);
                 }
 
-                let alias_id = working_set.hide_alias(&name);
-                let lite_command = LiteCommand {
-                    comments: vec![],
-                    parts: new_spans.clone(),
-                };
-                let (mut result, err) = parse_builtin_commands(working_set, &lite_command);
-                if let Some(frame) = working_set.delta.scope.last_mut() {
-                    if let Some(alias_id) = alias_id {
-                        frame.aliases.insert(name.clone(), alias_id);
-                    }
-                }
-
-                let mut result = result.expressions.remove(0);
+                working_set.enter_scope();
+                working_set.hide_alias(&name);
+                let (mut result, err) = parse_expression(working_set, &new_spans, false);
+                working_set.exit_scope();
 
                 result.replace_span(working_set, expansion_span, orig_span);
 
