@@ -4,7 +4,7 @@ use nu_protocol::{ast::Operator, span, ShellError, Span, Spanned, Value};
 use num::Zero;
 use polars::prelude::{
     BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
-    NumOpsDispatchChecked, PolarsError, Series,
+    NumOpsDispatchChecked, PolarsError, Series, TimeUnit,
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
@@ -270,6 +270,9 @@ pub(super) fn compute_series_single_value(
                 let equal_pattern = format!("^{}$", val);
                 contains_series_pat(&lhs, &equal_pattern, lhs_span)
             }
+            Value::Date { val, .. } => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::equal, lhs_span)
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type(),
@@ -285,6 +288,12 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::not_equal, lhs_span)
             }
+            Value::Date { val, .. } => compare_series_i64(
+                &lhs,
+                val.timestamp_millis(),
+                ChunkedArray::not_equal,
+                lhs_span,
+            ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type(),
@@ -297,6 +306,9 @@ pub(super) fn compute_series_single_value(
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::lt, lhs_span),
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::lt, lhs_span)
+            }
+            Value::Date { val, .. } => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
@@ -311,6 +323,9 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::lt_eq, lhs_span)
             }
+            Value::Date { val, .. } => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt_eq, lhs_span)
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type(),
@@ -324,6 +339,9 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::gt, lhs_span)
             }
+            Value::Date { val, .. } => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt, lhs_span)
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type(),
@@ -336,6 +354,9 @@ pub(super) fn compute_series_single_value(
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::gt_eq, lhs_span),
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::gt_eq, lhs_span)
+            }
+            Value::Date { val, .. } => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt_eq, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
@@ -491,7 +512,10 @@ where
     F: Fn(&ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
 {
     match series.dtype() {
-        DataType::UInt32 | DataType::Int32 | DataType::UInt64 => {
+        DataType::UInt32
+        | DataType::Int32
+        | DataType::UInt64
+        | DataType::Datetime(TimeUnit::Milliseconds, _) => {
             let to_i64 = series.cast(&DataType::Int64);
 
             match to_i64 {
