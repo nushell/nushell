@@ -58,7 +58,7 @@ fn multiple_reports_for_alias_def_custom() {
 // See: parse_definition, line 2187 for reference.
 #[ignore]
 #[test]
-fn one_report_of_multiple_aliases() {
+fn correctly_report_of_shadowed_alias() {
     let actual = nu!(
         cwd: ".",
         r#"alias xaz = echo alias1
