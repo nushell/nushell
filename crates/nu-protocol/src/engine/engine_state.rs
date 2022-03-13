@@ -20,24 +20,24 @@ static PWD_ENV: &str = "PWD";
 
 // Tells whether a decl etc. is visible or not
 #[derive(Debug, Clone)]
-struct Visibility {
+pub struct Visibility {
     decl_ids: HashMap<DeclId, bool>,
     alias_ids: HashMap<AliasId, bool>,
 }
 
 impl Visibility {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Visibility {
             decl_ids: HashMap::new(),
             alias_ids: HashMap::new(),
         }
     }
 
-    fn is_decl_id_visible(&self, decl_id: &DeclId) -> bool {
+    pub fn is_decl_id_visible(&self, decl_id: &DeclId) -> bool {
         *self.decl_ids.get(decl_id).unwrap_or(&true) // by default it's visible
     }
 
-    fn is_alias_id_visible(&self, alias_id: &AliasId) -> bool {
+    pub fn is_alias_id_visible(&self, alias_id: &AliasId) -> bool {
         *self.alias_ids.get(alias_id).unwrap_or(&true) // by default it's visible
     }
 
@@ -57,7 +57,7 @@ impl Visibility {
         self.alias_ids.insert(*alias_id, true);
     }
 
-    fn merge_with(&mut self, other: Visibility) {
+    pub fn merge_with(&mut self, other: Visibility) {
         // overwrite own values with the other
         self.decl_ids.extend(other.decl_ids);
         self.alias_ids.extend(other.alias_ids);
@@ -80,6 +80,12 @@ impl Visibility {
     }
 }
 
+impl Default for Visibility {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ScopeFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
@@ -88,7 +94,7 @@ pub struct ScopeFrame {
     pub aliases: HashMap<Vec<u8>, AliasId>,
     pub env_vars: HashMap<Vec<u8>, BlockId>,
     pub overlays: HashMap<Vec<u8>, OverlayId>,
-    visibility: Visibility,
+    pub visibility: Visibility,
 }
 
 impl ScopeFrame {
@@ -377,35 +383,6 @@ impl EngineState {
         }
     }
 
-    pub fn find_aliases(&self, name: &str) -> Vec<&[Span]> {
-        let mut output = vec![];
-
-        for frame in &self.scope {
-            if let Some(alias_id) = frame.aliases.get(name.as_bytes()) {
-                let alias = self.get_alias(*alias_id);
-                output.push(alias.as_ref());
-            }
-        }
-
-        output
-    }
-
-    pub fn find_custom_commands(&self, name: &str) -> Vec<Block> {
-        let mut output = vec![];
-
-        for frame in &self.scope {
-            if let Some(decl_id) = frame.decls.get(name.as_bytes()) {
-                let decl = self.get_decl(*decl_id);
-
-                if let Some(block_id) = decl.get_block_id() {
-                    output.push(self.get_block(block_id).clone());
-                }
-            }
-        }
-
-        output
-    }
-
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         let mut visibility: Visibility = Visibility::new();
 
@@ -415,6 +392,22 @@ impl EngineState {
             if let Some(decl_id) = scope.decls.get(name) {
                 if visibility.is_decl_id_visible(decl_id) {
                     return Some(*decl_id);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn find_alias(&self, name: &[u8]) -> Option<AliasId> {
+        let mut visibility: Visibility = Visibility::new();
+
+        for scope in self.scope.iter().rev() {
+            visibility.append(&scope.visibility);
+
+            if let Some(alias_id) = scope.aliases.get(name) {
+                if visibility.is_alias_id_visible(alias_id) {
+                    return Some(*alias_id);
                 }
             }
         }
