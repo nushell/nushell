@@ -51,8 +51,8 @@ impl Command for Which {
     }
 }
 
-/// Shortcuts for creating an entry to the output table
-fn entry(arg: impl Into<String>, path: Value, builtin: bool, span: Span) -> Value {
+// Shortcut for creating an entry to the output table
+fn entry(arg: impl Into<String>, path: impl Into<String>, builtin: bool, span: Span) -> Value {
     let mut cols = vec![];
     let mut vals = vec![];
 
@@ -60,56 +60,46 @@ fn entry(arg: impl Into<String>, path: Value, builtin: bool, span: Span) -> Valu
     vals.push(Value::string(arg.into(), span));
 
     cols.push("path".to_string());
-    vals.push(path);
+    vals.push(Value::string(path.into(), span));
 
-    cols.push("builtin".to_string());
+    cols.push("built-in".to_string());
     vals.push(Value::Bool { val: builtin, span });
 
     Value::Record { cols, vals, span }
 }
 
-macro_rules! create_entry {
-    ($arg:expr, $path:expr, $span:expr, $is_builtin:expr) => {
-        entry(
-            $arg.clone(),
-            Value::string($path.to_string(), $span),
-            $is_builtin,
-            $span,
-        )
-    };
-}
+fn get_entry_in_aliases(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
+    if let Some(alias_id) = engine_state.find_alias(name.as_bytes()) {
+        let alias = engine_state.get_alias(alias_id);
+        let alias_str = alias
+            .iter()
+            .map(|alias_span| String::from_utf8_lossy(engine_state.get_span_contents(alias_span)))
+            .join(" ");
 
-fn get_entries_in_aliases(engine_state: &EngineState, name: &str, span: Span) -> Vec<Value> {
-    let aliases = engine_state.find_aliases(name);
+        trace!("Found alias: {}", name);
 
-    let aliases = aliases
-        .into_iter()
-        .map(|spans| {
-            spans
-                .iter()
-                .map(|span| {
-                    String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string()
-                })
-                .join(" ")
-        })
-        .map(|alias| create_entry!(name, format!("Nushell alias: {}", alias), span, false))
-        .collect::<Vec<_>>();
-    trace!("Found {} aliases", aliases.len());
-    aliases
-}
-
-fn get_entries_in_custom_command(engine_state: &EngineState, name: &str, span: Span) -> Vec<Value> {
-    let custom_commands = engine_state.find_custom_commands(name);
-
-    custom_commands
-        .into_iter()
-        .map(|_| create_entry!(name, "Nushell custom command", span, false))
-        .collect::<Vec<_>>()
+        Some(entry(
+            name,
+            format!("Nushell alias: {}", alias_str),
+            false,
+            span,
+        ))
+    } else {
+        None
+    }
 }
 
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
-    if engine_state.find_decl(name.as_bytes()).is_some() {
-        Some(create_entry!(name, "Nushell built-in command", span, true))
+    if let Some(decl_id) = engine_state.find_decl(name.as_bytes()) {
+        let (msg, is_builtin) = if engine_state.get_decl(decl_id).get_block_id().is_some() {
+            ("Nushell custom command", false)
+        } else {
+            ("Nushell built-in command", true)
+        };
+
+        trace!("Found command: {}", name);
+
+        Some(entry(name, msg, is_builtin, span))
     } else {
         None
     }
@@ -123,28 +113,19 @@ fn get_entries_in_nu(
 ) -> Vec<Value> {
     let mut all_entries = vec![];
 
-    all_entries.extend(get_entries_in_aliases(engine_state, name, span));
+    if let Some(ent) = get_entry_in_aliases(engine_state, name, span) {
+        all_entries.push(ent);
+    }
+
     if !all_entries.is_empty() && skip_after_first_found {
         return all_entries;
     }
 
-    all_entries.extend(get_entries_in_custom_command(engine_state, name, span));
-    if !all_entries.is_empty() && skip_after_first_found {
-        return all_entries;
-    }
-
-    if let Some(entry) = get_entry_in_commands(engine_state, name, span) {
-        all_entries.push(entry);
+    if let Some(ent) = get_entry_in_commands(engine_state, name, span) {
+        all_entries.push(ent);
     }
 
     all_entries
-}
-
-#[allow(unused)]
-macro_rules! entry_path {
-    ($arg:expr, $path:expr, $span:expr) => {
-        entry($arg.clone(), Value::string($path, $span), false, $span)
-    };
 }
 
 #[cfg(feature = "which")]
@@ -155,7 +136,7 @@ fn get_first_entry_in_path(
     paths: impl AsRef<OsStr>,
 ) -> Option<Value> {
     which::which_in(item, Some(paths), cwd)
-        .map(|path| entry_path!(item, path.to_string_lossy().to_string(), span))
+        .map(|path| entry(item, path.to_string_lossy().to_string(), false, span))
         .ok()
 }
 
@@ -178,11 +159,12 @@ fn get_all_entries_in_path(
 ) -> Vec<Value> {
     which::which_in_all(&item, Some(paths), cwd)
         .map(|iter| {
-            iter.map(|path| entry_path!(item, path.to_string_lossy().to_string(), span))
+            iter.map(|path| entry(item, path.to_string_lossy().to_string(), false, span))
                 .collect()
         })
         .unwrap_or_default()
 }
+
 #[cfg(not(feature = "which"))]
 fn get_all_entries_in_path(
     _item: &str,

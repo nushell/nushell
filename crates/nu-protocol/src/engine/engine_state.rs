@@ -377,35 +377,6 @@ impl EngineState {
         }
     }
 
-    pub fn find_aliases(&self, name: &str) -> Vec<&[Span]> {
-        let mut output = vec![];
-
-        for frame in &self.scope {
-            if let Some(alias_id) = frame.aliases.get(name.as_bytes()) {
-                let alias = self.get_alias(*alias_id);
-                output.push(alias.as_ref());
-            }
-        }
-
-        output
-    }
-
-    pub fn find_custom_commands(&self, name: &str) -> Vec<Block> {
-        let mut output = vec![];
-
-        for frame in &self.scope {
-            if let Some(decl_id) = frame.decls.get(name.as_bytes()) {
-                let decl = self.get_decl(*decl_id);
-
-                if let Some(block_id) = decl.get_block_id() {
-                    output.push(self.get_block(block_id).clone());
-                }
-            }
-        }
-
-        output
-    }
-
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         let mut visibility: Visibility = Visibility::new();
 
@@ -415,6 +386,22 @@ impl EngineState {
             if let Some(decl_id) = scope.decls.get(name) {
                 if visibility.is_decl_id_visible(decl_id) {
                     return Some(*decl_id);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn find_alias(&self, name: &[u8]) -> Option<AliasId> {
+        let mut visibility: Visibility = Visibility::new();
+
+        for scope in self.scope.iter().rev() {
+            visibility.append(&scope.visibility);
+
+            if let Some(alias_id) = scope.aliases.get(name) {
+                if visibility.is_alias_id_visible(alias_id) {
+                    return Some(*alias_id);
                 }
             }
         }
