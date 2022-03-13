@@ -18,7 +18,7 @@ impl Command for AsDateTime {
     }
 
     fn usage(&self) -> &str {
-        r#"Converts string to datetime. Allowed format: 
+        r#"Converts string to datetime. Format example: 
         "%y/%m/%d %H:%M:%S"  => 21/12/31 12:54:98
         "%y-%m-%d %H:%M:%S"  => 2021-12-31 24:58:01
         "%y/%m/%d %H:%M:%S"  => 21/12/31 24:58:01
