@@ -43,7 +43,7 @@ impl Start {
 
     fn glob_to_values(&self, value: &Value) -> Result<Vec<Tagged<String>>, ShellError> {
         let mut result = vec![];
-        match glob::glob(&value.as_string()?) {
+        match nu_glob::glob(&value.as_string()?) {
             Ok(paths) => {
                 for path_result in paths {
                     match path_result {

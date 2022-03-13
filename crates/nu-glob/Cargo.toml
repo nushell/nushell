@@ -1,0 +1,14 @@
+[package]
+name = "nu-glob"
+version = "0.59.1"
+authors = ["The Nushell Project Developers", "The Rust Project Developers"]
+license = "MIT/Apache-2.0"
+description = """
+Fork of glob. Support for matching file paths against Unix shell style patterns.
+"""
+edition = "2021"
+categories = ["filesystem"]
+
+[dev-dependencies]
+tempdir = "0.3"
+doc-comment = "0.3"

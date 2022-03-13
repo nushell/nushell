@@ -5,7 +5,7 @@ use std::path::{Component, Path, PathBuf};
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::{ShellError, Span, Spanned};
 
-/// This function is like `glob::glob` from the `glob` crate, except it is relative to a given cwd.
+/// This function is like `nu_glob::glob` from the `glob` crate, except it is relative to a given cwd.
 ///
 /// It returns a tuple of two values: the first is an optional prefix that the expanded filenames share.
 /// This prefix can be removed from the front of each value to give an approximation of the relative path
@@ -81,7 +81,7 @@ pub fn glob_from(
 
     let pattern = pattern.to_string_lossy().to_string();
 
-    let glob = glob::glob(&pattern).map_err(|err| {
+    let glob = nu_glob::glob(&pattern).map_err(|err| {
         nu_protocol::ShellError::SpannedLabeledError(
             "Error extracting glob pattern".into(),
             err.to_string(),

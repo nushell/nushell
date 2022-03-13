@@ -9,7 +9,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
 };
 
-const GLOB_PARAMS: glob::MatchOptions = glob::MatchOptions {
+const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
     require_literal_separator: false,
     require_literal_leading_dot: false,
@@ -62,7 +62,7 @@ impl Command for Mv {
         let source = path.join(spanned_source.item.as_str());
         let destination = path.join(spanned_destination.item.as_str());
 
-        let mut sources = glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
+        let mut sources = nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
             .map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {

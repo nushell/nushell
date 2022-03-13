@@ -3,7 +3,7 @@ authors = [
     "ogham@bsago.me",
     "Ryan Scheel (Havvy) <ryan.havvy@gmail.com>",
     "Josh Triplett <josh@joshtriplett.org>",
-    "The Nu Project Contributors",
+    "The Nushell Project Developers",
 ]
 description = "Library for ANSI terminal colors and styles (bold, underline)"
 edition = "2018"

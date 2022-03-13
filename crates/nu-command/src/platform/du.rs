@@ -1,6 +1,6 @@
 use crate::{DirBuilder, DirInfo, FileInfo};
-use glob::{GlobError, MatchOptions, Pattern};
 use nu_engine::CallExt;
+use nu_glob::{GlobError, MatchOptions, Pattern};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -103,9 +103,9 @@ impl Command for Du {
         let mut paths = match args.path {
             Some(p) => {
                 let p = p.item.to_str().expect("Why isn't this encoded properly?");
-                glob::glob_with(p, GLOB_PARAMS)
+                nu_glob::glob_with(p, GLOB_PARAMS)
             }
-            None => glob::glob_with("*", GLOB_PARAMS),
+            None => nu_glob::glob_with("*", GLOB_PARAMS),
         }
         .map_err(|e| {
             ShellError::SpannedLabeledError(e.msg.to_string(), "glob error".to_string(), tag)

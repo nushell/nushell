@@ -1,7 +1,7 @@
 [package]
 name = "nu"
 version = "0.1.1"
-authors = ["The Nu Project Contributors"]
+authors = ["The Nushell Project Developers"]
 description = "a new type of shell"
 license = "ISC"
 edition = "2018"
