@@ -23,6 +23,11 @@ Sum values of a list (same as 'math sum')
 > [ 1 2 3 4 ] | reduce {|it, acc| $it + $acc }
 ```
 
+Sum values of a list (same as 'math sum')
+```shell
+> [ 1 2 3 ] | reduce -n {|it, acc| $acc + $it.item }
+```
+
 Sum values with a starting value (fold)
 ```shell
 > [ 1 2 3 4 ] | reduce -f 10 {|it, acc| $acc + $it }
