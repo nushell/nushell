@@ -1,4 +1,4 @@
-use crate::utils::{gather_parent_env_vars, report_error};
+use crate::util::{gather_parent_env_vars, report_error};
 use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
@@ -9,13 +9,16 @@ use nu_protocol::{
 };
 use std::path::Path;
 
-pub(crate) fn evaluate(
+pub fn evaluate_commands(
     commands: &Spanned<String>,
     init_cwd: &Path,
     engine_state: &mut EngineState,
     input: PipelineData,
     is_perf_true: bool,
 ) -> Result<()> {
+    #[cfg(feature = "plugin")]
+    crate::config_files::add_plugin_file(engine_state);
+
     // First, set up env vars as strings only
     gather_parent_env_vars(engine_state);
 
@@ -70,7 +73,7 @@ pub(crate) fn evaluate(
     };
 
     // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::utils::external_exceptions(engine_state, &stack);
+    let exceptions = crate::util::external_exceptions(engine_state, &stack);
     engine_state.external_exceptions = exceptions;
 
     // Merge the delta in case env vars changed in the config

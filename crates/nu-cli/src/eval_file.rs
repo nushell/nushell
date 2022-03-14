@@ -1,4 +1,4 @@
-use crate::utils::{eval_source, gather_parent_env_vars, report_error};
+use crate::util::{eval_source, gather_parent_env_vars, report_error};
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
@@ -12,13 +12,16 @@ use nu_protocol::{
 use std::io::Write;
 
 /// Main function used when a file path is found as argument for nu
-pub(crate) fn evaluate(
+pub fn evaluate_file(
     path: String,
     args: &[String],
     engine_state: &mut EngineState,
     input: PipelineData,
     is_perf_true: bool,
 ) -> Result<()> {
+    #[cfg(feature = "plugin")]
+    crate::config_files::add_plugin_file(engine_state);
+
     // First, set up env vars as strings only
     gather_parent_env_vars(engine_state);
 
@@ -42,7 +45,7 @@ pub(crate) fn evaluate(
     }
 
     // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::utils::external_exceptions(engine_state, &stack);
+    let exceptions = crate::util::external_exceptions(engine_state, &stack);
     engine_state.external_exceptions = exceptions;
 
     let file = std::fs::read(&path).into_diagnostic()?;

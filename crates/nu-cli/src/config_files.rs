@@ -1,4 +1,4 @@
-use crate::utils::{eval_source, report_error};
+use crate::util::{eval_source, report_error};
 use log::info;
 use nu_parser::ParseError;
 use nu_path::canonicalize_with;
@@ -15,7 +15,11 @@ const HISTORY_FILE: &str = "history.txt";
 const PLUGIN_FILE: &str = "plugin.nu";
 
 #[cfg(feature = "plugin")]
-pub(crate) fn read_plugin_file(engine_state: &mut EngineState, stack: &mut Stack, is_perf_true: bool) {
+pub(crate) fn read_plugin_file(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    is_perf_true: bool,
+) {
     // Reading signatures from signature file
     // The plugin.nu file stores the parsed signature collected from each registered plugin
     add_plugin_file(engine_state);
@@ -41,7 +45,7 @@ pub(crate) fn read_plugin_file(engine_state: &mut EngineState, stack: &mut Stack
 }
 
 #[cfg(feature = "plugin")]
-pub(crate) fn add_plugin_file(engine_state: &mut EngineState) {
+pub fn add_plugin_file(engine_state: &mut EngineState) {
     if let Some(mut plugin_path) = nu_path::config_dir() {
         // Path to store plugins signatures
         plugin_path.push(NUSHELL_FOLDER);
@@ -92,7 +96,7 @@ pub(crate) fn read_config_file(
                 .read_line(&mut answer)
                 .expect("Failed to read user input");
 
-            let config_file = include_str!("../docs/sample_config/default_config.nu");
+            let config_file = include_str!("../../../docs/sample_config/default_config.nu");
 
             match answer.to_lowercase().trim() {
                 "y" | "" => {

@@ -2196,6 +2196,8 @@ dependencies = [
 name = "nu-cli"
 version = "0.59.1"
 dependencies = [
+ "crossterm",
+ "crossterm_winapi",
  "is_executable",
  "log",
  "miette",

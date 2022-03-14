@@ -1,6 +1,6 @@
-use crate::utils::report_error;
+use crate::util::report_error;
+use crate::NushellPrompt;
 use log::info;
-use nu_cli::NushellPrompt;
 use nu_engine::eval_subexpression;
 use nu_parser::parse;
 use nu_protocol::{
@@ -165,8 +165,20 @@ pub(crate) fn update_prompt<'prompt>(
 
     // apply the other indicators
     nu_prompt.update_all_prompt_strings(
-        get_prompt_string(PROMPT_COMMAND, config, engine_state, &mut stack, is_perf_true),
-        get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, &mut stack, is_perf_true),
+        get_prompt_string(
+            PROMPT_COMMAND,
+            config,
+            engine_state,
+            &mut stack,
+            is_perf_true,
+        ),
+        get_prompt_string(
+            PROMPT_COMMAND_RIGHT,
+            config,
+            engine_state,
+            &mut stack,
+            is_perf_true,
+        ),
         prompt_indicator_string,
         prompt_multiline_string,
         (prompt_vi_insert_string, prompt_vi_normal_string),

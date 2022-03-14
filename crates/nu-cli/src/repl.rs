@@ -2,12 +2,12 @@ use crate::reedline_config::{add_completion_menu, add_history_menu};
 use crate::{config_files, prompt_update, reedline_config};
 use crate::{
     reedline_config::KeybindingsMode,
-    utils::{eval_source, gather_parent_env_vars, report_error},
+    util::{eval_source, gather_parent_env_vars, report_error},
 };
+use crate::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
-use nu_cli::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_color_config::get_color_config;
 use nu_engine::convert_env_values;
 use nu_parser::lex;
@@ -19,7 +19,7 @@ use nu_protocol::{PipelineData, Spanned};
 use reedline::{DefaultHinter, Emacs, Vi};
 use std::{sync::atomic::Ordering, time::Instant};
 
-pub(crate) fn evaluate(
+pub fn evaluate_repl(
     engine_state: &mut EngineState,
     config_file: Option<Spanned<String>>,
     is_perf_true: bool,
@@ -83,7 +83,7 @@ pub(crate) fn evaluate(
     }
 
     // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::utils::external_exceptions(engine_state, &stack);
+    let exceptions = crate::util::external_exceptions(engine_state, &stack);
     engine_state.external_exceptions = exceptions;
 
     // seed env vars
@@ -226,7 +226,13 @@ pub(crate) fn evaluate(
             info!("prompt_update {}:{}:{}", file!(), line!(), column!());
         }
 
-        let prompt = prompt_update::update_prompt(&config, engine_state, &stack, &mut nu_prompt, is_perf_true);
+        let prompt = prompt_update::update_prompt(
+            &config,
+            engine_state,
+            &stack,
+            &mut nu_prompt,
+            is_perf_true,
+        );
 
         entry_num += 1;
 
@@ -331,7 +337,7 @@ pub(crate) fn evaluate(
                 }
 
                 // Make a note of the exceptions we see for externals that look like math expressions
-                let exceptions = crate::utils::external_exceptions(engine_state, &stack);
+                let exceptions = crate::util::external_exceptions(engine_state, &stack);
                 engine_state.external_exceptions = exceptions;
             }
             Ok(Signal::CtrlC) => {
