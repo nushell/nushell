@@ -33,5 +33,5 @@ List all files with names that contain "Car"
 
 List all files that were modified in the last two weeks
 ```shell
-> ls | where modified <= 2wk
+> ls | where modified >= (date now) - 2wk
 ```
