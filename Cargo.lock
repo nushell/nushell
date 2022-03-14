@@ -1422,12 +1422,9 @@ dependencies = [
 
 [[package]]
 name = "heck"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
-dependencies = [
- "unicode-segmentation",
-]
+checksum = "2540771e65fc8cb83cd6e8a237f70c319bd5c29f78ed1084ba5d50eeac86f7f9"
 
 [[package]]
 name = "hermit-abi"
@@ -2185,9 +2182,9 @@ dependencies = [
 
 [[package]]
 name = "nu-ansi-term"
-version = "0.42.0"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8afa9b5ba9e7ea9898e119244372cac911bea31ee7a5de42f51bbc36dc66318"
+checksum = "280affd8593c03f90633b7305cee7a3b55ddab9fbad95041a39bda689f7b64f7"
 dependencies = [
  "overload",
  "winapi",
@@ -3464,8 +3461,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.2.0"
-source = "git+https://github.com/nushell/reedline?branch=main#4e5a20d127d84f4722e1d39d1852ccb42aa973f6"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33ba0eb9271feb2de4b1516d651c96d80c892df24388e2711ef2495acc6ed9ce"
 dependencies = [
  "chrono",
  "crossterm",
@@ -4090,15 +4088,15 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.23.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cae14b91c7d11c9a851d3fbc80a963198998c2a64eec840477fa92d8ce9b70bb"
+checksum = "e96acfc1b70604b8b2f1ffa4c57e59176c7dbb05d556c71ecd2f5498a1dee7f8"
 
 [[package]]
 name = "strum_macros"
-version = "0.23.1"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bb0dc7ee9c15cea6199cde9a127fa16a4c5819af85395457ad72d68edc85a38"
+checksum = "6878079b17446e4d3eba6192bb0a2950d5b14f0ed8424b852310e5a94345d0ef"
 dependencies = [
  "heck",
  "proc-macro2",
