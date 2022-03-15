@@ -96,7 +96,7 @@ pub fn print_pipeline_data(
 // In order to ensure the values have spans, it first creates a dummy file, writes the collected
 // env vars into it (in a "NAME"="value" format, quite similar to the output of the Unix 'env'
 // tool), then uses the file to get the spans. The file stays in memory, no filesystem IO is done.
-pub(crate) fn gather_parent_env_vars(engine_state: &mut EngineState) {
+pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
     // Some helper functions
     fn get_surround_char(s: &str) -> Option<char> {
         if s.contains('"') {
@@ -270,7 +270,7 @@ pub(crate) fn gather_parent_env_vars(engine_state: &mut EngineState) {
     }
 }
 
-pub(crate) fn eval_source(
+pub fn eval_source(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     source: &[u8],

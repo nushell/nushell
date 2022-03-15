@@ -69,7 +69,7 @@ itertools = "0.10.3"
 embed-resource = "1"
 
 [features]
-plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
+plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
 default = ["plugin", "which", "zip-support", "trash-support"]
 stable = ["default"]
 extra = ["default", "dataframe"]
