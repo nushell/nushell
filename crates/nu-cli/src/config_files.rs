@@ -1,4 +1,5 @@
 use crate::util::{eval_source, report_error};
+#[cfg(feature = "plugin")]
 use log::info;
 use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
 use nu_protocol::{PipelineData, Span};
