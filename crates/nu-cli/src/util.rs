@@ -1,17 +1,17 @@
+use crate::CliError;
 use log::trace;
 use nu_engine::eval_block;
 use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
-use nu_utils::enable_vt_processing;
-use std::io::Write;
-use std::path::PathBuf;
-
-use crate::CliError;
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
     PipelineData, ShellError, Span, Value,
 };
+#[cfg(windows)]
+use nu_utils::enable_vt_processing;
+use std::io::Write;
+use std::path::PathBuf;
 
 pub fn print_pipeline_data(
     input: PipelineData,

@@ -1,3 +1,4 @@
+#[cfg(windows)]
 use nu_utils::utils::enable_vt_processing;
 
 fn main() {
