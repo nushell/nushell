@@ -4,6 +4,7 @@ mod test_bins;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "plugin")]
 use crate::config_files::NUSHELL_FOLDER;
 use crate::logger::{configure, logger};
 use log::info;
