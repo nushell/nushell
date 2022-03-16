@@ -1,7 +1,7 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn echo_range_is_lazy() {
+fn alias_simple() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
