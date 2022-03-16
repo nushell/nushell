@@ -58,38 +58,69 @@ fn multiple_reports_for_alias_def_custom() {
 // See: parse_definition, line 2187 for reference.
 #[ignore]
 #[test]
-fn multiple_reports_of_multiple_alias() {
+fn correctly_report_of_shadowed_alias() {
     let actual = nu!(
         cwd: ".",
-        "alias xaz = echo alias1; def helper [] {alias xaz = echo alias2; which -a xaz}; helper | length"
+        r#"alias xaz = echo alias1
+        def helper [] {
+            alias xaz = echo alias2
+            which -a xaz
+        }
+        helper | get path | str contains alias2"#
     );
 
-    let length: i32 = actual.out.parse().unwrap();
-    assert_eq!(length, 2);
+    assert_eq!(actual.out, "true");
 }
 
 #[test]
-fn multiple_reports_of_multiple_defs() {
+fn one_report_of_multiple_defs() {
     let actual = nu!(
         cwd: ".",
-        "def xaz [] {echo def1}; def helper [] { def xaz [] { echo def2 }; which -a xaz }; helper | length"
+        r#"def xaz [] { echo def1 }
+        def helper [] {
+            def xaz [] { echo def2 }
+            which -a xaz
+        }
+        helper | length"#
     );
 
     let length: i32 = actual.out.parse().unwrap();
-    assert_eq!(length, 2);
+    assert_eq!(length, 1);
 }
 
-//Fails due to ParserScope::add_definition
-// frame.custom_commands.insert(name.clone(), block.clone());
-// frame.commands.insert(name, whole_stream_command(block));
-#[ignore]
 #[test]
 fn def_only_seen_once() {
     let actual = nu!(
         cwd: ".",
         "def xaz [] {echo def1}; which -a xaz | length"
     );
-    //length is 2. One custom_command (def) one built in ("wrongly" added)
+
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 1);
+}
+
+#[test]
+fn do_not_show_hidden_aliases() {
+    let actual = nu!(
+        cwd: ".",
+        r#"alias foo = echo foo
+        hide foo
+        which foo | length"#
+    );
+
+    let length: i32 = actual.out.parse().unwrap();
+    assert_eq!(length, 0);
+}
+
+#[test]
+fn do_not_show_hidden_commands() {
+    let actual = nu!(
+        cwd: ".",
+        r#"def foo [] { echo foo }
+        hide foo
+        which foo | length"#
+    );
+
+    let length: i32 = actual.out.parse().unwrap();
+    assert_eq!(length, 0);
 }

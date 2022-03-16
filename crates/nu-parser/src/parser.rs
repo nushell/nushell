@@ -1486,8 +1486,18 @@ pub fn parse_string_interpolation(
                     end,
                 };
                 let str_contents = working_set.get_span_contents(span);
+
+                let str_contents = if double_quote {
+                    let (str_contents, err) = unescape_string(str_contents, span);
+                    error = error.or(err);
+
+                    str_contents
+                } else {
+                    str_contents.to_vec()
+                };
+
                 output.push(Expression {
-                    expr: Expr::String(String::from_utf8_lossy(str_contents).to_string()),
+                    expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
                     span,
                     ty: Type::String,
                     custom_completion: None,

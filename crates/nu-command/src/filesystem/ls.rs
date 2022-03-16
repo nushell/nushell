@@ -224,6 +224,22 @@ impl Command for Ls {
                 example: "ls *.rs",
                 result: None,
             },
+            Example {
+                description: "List all files and directories whose name do not contain 'bar'",
+                example: "ls -s | where name !~ bar",
+                result: None,
+            },
+            Example {
+                description: "List all dirs with full path name in your home directory",
+                example: "ls -f ~ | where type == dir",
+                result: None,
+            },
+            Example {
+                description:
+                    "List all dirs in your home directory which have not been modified in 7 days",
+                example: "ls -s ~ | where type == dir && modified < ((date now) - 7day)",
+                result: None,
+            },
         ]
     }
 }

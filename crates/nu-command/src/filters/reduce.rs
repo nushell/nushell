@@ -47,6 +47,14 @@ impl Command for Reduce {
                 }),
             },
             Example {
+                example: "[ 1 2 3 ] | reduce -n {|it, acc| $acc + $it.item }",
+                description: "Sum values of a list (same as 'math sum')",
+                result: Some(Value::Int {
+                    val: 6,
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 example: "[ 1 2 3 4 ] | reduce -f 10 {|it, acc| $acc + $it }",
                 description: "Sum values with a starting value (fold)",
                 result: Some(Value::Int {

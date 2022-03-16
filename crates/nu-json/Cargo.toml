@@ -1,5 +1,5 @@
 [package]
-authors = ["The Nu Project Contributors", "Christian Zangl <laktak@cdak.net>"]
+authors = ["The Nushell Project Developers", "Christian Zangl <laktak@cdak.net>"]
 description = "Fork of serde-hjson"
 edition = "2021"
 license = "MIT"

@@ -219,6 +219,11 @@ fn string_interpolation_paren_test3() -> TestResult {
 }
 
 #[test]
+fn string_interpolation_escaping() -> TestResult {
+    run_test(r#"$"hello\nworld" | lines | length"#, "2")
+}
+
+#[test]
 fn capture_multiple_commands() -> TestResult {
     run_test(
         r#"

@@ -1,5 +1,5 @@
 [package]
-authors = ["The Nu Project Contributors"]
+authors = ["The Nushell Project Developers"]
 description = "Path handling library for Nushell"
 edition = "2021"
 license = "MIT"

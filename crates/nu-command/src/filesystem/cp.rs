@@ -9,7 +9,7 @@ use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanne
 
 use crate::filesystem::util::FileStructure;
 
-const GLOB_PARAMS: glob::MatchOptions = glob::MatchOptions {
+const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
     require_literal_separator: false,
     require_literal_leading_dot: false,
@@ -58,7 +58,7 @@ impl Command for Cp {
         let source = path.join(src.item.as_str());
         let destination = path.join(dst.item.as_str());
 
-        let sources: Vec<_> = match glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
+        let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
             Ok(files) => files.collect(),
             Err(e) => {
                 return Err(ShellError::SpannedLabeledError(
@@ -193,7 +193,7 @@ impl Command for Cp {
     }
 
     //     let mut sources =
-    //         glob::glob(&source.to_string_lossy()).map_or_else(|_| Vec::new(), Iterator::collect);
+    //         nu_glob::glob(&source.to_string_lossy()).map_or_else(|_| Vec::new(), Iterator::collect);
     //     if sources.is_empty() {
     //         return Err(ShellError::FileNotFound(call.positional[0].span));
     //     }
