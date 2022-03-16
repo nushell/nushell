@@ -1,6 +1,7 @@
 use log::trace;
 use nu_engine::eval_block;
 use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
+use nu_utils::enable_vt_processing;
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -459,29 +460,6 @@ pub fn external_exceptions(engine_state: &EngineState, stack: &Stack) -> Vec<Vec
     executables
 }
 
-#[cfg(windows)]
-pub fn enable_vt_processing() -> Result<(), ShellError> {
-    use crossterm_winapi::{ConsoleMode, Handle};
-
-    pub const ENABLE_PROCESSED_OUTPUT: u32 = 0x0001;
-    pub const ENABLE_VIRTUAL_TERMINAL_PROCESSING: u32 = 0x0004;
-    // let mask = ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-
-    let console_mode = ConsoleMode::from(Handle::current_out_handle()?);
-    let old_mode = console_mode.mode()?;
-
-    // researching odd ansi behavior in windows terminal repo revealed that
-    // enable_processed_output and enable_virtual_terminal_processing should be used
-    // also, instead of checking old_mode & mask, just set the mode already
-
-    // if old_mode & mask == 0 {
-    console_mode
-        .set_mode(old_mode | ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING)?;
-    // }
-
-    Ok(())
-}
-
 pub fn report_error(
     working_set: &StateWorkingSet,
     error: &(dyn miette::Diagnostic + Send + Sync + 'static),
@@ -490,7 +468,7 @@ pub fn report_error(
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
     {
-        let _ = enable_vt_processing();
+        let _ = nu_utils::enable_vt_processing();
     }
 }
 
