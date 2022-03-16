@@ -1,6 +1,6 @@
-use crate::{is_perf_true, utils::report_error};
+use crate::util::report_error;
+use crate::NushellPrompt;
 use log::info;
-use nu_cli::NushellPrompt;
 use nu_engine::eval_subexpression;
 use nu_parser::parse;
 use nu_protocol::{
@@ -21,6 +21,7 @@ pub(crate) fn get_prompt_indicators(
     config: &Config,
     engine_state: &EngineState,
     stack: &Stack,
+    is_perf_true: bool,
 ) -> (String, String, String, String) {
     let prompt_indicator = match stack.get_env_var(engine_state, PROMPT_INDICATOR) {
         Some(pi) => pi.into_string("", config),
@@ -42,7 +43,7 @@ pub(crate) fn get_prompt_indicators(
         None => "::: ".to_string(),
     };
 
-    if is_perf_true() {
+    if is_perf_true {
         info!(
             "get_prompt_indicators {}:{}:{}",
             file!(),
@@ -64,6 +65,7 @@ fn get_prompt_string(
     config: &Config,
     engine_state: &EngineState,
     stack: &mut Stack,
+    is_perf_true: bool,
 ) -> Option<String> {
     stack
         .get_env_var(engine_state, prompt)
@@ -82,7 +84,7 @@ fn get_prompt_string(
                     block,
                     PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
                 );
-                if is_perf_true() {
+                if is_perf_true {
                     info!(
                         "get_prompt_string (block) {}:{}:{}",
                         file!(),
@@ -111,7 +113,7 @@ fn get_prompt_string(
                     PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
                 )
                 .ok();
-                if is_perf_true() {
+                if is_perf_true {
                     info!(
                         "get_prompt_string (string) {}:{}:{}",
                         file!(),
@@ -149,6 +151,7 @@ pub(crate) fn update_prompt<'prompt>(
     engine_state: &EngineState,
     stack: &Stack,
     nu_prompt: &'prompt mut NushellPrompt,
+    is_perf_true: bool,
 ) -> &'prompt dyn Prompt {
     // get the other indicators
     let (
@@ -156,21 +159,33 @@ pub(crate) fn update_prompt<'prompt>(
         prompt_vi_insert_string,
         prompt_vi_normal_string,
         prompt_multiline_string,
-    ) = get_prompt_indicators(config, engine_state, stack);
+    ) = get_prompt_indicators(config, engine_state, stack, is_perf_true);
 
     let mut stack = stack.clone();
 
     // apply the other indicators
     nu_prompt.update_all_prompt_strings(
-        get_prompt_string(PROMPT_COMMAND, config, engine_state, &mut stack),
-        get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, &mut stack),
+        get_prompt_string(
+            PROMPT_COMMAND,
+            config,
+            engine_state,
+            &mut stack,
+            is_perf_true,
+        ),
+        get_prompt_string(
+            PROMPT_COMMAND_RIGHT,
+            config,
+            engine_state,
+            &mut stack,
+            is_perf_true,
+        ),
         prompt_indicator_string,
         prompt_multiline_string,
         (prompt_vi_insert_string, prompt_vi_normal_string),
     );
 
     let ret_val = nu_prompt as &dyn Prompt;
-    if is_perf_true() {
+    if is_perf_true {
         info!("update_prompt {}:{}:{}", file!(), line!(), column!());
     }
 

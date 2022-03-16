@@ -1,18 +1,22 @@
-mod commands;
 mod config_files;
-mod eval_file;
 mod logger;
-mod prompt_update;
-mod reedline_config;
-mod repl;
 mod test_bins;
 #[cfg(test)]
 mod tests;
-mod utils;
 
+#[cfg(feature = "plugin")]
+use crate::config_files::NUSHELL_FOLDER;
 use crate::logger::{configure, logger};
 use log::info;
 use miette::Result;
+#[cfg(feature = "plugin")]
+use nu_cli::add_plugin_file;
+#[cfg(feature = "plugin")]
+use nu_cli::read_plugin_file;
+use nu_cli::{
+    evaluate_commands, evaluate_file, evaluate_repl, gather_parent_env_vars, get_init_cwd,
+    report_error,
+};
 use nu_command::{create_default_context, BufferedReader};
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
@@ -31,7 +35,6 @@ use std::{
         Arc,
     },
 };
-use utils::report_error;
 
 thread_local! { static IS_PERF: RefCell<bool> = RefCell::new(false) }
 
@@ -44,7 +47,7 @@ fn main() -> Result<()> {
     }));
 
     // Get initial current working directory.
-    let init_cwd = utils::get_init_cwd();
+    let init_cwd = get_init_cwd();
     let mut engine_state = create_default_context(&init_cwd);
 
     // Custom additions
@@ -186,11 +189,31 @@ fn main() -> Result<()> {
                 info!("redirect_stdin {}:{}:{}", file!(), line!(), column!());
             }
 
+            // First, set up env vars as strings only
+            gather_parent_env_vars(&mut engine_state);
+            let mut stack = nu_protocol::engine::Stack::new();
+
+            stack.vars.insert(
+                CONFIG_VARIABLE_ID,
+                Value::Record {
+                    cols: vec![],
+                    vals: vec![],
+                    span: Span::new(0, 0),
+                },
+            );
+
             if let Some(commands) = &binary_args.commands {
                 #[cfg(feature = "plugin")]
-                config_files::add_plugin_file(&mut engine_state);
+                add_plugin_file(&mut engine_state, NUSHELL_FOLDER);
 
-                let ret_val = commands::evaluate(commands, &init_cwd, &mut engine_state, input);
+                let ret_val = evaluate_commands(
+                    commands,
+                    &init_cwd,
+                    &mut engine_state,
+                    &mut stack,
+                    input,
+                    is_perf_true(),
+                );
                 if is_perf_true() {
                     info!("-c command execution {}:{}:{}", file!(), line!(), column!());
                 }
@@ -198,17 +221,27 @@ fn main() -> Result<()> {
                 ret_val
             } else if !script_name.is_empty() && binary_args.interactive_shell.is_none() {
                 #[cfg(feature = "plugin")]
-                config_files::add_plugin_file(&mut engine_state);
+                add_plugin_file(&mut engine_state, NUSHELL_FOLDER);
 
-                let ret_val =
-                    eval_file::evaluate(script_name, &args_to_script, &mut engine_state, input);
+                let ret_val = evaluate_file(
+                    script_name,
+                    &args_to_script,
+                    &mut engine_state,
+                    &mut stack,
+                    input,
+                    is_perf_true(),
+                );
                 if is_perf_true() {
                     info!("eval_file execution {}:{}:{}", file!(), line!(), column!());
                 }
 
                 ret_val
             } else {
-                let ret_val = repl::evaluate(&mut engine_state, binary_args.config_file);
+                setup_config(&mut engine_state, &mut stack, binary_args.config_file);
+                let history_path = config_files::create_history_path();
+
+                let ret_val =
+                    evaluate_repl(&mut engine_state, &mut stack, history_path, is_perf_true());
                 if is_perf_true() {
                     info!("repl eval {}:{}:{}", file!(), line!(), column!());
                 }
@@ -218,6 +251,21 @@ fn main() -> Result<()> {
         }
         Err(_) => std::process::exit(1),
     }
+}
+
+fn setup_config(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    config_file: Option<Spanned<String>>,
+) {
+    #[cfg(feature = "plugin")]
+    read_plugin_file(engine_state, stack, NUSHELL_FOLDER, is_perf_true());
+
+    if is_perf_true() {
+        info!("read_config_file {}:{}:{}", file!(), line!(), column!());
+    }
+
+    config_files::read_config_file(engine_state, stack, config_file, is_perf_true());
 }
 
 fn parse_commandline_args(

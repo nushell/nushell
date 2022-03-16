@@ -1,5 +1,4 @@
-use crate::is_perf_true;
-use crate::utils::{eval_source, gather_parent_env_vars, report_error};
+use crate::util::{eval_source, report_error};
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
@@ -8,41 +7,28 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, Span, Value, CONFIG_VARIABLE_ID,
+    Config, PipelineData, Span, Value,
 };
 use std::io::Write;
 
 /// Main function used when a file path is found as argument for nu
-pub(crate) fn evaluate(
+pub fn evaluate_file(
     path: String,
     args: &[String],
     engine_state: &mut EngineState,
+    stack: &mut Stack,
     input: PipelineData,
+    is_perf_true: bool,
 ) -> Result<()> {
-    // First, set up env vars as strings only
-    gather_parent_env_vars(engine_state);
-
-    let mut stack = nu_protocol::engine::Stack::new();
-
-    // Set up our initial config to start from
-    stack.vars.insert(
-        CONFIG_VARIABLE_ID,
-        Value::Record {
-            cols: vec![],
-            vals: vec![],
-            span: Span { start: 0, end: 0 },
-        },
-    );
-
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, &stack) {
+    if let Some(e) = convert_env_values(engine_state, stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
         std::process::exit(1);
     }
 
     // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::utils::external_exceptions(engine_state, &stack);
+    let exceptions = crate::util::external_exceptions(engine_state, stack);
     engine_state.external_exceptions = exceptions;
 
     let file = std::fs::read(&path).into_diagnostic()?;
@@ -57,27 +43,21 @@ pub(crate) fn evaluate(
 
         if !eval_source(
             engine_state,
-            &mut stack,
+            stack,
             &file,
             &path,
             PipelineData::new(Span::new(0, 0)),
         ) {
             std::process::exit(1);
         }
-        if !eval_source(
-            engine_state,
-            &mut stack,
-            args.as_bytes(),
-            "<commandline>",
-            input,
-        ) {
+        if !eval_source(engine_state, stack, args.as_bytes(), "<commandline>", input) {
             std::process::exit(1);
         }
-    } else if !eval_source(engine_state, &mut stack, &file, &path, input) {
+    } else if !eval_source(engine_state, stack, &file, &path, input) {
         std::process::exit(1);
     }
 
-    if is_perf_true() {
+    if is_perf_true {
         info!("evaluate {}:{}:{}", file!(), line!(), column!());
     }
 

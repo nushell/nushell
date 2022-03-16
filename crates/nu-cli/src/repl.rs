@@ -1,28 +1,31 @@
-use crate::is_perf_true;
 use crate::reedline_config::{add_completion_menu, add_history_menu};
-use crate::{config_files, prompt_update, reedline_config};
+use crate::{prompt_update, reedline_config};
 use crate::{
     reedline_config::KeybindingsMode,
-    utils::{eval_source, gather_parent_env_vars, report_error},
+    util::{eval_source, report_error},
 };
+use crate::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
-use nu_cli::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_color_config::get_color_config;
 use nu_engine::convert_env_values;
 use nu_parser::lex;
+use nu_protocol::engine::Stack;
+use nu_protocol::PipelineData;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Config, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
-use nu_protocol::{PipelineData, Spanned};
 use reedline::{DefaultHinter, Emacs, Vi};
+use std::path::PathBuf;
 use std::{sync::atomic::Ordering, time::Instant};
 
-pub(crate) fn evaluate(
+pub fn evaluate_repl(
     engine_state: &mut EngineState,
-    config_file: Option<Spanned<String>>,
+    stack: &mut Stack,
+    history_path: Option<PathBuf>,
+    is_perf_true: bool,
 ) -> Result<()> {
     // use crate::logger::{configure, logger};
     use reedline::{FileBackedHistory, Reedline, Signal};
@@ -30,34 +33,34 @@ pub(crate) fn evaluate(
     let mut entry_num = 0;
 
     let mut nu_prompt = NushellPrompt::new();
-    let mut stack = nu_protocol::engine::Stack::new();
+    // let mut stack = nu_protocol::engine::Stack::new();
 
     // First, set up env vars as strings only
-    gather_parent_env_vars(engine_state);
+    // gather_parent_env_vars(engine_state);
 
     // Set up our initial config to start from
-    stack.vars.insert(
-        CONFIG_VARIABLE_ID,
-        Value::Record {
-            cols: vec![],
-            vals: vec![],
-            span: Span::new(0, 0),
-        },
-    );
+    // stack.vars.insert(
+    //     CONFIG_VARIABLE_ID,
+    //     Value::Record {
+    //         cols: vec![],
+    //         vals: vec![],
+    //         span: Span::new(0, 0),
+    //     },
+    // );
 
-    if is_perf_true() {
+    if is_perf_true {
         info!("read_plugin_file {}:{}:{}", file!(), line!(), column!());
     }
 
-    #[cfg(feature = "plugin")]
-    config_files::read_plugin_file(engine_state, &mut stack);
-
-    if is_perf_true() {
-        info!("read_config_file {}:{}:{}", file!(), line!(), column!());
-    }
-
-    config_files::read_config_file(engine_state, &mut stack, config_file);
-    let history_path = config_files::create_history_path();
+    // #[cfg(feature = "plugin")]
+    // config_files::read_plugin_file(engine_state, &mut stack, is_perf_true);
+    //
+    // if is_perf_true {
+    //     info!("read_config_file {}:{}:{}", file!(), line!(), column!());
+    // }
+    //
+    // config_files::read_config_file(engine_state, &mut stack, config_file, is_perf_true);
+    // let history_path = config_files::create_history_path();
 
     // logger(|builder| {
     //     configure(&config.log_level, builder)?;
@@ -67,7 +70,7 @@ pub(crate) fn evaluate(
     //     Ok(())
     // })?;
 
-    if is_perf_true() {
+    if is_perf_true {
         info!(
             "translate environment vars {}:{}:{}",
             file!(),
@@ -77,13 +80,13 @@ pub(crate) fn evaluate(
     }
 
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, &stack) {
+    if let Some(e) = convert_env_values(engine_state, stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
     }
 
     // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::utils::external_exceptions(engine_state, &stack);
+    let exceptions = crate::util::external_exceptions(engine_state, stack);
     engine_state.external_exceptions = exceptions;
 
     // seed env vars
@@ -104,7 +107,7 @@ pub(crate) fn evaluate(
     );
 
     loop {
-        if is_perf_true() {
+        if is_perf_true {
             info!(
                 "load config each loop {}:{}:{}",
                 file!(),
@@ -128,7 +131,7 @@ pub(crate) fn evaluate(
             ctrlc.store(false, Ordering::SeqCst);
         }
 
-        if is_perf_true() {
+        if is_perf_true {
             info!("setup line editor {}:{}:{}", file!(), line!(), column!());
         }
 
@@ -150,14 +153,14 @@ pub(crate) fn evaluate(
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring);
 
-        if is_perf_true() {
+        if is_perf_true {
             info!("setup reedline {}:{}:{}", file!(), line!(), column!());
         }
 
         line_editor = add_completion_menu(line_editor, &config);
         line_editor = add_history_menu(line_editor, &config);
 
-        if is_perf_true() {
+        if is_perf_true {
             info!("setup colors {}:{}:{}", file!(), line!(), column!());
         }
         //FIXME: if config.use_ansi_coloring is false then we should
@@ -165,7 +168,7 @@ pub(crate) fn evaluate(
 
         let color_hm = get_color_config(&config);
 
-        if is_perf_true() {
+        if is_perf_true {
             info!(
                 "setup history and hinter {}:{}:{}",
                 file!(),
@@ -196,7 +199,7 @@ pub(crate) fn evaluate(
             line_editor
         };
 
-        if is_perf_true() {
+        if is_perf_true {
             info!("setup keybindings {}:{}:{}", file!(), line!(), column!());
         }
 
@@ -222,15 +225,21 @@ pub(crate) fn evaluate(
             }
         };
 
-        if is_perf_true() {
+        if is_perf_true {
             info!("prompt_update {}:{}:{}", file!(), line!(), column!());
         }
 
-        let prompt = prompt_update::update_prompt(&config, engine_state, &stack, &mut nu_prompt);
+        let prompt = prompt_update::update_prompt(
+            &config,
+            engine_state,
+            stack,
+            &mut nu_prompt,
+            is_perf_true,
+        );
 
         entry_num += 1;
 
-        if is_perf_true() {
+        if is_perf_true {
             info!(
                 "finished setup, starting repl {}:{}:{}",
                 file!(),
@@ -245,7 +254,7 @@ pub(crate) fn evaluate(
                 let start_time = Instant::now();
                 let tokens = lex(s.as_bytes(), 0, &[], &[], false);
                 // Check if this is a single call to a directory, if so auto-cd
-                let cwd = nu_engine::env::current_dir_str(engine_state, &stack)?;
+                let cwd = nu_engine::env::current_dir_str(engine_state, stack)?;
                 let path = nu_path::expand_path_with(&s, &cwd);
 
                 let orig = s.clone();
@@ -308,7 +317,7 @@ pub(crate) fn evaluate(
 
                     eval_source(
                         engine_state,
-                        &mut stack,
+                        stack,
                         s.as_bytes(),
                         &format!("entry #{}", entry_num),
                         PipelineData::new(Span::new(0, 0)),
@@ -331,7 +340,7 @@ pub(crate) fn evaluate(
                 }
 
                 // Make a note of the exceptions we see for externals that look like math expressions
-                let exceptions = crate::utils::external_exceptions(engine_state, &stack);
+                let exceptions = crate::util::external_exceptions(engine_state, stack);
                 engine_state.external_exceptions = exceptions;
             }
             Ok(Signal::CtrlC) => {
