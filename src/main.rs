@@ -136,9 +136,11 @@ fn main() -> Result<()> {
 
             set_is_perf_value(binary_args.perf);
 
-            if binary_args.perf {
-                // if we started in perf mode show only the info logs
-                // TODO: what happens when the config log_level is read?
+            if binary_args.perf || binary_args.log_level.is_some() {
+                // since we're in this section, either perf is true or log_level has been set
+                // if log_level is set, just use it
+                // otherwise if perf is true, set the log_level to `info` which is what
+                // the perf calls are set to.
                 let level = binary_args
                     .log_level
                     .map(|level| level.item)
