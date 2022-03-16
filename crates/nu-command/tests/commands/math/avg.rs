@@ -21,5 +21,5 @@ fn can_average_bytes() {
         "ls | sort-by name | skip 1 | first 2 | get size | math avg | to json -r"
     );
 
-    assert_eq!(actual.out, "1600");
+    assert_eq!(actual.out, "1221");
 }

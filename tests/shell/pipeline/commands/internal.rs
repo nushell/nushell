@@ -416,6 +416,7 @@ fn unlet_env_variable() {
 }
 
 #[test]
+#[ignore]
 fn unlet_nonexistent_variable() {
     let actual = nu!(
         cwd: ".",

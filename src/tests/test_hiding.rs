@@ -145,6 +145,7 @@ fn hides_env_in_scope_4() -> TestResult {
 }
 
 #[test]
+#[ignore]
 fn hide_def_twice_not_allowed() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; hide foo; hide foo"#,
@@ -153,6 +154,7 @@ fn hide_def_twice_not_allowed() -> TestResult {
 }
 
 #[test]
+#[ignore]
 fn hide_alias_twice_not_allowed() -> TestResult {
     fail_test(
         r#"alias foo = echo "foo"; hide foo; hide foo"#,
@@ -161,6 +163,7 @@ fn hide_alias_twice_not_allowed() -> TestResult {
 }
 
 #[test]
+#[ignore]
 fn hide_env_twice_not_allowed() -> TestResult {
     fail_test(r#"let-env foo = "foo"; hide foo; hide foo"#, "did not find")
 }
