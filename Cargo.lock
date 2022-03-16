@@ -2173,6 +2173,7 @@ dependencies = [
  "nu-table",
  "nu-term-grid",
  "nu-test-support",
+ "nu-utils",
  "pretty_assertions",
  "pretty_env_logger",
  "rayon",
@@ -2207,6 +2208,7 @@ dependencies = [
  "nu-parser",
  "nu-path",
  "nu-protocol",
+ "nu-utils",
  "reedline",
  "thiserror",
 ]
@@ -2267,6 +2269,7 @@ dependencies = [
  "nu-table",
  "nu-term-grid",
  "nu-test-support",
+ "nu-utils",
  "num 0.4.0",
  "pathdiff",
  "polars",
@@ -2446,6 +2449,13 @@ dependencies = [
  "nu-protocol",
  "num-bigint 0.4.3",
  "tempfile",
+]
+
+[[package]]
+name = "nu-utils"
+version = "0.59.1"
+dependencies = [
+ "crossterm_winapi",
 ]
 
 [[package]]

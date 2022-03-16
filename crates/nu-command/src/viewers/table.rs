@@ -63,6 +63,12 @@ impl Command for Table {
             80usize
         };
 
+        // reset vt processing, aka ansi because illbehaved externals can break it
+        #[cfg(windows)]
+        {
+            let _ = nu_utils::enable_vt_processing();
+        }
+
         match input {
             PipelineData::ExternalStream { .. } => Ok(input),
             PipelineData::Value(Value::Binary { val, .. }, ..) => {
