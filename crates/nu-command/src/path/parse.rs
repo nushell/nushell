@@ -81,7 +81,7 @@ On Windows, an extra 'prefix' column is added."#
             },
             Example {
                 description: "Replace a complex extension",
-                example: r"'C:\Users\viking\spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }",
+                example: r"'C:\Users\viking\spam.tar.gz' | path parse -e tar.gz | upsert extension { 'txt' }",
                 result: None,
             },
             Example {
@@ -107,7 +107,7 @@ On Windows, an extra 'prefix' column is added."#
             },
             Example {
                 description: "Replace a complex extension",
-                example: r"'/home/viking/spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }",
+                example: r"'/home/viking/spam.tar.gz' | path parse -e tar.gz | upsert extension { 'txt' }",
                 result: None,
             },
             Example {

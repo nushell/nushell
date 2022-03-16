@@ -7,19 +7,19 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Update;
+pub struct Upsert;
 
-impl Command for Update {
+impl Command for Upsert {
     fn name(&self) -> &str {
-        "update"
+        "upsert"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("update")
+        Signature::build("upsert")
             .required(
                 "field",
                 SyntaxShape::CellPath,
-                "the name of the column to update or create",
+                "the name of the column to update or insert",
             )
             .required(
                 "replacement value",
@@ -30,7 +30,7 @@ impl Command for Update {
     }
 
     fn usage(&self) -> &str {
-        "Update an existing column to have a new value, or create a new column."
+        "Update an existing column to have a new value, or insert a new column."
     }
 
     fn run(
@@ -40,31 +40,31 @@ impl Command for Update {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        update(engine_state, stack, call, input)
+        upsert(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Update a column value",
-            example: "echo {'name': 'nu', 'stars': 5} | update name 'Nushell'",
+            example: "echo {'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
             result: Some(Value::Record { cols: vec!["name".into(), "stars".into()], vals: vec![Value::test_string("Nushell"), Value::test_int(5)], span: Span::test_data()}),
         }, Example {
-            description: "Add a new column",
-            example: "echo {'name': 'nu', 'stars': 5} | update language 'Rust'",
+            description: "Insert a new column",
+            example: "echo {'name': 'nu', 'stars': 5} | upsert language 'Rust'",
             result: Some(Value::Record { cols: vec!["name".into(), "stars".into(), "language".into()], vals: vec![Value::test_string("nu"), Value::test_int(5), Value::test_string("Rust")], span: Span::test_data()}),
         }, Example {
             description: "Use in block form for more involved updating logic",
-            example: "echo [[count fruit]; [1 'apple']] | update count {|f| $f.count + 1}",
+            example: "echo [[count fruit]; [1 'apple']] | upsert count {|f| $f.count + 1}",
             result: Some(Value::List { vals: vec![Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(2), Value::test_string("apple")], span: Span::test_data()}], span: Span::test_data()}),
         }, Example {
             description: "Use in block form for more involved updating logic",
-            example: "echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|a| $a.authors | str collect ','}",
+            example: "echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | upsert authors {|a| $a.authors | str collect ','}",
             result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
         }]
     }
 }
 
-fn update(
+fn upsert(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -148,6 +148,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(Update {})
+        test_examples(Upsert {})
     }
 }
