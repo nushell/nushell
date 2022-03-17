@@ -7,22 +7,22 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Upsert;
+pub struct Insert;
 
-impl Command for Upsert {
+impl Command for Insert {
     fn name(&self) -> &str {
-        "upsert"
+        "insert"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("upsert")
+        Signature::build("insert")
             .required(
                 "field",
                 SyntaxShape::CellPath,
-                "the name of the column to update or insert",
+                "the name of the column to insert",
             )
             .required(
-                "replacement value",
+                "new value",
                 SyntaxShape::Any,
                 "the new value to give the cell(s)",
             )
@@ -30,7 +30,7 @@ impl Command for Upsert {
     }
 
     fn usage(&self) -> &str {
-        "Update an existing column to have a new value, or insert a new column."
+        "Insert a new column."
     }
 
     fn run(
@@ -40,31 +40,27 @@ impl Command for Upsert {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        upsert(engine_state, stack, call, input)
+        insert(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Update a column value",
-            example: "echo {'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
-            result: Some(Value::Record { cols: vec!["name".into(), "stars".into()], vals: vec![Value::test_string("Nushell"), Value::test_int(5)], span: Span::test_data()}),
-        }, Example {
-            description: "Insert a new column",
-            example: "echo {'name': 'nu', 'stars': 5} | upsert language 'Rust'",
-            result: Some(Value::Record { cols: vec!["name".into(), "stars".into(), "language".into()], vals: vec![Value::test_string("nu"), Value::test_int(5), Value::test_string("Rust")], span: Span::test_data()}),
-        }, Example {
-            description: "Use in block form for more involved updating logic",
-            example: "echo [[count fruit]; [1 'apple']] | upsert count {|f| $f.count + 1}",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(2), Value::test_string("apple")], span: Span::test_data()}], span: Span::test_data()}),
-        }, Example {
-            description: "Use in block form for more involved updating logic",
-            example: "echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | upsert authors {|a| $a.authors | str collect ','}",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
+            description: "Insert a new value",
+            example: "echo {'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
+            result: Some(Value::Record {
+                cols: vec!["name".into(), "stars".into(), "alias".into()],
+                vals: vec![
+                    Value::test_string("nu"),
+                    Value::test_int(5),
+                    Value::test_string("Nushell"),
+                ],
+                span: Span::test_data(),
+            }),
         }]
     }
 }
 
-fn upsert(
+fn insert(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -112,7 +108,7 @@ fn upsert(
                 match output {
                     Ok(pd) => {
                         if let Err(e) =
-                            input.upsert_data_at_cell_path(&cell_path.members, pd.into_value(span))
+                            input.insert_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
                             return Value::Error { error: e };
                         }
@@ -129,7 +125,7 @@ fn upsert(
             move |mut input| {
                 let replacement = replacement.clone();
 
-                if let Err(e) = input.upsert_data_at_cell_path(&cell_path.members, replacement) {
+                if let Err(e) = input.insert_data_at_cell_path(&cell_path.members, replacement) {
                     return Value::Error { error: e };
                 }
 
@@ -148,6 +144,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(Upsert {})
+        test_examples(Insert {})
     }
 }

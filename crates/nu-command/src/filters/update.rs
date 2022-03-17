@@ -7,19 +7,19 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Upsert;
+pub struct Update;
 
-impl Command for Upsert {
+impl Command for Update {
     fn name(&self) -> &str {
-        "upsert"
+        "update"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("upsert")
+        Signature::build("update")
             .required(
                 "field",
                 SyntaxShape::CellPath,
-                "the name of the column to update or insert",
+                "the name of the column to update",
             )
             .required(
                 "replacement value",
@@ -30,7 +30,7 @@ impl Command for Upsert {
     }
 
     fn usage(&self) -> &str {
-        "Update an existing column to have a new value, or insert a new column."
+        "Update an existing column to have a new value."
     }
 
     fn run(
@@ -44,23 +44,29 @@ impl Command for Upsert {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Update a column value",
-            example: "echo {'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
-            result: Some(Value::Record { cols: vec!["name".into(), "stars".into()], vals: vec![Value::test_string("Nushell"), Value::test_int(5)], span: Span::test_data()}),
-        }, Example {
-            description: "Insert a new column",
-            example: "echo {'name': 'nu', 'stars': 5} | upsert language 'Rust'",
-            result: Some(Value::Record { cols: vec!["name".into(), "stars".into(), "language".into()], vals: vec![Value::test_string("nu"), Value::test_int(5), Value::test_string("Rust")], span: Span::test_data()}),
-        }, Example {
-            description: "Use in block form for more involved updating logic",
-            example: "echo [[count fruit]; [1 'apple']] | upsert count {|f| $f.count + 1}",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(2), Value::test_string("apple")], span: Span::test_data()}], span: Span::test_data()}),
-        }, Example {
-            description: "Use in block form for more involved updating logic",
-            example: "echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | upsert authors {|a| $a.authors | str collect ','}",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
-        }]
+        vec![
+            Example {
+                description: "Update a column value",
+                example: "echo {'name': 'nu', 'stars': 5} | update name 'Nushell'",
+                result: Some(Value::Record {
+                    cols: vec!["name".into(), "stars".into()],
+                    vals: vec![Value::test_string("Nushell"), Value::test_int(5)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Use in block form for more involved updating logic",
+                example: "echo [[count fruit]; [1 'apple']] | update count {|f| $f.count + 1}",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["count".into(), "fruit".into()],
+                        vals: vec![Value::test_int(2), Value::test_string("apple")],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 
@@ -112,7 +118,7 @@ fn upsert(
                 match output {
                     Ok(pd) => {
                         if let Err(e) =
-                            input.upsert_data_at_cell_path(&cell_path.members, pd.into_value(span))
+                            input.update_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
                             return Value::Error { error: e };
                         }
@@ -129,7 +135,7 @@ fn upsert(
             move |mut input| {
                 let replacement = replacement.clone();
 
-                if let Err(e) = input.upsert_data_at_cell_path(&cell_path.members, replacement) {
+                if let Err(e) = input.update_data_at_cell_path(&cell_path.members, replacement) {
                     return Value::Error { error: e };
                 }
 
@@ -148,6 +154,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(Upsert {})
+        test_examples(Update {})
     }
 }

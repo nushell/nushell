@@ -150,6 +150,13 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
         #[label = "value originates here"] Span,
     ),
 
+    #[error("Column already exists")]
+    #[diagnostic(code(nu::shell::column_already_exists), url(docsrs))]
+    ColumnAlreadyExists(
+        #[label = "column already exists"] Span,
+        #[label = "value originates here"] Span,
+    ),
+
     #[error("Not a list value")]
     #[diagnostic(code(nu::shell::not_a_list), url(docsrs))]
     NotAList(

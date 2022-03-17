@@ -76,6 +76,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Group,
             GroupBy,
             Headers,
+            Insert,
             SplitBy,
             Keep,
             Merge,
@@ -107,6 +108,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Transpose,
             Uniq,
             Upsert,
+            Update,
             UpdateCells,
             Where,
             Window,
@@ -356,7 +358,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
 
         // Deprecated
         bind_command! {
-            InsertDeprecated,
             PivotDeprecated,
             StrDatetimeDeprecated,
             StrDecimalDeprecated,
