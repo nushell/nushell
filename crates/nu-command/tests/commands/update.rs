@@ -6,7 +6,7 @@ fn sets_the_column() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open cargo_sample.toml
-            | update dev-dependencies.pretty_assertions "0.7.0"
+            | upsert dev-dependencies.pretty_assertions "0.7.0"
             | get dev-dependencies.pretty_assertions
         "#
     ));
@@ -21,7 +21,7 @@ fn sets_the_column_from_a_block_run_output() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open cargo_sample.toml
-            | update dev-dependencies.pretty_assertions { open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor }
+            | upsert dev-dependencies.pretty_assertions { open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor }
             | get dev-dependencies.pretty_assertions
         "#
     ));
@@ -35,7 +35,7 @@ fn sets_the_column_from_a_block_full_stream_output() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             wrap content
-            | update content { open --raw cargo_sample.toml | lines | first 5 }
+            | upsert content { open --raw cargo_sample.toml | lines | first 5 }
             | get content.1
             | str contains "nu"
         "#
@@ -50,7 +50,7 @@ fn sets_the_column_from_a_subexpression() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             wrap content
-            | update content (open --raw cargo_sample.toml | lines | first 5)
+            | upsert content (open --raw cargo_sample.toml | lines | first 5)
             | get content.1
             | str contains "nu"
         "#

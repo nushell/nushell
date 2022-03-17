@@ -216,7 +216,7 @@ fn select_2() -> TestResult {
 
 #[test]
 fn update_will_insert() -> TestResult {
-    run_test(r#"{} | update a b | get a"#, "b")
+    run_test(r#"{} | upsert a b | get a"#, "b")
 }
 
 #[test]

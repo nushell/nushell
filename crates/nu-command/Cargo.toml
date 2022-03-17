@@ -8,8 +8,6 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-ansi-term = "0.45.0"
-
 nu-color-config = { path = "../nu-color-config", version = "0.59.1"  }
 nu-engine = { path = "../nu-engine", version = "0.59.1"  }
 nu-glob = { path = "../nu-glob", version = "0.59.1" }
@@ -23,6 +21,7 @@ nu-table = { path = "../nu-table", version = "0.59.1"  }
 nu-term-grid = { path = "../nu-term-grid", version = "0.59.1"  }
 nu-test-support = { path = "../nu-test-support", version = "0.59.1"  }
 nu-utils = { path = "../nu-utils", version = "0.59.1" }
+nu-ansi-term = "0.45.0"
 
 # Potential dependencies for extras
 base64 = "0.13.0"
