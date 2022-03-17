@@ -813,8 +813,12 @@ impl<'a> StateWorkingSet<'a> {
         for scope in self.delta.scope.iter_mut().rev() {
             visibility.append(&scope.visibility);
 
-            if let Some(decl_id) = scope.decls.remove(name) {
-                return Some(decl_id);
+            if let Some(decl_id) = scope.decls.get(name) {
+                if visibility.is_decl_id_visible(decl_id) {
+                    // Hide decl only if it's not already hidden
+                    scope.visibility.hide_decl_id(decl_id);
+                    return Some(*decl_id);
+                }
             }
         }
 
@@ -843,12 +847,17 @@ impl<'a> StateWorkingSet<'a> {
     pub fn hide_alias(&mut self, name: &[u8]) -> Option<AliasId> {
         let mut visibility: Visibility = Visibility::new();
 
-        // Since we can mutate scope frames in delta, remove the id directly
+        // // Since we can mutate scope frames in delta, remove the id directly
         for scope in self.delta.scope.iter_mut().rev() {
             visibility.append(&scope.visibility);
 
-            if let Some(alias_id) = scope.aliases.remove(name) {
-                return Some(alias_id);
+            if let Some(alias_id) = scope.aliases.get(name) {
+                if visibility.is_alias_id_visible(alias_id) {
+                    // Hide alias only if it's not already hidden
+                    scope.visibility.hide_alias_id(alias_id);
+
+                    return Some(*alias_id);
+                }
             }
         }
 
@@ -866,6 +875,7 @@ impl<'a> StateWorkingSet<'a> {
                 if visibility.is_alias_id_visible(alias_id) {
                     // Hide alias only if it's not already hidden
                     last_scope_frame.visibility.hide_alias_id(alias_id);
+
                     return Some(*alias_id);
                 }
             }
@@ -1024,11 +1034,15 @@ impl<'a> StateWorkingSet<'a> {
             visibility.append(&scope.visibility);
 
             if let Some(decl_id) = scope.predecls.get(name) {
-                return Some(*decl_id);
+                if visibility.is_decl_id_visible(decl_id) {
+                    return Some(*decl_id);
+                }
             }
 
             if let Some(decl_id) = scope.decls.get(name) {
-                return Some(*decl_id);
+                if visibility.is_decl_id_visible(decl_id) {
+                    return Some(*decl_id);
+                }
             }
         }
 
@@ -1052,7 +1066,9 @@ impl<'a> StateWorkingSet<'a> {
             visibility.append(&scope.visibility);
 
             if let Some(alias_id) = scope.aliases.get(name) {
-                return Some(*alias_id);
+                if visibility.is_alias_id_visible(alias_id) {
+                    return Some(*alias_id);
+                }
             }
         }
 
