@@ -23,6 +23,7 @@ mod hash_;
 mod headers;
 mod help;
 mod histogram;
+mod insert;
 mod into_filesize;
 mod into_int;
 mod keep;
@@ -61,6 +62,7 @@ mod str_;
 mod touch;
 mod uniq;
 mod update;
+mod upsert;
 mod use_;
 mod where_;
 #[cfg(feature = "which")]

@@ -226,7 +226,7 @@ impl PipelineData {
         }
     }
 
-    pub fn update_cell_path(
+    pub fn upsert_cell_path(
         &mut self,
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value>,
@@ -238,8 +238,8 @@ impl PipelineData {
                 vals: stream.collect(),
                 span: head,
             }
-            .update_cell_path(cell_path, callback),
-            PipelineData::Value(v, ..) => v.update_cell_path(cell_path, callback),
+            .upsert_cell_path(cell_path, callback),
+            PipelineData::Value(v, ..) => v.upsert_cell_path(cell_path, callback),
             _ => Ok(()),
         }
     }
