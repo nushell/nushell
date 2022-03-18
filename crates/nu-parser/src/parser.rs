@@ -208,6 +208,7 @@ pub fn check_name<'a>(
 pub fn parse_external_call(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let mut args = vec![];
 
@@ -235,10 +236,17 @@ pub fn parse_external_call(
             new_spans.extend(&spans[1..])
         }
 
-        working_set.enter_scope();
-        working_set.hide_alias(&head_contents);
-        let (mut result, err) = parse_external_call(working_set, &new_spans);
-        working_set.exit_scope();
+        let expand_aliases_denylist = if let Some(alias_id) = working_set.find_alias(&head_contents)
+        {
+            let mut expand_aliases_denylist = expand_aliases_denylist.to_vec();
+            expand_aliases_denylist.push(alias_id);
+            expand_aliases_denylist
+        } else {
+            expand_aliases_denylist.to_vec()
+        };
+
+        let (mut result, err) =
+            parse_external_call(working_set, &new_spans, &expand_aliases_denylist);
         result.replace_span(working_set, expansion_span, orig_span);
 
         return (result, err);
@@ -247,7 +255,7 @@ pub fn parse_external_call(
     let mut error = None;
 
     let head = if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
-        let (arg, err) = parse_expression(working_set, &[head_span], true);
+        let (arg, err) = parse_expression(working_set, &[head_span], expand_aliases_denylist);
         error = error.or(err);
         Box::new(arg)
     } else {
@@ -263,11 +271,12 @@ pub fn parse_external_call(
         let contents = working_set.get_span_contents(*span);
 
         if contents.starts_with(b"$") || contents.starts_with(b"(") {
-            let (arg, err) = parse_dollar_expr(working_set, *span);
+            let (arg, err) = parse_dollar_expr(working_set, *span, expand_aliases_denylist);
             error = error.or(err);
             args.push(arg);
         } else if contents.starts_with(b"(") {
-            let (arg, err) = parse_full_cell_path(working_set, None, *span);
+            let (arg, err) =
+                parse_full_cell_path(working_set, None, *span, expand_aliases_denylist);
             error = error.or(err);
             args.push(arg);
         } else {
@@ -295,6 +304,7 @@ fn parse_long_flag(
     spans: &[Span],
     spans_idx: &mut usize,
     sig: &Signature,
+    expand_aliases_denylist: &[usize],
 ) -> (
     Option<Spanned<String>>,
     Option<Expression>,
@@ -317,7 +327,8 @@ fn parse_long_flag(
                         let mut span = arg_span;
                         span.start += long_name_len + 3; //offset by long flag and '='
 
-                        let (arg, err) = parse_value(working_set, span, arg_shape);
+                        let (arg, err) =
+                            parse_value(working_set, span, arg_shape, expand_aliases_denylist);
 
                         (
                             Some(Spanned {
@@ -331,7 +342,8 @@ fn parse_long_flag(
                             err,
                         )
                     } else if let Some(arg) = spans.get(*spans_idx + 1) {
-                        let (arg, err) = parse_value(working_set, *arg, arg_shape);
+                        let (arg, err) =
+                            parse_value(working_set, *arg, arg_shape, expand_aliases_denylist);
 
                         *spans_idx += 1;
                         (
@@ -554,6 +566,7 @@ pub fn parse_multispan_value(
     spans: &[Span],
     spans_idx: &mut usize,
     shape: &SyntaxShape,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let mut error = None;
 
@@ -568,7 +581,8 @@ pub fn parse_multispan_value(
         }
         SyntaxShape::RowCondition => {
             trace!("parsing: row condition");
-            let (arg, err) = parse_row_condition(working_set, &spans[*spans_idx..]);
+            let (arg, err) =
+                parse_row_condition(working_set, &spans[*spans_idx..], expand_aliases_denylist);
             error = error.or(err);
             *spans_idx = spans.len() - 1;
 
@@ -577,7 +591,12 @@ pub fn parse_multispan_value(
         SyntaxShape::MathExpression => {
             trace!("parsing: math expression");
 
-            let (arg, err) = parse_math_expression(working_set, &spans[*spans_idx..], None);
+            let (arg, err) = parse_math_expression(
+                working_set,
+                &spans[*spans_idx..],
+                None,
+                expand_aliases_denylist,
+            );
             error = error.or(err);
             *spans_idx = spans.len() - 1;
 
@@ -586,7 +605,8 @@ pub fn parse_multispan_value(
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
-            let (arg, err) = parse_expression(working_set, &spans[*spans_idx..], true);
+            let (arg, err) =
+                parse_expression(working_set, &spans[*spans_idx..], expand_aliases_denylist);
             error = error.or(err);
             *spans_idx = spans.len() - 1;
 
@@ -595,7 +615,8 @@ pub fn parse_multispan_value(
         SyntaxShape::ImportPattern => {
             trace!("parsing: import pattern");
 
-            let (arg, err) = parse_import_pattern(working_set, &spans[*spans_idx..]);
+            let (arg, err) =
+                parse_import_pattern(working_set, &spans[*spans_idx..], expand_aliases_denylist);
             error = error.or(err);
             *spans_idx = spans.len() - 1;
 
@@ -649,7 +670,8 @@ pub fn parse_multispan_value(
                 );
             }
             let keyword_span = spans[*spans_idx - 1];
-            let (expr, err) = parse_multispan_value(working_set, spans, spans_idx, arg);
+            let (expr, err) =
+                parse_multispan_value(working_set, spans, spans_idx, arg, expand_aliases_denylist);
             error = error.or(err);
             let ty = expr.ty.clone();
 
@@ -667,7 +689,7 @@ pub fn parse_multispan_value(
             // All other cases are single-span values
             let arg_span = spans[*spans_idx];
 
-            let (arg, err) = parse_value(working_set, arg_span, shape);
+            let (arg, err) = parse_value(working_set, arg_span, shape, expand_aliases_denylist);
             error = error.or(err);
 
             (arg, error)
@@ -680,6 +702,7 @@ pub fn parse_internal_call(
     command_span: Span,
     spans: &[Span],
     decl_id: usize,
+    expand_aliases_denylist: &[usize],
 ) -> (Box<Call>, Option<ParseError>) {
     trace!("parsing: internal call (decl id: {})", decl_id);
 
@@ -706,7 +729,13 @@ pub fn parse_internal_call(
         let arg_span = spans[spans_idx];
 
         // Check if we're on a long flag, if so, parse
-        let (long_name, arg, err) = parse_long_flag(working_set, spans, &mut spans_idx, &signature);
+        let (long_name, arg, err) = parse_long_flag(
+            working_set,
+            spans,
+            &mut spans_idx,
+            &signature,
+            expand_aliases_denylist,
+        );
         if let Some(long_name) = long_name {
             // We found a long flag, like --bar
             error = error.or(err);
@@ -729,7 +758,8 @@ pub fn parse_internal_call(
             for flag in short_flags {
                 if let Some(arg_shape) = flag.arg {
                     if let Some(arg) = spans.get(spans_idx + 1) {
-                        let (arg, err) = parse_value(working_set, *arg, &arg_shape);
+                        let (arg, err) =
+                            parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
                         error = error.or(err);
 
                         call.named.push((
@@ -793,6 +823,7 @@ pub fn parse_internal_call(
                 &spans[..end],
                 &mut spans_idx,
                 &positional.shape,
+                expand_aliases_denylist,
             );
             error = error.or(err);
 
@@ -839,8 +870,8 @@ pub fn parse_internal_call(
 pub fn parse_call(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-    expand_aliases: bool,
     head: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: call");
 
@@ -883,9 +914,9 @@ pub fn parse_call(
             name.extend(name_part);
         }
 
-        if expand_aliases {
-            // If the word is an alias, expand it and re-parse the expression
-            if let Some(alias_id) = working_set.find_alias(&name) {
+        // If the word is an alias, expand it and re-parse the expression
+        if let Some(alias_id) = working_set.find_alias(&name) {
+            if !expand_aliases_denylist.contains(&alias_id) {
                 trace!("expanding alias");
 
                 let expansion = working_set.get_alias(alias_id);
@@ -901,17 +932,15 @@ pub fn parse_call(
                     new_spans.extend(&spans[(pos + 1)..]);
                 }
 
-                let alias_id = working_set.hide_alias(&name);
+                let mut expand_aliases_denylist = expand_aliases_denylist.to_vec();
+                expand_aliases_denylist.push(alias_id);
+
                 let lite_command = LiteCommand {
                     comments: vec![],
                     parts: new_spans.clone(),
                 };
-                let (mut result, err) = parse_builtin_commands(working_set, &lite_command);
-                if let Some(frame) = working_set.delta.scope.last_mut() {
-                    if let Some(alias_id) = alias_id {
-                        frame.aliases.insert(name.clone(), alias_id);
-                    }
-                }
+                let (mut result, err) =
+                    parse_builtin_commands(working_set, &lite_command, &expand_aliases_denylist);
 
                 let mut result = result.expressions.remove(0);
 
@@ -976,6 +1005,7 @@ pub fn parse_call(
             span(&spans[cmd_start..pos]),
             &spans[pos..],
             decl_id,
+            expand_aliases_denylist,
         );
         (
             Expression {
@@ -992,7 +1022,8 @@ pub fn parse_call(
         trace!("parsing: range {:?} ", bytes);
         if let (Some(b'.'), Some(b'.')) = (bytes.get(0), bytes.get(1)) {
             trace!("-- found leading range indicator");
-            let (range_expr, range_err) = parse_range(working_set, spans[0]);
+            let (range_expr, range_err) =
+                parse_range(working_set, spans[0], expand_aliases_denylist);
             if range_err.is_none() {
                 trace!("-- successfully parsed range");
                 return (range_expr, range_err);
@@ -1001,7 +1032,7 @@ pub fn parse_call(
         trace!("parsing: external call");
 
         // Otherwise, try external command
-        parse_external_call(working_set, spans)
+        parse_external_call(working_set, spans, expand_aliases_denylist)
     }
 }
 
@@ -1201,6 +1232,7 @@ pub fn parse_number(token: &[u8], span: Span) -> (Expression, Option<ParseError>
 pub fn parse_range(
     working_set: &mut StateWorkingSet,
     span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: range");
 
@@ -1279,7 +1311,12 @@ pub fn parse_range(
         None
     } else {
         let from_span = Span::new(span.start, span.start + dotdot_pos[0]);
-        match parse_value(working_set, from_span, &SyntaxShape::Number) {
+        match parse_value(
+            working_set,
+            from_span,
+            &SyntaxShape::Number,
+            expand_aliases_denylist,
+        ) {
             (expression, None) => Some(Box::new(expression)),
             _ => {
                 return (
@@ -1294,7 +1331,12 @@ pub fn parse_range(
         None
     } else {
         let to_span = Span::new(range_op_span.end, span.end);
-        match parse_value(working_set, to_span, &SyntaxShape::Number) {
+        match parse_value(
+            working_set,
+            to_span,
+            &SyntaxShape::Number,
+            expand_aliases_denylist,
+        ) {
             (expression, None) => Some(Box::new(expression)),
             _ => {
                 return (
@@ -1321,7 +1363,12 @@ pub fn parse_range(
         let next_op_span = Span::new(span.start + pos, span.start + pos + "..".len());
         let next_span = Span::new(next_op_span.end, range_op_span.start);
 
-        match parse_value(working_set, next_span, &SyntaxShape::Number) {
+        match parse_value(
+            working_set,
+            next_span,
+            &SyntaxShape::Number,
+            expand_aliases_denylist,
+        ) {
             (expression, None) => (Some(Box::new(expression)), next_op_span),
             _ => {
                 return (
@@ -1354,22 +1401,24 @@ pub fn parse_range(
 pub(crate) fn parse_dollar_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: dollar expression");
     let contents = working_set.get_span_contents(span);
 
     if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
-        parse_string_interpolation(working_set, span)
-    } else if let (expr, None) = parse_range(working_set, span) {
+        parse_string_interpolation(working_set, span, expand_aliases_denylist)
+    } else if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
         (expr, None)
     } else {
-        parse_full_cell_path(working_set, None, span)
+        parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
     }
 }
 
 pub fn parse_string_interpolation(
     working_set: &mut StateWorkingSet,
     span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     #[derive(PartialEq, Eq, Debug)]
     enum InterpolationMode {
@@ -1469,7 +1518,8 @@ pub fn parse_string_interpolation(
                             end: b + 1,
                         };
 
-                        let (expr, err) = parse_full_cell_path(working_set, None, span);
+                        let (expr, err) =
+                            parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
                         error = error.or(err);
                         output.push(expr);
                     }
@@ -1515,7 +1565,8 @@ pub fn parse_string_interpolation(
                     end,
                 };
 
-                let (expr, err) = parse_full_cell_path(working_set, None, span);
+                let (expr, err) =
+                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
                 error = error.or(err);
                 output.push(expr);
             }
@@ -1692,6 +1743,7 @@ pub fn parse_full_cell_path(
     working_set: &mut StateWorkingSet,
     implicit_head: Option<VarId>,
     span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let full_cell_span = span;
     let source = working_set.get_span_contents(span);
@@ -1730,7 +1782,7 @@ pub fn parse_full_cell_path(
             let (output, err) = lite_parse(&output);
             error = error.or(err);
 
-            let (output, err) = parse_block(working_set, &output, true);
+            let (output, err) = parse_block(working_set, &output, true, expand_aliases_denylist);
             error = error.or(err);
 
             let block_id = working_set.add_block(output);
@@ -1748,7 +1800,8 @@ pub fn parse_full_cell_path(
         } else if bytes.starts_with(b"[") {
             trace!("parsing: table head of full cell path");
 
-            let (output, err) = parse_table_expression(working_set, head.span);
+            let (output, err) =
+                parse_table_expression(working_set, head.span, expand_aliases_denylist);
             error = error.or(err);
 
             tokens.next();
@@ -1756,7 +1809,7 @@ pub fn parse_full_cell_path(
             (output, true)
         } else if bytes.starts_with(b"{") {
             trace!("parsing: record head of full cell path");
-            let (output, err) = parse_record(working_set, head.span);
+            let (output, err) = parse_record(working_set, head.span, expand_aliases_denylist);
             error = error.or(err);
 
             tokens.next();
@@ -2519,6 +2572,7 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
 pub fn parse_import_pattern(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let mut error = None;
 
@@ -2553,8 +2607,12 @@ pub fn parse_import_pattern(
                 None,
             )
         } else if tail.starts_with(b"[") {
-            let (result, err) =
-                parse_list_expression(working_set, *tail_span, &SyntaxShape::String);
+            let (result, err) = parse_list_expression(
+                working_set,
+                *tail_span,
+                &SyntaxShape::String,
+                expand_aliases_denylist,
+            );
             error = error.or(err);
 
             let mut output = vec![];
@@ -2725,6 +2783,7 @@ pub fn expand_to_cell_path(
     working_set: &mut StateWorkingSet,
     expression: &mut Expression,
     var_id: VarId,
+    expand_aliases_denylist: &[usize],
 ) {
     if let Expression {
         expr: Expr::String(_),
@@ -2733,7 +2792,8 @@ pub fn expand_to_cell_path(
     } = expression
     {
         // Re-parse the string as if it were a cell-path
-        let (new_expression, _err) = parse_full_cell_path(working_set, Some(var_id), *span);
+        let (new_expression, _err) =
+            parse_full_cell_path(working_set, Some(var_id), *span, expand_aliases_denylist);
 
         *expression = new_expression;
     }
@@ -2742,9 +2802,11 @@ pub fn expand_to_cell_path(
 pub fn parse_row_condition(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Unknown);
-    let (expression, err) = parse_math_expression(working_set, spans, Some(var_id));
+    let (expression, err) =
+        parse_math_expression(working_set, spans, Some(var_id), expand_aliases_denylist);
     let span = span(spans);
 
     let block_id = match expression.expr {
@@ -2783,6 +2845,7 @@ pub fn parse_row_condition(
 pub fn parse_signature(
     working_set: &mut StateWorkingSet,
     span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
 
@@ -2810,7 +2873,8 @@ pub fn parse_signature(
         error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span { start: end, end })));
     }
 
-    let (sig, err) = parse_signature_helper(working_set, Span { start, end });
+    let (sig, err) =
+        parse_signature_helper(working_set, Span { start, end }, expand_aliases_denylist);
     error = error.or(err);
 
     (
@@ -2827,6 +2891,7 @@ pub fn parse_signature(
 pub fn parse_signature_helper(
     working_set: &mut StateWorkingSet,
     span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Box<Signature>, Option<ParseError>) {
     #[allow(clippy::enum_variant_names)]
     enum ParseMode {
@@ -3105,8 +3170,12 @@ pub fn parse_signature_helper(
                         }
                         ParseMode::DefaultValueMode => {
                             if let Some(last) = args.last_mut() {
-                                let (expression, err) =
-                                    parse_value(working_set, span, &SyntaxShape::Any);
+                                let (expression, err) = parse_value(
+                                    working_set,
+                                    span,
+                                    &SyntaxShape::Any,
+                                    expand_aliases_denylist,
+                                );
                                 error = error.or(err);
 
                                 //TODO check if we're replacing a custom parameter already
@@ -3279,6 +3348,7 @@ pub fn parse_list_expression(
     working_set: &mut StateWorkingSet,
     span: Span,
     element_shape: &SyntaxShape,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
 
@@ -3314,8 +3384,13 @@ pub fn parse_list_expression(
             let mut spans_idx = 0;
 
             while spans_idx < arg.parts.len() {
-                let (arg, err) =
-                    parse_multispan_value(working_set, &arg.parts, &mut spans_idx, element_shape);
+                let (arg, err) = parse_multispan_value(
+                    working_set,
+                    &arg.parts,
+                    &mut spans_idx,
+                    element_shape,
+                    expand_aliases_denylist,
+                );
                 error = error.or(err);
 
                 if let Some(ref ctype) = contained_type {
@@ -3351,6 +3426,7 @@ pub fn parse_list_expression(
 pub fn parse_table_expression(
     working_set: &mut StateWorkingSet,
     original_span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(original_span);
     let mut error = None;
@@ -3389,7 +3465,12 @@ pub fn parse_table_expression(
         ),
         1 => {
             // List
-            parse_list_expression(working_set, original_span, &SyntaxShape::Any)
+            parse_list_expression(
+                working_set,
+                original_span,
+                &SyntaxShape::Any,
+                expand_aliases_denylist,
+            )
         }
         _ => {
             let mut table_headers = vec![];
@@ -3398,6 +3479,7 @@ pub fn parse_table_expression(
                 working_set,
                 output.block[0].commands[0].parts[0],
                 &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                expand_aliases_denylist,
             );
             error = error.or(err);
 
@@ -3415,6 +3497,7 @@ pub fn parse_table_expression(
                     working_set,
                     *part,
                     &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                    expand_aliases_denylist,
                 );
                 error = error.or(err);
                 if let Expression {
@@ -3460,6 +3543,7 @@ pub fn parse_block_expression(
     working_set: &mut StateWorkingSet,
     shape: &SyntaxShape,
     span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: block expression");
 
@@ -3526,7 +3610,8 @@ pub fn parse_block_expression(
                 start: start_point,
                 end: end_point,
             };
-            let (signature, err) = parse_signature_helper(working_set, signature_span);
+            let (signature, err) =
+                parse_signature_helper(working_set, signature_span, expand_aliases_denylist);
             error = error.or(err);
 
             (Some((signature, signature_span)), amt_to_skip)
@@ -3584,7 +3669,7 @@ pub fn parse_block_expression(
         }
     }
 
-    let (mut output, err) = parse_block(working_set, &output, false);
+    let (mut output, err) = parse_block(working_set, &output, false, expand_aliases_denylist);
     error = error.or(err);
 
     if let Some(signature) = signature {
@@ -3626,6 +3711,7 @@ pub fn parse_value(
     working_set: &mut StateWorkingSet,
     span: Span,
     shape: &SyntaxShape,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
 
@@ -3699,24 +3785,26 @@ pub fn parse_value(
     }
 
     match bytes[0] {
-        b'$' => return parse_dollar_expr(working_set, span),
+        b'$' => return parse_dollar_expr(working_set, span, expand_aliases_denylist),
         b'(' => {
-            if let (expr, None) = parse_range(working_set, span) {
+            if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
                 return (expr, None);
             } else {
-                return parse_full_cell_path(working_set, None, span);
+                return parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
             }
         }
         b'{' => {
             if !matches!(shape, SyntaxShape::Block(..)) {
-                if let (expr, None) = parse_full_cell_path(working_set, None, span) {
+                if let (expr, None) =
+                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
+                {
                     return (expr, None);
                 }
             }
             if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
-                return parse_block_expression(working_set, shape, span);
+                return parse_block_expression(working_set, shape, span, expand_aliases_denylist);
             } else if matches!(shape, SyntaxShape::Record) {
-                return parse_record(working_set, span);
+                return parse_record(working_set, span, expand_aliases_denylist);
             } else {
                 return (
                     Expression::garbage(span),
@@ -3741,7 +3829,8 @@ pub fn parse_value(
 
     match shape {
         SyntaxShape::Custom(shape, custom_completion) => {
-            let (mut expression, err) = parse_value(working_set, span, shape);
+            let (mut expression, err) =
+                parse_value(working_set, span, shape, expand_aliases_denylist);
             expression.custom_completion = Some(*custom_completion);
             (expression, err)
         }
@@ -3750,14 +3839,14 @@ pub fn parse_value(
         SyntaxShape::Duration => parse_duration(working_set, span),
         SyntaxShape::DateTime => parse_datetime(working_set, span),
         SyntaxShape::Filesize => parse_filesize(working_set, span),
-        SyntaxShape::Range => parse_range(working_set, span),
+        SyntaxShape::Range => parse_range(working_set, span, expand_aliases_denylist),
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
         SyntaxShape::Signature => {
             if bytes.starts_with(b"[") {
-                parse_signature(working_set, span)
+                parse_signature(working_set, span, expand_aliases_denylist)
             } else {
                 (
                     Expression::garbage(span),
@@ -3767,7 +3856,7 @@ pub fn parse_value(
         }
         SyntaxShape::List(elem) => {
             if bytes.starts_with(b"[") {
-                parse_list_expression(working_set, span, elem)
+                parse_list_expression(working_set, span, elem, expand_aliases_denylist)
             } else {
                 (
                     Expression::garbage(span),
@@ -3777,7 +3866,7 @@ pub fn parse_value(
         }
         SyntaxShape::Table => {
             if bytes.starts_with(b"[") {
-                parse_table_expression(working_set, span)
+                parse_table_expression(working_set, span, expand_aliases_denylist)
             } else {
                 (
                     Expression::garbage(span),
@@ -3829,7 +3918,7 @@ pub fn parse_value(
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
                 //parse_value(working_set, span, &SyntaxShape::Table)
-                parse_full_cell_path(working_set, None, span)
+                parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
             } else {
                 let shapes = [
                     SyntaxShape::Binary,
@@ -3844,7 +3933,9 @@ pub fn parse_value(
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
-                    if let (s, None) = parse_value(working_set, span, shape) {
+                    if let (s, None) =
+                        parse_value(working_set, span, shape, expand_aliases_denylist)
+                    {
                         return (s, None);
                     }
                 }
@@ -3906,6 +3997,7 @@ pub fn parse_math_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     lhs_row_var_id: Option<VarId>,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     // As the expr_stack grows, we increase the required precedence to grow larger
     // If, at any time, the operator we're looking at is the same or lower precedence
@@ -3923,7 +4015,12 @@ pub fn parse_math_expression(
     let mut last_prec = 1000000;
 
     let mut error = None;
-    let (lhs, err) = parse_value(working_set, spans[0], &SyntaxShape::Any);
+    let (lhs, err) = parse_value(
+        working_set,
+        spans[0],
+        &SyntaxShape::Any,
+        expand_aliases_denylist,
+    );
     error = error.or(err);
     idx += 1;
 
@@ -3947,7 +4044,12 @@ pub fn parse_math_expression(
             break;
         }
 
-        let (rhs, err) = parse_value(working_set, spans[idx], &SyntaxShape::Any);
+        let (rhs, err) = parse_value(
+            working_set,
+            spans[idx],
+            &SyntaxShape::Any,
+            expand_aliases_denylist,
+        );
         error = error.or(err);
 
         if op_prec <= last_prec && expr_stack.len() > 1 {
@@ -3965,7 +4067,7 @@ pub fn parse_math_expression(
                 .expect("internal error: expression stack empty");
 
             if let Some(row_var_id) = lhs_row_var_id {
-                expand_to_cell_path(working_set, &mut lhs, row_var_id);
+                expand_to_cell_path(working_set, &mut lhs, row_var_id, expand_aliases_denylist);
             }
 
             let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
@@ -3999,7 +4101,7 @@ pub fn parse_math_expression(
             .expect("internal error: expression stack empty");
 
         if let Some(row_var_id) = lhs_row_var_id {
-            expand_to_cell_path(working_set, &mut lhs, row_var_id);
+            expand_to_cell_path(working_set, &mut lhs, row_var_id, expand_aliases_denylist);
         }
 
         let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
@@ -4024,7 +4126,7 @@ pub fn parse_math_expression(
 pub fn parse_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-    expand_aliases: bool,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let mut pos = 0;
     let mut shorthand = vec![];
@@ -4092,56 +4194,110 @@ pub fn parse_expression(
             .iter()
             .any(|x| x == bytes)
     {
-        parse_math_expression(working_set, &spans[pos..], None)
+        parse_math_expression(working_set, &spans[pos..], None, expand_aliases_denylist)
     } else {
         // For now, check for special parses of certain keywords
         match bytes {
             b"def" => (
-                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
                 Some(ParseError::BuiltinCommandInPipeline("def".into(), spans[0])),
             ),
             b"extern" => (
-                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
                 Some(ParseError::BuiltinCommandInPipeline(
                     "extern".into(),
                     spans[0],
                 )),
             ),
             b"let" => (
-                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
                 Some(ParseError::BuiltinCommandInPipeline("let".into(), spans[0])),
             ),
             b"alias" => (
-                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
                 Some(ParseError::BuiltinCommandInPipeline(
                     "alias".into(),
                     spans[0],
                 )),
             ),
             b"module" => (
-                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
                 Some(ParseError::BuiltinCommandInPipeline(
                     "module".into(),
                     spans[0],
                 )),
             ),
             b"use" => (
-                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
                 Some(ParseError::BuiltinCommandInPipeline("use".into(), spans[0])),
             ),
             b"source" => (
-                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
                 Some(ParseError::BuiltinCommandInPipeline(
                     "source".into(),
                     spans[0],
                 )),
             ),
             b"export" => (
-                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
                 Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),
             ),
             b"hide" => (
-                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
                 Some(ParseError::BuiltinCommandInPipeline(
                     "hide".into(),
                     spans[0],
@@ -4149,15 +4305,26 @@ pub fn parse_expression(
             ),
             #[cfg(feature = "plugin")]
             b"register" => (
-                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
                 Some(ParseError::BuiltinCommandInPipeline(
                     "plugin".into(),
                     spans[0],
                 )),
             ),
 
-            b"for" => parse_for(working_set, spans),
-            _ => parse_call(working_set, &spans[pos..], expand_aliases, spans[0]),
+            b"for" => parse_for(working_set, spans, expand_aliases_denylist),
+            _ => parse_call(
+                working_set,
+                &spans[pos..],
+                spans[0],
+                expand_aliases_denylist,
+            ),
         }
     };
 
@@ -4240,21 +4407,22 @@ pub fn parse_variable(
 pub fn parse_builtin_commands(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" | b"def-env" => parse_def(working_set, lite_command),
-        b"extern" => parse_extern(working_set, lite_command),
-        b"let" => parse_let(working_set, &lite_command.parts),
+        b"def" | b"def-env" => parse_def(working_set, lite_command, expand_aliases_denylist),
+        b"extern" => parse_extern(working_set, lite_command, expand_aliases_denylist),
+        b"let" => parse_let(working_set, &lite_command.parts, expand_aliases_denylist),
         b"for" => {
-            let (expr, err) = parse_for(working_set, &lite_command.parts);
+            let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
             (Pipeline::from_vec(vec![expr]), err)
         }
-        b"alias" => parse_alias(working_set, &lite_command.parts),
-        b"module" => parse_module(working_set, &lite_command.parts),
-        b"use" => parse_use(working_set, &lite_command.parts),
-        b"source" => parse_source(working_set, &lite_command.parts),
+        b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"use" => parse_use(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => (
             garbage_pipeline(&lite_command.parts),
             Some(ParseError::UnexpectedKeyword(
@@ -4262,11 +4430,12 @@ pub fn parse_builtin_commands(
                 lite_command.parts[0],
             )),
         ),
-        b"hide" => parse_hide(working_set, &lite_command.parts),
+        b"hide" => parse_hide(working_set, &lite_command.parts, expand_aliases_denylist),
         #[cfg(feature = "plugin")]
-        b"register" => parse_register(working_set, &lite_command.parts),
+        b"register" => parse_register(working_set, &lite_command.parts, expand_aliases_denylist),
         _ => {
-            let (expr, err) = parse_expression(working_set, &lite_command.parts, true);
+            let (expr, err) =
+                parse_expression(working_set, &lite_command.parts, expand_aliases_denylist);
             (Pipeline::from_vec(vec![expr]), err)
         }
     }
@@ -4275,6 +4444,7 @@ pub fn parse_builtin_commands(
 pub fn parse_record(
     working_set: &mut StateWorkingSet,
     span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
 
@@ -4312,7 +4482,12 @@ pub fn parse_record(
     let mut idx = 0;
 
     while idx < tokens.len() {
-        let (field, err) = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+        let (field, err) = parse_value(
+            working_set,
+            tokens[idx].span,
+            &SyntaxShape::Any,
+            expand_aliases_denylist,
+        );
         error = error.or(err);
 
         idx += 1;
@@ -4331,7 +4506,12 @@ pub fn parse_record(
                 Some(ParseError::Expected("record".into(), span)),
             );
         }
-        let (value, err) = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+        let (value, err) = parse_value(
+            working_set,
+            tokens[idx].span,
+            &SyntaxShape::Any,
+            expand_aliases_denylist,
+        );
         error = error.or(err);
         idx += 1;
 
@@ -4353,6 +4533,7 @@ pub fn parse_block(
     working_set: &mut StateWorkingSet,
     lite_block: &LiteBlock,
     scoped: bool,
+    expand_aliases_denylist: &[usize],
 ) -> (Block, Option<ParseError>) {
     trace!("parsing block: {:?}", lite_block);
 
@@ -4366,7 +4547,11 @@ pub fn parse_block(
     // that share the same block can see each other
     for pipeline in &lite_block.block {
         if pipeline.commands.len() == 1 {
-            if let Some(err) = parse_def_predecl(working_set, &pipeline.commands[0].parts) {
+            if let Some(err) = parse_def_predecl(
+                working_set,
+                &pipeline.commands[0].parts,
+                expand_aliases_denylist,
+            ) {
                 error = error.or(Some(err));
             }
         }
@@ -4382,7 +4567,8 @@ pub fn parse_block(
                     .commands
                     .iter()
                     .map(|command| {
-                        let (expr, err) = parse_expression(working_set, &command.parts, true);
+                        let (expr, err) =
+                            parse_expression(working_set, &command.parts, expand_aliases_denylist);
 
                         if error.is_none() {
                             error = err;
@@ -4402,8 +4588,11 @@ pub fn parse_block(
                     expressions: output,
                 }
             } else {
-                let (mut pipeline, err) =
-                    parse_builtin_commands(working_set, &pipeline.commands[0]);
+                let (mut pipeline, err) = parse_builtin_commands(
+                    working_set,
+                    &pipeline.commands[0],
+                    expand_aliases_denylist,
+                );
 
                 if idx == 0 {
                     if let Some(let_decl_id) = working_set.find_decl(b"let") {
@@ -4776,6 +4965,7 @@ pub fn parse(
     fname: Option<&str>,
     contents: &[u8],
     scoped: bool,
+    expand_aliases_denylist: &[usize],
 ) -> (Block, Option<ParseError>) {
     trace!("starting top-level parse");
 
@@ -4796,7 +4986,7 @@ pub fn parse(
     let (output, err) = lite_parse(&output);
     error = error.or(err);
 
-    let (mut output, err) = parse_block(working_set, &output, scoped);
+    let (mut output, err) = parse_block(working_set, &output, scoped, expand_aliases_denylist);
     error = error.or(err);
 
     let mut seen = vec![];

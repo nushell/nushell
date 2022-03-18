@@ -104,7 +104,7 @@ fn get_prompt_string(
             }
             Value::String { val: source, .. } => {
                 let mut working_set = StateWorkingSet::new(engine_state);
-                let (block, _) = parse(&mut working_set, None, source.as_bytes(), true);
+                let (block, _) = parse(&mut working_set, None, source.as_bytes(), true, &[]);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
                 let ret_val = eval_subexpression(
                     engine_state,

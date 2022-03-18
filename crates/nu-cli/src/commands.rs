@@ -31,7 +31,7 @@ pub fn evaluate_commands(
             (commands.item.as_bytes(), commands.span.start)
         };
 
-        let (output, err) = parse(&mut working_set, None, input, false);
+        let (output, err) = parse(&mut working_set, None, input, false, &[]);
         if let Some(err) = err {
             report_error(&working_set, &err);
 

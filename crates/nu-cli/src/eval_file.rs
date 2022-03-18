@@ -36,7 +36,7 @@ pub fn evaluate_file(
     let mut working_set = StateWorkingSet::new(engine_state);
     trace!("parsing file: {}", path);
 
-    let _ = parse(&mut working_set, Some(&path), &file, false);
+    let _ = parse(&mut working_set, Some(&path), &file, false, &[]);
 
     if working_set.find_decl(b"main").is_some() {
         let args = format!("main {}", args.join(" "));

@@ -279,7 +279,13 @@ fn parse_commandline_args(
         let mut working_set = StateWorkingSet::new(engine_state);
         working_set.add_decl(Box::new(Nu));
 
-        let (output, err) = parse(&mut working_set, None, commandline_args.as_bytes(), false);
+        let (output, err) = parse(
+            &mut working_set,
+            None,
+            commandline_args.as_bytes(),
+            false,
+            &[],
+        );
         if let Some(err) = err {
             report_error(&working_set, &err);
 
