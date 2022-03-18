@@ -127,7 +127,9 @@ fn sources_unicode_file_in_unicode_dir_without_spaces_2() {
 #[ignore]
 #[test]
 fn sources_unicode_file_in_unicode_dir_with_spaces_1() {
+    // this one fails
     try_source_foo_with_single_quotes_in("e-$ èрт🚒♞中片-j", "source_test_8");
+    // this one passes
     try_source_foo_with_double_quotes_in("e-$ èрт🚒♞中片-j", "source_test_9");
 }
 

@@ -43,8 +43,6 @@ fn by_invalid_column() {
     assert!(actual.err.contains("value originates here"));
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn by_invalid_types() {
     let actual = nu!(
@@ -53,7 +51,7 @@ fn by_invalid_types() {
             open cargo_sample.toml --raw
             | echo ["foo" 1]
             | sort-by
-            | json -r
+            | to json -r
         "#
     ));
 
