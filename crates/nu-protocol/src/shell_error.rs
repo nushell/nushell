@@ -133,11 +133,11 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
 
     #[error("Row number too large (max: {0}).")]
     #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
-    AccessBeyondEnd(usize, #[label = "too large"] Span),
+    AccessBeyondEnd(usize, #[label = "index too large (max: {0})"] Span),
 
     #[error("Row number too large.")]
     #[diagnostic(code(nu::shell::access_beyond_end_of_stream), url(docsrs))]
-    AccessBeyondEndOfStream(#[label = "too large"] Span),
+    AccessBeyondEndOfStream(#[label = "index too large"] Span),
 
     #[error("Data cannot be accessed with a cell path")]
     #[diagnostic(code(nu::shell::incompatible_path_access), url(docsrs))]
