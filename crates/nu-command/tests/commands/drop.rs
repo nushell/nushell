@@ -16,8 +16,6 @@ fn columns() {
     assert_eq!(actual.out, "1");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn more_columns_than_table_has() {
     let actual = nu!(
