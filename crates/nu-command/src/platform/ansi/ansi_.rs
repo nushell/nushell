@@ -419,13 +419,25 @@ fn generate_ansi_code_list(
 ) -> Result<nu_protocol::PipelineData, ShellError> {
     return Ok(CODE_LIST
         .iter()
-        .map(move |ansi_code| {
-            let cols = vec!["name".into(), "short name".into(), "code".into()];
+        .enumerate()
+        .map(move |(i, ansi_code)| {
+            let cols = vec![
+                "name".into(),
+                "color".into(),
+                "short name".into(),
+                "code".into(),
+            ];
             let name: Value = Value::string(String::from(ansi_code.long_name), call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
+            // The first 96 items in the ansi array are colors
+            let color = if i < 96 {
+                Value::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
+            } else {
+                Value::string("\u{1b}[0m", call_span)
+            };
             let code_string = String::from(&ansi_code.code.replace('\u{1b}', ""));
             let code = Value::string(code_string, call_span);
-            let vals = vec![name, short_name, code];
+            let vals = vec![name, color, short_name, code];
             Value::Record {
                 cols,
                 vals,
