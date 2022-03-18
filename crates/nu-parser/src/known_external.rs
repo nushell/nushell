@@ -51,7 +51,7 @@ impl Command for KnownExternal {
 
         let spans: Vec<_> = lexed.into_iter().map(|x| x.span).collect();
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let (external_call, _) = crate::parse_external_call(&mut working_set, &spans);
+        let (external_call, _) = crate::parse_external_call(&mut working_set, &spans, &[]);
         let delta = working_set.render();
         engine_state.merge_delta(delta, None, ".")?;
 

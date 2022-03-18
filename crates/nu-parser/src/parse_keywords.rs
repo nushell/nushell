@@ -26,7 +26,11 @@ use crate::{
     ParseError,
 };
 
-pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<ParseError> {
+pub fn parse_def_predecl(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> Option<ParseError> {
     let name = working_set.get_span_contents(spans[0]);
 
     // handle "export def" same as "def"
@@ -47,7 +51,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> O
         // The second time is when we actually parse the body itworking_set.
         // We can't reuse the first time because the variables that are created during parse_signature
         // are lost when we exit the scope below.
-        let (sig, ..) = parse_signature(working_set, spans[2]);
+        let (sig, ..) = parse_signature(working_set, spans[2], expand_aliases_denylist);
         let signature = sig.as_signature();
         working_set.exit_scope();
 
@@ -70,7 +74,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> O
         // The second time is when we actually parse the body itworking_set.
         // We can't reuse the first time because the variables that are created during parse_signature
         // are lost when we exit the scope below.
-        let (sig, ..) = parse_signature(working_set, spans[2]);
+        let (sig, ..) = parse_signature(working_set, spans[2], expand_aliases_denylist);
         let signature = sig.as_signature();
         working_set.exit_scope();
 
@@ -95,6 +99,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> O
 pub fn parse_for(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -123,7 +128,13 @@ pub fn parse_for(
         }
         Some(decl_id) => {
             working_set.enter_scope();
-            let (call, mut err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, mut err) = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
             working_set.exit_scope();
 
             let call_span = span(spans);
@@ -251,6 +262,7 @@ fn build_usage(working_set: &StateWorkingSet, spans: &[Span]) -> String {
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let spans = &lite_command.parts[..];
 
@@ -285,7 +297,13 @@ pub fn parse_def(
         }
         Some(decl_id) => {
             working_set.enter_scope();
-            let (call, mut err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, mut err) = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
             working_set.exit_scope();
 
             let call_span = span(spans);
@@ -385,6 +403,7 @@ pub fn parse_def(
 pub fn parse_extern(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let spans = &lite_command.parts[..];
     let mut error = None;
@@ -420,7 +439,13 @@ pub fn parse_extern(
         }
         Some(decl_id) => {
             working_set.enter_scope();
-            let (call, err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, err) = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
             working_set.exit_scope();
 
             error = error.or(err);
@@ -486,6 +511,7 @@ pub fn parse_extern(
 pub fn parse_alias(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let name = working_set.get_span_contents(spans[0]);
 
@@ -495,7 +521,13 @@ pub fn parse_alias(
         }
 
         if let Some(decl_id) = working_set.find_decl(b"alias") {
-            let (call, _) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, _) = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
 
             if spans.len() >= 4 {
                 let alias_name = working_set.get_span_contents(spans[1]);
@@ -539,6 +571,7 @@ pub fn parse_alias(
 pub fn parse_export(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<Exportable>, Option<ParseError>) {
     let spans = &lite_command.parts[..];
     let mut error = None;
@@ -597,7 +630,8 @@ pub fn parse_export(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let (pipeline, err) = parse_def(working_set, &lite_command);
+                let (pipeline, err) =
+                    parse_def(working_set, &lite_command, expand_aliases_denylist);
                 error = error.or(err);
 
                 let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def") {
@@ -655,7 +689,8 @@ pub fn parse_export(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let (pipeline, err) = parse_def(working_set, &lite_command);
+                let (pipeline, err) =
+                    parse_def(working_set, &lite_command, expand_aliases_denylist);
                 error = error.or(err);
 
                 let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def-env")
@@ -738,6 +773,7 @@ pub fn parse_export(
                             working_set,
                             &SyntaxShape::Block(None),
                             *block_span,
+                            expand_aliases_denylist,
                         );
                         error = error.or(err);
 
@@ -835,6 +871,7 @@ pub fn parse_export(
 pub fn parse_module_block(
     working_set: &mut StateWorkingSet,
     span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Block, Overlay, Option<ParseError>) {
     let mut error = None;
 
@@ -851,7 +888,11 @@ pub fn parse_module_block(
     for pipeline in &output.block {
         // TODO: Should we add export env predecls as well?
         if pipeline.commands.len() == 1 {
-            parse_def_predecl(working_set, &pipeline.commands[0].parts);
+            parse_def_predecl(
+                working_set,
+                &pipeline.commands[0].parts,
+                expand_aliases_denylist,
+            );
         }
     }
 
@@ -866,12 +907,17 @@ pub fn parse_module_block(
 
                 let (pipeline, err) = match name {
                     b"def" | b"def-env" => {
-                        let (pipeline, err) = parse_def(working_set, &pipeline.commands[0]);
+                        let (pipeline, err) =
+                            parse_def(working_set, &pipeline.commands[0], expand_aliases_denylist);
 
                         (pipeline, err)
                     }
                     b"extern" => {
-                        let (pipeline, err) = parse_extern(working_set, &pipeline.commands[0]);
+                        let (pipeline, err) = parse_extern(
+                            working_set,
+                            &pipeline.commands[0],
+                            expand_aliases_denylist,
+                        );
 
                         (pipeline, err)
                     }
@@ -884,8 +930,11 @@ pub fn parse_module_block(
                     // will work only if you call `use foo *; b` but not with `use foo; foo b`
                     // since in the second case, the name of the env var would be $env."foo a".
                     b"export" => {
-                        let (pipe, exportable, err) =
-                            parse_export(working_set, &pipeline.commands[0]);
+                        let (pipe, exportable, err) = parse_export(
+                            working_set,
+                            &pipeline.commands[0],
+                            expand_aliases_denylist,
+                        );
 
                         if err.is_none() {
                             let name_span = pipeline.commands[0].parts[2];
@@ -934,6 +983,7 @@ pub fn parse_module_block(
 pub fn parse_module(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     // TODO: Currently, module is closing over its parent scope (i.e., defs in the parent scope are
     // visible and usable in this module's scope). We want to disable that for files.
@@ -972,7 +1022,8 @@ pub fn parse_module(
 
         let block_span = Span { start, end };
 
-        let (block, overlay, err) = parse_module_block(working_set, block_span);
+        let (block, overlay, err) =
+            parse_module_block(working_set, block_span, expand_aliases_denylist);
         error = error.or(err);
 
         let block_id = working_set.add_block(block);
@@ -1021,6 +1072,7 @@ pub fn parse_module(
 pub fn parse_use(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     if working_set.get_span_contents(spans[0]) != b"use" {
         return (
@@ -1034,7 +1086,13 @@ pub fn parse_use(
 
     let (call, call_span, use_decl_id) = match working_set.find_decl(b"use") {
         Some(decl_id) => {
-            let (call, mut err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, mut err) = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
             let decl = working_set.get_decl(decl_id);
 
             let call_span = span(spans);
@@ -1124,8 +1182,11 @@ pub fn parse_use(
                         working_set.add_file(module_filename, &contents);
                         let span_end = working_set.next_span_start();
 
-                        let (block, overlay, err) =
-                            parse_module_block(working_set, Span::new(span_start, span_end));
+                        let (block, overlay, err) = parse_module_block(
+                            working_set,
+                            Span::new(span_start, span_end),
+                            expand_aliases_denylist,
+                        );
                         error = error.or(err);
 
                         let _ = working_set.add_block(block);
@@ -1230,6 +1291,7 @@ pub fn parse_use(
 pub fn parse_hide(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     if working_set.get_span_contents(spans[0]) != b"hide" {
         return (
@@ -1243,7 +1305,13 @@ pub fn parse_hide(
 
     let (call, call_span, hide_decl_id) = match working_set.find_decl(b"hide") {
         Some(decl_id) => {
-            let (call, mut err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, mut err) = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
             let decl = working_set.get_decl(decl_id);
 
             let call_span = span(spans);
@@ -1440,6 +1508,7 @@ pub fn parse_hide(
 pub fn parse_let(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let name = working_set.get_span_contents(spans[0]);
 
@@ -1466,6 +1535,7 @@ pub fn parse_let(
                             spans,
                             &mut idx,
                             &SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                            expand_aliases_denylist,
                         );
                         error = error.or(err);
 
@@ -1512,7 +1582,13 @@ pub fn parse_let(
                     }
                 }
             }
-            let (call, err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, err) = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
 
             return (
                 Pipeline {
@@ -1539,6 +1615,7 @@ pub fn parse_let(
 pub fn parse_source(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let mut error = None;
     let name = working_set.get_span_contents(spans[0]);
@@ -1548,7 +1625,13 @@ pub fn parse_source(
             let cwd = working_set.get_cwd();
             // Is this the right call to be using here?
             // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
-            let (call, err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, err) = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
             error = error.or(err);
 
             if error.is_some() || call.has_flag("help") {
@@ -1577,6 +1660,7 @@ pub fn parse_source(
                                 path.file_name().and_then(|x| x.to_str()),
                                 &contents,
                                 false,
+                                expand_aliases_denylist,
                             );
 
                             if err.is_some() {
@@ -1648,6 +1732,7 @@ pub fn parse_source(
 pub fn parse_register(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     use nu_plugin::{get_signature, EncodingType, PluginDeclaration};
     use nu_protocol::Signature;
@@ -1679,7 +1764,13 @@ pub fn parse_register(
             )
         }
         Some(decl_id) => {
-            let (call, mut err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, mut err) = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
             let decl = working_set.get_decl(decl_id);
 
             let call_span = span(spans);

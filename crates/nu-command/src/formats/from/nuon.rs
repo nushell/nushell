@@ -89,7 +89,7 @@ impl Command for FromNuon {
         let (lite_block, err) = nu_parser::lite_parse(&lexed);
         error = error.or(err);
 
-        let (mut block, err) = nu_parser::parse_block(&mut working_set, &lite_block, true);
+        let (mut block, err) = nu_parser::parse_block(&mut working_set, &lite_block, true, &[]);
         error = error.or(err);
 
         if let Some(pipeline) = block.pipelines.get(1) {

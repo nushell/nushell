@@ -287,6 +287,7 @@ pub fn eval_source(
             Some(fname), // format!("entry #{}", entry_num)
             source,
             false,
+            &[],
         );
         if let Some(err) = err {
             report_error(&working_set, &err);

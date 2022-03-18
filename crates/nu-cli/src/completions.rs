@@ -206,7 +206,13 @@ impl NuCompleter {
         let mut line = line.to_string();
         line.insert(pos, 'a');
         let pos = offset + pos;
-        let (output, _err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
+        let (output, _err) = parse(
+            &mut working_set,
+            Some("completer"),
+            line.as_bytes(),
+            false,
+            &[],
+        );
 
         for pipeline in output.pipelines.into_iter() {
             for expr in pipeline.expressions {

@@ -582,6 +582,17 @@ fn block_params_override() {
 }
 
 #[test]
+fn alias_reuse() {
+    let actual = nu!(
+        cwd: ".",
+        r#"alias foo = echo bob; foo; foo"#
+    );
+
+    assert!(actual.out.contains("bob"));
+    assert!(actual.err.is_empty());
+}
+
+#[test]
 fn block_params_override_correct() {
     let actual = nu!(
         cwd: ".",

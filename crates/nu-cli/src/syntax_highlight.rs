@@ -17,7 +17,7 @@ impl Highlighter for NuHighlighter {
 
         let (shapes, global_span_offset) = {
             let mut working_set = StateWorkingSet::new(&self.engine_state);
-            let (block, _) = parse(&mut working_set, None, line.as_bytes(), false);
+            let (block, _) = parse(&mut working_set, None, line.as_bytes(), false, &[]);
 
             let shapes = flatten_block(&working_set, &block);
             (shapes, self.engine_state.next_span_start())

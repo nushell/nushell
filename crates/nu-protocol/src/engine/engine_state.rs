@@ -844,10 +844,44 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
+    pub fn use_alias(&mut self, alias_id: &AliasId) {
+        let mut visibility: Visibility = Visibility::new();
+
+        // Since we can mutate scope frames in delta, remove the id directly
+        for scope in self.delta.scope.iter_mut().rev() {
+            visibility.append(&scope.visibility);
+
+            if !visibility.is_alias_id_visible(alias_id) {
+                // Hide alias only if it's not already hidden
+                scope.visibility.use_alias_id(alias_id);
+
+                return;
+            }
+        }
+
+        // We cannot mutate the permanent state => store the information in the current scope frame
+        let last_scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            visibility.append(&scope.visibility);
+
+            if !visibility.is_alias_id_visible(alias_id) {
+                // Hide alias only if it's not already hidden
+                last_scope_frame.visibility.use_alias_id(alias_id);
+
+                return;
+            }
+        }
+    }
+
     pub fn hide_alias(&mut self, name: &[u8]) -> Option<AliasId> {
         let mut visibility: Visibility = Visibility::new();
 
-        // // Since we can mutate scope frames in delta, remove the id directly
+        // Since we can mutate scope frames in delta, remove the id directly
         for scope in self.delta.scope.iter_mut().rev() {
             visibility.append(&scope.visibility);
 
