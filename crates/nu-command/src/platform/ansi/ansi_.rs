@@ -309,9 +309,10 @@ Format: #
         let list: bool = call.has_flag("list");
         let escape: bool = call.has_flag("escape");
         let osc: bool = call.has_flag("osc");
+        let use_ansi_coloring = stack.get_config()?.use_ansi_coloring;
 
         if list {
-            return generate_ansi_code_list(engine_state, call.head);
+            return generate_ansi_code_list(engine_state, call.head, use_ansi_coloring);
         }
 
         // The code can now be one of the ansi abbreviations like green_bold
@@ -416,28 +417,37 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
 fn generate_ansi_code_list(
     engine_state: &nu_protocol::engine::EngineState,
     call_span: Span,
+    use_ansi_coloring: bool,
 ) -> Result<nu_protocol::PipelineData, ShellError> {
     return Ok(CODE_LIST
         .iter()
         .enumerate()
         .map(move |(i, ansi_code)| {
-            let cols = vec![
-                "name".into(),
-                "color".into(),
-                "short name".into(),
-                "code".into(),
-            ];
+            let cols = if use_ansi_coloring {
+                vec![
+                    "name".into(),
+                    "preview".into(),
+                    "short name".into(),
+                    "code".into(),
+                ]
+            } else {
+                vec!["name".into(), "short name".into(), "code".into()]
+            };
             let name: Value = Value::string(String::from(ansi_code.long_name), call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
             // The first 96 items in the ansi array are colors
-            let color = if i < 96 {
+            let preview = if i < 96 {
                 Value::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
             } else {
                 Value::string("\u{1b}[0m", call_span)
             };
             let code_string = String::from(&ansi_code.code.replace('\u{1b}', ""));
             let code = Value::string(code_string, call_span);
-            let vals = vec![name, color, short_name, code];
+            let vals = if use_ansi_coloring {
+                vec![name, preview, short_name, code]
+            } else {
+                vec![name, short_name, code]
+            };
             Value::Record {
                 cols,
                 vals,
