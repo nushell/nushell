@@ -71,3 +71,27 @@ fn upsert_column_missing() {
 
     assert!(actual.err.contains("cannot find column"));
 }
+
+#[test]
+fn update_list() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            [1, 2, 3] | update 1 abc | to json -r
+        "#
+    ));
+
+    assert_eq!(actual.out, r#"[1,"abc",3]"#);
+}
+
+#[test]
+fn update_past_end_list() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            [1, 2, 3] | update 5 abc | to json -r
+        "#
+    ));
+
+    assert!(actual.err.contains("too large"));
+}
