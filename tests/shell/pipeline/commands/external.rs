@@ -83,8 +83,13 @@ fn execute_binary_in_string() {
     assert_eq!(actual.out, "$0");
 }
 
-//FIXME: jt - this is blocked on https://github.com/nushell/engine-q/issues/875
-#[ignore]
+#[test]
+fn single_quote_dollar_external() {
+    let actual = nu!(cwd: ".", r#"let author = 'JT'; ^echo $'foo=($author)'"#);
+
+    assert_eq!(actual.out, "foo=JT");
+}
+
 #[test]
 fn redirects_custom_command_external() {
     let actual = nu!(cwd: ".", r#"def foo [] { nu --testbin cococo foo bar }; foo | str length"#);

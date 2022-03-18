@@ -263,7 +263,11 @@ pub fn parse_external_call(
         let contents = working_set.get_span_contents(*span);
 
         if contents.starts_with(b"$") || contents.starts_with(b"(") {
-            let (arg, err) = parse_expression(working_set, &[*span], true);
+            let (arg, err) = parse_dollar_expr(working_set, *span);
+            error = error.or(err);
+            args.push(arg);
+        } else if contents.starts_with(b"(") {
+            let (arg, err) = parse_full_cell_path(working_set, None, *span);
             error = error.or(err);
             args.push(arg);
         } else {
