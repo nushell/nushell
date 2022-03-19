@@ -103,7 +103,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert boolean to string",
-                example: "$true | into string",
+                example: "true | into string",
                 result: Some(Value::String {
                     val: "true".to_string(),
                     span: Span::test_data(),
@@ -150,7 +150,15 @@ fn string_helper(
     }
 
     match input {
-        PipelineData::RawStream(stream, ..) => {
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::String {
+            val: String::new(),
+            span: head,
+        }
+        .into_pipeline_data()),
+        PipelineData::ExternalStream {
+            stdout: Some(stream),
+            ..
+        } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_string()?;
             Ok(Value::String {

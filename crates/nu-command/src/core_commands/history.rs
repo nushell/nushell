@@ -53,8 +53,19 @@ impl Command for History {
                 if let Ok(contents) = contents {
                     Ok(contents
                         .lines()
-                        .map(move |x| Value::String {
-                            val: decode_newlines(x),
+                        .enumerate()
+                        .map(move |(index, command)| Value::Record {
+                            cols: vec!["command".to_string(), "index".to_string()],
+                            vals: vec![
+                                Value::String {
+                                    val: decode_newlines(command),
+                                    span: head,
+                                },
+                                Value::Int {
+                                    val: index as i64,
+                                    span: head,
+                                },
+                            ],
                             span: head,
                         })
                         .collect::<Vec<_>>()

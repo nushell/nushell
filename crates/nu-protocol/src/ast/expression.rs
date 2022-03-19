@@ -1,13 +1,16 @@
+use serde::{Deserialize, Serialize};
+
 use super::{Expr, Operator};
 use crate::ast::ImportPattern;
+use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
     pub expr: Expr,
     pub span: Span,
     pub ty: Type,
-    pub custom_completion: Option<String>,
+    pub custom_completion: Option<DeclId>,
 }
 
 impl Expression {
@@ -125,6 +128,7 @@ impl Expression {
                     false
                 }
             }
+            Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
                 for positional in &call.positional {
@@ -142,6 +146,7 @@ impl Expression {
                 false
             }
             Expr::CellPath(_) => false,
+            Expr::DateTime(_) => false,
             Expr::ExternalCall(head, args) => {
                 if head.has_in_variable(working_set) {
                     return true;
@@ -289,6 +294,7 @@ impl Expression {
                     .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
                     .collect();
             }
+            Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
                 for positional in &mut call.positional {
@@ -301,6 +307,7 @@ impl Expression {
                 }
             }
             Expr::CellPath(_) => {}
+            Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args) => {
                 head.replace_in_variable(working_set, new_var_id);
                 for arg in args {
@@ -428,6 +435,7 @@ impl Expression {
 
                 *block_id = working_set.add_block(block);
             }
+            Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
                 if replaced.contains_span(call.head) {
@@ -443,6 +451,7 @@ impl Expression {
                 }
             }
             Expr::CellPath(_) => {}
+            Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args) => {
                 head.replace_span(working_set, replaced, new_span);
                 for arg in args {

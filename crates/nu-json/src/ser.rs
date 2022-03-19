@@ -928,7 +928,7 @@ where
     if f1.len() <= f2.len() + 1 {
         f1
     } else if !f2.contains("e-") {
-        f2.replace("e", "e+")
+        f2.replace('e', "e+")
     } else {
         f2
     }
@@ -942,6 +942,19 @@ where
     T: ser::Serialize,
 {
     let mut ser = Serializer::new(writer);
+    value.serialize(&mut ser)?;
+    Ok(())
+}
+
+/// Encode the specified struct into a Hjson `[u8]` writer.
+#[inline]
+pub fn to_writer_with_tab_indentation<W, T>(writer: &mut W, value: &T, tabs: usize) -> Result<()>
+where
+    W: io::Write,
+    T: ser::Serialize,
+{
+    let indent_string = "\t".repeat(tabs);
+    let mut ser = Serializer::with_indent(writer, indent_string.as_bytes());
     value.serialize(&mut ser)?;
     Ok(())
 }
@@ -969,6 +982,19 @@ where
     // the error.
     let mut writer = Vec::with_capacity(128);
     to_writer(&mut writer, value)?;
+    Ok(writer)
+}
+
+/// Encode the specified struct into a Hjson `[u8]` buffer.
+#[inline]
+pub fn to_vec_with_tab_indentation<T>(value: &T, tabs: usize) -> Result<Vec<u8>>
+where
+    T: ser::Serialize,
+{
+    // We are writing to a Vec, which doesn't fail. So we can ignore
+    // the error.
+    let mut writer = Vec::with_capacity(128);
+    to_writer_with_tab_indentation(&mut writer, value, tabs)?;
     Ok(writer)
 }
 
@@ -1003,6 +1029,17 @@ where
     T: ser::Serialize,
 {
     let vec = to_vec_with_indent(value, indent)?;
+    let string = String::from_utf8(vec)?;
+    Ok(string)
+}
+
+/// Encode the specified struct into a Hjson `String` buffer.
+#[inline]
+pub fn to_string_with_tab_indentation<T>(value: &T, tabs: usize) -> Result<String>
+where
+    T: ser::Serialize,
+{
+    let vec = to_vec_with_tab_indentation(value, tabs)?;
     let string = String::from_utf8(vec)?;
     Ok(string)
 }

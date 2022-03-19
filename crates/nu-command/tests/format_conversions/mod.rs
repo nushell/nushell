@@ -5,6 +5,7 @@ mod html;
 mod ics;
 mod json;
 mod markdown;
+mod nuon;
 mod ods;
 mod sqlite;
 mod ssv;

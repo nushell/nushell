@@ -20,7 +20,7 @@ impl Command for Open {
     }
 
     fn usage(&self) -> &str {
-        "Opens a file."
+        "Load a file into a cell, converting to table if possible (avoid by appending '--raw')."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -120,15 +120,17 @@ impl Command for Open {
 
             let buf_reader = BufReader::new(file);
 
-            let output = PipelineData::RawStream(
-                RawStream::new(
+            let output = PipelineData::ExternalStream {
+                stdout: Some(RawStream::new(
                     Box::new(BufferedReader { input: buf_reader }),
                     ctrlc,
                     call_span,
-                ),
-                call_span,
-                None,
-            );
+                )),
+                stderr: None,
+                exit_code: None,
+                span: call_span,
+                metadata: None,
+            };
 
             let ext = if raw {
                 None
@@ -168,6 +170,11 @@ impl Command for Open {
             Example {
                 description: "Open a file, using the input to get filename",
                 example: "echo 'myfile.txt' | open",
+                result: None,
+            },
+            Example {
+                description: "Open a file, and decode it by the specified encoding",
+                example: "open myfile.txt --raw | decode utf-8",
                 result: None,
             },
         ]

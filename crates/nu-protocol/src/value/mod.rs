@@ -171,8 +171,11 @@ impl Clone for Value {
 }
 
 impl Value {
+    /// Converts into string values that can be changed into string natively
     pub fn as_string(&self) -> Result<String, ShellError> {
         match self {
+            Value::Int { val, .. } => Ok(val.to_string()),
+            Value::Float { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val.to_string()),
             Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
                 Ok(s) => s.to_string(),
@@ -425,7 +428,7 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => HumanTime::from(*val).to_string(),
+            Value::Date { val, .. } => format!("{} ({})", val.to_rfc2822(), HumanTime::from(*val)),
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
@@ -679,7 +682,7 @@ impl Value {
     }
 
     /// Follow a given column path into the value: for example accessing select elements in a stream or list
-    pub fn update_cell_path(
+    pub fn upsert_cell_path(
         &mut self,
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value>,
@@ -690,11 +693,11 @@ impl Value {
 
         match new_val {
             Value::Error { error } => Err(error),
-            new_val => self.replace_data_at_cell_path(cell_path, new_val),
+            new_val => self.upsert_data_at_cell_path(cell_path, new_val),
         }
     }
 
-    pub fn replace_data_at_cell_path(
+    pub fn upsert_data_at_cell_path(
         &mut self,
         cell_path: &[PathMember],
         new_val: Value,
@@ -713,7 +716,7 @@ impl Value {
                                     for col in cols.iter().zip(vals.iter_mut()) {
                                         if col.0 == col_name {
                                             found = true;
-                                            col.1.replace_data_at_cell_path(
+                                            col.1.upsert_data_at_cell_path(
                                                 &cell_path[1..],
                                                 new_val.clone(),
                                             )?
@@ -730,7 +733,7 @@ impl Value {
                                                 vals: vec![],
                                                 span: new_val.span()?,
                                             };
-                                            new_col.replace_data_at_cell_path(
+                                            new_col.upsert_data_at_cell_path(
                                                 &cell_path[1..],
                                                 new_val,
                                             )?;
@@ -751,7 +754,7 @@ impl Value {
                                 found = true;
 
                                 col.1
-                                    .replace_data_at_cell_path(&cell_path[1..], new_val.clone())?
+                                    .upsert_data_at_cell_path(&cell_path[1..], new_val.clone())?
                             }
                         }
                         if !found {
@@ -764,7 +767,7 @@ impl Value {
                                     vals: vec![],
                                     span: new_val.span()?,
                                 };
-                                new_col.replace_data_at_cell_path(&cell_path[1..], new_val)?;
+                                new_col.upsert_data_at_cell_path(&cell_path[1..], new_val)?;
                                 vals.push(new_col);
                             }
                         }
@@ -774,7 +777,190 @@ impl Value {
                 PathMember::Int { val: row_num, span } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.replace_data_at_cell_path(&cell_path[1..], new_val)?
+                            v.upsert_data_at_cell_path(&cell_path[1..], new_val)?
+                        } else {
+                            return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
+                        }
+                    }
+                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                },
+            },
+            None => {
+                *self = new_val;
+            }
+        }
+        Ok(())
+    }
+
+    /// Follow a given column path into the value: for example accessing select elements in a stream or list
+    pub fn update_cell_path(
+        &mut self,
+        cell_path: &[PathMember],
+        callback: Box<dyn FnOnce(&Value) -> Value>,
+    ) -> Result<(), ShellError> {
+        let orig = self.clone();
+
+        let new_val = callback(&orig.follow_cell_path(cell_path)?);
+
+        match new_val {
+            Value::Error { error } => Err(error),
+            new_val => self.update_data_at_cell_path(cell_path, new_val),
+        }
+    }
+
+    pub fn update_data_at_cell_path(
+        &mut self,
+        cell_path: &[PathMember],
+        new_val: Value,
+    ) -> Result<(), ShellError> {
+        match cell_path.first() {
+            Some(path_member) => match path_member {
+                PathMember::String {
+                    val: col_name,
+                    span,
+                } => match self {
+                    Value::List { vals, .. } => {
+                        for val in vals.iter_mut() {
+                            match val {
+                                Value::Record {
+                                    cols,
+                                    vals,
+                                    span: v_span,
+                                } => {
+                                    let mut found = false;
+                                    for col in cols.iter().zip(vals.iter_mut()) {
+                                        if col.0 == col_name {
+                                            found = true;
+                                            col.1.update_data_at_cell_path(
+                                                &cell_path[1..],
+                                                new_val.clone(),
+                                            )?
+                                        }
+                                    }
+                                    if !found {
+                                        return Err(ShellError::CantFindColumn(*span, *v_span));
+                                    }
+                                }
+                                v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                            }
+                        }
+                    }
+                    Value::Record {
+                        cols,
+                        vals,
+                        span: v_span,
+                    } => {
+                        let mut found = false;
+
+                        for col in cols.iter().zip(vals.iter_mut()) {
+                            if col.0 == col_name {
+                                found = true;
+
+                                col.1
+                                    .update_data_at_cell_path(&cell_path[1..], new_val.clone())?
+                            }
+                        }
+                        if !found {
+                            return Err(ShellError::CantFindColumn(*span, *v_span));
+                        }
+                    }
+                    v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                },
+                PathMember::Int { val: row_num, span } => match self {
+                    Value::List { vals, .. } => {
+                        if let Some(v) = vals.get_mut(*row_num) {
+                            v.update_data_at_cell_path(&cell_path[1..], new_val)?
+                        } else {
+                            return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
+                        }
+                    }
+                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                },
+            },
+            None => {
+                *self = new_val;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn insert_data_at_cell_path(
+        &mut self,
+        cell_path: &[PathMember],
+        new_val: Value,
+    ) -> Result<(), ShellError> {
+        match cell_path.first() {
+            Some(path_member) => match path_member {
+                PathMember::String {
+                    val: col_name,
+                    span,
+                } => match self {
+                    Value::List { vals, .. } => {
+                        for val in vals.iter_mut() {
+                            match val {
+                                Value::Record {
+                                    cols,
+                                    vals,
+                                    span: v_span,
+                                } => {
+                                    for col in cols.iter().zip(vals.iter_mut()) {
+                                        if col.0 == col_name {
+                                            if cell_path.len() == 1 {
+                                                return Err(ShellError::ColumnAlreadyExists(
+                                                    *span, *v_span,
+                                                ));
+                                            } else {
+                                                return col.1.insert_data_at_cell_path(
+                                                    &cell_path[1..],
+                                                    new_val,
+                                                );
+                                            }
+                                        }
+                                    }
+
+                                    cols.push(col_name.clone());
+                                    vals.push(new_val.clone());
+                                }
+                                _ => {
+                                    return Err(ShellError::UnsupportedInput(
+                                        "table or record".into(),
+                                        *span,
+                                    ))
+                                }
+                            }
+                        }
+                    }
+                    Value::Record {
+                        cols,
+                        vals,
+                        span: v_span,
+                    } => {
+                        for col in cols.iter().zip(vals.iter_mut()) {
+                            if col.0 == col_name {
+                                if cell_path.len() == 1 {
+                                    return Err(ShellError::ColumnAlreadyExists(*span, *v_span));
+                                } else {
+                                    return col
+                                        .1
+                                        .insert_data_at_cell_path(&cell_path[1..], new_val);
+                                }
+                            }
+                        }
+
+                        cols.push(col_name.clone());
+                        vals.push(new_val);
+                    }
+                    _ => {
+                        return Err(ShellError::UnsupportedInput(
+                            "table or record".into(),
+                            *span,
+                        ))
+                    }
+                },
+                PathMember::Int { val: row_num, span } => match self {
+                    Value::List { vals, .. } => {
+                        if let Some(v) = vals.get_mut(*row_num) {
+                            v.insert_data_at_cell_path(&cell_path[1..], new_val)?
                         } else {
                             return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
                         }
@@ -1306,6 +1492,17 @@ impl Value {
                 val: lhs - rhs,
                 span,
             }),
+            (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
+                let result = lhs.signed_duration_since(*rhs);
+
+                match result.num_nanoseconds() {
+                    Some(v) => Ok(Value::Duration { val: v, span }),
+                    None => Err(ShellError::OperatorOverflow(
+                        "subtraction operation overflowed".into(),
+                        span,
+                    )),
+                }
+            }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 match lhs.checked_sub_signed(chrono::Duration::nanoseconds(*rhs)) {
                     Some(val) => Ok(Value::Date { val, span }),
@@ -2107,7 +2304,7 @@ fn format_filesize(num_bytes: i64, config: &Config) -> String {
             // Since get_locale() and Locale::from_name() don't always return the same items
             // we need to try and parse it to match. For instance, a valid locale is de_DE
             // however Locale::from_name() wants only de so we split and parse it out.
-            let locale_string = locale_string.replace("_", "-"); // en_AU -> en-AU
+            let locale_string = locale_string.replace('_', "-"); // en_AU -> en-AU
             let locale = match Locale::from_name(&locale_string) {
                 Ok(loc) => loc,
                 _ => {

@@ -42,7 +42,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert value to boolean in table",
-                example: "echo [[value]; ['false'] ['1'] [0] [1.0] [$true]] | into bool value",
+                example: "echo [[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -76,11 +76,11 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert bool to boolean",
-                example: "$true | into bool",
+                example: "true | into bool",
                 result: Some(Value::boolean(true, span)),
             },
             Example {
-                description: "convert decimal to boolean",
+                description: "convert integer to boolean",
                 example: "1 | into bool",
                 result: Some(Value::boolean(true, span)),
             },

@@ -8,7 +8,7 @@ use std::sync::mpsc;
 use nu_engine::env_to_strings;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{Category, PipelineData, RawStream, Span, Spanned};
+use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
 
 use itertools::Itertools;
 
@@ -55,51 +55,50 @@ impl Command for External {
         let redirect_stderr = call.has_flag("redirect-stderr");
 
         // Translate environment variables from Values to Strings
-        let config = stack.get_config().unwrap_or_default();
-        let env_vars_str = env_to_strings(engine_state, stack, &config)?;
+        let env_vars_str = env_to_strings(engine_state, stack)?;
 
-        let mut args_strs = vec![];
+        fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
+            let span = value.span()?;
 
-        for arg in args {
-            let span = if let Ok(span) = arg.span() {
-                span
-            } else {
-                Span { start: 0, end: 0 }
-            };
-
-            if let Ok(s) = arg.as_string() {
-                args_strs.push(Spanned { item: s, span });
-            } else if let Value::List { vals, span } = arg {
-                // Interpret a list as a series of arguments
-                for val in vals {
-                    if let Ok(s) = val.as_string() {
-                        args_strs.push(Spanned { item: s, span });
-                    } else {
-                        return Err(ShellError::ExternalCommand(
-                            "Cannot convert argument to a string".into(),
-                            "All arguments to an external command need to be string-compatible"
-                                .into(),
-                            val.span()?,
-                        ));
-                    }
-                }
-            } else {
-                return Err(ShellError::ExternalCommand(
-                    "Cannot convert argument to a string".into(),
-                    "All arguments to an external command need to be string-compatible".into(),
-                    arg.span()?,
-                ));
-            }
+            value
+                .as_string()
+                .map(|item| Spanned { item, span })
+                .map_err(|_| {
+                    ShellError::ExternalCommand(
+                        "Cannot convert argument to a string".into(),
+                        "All arguments to an external command need to be string-compatible".into(),
+                        span,
+                    )
+                })
         }
+
+        let args = args
+            .into_iter()
+            .flat_map(|arg| match arg {
+                Value::List { vals, .. } => vals
+                    .into_iter()
+                    .map(value_as_spanned)
+                    .collect::<Vec<Result<Spanned<String>, ShellError>>>(),
+                val => vec![value_as_spanned(val)],
+            })
+            .collect::<Result<Vec<Spanned<String>>, ShellError>>()?;
 
         let command = ExternalCommand {
             name,
-            args: args_strs,
+            args,
             redirect_stdout,
             redirect_stderr,
             env_vars: env_vars_str,
         };
         command.run_with_input(engine_state, stack, input)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Run an external command",
+            example: r#"run-external "echo" "-n" "hello""#,
+            result: None,
+        }]
     }
 }
 
@@ -192,14 +191,51 @@ impl ExternalCommand {
                 let redirect_stderr = self.redirect_stderr;
                 let span = self.name.span;
                 let output_ctrlc = ctrlc.clone();
-                let (tx, rx) = mpsc::channel();
+                let (stdout_tx, stdout_rx) = mpsc::channel();
+                let (stderr_tx, stderr_rx) = mpsc::channel();
+                let (exit_code_tx, exit_code_rx) = mpsc::channel();
 
                 std::thread::spawn(move || {
                     // If this external is not the last expression, then its output is piped to a channel
-                    // and we create a ValueStream that can be consumed
+                    // and we create a ListStream that can be consumed
 
                     if redirect_stderr {
-                        let _ = child.stderr.take();
+                        let stderr = child.stderr.take().ok_or_else(|| {
+                            ShellError::ExternalCommand(
+                                "Error taking stderr from external".to_string(),
+                                "Redirects need access to stderr of an external command"
+                                    .to_string(),
+                                span,
+                            )
+                        })?;
+
+                        // Stderr is read using the Buffer reader. It will do so until there is an
+                        // error or there are no more bytes to read
+                        let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stderr);
+                        while let Ok(bytes) = buf_read.fill_buf() {
+                            if bytes.is_empty() {
+                                break;
+                            }
+
+                            // The Cow generated from the function represents the conversion
+                            // from bytes to String. If no replacements are required, then the
+                            // borrowed value is a proper UTF-8 string. The Owned option represents
+                            // a string where the values had to be replaced, thus marking it as bytes
+                            let bytes = bytes.to_vec();
+                            let length = bytes.len();
+                            buf_read.consume(length);
+
+                            if let Some(ctrlc) = &ctrlc {
+                                if ctrlc.load(Ordering::SeqCst) {
+                                    break;
+                                }
+                            }
+
+                            match stderr_tx.send(bytes) {
+                                Ok(_) => continue,
+                                Err(_) => break,
+                            }
+                        }
                     }
 
                     if redirect_stdout {
@@ -234,7 +270,7 @@ impl ExternalCommand {
                                 }
                             }
 
-                            match tx.send(bytes) {
+                            match stdout_tx.send(bytes) {
                                 Ok(_) => continue,
                                 Err(_) => break,
                             }
@@ -247,16 +283,50 @@ impl ExternalCommand {
                             err.to_string(),
                             span,
                         )),
-                        Ok(_) => Ok(()),
+                        Ok(x) => {
+                            if let Some(code) = x.code() {
+                                let _ = exit_code_tx.send(Value::Int {
+                                    val: code as i64,
+                                    span: head,
+                                });
+                            } else if x.success() {
+                                let _ = exit_code_tx.send(Value::Int { val: 0, span: head });
+                            } else {
+                                let _ = exit_code_tx.send(Value::Int {
+                                    val: -1,
+                                    span: head,
+                                });
+                            }
+                            Ok(())
+                        }
                     }
                 });
-                let receiver = ChannelReceiver::new(rx);
+                let stdout_receiver = ChannelReceiver::new(stdout_rx);
+                let stderr_receiver = ChannelReceiver::new(stderr_rx);
+                let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 
-                Ok(PipelineData::RawStream(
-                    RawStream::new(Box::new(receiver), output_ctrlc, head),
-                    head,
-                    None,
-                ))
+                Ok(PipelineData::ExternalStream {
+                    stdout: if redirect_stdout {
+                        Some(RawStream::new(
+                            Box::new(stdout_receiver),
+                            output_ctrlc.clone(),
+                            head,
+                        ))
+                    } else {
+                        None
+                    },
+                    stderr: Some(RawStream::new(
+                        Box::new(stderr_receiver),
+                        output_ctrlc.clone(),
+                        head,
+                    )),
+                    exit_code: Some(ListStream::from_stream(
+                        Box::new(exit_code_receiver),
+                        output_ctrlc,
+                    )),
+                    span: head,
+                    metadata: None,
+                })
             }
         }
     }
@@ -405,7 +475,7 @@ impl ExternalCommand {
             // Clean the args before we use them:
             // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
             // cmd.exe needs to have a caret to escape a pipe
-            let arg = arg.item.replace("|", "^|");
+            let arg = arg.item.replace('|', "^|");
             process.arg(&arg);
         }
         process
@@ -452,8 +522,8 @@ fn trim_enclosing_quotes(input: &str) -> String {
     }
 }
 
-// Receiver used for the ValueStream
-// It implements iterator so it can be used as a ValueStream
+// Receiver used for the RawStream
+// It implements iterator so it can be used as a RawStream
 struct ChannelReceiver {
     rx: mpsc::Receiver<Vec<u8>>,
 }
@@ -470,6 +540,29 @@ impl Iterator for ChannelReceiver {
     fn next(&mut self) -> Option<Self::Item> {
         match self.rx.recv() {
             Ok(v) => Some(Ok(v)),
+            Err(_) => None,
+        }
+    }
+}
+
+// Receiver used for the ListStream
+// It implements iterator so it can be used as a ListStream
+struct ValueReceiver {
+    rx: mpsc::Receiver<Value>,
+}
+
+impl ValueReceiver {
+    pub fn new(rx: mpsc::Receiver<Value>) -> Self {
+        Self { rx }
+    }
+}
+
+impl Iterator for ValueReceiver {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.rx.recv() {
+            Ok(v) => Some(v),
             Err(_) => None,
         }
     }

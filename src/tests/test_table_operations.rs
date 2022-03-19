@@ -216,7 +216,7 @@ fn select_2() -> TestResult {
 
 #[test]
 fn update_will_insert() -> TestResult {
-    run_test(r#"{} | update a b | get a"#, "b")
+    run_test(r#"{} | upsert a b | get a"#, "b")
 }
 
 #[test]
@@ -235,7 +235,7 @@ fn length_for_rows() -> TestResult {
 #[test]
 fn length_defaulted_columns() -> TestResult {
     run_test(
-        r#"echo [[name, age]; [test, 10]] | default age 11 | get 0 | columns | length"#,
+        r#"echo [[name, age]; [test, 10]] | default 11 age | get 0 | columns | length"#,
         "2",
     )
 }

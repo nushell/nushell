@@ -80,6 +80,17 @@ impl Command for Each {
                 }),
             },
             Example {
+                example: r#"[1 2 3] | each -n { |it| if $it.item == 2 { echo $"found 2 at ($it.index)!"} }"#,
+                description: "Iterate over each element, print the matching value and its index",
+                result: Some(Value::List {
+                    vals: vec![Value::String {
+                        val: "found 2 at 1!".to_string(),
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 example: r#"[1 2 3] | each --keep-empty { |it| if $it == 2 { echo "found 2!"} }"#,
                 description: "Iterate over each element, keeping all results",
                 result: Some(Value::List {
@@ -158,7 +169,11 @@ impl Command for Each {
                     }
                 })
                 .into_pipeline_data(ctrlc)),
-            PipelineData::RawStream(stream, ..) => Ok(stream
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                ..
+            } => Ok(stream
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {

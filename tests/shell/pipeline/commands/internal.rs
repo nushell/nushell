@@ -416,6 +416,7 @@ fn unlet_env_variable() {
 }
 
 #[test]
+#[ignore]
 fn unlet_nonexistent_variable() {
     let actual = nu!(
         cwd: ".",
@@ -563,7 +564,7 @@ fn proper_shadow_let_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let DEBUG = $false; echo $DEBUG | table; do { let DEBUG = $true; echo $DEBUG } | table; echo $DEBUG
+        let DEBUG = false; echo $DEBUG | table; do { let DEBUG = true; echo $DEBUG } | table; echo $DEBUG
         "#
     );
     assert_eq!(actual.out, "falsetruefalse");
@@ -578,6 +579,17 @@ fn block_params_override() {
         "#
     );
     assert!(actual.err.contains("variable not found"));
+}
+
+#[test]
+fn alias_reuse() {
+    let actual = nu!(
+        cwd: ".",
+        r#"alias foo = echo bob; foo; foo"#
+    );
+
+    assert!(actual.out.contains("bob"));
+    assert!(actual.err.is_empty());
 }
 
 #[test]

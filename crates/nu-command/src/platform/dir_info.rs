@@ -1,5 +1,5 @@
 use filesize::file_real_size_fast;
-use glob::Pattern;
+use nu_glob::Pattern;
 use nu_protocol::{ShellError, Span, Value};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};

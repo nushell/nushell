@@ -209,7 +209,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
                     name: None,
                     domainname: None,
                 });
-                let groups = groups.unwrap_or_else(Vec::new);
+                let groups = groups.unwrap_or_default();
                 let thread = thread.unwrap_or_default();
 
                 let proc = ProcessInfo {

@@ -10,6 +10,7 @@ pub fn get_shape_color(shape: String, conf: &Config) -> Style {
         },
         None => match shape.as_ref() {
             "shape_garbage" => Style::new().fg(Color::White).on(Color::Red).bold(),
+            "shape_binary" => Style::new().fg(Color::Purple).bold(),
             "shape_bool" => Style::new().fg(Color::LightCyan),
             "shape_int" => Style::new().fg(Color::Purple).bold(),
             "shape_float" => Style::new().fg(Color::Purple).bold(),
@@ -22,6 +23,7 @@ pub fn get_shape_color(shape: String, conf: &Config) -> Style {
             "shape_signature" => Style::new().fg(Color::Green).bold(),
             "shape_string" => Style::new().fg(Color::Green),
             "shape_string_interpolation" => Style::new().fg(Color::Cyan).bold(),
+            "shape_datetime" => Style::new().fg(Color::Cyan).bold(),
             "shape_list" => Style::new().fg(Color::Cyan).bold(),
             "shape_table" => Style::new().fg(Color::Blue).bold(),
             "shape_record" => Style::new().fg(Color::Cyan).bold(),

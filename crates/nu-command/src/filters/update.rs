@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -40,27 +40,37 @@ impl Command for Update {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        update(engine_state, stack, call, input)
+        upsert(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Update a column value",
-            example: "echo {'name': 'nu', 'stars': 5} | update name 'Nushell'",
-            result: Some(Value::Record { cols: vec!["name".into(), "stars".into()], vals: vec![Value::test_string("Nushell"), Value::test_int(5)], span: Span::test_data()}),
-        }, Example {
-            description: "Use in block form for more involved updating logic",
-            example: "echo [[count fruit]; [1 'apple']] | update count {|f| $f.count + 1}",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(2), Value::test_string("apple")], span: Span::test_data()}], span: Span::test_data()}),
-        }, Example {
-            description: "Use in block form for more involved updating logic",
-            example: "echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { get authors | str collect ',' }",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
-        }]
+        vec![
+            Example {
+                description: "Update a column value",
+                example: "echo {'name': 'nu', 'stars': 5} | update name 'Nushell'",
+                result: Some(Value::Record {
+                    cols: vec!["name".into(), "stars".into()],
+                    vals: vec![Value::test_string("Nushell"), Value::test_int(5)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Use in block form for more involved updating logic",
+                example: "echo [[count fruit]; [1 'apple']] | update count {|f| $f.count + 1}",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["count".into(), "fruit".into()],
+                        vals: vec![Value::test_int(2), Value::test_string("apple")],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 
-fn update(
+fn upsert(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -108,7 +118,7 @@ fn update(
                 match output {
                     Ok(pd) => {
                         if let Err(e) =
-                            input.replace_data_at_cell_path(&cell_path.members, pd.into_value(span))
+                            input.update_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
                             return Value::Error { error: e };
                         }
@@ -121,11 +131,32 @@ fn update(
             ctrlc,
         )
     } else {
+        if let Some(PathMember::Int { val, span }) = cell_path.members.get(0) {
+            let mut input = input.into_iter();
+            let mut pre_elems = vec![];
+
+            for idx in 0..*val {
+                if let Some(v) = input.next() {
+                    pre_elems.push(v);
+                } else {
+                    return Err(ShellError::AccessBeyondEnd(idx - 1, *span));
+                }
+            }
+
+            // Skip over the replaced value
+            let _ = input.next();
+
+            return Ok(pre_elems
+                .into_iter()
+                .chain(vec![replacement])
+                .chain(input)
+                .into_pipeline_data(ctrlc));
+        }
         input.map(
             move |mut input| {
                 let replacement = replacement.clone();
 
-                if let Err(e) = input.replace_data_at_cell_path(&cell_path.members, replacement) {
+                if let Err(e) = input.update_data_at_cell_path(&cell_path.members, replacement) {
                     return Value::Error { error: e };
                 }
 
@@ -133,5 +164,17 @@ fn update(
             },
             ctrlc,
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Update {})
     }
 }

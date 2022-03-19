@@ -1,3 +1,4 @@
+use core::fmt::Write;
 use nu_engine::get_columns;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -46,26 +47,49 @@ impl Command for ToNuon {
 
 fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     match v {
-        Value::Binary { .. } => Err(ShellError::UnsupportedInput("binary".into(), span)),
-        Value::Block { .. } => Err(ShellError::UnsupportedInput("block".into(), span)),
+        Value::Binary { val, .. } => {
+            let mut s = String::with_capacity(2 * val.len());
+            for byte in val {
+                if write!(s, "{:02X}", byte).is_err() {
+                    return Err(ShellError::UnsupportedInput(
+                        "binary could not translate to string".into(),
+                        span,
+                    ));
+                }
+            }
+            Ok(format!("0x[{}]", s))
+        }
+        Value::Block { .. } => Err(ShellError::UnsupportedInput(
+            "block not supported".into(),
+            span,
+        )),
         Value::Bool { val, .. } => {
             if *val {
-                Ok("$true".to_string())
+                Ok("true".to_string())
             } else {
-                Ok("$false".to_string())
+                Ok("false".to_string())
             }
         }
-        Value::CellPath { .. } => Err(ShellError::UnsupportedInput("cellpath".to_string(), span)),
-        Value::CustomValue { .. } => Err(ShellError::UnsupportedInput("custom".to_string(), span)),
-        Value::Date { .. } => Err(ShellError::UnsupportedInput("date".to_string(), span)),
+        Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
+            "cellpath not supported".to_string(),
+            span,
+        )),
+        Value::CustomValue { .. } => Err(ShellError::UnsupportedInput(
+            "custom not supported".to_string(),
+            span,
+        )),
+        Value::Date { val, .. } => Ok(val.to_rfc3339()),
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
-        Value::Error { .. } => Err(ShellError::UnsupportedInput("error".to_string(), span)),
+        Value::Error { .. } => Err(ShellError::UnsupportedInput(
+            "error not supported".to_string(),
+            span,
+        )),
         Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
         Value::Float { val, .. } => Ok(format!("{}", *val)),
         Value::Int { val, .. } => Ok(format!("{}", *val)),
         Value::List { vals, .. } => {
             let headers = get_columns(vals);
-            if vals.iter().all(|x| x.columns() == headers) {
+            if !headers.is_empty() && vals.iter().all(|x| x.columns() == headers) {
                 // Table output
                 let headers_output = headers.join(", ");
 

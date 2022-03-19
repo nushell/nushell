@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use std::fmt::Display;
 
+use crate::SyntaxShape;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Type {
     Int,
@@ -19,12 +21,40 @@ pub enum Type {
     Nothing,
     Record(Vec<(String, Type)>),
     Table,
-    ValueStream,
+    ListStream,
     Unknown,
     Error,
     Binary,
     Custom,
     Signature,
+}
+
+impl Type {
+    pub fn to_shape(&self) -> SyntaxShape {
+        match self {
+            Type::Int => SyntaxShape::Int,
+            Type::Float => SyntaxShape::Number,
+            Type::Range => SyntaxShape::Range,
+            Type::Bool => SyntaxShape::Boolean,
+            Type::String => SyntaxShape::String,
+            Type::Block => SyntaxShape::Block(None), // FIXME needs more accuracy
+            Type::CellPath => SyntaxShape::CellPath,
+            Type::Duration => SyntaxShape::Duration,
+            Type::Date => SyntaxShape::DateTime,
+            Type::Filesize => SyntaxShape::Filesize,
+            Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
+            Type::Number => SyntaxShape::Number,
+            Type::Nothing => SyntaxShape::Any,
+            Type::Record(_) => SyntaxShape::Record,
+            Type::Table => SyntaxShape::Table,
+            Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
+            Type::Unknown => SyntaxShape::Any,
+            Type::Error => SyntaxShape::Any,
+            Type::Binary => SyntaxShape::Binary,
+            Type::Custom => SyntaxShape::Any,
+            Type::Signature => SyntaxShape::Signature,
+        }
+    }
 }
 
 impl Display for Type {
@@ -53,7 +83,7 @@ impl Display for Type {
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),
-            Type::ValueStream => write!(f, "value stream"),
+            Type::ListStream => write!(f, "list stream"),
             Type::Unknown => write!(f, "unknown"),
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),

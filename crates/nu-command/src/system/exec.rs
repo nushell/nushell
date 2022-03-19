@@ -76,8 +76,7 @@ fn exec(
     let args: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
 
     let cwd = current_dir(engine_state, stack)?;
-    let config = stack.get_config()?;
-    let env_vars = env_to_strings(engine_state, stack, &config)?;
+    let env_vars = env_to_strings(engine_state, stack)?;
     let current_dir = current_dir(engine_state, stack)?;
 
     let external_command = ExternalCommand {

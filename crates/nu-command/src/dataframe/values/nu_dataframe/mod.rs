@@ -275,6 +275,10 @@ impl NuDataFrame {
         }
     }
 
+    pub fn height(&self) -> usize {
+        self.0.height()
+    }
+
     pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
         let to_row = rows.unwrap_or(5);
         let values = self.to_rows(0, to_row, span)?;
@@ -369,12 +373,12 @@ impl NuDataFrame {
             .expect("already checked that dataframe is different than 0");
 
         // if unable to sort, then unable to compare
-        let lhs = match self.as_ref().sort(*first_col, false) {
+        let lhs = match self.as_ref().sort(vec![*first_col], false) {
             Ok(df) => df,
             Err(_) => return None,
         };
 
-        let rhs = match other.as_ref().sort(*first_col, false) {
+        let rhs = match other.as_ref().sort(vec![*first_col], false) {
             Ok(df) => df,
             Err(_) => return None,
         };

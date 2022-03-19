@@ -63,7 +63,7 @@ fn helper(value: Value, head: Span) -> Value {
             val,
             span: val_span,
         } => {
-            let dt = parse_date_from_string(val, val_span);
+            let dt = parse_date_from_string(&val, val_span);
             match dt {
                 Ok(x) => Value::String {
                     val: humanize_date(x),
@@ -77,10 +77,7 @@ fn helper(value: Value, head: Span) -> Value {
             span: head,
         },
         _ => Value::Error {
-            error: ShellError::UnsupportedInput(
-                String::from("Date cannot be parsed / date format is not supported"),
-                head,
-            ),
+            error: ShellError::DatetimeParseError(head),
         },
     }
 }

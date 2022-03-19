@@ -70,7 +70,7 @@ fn command(
 
     let res = casted.weekday().into_series();
 
-    NuDataFrame::try_from_series(vec![res.into_series()], call.head)
+    NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 

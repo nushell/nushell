@@ -27,12 +27,12 @@ fn modulo2() -> TestResult {
 
 #[test]
 fn and() -> TestResult {
-    run_test("$true && $false", "false")
+    run_test("true && false", "false")
 }
 
 #[test]
 fn or() -> TestResult {
-    run_test("$true || $false", "true")
+    run_test("true || false", "true")
 }
 
 #[test]

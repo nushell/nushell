@@ -114,12 +114,10 @@ fn split_column_helper(
     head: Span,
 ) -> Vec<Value> {
     if let Ok(s) = v.as_string() {
-        let splitter = separator.item.replace("\\n", "\n");
-
         let split_result: Vec<_> = if collapse_empty {
-            s.split(&splitter).filter(|s| !s.is_empty()).collect()
+            s.split(&separator.item).filter(|s| !s.is_empty()).collect()
         } else {
-            s.split(&splitter).collect()
+            s.split(&separator.item).collect()
         };
 
         let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();

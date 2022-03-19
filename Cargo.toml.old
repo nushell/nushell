@@ -1,5 +1,5 @@
 [package]
-authors = ["The Nu Project Contributors"]
+authors = ["The Nushell Project Developers"]
 default-run = "nu"
 description = "A new type of shell"
 documentation = "https://www.nushell.sh/book/"

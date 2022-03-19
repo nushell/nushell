@@ -1,13 +1,29 @@
-use nu_engine::eval_block;
+use nu_engine::eval_call;
 use nu_parser::{flatten_expression, parse, trim_quotes, FlatShape};
 use nu_protocol::{
-    ast::Expr,
+    ast::{Call, Expr},
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::Completer;
 
 const SEP: char = std::path::MAIN_SEPARATOR;
+
+pub struct CompletionOptions {
+    case_sensitive: bool,
+    positional: bool,
+    sort: bool,
+}
+
+impl Default for CompletionOptions {
+    fn default() -> Self {
+        Self {
+            case_sensitive: true,
+            positional: true,
+            sort: true,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct NuCompleter {
@@ -26,8 +42,7 @@ impl NuCompleter {
     fn external_command_completion(&self, prefix: &str) -> Vec<String> {
         let mut executables = vec![];
 
-        let paths;
-        paths = self.engine_state.env_vars.get("PATH");
+        let paths = self.engine_state.env_vars.get("PATH");
 
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {
@@ -71,9 +86,7 @@ impl NuCompleter {
     ) -> Vec<(reedline::Span, String)> {
         let mut output = vec![];
 
-        let builtins = [
-            "$nu", "$scope", "$in", "$config", "$env", "$true", "$false", "$nothing",
-        ];
+        let builtins = ["$nu", "$in", "$config", "$env", "$nothing"];
 
         for builtin in builtins {
             if builtin.as_bytes().starts_with(prefix) {
@@ -128,7 +141,7 @@ impl NuCompleter {
     ) -> Vec<(reedline::Span, String)> {
         let prefix = working_set.get_span_contents(span);
 
-        let mut results = working_set
+        let results = working_set
             .find_commands_by_prefix(prefix)
             .into_iter()
             .map(move |x| {
@@ -139,8 +152,23 @@ impl NuCompleter {
                     },
                     String::from_utf8_lossy(&x).to_string(),
                 )
-            })
-            .collect::<Vec<_>>();
+            });
+
+        let results_aliases =
+            working_set
+                .find_aliases_by_prefix(prefix)
+                .into_iter()
+                .map(move |x| {
+                    (
+                        reedline::Span {
+                            start: span.start - offset,
+                            end: span.end - offset,
+                        },
+                        String::from_utf8_lossy(&x).to_string(),
+                    )
+                });
+
+        let mut results = results.chain(results_aliases).collect::<Vec<_>>();
 
         let prefix = working_set.get_span_contents(span);
         let prefix = String::from_utf8_lossy(prefix).to_string();
@@ -178,7 +206,13 @@ impl NuCompleter {
         let mut line = line.to_string();
         line.insert(pos, 'a');
         let pos = offset + pos;
-        let (output, _err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
+        let (output, _err) = parse(
+            &mut working_set,
+            Some("completer"),
+            line.as_bytes(),
+            false,
+            &[],
+        );
 
         for pipeline in output.pipelines.into_iter() {
             for expr in pipeline.expressions {
@@ -195,12 +229,10 @@ impl NuCompleter {
                         prefix.remove(pos - flat.0.start);
 
                         if prefix.starts_with(b"$") {
-                            return self.complete_variables(
-                                &working_set,
-                                &prefix,
-                                new_span,
-                                offset,
-                            );
+                            let mut output =
+                                self.complete_variables(&working_set, &prefix, new_span, offset);
+                            output.sort_by(|a, b| a.1.cmp(&b.1));
+                            return output;
                         }
                         if prefix.starts_with(b"-") {
                             // this might be a flag, let's see
@@ -243,20 +275,14 @@ impl NuCompleter {
                                         ));
                                     }
                                 }
+                                output.sort_by(|a, b| a.1.cmp(&b.1));
                                 return output;
                             }
                         }
 
                         match &flat.1 {
-                            FlatShape::Custom(custom_completion) => {
+                            FlatShape::Custom(decl_id) => {
                                 //let prefix = working_set.get_span_contents(flat.0).to_vec();
-
-                                let (block, ..) = parse(
-                                    &mut working_set,
-                                    None,
-                                    custom_completion.as_bytes(),
-                                    false,
-                                );
 
                                 let mut stack = Stack::new();
                                 // Set up our initial config to start from
@@ -273,38 +299,124 @@ impl NuCompleter {
                                     );
                                 }
 
-                                let result = eval_block(
+                                let result = eval_call(
                                     &self.engine_state,
                                     &mut stack,
-                                    &block,
+                                    &Call {
+                                        decl_id: *decl_id,
+                                        head: new_span,
+                                        positional: vec![],
+                                        named: vec![],
+                                        redirect_stdout: true,
+                                        redirect_stderr: true,
+                                    },
                                     PipelineData::new(new_span),
-                                    true,
-                                    true,
                                 );
 
-                                let v: Vec<_> = match result {
-                                    Ok(pd) => pd
-                                        .into_iter()
-                                        .filter_map(move |x| {
-                                            let s = x.as_string();
+                                fn map_completions<'a>(
+                                    list: impl Iterator<Item = &'a Value>,
+                                    new_span: Span,
+                                    offset: usize,
+                                ) -> Vec<(reedline::Span, String)> {
+                                    list.filter_map(move |x| {
+                                        let s = x.as_string();
 
-                                            match s {
-                                                Ok(s) => Some((
-                                                    reedline::Span {
-                                                        start: new_span.start - offset,
-                                                        end: new_span.end - offset,
-                                                    },
-                                                    s,
-                                                )),
-                                                Err(_) => None,
+                                        match s {
+                                            Ok(s) => Some((
+                                                reedline::Span {
+                                                    start: new_span.start - offset,
+                                                    end: new_span.end - offset,
+                                                },
+                                                s,
+                                            )),
+                                            Err(_) => None,
+                                        }
+                                    })
+                                    .collect()
+                                }
+
+                                let (completions, options) = match result {
+                                    Ok(pd) => {
+                                        let value = pd.into_value(new_span);
+                                        match &value {
+                                            Value::Record { .. } => {
+                                                let completions = value
+                                                    .get_data_by_key("completions")
+                                                    .and_then(|val| {
+                                                        val.as_list().ok().map(|it| {
+                                                            map_completions(
+                                                                it.iter(),
+                                                                new_span,
+                                                                offset,
+                                                            )
+                                                        })
+                                                    })
+                                                    .unwrap_or_default();
+                                                let options = value.get_data_by_key("options");
+
+                                                let options =
+                                                    if let Some(Value::Record { .. }) = &options {
+                                                        let options = options.unwrap_or_default();
+                                                        CompletionOptions {
+                                                            case_sensitive: options
+                                                                .get_data_by_key("case_sensitive")
+                                                                .and_then(|val| val.as_bool().ok())
+                                                                .unwrap_or(true),
+                                                            positional: options
+                                                                .get_data_by_key("positional")
+                                                                .and_then(|val| val.as_bool().ok())
+                                                                .unwrap_or(true),
+                                                            sort: options
+                                                                .get_data_by_key("sort")
+                                                                .and_then(|val| val.as_bool().ok())
+                                                                .unwrap_or(true),
+                                                        }
+                                                    } else {
+                                                        CompletionOptions::default()
+                                                    };
+
+                                                (completions, options)
                                             }
-                                        })
-                                        .filter(|x| x.1.as_bytes().starts_with(&prefix))
-                                        .collect(),
-                                    _ => vec![],
+                                            Value::List { vals, .. } => {
+                                                let completions =
+                                                    map_completions(vals.iter(), new_span, offset);
+                                                (completions, CompletionOptions::default())
+                                            }
+                                            _ => (vec![], CompletionOptions::default()),
+                                        }
+                                    }
+                                    _ => (vec![], CompletionOptions::default()),
                                 };
 
-                                return v;
+                                let mut completions: Vec<(reedline::Span, String)> = completions
+                                    .into_iter()
+                                    .filter(|it| {
+                                        // Minimise clones for new functionality
+                                        match (options.case_sensitive, options.positional) {
+                                            (true, true) => it.1.as_bytes().starts_with(&prefix),
+                                            (true, false) => it.1.contains(
+                                                std::str::from_utf8(&prefix).unwrap_or(""),
+                                            ),
+                                            (false, positional) => {
+                                                let value = it.1.to_lowercase();
+                                                let prefix = std::str::from_utf8(&prefix)
+                                                    .unwrap_or("")
+                                                    .to_lowercase();
+                                                if positional {
+                                                    value.starts_with(&prefix)
+                                                } else {
+                                                    value.contains(&prefix)
+                                                }
+                                            }
+                                        }
+                                    })
+                                    .collect();
+
+                                if options.sort {
+                                    completions.sort_by(|a, b| a.1.cmp(&b.1));
+                                }
+
+                                return completions;
                             }
                             FlatShape::Filepath | FlatShape::GlobPattern => {
                                 let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
@@ -316,18 +428,21 @@ impl NuCompleter {
                                     "".to_string()
                                 };
                                 let prefix = String::from_utf8_lossy(&prefix).to_string();
-                                return file_path_completion(new_span, &prefix, &cwd)
-                                    .into_iter()
-                                    .map(move |x| {
-                                        (
-                                            reedline::Span {
-                                                start: x.0.start - offset,
-                                                end: x.0.end - offset,
-                                            },
-                                            x.1,
-                                        )
-                                    })
-                                    .collect();
+                                let mut output: Vec<_> =
+                                    file_path_completion(new_span, &prefix, &cwd)
+                                        .into_iter()
+                                        .map(move |x| {
+                                            (
+                                                reedline::Span {
+                                                    start: x.0.start - offset,
+                                                    end: x.0.end - offset,
+                                                },
+                                                x.1,
+                                            )
+                                        })
+                                        .collect();
+                                output.sort_by(|a, b| a.1.cmp(&b.1));
+                                return output;
                             }
                             flat_shape => {
                                 let last = flattened
@@ -397,7 +512,7 @@ impl NuCompleter {
                                 };
                                 // let prefix = working_set.get_span_contents(flat.0);
                                 let prefix = String::from_utf8_lossy(&prefix).to_string();
-                                let output = file_path_completion(new_span, &prefix, &cwd)
+                                let mut output = file_path_completion(new_span, &prefix, &cwd)
                                     .into_iter()
                                     .map(move |x| {
                                         if flat_idx == 0 {
@@ -440,6 +555,7 @@ impl NuCompleter {
                                     .chain(commands.into_iter())
                                     .collect::<Vec<_>>();
                                 //output.dedup_by(|a, b| a.1 == b.1);
+                                output.sort_by(|a, b| a.1.cmp(&b.1));
 
                                 return output;
                             }
@@ -455,11 +571,7 @@ impl NuCompleter {
 
 impl Completer for NuCompleter {
     fn complete(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
-        let mut output = self.completion_helper(line, pos);
-
-        output.sort_by(|a, b| a.1.cmp(&b.1));
-
-        output
+        self.completion_helper(line, pos)
     }
 }
 
@@ -470,7 +582,7 @@ fn file_path_completion(
 ) -> Vec<(nu_protocol::Span, String)> {
     use std::path::{is_separator, Path};
 
-    let partial = partial.replace("\"", "");
+    let partial = partial.replace('\'', "");
 
     let (base_dir_name, partial) = {
         // If partial is only a word we want to search in the current dir
@@ -503,7 +615,7 @@ fn file_path_completion(
                         }
 
                         if path.contains(' ') {
-                            path = format!("\"{}\"", path);
+                            path = format!("\'{}\'", path);
                         }
 
                         Some((span, path))

@@ -12,12 +12,12 @@ pub struct NuHighlighter {
 }
 
 impl Highlighter for NuHighlighter {
-    fn highlight(&self, line: &str) -> StyledText {
+    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         trace!("highlighting: {}", line);
 
         let (shapes, global_span_offset) = {
             let mut working_set = StateWorkingSet::new(&self.engine_state);
-            let (block, _) = parse(&mut working_set, None, line.as_bytes(), false);
+            let (block, _) = parse(&mut working_set, None, line.as_bytes(), false, &[]);
 
             let shapes = flatten_block(&working_set, &block);
             (shapes, self.engine_state.next_span_start())
@@ -55,6 +55,13 @@ impl Highlighter for NuHighlighter {
                     get_shape_color(shape.1.to_string(), &self.config),
                     next_token,
                 )),
+                FlatShape::Binary => {
+                    // nushell ?
+                    output.push((
+                        get_shape_color(shape.1.to_string(), &self.config),
+                        next_token,
+                    ))
+                }
                 FlatShape::Bool => {
                     // nushell ?
                     output.push((
@@ -125,6 +132,13 @@ impl Highlighter for NuHighlighter {
                     ))
                 }
                 FlatShape::StringInterpolation => {
+                    // nushell ???
+                    output.push((
+                        get_shape_color(shape.1.to_string(), &self.config),
+                        next_token,
+                    ))
+                }
+                FlatShape::DateTime => {
                     // nushell ???
                     output.push((
                         get_shape_color(shape.1.to_string(), &self.config),

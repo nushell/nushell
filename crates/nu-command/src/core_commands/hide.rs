@@ -113,7 +113,7 @@ impl Command for Hide {
         } else if !import_pattern.hidden.contains(&import_pattern.head.name)
             && stack.remove_env_var(engine_state, &head_name_str).is_none()
         {
-            return Err(ShellError::NotFound(call.positional[0].span));
+            // TODO: we may want to error in the future
         }
 
         Ok(PipelineData::new(call.head))

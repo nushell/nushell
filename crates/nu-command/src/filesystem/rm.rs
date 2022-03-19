@@ -16,7 +16,7 @@ use nu_protocol::{
     Spanned, SyntaxShape, Type, Value,
 };
 
-const GLOB_PARAMS: glob::MatchOptions = glob::MatchOptions {
+const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
     require_literal_separator: false,
     require_literal_leading_dot: false,
@@ -48,7 +48,7 @@ impl Command for Rm {
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
-            .switch("quiet", "supress output showing files deleted", Some('q'))
+            .switch("quiet", "suppress output showing files deleted", Some('q'))
             // .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",
@@ -165,9 +165,9 @@ fn rm(
         }
 
         let path = path.join(&target.item);
-        match glob::glob_with(
+        match nu_glob::glob_with(
             &path.to_string_lossy(),
-            glob::MatchOptions {
+            nu_glob::MatchOptions {
                 require_literal_leading_dot: true,
                 ..GLOB_PARAMS
             },

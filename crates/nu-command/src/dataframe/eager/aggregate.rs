@@ -5,7 +5,10 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
-use polars::{frame::groupby::GroupBy, prelude::PolarsError};
+use polars::{
+    frame::groupby::GroupBy,
+    prelude::{PolarsError, QuantileInterpolOptions},
+};
 
 use crate::dataframe::values::NuGroupBy;
 
@@ -266,7 +269,9 @@ fn perform_groupby_aggregation(
         Operation::First => groupby.first(),
         Operation::Last => groupby.last(),
         Operation::Nunique => groupby.n_unique(),
-        Operation::Quantile(quantile) => groupby.quantile(quantile),
+        Operation::Quantile(quantile) => {
+            groupby.quantile(quantile, QuantileInterpolOptions::default())
+        }
         Operation::Median => groupby.median(),
         Operation::Var => groupby.var(),
         Operation::Std => groupby.std(),
@@ -327,13 +332,15 @@ fn perform_dataframe_aggregation(
         Operation::Sum => Ok(dataframe.sum()),
         Operation::Min => Ok(dataframe.min()),
         Operation::Max => Ok(dataframe.max()),
-        Operation::Quantile(quantile) => dataframe.quantile(quantile).map_err(|e| {
-            ShellError::SpannedLabeledError(
-                "Error calculating quantile".into(),
-                e.to_string(),
-                operation_span,
-            )
-        }),
+        Operation::Quantile(quantile) => dataframe
+            .quantile(quantile, QuantileInterpolOptions::default())
+            .map_err(|e| {
+                ShellError::SpannedLabeledError(
+                    "Error calculating quantile".into(),
+                    e.to_string(),
+                    operation_span,
+                )
+            }),
         Operation::Median => Ok(dataframe.median()),
         Operation::Var => Ok(dataframe.var()),
         Operation::Std => Ok(dataframe.std()),

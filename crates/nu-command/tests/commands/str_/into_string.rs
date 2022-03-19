@@ -45,7 +45,7 @@ fn from_boolean() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo $true | into string
+        echo true | into string
         "#
         )
     );

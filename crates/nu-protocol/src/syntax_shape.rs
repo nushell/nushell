@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Type;
+use crate::{DeclId, Type};
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,6 +40,9 @@ pub enum SyntaxShape {
     /// A module path pattern used for imports
     ImportPattern,
 
+    /// A binary literal
+    Binary,
+
     /// A block is allowed, eg `{start this thing}`
     Block(Option<Vec<SyntaxShape>>),
 
@@ -54,6 +57,9 @@ pub enum SyntaxShape {
 
     /// A duration value is allowed, eg `19day`
     Duration,
+
+    /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
+    DateTime,
 
     /// An operator
     Operator,
@@ -84,7 +90,7 @@ pub enum SyntaxShape {
     Record,
 
     /// A custom shape with custom completion logic
-    Custom(Box<SyntaxShape>, String),
+    Custom(Box<SyntaxShape>, DeclId),
 }
 
 impl SyntaxShape {
@@ -92,8 +98,10 @@ impl SyntaxShape {
         match self {
             SyntaxShape::Any => Type::Unknown,
             SyntaxShape::Block(_) => Type::Block,
+            SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Unknown,
             SyntaxShape::Custom(custom, _) => custom.to_type(),
+            SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Unknown,
             SyntaxShape::Filepath => Type::String,
@@ -140,11 +148,13 @@ impl Display for SyntaxShape {
             SyntaxShape::GlobPattern => write!(f, "glob"),
             SyntaxShape::ImportPattern => write!(f, "import"),
             SyntaxShape::Block(_) => write!(f, "block"),
+            SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
             SyntaxShape::List(x) => write!(f, "list<{}>", x),
             SyntaxShape::Record => write!(f, "record"),
             SyntaxShape::Filesize => write!(f, "filesize"),
             SyntaxShape::Duration => write!(f, "duration"),
+            SyntaxShape::DateTime => write!(f, "datetime"),
             SyntaxShape::Operator => write!(f, "operator"),
             SyntaxShape::RowCondition => write!(f, "condition"),
             SyntaxShape::MathExpression => write!(f, "variable"),

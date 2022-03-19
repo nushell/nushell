@@ -62,10 +62,12 @@ impl Command for RollUp {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
+        let metadata = input.metadata();
+
         let value = input.into_value(call.head);
         let rotated_value = vertical_rotate_value(value, by, VerticalDirection::Up)?;
 
-        Ok(rotated_value.into_pipeline_data())
+        Ok(rotated_value.into_pipeline_data().set_metadata(metadata))
     }
 }
 

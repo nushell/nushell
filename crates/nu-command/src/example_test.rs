@@ -84,7 +84,13 @@ pub fn test_examples(cmd: impl Command + 'static) {
 
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&*engine_state);
-            let (output, err) = parse(&mut working_set, None, example.example.as_bytes(), false);
+            let (output, err) = parse(
+                &mut working_set,
+                None,
+                example.example.as_bytes(),
+                false,
+                &[],
+            );
 
             if let Some(err) = err {
                 panic!("test parse error in `{}`: {:?}", example.example, err)

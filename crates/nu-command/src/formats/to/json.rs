@@ -22,6 +22,12 @@ impl Command for ToJson {
                 "specify indentation width",
                 Some('i'),
             )
+            .named(
+                "tabs",
+                SyntaxShape::Number,
+                "specify indentation tab quantity",
+                Some('t'),
+            )
             .category(Category::Formats)
     }
 
@@ -37,6 +43,7 @@ impl Command for ToJson {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let raw = call.has_flag("raw");
+        let use_tabs = call.has_flag("tabs");
 
         let span = call.head;
         let value = input.into_value(span);
@@ -44,9 +51,11 @@ impl Command for ToJson {
 
         let json_result = if raw {
             nu_json::to_string_raw(&json_value)
+        } else if use_tabs {
+            let tab_count: usize = call.get_flag(engine_state, stack, "tabs")?.unwrap_or(1);
+            nu_json::to_string_with_tab_indentation(&json_value, tab_count)
         } else {
             let indent: usize = call.get_flag(engine_state, stack, "indent")?.unwrap_or(2);
-
             nu_json::to_string_with_indent(&json_value, indent)
         };
 

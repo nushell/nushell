@@ -2,6 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::ast::Call;
+use crate::ast::Expression;
 use crate::engine::Command;
 use crate::engine::EngineState;
 use crate::engine::Stack;
@@ -10,24 +11,28 @@ use crate::PipelineData;
 use crate::SyntaxShape;
 use crate::VarId;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Flag {
     pub long: String,
     pub short: Option<char>,
     pub arg: Option<SyntaxShape>,
     pub required: bool,
     pub desc: String,
+
     // For custom commands
     pub var_id: Option<VarId>,
+    pub default_value: Option<Expression>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PositionalArg {
     pub name: String,
     pub desc: String,
     pub shape: SyntaxShape,
+
     // For custom commands
     pub var_id: Option<VarId>,
+    pub default_value: Option<Expression>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -123,6 +128,7 @@ impl Signature {
             desc: "Display this help message".into(),
             required: false,
             var_id: None,
+            default_value: None,
         };
 
         Signature {
@@ -160,6 +166,7 @@ impl Signature {
             desc: desc.into(),
             shape: shape.into(),
             var_id: None,
+            default_value: None,
         });
 
         self
@@ -177,6 +184,7 @@ impl Signature {
             desc: desc.into(),
             shape: shape.into(),
             var_id: None,
+            default_value: None,
         });
 
         self
@@ -193,6 +201,7 @@ impl Signature {
             desc: desc.into(),
             shape: shape.into(),
             var_id: None,
+            default_value: None,
         });
 
         self
@@ -215,6 +224,7 @@ impl Signature {
             required: false,
             desc: desc.into(),
             var_id: None,
+            default_value: None,
         });
 
         self
@@ -237,6 +247,7 @@ impl Signature {
             required: true,
             desc: desc.into(),
             var_id: None,
+            default_value: None,
         });
 
         self
@@ -258,6 +269,7 @@ impl Signature {
             required: false,
             desc: desc.into(),
             var_id: None,
+            default_value: None,
         });
 
         self

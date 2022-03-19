@@ -18,11 +18,7 @@ impl Command for Do {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("do")
             .desc(self.usage())
-            .required(
-                "block",
-                SyntaxShape::Block(Some(vec![])),
-                "the block to run",
-            )
+            .required("block", SyntaxShape::Any, "the block to run")
             .switch(
                 "ignore-errors",
                 "ignore errors as the block runs",
@@ -115,6 +111,20 @@ impl Command for Do {
                 example: r#"do -i { thisisnotarealcommand }"#,
                 result: None,
             },
+            Example {
+                description: "Run the block, with a positional parameter",
+                example: r#"do {|x| 100 + $x } 50"#,
+                result: Some(Value::test_int(150)),
+            },
         ]
+    }
+}
+
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::Do;
+        use crate::test_examples;
+        test_examples(Do {})
     }
 }

@@ -96,7 +96,7 @@ impl Command for Where {
             },
             Example {
                 description: "List all files that were modified in the last two weeks",
-                example: "ls | where modified <= 2wk",
+                example: "ls | where modified >= (date now) - 2wk",
                 result: None,
             },
         ]

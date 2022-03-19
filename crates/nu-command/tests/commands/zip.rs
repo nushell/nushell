@@ -36,7 +36,7 @@ fn zips_two_tables() {
                   [    jt,    20]
                 ]);
 
-                let actual = ($contributors | update commits {{ |i| ($i.commits + 10) }});
+                let actual = ($contributors | upsert commits {{ |i| ($i.commits + 10) }});
 
                 expect $actual --to-eq [[name, commits]; [andres, 20] [jt, 30]]
                 "#,

@@ -19,6 +19,13 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_positional), url(docsrs), help("Usage: {0}"))]
     ExtraPositional(String, #[label = "extra positional argument"] Span),
 
+    #[error("Require positional parameter after optional parameter")]
+    #[diagnostic(code(nu::parser::required_after_optional), url(docsrs))]
+    RequiredAfterOptional(
+        String,
+        #[label = "required parameter {0} after optional parameter"] Span,
+    ),
+
     #[error("Unexpected end of code.")]
     #[diagnostic(code(nu::parser::unexpected_eof), url(docsrs))]
     UnexpectedEof(String, #[label("expected closing {0}")] Span),
@@ -246,6 +253,7 @@ impl ParseError {
             ParseError::UnknownCommand(s) => *s,
             ParseError::NonUtf8(s) => *s,
             ParseError::UnknownFlag(_, _, s) => *s,
+            ParseError::RequiredAfterOptional(_, s) => *s,
             ParseError::UnknownType(s) => *s,
             ParseError::MissingFlagParam(_, s) => *s,
             ParseError::ShortFlagBatchCantTakeArg(s) => *s,

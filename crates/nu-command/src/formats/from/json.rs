@@ -78,6 +78,10 @@ impl Command for FromJson {
         let config = stack.get_config().unwrap_or_default();
         let string_input = input.collect_string("", &config)?;
 
+        if string_input.is_empty() {
+            return Ok(PipelineData::new(span));
+        }
+
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag("objects") {
             #[allow(clippy::needless_collect)]

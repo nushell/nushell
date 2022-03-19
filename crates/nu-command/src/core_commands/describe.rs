@@ -28,7 +28,7 @@ impl Command for Describe {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if matches!(input, PipelineData::RawStream(..)) {
+        if matches!(input, PipelineData::ExternalStream { .. }) {
             Ok(PipelineData::Value(
                 Value::string("raw input", call.head),
                 None,

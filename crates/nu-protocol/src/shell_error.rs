@@ -112,6 +112,17 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::cant_convert), url(docsrs))]
     CantConvert(String, String, #[label("can't convert {1} to {0}")] Span),
 
+    #[error("{0} is not representable as a string.")]
+    #[diagnostic(
+        code(nu::shell::env_var_not_a_string),
+        url(docsrs),
+        help(
+            r#"The '{0}' environment variable must be a string or be convertible to a string.
+Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVERSIONS."#
+        )
+    )]
+    EnvVarNotAString(String, #[label("value not representable as a string")] Span),
+
     #[error("Division by zero.")]
     #[diagnostic(code(nu::shell::division_by_zero), url(docsrs))]
     DivisionByZero(#[label("division by zero")] Span),
@@ -122,11 +133,11 @@ pub enum ShellError {
 
     #[error("Row number too large (max: {0}).")]
     #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
-    AccessBeyondEnd(usize, #[label = "too large"] Span),
+    AccessBeyondEnd(usize, #[label = "index too large (max: {0})"] Span),
 
     #[error("Row number too large.")]
     #[diagnostic(code(nu::shell::access_beyond_end_of_stream), url(docsrs))]
-    AccessBeyondEndOfStream(#[label = "too large"] Span),
+    AccessBeyondEndOfStream(#[label = "index too large"] Span),
 
     #[error("Data cannot be accessed with a cell path")]
     #[diagnostic(code(nu::shell::incompatible_path_access), url(docsrs))]
@@ -136,6 +147,13 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::column_not_found), url(docsrs))]
     CantFindColumn(
         #[label = "cannot find column"] Span,
+        #[label = "value originates here"] Span,
+    ),
+
+    #[error("Column already exists")]
+    #[diagnostic(code(nu::shell::column_already_exists), url(docsrs))]
+    ColumnAlreadyExists(
+        #[label = "column already exists"] Span,
         #[label = "value originates here"] Span,
     ),
 
@@ -152,7 +170,23 @@ pub enum ShellError {
 
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
-    UnsupportedInput(String, #[label("{0} not supported")] Span),
+    UnsupportedInput(String, #[label("{0}")] Span),
+
+    #[error("Unable to parse datetime")]
+    #[diagnostic(
+        code(nu::shell::datetime_parse_error),
+        url(docsrs),
+        help(
+            r#"Examples of supported inputs:
+ * "5 pm"
+ * "2020/12/4"
+ * "2020.12.04 22:10 +2"
+ * "2020-04-12 22:10:57 +02:00"
+ * "2020-04-12T22:10:57.213231+02:00"
+ * "Tue, 1 Jul 2003 10:52:37 +0200""#
+        )
+    )]
+    DatetimeParseError(#[label("datetime parsing failed")] Span),
 
     #[error("Network failure")]
     #[diagnostic(code(nu::shell::network_failure), url(docsrs))]

@@ -70,7 +70,7 @@ impl Command for Let {
             },
             Example {
                 description: "Set a variable based on the condition",
-                example: "let x = if $false { -1 } else { 1 }",
+                example: "let x = if false { -1 } else { 1 }",
                 result: None,
             },
         ]

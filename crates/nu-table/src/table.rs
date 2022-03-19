@@ -973,8 +973,9 @@ fn process_table(table: &Table) -> ProcessedTable {
     for row in &table.data {
         let mut out_row = vec![];
         for column in row {
+            let cleaned = clean(&column.contents);
             out_row.push(ProcessedCell {
-                contents: split_sublines(&column.contents),
+                contents: split_sublines(&cleaned),
                 style: column.style,
             });
         }
@@ -983,8 +984,9 @@ fn process_table(table: &Table) -> ProcessedTable {
 
     let mut processed_headers = vec![];
     for header in &table.headers {
+        let cleaned = clean(&header.contents);
         processed_headers.push(ProcessedCell {
-            contents: split_sublines(&header.contents),
+            contents: split_sublines(&cleaned),
             style: header.style,
         });
     }
@@ -994,6 +996,12 @@ fn process_table(table: &Table) -> ProcessedTable {
         data: processed_data,
         theme: table.theme.clone(),
     }
+}
+
+fn clean(input: &str) -> String {
+    let input = input.replace('\r', "");
+
+    input.replace('\t', "    ")
 }
 
 fn get_max_column_widths(processed_table: &ProcessedTable) -> Vec<usize> {

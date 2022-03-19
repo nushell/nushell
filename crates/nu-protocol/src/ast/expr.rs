@@ -1,11 +1,15 @@
+use chrono::FixedOffset;
+use serde::{Deserialize, Serialize};
+
 use super::{Call, CellPath, Expression, FullCellPath, Operator, RangeOperator};
 use crate::{ast::ImportPattern, BlockId, Signature, Span, Spanned, Unit, VarId};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
     Bool(bool),
     Int(i64),
     Float(f64),
+    Binary(Vec<u8>),
     Range(
         Option<Box<Expression>>, // from
         Option<Box<Expression>>, // next value after "from"
@@ -26,6 +30,7 @@ pub enum Expr {
     Record(Vec<(Expression, Expression)>),
     Keyword(Vec<u8>, Span, Box<Expression>),
     ValueWithUnit(Box<Expression>, Spanned<Unit>),
+    DateTime(chrono::DateTime<FixedOffset>),
     Filepath(String),
     GlobPattern(String),
     String(String),

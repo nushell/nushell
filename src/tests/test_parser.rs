@@ -4,7 +4,7 @@ use super::run_test_contains;
 
 #[test]
 fn env_shorthand() -> TestResult {
-    run_test("FOO=BAR if $false { 3 } else { 4 }", "4")
+    run_test("FOO=BAR if false { 3 } else { 4 }", "4")
 }
 
 #[test]
@@ -219,6 +219,11 @@ fn string_interpolation_paren_test3() -> TestResult {
 }
 
 #[test]
+fn string_interpolation_escaping() -> TestResult {
+    run_test(r#"$"hello\nworld" | lines | length"#, "2")
+}
+
+#[test]
 fn capture_multiple_commands() -> TestResult {
     run_test(
         r#"
@@ -328,4 +333,24 @@ fn block_arity_check2() -> TestResult {
 #[test]
 fn block_arity_check3() -> TestResult {
     fail_test(r#"ls | each { |x, y| 1}"#, "expected 1 block parameter")
+}
+
+#[test]
+fn string_escape() -> TestResult {
+    run_test(r#""\u015B""#, "ś")
+}
+
+#[test]
+fn string_escape_interpolation() -> TestResult {
+    run_test(r#"$"\u015B(char hamburger)abc""#, "ś≡abc")
+}
+
+#[test]
+fn proper_rest_types() -> TestResult {
+    run_test(
+        r#"def foo [--verbose(-v): bool, # my test flag
+                   ...rest: int # my rest comment
+                ] { if $verbose { print "verbose!" } else { print "not verbose!" } }; foo"#,
+        "not verbose!",
+    )
 }

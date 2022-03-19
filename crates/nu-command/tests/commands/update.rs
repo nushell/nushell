@@ -58,3 +58,40 @@ fn sets_the_column_from_a_subexpression() {
 
     assert_eq!(actual.out, "true");
 }
+
+#[test]
+fn upsert_column_missing() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open cargo_sample.toml
+            | update dev-dependencies.new_assertions "0.7.0"
+        "#
+    ));
+
+    assert!(actual.err.contains("cannot find column"));
+}
+
+#[test]
+fn update_list() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            [1, 2, 3] | update 1 abc | to json -r
+        "#
+    ));
+
+    assert_eq!(actual.out, r#"[1,"abc",3]"#);
+}
+
+#[test]
+fn update_past_end_list() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            [1, 2, 3] | update 5 abc | to json -r
+        "#
+    ));
+
+    assert!(actual.err.contains("too large"));
+}

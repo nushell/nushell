@@ -62,9 +62,12 @@ fn abs_helper(val: Value, head: Span) -> Value {
             val: val.abs(),
             span,
         },
-        _ => Value::Error {
+        other => Value::Error {
             error: ShellError::UnsupportedInput(
-                String::from("Only numerical values are supported"),
+                format!(
+                    "Only numerical values are supported, input type: {:?}",
+                    other.get_type()
+                ),
                 head,
             ),
         },

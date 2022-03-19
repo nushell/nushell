@@ -1,4 +1,5 @@
 use nu_protocol::ast::{Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline};
+use nu_protocol::DeclId;
 use nu_protocol::{engine::StateWorkingSet, Span};
 use std::fmt::{Display, Formatter, Result};
 
@@ -7,6 +8,7 @@ pub enum FlatShape {
     Garbage,
     Nothing,
     Bool,
+    Binary,
     Int,
     Float,
     Range,
@@ -23,10 +25,11 @@ pub enum FlatShape {
     Record,
     Block,
     Filepath,
+    DateTime,
     GlobPattern,
     Variable,
     Flag,
-    Custom(String),
+    Custom(DeclId),
 }
 
 impl Display for FlatShape {
@@ -34,6 +37,7 @@ impl Display for FlatShape {
         match self {
             FlatShape::Garbage => write!(f, "shape_garbage"),
             FlatShape::Nothing => write!(f, "shape_nothing"),
+            FlatShape::Binary => write!(f, "shape_binary"),
             FlatShape::Bool => write!(f, "shape_bool"),
             FlatShape::Int => write!(f, "shape_int"),
             FlatShape::Float => write!(f, "shape_float"),
@@ -45,6 +49,7 @@ impl Display for FlatShape {
             FlatShape::Operator => write!(f, "shape_operator"),
             FlatShape::Signature => write!(f, "shape_signature"),
             FlatShape::String => write!(f, "shape_string"),
+            FlatShape::DateTime => write!(f, "shape_datetime"),
             FlatShape::StringInterpolation => write!(f, "shape_string_interpolation"),
             FlatShape::List => write!(f, "shape_list"),
             FlatShape::Table => write!(f, "shape_table"),
@@ -72,7 +77,7 @@ pub fn flatten_expression(
     expr: &Expression,
 ) -> Vec<(Span, FlatShape)> {
     if let Some(custom_completion) = &expr.custom_completion {
-        return vec![(expr.span, FlatShape::Custom(custom_completion.clone()))];
+        return vec![(expr.span, FlatShape::Custom(*custom_completion))];
     }
 
     match &expr.expr {
@@ -183,6 +188,12 @@ pub fn flatten_expression(
         }
         Expr::Nothing => {
             vec![(expr.span, FlatShape::Nothing)]
+        }
+        Expr::DateTime(_) => {
+            vec![(expr.span, FlatShape::DateTime)]
+        }
+        Expr::Binary(_) => {
+            vec![(expr.span, FlatShape::Binary)]
         }
         Expr::Int(_) => {
             vec![(expr.span, FlatShape::Int)]

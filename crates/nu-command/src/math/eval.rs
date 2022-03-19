@@ -40,7 +40,7 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Evalulate math in the pipeline",
+            description: "Evaluate math in the pipeline",
             example: "'10 / 4' | math eval",
             result: Some(Value::Float {
                 val: 2.5,

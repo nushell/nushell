@@ -132,6 +132,20 @@ lazy_static! {
         // This is the "other" section
         "bel" => '\x07'.to_string(),       // Terminal Bell
         "backspace" => '\x08'.to_string(), // Backspace
+
+        // separators
+        "file_separator" => '\x1c'.to_string(),
+        "file_sep"  => '\x1c'.to_string(),
+        "fs" => '\x1c'.to_string(),
+        "group_separator" => '\x1d'.to_string(),
+        "group_sep" => '\x1d'.to_string(),
+        "gs" => '\x1d'.to_string(),
+        "record_separator" => '\x1e'.to_string(),
+        "record_sep" => '\x1e'.to_string(),
+        "rs" => '\x1e'.to_string(),
+        "unit_separator" => '\x1f'.to_string(),
+        "unit_sep" => '\x1f'.to_string(),
+        "us" => '\x1f'.to_string(),
     };
 }
 

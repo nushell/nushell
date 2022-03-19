@@ -1,3 +1,4 @@
+mod alias;
 mod all;
 mod any;
 mod append;
@@ -23,6 +24,7 @@ mod hash_;
 mod headers;
 mod help;
 mod histogram;
+mod insert;
 mod into_filesize;
 mod into_int;
 mod keep;
@@ -47,6 +49,7 @@ mod reverse;
 mod rm;
 mod roll;
 mod rotate;
+mod run_external;
 mod save;
 mod select;
 mod semicolon;
@@ -60,6 +63,7 @@ mod str_;
 mod touch;
 mod uniq;
 mod update;
+mod upsert;
 mod use_;
 mod where_;
 #[cfg(feature = "which")]

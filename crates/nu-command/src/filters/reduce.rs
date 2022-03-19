@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use nu_engine::{eval_block, CallExt};
 
 use nu_protocol::ast::Call;
@@ -45,6 +47,14 @@ impl Command for Reduce {
                 }),
             },
             Example {
+                example: "[ 1 2 3 ] | reduce -n {|it, acc| $acc + $it.item }",
+                description: "Sum values of a list (same as 'math sum')",
+                result: Some(Value::Int {
+                    val: 6,
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 example: "[ 1 2 3 4 ] | reduce -f 10 {|it, acc| $acc + $it }",
                 description: "Sum values with a starting value (fold)",
                 result: Some(Value::Int {
@@ -62,25 +72,15 @@ impl Command for Reduce {
             },
             Example {
                 example: r#"[ one longest three bar ] | reduce -n { |it, acc|
-        if ($it.item | str length) > ($acc | str length) {
-            $it.item
-        } else {
-            $acc
-        }
-    }"#,
+                    if ($it.item | str length) > ($acc | str length) {
+                        $it.item
+                    } else {
+                        $acc
+                    }
+                }"#,
                 description: "Find the longest string and its index",
-                result: Some(Value::Record {
-                    cols: vec!["index".to_string(), "item".to_string()],
-                    vals: vec![
-                        Value::Int {
-                            val: 3,
-                            span: Span::test_data(),
-                        },
-                        Value::String {
-                            val: "longest".to_string(),
-                            span: Span::test_data(),
-                        },
-                    ],
+                result: Some(Value::String {
+                    val: "longest".to_string(),
                     span: Span::test_data(),
                 }),
             },
@@ -94,10 +94,6 @@ impl Command for Reduce {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // TODO: How to make this interruptible?
-        // TODO: Change the vars to $acc and $it instead of $it.acc and $it.item
-        //       (requires parser change)
-
         let span = call.head;
 
         let fold: Option<Value> = call.get_flag(engine_state, stack, "fold")?;
@@ -105,6 +101,7 @@ impl Command for Reduce {
         let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let block = engine_state.get_block(capture_block.block_id);
+        let ctrlc = engine_state.ctrlc.clone();
 
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
@@ -126,84 +123,70 @@ impl Command for Reduce {
             ));
         };
 
-        Ok(input_iter
-            .enumerate()
-            .fold(start_val, move |acc, (idx, x)| {
-                stack.with_env(&orig_env_vars, &orig_env_hidden);
+        let mut acc = start_val;
 
-                // if the acc coming from previous iter is indexed, drop the index
-                let acc = if let Value::Record { cols, vals, .. } = &acc {
-                    if cols.len() == 2 && vals.len() == 2 {
-                        if cols[0].eq("index") && cols[1].eq("item") {
-                            vals[1].clone()
-                        } else {
-                            acc
-                        }
+        for (idx, x) in input_iter.enumerate() {
+            stack.with_env(&orig_env_vars, &orig_env_hidden);
+            // if the acc coming from previous iter is indexed, drop the index
+            acc = if let Value::Record { cols, vals, .. } = &acc {
+                if cols.len() == 2 && vals.len() == 2 {
+                    if cols[0].eq("index") && cols[1].eq("item") {
+                        vals[1].clone()
                     } else {
                         acc
                     }
                 } else {
                     acc
-                };
-
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        let it = if numbered {
-                            Value::Record {
-                                cols: vec!["index".to_string(), "item".to_string()],
-                                vals: vec![
-                                    Value::Int {
-                                        val: idx as i64 + off,
-                                        span,
-                                    },
-                                    x,
-                                ],
-                                span,
-                            }
-                        } else {
-                            x
-                        };
-
-                        stack.add_var(*var_id, it);
-                    }
                 }
-                if let Some(var) = block.signature.get_positional(1) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, acc);
-                    }
-                }
+            } else {
+                acc
+            };
 
-                let v = match eval_block(
-                    engine_state,
-                    &mut stack,
-                    block,
-                    PipelineData::new(span),
-                    redirect_stdout,
-                    redirect_stderr,
-                ) {
-                    Ok(v) => v.into_value(span),
-                    Err(error) => Value::Error { error },
-                };
+            if let Some(var) = block.signature.get_positional(0) {
+                if let Some(var_id) = &var.var_id {
+                    let it = if numbered {
+                        Value::Record {
+                            cols: vec!["index".to_string(), "item".to_string()],
+                            vals: vec![
+                                Value::Int {
+                                    val: idx as i64 + off,
+                                    span,
+                                },
+                                x,
+                            ],
+                            span,
+                        }
+                    } else {
+                        x
+                    };
 
-                if numbered {
-                    // make sure the output is indexed
-                    Value::Record {
-                        cols: vec!["index".to_string(), "item".to_string()],
-                        vals: vec![
-                            Value::Int {
-                                val: idx as i64 + off,
-                                span,
-                            },
-                            v,
-                        ],
-                        span,
-                    }
-                } else {
-                    v
+                    stack.add_var(*var_id, it);
                 }
-            })
-            .with_span(span)
-            .into_pipeline_data())
+            }
+            if let Some(var) = block.signature.get_positional(1) {
+                if let Some(var_id) = &var.var_id {
+                    stack.add_var(*var_id, acc);
+                }
+            }
+
+            acc = eval_block(
+                engine_state,
+                &mut stack,
+                block,
+                PipelineData::new(span),
+                redirect_stdout,
+                redirect_stderr,
+            )?
+            .into_value(span);
+
+            if let Some(ctrlc) = &ctrlc {
+                if ctrlc.load(Ordering::SeqCst) {
+                    break;
+                }
+            }
+        }
+
+        Ok(acc.with_span(span).into_pipeline_data())
     }
 }
 

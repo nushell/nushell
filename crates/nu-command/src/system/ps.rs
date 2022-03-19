@@ -41,11 +41,28 @@ impl Command for Ps {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "List the system processes",
-            example: "ps",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "List the system processes",
+                example: "ps",
+                result: None,
+            },
+            Example {
+                description: "List the top 5 system processes with the highest memory usage",
+                example: "ps | sort-by mem | last 5",
+                result: None,
+            },
+            Example {
+                description: "List the top 3 system processes with the highest CPU usage",
+                example: "ps | sort-by cpu | last 3",
+                result: None,
+            },
+            Example {
+                description: "List the system processes with 'nu' in their names",
+                example: "ps | where name =~ 'nu'",
+                result: None,
+            },
+        ]
     }
 }
 

@@ -28,7 +28,7 @@ impl Command for FilterWith {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Filter dataframe using a bool mask",
-            example: r#"let mask = ([$true $false] | dfr to-df);
+            example: r#"let mask = ([true false] | dfr to-df);
     [[a b]; [1 2] [3 4]] | dfr to-df | dfr filter-with $mask"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![

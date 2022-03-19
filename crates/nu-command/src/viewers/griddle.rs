@@ -2,14 +2,15 @@ use std::borrow::Cow;
 
 // use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
 use super::icons::icon_for_file;
-use lscolors::{LsColors, Style};
+use lscolors::LsColors;
+use lscolors::Style;
 use nu_engine::env_to_string;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack},
-    Category, Config, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use terminal_size::{Height, Width};
@@ -65,7 +66,7 @@ prints out the list properly."#
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
         let config = stack.get_config().unwrap_or_default();
         let env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-            Some(v) => Some(env_to_string("LS_COLORS", v, engine_state, stack, &config)?),
+            Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
             None => None,
         };
         let use_grid_icons = config.use_grid_icons;
@@ -131,6 +132,51 @@ prints out the list properly."#
             }
         }
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Render a simple list to a grid",
+                example: "[1 2 3 a b c] | grid",
+                result: Some(Value::String {
+                    val: "1 │ 2 │ 3 │ a │ b │ c".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "The above example is the same as:",
+                example: "[1 2 3 a b c] | wrap name | grid",
+                result: Some(Value::String {
+                    val: "1 │ 2 │ 3 │ a │ b │ c".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Render a record to a grid",
+                example: "{name: 'foo', b: 1, c: 2} | grid",
+                result: Some(Value::String {
+                    val: "foo".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Render a list of records to a grid",
+                example: "[{name: 'A', v: 1} {name: 'B', v: 2} {name: 'C', v: 3}] | grid",
+                result: Some(Value::String {
+                    val: "A │ B │ C".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Render a table with 'name' column in it to a grid",
+                example: "[[name patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | grid",
+                result: Some(Value::String {
+                    val: "0.1.0 │ 0.1.1 │ 0.2.0".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+        ]
+    }
 }
 
 /// Removes ANSI escape codes and some ASCII control characters
@@ -194,18 +240,15 @@ fn create_grid_output(
                     let path = std::path::Path::new(no_ansi.as_ref());
                     let icon = icon_for_file(path, call.head)?;
                     let ls_colors_style = ls_colors.style_for_path(path);
-                    // eprintln!("ls_colors_style: {:?}", &ls_colors_style);
 
                     let icon_style = match ls_colors_style {
                         Some(c) => c.to_crossterm_style(),
                         None => crossterm::style::ContentStyle::default(),
                     };
-                    // eprintln!("icon_style: {:?}", &icon_style);
 
                     let ansi_style = ls_colors_style
                         .map(Style::to_crossterm_style)
                         .unwrap_or_default();
-                    // eprintln!("ansi_style: {:?}", &ansi_style);
 
                     let item = format!("{} {}", icon_style.apply(icon), ansi_style.apply(value));
 

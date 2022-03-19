@@ -1,11 +1,11 @@
 [package]
-authors = ["The Nu Project Contributors"]
+authors = ["The Nushell Project Developers"]
 description = "A version incrementer plugin for Nushell"
 edition = "2021"
 license = "MIT"
 name = "nu_plugin_example"
-version = "0.59.0"
+version = "0.59.1"
 
 [dependencies]
-nu-plugin = { path="../nu-plugin", version = "0.59.0" }
-nu-protocol = { path="../nu-protocol", version = "0.59.0", features = ["plugin"]}
+nu-plugin = { path="../nu-plugin", version = "0.59.1" }
+nu-protocol = { path="../nu-protocol", version = "0.59.1", features = ["plugin"]}
