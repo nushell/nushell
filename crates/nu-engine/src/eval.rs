@@ -794,11 +794,26 @@ pub fn create_scope(
             let mut cols = vec![];
             let mut vals = vec![];
 
+            let mut overlay_commands = vec![];
+            for overlay in &overlays_map {
+                let overlay_name = String::from_utf8_lossy(*overlay.0).to_string();
+                let overlay_id = engine_state.find_overlay(*overlay.0);
+                if let Some(overlay_id) = overlay_id {
+                    let overlay = engine_state.get_overlay(overlay_id);
+                    if overlay.has_decl(command_name) {
+                        overlay_commands.push(overlay_name);
+                    }
+                }
+            }
+
             cols.push("command".into());
             vals.push(Value::String {
                 val: String::from_utf8_lossy(command_name).to_string(),
                 span,
             });
+
+            cols.push("module_name".into());
+            vals.push(Value::string(overlay_commands.join(", "), span));
 
             let decl = engine_state.get_decl(*decl_id);
             let signature = decl.signature();
