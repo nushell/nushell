@@ -57,7 +57,7 @@ impl Command for Use {
 
                         if let Some(id) = overlay.get_env_var_id(name) {
                             output.push((name.clone(), id));
-                        } else if !overlay.has_decl(name) {
+                        } else if !overlay.has_decl(name) && !overlay.has_alias(name) {
                             return Err(ShellError::EnvVarNotFoundAtRuntime(
                                 String::from_utf8_lossy(name).into(),
                                 *span,

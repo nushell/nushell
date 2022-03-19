@@ -770,6 +770,19 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn use_aliases(&mut self, aliases: Vec<(Vec<u8>, AliasId)>) {
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        for (name, alias_id) in aliases {
+            scope_frame.aliases.insert(name, alias_id);
+            scope_frame.visibility.use_decl_id(&alias_id);
+        }
+    }
+
     pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
         let name = decl.name().as_bytes().to_vec();
 
