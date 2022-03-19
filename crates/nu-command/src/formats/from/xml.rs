@@ -114,24 +114,7 @@ fn add_row(cols: &mut Vec<String>, vals: &mut Vec<Value>, name: String, value: V
     vals.push(value);
 }
 
-// fn from_attributes_to_value(attributes: &[roxmltree::Attribute], span: Span) -> Value {
-//     let mut collected = IndexMap::new();
-//     for a in attributes {
-//         collected.insert(String::from(a.name()), Value::string(a.value(), span));
-//     }
-
-//     let (cols, vals) = collected
-//         .into_iter()
-//         .fold((vec![], vec![]), |mut acc, (k, v)| {
-//             acc.0.push(k);
-//             acc.1.push(v);
-//             acc
-//         });
-
-//     Value::Record { cols, vals, span }
-// }
-
-fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, Value) {
+fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (Option<String>, Value) {
     if n.is_element() {
         let name = n.tag_name().name().trim().to_string();
 
@@ -140,7 +123,7 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, V
             children_values.push(from_node_to_value(&c, span, flat));
         }
 
-        let children_values: Vec<(String, Value)> = children_values
+        let children_values: Vec<(Option<String>, Value)> = children_values
             .into_iter()
             .filter(|x| match &x.1 {
                 Value::String { val: f, .. } => {
@@ -168,13 +151,23 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, V
             }
 
             for (children_col, children_val) in children_values {
-                add_row(
-                    &mut row_cols,
-                    &mut row_vals,
-                    children_col,
-                    children_val,
-                    span,
-                );
+                if let Some(children_col) = children_col {
+                    add_row(
+                        &mut row_cols,
+                        &mut row_vals,
+                        children_col,
+                        children_val,
+                        span,
+                    );
+                } else {
+                    add_row(
+                        &mut row_cols,
+                        &mut row_vals,
+                        "text".to_string(),
+                        children_val,
+                        span,
+                    );
+                }
             }
         } else {
             let attribute_value: Value = {
@@ -201,7 +194,11 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, V
             let mut children_vals = vec![];
 
             for (children_col, children_val) in children_values {
-                children_cols.push(children_col);
+                if let Some(children_col) = children_col {
+                    children_cols.push(children_col);
+                } else {
+                    children_cols.push("text".to_string())
+                }
                 children_vals.push(children_val);
             }
 
@@ -214,7 +211,7 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, V
         }
 
         (
-            name,
+            Some(name),
             Value::Record {
                 cols: row_cols,
                 vals: row_vals,
@@ -223,7 +220,7 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, V
         )
     } else if n.is_comment() {
         (
-            String::new(),
+            None,
             Value::String {
                 val: "<comment>".to_string(),
                 span,
@@ -231,7 +228,7 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, V
         )
     } else if n.is_pi() {
         (
-            String::new(),
+            None,
             Value::String {
                 val: "<processing_instruction>".to_string(),
                 span,
@@ -240,14 +237,14 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, V
     } else if n.is_text() {
         match n.text() {
             Some(text) => (
-                text.to_string(),
+                None,
                 Value::String {
                     val: text.to_string(),
                     span,
                 },
             ),
             None => (
-                "<error>".to_string(),
+                None,
                 Value::String {
                     val: "<error>".to_string(),
                     span,
@@ -256,7 +253,7 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, V
         }
     } else {
         (
-            "<unknown>".to_string(),
+            None,
             Value::String {
                 val: "<unknown>".to_string(),
                 span,
@@ -266,8 +263,17 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span, flat: bool) -> (String, V
 }
 
 fn from_document_to_value(d: &roxmltree::Document, span: Span, flat: bool) -> Value {
-    let (_, output) = from_node_to_value(&d.root_element(), span, flat);
-    output
+    let (node, output) = from_node_to_value(&d.root_element(), span, flat);
+
+    if let Some(node) = node {
+        Value::Record {
+            cols: vec![node],
+            vals: vec![output],
+            span,
+        }
+    } else {
+        output
+    }
 }
 
 pub fn from_xml_string_to_value(
