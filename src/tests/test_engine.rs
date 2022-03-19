@@ -279,16 +279,6 @@ fn open_ended_range() -> TestResult {
 }
 
 #[test]
-fn bool_variable() -> TestResult {
-    run_test(r#"$true"#, "true")
-}
-
-#[test]
-fn bool_variable2() -> TestResult {
-    run_test(r#"$false"#, "false")
-}
-
-#[test]
 fn default_value1() -> TestResult {
     run_test(r#"def foo [x = 3] { $x }; foo"#, "3")
 }
