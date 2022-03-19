@@ -969,8 +969,9 @@ pub fn create_scope(
             });
 
             cols.push("is_builtin".to_string());
+            // we can only be a is_builtin or is_custom, not both
             vals.push(Value::Bool {
-                val: decl.is_builtin(),
+                val: decl.get_block_id().is_none(),
                 span,
             });
 
