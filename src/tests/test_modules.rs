@@ -119,3 +119,11 @@ fn multi_word_imports() -> TestResult {
         "10",
     )
 }
+
+#[test]
+fn export_alias() -> TestResult {
+    run_test(
+        r#"module foo { export alias hi = echo hello }; use foo hi; hi"#,
+        "hello",
+    )
+}

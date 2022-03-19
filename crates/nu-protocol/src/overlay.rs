@@ -116,6 +116,18 @@ impl Overlay {
             .collect()
     }
 
+    pub fn aliases_with_head(&self, head: &[u8]) -> Vec<(Vec<u8>, AliasId)> {
+        self.aliases
+            .iter()
+            .map(|(name, id)| {
+                let mut new_name = head.to_vec();
+                new_name.push(b' ');
+                new_name.extend(name);
+                (new_name, *id)
+            })
+            .collect()
+    }
+
     pub fn alias_names_with_head(&self, head: &[u8]) -> Vec<Vec<u8>> {
         self.aliases
             .keys()

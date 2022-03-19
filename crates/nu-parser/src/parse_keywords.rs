@@ -547,6 +547,16 @@ pub fn parse_alias(
                 working_set.add_alias(alias_name, replacement);
             }
 
+            let err = if spans.len() < 4 {
+                Some(ParseError::IncorrectValue(
+                    "Incomplete alias".into(),
+                    spans[0],
+                    "incomplete alias".into(),
+                ))
+            } else {
+                None
+            };
+
             return (
                 Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
@@ -554,7 +564,7 @@ pub fn parse_alias(
                     ty: Type::Unknown,
                     custom_completion: None,
                 }]),
-                None,
+                err,
             );
         }
     }
@@ -744,6 +754,66 @@ pub fn parse_export(
                     None
                 }
             }
+            b"alias" => {
+                let lite_command = LiteCommand {
+                    comments: lite_command.comments.clone(),
+                    parts: spans[1..].to_vec(),
+                };
+                let (pipeline, err) =
+                    parse_alias(working_set, &lite_command.parts, expand_aliases_denylist);
+                error = error.or(err);
+
+                let export_alias_decl_id = if let Some(id) = working_set.find_decl(b"export alias")
+                {
+                    id
+                } else {
+                    return (
+                        garbage_pipeline(spans),
+                        None,
+                        Some(ParseError::InternalError(
+                            "missing 'export alias' command".into(),
+                            export_span,
+                        )),
+                    );
+                };
+
+                // Trying to warp the 'alias' call into the 'export alias' in a very clumsy way
+                if let Some(Expression {
+                    expr: Expr::Call(ref alias_call),
+                    ..
+                }) = pipeline.expressions.get(0)
+                {
+                    call = alias_call.clone();
+
+                    call.head = span(&spans[0..=1]);
+                    call.decl_id = export_alias_decl_id;
+                } else {
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "unexpected output from parsing a definition".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
+                };
+
+                if error.is_none() {
+                    let alias_name = working_set.get_span_contents(spans[2]);
+                    let alias_name = trim_quotes(alias_name);
+                    if let Some(alias_id) = working_set.find_alias(alias_name) {
+                        Some(Exportable::Alias(alias_id))
+                    } else {
+                        error = error.or_else(|| {
+                            Some(ParseError::InternalError(
+                                "failed to find added alias".into(),
+                                span(&spans[1..]),
+                            ))
+                        });
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
             b"env" => {
                 if let Some(id) = working_set.find_decl(b"export env") {
                     call.decl_id = id;
@@ -833,7 +903,7 @@ pub fn parse_export(
                 error = error.or_else(|| {
                     Some(ParseError::Expected(
                         // TODO: Fill in more keywords as they come
-                        "def or env keyword".into(),
+                        "def, def-env, alias, or env keyword".into(),
                         spans[1],
                     ))
                 });
@@ -844,12 +914,12 @@ pub fn parse_export(
     } else {
         error = error.or_else(|| {
             Some(ParseError::MissingPositional(
-                "def or env keyword".into(), // TODO: keep filling more keywords as they come
+                "def, def-env, alias, or env keyword".into(), // TODO: keep filling more keywords as they come
                 Span {
                     start: export_span.end,
                     end: export_span.end,
                 },
-                "'def' or 'env' keyword.".to_string(),
+                "'def', `def-env`, `alias`, or 'env' keyword.".to_string(),
             ))
         });
 
@@ -921,6 +991,15 @@ pub fn parse_module_block(
 
                         (pipeline, err)
                     }
+                    b"alias" => {
+                        let (pipeline, err) = parse_alias(
+                            working_set,
+                            &pipeline.commands[0].parts,
+                            expand_aliases_denylist,
+                        );
+
+                        (pipeline, err)
+                    }
                     // TODO: Currently, it is not possible to define a private env var.
                     // TODO: Exported env vars are usable iside the module only if correctly
                     // exported by the user. For example:
@@ -947,6 +1026,9 @@ pub fn parse_module_block(
                                 }
                                 Some(Exportable::EnvVar(block_id)) => {
                                     overlay.add_env_var(name, block_id);
+                                }
+                                Some(Exportable::Alias(alias_id)) => {
+                                    overlay.add_alias(name, alias_id);
                                 }
                                 None => {} // None should always come with error from parse_export()
                             }
@@ -1224,41 +1306,51 @@ pub fn parse_use(
             }
         };
 
-    let decls_to_use = if import_pattern.members.is_empty() {
-        overlay.decls_with_head(&import_pattern.head.name)
+    let (decls_to_use, aliases_to_use) = if import_pattern.members.is_empty() {
+        (
+            overlay.decls_with_head(&import_pattern.head.name),
+            overlay.aliases_with_head(&import_pattern.head.name),
+        )
     } else {
         match &import_pattern.members[0] {
-            ImportPatternMember::Glob { .. } => overlay.decls(),
+            ImportPatternMember::Glob { .. } => (overlay.decls(), overlay.aliases()),
             ImportPatternMember::Name { name, span } => {
-                let mut output = vec![];
+                let mut decl_output = vec![];
+                let mut alias_output = vec![];
 
                 if let Some(id) = overlay.get_decl_id(name) {
-                    output.push((name.clone(), id));
+                    decl_output.push((name.clone(), id));
+                } else if let Some(id) = overlay.get_alias_id(name) {
+                    alias_output.push((name.clone(), id));
                 } else if !overlay.has_env_var(name) {
                     error = error.or(Some(ParseError::ExportNotFound(*span)))
                 }
 
-                output
+                (decl_output, alias_output)
             }
             ImportPatternMember::List { names } => {
-                let mut output = vec![];
+                let mut decl_output = vec![];
+                let mut alias_output = vec![];
 
                 for (name, span) in names {
                     if let Some(id) = overlay.get_decl_id(name) {
-                        output.push((name.clone(), id));
+                        decl_output.push((name.clone(), id));
+                    } else if let Some(id) = overlay.get_alias_id(name) {
+                        alias_output.push((name.clone(), id));
                     } else if !overlay.has_env_var(name) {
                         error = error.or(Some(ParseError::ExportNotFound(*span)));
                         break;
                     }
                 }
 
-                output
+                (decl_output, alias_output)
             }
         }
     };
 
     // Extend the current scope with the module's overlay
     working_set.use_decls(decls_to_use);
+    working_set.use_aliases(aliases_to_use);
 
     // Create a new Use command call to pass the new import pattern
     let import_pattern_expr = Expression {
