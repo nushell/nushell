@@ -430,7 +430,7 @@ pub fn create_column(
             Ok(Column::new(casted.name().into(), values))
         }
         DataType::Time => {
-            let casted = series.time().map_err(|e| {
+            let casted = series.timestamp(TimeUnit::Nanoseconds).map_err(|e| {
                 ShellError::LabeledError("Error casting column to time".into(), e.to_string())
             })?;
 
@@ -596,7 +596,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     });
 
                     let res: DatetimeChunked =
-                        ChunkedArray::<Int64Type>::new_from_opt_iter(&name, it)
+                        ChunkedArray::<Int64Type>::from_iter_options(&name, it)
                             .into_datetime(TimeUnit::Milliseconds, None);
 
                     df_series.push(res.into_series())
@@ -610,7 +610,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                         }
                     });
 
-                    let res = ChunkedArray::<Int64Type>::new_from_opt_iter(&name, it);
+                    let res = ChunkedArray::<Int64Type>::from_iter_options(&name, it);
 
                     df_series.push(res.into_series())
                 }

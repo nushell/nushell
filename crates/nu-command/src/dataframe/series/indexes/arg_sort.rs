@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
-use polars::prelude::IntoSeries;
+use polars::prelude::{IntoSeries, SortOptions};
 
 #[derive(Clone)]
 pub struct ArgSort;
@@ -22,6 +22,7 @@ impl Command for ArgSort {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .switch("reverse", "reverse order", Some('r'))
+            .switch("nulls-last", "nulls ordered last", Some('n'))
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -85,10 +86,12 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
-    let mut res = df
-        .as_series(call.head)?
-        .argsort(call.has_flag("reverse"))
-        .into_series();
+    let sort_options = SortOptions {
+        descending: call.has_flag("reverse"),
+        nulls_last: call.has_flag("nulls-last"),
+    };
+
+    let mut res = df.as_series(call.head)?.argsort(sort_options).into_series();
     res.rename("arg_sort");
 
     NuDataFrame::try_from_series(vec![res], call.head)

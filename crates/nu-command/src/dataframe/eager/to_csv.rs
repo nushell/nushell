@@ -71,7 +71,7 @@ fn command(
     let delimiter: Option<Spanned<String>> = call.get_flag(engine_state, stack, "delimiter")?;
     let no_header: bool = call.has_flag("no-header");
 
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let mut file = File::create(&file_name.item).map_err(|e| {
         ShellError::SpannedLabeledError(
@@ -109,7 +109,7 @@ fn command(
         }
     };
 
-    writer.finish(df.as_ref()).map_err(|e| {
+    writer.finish(df.as_mut()).map_err(|e| {
         ShellError::SpannedLabeledError(
             "Error writing to file".into(),
             e.to_string(),

@@ -4,6 +4,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
+use polars::prelude::DistinctKeepStrategy;
 
 use super::super::values::utils::convert_columns_string;
 use super::super::values::{Column, NuDataFrame};
@@ -28,6 +29,11 @@ impl Command for DropDuplicates {
                 "subset of columns to drop duplicates",
             )
             .switch("maintain", "maintain order", Some('m'))
+            .switch(
+                "last",
+                "keeps last duplicate value (by default keeps first)",
+                Some('l'),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -82,8 +88,14 @@ fn command(
 
     let subset_slice = subset.as_ref().map(|cols| &cols[..]);
 
+    let keep_strategy = if call.has_flag("last") {
+        DistinctKeepStrategy::Last
+    } else {
+        DistinctKeepStrategy::First
+    };
+
     df.as_ref()
-        .drop_duplicates(call.has_flag("maintain"), subset_slice)
+        .distinct(subset_slice, keep_strategy)
         .map_err(|e| {
             ShellError::SpannedLabeledError(
                 "Error dropping duplicates".into(),

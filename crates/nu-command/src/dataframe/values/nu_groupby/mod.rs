@@ -2,26 +2,42 @@ mod custom_value;
 
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 use polars::frame::groupby::{GroupBy, GroupsProxy};
-use polars::prelude::DataFrame;
+use polars::prelude::{DataFrame, GroupsIdx};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NuGroupsProxy {
-    Idx(Vec<(u32, Vec<u32>)>),
+    Idx {
+        sorted: bool,
+        all: Vec<(u32, Vec<u32>)>,
+    },
     Slice(Vec<[u32; 2]>),
 }
 
 impl NuGroupsProxy {
     fn from_polars(groups: &GroupsProxy) -> Self {
         match groups {
-            GroupsProxy::Idx(indexes) => NuGroupsProxy::Idx(indexes.clone()),
+            GroupsProxy::Idx(indexes) => NuGroupsProxy::Idx {
+                sorted: indexes.is_sorted(),
+                all: indexes
+                    .iter()
+                    .map(|(index, values)| (index, values.clone()))
+                    .collect(),
+            },
             GroupsProxy::Slice(slice) => NuGroupsProxy::Slice(slice.clone()),
         }
     }
 
     fn to_polars(&self) -> GroupsProxy {
         match self {
-            Self::Idx(indexes) => GroupsProxy::Idx(indexes.clone()),
+            Self::Idx { sorted, all } => {
+                let mut groups: GroupsIdx = all.clone().into();
+                if *sorted {
+                    groups.sort()
+                }
+
+                GroupsProxy::Idx(groups)
+            }
             Self::Slice(slice) => GroupsProxy::Slice(slice.clone()),
         }
     }
