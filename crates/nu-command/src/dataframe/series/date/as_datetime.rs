@@ -34,7 +34,7 @@ impl Command for AsDateTime {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("format", SyntaxShape::String, "formating date string")
+            .required("format", SyntaxShape::String, "formating date time string")
             .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
             .category(Category::Custom("dataframe".into()))
     }
@@ -45,7 +45,7 @@ impl Command for AsDateTime {
             example: r#"["2021-12-30 00:00:00" "2021-12-31 00:00:00"] | dfr to-df | dfr as-datetime "%Y-%m-%d %H:%M:%S""#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
+                    "datetime".to_string(),
                     vec![
                         Value::Date {
                             val: DateTime::parse_from_str(
@@ -103,7 +103,7 @@ fn command(
         casted.as_datetime(Some(format.as_str()), TimeUnit::Milliseconds)
     };
 
-    let res = res
+    let mut res = res
         .map_err(|e| {
             ShellError::SpannedLabeledError(
                 "Error creating datetime".into(),
@@ -113,6 +113,7 @@ fn command(
         })?
         .into_series();
 
+    res.rename("datetime");
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }

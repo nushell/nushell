@@ -530,6 +530,25 @@ where
                 )),
             }
         }
+        DataType::Date => {
+            let to_i64 = series.cast(&DataType::Int64);
+
+            match to_i64 {
+                Ok(series) => {
+                    let nanosecs_per_day: i64 = 24 * 60 * 60 * 1_000_000_000;
+                    let casted = series
+                        .i64()
+                        .map(|chunked| chunked.mul(nanosecs_per_day))
+                        .expect("already checked for casting");
+                    compare_casted_i64(Ok(&casted), val, f, span)
+                }
+                Err(e) => Err(ShellError::SpannedLabeledError(
+                    "Unable to cast to f64".into(),
+                    e.to_string(),
+                    span,
+                )),
+            }
+        }
         DataType::Int64 => {
             let casted = series.i64();
             compare_casted_i64(casted, val, f, span)
