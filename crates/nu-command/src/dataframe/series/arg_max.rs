@@ -60,8 +60,8 @@ fn command(
 
     let res = series.arg_max();
     let chunked = match res {
-        Some(index) => UInt32Chunked::new_from_slice("arg_max", &[index as u32]),
-        None => UInt32Chunked::new_from_slice("arg_max", &[]),
+        Some(index) => UInt32Chunked::from_slice("arg_max", &[index as u32]),
+        None => UInt32Chunked::from_slice("arg_max", &[]),
     };
 
     let res = chunked.into_series();

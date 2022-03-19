@@ -55,7 +55,7 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let file_name: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
 
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let file = File::create(&file_name.item).map_err(|e| {
         ShellError::SpannedLabeledError(
@@ -65,7 +65,7 @@ fn command(
         )
     })?;
 
-    ParquetWriter::new(file).finish(df.as_ref()).map_err(|e| {
+    ParquetWriter::new(file).finish(df.as_mut()).map_err(|e| {
         ShellError::SpannedLabeledError("Error saving file".into(), e.to_string(), file_name.span)
     })?;
 

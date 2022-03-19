@@ -60,8 +60,8 @@ fn command(
 
     let res = series.arg_min();
     let chunked = match res {
-        Some(index) => UInt32Chunked::new_from_slice("arg_min", &[index as u32]),
-        None => UInt32Chunked::new_from_slice("arg_min", &[]),
+        Some(index) => UInt32Chunked::from_slice("arg_min", &[index as u32]),
+        None => UInt32Chunked::from_slice("arg_min", &[]),
     };
 
     let res = chunked.into_series();

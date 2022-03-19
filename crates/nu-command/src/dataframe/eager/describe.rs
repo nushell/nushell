@@ -162,7 +162,7 @@ fn command(
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
-    let names = ChunkedArray::<Utf8Type>::new_from_opt_slice("descriptor", &labels).into_series();
+    let names = ChunkedArray::<Utf8Type>::from_slice_options("descriptor", &labels).into_series();
 
     let head = std::iter::once(names);
 
@@ -235,7 +235,7 @@ fn command(
             descriptors.push(max);
 
             let name = format!("{} ({})", col.name(), col.dtype());
-            ChunkedArray::<Float64Type>::new_from_opt_slice(&name, &descriptors).into_series()
+            ChunkedArray::<Float64Type>::from_slice_options(&name, &descriptors).into_series()
         });
 
     let res = head.chain(tail).collect::<Vec<Series>>();
