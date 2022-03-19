@@ -156,7 +156,7 @@ fn read_bool() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            open sample.nuon | get 3 | $in == $true
+            open sample.nuon | get 3 | $in == true
         "#
     ));
 
