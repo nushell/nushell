@@ -754,6 +754,65 @@ pub fn parse_export(
                     None
                 }
             }
+            b"extern" => {
+                let lite_command = LiteCommand {
+                    comments: lite_command.comments.clone(),
+                    parts: spans[1..].to_vec(),
+                };
+                let (pipeline, err) =
+                    parse_extern(working_set, &lite_command, expand_aliases_denylist);
+                error = error.or(err);
+
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export extern") {
+                    id
+                } else {
+                    return (
+                        garbage_pipeline(spans),
+                        None,
+                        Some(ParseError::InternalError(
+                            "missing 'export extern' command".into(),
+                            export_span,
+                        )),
+                    );
+                };
+
+                // Trying to warp the 'def' call into the 'export def' in a very clumsy way
+                if let Some(Expression {
+                    expr: Expr::Call(ref def_call),
+                    ..
+                }) = pipeline.expressions.get(0)
+                {
+                    call = def_call.clone();
+
+                    call.head = span(&spans[0..=1]);
+                    call.decl_id = export_def_decl_id;
+                } else {
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "unexpected output from parsing a definition".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
+                };
+
+                if error.is_none() {
+                    let decl_name = working_set.get_span_contents(spans[2]);
+                    let decl_name = trim_quotes(decl_name);
+                    if let Some(decl_id) = working_set.find_decl(decl_name) {
+                        Some(Exportable::Decl(decl_id))
+                    } else {
+                        error = error.or_else(|| {
+                            Some(ParseError::InternalError(
+                                "failed to find added declaration".into(),
+                                span(&spans[1..]),
+                            ))
+                        });
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
             b"alias" => {
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),

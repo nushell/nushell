@@ -39,7 +39,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ExportDef,
             ExportDefEnv,
             ExportEnv,
-            // ExportExtern, <-- not quite ready
+            ExportExtern,
             Extern,
             For,
             Help,
