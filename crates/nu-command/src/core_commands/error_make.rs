@@ -105,6 +105,9 @@ fn make_error(value: &Value) -> Option<ShellError> {
                     _ => None,
                 }
             }
+            (Some(Value::String { val: message, .. }), None) => {
+                Some(ShellError::UnlabeledError(message))
+            }
             _ => None,
         }
     } else {
