@@ -46,7 +46,7 @@ impl Command for Size {
                     ],
                     vals: vec![
                         Value::Int {
-                            val: 0,
+                            val: 1,
                             span: Span::test_data(),
                         },
                         Value::Int {
@@ -77,7 +77,7 @@ impl Command for Size {
                     ],
                     vals: vec![
                         Value::Int {
-                            val: 0,
+                            val: 1,
                             span: Span::test_data(),
                         },
                         Value::Int {
@@ -118,7 +118,7 @@ fn size(
 }
 
 fn count(contents: &str, span: Span) -> Value {
-    let mut lines: i64 = 0;
+    let mut lines: i64 = if contents.is_empty() { 0 } else { 1 };
     let mut words: i64 = 0;
     let mut chars: i64 = 0;
     let bytes = contents.len() as i64;
