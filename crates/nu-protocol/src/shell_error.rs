@@ -315,6 +315,9 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(help("{1}"))]
     LabeledError(String, String),
 
+    #[error("{0}")]
+    UnlabeledError(String),
+
     #[error("{1}")]
     #[diagnostic()]
     OutsideSpannedLabeledError(#[source_code] String, String, String, #[label("{2}")] Span),
