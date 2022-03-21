@@ -210,6 +210,8 @@ pub fn parse_external_call(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
+    trace!("parse external");
+
     let mut args = vec![];
 
     let head_contents = working_set.get_span_contents(spans[0]);
@@ -224,33 +226,6 @@ pub fn parse_external_call(
     };
 
     let head_contents = working_set.get_span_contents(head_span).to_vec();
-
-    // If the word is an alias, expand it and re-parse the expression
-    if let Some(alias_id) = working_set.find_alias(&head_contents) {
-        let expansion = working_set.get_alias(alias_id);
-        let expansion_span = span(expansion);
-
-        let orig_span = span(&[spans[0], spans[0]]);
-        let mut new_spans: Vec<Span> = expansion.to_vec();
-        if spans.len() > 1 {
-            new_spans.extend(&spans[1..])
-        }
-
-        let expand_aliases_denylist = if let Some(alias_id) = working_set.find_alias(&head_contents)
-        {
-            let mut expand_aliases_denylist = expand_aliases_denylist.to_vec();
-            expand_aliases_denylist.push(alias_id);
-            expand_aliases_denylist
-        } else {
-            expand_aliases_denylist.to_vec()
-        };
-
-        let (mut result, err) =
-            parse_external_call(working_set, &new_spans, &expand_aliases_denylist);
-        result.replace_span(working_set, expansion_span, orig_span);
-
-        return (result, err);
-    }
 
     let mut error = None;
 
@@ -939,6 +914,7 @@ pub fn parse_call(
                     comments: vec![],
                     parts: new_spans.clone(),
                 };
+
                 let (mut result, err) =
                     parse_builtin_commands(working_set, &lite_command, &expand_aliases_denylist);
 
