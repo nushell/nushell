@@ -436,14 +436,14 @@ fn test_count_counts_codepoints() {
 
     let counters = [Counter::CodePoints];
 
-    let counts = uwc_count(&counters[..], &one);
+    let counts = uwc_count(&counters[..], one);
 
     let mut correct_counts = BTreeMap::new();
     correct_counts.insert(Counter::CodePoints, 1);
 
     assert_eq!(correct_counts, counts);
 
-    let counts = uwc_count(&counters[..], &two);
+    let counts = uwc_count(&counters[..], two);
 
     let mut correct_counts = BTreeMap::new();
     correct_counts.insert(Counter::CodePoints, 2);
