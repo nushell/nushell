@@ -1,19 +1,11 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::{fmt, str};
 use unicode_segmentation::UnicodeSegmentation;
 
 // borrowed liberally from here https://github.com/dead10ck/uwc
-const LF: &str = "\n"; // 0xe0000a
-const CR: &str = "\r"; // 0xe0000d
-const CRLF: &str = "\r\n"; // 0xe00d0a
-const NEL: &str = "\u{0085}"; // 0x00c285
-const FF: &str = "\u{000C}"; // 0x00000c
-const LS: &str = "\u{2028}"; // 0xe280a8
-const PS: &str = "\u{2029}"; // 0xe280a9
-
 pub type Counted = BTreeMap<Counter, usize>;
 
 #[derive(Clone)]
@@ -254,15 +246,37 @@ pub trait Count {
 
 impl Count for Counter {
     fn count(&self, s: &str) -> usize {
-        let newlines: HashSet<&'static str> = HashSet::from([CR, LF, CRLF, NEL, FF, LS, PS]);
-
         match *self {
             Counter::GraphemeClusters => s.graphemes(true).count(),
             Counter::Bytes => s.len(),
-            Counter::Lines => s
-                .graphemes(true)
-                .filter(|grapheme| newlines.contains(grapheme))
-                .count(),
+            Counter::Lines => {
+                const LF: &str = "\n"; // 0xe0000a
+                const CR: &str = "\r"; // 0xe0000d
+                const CRLF: &str = "\r\n"; // 0xe00d0a
+                const NEL: &str = "\u{0085}"; // 0x00c285
+                const FF: &str = "\u{000C}"; // 0x00000c
+                const LS: &str = "\u{2028}"; // 0xe280a8
+                const PS: &str = "\u{2029}"; // 0xe280a9
+
+                // use regex here because it can search for CRLF first and not duplicate the count
+                let line_ending_types = [CRLF, LF, CR, NEL, FF, LS, PS];
+                let pattern = &line_ending_types.join("|");
+                let newline_pattern = regex::Regex::new(pattern).expect("Unable to create regex");
+                let line_endings = newline_pattern
+                    .find_iter(s)
+                    .map(|f| f.as_str().to_string())
+                    .collect::<Vec<String>>();
+
+                let has_line_ending_suffix =
+                    line_ending_types.iter().any(|&suffix| s.ends_with(suffix));
+                // eprintln!("suffix = {}", has_line_ending_suffix);
+
+                if has_line_ending_suffix {
+                    line_endings.len()
+                } else {
+                    line_endings.len() + 1
+                }
+            }
             Counter::Words => s.unicode_words().count(),
             Counter::CodePoints => s.chars().count(),
         }
@@ -318,31 +332,17 @@ where
 {
     let mut counts: Counted = counters.into_iter().map(|c| (*c, c.count(s))).collect();
     if let Some(lines) = counts.get_mut(&Counter::Lines) {
-        // this part is all about having things like this return 1 line
-        // "There are seven words in this sentence" | size
         if s.is_empty() {
+            // If s is empty, indeed, the count is 0
             *lines = 0;
         } else if *lines == 0 && !s.is_empty() {
+            // If s is not empty and the count is 0, it means there
+            // is a line without a line ending, so let's make it 1
             *lines = 1;
         } else {
-            // no change
+            // no change, whatever the count is, is right
         }
     }
-
-    // let lines_count = match counts.get(&Counter::Lines) {
-    //     Some(c) => {
-    //         if s.is_empty() {
-    //             0
-    //         } else if *c == 0 && !s.is_empty() {
-    //             1
-    //         } else {
-    //             *c
-    //         }
-    //     }
-    //     None => 0,
-    // };
-    // counts.remove(&Counter::Lines);
-    // counts.insert(Counter::Lines, lines_count);
     counts
 }
 
@@ -359,7 +359,29 @@ mod test {
 }
 
 #[test]
+fn test_one_newline() {
+    let s = "\n".to_string();
+    let counts = uwc_count(&ALL_COUNTERS[..], &s);
+    let mut correct_counts = BTreeMap::new();
+    correct_counts.insert(Counter::Lines, 1);
+    correct_counts.insert(Counter::Words, 0);
+    correct_counts.insert(Counter::GraphemeClusters, 1);
+    correct_counts.insert(Counter::Bytes, 1);
+    correct_counts.insert(Counter::CodePoints, 1);
+
+    assert_eq!(correct_counts, counts);
+}
+
+#[test]
 fn test_count_counts_lines() {
+    // const LF: &str = "\n"; // 0xe0000a
+    // const CR: &str = "\r"; // 0xe0000d
+    // const CRLF: &str = "\r\n"; // 0xe00d0a
+    const NEL: &str = "\u{0085}"; // 0x00c285
+    const FF: &str = "\u{000C}"; // 0x00000c
+    const LS: &str = "\u{2028}"; // 0xe280a8
+    const PS: &str = "\u{2029}"; // 0xe280a9
+
     // * \r\n is a single graheme cluster
     // * trailing newlines are counted
     // * NEL is 2 bytes
@@ -378,10 +400,10 @@ fn test_count_counts_lines() {
     let counts = uwc_count(&ALL_COUNTERS[..], &s);
 
     let mut correct_counts = BTreeMap::new();
-    correct_counts.insert(Counter::GraphemeClusters, 23);
     correct_counts.insert(Counter::Lines, 8);
-    correct_counts.insert(Counter::Bytes, 29);
     correct_counts.insert(Counter::Words, 5);
+    correct_counts.insert(Counter::GraphemeClusters, 23);
+    correct_counts.insert(Counter::Bytes, 29);
 
     // one more than grapheme clusters because of \r\n
     correct_counts.insert(Counter::CodePoints, 24);
