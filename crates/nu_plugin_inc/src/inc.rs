@@ -1,5 +1,5 @@
 use nu_plugin::LabeledError;
-use nu_protocol::{Span, Value};
+use nu_protocol::{ast::CellPath, Span, Value};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Action {
@@ -17,6 +17,7 @@ pub enum SemVerAction {
 #[derive(Default)]
 pub struct Inc {
     pub error: Option<String>,
+    pub cell_path: Option<CellPath>,
     pub action: Option<Action>,
 }
 
@@ -83,6 +84,26 @@ impl Inc {
     }
 
     pub fn inc(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
+        if let Some(cell_path) = &self.cell_path {
+            let working_value = value.clone();
+            let cell_value = working_value.follow_cell_path(&cell_path.members)?;
+
+            let cell_value = self.inc_value(head, &cell_value)?;
+
+            let mut value = value.clone();
+            value
+                .update_data_at_cell_path(&cell_path.members, cell_value)
+                .map_err(|x| {
+                    let error: LabeledError = x.into();
+                    error
+                })?;
+            Ok(value)
+        } else {
+            self.inc_value(head, value)
+        }
+    }
+
+    pub fn inc_value(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
         match value {
             Value::Int { val, span } => Ok(Value::Int {
                 val: val + 1,

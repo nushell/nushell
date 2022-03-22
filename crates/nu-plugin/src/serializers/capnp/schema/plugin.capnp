@@ -1,9 +1,9 @@
 @0xb299d30dc02d72bc;
-# Schema representing all the structs that are used to comunicate with
+# Schema representing all the structs that are used to communicate with
 # the plugins.
 # This schema, together with the command capnp proto is used to generate
 # the rust file that defines the serialization/deserialization objects
-# required to comunicate with the plugins created for nushell
+# required to communicate with the plugins created for nushell
 #
 # If you modify the schema remember to compile it to generate the corresponding
 # rust file and place that file into the main nu-plugin folder.

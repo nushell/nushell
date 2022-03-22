@@ -1,12 +1,12 @@
 [package]
 name = "nu-engine"
-version = "0.59.1"
+version = "0.60.0"
 edition = "2021"
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.59.1"  }
-nu-path = { path = "../nu-path", version = "0.59.1"  }
-nu-glob = { path = "../nu-glob", version = "0.59.1" }
+nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.60.0"  }
+nu-path = { path = "../nu-path", version = "0.60.0"  }
+nu-glob = { path = "../nu-glob", version = "0.60.0" }
 
 itertools = "0.10.1"
 chrono = { version="0.4.19", features=["serde"] }
