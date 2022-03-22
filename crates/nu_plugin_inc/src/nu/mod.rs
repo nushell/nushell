@@ -1,12 +1,13 @@
 use crate::inc::SemVerAction;
 use crate::Inc;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Signature, Value};
+use nu_protocol::{ast::CellPath, Signature, SyntaxShape, Value};
 
 impl Plugin for Inc {
     fn signature(&self) -> Vec<Signature> {
         vec![Signature::build("inc")
             .desc("Increment a value or version. Optionally use the column of a table.")
+            .optional("cell_path", SyntaxShape::CellPath, "cell path to update")
             .switch(
                 "major",
                 "increment the major version (eg 1.2.1 -> 2.0.0)",
@@ -33,6 +34,10 @@ impl Plugin for Inc {
         if name != "inc" {
             return Ok(Value::Nothing { span: call.head });
         }
+
+        let cell_path: Option<CellPath> = call.opt(0)?;
+
+        self.cell_path = cell_path;
 
         if call.has_flag("major") {
             self.for_semver(SemVerAction::Major);
