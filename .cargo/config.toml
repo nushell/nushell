@@ -1,6 +1,13 @@
-# use LLD as linker on Windows because it could be faster
-# for full and incremental builds compared to default
-
+# increase the default windows stack size
 [target.x86_64-pc-windows-msvc]
-#linker = "lld-link.exe"
 rustflags = ["-C", "link-args=-stack:10000000"]
+
+# keeping this but commentting out in case we need them in the future
+
+# set a 2 gb stack size (0x80000000 = 2147483648 bytes = 2 GB)
+# [target.x86_64-unknown-linux-gnu]
+# rustflags = ["-C", "link-args=-Wl,-z stack-size=0x80000000"]
+
+# set a 2 gb stack size (0x80000000 = 2147483648 bytes = 2 GB)
+# [target.x86_64-apple-darwin]
+# rustflags = ["-C", "link-args=-Wl,-stack_size,0x80000000"]
