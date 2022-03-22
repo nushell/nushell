@@ -5,6 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-command"
 version = "0.60.0"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
