@@ -1,7 +1,10 @@
 [package]
+authors = ["The Nushell Project Developers"]
+description = "A set of query commands for Nushell"
+edition = "2021"
+license = "MIT"
 name = "nu-parser"
 version = "0.60.0"
-edition = "2021"
 
 [dependencies]
 chrono = "0.4.19"
