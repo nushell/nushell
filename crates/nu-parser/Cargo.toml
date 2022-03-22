@@ -11,7 +11,7 @@ chrono = "0.4.19"
 miette = "4.1.0"
 thiserror = "1.0.29"
 serde_json = "1.0"
-nu-path = {path = "../nu-path"}
+nu-path = {path = "../nu-path", version = "0.60.0" }
 nu-protocol = { path = "../nu-protocol", version = "0.60.0" }
 nu-plugin = { path = "../nu-plugin", optional = true, version = "0.60.0"  }
 log = "0.4"
