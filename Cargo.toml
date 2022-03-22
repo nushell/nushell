@@ -58,7 +58,7 @@ reedline = "0.3.0"
 is_executable = "1.0.1"
 
 [dev-dependencies]
-nu-test-support = { path="./crates/nu-test-support" }
+nu-test-support = { path="./crates/nu-test-support", version = "0.60.0"  }
 tempfile = "3.2.0"
 assert_cmd = "2.0.2"
 pretty_assertions = "1.0.0"
