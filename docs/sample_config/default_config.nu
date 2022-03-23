@@ -128,11 +128,11 @@ module completions {
 use completions *
 
 # for more information on themes see
-# https://github.com/nushell/nushell/blob/main/docs/How_To_Coloring_and_Theming.md
+# https://www.nushell.sh/book/coloring_and_theming.html
 let default_theme = {
     # color for nushell primitives
     separator: white
-    leading_trailing_space_bg: { attr: n } # no fg, no bg, attr non effectively turns this off
+    leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
     header: green_bold
     empty: blue
     bool: white
