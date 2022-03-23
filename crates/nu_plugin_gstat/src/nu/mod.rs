@@ -6,7 +6,7 @@ impl Plugin for GStat {
     fn signature(&self) -> Vec<Signature> {
         vec![Signature::build("gstat")
             .desc("Get the git status of a repo")
-            .optional("path", SyntaxShape::String, "path to repo")
+            .optional("path", SyntaxShape::Filepath, "path to repo")
             .category(Category::Custom("Prompt".to_string()))]
     }
 
@@ -21,7 +21,6 @@ impl Plugin for GStat {
         }
 
         let repo_path: Option<Spanned<String>> = call.opt(0)?;
-        // eprintln!("input value: {:#?}", &input);
         self.gstat(input, repo_path, &call.head)
     }
 }

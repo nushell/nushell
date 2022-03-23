@@ -1,16 +1,14 @@
 mod declaration;
-pub use declaration::PluginDeclaration;
 
+use super::EvaluatedCall;
 use crate::protocol::{LabeledError, PluginCall, PluginResponse};
 use crate::EncodingType;
+pub use declaration::PluginDeclaration;
+use nu_protocol::ShellError;
+use nu_protocol::{Signature, Value};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
-
-use nu_protocol::ShellError;
-use nu_protocol::{Signature, Value};
-
-use super::EvaluatedCall;
 
 const OUTPUT_BUFFER_SIZE: usize = 8192;
 

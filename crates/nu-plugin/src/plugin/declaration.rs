@@ -1,13 +1,11 @@
-use crate::{EncodingType, EvaluatedCall};
-
 use super::{create_command, OUTPUT_BUFFER_SIZE};
 use crate::protocol::{CallInfo, PluginCall, PluginResponse};
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
-
+use crate::{EncodingType, EvaluatedCall};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, Signature};
 use nu_protocol::{PipelineData, ShellError};
+use std::io::BufReader;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 pub struct PluginDeclaration {

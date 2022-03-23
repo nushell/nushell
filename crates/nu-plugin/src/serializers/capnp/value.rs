@@ -118,6 +118,40 @@ pub(crate) fn deserialize_value(reader: value::Reader, head: Span) -> Result<Val
                 span,
             })
         }
+        Ok(value::Filesize(val)) => Ok(Value::Filesize { val, span }),
+        Ok(value::Duration(val)) => Ok(Value::Duration { val, span }),
+        Ok(value::Block(val)) => {
+            let block = val.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+            Ok(Value::Block {
+                val: block.,
+                captures: block.,
+                span,
+            })
+        }
+        Ok(value::Binary(val)) => {
+            let bin_vals = val.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+            let bin_list = bin_vals
+                .iter()
+                .map(move |x| deserialize_value(x, span))
+                .collect::<Result<Vec<Value>, ShellError>>()?;
+            Ok(Value::Binary {
+                val: bin_list,
+                span,
+            })
+        }
+        Ok(value::Cellpath(val)) => {
+            let cell_path = val.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            Ok(Value::CellPath {
+                val: cell_path,
+                span,
+            })
+        }
+        Ok(value::Range(val)) => {
+            let range = val.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            Ok(Value::Range { val: range, span })
+        }
         Err(capnp::NotInSchema(_)) => Ok(Value::Nothing { span: head }),
     }
 }

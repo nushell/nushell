@@ -42,12 +42,47 @@ struct Value {
 		string @5 :Text;
 		list @6 :List(Value);
 		record @7: Record;
+		filesize @8: Int64;
+		duration @9: Int64;
+		block @10: Block;
+		binary @11: List(Int64);
+		cellpath @12: CellPath;
+		range @13: Range;
 	}
+}
+
+struct HashMap {
+
+}
+struct Block {
+	id @0 :Int64;
+	captures @1 :HashMap;
 }
 
 struct Record {
 	cols @0 :List(Text);
 	vals @1 :List(Value);
+}
+
+struct CellPath {
+	members @0 :List(PathMember);
+}
+
+struct PathMember {
+	string @0: Value;
+	int @1: Value;
+}
+
+enum RangeInclusion {
+	inclusive @0;
+	rightexclusive @1;
+}
+
+struct Range {
+	from @0 :Value;
+	incr @1 :Value;
+	to @2 :Value;
+	inclusion @3 :RangeInclusion;
 }
 
 # Structs required to define the plugin signature
@@ -110,6 +145,25 @@ enum Shape {
 	number @3;
 	int @4;
 	boolean @5;
+	cellpath @6;
+	fullcellpath @7;
+	range @8;
+	filepath @9;
+	globpattern @10;
+	importpattern @11;
+	binary @12;
+	table @13;
+	filesize @14;
+	duration @15;
+	datetime @16;
+	operator @17;
+	rowcondition @18;
+	mathexpression @19;
+	variable @20;
+	signature @21;
+	expression @22;
+	record @23;
+	varwithopttype @24;
 }
 
 struct EvaluatedCall {
