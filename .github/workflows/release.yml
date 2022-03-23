@@ -92,8 +92,6 @@ jobs:
           cp README.build.txt output/README.txt
           cp LICENSE output/LICENSE
           rm output/*.d
-          rm output/nu_plugin_core_*
-          rm output/nu_plugin_extra_*
 
       # Note: If OpenSSL changes, this path will need to be updated
       - name: Copy OpenSSL to output
@@ -188,8 +186,6 @@ jobs:
           cp README.build.txt output/README.txt
           cp LICENSE output/LICENSE
           rm output/*.d
-          rm output/nu_plugin_core_*
-          rm output/nu_plugin_extra_*
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
@@ -291,8 +287,6 @@ jobs:
           cp target\release\nu.exe output\
           cp LICENSE output\
           cp target\release\LICENSE-for-less.txt output\
-          rm target\release\nu_plugin_core_*.exe
-          rm target\release\nu_plugin_extra_*.exe
           cp target\release\nu_plugin_*.exe output\
           cp README.build.txt output\README.txt
           cp target\release\less.exe output\

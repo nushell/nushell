@@ -1,16 +1,19 @@
 [package]
-name = "nu-parser"
-version = "0.59.1"
+authors = ["The Nushell Project Developers"]
+description = "A set of query commands for Nushell"
 edition = "2021"
+license = "MIT"
+name = "nu-parser"
+version = "0.60.0"
 
 [dependencies]
 chrono = "0.4.19"
 miette = "4.1.0"
 thiserror = "1.0.29"
 serde_json = "1.0"
-nu-path = {path = "../nu-path"}
-nu-protocol = { path = "../nu-protocol", version = "0.59.1" }
-nu-plugin = { path = "../nu-plugin", optional = true, version = "0.59.1"  }
+nu-path = {path = "../nu-path", version = "0.60.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.60.0" }
+nu-plugin = { path = "../nu-plugin", optional = true, version = "0.60.0"  }
 log = "0.4"
 
 [features]

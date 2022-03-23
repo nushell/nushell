@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
-    Signature, Span, SyntaxShape, Value,
+    Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature,
+    Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -41,6 +41,7 @@ impl Command for Metadata {
         match arg {
             Some(Expression {
                 expr: Expr::FullCellPath(full_cell_path),
+                span,
                 ..
             }) => {
                 if full_cell_path.tail.is_empty() {
@@ -49,30 +50,25 @@ impl Command for Metadata {
                             expr: Expr::Var(var_id),
                             ..
                         } => {
-                            let variable = engine_state.get_var(*var_id);
+                            let origin = stack.get_var_with_origin(*var_id, *span)?;
 
-                            Ok(build_metadata_record(
-                                Ok(variable.declaration_span),
-                                &input.metadata(),
-                                head,
-                            )
-                            .into_pipeline_data())
+                            Ok(build_metadata_record(&origin, &input.metadata(), head)
+                                .into_pipeline_data())
                         }
                         _ => {
                             let val: Value = call.req(engine_state, stack, 0)?;
-                            Ok(build_metadata_record(val.span(), &input.metadata(), head)
+                            Ok(build_metadata_record(&val, &input.metadata(), head)
                                 .into_pipeline_data())
                         }
                     }
                 } else {
                     let val: Value = call.req(engine_state, stack, 0)?;
-                    Ok(build_metadata_record(val.span(), &input.metadata(), head)
-                        .into_pipeline_data())
+                    Ok(build_metadata_record(&val, &input.metadata(), head).into_pipeline_data())
                 }
             }
             Some(_) => {
                 let val: Value = call.req(engine_state, stack, 0)?;
-                Ok(build_metadata_record(val.span(), &input.metadata(), head).into_pipeline_data())
+                Ok(build_metadata_record(&val, &input.metadata(), head).into_pipeline_data())
             }
             None => {
                 let mut cols = vec![];
@@ -117,15 +113,11 @@ impl Command for Metadata {
     }
 }
 
-fn build_metadata_record(
-    span: Result<Span, ShellError>,
-    metadata: &Option<PipelineMetadata>,
-    head: Span,
-) -> Value {
+fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head: Span) -> Value {
     let mut cols = vec![];
     let mut vals = vec![];
 
-    if let Ok(span) = span {
+    if let Ok(span) = arg.span() {
         cols.push("span".into());
         vals.push(Value::Record {
             cols: vec!["start".into(), "end".into()],

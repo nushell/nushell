@@ -2,8 +2,9 @@
 authors = ["The Nushell Project Developers", "procs creators"]
 description = "Nushell system querying"
 name = "nu-system"
-version = "0.59.1"
+version = "0.60.0"
 edition = "2021"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
