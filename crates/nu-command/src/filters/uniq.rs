@@ -117,6 +117,7 @@ fn uniq(
     let show_repeated = call.has_flag("repeated");
     let ignore_case = call.has_flag("ignore-case");
     let only_uniques = call.has_flag("unique");
+    let metadata = input.metadata();
 
     let uniq_values = {
         let counter = &mut Vec::new();
@@ -180,7 +181,7 @@ fn uniq(
     // keeps the original Nushell semantics
     if values_vec_deque.len() == 1 {
         if let Some(x) = values_vec_deque.pop_front() {
-            Ok(x.into_pipeline_data())
+            Ok(x.into_pipeline_data().set_metadata(metadata))
         } else {
             Err(ShellError::NushellFailed("No input given...".to_string()))
         }
@@ -189,7 +190,8 @@ fn uniq(
             vals: values_vec_deque.into_iter().collect(),
             span: head,
         }
-        .into_pipeline_data())
+        .into_pipeline_data()
+        .set_metadata(metadata))
     }
 }
 
