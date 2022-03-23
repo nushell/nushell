@@ -470,6 +470,12 @@ impl ExternalCommand {
     pub fn spawn_cmd_command(&self) -> std::process::Command {
         let mut process = std::process::Command::new("cmd");
         process.arg("/c");
+
+        // Disable AutoRun
+        // TODO: There should be a config option to enable/disable this
+        // Alternatively (even better) a config option to specify all the arguments to pass to cmd
+        process.arg("/D");
+
         process.arg(&self.name.item);
         for arg in &self.args {
             // Clean the args before we use them:
