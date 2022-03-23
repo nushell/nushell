@@ -32,7 +32,7 @@ struct Span {
 
 # Resulting value from plugin
 struct Value {
-	span @0: Span;
+	span @0 :Span;
 
 	union {
 		void @1 :Void;
@@ -41,22 +41,24 @@ struct Value {
 		float @4 :Float64;
 		string @5 :Text;
 		list @6 :List(Value);
-		record @7: Record;
-		filesize @8: Int64;
-		duration @9: Int64;
-		block @10: Block;
-		binary @11: List(Int64);
-		cellpath @12: CellPath;
-		range @13: Range;
+		record @7 :Record;
+		filesize @8 :Int64;
+		duration @9 :Int64;
+		block @10 :Block;
+		binary @11 :List(Int64);
+		cellpath @12 :CellPath;
+		range @13 :Range;
 	}
 }
 
 struct HashMap {
-
+	varid @0 :UInt64;
+	value @1 :Value;
 }
+
 struct Block {
-	id @0 :Int64;
-	captures @1 :HashMap;
+	blockid @0 :UInt64;
+	captures @1 :List(HashMap);
 }
 
 struct Record {
@@ -69,8 +71,10 @@ struct CellPath {
 }
 
 struct PathMember {
-	string @0: Value;
-	int @1: Value;
+	union {
+		string @0: Value;
+		int @1: Value;
+	}
 }
 
 enum RangeInclusion {
@@ -145,25 +149,25 @@ enum Shape {
 	number @3;
 	int @4;
 	boolean @5;
-	cellpath @6;
-	fullcellpath @7;
+	cellPath @6;
+	fullCellPath @7;
 	range @8;
 	filepath @9;
-	globpattern @10;
-	importpattern @11;
+	globPattern @10;
+	importPattern @11;
 	binary @12;
 	table @13;
 	filesize @14;
 	duration @15;
-	datetime @16;
+	dateTime @16;
 	operator @17;
-	rowcondition @18;
-	mathexpression @19;
+	rowCondition @18;
+	mathExpression @19;
 	variable @20;
 	signature @21;
 	expression @22;
 	record @23;
-	varwithopttype @24;
+	varWithOptType @24;
 }
 
 struct EvaluatedCall {

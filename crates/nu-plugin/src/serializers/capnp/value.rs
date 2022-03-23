@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::plugin_capnp::value;
 use nu_protocol::{ShellError, Span, Value};
 
@@ -122,9 +124,15 @@ pub(crate) fn deserialize_value(reader: value::Reader, head: Span) -> Result<Val
         Ok(value::Duration(val)) => Ok(Value::Duration { val, span }),
         Ok(value::Block(val)) => {
             let block = val.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+            let block_id = block.get_blockid() as usize;
+            let captures = if let Ok(h) = block.get_captures() {
+                h as HashMap<usize, Value>
+            } else {
+                HashMap::new()
+            };
             Ok(Value::Block {
-                val: block.,
-                captures: block.,
+                val: block_id,
+                captures,
                 span,
             })
         }
@@ -141,11 +149,10 @@ pub(crate) fn deserialize_value(reader: value::Reader, head: Span) -> Result<Val
         }
         Ok(value::Cellpath(val)) => {
             let cell_path = val.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
-
-            Ok(Value::CellPath {
-                val: cell_path,
-                span,
-            })
+            let members = if let Ok(m) = cell_path.get_members() {
+                m.into()
+            };
+            Ok(Value::CellPath { val: members, span })
         }
         Ok(value::Range(val)) => {
             let range = val.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
