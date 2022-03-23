@@ -29,10 +29,13 @@ impl Command for Shuffle {
         _call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let metadata = input.metadata();
         let mut v: Vec<_> = input.into_iter().collect();
         v.shuffle(&mut thread_rng());
         let iter = v.into_iter();
-        Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(iter
+            .into_pipeline_data(engine_state.ctrlc.clone())
+            .set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {
