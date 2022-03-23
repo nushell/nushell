@@ -15,7 +15,7 @@ impl Command for ExportAlias {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("export def")
+        Signature::build("export alias")
             .required("name", SyntaxShape::String, "name of the alias")
             .required(
                 "initial_value",
