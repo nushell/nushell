@@ -70,6 +70,7 @@ impl Command for Drop {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let metadata = input.metadata();
         let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
         let v: Vec<_> = input.into_iter().collect();
         let vlen: i64 = v.len() as i64;
@@ -81,7 +82,9 @@ impl Command for Drop {
         };
 
         if rows_to_drop == 0 {
-            Ok(v.into_iter().into_pipeline_data(engine_state.ctrlc.clone()))
+            Ok(v.into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone())
+                .set_metadata(metadata))
         } else {
             let k = if vlen < rows_to_drop {
                 0
@@ -90,7 +93,9 @@ impl Command for Drop {
             };
 
             let iter = v.into_iter().take(k as usize);
-            Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
+            Ok(iter
+                .into_pipeline_data(engine_state.ctrlc.clone())
+                .set_metadata(metadata))
         }
     }
 }

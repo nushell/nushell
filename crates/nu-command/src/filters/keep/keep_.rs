@@ -66,6 +66,7 @@ impl Command for Keep {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let n: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let metadata = input.metadata();
 
         let n: usize = match n {
             Some(Value::Int { val, span }) => val.try_into().map_err(|err| {
@@ -83,7 +84,11 @@ impl Command for Keep {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        Ok(input.into_iter().take(n).into_pipeline_data(ctrlc))
+        Ok(input
+            .into_iter()
+            .take(n)
+            .into_pipeline_data(ctrlc)
+            .set_metadata(metadata))
     }
 }
 
