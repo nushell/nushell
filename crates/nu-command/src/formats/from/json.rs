@@ -135,7 +135,7 @@ fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> Value {
                 Value::Error {
                     error: ShellError::CantConvert(
                         "i64 sized integer".into(),
-                        "larger than i64".into(),
+                        "value larger than i64".into(),
                         span,
                     ),
                 }
@@ -201,7 +201,7 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
                 ))
             }
             x => Err(ShellError::CantConvert(
-                format!("structured data from json ({})", x),
+                format!("structured json data ({})", x),
                 "string".into(),
                 span,
             )),

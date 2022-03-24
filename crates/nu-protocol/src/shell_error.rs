@@ -112,6 +112,11 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::cant_convert), url(docsrs))]
     CantConvert(String, String, #[label("can't convert {1} to {0}")] Span),
 
+    // Identical to above, but with help
+    #[error("Can't convert to {0}.")]
+    #[diagnostic(code(nu::shell::cant_convert), url(docsrs), help("{3}"))]
+    CantConvertWithHelp(String, String, #[label("can't convert {1} to {0}")] Span, String),
+
     #[error("{0} is not representable as a string.")]
     #[diagnostic(
         code(nu::shell::env_var_not_a_string),

@@ -206,8 +206,8 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     };
     match i64::from_str_radix(&i, radix) {
         Ok(n) => Value::Int { val: n, span: head },
-        Err(reason) => Value::Error {
-            error: ShellError::CantConvert("".to_string(), reason.to_string(), head),
+        Err(_reason) => Value::Error {
+            error: ShellError::CantConvert("int".to_string(), "string".to_string(), head),
         },
     }
 }
@@ -218,11 +218,12 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
         b if b.starts_with("0b") => {
             let num = match i64::from_str_radix(b.trim_start_matches("0b"), 2) {
                 Ok(n) => n,
-                Err(reason) => {
-                    return Err(ShellError::CantConvert(
-                        "could not parse as integer".to_string(),
-                        reason.to_string(),
+                Err(_reason) => {
+                    return Err(ShellError::CantConvertWithHelp(
+                        "int".to_string(),
+                        "string".to_string(),
                         span,
+                        r#"digits following "0b" can only be 0 or 1"#.to_string()
                     ))
                 }
             };
@@ -231,11 +232,12 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
         h if h.starts_with("0x") => {
             let num = match i64::from_str_radix(h.trim_start_matches("0x"), 16) {
                 Ok(n) => n,
-                Err(reason) => {
-                    return Err(ShellError::CantConvert(
-                        "could not parse as int".to_string(),
-                        reason.to_string(),
+                Err(_reason) => {
+                    return Err(ShellError::CantConvertWithHelp(
+                        "int".to_string(),
+                        "string".to_string(),
                         span,
+                        r#"hexadecimal digits following "0x" should be in 0-9, a-f, or A-F"#.to_string()
                     ))
                 }
             };
@@ -246,7 +248,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             Err(_) => match a_string.parse::<f64>() {
                 Ok(f) => Ok(f as i64),
                 _ => Err(ShellError::CantConvert(
-                    "into int".to_string(),
+                    "int".to_string(),
                     "string".to_string(),
                     span,
                 )),

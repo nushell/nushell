@@ -16,7 +16,7 @@ impl Value {
         match self {
             Value::Int { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert(
-                "rf64".into(),
+                "i64".into(),
                 x.get_type().to_string(),
                 self.span()?,
             )),
