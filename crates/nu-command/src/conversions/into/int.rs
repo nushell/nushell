@@ -223,7 +223,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                         "int".to_string(),
                         "string".to_string(),
                         span,
-                        r#"digits following "0b" can only be 0 or 1"#.to_string()
+                        r#"digits following "0b" can only be 0 or 1"#.to_string(),
                     ))
                 }
             };
@@ -237,7 +237,8 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                         "int".to_string(),
                         "string".to_string(),
                         span,
-                        r#"hexadecimal digits following "0x" should be in 0-9, a-f, or A-F"#.to_string()
+                        r#"hexadecimal digits following "0x" should be in 0-9, a-f, or A-F"#
+                            .to_string(),
                     ))
                 }
             };

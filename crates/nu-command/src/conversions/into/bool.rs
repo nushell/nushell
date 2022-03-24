@@ -140,7 +140,7 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
                     "boolean".to_string(),
                     "string".to_string(),
                     span,
-                    r#"the strings "true" and "false" can be converted into a bool"#.to_string()
+                    r#"the strings "true" and "false" can be converted into a bool"#.to_string(),
                 )),
             }
         }
