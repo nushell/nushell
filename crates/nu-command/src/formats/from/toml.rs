@@ -121,7 +121,7 @@ pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value
         Ok(value) => Ok(convert_toml_to_value(&value, span)),
 
         Err(_x) => Err(ShellError::CantConvert(
-            "structured data from toml".into(),
+            "structured toml data".into(),
             "string".into(),
             span,
         )),

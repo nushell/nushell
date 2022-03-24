@@ -257,6 +257,14 @@ pub fn action(
                 span,
             ),
         },
+        Value::Binary { .. } => Value::Error {
+            error: ShellError::CantConvertWithHelp(
+                "string".into(),
+                "binary".into(),
+                span,
+                "try using the `decode` command".into(),
+            ),
+        },
         x => Value::Error {
             error: ShellError::CantConvert(String::from("string"), x.get_type().to_string(), span),
         },

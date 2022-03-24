@@ -47,7 +47,8 @@ impl From<ShellError> for LabeledError {
                 msg,
                 span: None,
             },
-            ShellError::CantConvert(expected, input, span) => LabeledError {
+            ShellError::CantConvert(expected, input, span)
+            | ShellError::CantConvertWithHelp(expected, input, span, _) => LabeledError {
                 label: format!("Can't convert to {}", expected),
                 msg: format!("can't convert {} to {}", expected, input),
                 span: Some(span),
