@@ -2391,17 +2391,28 @@ pub fn parse_string_strict(
     let bytes = working_set.get_span_contents(span);
 
     // Check for unbalanced quotes:
-    if (bytes.starts_with(b"\"") || (bytes.starts_with(b"$\""))) && !bytes.ends_with(b"\"") {
-        return (garbage(span), Some(ParseError::Unclosed("\"".into(), span)));
-    }
-    if (bytes.starts_with(b"\'") || (bytes.starts_with(b"$\""))) && !bytes.ends_with(b"\'") {
-        return (garbage(span), Some(ParseError::Unclosed("\'".into(), span)));
+    {
+        let bytes = if bytes.starts_with(b"$") {
+            &bytes[1..]
+        } else {
+            bytes
+        };
+        if bytes.starts_with(b"\"") && (bytes.len() == 1 || !bytes.ends_with(b"\"")) {
+            return (garbage(span), Some(ParseError::Unclosed("\"".into(), span)));
+        }
+        if bytes.starts_with(b"\'") && (bytes.len() == 1 || !bytes.ends_with(b"\'")) {
+            return (garbage(span), Some(ParseError::Unclosed("\'".into(), span)));
+        }
     }
 
     let (bytes, quoted) = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
         || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
     {
         (&bytes[1..(bytes.len() - 1)], true)
+    } else if (bytes.starts_with(b"$\"") && bytes.ends_with(b"\"") && bytes.len() > 2)
+        || (bytes.starts_with(b"$\'") && bytes.ends_with(b"\'") && bytes.len() > 2)
+    {
+        (&bytes[2..(bytes.len() - 1)], true)
     } else {
         (bytes, false)
     };
