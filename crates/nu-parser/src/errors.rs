@@ -227,11 +227,19 @@ pub enum ParseError {
 
     #[error("File not found")]
     #[diagnostic(
-        code(nu::parser::file_not_found),
+        code(nu::parser::sourced_file_not_found),
         url(docsrs),
         help("sourced files need to be available before your script is run")
     )]
     SourcedFileNotFound(String, #[label("File not found: {0}")] Span),
+
+    #[error("File not found")]
+    #[diagnostic(
+        code(nu::parser::registered_file_not_found),
+        url(docsrs),
+        help("registered files need to be available before your script is run")
+    )]
+    RegisteredFileNotFound(String, #[label("File not found: {0}")] Span),
 
     #[error("File not found")]
     #[diagnostic(code(nu::parser::file_not_found), url(docsrs))]
@@ -287,6 +295,7 @@ impl ParseError {
             ParseError::WrongImportPattern(s) => *s,
             ParseError::ExportNotFound(s) => *s,
             ParseError::SourcedFileNotFound(_, s) => *s,
+            ParseError::RegisteredFileNotFound(_, s) => *s,
             ParseError::FileNotFound(_, s) => *s,
             ParseError::LabeledError(_, _, s) => *s,
         }

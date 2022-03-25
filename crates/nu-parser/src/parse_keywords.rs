@@ -1959,14 +1959,17 @@ pub fn parse_register(
                     if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_ENV) {
                         Ok(p)
                     } else {
-                        Err(ParseError::FileNotFound(name, expr.span))
+                        Err(ParseError::RegisteredFileNotFound(name, expr.span))
                     }
                 })
                 .and_then(|path| {
                     if path.exists() & path.is_file() {
                         Ok(path)
                     } else {
-                        Err(ParseError::FileNotFound(format!("{:?}", path), expr.span))
+                        Err(ParseError::RegisteredFileNotFound(
+                            format!("{:?}", path),
+                            expr.span,
+                        ))
                     }
                 })
         })
@@ -2007,13 +2010,17 @@ pub fn parse_register(
         String::from_utf8(shell_expr.to_vec())
             .map_err(|_| ParseError::NonUtf8(expr.span))
             .and_then(|name| {
-                canonicalize_with(&name, cwd).map_err(|_| ParseError::FileNotFound(name, expr.span))
+                canonicalize_with(&name, cwd)
+                    .map_err(|_| ParseError::RegisteredFileNotFound(name, expr.span))
             })
             .and_then(|path| {
                 if path.exists() & path.is_file() {
                     Ok(path)
                 } else {
-                    Err(ParseError::FileNotFound(format!("{:?}", path), expr.span))
+                    Err(ParseError::RegisteredFileNotFound(
+                        format!("{:?}", path),
+                        expr.span,
+                    ))
                 }
             })
     });
