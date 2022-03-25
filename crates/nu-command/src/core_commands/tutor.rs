@@ -351,7 +351,7 @@ ls | each {|x| $x.name}
 ```
 The above will create a list of the filenames in the directory.
 ```
-if true { echo "it's true" } { echo "it's not true" }
+if true { echo "it's true" } else { echo "it's not true" }
 ```
 This `if` call will run the first block if the expression is true, or the
 second block if the expression is false.
