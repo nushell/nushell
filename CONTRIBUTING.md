@@ -71,5 +71,5 @@ cargo build
 - To view verbose logs when developing, enable the `trace` log level.
 
   ```shell
-  cargo build --release --features=extra && cargo run --release --features=extra -- --loglevel trace
+  cargo build --release --features=extra && cargo run --release --features=extra -- --log-level trace
   ```
