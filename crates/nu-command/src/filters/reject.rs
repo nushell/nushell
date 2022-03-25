@@ -95,12 +95,9 @@ fn reject(
                 for path in &keep_columns {
                     let fetcher = input_val.clone().follow_cell_path(&path.members);
 
-                    match fetcher {
-                        Ok(value) => {
-                            cols.push(path.into_string());
-                            vals.push(value);
-                        }
-                        _ => {}
+                    if let Ok(value) = fetcher {
+                        cols.push(path.into_string());
+                        vals.push(value);
                     }
                 }
                 output.push(Value::Record { cols, vals, span })
