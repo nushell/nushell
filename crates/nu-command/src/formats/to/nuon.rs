@@ -137,8 +137,13 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             }
             Ok(format!("{{{}}}", collection.join(", ")))
         }
-        Value::String { val, .. } => Ok(format!("\"{}\"", val)),
+        Value::String { val, .. } => Ok(format!("\"{}\"", escape(val))),
     }
+}
+
+fn escape(input: &str) -> String {
+    let output = input.replace('\\', "\\\\");
+    output.replace('"', "\\\"")
 }
 
 fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {

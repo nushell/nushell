@@ -75,6 +75,34 @@ fn to_nuon_bool() {
 }
 
 #[test]
+fn to_nuon_escaping() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "hello\"world"
+            | to nuon
+            | from nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "hello\"world");
+}
+
+#[test]
+fn to_nuon_escaping2() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "hello\\world"
+            | to nuon
+            | from nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "hello\\world");
+}
+
+#[test]
 fn to_nuon_negative_int() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
