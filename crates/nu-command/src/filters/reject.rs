@@ -93,9 +93,12 @@ fn reject(
                 let mut vals = vec![];
 
                 for path in &keep_columns {
-                    let fetcher = input_val.clone().follow_cell_path(&path.members)?;
-                    cols.push(path.into_string());
-                    vals.push(fetcher);
+                    let fetcher = input_val.clone().follow_cell_path(&path.members);
+
+                    if let Ok(value) = fetcher {
+                        cols.push(path.into_string());
+                        vals.push(value);
+                    }
                 }
                 output.push(Value::Record { cols, vals, span })
             }
