@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dependencies]
 
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 procfs  = "0.12.0"
 users = "0.11"
 which = "4"
