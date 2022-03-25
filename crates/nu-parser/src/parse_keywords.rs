@@ -1853,7 +1853,7 @@ pub fn parse_source(
                             }
                         }
                     } else {
-                        error = error.or(Some(ParseError::FileNotFound(filename, spans[1])));
+                        error = error.or(Some(ParseError::SourcedFileNotFound(filename, spans[1])));
                     }
                 } else {
                     return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));

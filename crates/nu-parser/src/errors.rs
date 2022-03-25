@@ -95,7 +95,11 @@ pub enum ParseError {
     VariableNotValid(#[label = "variable name can't contain spaces or quotes"] Span),
 
     #[error("Module not found.")]
-    #[diagnostic(code(nu::parser::module_not_found), url(docsrs))]
+    #[diagnostic(
+        code(nu::parser::module_not_found),
+        url(docsrs),
+        help("module files need to be available before your script is run")
+    )]
     ModuleNotFound(#[label = "module not found"] Span),
 
     #[error("Not found.")]
@@ -222,6 +226,14 @@ pub enum ParseError {
     ExportNotFound(#[label = "could not find imports"] Span),
 
     #[error("File not found")]
+    #[diagnostic(
+        code(nu::parser::file_not_found),
+        url(docsrs),
+        help("sourced files need to be available before your script is run")
+    )]
+    SourcedFileNotFound(String, #[label("File not found: {0}")] Span),
+
+    #[error("File not found")]
     #[diagnostic(code(nu::parser::file_not_found), url(docsrs))]
     FileNotFound(String, #[label("File not found: {0}")] Span),
 
@@ -274,6 +286,7 @@ impl ParseError {
             ParseError::MissingImportPattern(s) => *s,
             ParseError::WrongImportPattern(s) => *s,
             ParseError::ExportNotFound(s) => *s,
+            ParseError::SourcedFileNotFound(_, s) => *s,
             ParseError::FileNotFound(_, s) => *s,
             ParseError::LabeledError(_, _, s) => *s,
         }
