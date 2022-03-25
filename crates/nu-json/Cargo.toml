@@ -21,4 +21,4 @@ linked-hash-map = { version="0.5", optional=true }
 
 [dev-dependencies]
 nu-path = { path="../nu-path", version = "0.60.0" }
-serde_json = "1.0.39"
+serde_json = "1.0"
