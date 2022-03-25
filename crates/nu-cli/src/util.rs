@@ -98,19 +98,6 @@ pub fn print_pipeline_data(
 // env vars into it (in a "NAME"="value" format, quite similar to the output of the Unix 'env'
 // tool), then uses the file to get the spans. The file stays in memory, no filesystem IO is done.
 pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
-    // Some helper functions
-    fn get_surround_char(s: &str) -> Option<char> {
-        if s.contains('"') {
-            if s.contains('\'') {
-                None
-            } else {
-                Some('\'')
-            }
-        } else {
-            Some('\'')
-        }
-    }
-
     fn report_capture_error(engine_state: &EngineState, env_str: &str, msg: &str) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
@@ -122,32 +109,18 @@ pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
         );
     }
 
-    fn put_env_to_fake_file(
-        name: &str,
-        val: &str,
-        fake_env_file: &mut String,
-        engine_state: &EngineState,
-    ) {
-        let (c_name, c_val) =
-            if let (Some(cn), Some(cv)) = (get_surround_char(name), get_surround_char(val)) {
-                (cn, cv)
-            } else {
-                // environment variable with its name or value containing both ' and " is ignored
-                report_capture_error(
-                    engine_state,
-                    &format!("{}={}", name, val),
-                    "Name or value should not contain both ' and \" at the same time.",
-                );
-                return;
-            };
+    fn escape(input: &str) -> String {
+        input.replace('"', "\\\"")
+    }
 
-        fake_env_file.push(c_name);
-        fake_env_file.push_str(name);
-        fake_env_file.push(c_name);
+    fn put_env_to_fake_file(name: &str, val: &str, fake_env_file: &mut String) {
+        fake_env_file.push('"');
+        fake_env_file.push_str(&escape(name));
+        fake_env_file.push('"');
         fake_env_file.push('=');
-        fake_env_file.push(c_val);
-        fake_env_file.push_str(val);
-        fake_env_file.push(c_val);
+        fake_env_file.push('"');
+        fake_env_file.push_str(&escape(val));
+        fake_env_file.push('"');
         fake_env_file.push('\n');
     }
 
@@ -157,12 +130,7 @@ pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
     if std::env::var("PWD").is_err() {
         match std::env::current_dir() {
             Ok(cwd) => {
-                put_env_to_fake_file(
-                    "PWD",
-                    &cwd.to_string_lossy(),
-                    &mut fake_env_file,
-                    engine_state,
-                );
+                put_env_to_fake_file("PWD", &cwd.to_string_lossy(), &mut fake_env_file);
             }
             Err(e) => {
                 // Could not capture current working directory
@@ -180,7 +148,7 @@ pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
 
     // Write all the env vars into a fake file
     for (name, val) in std::env::vars() {
-        put_env_to_fake_file(&name, &val, &mut fake_env_file, engine_state);
+        put_env_to_fake_file(&name, &val, &mut fake_env_file);
     }
 
     // Lex the fake file, assign spans to all environment variables and add them
