@@ -5,8 +5,8 @@ use std::{
 
 use nu_engine::CallExt;
 use nu_protocol::{
-    engine::Command, Example, ListStream, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Value,
 };
 
 use super::PathSubcommandArguments;
@@ -63,16 +63,15 @@ the output of 'path parse' and 'path split' subcommands."#
             append: call.opt(engine_state, stack, 0)?,
         };
 
+        let metadata = input.metadata();
+
         match input {
             PipelineData::Value(val, md) => {
                 Ok(PipelineData::Value(handle_value(val, &args, head), md))
             }
-            PipelineData::ListStream(stream, md) => Ok(PipelineData::ListStream(
-                ListStream::from_stream(
-                    stream.map(move |val| handle_value(val, &args, head)),
-                    engine_state.ctrlc.clone(),
-                ),
-                md,
+            PipelineData::ListStream(..) => Ok(PipelineData::Value(
+                handle_value(input.into_value(head), &args, head),
+                metadata,
             )),
             _ => Err(ShellError::UnsupportedInput(
                 "Input data is not supported by this command.".to_string(),
