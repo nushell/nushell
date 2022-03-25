@@ -98,7 +98,7 @@ impl Command for SortBy {
                 }),
             },
             Example {
-                description: "Sort a table by it's column (reversed order)",
+                description: "Sort a table by its column (reversed order)",
                 example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit -r",
                 result: Some(Value::List {
                     vals: vec![
