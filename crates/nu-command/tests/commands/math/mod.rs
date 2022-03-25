@@ -68,6 +68,30 @@ fn precedence_of_operators2() {
 }
 
 #[test]
+fn precedence_of_operators3() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            5 - 5 * 10 + 5
+        "#
+    ));
+
+    assert_eq!(actual.out, "-40");
+}
+
+#[test]
+fn precedence_of_operators4() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            5 - (5 * 10) + 5
+        "#
+    ));
+
+    assert_eq!(actual.out, "-40");
+}
+
+#[test]
 fn division_of_ints() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
