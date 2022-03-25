@@ -97,6 +97,27 @@ impl Command for SortBy {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Sort a table by it's column (reversed order)",
+                example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit -r",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_record(
+                            vec!["fruit", "count"],
+                            vec![Value::test_string("pear"), Value::test_int(3)],
+                        ),
+                        Value::test_record(
+                            vec!["fruit", "count"],
+                            vec![Value::test_string("orange"), Value::test_int(7)],
+                        ),
+                        Value::test_record(
+                            vec!["fruit", "count"],
+                            vec![Value::test_string("apple"), Value::test_int(9)],
+                        ),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 
