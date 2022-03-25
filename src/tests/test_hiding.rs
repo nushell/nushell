@@ -297,6 +297,71 @@ fn hides_def_import_6() -> TestResult {
 }
 
 #[test]
+fn hides_def_import_then_reimports() -> TestResult {
+    run_test(
+        r#"module spam { export def foo [] { "foo" } }; use spam foo; hide foo; use spam foo; foo"#,
+        "foo",
+    )
+}
+
+#[test]
+fn hides_alias_import_1() -> TestResult {
+    fail_test(
+        r#"module spam { export alias foo = "foo" }; use spam; hide spam foo; spam foo"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_import_2() -> TestResult {
+    fail_test(
+        r#"module spam { export alias foo = "foo" }; use spam; hide spam; spam foo"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_import_3() -> TestResult {
+    fail_test(
+        r#"module spam { export alias foo = "foo" }; use spam; hide spam [foo]; spam foo"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_import_4() -> TestResult {
+    fail_test(
+        r#"module spam { export alias foo = "foo" }; use spam foo; hide foo; foo"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_import_5() -> TestResult {
+    fail_test(
+        r#"module spam { export alias foo = "foo" }; use spam *; hide foo; foo"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_import_6() -> TestResult {
+    fail_test(
+        r#"module spam { export alias foo = "foo" }; use spam *; hide spam *; foo"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_import_then_reimports() -> TestResult {
+    run_test(
+        r#"module spam { export alias foo = "foo" }; use spam foo; hide foo; use spam foo; foo"#,
+        "foo",
+    )
+}
+
+
+#[test]
 fn hides_env_import_1() -> TestResult {
     fail_test(
         r#"module spam { export env foo { "foo" } }; use spam; hide spam foo; $env.'spam foo'"#,

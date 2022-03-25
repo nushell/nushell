@@ -779,7 +779,7 @@ impl<'a> StateWorkingSet<'a> {
 
         for (name, alias_id) in aliases {
             scope_frame.aliases.insert(name, alias_id);
-            scope_frame.visibility.use_decl_id(&alias_id);
+            scope_frame.visibility.use_alias_id(&alias_id);
         }
     }
 
