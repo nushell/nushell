@@ -4019,7 +4019,7 @@ pub fn parse_math_expression(
         );
         error = error.or(err);
 
-        if op_prec <= last_prec && expr_stack.len() > 1 {
+        while op_prec <= last_prec && expr_stack.len() > 1 {
             // Collapse the right associated operations first
             // so that we can get back to a stack with a lower precedence
             let mut rhs = expr_stack
@@ -4028,6 +4028,14 @@ pub fn parse_math_expression(
             let mut op = expr_stack
                 .pop()
                 .expect("internal error: expression stack empty");
+
+            last_prec = op.precedence();
+
+            if last_prec < op_prec {
+                expr_stack.push(op);
+                expr_stack.push(rhs);
+                break;
+            }
 
             let mut lhs = expr_stack
                 .pop()
