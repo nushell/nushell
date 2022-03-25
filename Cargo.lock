@@ -4137,9 +4137,9 @@ dependencies = [
 
 [[package]]
 name = "sys-locale"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91f89ebb59fa30d4f65fafc2d68e94f6975256fd87e812dd99cb6e020c8563df"
+checksum = "3913c5a3d30054d7f77cf07cdd800c8103ace15c6e44437c5db66a43dd3a92cf"
 dependencies = [
  "cc",
  "cstr_core",
