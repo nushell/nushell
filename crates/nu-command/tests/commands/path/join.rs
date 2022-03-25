@@ -32,6 +32,18 @@ fn returns_path_joined_from_list() {
 }
 
 #[test]
+fn drop_one_path_join() {
+    let actual = nu!(
+        cwd: "tests", pipeline(
+            r#"[a, b, c] | drop 1 | path join
+        "#
+    ));
+
+    let expected = join_path_sep(&["a", "b"]);
+    assert_eq!(actual.out, expected);
+}
+
+#[test]
 fn appends_slash_when_joined_with_empty_path() {
     let actual = nu!(
         cwd: "tests", pipeline(
