@@ -30,10 +30,6 @@ impl Command for External {
         "Runs external command"
     }
 
-    fn is_private(&self) -> bool {
-        true
-    }
-
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .switch("redirect-stdout", "redirect-stdout", None)

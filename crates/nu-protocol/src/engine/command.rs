@@ -27,11 +27,6 @@ pub trait Command: Send + Sync + CommandClone {
         false
     }
 
-    // Commands that are not meant to be run by users
-    fn is_private(&self) -> bool {
-        false
-    }
-
     fn examples(&self) -> Vec<Example> {
         Vec::new()
     }
