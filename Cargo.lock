@@ -3425,8 +3425,6 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ba0eb9271feb2de4b1516d651c96d80c892df24388e2711ef2495acc6ed9ce"
 dependencies = [
  "chrono",
  "crossterm",

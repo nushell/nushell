@@ -55,7 +55,8 @@ nu-term-grid = { path = "./crates/nu-term-grid", version = "0.60.0"  }
 nu-utils = { path = "./crates/nu-utils", version = "0.60.0" }
 pretty_env_logger = "0.4.0"
 rayon = "1.5.1"
-reedline = "0.3.0"
+#reedline = "0.3.0"
+reedline = { path = "../../reedline" }
 is_executable = "1.0.1"
 
 [dev-dependencies]

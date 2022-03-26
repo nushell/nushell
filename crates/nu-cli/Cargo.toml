@@ -20,7 +20,8 @@ crossterm = "0.23.0"
 crossterm_winapi = "0.9.0"
 miette = { version = "4.1.0", features = ["fancy"] }
 thiserror = "1.0.29"
-reedline = "0.3.0"
+#reedline = "0.3.0"
+reedline = { path = "../../../../reedline" }
 
 log = "0.4"
 is_executable = "1.0.1"
