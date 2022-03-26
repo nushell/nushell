@@ -14,9 +14,7 @@ impl Command for Sys {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("sys")
-            .filter()
-            .category(Category::System)
+        Signature::build("sys").filter().category(Category::System)
     }
 
     fn usage(&self) -> &str {

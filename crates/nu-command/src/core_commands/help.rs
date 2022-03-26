@@ -7,6 +7,8 @@ use nu_protocol::{
 
 use nu_engine::{get_full_help, CallExt};
 
+use std::borrow::Borrow;
+
 #[derive(Clone)]
 pub struct Help;
 
@@ -96,11 +98,11 @@ fn help(
             let mut vals = vec![];
 
             let decl = engine_state.get_decl(decl_id);
-            let sig = decl.signature();
+            let sig = decl.signature().update_from_command(decl.borrow());
 
-            let key = decl.name().to_string();
-            let usage = decl.usage().to_string();
-            let search_terms = decl.search_terms();
+            let key = sig.name;
+            let usage = sig.usage;
+            let search_terms = sig.search_terms;
             let matches_term = if search_terms.is_empty() {
                 search_terms
                     .iter()
@@ -181,11 +183,11 @@ fn help(
                 let mut vals = vec![];
 
                 let decl = engine_state.get_decl(decl_id);
-                let sig = decl.signature();
+                let sig = decl.signature().update_from_command(decl.borrow());
 
-                let key = decl.name().to_string();
-                let usage = decl.usage().to_string();
-                let search_terms = decl.search_terms();
+                let key = sig.name;
+                let usage = sig.usage;
+                let search_terms = sig.search_terms;
 
                 cols.push("name".into());
                 vals.push(Value::String {

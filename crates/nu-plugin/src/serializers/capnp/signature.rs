@@ -181,6 +181,7 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
         name: name.to_string(),
         usage: usage.to_string(),
         extra_usage: extra_usage.to_string(),
+        search_terms: vec![], // TODO: Add support for this
         required_positional,
         optional_positional,
         rest_positional,

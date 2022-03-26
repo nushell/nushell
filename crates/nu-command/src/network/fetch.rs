@@ -44,9 +44,23 @@ impl Command for SubCommand {
                 "the password when authenticating",
                 Some('p'),
             )
-            .named("timeout", SyntaxShape::Int, "timeout period in seconds", Some('t'))
-            .named("headers",SyntaxShape::Any, "custom headers you want to add ", Some('H'))
-            .switch("raw", "fetch contents as text rather than a table", Some('r'))
+            .named(
+                "timeout",
+                SyntaxShape::Int,
+                "timeout period in seconds",
+                Some('t'),
+            )
+            .named(
+                "headers",
+                SyntaxShape::Any,
+                "custom headers you want to add ",
+                Some('H'),
+            )
+            .switch(
+                "raw",
+                "fetch contents as text rather than a table",
+                Some('r'),
+            )
             .filter()
             .category(Category::Network)
     }

@@ -11,6 +11,7 @@ use std::{
 
 use crate::Value;
 
+use std::borrow::Borrow;
 use std::path::Path;
 
 #[cfg(feature = "plugin")]
@@ -527,11 +528,7 @@ impl EngineState {
             .map(|id| {
                 let decl = self.get_decl(id);
 
-                let mut signature = (*decl).signature();
-                signature.usage = decl.usage().to_string();
-                signature.extra_usage = decl.extra_usage().to_string();
-
-                signature
+                (*decl).signature().update_from_command(decl.borrow())
             })
             .collect()
     }
@@ -549,9 +546,7 @@ impl EngineState {
             .map(|id| {
                 let decl = self.get_decl(id);
 
-                let mut signature = (*decl).signature();
-                signature.usage = decl.usage().to_string();
-                signature.extra_usage = decl.extra_usage().to_string();
+                let signature = (*decl).signature().update_from_command(decl.borrow());
 
                 (
                     signature,

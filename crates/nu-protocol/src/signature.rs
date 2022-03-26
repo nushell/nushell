@@ -163,6 +163,18 @@ impl Signature {
         self
     }
 
+    /// Update signature's fields from a Command trait implementation
+    pub fn update_from_command(mut self, command: &dyn Command) -> Signature {
+        self.search_terms = command
+            .search_terms()
+            .into_iter()
+            .map(|term| term.to_string())
+            .collect();
+        self.extra_usage = command.extra_usage().to_string();
+        self.usage = command.usage().to_string();
+        self
+    }
+
     /// Add a required positional argument to the signature
     pub fn required(
         mut self,
