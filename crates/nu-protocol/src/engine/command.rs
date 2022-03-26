@@ -51,6 +51,11 @@ pub trait Command: Send + Sync + CommandClone {
         self.name().contains(' ')
     }
 
+    // Is a parser keyword (source, def, etc.)
+    fn is_parser_keyword(&self) -> bool {
+        false
+    }
+
     // Is a plugin command (returns plugin's path, encoding and type of shell
     // if the declaration is a plugin)
     fn is_plugin(&self) -> Option<(&PathBuf, &str, &Option<PathBuf>)> {

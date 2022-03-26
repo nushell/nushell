@@ -23,7 +23,15 @@ impl Command for Hide {
     }
 
     fn extra_usage(&self) -> &str {
-        "Symbols are hidden by priority: First aliases, then custom commands, then environment variables."
+        r#"Symbols are hidden by priority: First aliases, then custom commands, then environment variables.
+
+This command is a parser keyword. For details, check
+https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-different-stages
+            "#
+    }
+
+    fn is_parser_keyword(&self) -> bool {
+        true
     }
 
     fn run(

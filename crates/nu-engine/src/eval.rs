@@ -1008,6 +1008,12 @@ pub fn create_scope(
                 span,
             });
 
+            cols.push("is_keyword".into());
+            vals.push(Value::Bool {
+                val: decl.is_parser_keyword(),
+                span,
+            });
+
             cols.push("is_extern".to_string());
             vals.push(Value::Bool {
                 val: decl.is_known_external(),
