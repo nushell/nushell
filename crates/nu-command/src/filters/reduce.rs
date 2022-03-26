@@ -37,7 +37,7 @@ impl Command for Reduce {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["map", "fold"]
+        vec!["map", "fold", "foldl"]
     }
 
     fn examples(&self) -> Vec<Example> {
