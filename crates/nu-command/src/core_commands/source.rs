@@ -26,6 +26,15 @@ impl Command for Source {
         "Runs a script file in the current context."
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"This command is a parser keyword. For details, check
+https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-different-stages"#
+    }
+
+    fn is_parser_keyword(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
