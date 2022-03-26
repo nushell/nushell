@@ -24,7 +24,6 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("post")
-            .desc("Post content to a URL and retrieve data as a table if possible.")
             .required("path", SyntaxShape::String, "the URL to post to")
             .required("body", SyntaxShape::Any, "the contents of the post body")
             .named(
@@ -70,9 +69,11 @@ impl Command for SubCommand {
             .filter()
             .category(Category::Network)
     }
-    fn usage(&self) -> &str {
-        "Post a body to a URL (HTTP POST operation)."
+
+    fn extra_usage(&self) -> &str {
+        "Performs HTTP POST operation."
     }
+
     fn run(
         &self,
         engine_state: &EngineState,

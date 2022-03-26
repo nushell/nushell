@@ -17,7 +17,6 @@ impl Command for Do {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("do")
-            .desc(self.usage())
             .required("block", SyntaxShape::Any, "the block to run")
             .switch(
                 "ignore-errors",

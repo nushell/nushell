@@ -20,7 +20,6 @@ impl Command for ViewSource {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("view-source")
-            .desc(self.usage())
             .required("item", SyntaxShape::Any, "name or block to view")
             .category(Category::Core)
     }

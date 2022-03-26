@@ -6,21 +6,21 @@ impl Plugin for Query {
     fn signature(&self) -> Vec<Signature> {
         vec![
             Signature::build("query")
-            .desc("Show all the query commands")
+            .usage("Show all the query commands")
             .category(Category::Filters),
 
             Signature::build("query json")
-            .desc("execute json query on json file (open --raw <file> | query json 'query string')")
+            .usage("execute json query on json file (open --raw <file> | query json 'query string')")
             .required("query", SyntaxShape::String, "json query")
             .category(Category::Filters),
 
             Signature::build("query xml")
-            .desc("execute xpath query on xml")
+            .usage("execute xpath query on xml")
             .required("query", SyntaxShape::String, "xpath query")
             .category(Category::Filters),
 
             Signature::build("query web")
-            .desc("execute selector query on html/web")
+            .usage("execute selector query on html/web")
             .named("query", SyntaxShape::String, "selector query", Some('q'))
             .switch("as-html", "return the query output as html", Some('m'))
             .named(

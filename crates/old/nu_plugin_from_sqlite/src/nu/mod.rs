@@ -33,7 +33,7 @@ impl Plugin for FromSqlite {
                 "Only convert specified tables",
                 Some('t'),
             )
-            .desc("Convert from sqlite binary into table")
+            .usage("Convert from sqlite binary into table")
             .filter())
     }
 

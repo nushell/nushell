@@ -7,7 +7,7 @@ use crate::start::Start;
 impl Plugin for Start {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("start")
-            .desc("Opens each file/directory/URL using the default application")
+            .usage("Opens each file/directory/URL using the default application")
             .rest(
                 "rest",
                 SyntaxShape::String,

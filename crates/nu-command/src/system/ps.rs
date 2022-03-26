@@ -16,7 +16,6 @@ impl Command for Ps {
 
     fn signature(&self) -> Signature {
         Signature::build("ps")
-            .desc("View information about system processes.")
             .switch(
                 "long",
                 "list all available columns for each entry",

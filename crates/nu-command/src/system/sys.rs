@@ -15,7 +15,6 @@ impl Command for Sys {
 
     fn signature(&self) -> Signature {
         Signature::build("sys")
-            .desc("View information about the current system.")
             .filter()
             .category(Category::System)
     }

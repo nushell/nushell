@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn value_round_trip_2() {
         let signature = Signature::build("test-1")
-            .desc("Signature test 1 for plugin. Returns Value::Nothing")
+            .usage("Signature test 1 for plugin. Returns Value::Nothing")
             .required("a", SyntaxShape::Int, "required integer value")
             .required("b", SyntaxShape::String, "required string value")
             .optional("opt", SyntaxShape::Boolean, "Optional boolean")

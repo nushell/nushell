@@ -9,7 +9,7 @@ use crate::handler::s3_helper;
 impl Plugin for handler::Handler {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("s3")
-            .desc("Load S3 resource into a cell, convert to table if possible (avoid by appending '--raw' or '-R')")
+            .usage("Load S3 resource into a cell, convert to table if possible (avoid by appending '--raw' or '-R')")
             .required(
                 "RESOURCE",
                 SyntaxShape::String,

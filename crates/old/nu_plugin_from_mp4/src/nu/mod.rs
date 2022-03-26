@@ -10,7 +10,7 @@ use nu_source::Tag;
 impl Plugin for FromMp4 {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("from mp4")
-            .desc("Get meta-data of mp4 file")
+            .usage("Get meta-data of mp4 file")
             .filter())
     }
 
