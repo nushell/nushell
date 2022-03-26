@@ -329,6 +329,15 @@ fn parse_long_flag(
                             Some(arg),
                             err,
                         )
+                    } else if flag.arg == Some(SyntaxShape::Boolean) {
+                        (
+                            Some(Spanned {
+                                item: long_name,
+                                span: arg_span,
+                            }),
+                            None,
+                            None,
+                        )
                     } else {
                         (
                             Some(Spanned {
@@ -3125,11 +3134,8 @@ pub fn parse_signature_helper(
                                         *shape = syntax_shape;
                                     }
                                     Arg::Flag(Flag { arg, var_id, .. }) => {
-                                        // Flags with a boolean type are just present/not-present switches
-                                        if syntax_shape != SyntaxShape::Boolean {
-                                            working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
-                                            *arg = Some(syntax_shape)
-                                        }
+                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        *arg = Some(syntax_shape);
                                     }
                                 }
                             }
@@ -3204,8 +3210,15 @@ pub fn parse_signature_helper(
 
                                         *default_value = Some(expression);
 
-                                        // Flags with a boolean type are just present/not-present switches
-                                        if var_type != &Type::Bool {
+                                        if expression_ty == Type::Bool {
+                                            error = error.or_else(|| {
+                                                Some(ParseError::AssignmentMismatch(
+                                                    "Default bool value".into(),
+                                                    "default value can't be bool".into(),
+                                                    expression_span,
+                                                ))
+                                            })
+                                        } else {
                                             match var_type {
                                                 Type::Unknown => {
                                                     *arg = Some(expression_ty.to_shape());

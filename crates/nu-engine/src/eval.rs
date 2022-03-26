@@ -7,7 +7,7 @@ use nu_protocol::ast::{Block, Call, Expr, Expression, Operator};
 use nu_protocol::engine::{EngineState, Stack, Visibility};
 use nu_protocol::{
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
-    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 
 use crate::{current_dir_str, get_full_help};
@@ -137,6 +137,8 @@ pub fn eval_call(
                         let result = eval_expression(engine_state, caller_stack, arg)?;
 
                         callee_stack.add_var(var_id, result);
+                    } else if named.arg == Some(SyntaxShape::Boolean) {
+                        callee_stack.add_var(var_id, Value::boolean(false, call.head))
                     } else {
                         callee_stack.add_var(var_id, Value::Nothing { span: call.head })
                     }
