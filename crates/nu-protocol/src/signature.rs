@@ -154,6 +154,12 @@ impl Signature {
         self
     }
 
+    /// Add extra usage info to the signature
+    pub fn extra_usage(mut self, extra_usage: impl Into<String>) -> Signature {
+        self.extra_usage = extra_usage.into();
+        self
+    }
+
     /// Add a required positional argument to the signature
     pub fn required(
         mut self,

@@ -47,10 +47,15 @@ impl Command for Find {
             .switch("invert", "invert the match", Some('v'))
             .rest("rest", SyntaxShape::Any, "terms to search")
             .category(Category::Filters)
+            .extra_usage("Search terms: filter")
     }
 
     fn usage(&self) -> &str {
         "Searches terms in the input or for elements of the input that satisfies the predicate."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Search terms: filter"
     }
 
     fn examples(&self) -> Vec<Example> {
