@@ -70,6 +70,10 @@ impl Command for SubCommand {
             .category(Category::Network)
     }
 
+    fn usage(&self) -> &str {
+        "Post a body to a URL."
+    }
+
     fn extra_usage(&self) -> &str {
         "Performs HTTP POST operation."
     }
