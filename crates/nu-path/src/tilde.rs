@@ -78,6 +78,15 @@ mod tests {
         check_not_expanded("1~1");
     }
 
+    #[test]
+    fn path_does_not_include_trailing_separator() {
+        let home = Path::new("/home");
+        let buf = Some(PathBuf::from(home));
+        let expanded = expand_tilde_with_home(Path::new("~"), buf);
+        let expanded_str = expanded.to_str().unwrap();
+        assert!(!expanded_str.ends_with("/"));
+    }
+
     #[cfg(windows)]
     #[test]
     fn string_with_tilde_backslash() {
