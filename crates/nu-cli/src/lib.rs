@@ -12,6 +12,8 @@ mod repl;
 mod syntax_highlight;
 mod util;
 mod validation;
+mod help_menu;
+mod help_completions;
 
 pub use commands::evaluate_commands;
 pub use completions::NuCompleter;
@@ -26,6 +28,8 @@ pub use syntax_highlight::NuHighlighter;
 pub use util::print_pipeline_data;
 pub use util::{eval_source, gather_parent_env_vars, get_init_cwd, report_error};
 pub use validation::NuValidator;
+pub use help_menu::NuHelpMenu;
+pub use help_completions::NuHelpCompleter;
 
 #[cfg(feature = "plugin")]
 pub use config_files::add_plugin_file;

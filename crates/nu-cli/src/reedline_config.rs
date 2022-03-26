@@ -1,9 +1,10 @@
+use super::NuHelpMenu;
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Value};
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    CompletionMenu, EditCommand, HistoryMenu, Keybindings, Reedline, ReedlineEvent,
+    CompletionMenu, EditCommand, HistoryMenu, Keybindings, Reedline, ReedlineEvent, Completer,
 };
 
 // Creates an input object for the completion menu based on the dictionary
@@ -64,7 +65,7 @@ pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Ree
         None => completion_menu,
     };
 
-    line_editor.with_menu(Box::new(completion_menu))
+    line_editor.with_menu(Box::new(completion_menu), None)
 }
 
 // Creates an input object for the history menu based on the dictionary
@@ -120,10 +121,92 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
         None => history_menu,
     };
 
-    line_editor.with_menu(Box::new(history_menu))
+    line_editor.with_menu(Box::new(history_menu), None)
+}
+
+// Creates an input object for the help menu based on the dictionary
+// stored in the config variable
+pub(crate) fn add_help_menu(
+    line_editor: Reedline,
+    help_completer: Box<dyn Completer>,
+    config: &Config,
+) -> Reedline {
+    let mut help_menu = NuHelpMenu::default();
+
+    help_menu = match config
+        .menu_config
+        .get("columns")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => help_menu.with_columns(value as u16),
+        None => help_menu,
+    };
+
+    help_menu = help_menu.with_column_width(
+        config
+            .menu_config
+            .get("col_width")
+            .and_then(|value| value.as_integer().ok())
+            .map(|value| value as usize),
+    );
+
+    help_menu = match config
+        .menu_config
+        .get("col_padding")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => help_menu.with_column_padding(value as usize),
+        None => help_menu,
+    };
+
+    help_menu = match config
+        .menu_config
+        .get("text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => help_menu.with_text_style(lookup_ansi_color_style(&value)),
+        None => help_menu,
+    };
+
+    help_menu = match config
+        .menu_config
+        .get("selected_text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => help_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
+        None => help_menu,
+    };
+
+    help_menu = match config
+        .menu_config
+        .get("marker")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => help_menu.with_marker(value),
+        None => help_menu,
+    };
+
+    line_editor.with_menu(Box::new(help_menu), Some(help_completer))
 }
 
 fn add_menu_keybindings(keybindings: &mut Keybindings) {
+    // Completer menu keybindings
+    keybindings.add_binding(
+        KeyModifiers::NONE,
+        KeyCode::Tab,
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::Menu("completer_menu".to_string()),
+            ReedlineEvent::MenuNext,
+        ]),
+    );
+
+    keybindings.add_binding(
+        KeyModifiers::SHIFT,
+        KeyCode::BackTab,
+        ReedlineEvent::MenuPrevious,
+    );
+
+    // History menu keybinding
     keybindings.add_binding(
         KeyModifiers::CONTROL,
         KeyCode::Char('x'),
@@ -142,19 +225,11 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         ]),
     );
 
+    // Help menu keybinding
     keybindings.add_binding(
-        KeyModifiers::NONE,
-        KeyCode::Tab,
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("completion_menu".to_string()),
-            ReedlineEvent::MenuNext,
-        ]),
-    );
-
-    keybindings.add_binding(
-        KeyModifiers::SHIFT,
-        KeyCode::BackTab,
-        ReedlineEvent::MenuPrevious,
+        KeyModifiers::CONTROL,
+        KeyCode::Char('h'),
+        ReedlineEvent::Menu("help_menu".to_string()),
     );
 }
 
