@@ -40,6 +40,7 @@ pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::MAIN_SEPARATOR;
 
     fn check_expanded(s: &str) {
         let home = Path::new("/home");
@@ -84,7 +85,7 @@ mod tests {
         let buf = Some(PathBuf::from(home));
         let expanded = expand_tilde_with_home(Path::new("~"), buf);
         let expanded_str = expanded.to_str().unwrap();
-        assert!(!expanded_str.ends_with("/"));
+        assert!(!expanded_str.ends_with(MAIN_SEPARATOR));
     }
 
     #[cfg(windows)]
