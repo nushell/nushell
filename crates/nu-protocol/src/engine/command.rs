@@ -61,6 +61,11 @@ pub trait Command: Send + Sync + CommandClone {
     fn get_block_id(&self) -> Option<BlockId> {
         None
     }
+
+    // Related terms to help with command search
+    fn search_terms(&self) -> Vec<&str> {
+        vec![]
+    }
 }
 
 pub trait CommandClone {

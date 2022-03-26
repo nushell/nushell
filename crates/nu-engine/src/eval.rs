@@ -817,6 +817,7 @@ pub fn create_scope(
 
             let decl = engine_state.get_decl(*decl_id);
             let signature = decl.signature();
+
             cols.push("category".to_string());
             vals.push(Value::String {
                 val: signature.category.to_string(),
@@ -1024,6 +1025,17 @@ pub fn create_scope(
             vals.push(Value::String {
                 val: decl.extra_usage().into(),
                 span,
+            });
+
+            let search_terms = decl.search_terms();
+            cols.push("search_terms".to_string());
+            vals.push(if search_terms.is_empty() {
+                Value::nothing(span)
+            } else {
+                Value::String {
+                    val: search_terms.join(", "),
+                    span,
+                }
             });
 
             commands.push(Value::Record { cols, vals, span })
