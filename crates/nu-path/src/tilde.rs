@@ -16,7 +16,14 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
                 path.strip_prefix("~").unwrap_or(path).into()
             } else {
                 if let Ok(p) = path.strip_prefix("~/") {
-                    h.push(p)
+                    // Corner case: `p` is empty;
+                    // Don't append extra '/', just keep `h` as is.
+                    // This happens because PathBuf.push will always
+                    // add a separator if the pushed path is relative,
+                    // even if it's empty
+                    if p != Path::new("") {
+                        h.push(p)
+                    }
                 }
                 h
             }
