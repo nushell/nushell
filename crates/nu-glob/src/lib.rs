@@ -926,7 +926,7 @@ mod test {
         not(target_os = "macos"),
         not(target_os = "android"),
         not(target_os = "ios")
-    ))]    
+    ))]
     #[test]
     fn test_iteration_errors() {
         use std::io;
