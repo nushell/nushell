@@ -34,16 +34,16 @@ impl NuHelpCompleter {
                 let usage = &sig.usage;
                 if !usage.is_empty() {
                     long_desc.push_str(usage);
-                    long_desc.push_str("\n\n");
+                    long_desc.push_str("\r\n\r\n");
                 }
 
                 let extra_usage = &sig.extra_usage;
                 if !extra_usage.is_empty() {
                     long_desc.push_str(extra_usage);
-                    long_desc.push_str("\n\n");
+                    long_desc.push_str("\r\n\r\n");
                 }
 
-                long_desc.push_str(&format!("Usage:\n  > {}\n", sig.call_signature()));
+                long_desc.push_str(&format!("Usage:\r\n  > {}\r\n", sig.call_signature()));
 
                 if !sig.named.is_empty() {
                     long_desc.push_str(&get_flags_section(sig))
@@ -53,21 +53,21 @@ impl NuHelpCompleter {
                     || !sig.optional_positional.is_empty()
                     || sig.rest_positional.is_some()
                 {
-                    long_desc.push_str("\nParameters:\n");
+                    long_desc.push_str("\r\nParameters:\r\n");
                     for positional in &sig.required_positional {
                         long_desc
-                            .push_str(&format!("  {}: {}\n", positional.name, positional.desc));
+                            .push_str(&format!("  {}: {}\r\n", positional.name, positional.desc));
                     }
                     for positional in &sig.optional_positional {
                         long_desc.push_str(&format!(
-                            "  (optional) {}: {}\n",
+                            "  (optional) {}: {}\r\n",
                             positional.name, positional.desc
                         ));
                     }
 
                     if let Some(rest_positional) = &sig.rest_positional {
                         long_desc.push_str(&format!(
-                            "  ...{}: {}\n",
+                            "  ...{}: {}\r\n",
                             rest_positional.name, rest_positional.desc
                         ));
                     }
@@ -75,7 +75,7 @@ impl NuHelpCompleter {
 
                 for example in examples {
                     long_desc.push_str(&format!(
-                        "{}{}\n",
+                        "{}{}\r\n",
                         EXAMPLE_MARKER,
                         example.example.replace("\n", EXAMPLE_NEW_LINE)
                     ))

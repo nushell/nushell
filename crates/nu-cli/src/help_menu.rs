@@ -9,7 +9,7 @@ use {
 
 /// Default values used as reference for the menu. These values are set during
 /// the initial declaration of the menu and are always kept as reference for the
-/// changeable [`ColumnDetails`]
+/// changeable [`WorkingDetails`]
 struct DefaultMenuDetails {
     /// Number of columns that the menu will have
     pub columns: u16,
@@ -19,7 +19,7 @@ struct DefaultMenuDetails {
     pub col_padding: usize,
     /// Number of rows for commands
     pub selection_rows: u16,
-    /// Number of rows for description
+    /// Number of rows allowed to display the description
     pub description_rows: usize,
 }
 
@@ -38,11 +38,13 @@ impl Default for DefaultMenuDetails {
 /// Represents the actual column conditions of the menu. These conditions change
 /// since they need to accommodate possible different line sizes for the column values
 #[derive(Default)]
-struct ColumnDetails {
+struct WorkingDetails {
     /// Number of columns that the menu will have
     pub columns: u16,
     /// Column width
     pub col_width: usize,
+    /// Number of rows for description
+    pub description_rows: usize,
 }
 
 /// Completion menu definition
@@ -57,7 +59,7 @@ pub struct NuHelpMenu {
     /// the required lines is larger than the available lines
     min_rows: u16,
     /// Working column details keep changing based on the collected values
-    working_details: ColumnDetails,
+    working_details: WorkingDetails,
     /// Menu cached values
     values: Vec<Suggestion>,
     /// column position of the cursor. Starts from 0
@@ -74,6 +76,8 @@ pub struct NuHelpMenu {
     examples: Vec<String>,
     /// Example index
     example_index: Option<usize>,
+    /// Examples may not be shown if there is not enough space in the screen
+    show_examples: bool,
     /// Skipped description rows
     skipped_rows: usize,
 }
@@ -85,7 +89,7 @@ impl Default for NuHelpMenu {
             color: MenuTextStyle::default(),
             default_details: DefaultMenuDetails::default(),
             min_rows: 3,
-            working_details: ColumnDetails::default(),
+            working_details: WorkingDetails::default(),
             values: Vec::new(),
             col_pos: 0,
             row_pos: 0,
@@ -94,6 +98,7 @@ impl Default for NuHelpMenu {
             input: None,
             examples: Vec::new(),
             example_index: None,
+            show_examples: true,
             skipped_rows: 0,
         }
     }
@@ -251,8 +256,9 @@ impl NuHelpMenu {
     }
 
     /// End of line for menu
-    fn end_of_line(&self, column: u16) -> &str {
-        if column == self.get_cols().saturating_sub(1) {
+    fn end_of_line(&self, column: u16, index: usize) -> &str {
+        let is_last = index == self.values.len().saturating_sub(1);
+        if column == self.get_cols().saturating_sub(1) || is_last {
             "\r\n"
         } else {
             ""
@@ -295,7 +301,7 @@ impl NuHelpMenu {
                     &suggestion.value,
                     "",
                     RESET,
-                    self.end_of_line(column),
+                    self.end_of_line(column, index),
                     empty = empty_space,
                 )
             } else {
@@ -305,7 +311,7 @@ impl NuHelpMenu {
                     &suggestion.value,
                     "",
                     RESET,
-                    self.end_of_line(column),
+                    self.end_of_line(column, index),
                     empty = empty_space,
                 )
             }
@@ -323,7 +329,7 @@ impl NuHelpMenu {
                 marker,
                 &suggestion.value,
                 "",
-                self.end_of_line(column),
+                self.end_of_line(column, index),
                 empty = empty_space,
             );
 
@@ -344,9 +350,9 @@ impl NuHelpMenu {
             .lines()
             .filter(|line| !line.starts_with(EXAMPLE_MARKER))
             .skip(self.skipped_rows)
-            .take(self.default_details.description_rows)
+            .take(self.working_details.description_rows)
             .collect::<Vec<&str>>()
-            .join("\n");
+            .join("\r\n");
 
         if use_ansi_coloring && !description.is_empty() {
             format!(
@@ -362,6 +368,10 @@ impl NuHelpMenu {
 
     /// Selectable list of examples from the actual value
     fn create_example_string(&self, use_ansi_coloring: bool) -> String {
+        if !self.show_examples {
+            return "".into()
+        }
+
         let examples: String = self
             .examples
             .iter()
@@ -370,16 +380,16 @@ impl NuHelpMenu {
                 if let Some(example_index) = self.example_index {
                     if index == example_index {
                         format!(
-                            "  {}{}{}\n",
+                            "  {}{}{}\r\n",
                             self.color.selected_text_style.prefix(),
                             example,
                             RESET
                         )
                     } else {
-                        format!("  {}\n", example)
+                        format!("  {}\r\n", example)
                     }
                 } else {
-                    format!("  {}\n", example)
+                    format!("  {}\r\n", example)
                 }
             })
             .collect();
@@ -389,7 +399,7 @@ impl NuHelpMenu {
         } else {
             if use_ansi_coloring {
                 format!(
-                    "{}\nExamples:\n{}{}",
+                    "{}\r\n\r\nExamples:\r\n{}{}",
                     self.color.description_style.prefix(),
                     RESET,
                     examples,
@@ -415,6 +425,11 @@ impl Menu for NuHelpMenu {
     /// Deactivates context menu
     fn is_active(&self) -> bool {
         self.active
+    }
+
+    /// The help menu stays active even with one record
+    fn can_quick_complete(&self) -> bool {
+        false
     }
 
     /// The help menu does not need to partially complete
@@ -480,6 +495,55 @@ impl Menu for NuHelpMenu {
         painter: &Painter,
     ) {
         if let Some(event) = self.event.take() {
+            // Updating all working parameters from the menu before executing any of the
+            // possible event
+            let max_width = self.get_values().iter().fold(0, |acc, suggestion| {
+                let str_len = suggestion.value.len() + self.default_details.col_padding;
+                if str_len > acc {
+                    str_len
+                } else {
+                    acc
+                }
+            });
+
+            // If no default width is found, then the total screen width is used to estimate
+            // the column width based on the default number of columns
+            let default_width = if let Some(col_width) = self.default_details.col_width {
+                col_width
+            } else {
+                let col_width = painter.screen_width() / self.default_details.columns;
+                col_width as usize
+            };
+
+            // Adjusting the working width of the column based the max line width found
+            // in the menu values
+            if max_width > default_width {
+                self.working_details.col_width = max_width;
+            } else {
+                self.working_details.col_width = default_width;
+            };
+
+            // The working columns is adjusted based on possible number of columns
+            // that could be fitted in the screen with the calculated column width
+            let possible_cols = painter.screen_width() / self.working_details.col_width as u16;
+            if possible_cols > self.default_details.columns {
+                self.working_details.columns = self.default_details.columns.max(1);
+            } else {
+                self.working_details.columns = possible_cols;
+            }
+
+            // Updating the working rows to display the description
+            if self.menu_required_lines(painter.screen_width()) < painter.remaining_lines() {
+                self.working_details.description_rows = self.default_details.description_rows;
+                self.show_examples = true;
+            } else {
+                self.working_details.description_rows = painter
+                    .remaining_lines()
+                    .saturating_sub(self.default_details.selection_rows + 1) as usize;
+
+                self.show_examples = false;
+            }
+
             match event {
                 MenuEvent::Activate(_) => {
                     self.reset_position();
@@ -536,7 +600,8 @@ impl Menu for NuHelpMenu {
                         .filter(|line| !line.starts_with(EXAMPLE_MARKER))
                         .count();
 
-                    let allowed_skips = description_rows.saturating_sub(self.default_details.description_rows);
+                    let allowed_skips =
+                        description_rows.saturating_sub(self.working_details.description_rows);
 
                     if skipped < allowed_skips {
                         self.skipped_rows = skipped;
@@ -545,41 +610,6 @@ impl Menu for NuHelpMenu {
                     }
                 }
                 MenuEvent::PreviousPage | MenuEvent::NextPage => {}
-            }
-
-            let max_width = self.get_values().iter().fold(0, |acc, suggestion| {
-                let str_len = suggestion.value.len() + self.default_details.col_padding;
-                if str_len > acc {
-                    str_len
-                } else {
-                    acc
-                }
-            });
-
-            // If no default width is found, then the total screen width is used to estimate
-            // the column width based on the default number of columns
-            let default_width = if let Some(col_width) = self.default_details.col_width {
-                col_width
-            } else {
-                let col_width = painter.screen_width() / self.default_details.columns;
-                col_width as usize
-            };
-
-            // Adjusting the working width of the column based the max line width found
-            // in the menu values
-            if max_width > default_width {
-                self.working_details.col_width = max_width;
-            } else {
-                self.working_details.col_width = default_width;
-            };
-
-            // The working columns is adjusted based on possible number of columns
-            // that could be fitted in the screen with the calculated column width
-            let possible_cols = painter.screen_width() / self.working_details.col_width as u16;
-            if possible_cols > self.default_details.columns {
-                self.working_details.columns = self.default_details.columns.max(1);
-            } else {
-                self.working_details.columns = possible_cols;
             }
         }
     }
@@ -616,10 +646,15 @@ impl Menu for NuHelpMenu {
     }
 
     fn menu_required_lines(&self, _terminal_columns: u16) -> u16 {
+        let example_lines = self
+            .examples
+            .iter()
+            .fold(0, |acc, example| example.lines().count() + acc);
+
         self.default_details.selection_rows
             + self.default_details.description_rows as u16
-            + self.examples.len() as u16
-            + 4
+            + example_lines as u16
+            + 3
     }
 
     fn menu_string(&self, _available_lines: u16, use_ansi_coloring: bool) -> String {
@@ -663,7 +698,7 @@ impl Menu for NuHelpMenu {
                 .collect();
 
             format!(
-                "{}\n{}\n{}",
+                "{}{}{}",
                 selection_values,
                 self.create_description_string(use_ansi_coloring),
                 self.create_example_string(use_ansi_coloring)
