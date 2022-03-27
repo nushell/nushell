@@ -212,6 +212,17 @@ let $config = {
     selected_text_style: green_reverse
     marker: "? "
   }
+  help_config: {
+    columns: 4
+    col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
+    col_padding: 2
+    selection_rows: 4
+    description_rows: 10
+    text_style: green
+    selected_text_style: green_reverse
+    description_text_style: yellow
+    marker: "% "
+  }
   keybindings: [
     {
       name: completion_menu

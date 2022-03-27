@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Value, CONFIG_VARIABLE_ID,
 };
-use reedline::Completer;
+use reedline::{Completer, Suggestion};
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
@@ -83,46 +83,49 @@ impl NuCompleter {
         prefix: &[u8],
         span: Span,
         offset: usize,
-    ) -> Vec<(reedline::Span, String)> {
+    ) -> Vec<Suggestion> {
         let mut output = vec![];
 
         let builtins = ["$nu", "$in", "$config", "$env", "$nothing"];
 
         for builtin in builtins {
             if builtin.as_bytes().starts_with(prefix) {
-                output.push((
-                    reedline::Span {
+                output.push(Suggestion {
+                    value: builtin.to_string(),
+                    description: None,
+                    span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
-                    builtin.to_string(),
-                ));
+                });
             }
         }
 
         for scope in &working_set.delta.scope {
             for v in &scope.vars {
                 if v.0.starts_with(prefix) {
-                    output.push((
-                        reedline::Span {
+                    output.push(Suggestion {
+                        value: String::from_utf8_lossy(v.0).to_string(),
+                        description: None,
+                        span: reedline::Span {
                             start: span.start - offset,
                             end: span.end - offset,
                         },
-                        String::from_utf8_lossy(v.0).to_string(),
-                    ));
+                    });
                 }
             }
         }
         for scope in &self.engine_state.scope {
             for v in &scope.vars {
                 if v.0.starts_with(prefix) {
-                    output.push((
-                        reedline::Span {
+                    output.push(Suggestion {
+                        value: String::from_utf8_lossy(v.0).to_string(),
+                        description: None,
+                        span: reedline::Span {
                             start: span.start - offset,
                             end: span.end - offset,
                         },
-                        String::from_utf8_lossy(v.0).to_string(),
-                    ));
+                    });
                 }
             }
         }
@@ -138,34 +141,32 @@ impl NuCompleter {
         span: Span,
         offset: usize,
         find_externals: bool,
-    ) -> Vec<(reedline::Span, String)> {
+    ) -> Vec<Suggestion> {
         let prefix = working_set.get_span_contents(span);
 
         let results = working_set
             .find_commands_by_prefix(prefix)
             .into_iter()
-            .map(move |x| {
-                (
-                    reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
-                    },
-                    String::from_utf8_lossy(&x).to_string(),
-                )
+            .map(move |x| Suggestion {
+                value: String::from_utf8_lossy(&x).to_string(),
+                description: None,
+                span: reedline::Span {
+                    start: span.start - offset,
+                    end: span.end - offset,
+                },
             });
 
         let results_aliases =
             working_set
                 .find_aliases_by_prefix(prefix)
                 .into_iter()
-                .map(move |x| {
-                    (
-                        reedline::Span {
-                            start: span.start - offset,
-                            end: span.end - offset,
-                        },
-                        String::from_utf8_lossy(&x).to_string(),
-                    )
+                .map(move |x| Suggestion {
+                    value: String::from_utf8_lossy(&x).to_string(),
+                    description: None,
+                    span: reedline::Span {
+                        start: span.start - offset,
+                        end: span.end - offset,
+                    },
                 });
 
         let mut results = results.chain(results_aliases).collect::<Vec<_>>();
@@ -176,19 +177,22 @@ impl NuCompleter {
             let results_external =
                 self.external_command_completion(&prefix)
                     .into_iter()
-                    .map(move |x| {
-                        (
-                            reedline::Span {
-                                start: span.start - offset,
-                                end: span.end - offset,
-                            },
-                            x,
-                        )
+                    .map(move |x| Suggestion {
+                        value: x,
+                        description: None,
+                        span: reedline::Span {
+                            start: span.start - offset,
+                            end: span.end - offset,
+                        },
                     });
 
             for external in results_external {
                 if results.contains(&external) {
-                    results.push((external.0, format!("^{}", external.1)))
+                    results.push(Suggestion {
+                        value: format!("^{}", external.value),
+                        description: None,
+                        span: external.span,
+                    })
                 } else {
                     results.push(external)
                 }
@@ -200,7 +204,7 @@ impl NuCompleter {
         }
     }
 
-    fn completion_helper(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
+    fn completion_helper(&self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
         let mut line = line.to_string();
@@ -231,7 +235,7 @@ impl NuCompleter {
                         if prefix.starts_with(b"$") {
                             let mut output =
                                 self.complete_variables(&working_set, &prefix, new_span, offset);
-                            output.sort_by(|a, b| a.1.cmp(&b.1));
+                            output.sort_by(|a, b| a.value.cmp(&b.value));
                             return output;
                         }
                         if prefix.starts_with(b"-") {
@@ -248,13 +252,14 @@ impl NuCompleter {
                                         short.encode_utf8(&mut named);
                                         named.insert(0, b'-');
                                         if named.starts_with(&prefix) {
-                                            output.push((
-                                                reedline::Span {
+                                            output.push(Suggestion {
+                                                value: String::from_utf8_lossy(&named).to_string(),
+                                                description: None,
+                                                span: reedline::Span {
                                                     start: new_span.start - offset,
                                                     end: new_span.end - offset,
                                                 },
-                                                String::from_utf8_lossy(&named).to_string(),
-                                            ));
+                                            });
                                         }
                                     }
 
@@ -266,16 +271,17 @@ impl NuCompleter {
                                     named.insert(0, b'-');
                                     named.insert(0, b'-');
                                     if named.starts_with(&prefix) {
-                                        output.push((
-                                            reedline::Span {
+                                        output.push(Suggestion {
+                                            value: String::from_utf8_lossy(&named).to_string(),
+                                            description: None,
+                                            span: reedline::Span {
                                                 start: new_span.start - offset,
                                                 end: new_span.end - offset,
                                             },
-                                            String::from_utf8_lossy(&named).to_string(),
-                                        ));
+                                        });
                                     }
                                 }
-                                output.sort_by(|a, b| a.1.cmp(&b.1));
+                                output.sort_by(|a, b| a.value.cmp(&b.value));
                                 return output;
                             }
                         }
@@ -317,18 +323,19 @@ impl NuCompleter {
                                     list: impl Iterator<Item = &'a Value>,
                                     new_span: Span,
                                     offset: usize,
-                                ) -> Vec<(reedline::Span, String)> {
+                                ) -> Vec<Suggestion> {
                                     list.filter_map(move |x| {
                                         let s = x.as_string();
 
                                         match s {
-                                            Ok(s) => Some((
-                                                reedline::Span {
+                                            Ok(s) => Some(Suggestion {
+                                                value: s,
+                                                description: None,
+                                                span: reedline::Span {
                                                     start: new_span.start - offset,
                                                     end: new_span.end - offset,
                                                 },
-                                                s,
-                                            )),
+                                            }),
                                             Err(_) => None,
                                         }
                                     })
@@ -388,17 +395,19 @@ impl NuCompleter {
                                     _ => (vec![], CompletionOptions::default()),
                                 };
 
-                                let mut completions: Vec<(reedline::Span, String)> = completions
+                                let mut completions: Vec<Suggestion> = completions
                                     .into_iter()
                                     .filter(|it| {
                                         // Minimise clones for new functionality
                                         match (options.case_sensitive, options.positional) {
-                                            (true, true) => it.1.as_bytes().starts_with(&prefix),
-                                            (true, false) => it.1.contains(
+                                            (true, true) => {
+                                                it.value.as_bytes().starts_with(&prefix)
+                                            }
+                                            (true, false) => it.value.contains(
                                                 std::str::from_utf8(&prefix).unwrap_or(""),
                                             ),
                                             (false, positional) => {
-                                                let value = it.1.to_lowercase();
+                                                let value = it.value.to_lowercase();
                                                 let prefix = std::str::from_utf8(&prefix)
                                                     .unwrap_or("")
                                                     .to_lowercase();
@@ -413,7 +422,7 @@ impl NuCompleter {
                                     .collect();
 
                                 if options.sort {
-                                    completions.sort_by(|a, b| a.1.cmp(&b.1));
+                                    completions.sort_by(|a, b| a.value.cmp(&b.value));
                                 }
 
                                 return completions;
@@ -431,17 +440,16 @@ impl NuCompleter {
                                 let mut output: Vec<_> =
                                     file_path_completion(new_span, &prefix, &cwd)
                                         .into_iter()
-                                        .map(move |x| {
-                                            (
-                                                reedline::Span {
-                                                    start: x.0.start - offset,
-                                                    end: x.0.end - offset,
-                                                },
-                                                x.1,
-                                            )
+                                        .map(move |x| Suggestion {
+                                            value: x.1,
+                                            description: None,
+                                            span: reedline::Span {
+                                                start: x.0.start - offset,
+                                                end: x.0.end - offset,
+                                            },
                                         })
                                         .collect();
-                                output.sort_by(|a, b| a.1.cmp(&b.1));
+                                output.sort_by(|a, b| a.value.cmp(&b.value));
                                 return output;
                             }
                             flat_shape => {
@@ -542,20 +550,19 @@ impl NuCompleter {
                                             (x.0, x.1)
                                         }
                                     })
-                                    .map(move |x| {
-                                        (
-                                            reedline::Span {
-                                                start: x.0.start - offset,
-                                                end: x.0.end - offset,
-                                            },
-                                            x.1,
-                                        )
+                                    .map(move |x| Suggestion {
+                                        value: x.1,
+                                        description: None,
+                                        span: reedline::Span {
+                                            start: x.0.start - offset,
+                                            end: x.0.end - offset,
+                                        },
                                     })
                                     .chain(subcommands.into_iter())
                                     .chain(commands.into_iter())
                                     .collect::<Vec<_>>();
                                 //output.dedup_by(|a, b| a.1 == b.1);
-                                output.sort_by(|a, b| a.1.cmp(&b.1));
+                                output.sort_by(|a, b| a.value.cmp(&b.value));
 
                                 return output;
                             }
@@ -570,7 +577,7 @@ impl NuCompleter {
 }
 
 impl Completer for NuCompleter {
-    fn complete(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
+    fn complete(&self, line: &str, pos: usize) -> Vec<Suggestion> {
         self.completion_helper(line, pos)
     }
 }

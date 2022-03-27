@@ -38,7 +38,7 @@ crossterm_winapi = "0.9.0"
 ctrlc = "3.2.1"
 log = "0.4"
 miette = "4.1.0"
-nu-ansi-term = "0.45.0"
+nu-ansi-term = "0.45.1"
 nu-cli = { path="./crates/nu-cli", version = "0.60.1"  }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.60.1"  }
 nu-command = { path="./crates/nu-command", version = "0.60.1"  }
@@ -55,7 +55,8 @@ nu-term-grid = { path = "./crates/nu-term-grid", version = "0.60.1"  }
 nu-utils = { path = "./crates/nu-utils", version = "0.60.1" }
 pretty_env_logger = "0.4.0"
 rayon = "1.5.1"
-reedline = { git = "https://github.com/nushell/reedline" }
+#reedline = "0.3.0"
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 is_executable = "1.0.1"
 
 [dev-dependencies]

@@ -1,0 +1,101 @@
+use nu_engine::documentation::get_flags_section;
+use nu_protocol::engine::EngineState;
+use reedline::{Completer, Suggestion};
+
+pub const EXAMPLE_MARKER: &str = ">>>>>>";
+pub const EXAMPLE_NEW_LINE: &str = "%%%%%%";
+
+pub struct NuHelpCompleter {
+    engine_state: EngineState,
+}
+
+impl NuHelpCompleter {
+    pub fn new(engine_state: EngineState) -> Self {
+        Self { engine_state }
+    }
+
+    fn completion_helper(&self, line: &str, _pos: usize) -> Vec<Suggestion> {
+        let full_commands = self.engine_state.get_signatures_with_examples(false);
+
+        //Vec<(Signature, Vec<Example>, bool, bool)> {
+        full_commands
+            .iter()
+            .filter(|(sig, _, _, _)| {
+                sig.name.to_lowercase().contains(&line.to_lowercase())
+                    || sig.usage.to_lowercase().contains(&line.to_lowercase())
+                    || sig
+                        .extra_usage
+                        .to_lowercase()
+                        .contains(&line.to_lowercase())
+            })
+            .map(|(sig, examples, _, _)| {
+                let mut long_desc = String::new();
+
+                let usage = &sig.usage;
+                if !usage.is_empty() {
+                    long_desc.push_str(usage);
+                    long_desc.push_str("\r\n\r\n");
+                }
+
+                let extra_usage = &sig.extra_usage;
+                if !extra_usage.is_empty() {
+                    long_desc.push_str(extra_usage);
+                    long_desc.push_str("\r\n\r\n");
+                }
+
+                long_desc.push_str(&format!("Usage:\r\n  > {}\r\n", sig.call_signature()));
+
+                if !sig.named.is_empty() {
+                    long_desc.push_str(&get_flags_section(sig))
+                }
+
+                if !sig.required_positional.is_empty()
+                    || !sig.optional_positional.is_empty()
+                    || sig.rest_positional.is_some()
+                {
+                    long_desc.push_str("\r\nParameters:\r\n");
+                    for positional in &sig.required_positional {
+                        long_desc
+                            .push_str(&format!("  {}: {}\r\n", positional.name, positional.desc));
+                    }
+                    for positional in &sig.optional_positional {
+                        long_desc.push_str(&format!(
+                            "  (optional) {}: {}\r\n",
+                            positional.name, positional.desc
+                        ));
+                    }
+
+                    if let Some(rest_positional) = &sig.rest_positional {
+                        long_desc.push_str(&format!(
+                            "  ...{}: {}\r\n",
+                            rest_positional.name, rest_positional.desc
+                        ));
+                    }
+                }
+
+                for example in examples {
+                    long_desc.push_str(&format!(
+                        "{}{}\r\n",
+                        EXAMPLE_MARKER,
+                        example.example.replace('\n', EXAMPLE_NEW_LINE)
+                    ))
+                }
+
+                Suggestion {
+                    value: sig.name.clone(),
+                    description: Some(long_desc),
+                    span: reedline::Span {
+                        start: 0,
+                        end: sig.name.len(),
+                    },
+                }
+            })
+            .collect()
+    }
+}
+
+impl Completer for NuHelpCompleter {
+    fn complete(&self, line: &str, pos: usize) -> Vec<Suggestion> {
+        self.completion_helper(line, pos)
+    }
+}
