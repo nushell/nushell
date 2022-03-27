@@ -30,6 +30,17 @@ pub(crate) fn serialize_signature(signature: &Signature, mut builder: signature:
         _ => builder.set_category(PluginCategory::Default),
     }
 
+    // Serializing list of search terms
+    let mut search_terms_builder = builder
+        .reborrow()
+        .init_search_terms(signature.search_terms.len() as u32);
+
+    signature
+        .search_terms
+        .iter()
+        .enumerate()
+        .for_each(|(index, term)| search_terms_builder.set(index as u32, term.as_str()));
+
     // Serializing list of required arguments
     let mut required_list = builder
         .reborrow()
@@ -136,6 +147,17 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
         PluginCategory::Generators => Category::Generators,
     };
 
+    // Deserializing list of search terms
+    let search_terms = reader
+        .get_search_terms()
+        .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?
+        .iter()
+        .map(|term| {
+            term.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))
+                .map(|term| term.to_string())
+        })
+        .collect::<Result<Vec<String>, ShellError>>()?;
+
     // Deserializing required arguments
     let required_list = reader
         .get_required_positional()
@@ -181,7 +203,7 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
         name: name.to_string(),
         usage: usage.to_string(),
         extra_usage: extra_usage.to_string(),
-        search_terms: vec![], // TODO: Add support for this
+        search_terms,
         required_positional,
         optional_positional,
         rest_positional,
@@ -351,6 +373,7 @@ mod tests {
     fn value_round_trip_2() {
         let signature = Signature::build("test-1")
             .usage("Signature test 1 for plugin. Returns Value::Nothing")
+            .search_terms(vec!["a".into(), "b".into()])
             .required("a", SyntaxShape::Int, "required integer value")
             .required("b", SyntaxShape::String, "required string value")
             .optional("opt", SyntaxShape::Boolean, "Optional boolean")
@@ -368,6 +391,12 @@ mod tests {
         assert_eq!(signature.extra_usage, returned_signature.extra_usage);
         assert_eq!(signature.is_filter, returned_signature.is_filter);
         assert_eq!(signature.category, returned_signature.category);
+
+        signature
+            .search_terms
+            .iter()
+            .zip(returned_signature.search_terms.iter())
+            .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
         signature
             .required_positional

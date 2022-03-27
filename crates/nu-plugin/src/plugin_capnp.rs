@@ -1884,20 +1884,17 @@ pub mod signature {
             !self.reader.get_pointer_field(2).is_null()
         }
         #[inline]
-        pub fn get_required_positional(
-            self,
-        ) -> ::capnp::Result<::capnp::struct_list::Reader<'a, crate::plugin_capnp::argument::Owned>>
-        {
+        pub fn get_search_terms(self) -> ::capnp::Result<::capnp::text_list::Reader<'a>> {
             ::capnp::traits::FromPointerReader::get_from_pointer(
                 &self.reader.get_pointer_field(3),
                 ::core::option::Option::None,
             )
         }
-        pub fn has_required_positional(&self) -> bool {
+        pub fn has_search_terms(&self) -> bool {
             !self.reader.get_pointer_field(3).is_null()
         }
         #[inline]
-        pub fn get_optional_positional(
+        pub fn get_required_positional(
             self,
         ) -> ::capnp::Result<::capnp::struct_list::Reader<'a, crate::plugin_capnp::argument::Owned>>
         {
@@ -1906,18 +1903,31 @@ pub mod signature {
                 ::core::option::Option::None,
             )
         }
-        pub fn has_optional_positional(&self) -> bool {
+        pub fn has_required_positional(&self) -> bool {
             !self.reader.get_pointer_field(4).is_null()
         }
         #[inline]
-        pub fn get_rest(self) -> ::capnp::Result<crate::plugin_capnp::argument::Reader<'a>> {
+        pub fn get_optional_positional(
+            self,
+        ) -> ::capnp::Result<::capnp::struct_list::Reader<'a, crate::plugin_capnp::argument::Owned>>
+        {
             ::capnp::traits::FromPointerReader::get_from_pointer(
                 &self.reader.get_pointer_field(5),
                 ::core::option::Option::None,
             )
         }
-        pub fn has_rest(&self) -> bool {
+        pub fn has_optional_positional(&self) -> bool {
             !self.reader.get_pointer_field(5).is_null()
+        }
+        #[inline]
+        pub fn get_rest(self) -> ::capnp::Result<crate::plugin_capnp::argument::Reader<'a>> {
+            ::capnp::traits::FromPointerReader::get_from_pointer(
+                &self.reader.get_pointer_field(6),
+                ::core::option::Option::None,
+            )
+        }
+        pub fn has_rest(&self) -> bool {
+            !self.reader.get_pointer_field(6).is_null()
         }
         #[inline]
         pub fn get_named(
@@ -1925,12 +1935,12 @@ pub mod signature {
         ) -> ::capnp::Result<::capnp::struct_list::Reader<'a, crate::plugin_capnp::flag::Owned>>
         {
             ::capnp::traits::FromPointerReader::get_from_pointer(
-                &self.reader.get_pointer_field(6),
+                &self.reader.get_pointer_field(7),
                 ::core::option::Option::None,
             )
         }
         pub fn has_named(&self) -> bool {
-            !self.reader.get_pointer_field(6).is_null()
+            !self.reader.get_pointer_field(7).is_null()
         }
         #[inline]
         pub fn get_is_filter(self) -> bool {
@@ -2068,12 +2078,40 @@ pub mod signature {
             !self.builder.get_pointer_field(2).is_null()
         }
         #[inline]
+        pub fn get_search_terms(self) -> ::capnp::Result<::capnp::text_list::Builder<'a>> {
+            ::capnp::traits::FromPointerBuilder::get_from_pointer(
+                self.builder.get_pointer_field(3),
+                ::core::option::Option::None,
+            )
+        }
+        #[inline]
+        pub fn set_search_terms(
+            &mut self,
+            value: ::capnp::text_list::Reader<'a>,
+        ) -> ::capnp::Result<()> {
+            ::capnp::traits::SetPointerBuilder::set_pointer_builder(
+                self.builder.get_pointer_field(3),
+                value,
+                false,
+            )
+        }
+        #[inline]
+        pub fn init_search_terms(self, size: u32) -> ::capnp::text_list::Builder<'a> {
+            ::capnp::traits::FromPointerBuilder::init_pointer(
+                self.builder.get_pointer_field(3),
+                size,
+            )
+        }
+        pub fn has_search_terms(&self) -> bool {
+            !self.builder.get_pointer_field(3).is_null()
+        }
+        #[inline]
         pub fn get_required_positional(
             self,
         ) -> ::capnp::Result<::capnp::struct_list::Builder<'a, crate::plugin_capnp::argument::Owned>>
         {
             ::capnp::traits::FromPointerBuilder::get_from_pointer(
-                self.builder.get_pointer_field(3),
+                self.builder.get_pointer_field(4),
                 ::core::option::Option::None,
             )
         }
@@ -2083,7 +2121,7 @@ pub mod signature {
             value: ::capnp::struct_list::Reader<'a, crate::plugin_capnp::argument::Owned>,
         ) -> ::capnp::Result<()> {
             ::capnp::traits::SetPointerBuilder::set_pointer_builder(
-                self.builder.get_pointer_field(3),
+                self.builder.get_pointer_field(4),
                 value,
                 false,
             )
@@ -2094,12 +2132,12 @@ pub mod signature {
             size: u32,
         ) -> ::capnp::struct_list::Builder<'a, crate::plugin_capnp::argument::Owned> {
             ::capnp::traits::FromPointerBuilder::init_pointer(
-                self.builder.get_pointer_field(3),
+                self.builder.get_pointer_field(4),
                 size,
             )
         }
         pub fn has_required_positional(&self) -> bool {
-            !self.builder.get_pointer_field(3).is_null()
+            !self.builder.get_pointer_field(4).is_null()
         }
         #[inline]
         pub fn get_optional_positional(
@@ -2107,7 +2145,7 @@ pub mod signature {
         ) -> ::capnp::Result<::capnp::struct_list::Builder<'a, crate::plugin_capnp::argument::Owned>>
         {
             ::capnp::traits::FromPointerBuilder::get_from_pointer(
-                self.builder.get_pointer_field(4),
+                self.builder.get_pointer_field(5),
                 ::core::option::Option::None,
             )
         }
@@ -2117,7 +2155,7 @@ pub mod signature {
             value: ::capnp::struct_list::Reader<'a, crate::plugin_capnp::argument::Owned>,
         ) -> ::capnp::Result<()> {
             ::capnp::traits::SetPointerBuilder::set_pointer_builder(
-                self.builder.get_pointer_field(4),
+                self.builder.get_pointer_field(5),
                 value,
                 false,
             )
@@ -2128,17 +2166,17 @@ pub mod signature {
             size: u32,
         ) -> ::capnp::struct_list::Builder<'a, crate::plugin_capnp::argument::Owned> {
             ::capnp::traits::FromPointerBuilder::init_pointer(
-                self.builder.get_pointer_field(4),
+                self.builder.get_pointer_field(5),
                 size,
             )
         }
         pub fn has_optional_positional(&self) -> bool {
-            !self.builder.get_pointer_field(4).is_null()
+            !self.builder.get_pointer_field(5).is_null()
         }
         #[inline]
         pub fn get_rest(self) -> ::capnp::Result<crate::plugin_capnp::argument::Builder<'a>> {
             ::capnp::traits::FromPointerBuilder::get_from_pointer(
-                self.builder.get_pointer_field(5),
+                self.builder.get_pointer_field(6),
                 ::core::option::Option::None,
             )
         }
@@ -2148,17 +2186,17 @@ pub mod signature {
             value: crate::plugin_capnp::argument::Reader<'_>,
         ) -> ::capnp::Result<()> {
             ::capnp::traits::SetPointerBuilder::set_pointer_builder(
-                self.builder.get_pointer_field(5),
+                self.builder.get_pointer_field(6),
                 value,
                 false,
             )
         }
         #[inline]
         pub fn init_rest(self) -> crate::plugin_capnp::argument::Builder<'a> {
-            ::capnp::traits::FromPointerBuilder::init_pointer(self.builder.get_pointer_field(5), 0)
+            ::capnp::traits::FromPointerBuilder::init_pointer(self.builder.get_pointer_field(6), 0)
         }
         pub fn has_rest(&self) -> bool {
-            !self.builder.get_pointer_field(5).is_null()
+            !self.builder.get_pointer_field(6).is_null()
         }
         #[inline]
         pub fn get_named(
@@ -2166,7 +2204,7 @@ pub mod signature {
         ) -> ::capnp::Result<::capnp::struct_list::Builder<'a, crate::plugin_capnp::flag::Owned>>
         {
             ::capnp::traits::FromPointerBuilder::get_from_pointer(
-                self.builder.get_pointer_field(6),
+                self.builder.get_pointer_field(7),
                 ::core::option::Option::None,
             )
         }
@@ -2176,7 +2214,7 @@ pub mod signature {
             value: ::capnp::struct_list::Reader<'a, crate::plugin_capnp::flag::Owned>,
         ) -> ::capnp::Result<()> {
             ::capnp::traits::SetPointerBuilder::set_pointer_builder(
-                self.builder.get_pointer_field(6),
+                self.builder.get_pointer_field(7),
                 value,
                 false,
             )
@@ -2187,12 +2225,12 @@ pub mod signature {
             size: u32,
         ) -> ::capnp::struct_list::Builder<'a, crate::plugin_capnp::flag::Owned> {
             ::capnp::traits::FromPointerBuilder::init_pointer(
-                self.builder.get_pointer_field(6),
+                self.builder.get_pointer_field(7),
                 size,
             )
         }
         pub fn has_named(&self) -> bool {
-            !self.builder.get_pointer_field(6).is_null()
+            !self.builder.get_pointer_field(7).is_null()
         }
         #[inline]
         pub fn get_is_filter(self) -> bool {
@@ -2226,14 +2264,14 @@ pub mod signature {
     }
     impl Pipeline {
         pub fn get_rest(&self) -> crate::plugin_capnp::argument::Pipeline {
-            ::capnp::capability::FromTypelessPipeline::new(self._typeless.get_pointer_field(5))
+            ::capnp::capability::FromTypelessPipeline::new(self._typeless.get_pointer_field(6))
         }
     }
     mod _private {
         use capnp::private::layout;
         pub const STRUCT_SIZE: layout::StructSize = layout::StructSize {
             data: 1,
-            pointers: 7,
+            pointers: 8,
         };
         pub const TYPE_ID: u64 = 0xec96_eeb4_8cb7_90fa;
     }

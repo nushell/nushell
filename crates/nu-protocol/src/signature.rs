@@ -163,6 +163,12 @@ impl Signature {
         self
     }
 
+    /// Add search terms to the signature
+    pub fn search_terms(mut self, terms: Vec<String>) -> Signature {
+        self.search_terms = terms;
+        self
+    }
+
     /// Update signature's fields from a Command trait implementation
     pub fn update_from_command(mut self, command: &dyn Command) -> Signature {
         self.search_terms = command
