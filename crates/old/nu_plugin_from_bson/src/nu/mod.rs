@@ -10,7 +10,7 @@ use nu_source::Tag;
 impl Plugin for FromBson {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("from bson")
-            .desc("Convert from .bson binary into table")
+            .usage("Convert from .bson binary into table")
             .filter())
     }
 

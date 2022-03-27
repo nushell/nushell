@@ -4,6 +4,8 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Example, IntoPipelineData, Signature, Span, Value,
 };
+
+use std::borrow::Borrow;
 use std::collections::HashMap;
 
 const COMMANDS_DOCS_DIR: &str = "docs/commands";
@@ -51,10 +53,12 @@ fn generate_doc(
         });
     }
 
+    let signature = command.signature().update_from_command(command.borrow());
+
     cols.push("documentation".to_owned());
     vals.push(Value::String {
         val: get_documentation(
-            &command.signature(),
+            &signature,
             &command.examples(),
             engine_state,
             stack,
@@ -175,6 +179,13 @@ pub fn get_documentation(
                 subcommands.push(format!("  {} - {}", sig.name, sig.usage));
             }
         }
+    }
+
+    if !sig.search_terms.is_empty() {
+        long_desc.push_str(&format!(
+            "Search terms: {}\n\n",
+            sig.search_terms.join(", ")
+        ));
     }
 
     long_desc.push_str(&format!("Usage:\n  > {}\n", sig.call_signature()));

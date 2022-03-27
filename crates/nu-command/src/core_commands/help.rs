@@ -7,6 +7,8 @@ use nu_protocol::{
 
 use nu_engine::{get_full_help, CallExt};
 
+use std::borrow::Borrow;
+
 #[derive(Clone)]
 pub struct Help;
 
@@ -96,14 +98,22 @@ fn help(
             let mut vals = vec![];
 
             let decl = engine_state.get_decl(decl_id);
-            let sig = decl.signature();
+            let sig = decl.signature().update_from_command(decl.borrow());
 
-            let key = sig.name.clone();
-            let c = sig.usage.clone();
-            let e = sig.extra_usage.clone();
+            let key = sig.name;
+            let usage = sig.usage;
+            let search_terms = sig.search_terms;
+            let matches_term = if search_terms.is_empty() {
+                search_terms
+                    .iter()
+                    .any(|term| term.to_lowercase().contains(&search_string))
+            } else {
+                false
+            };
+
             if key.to_lowercase().contains(&search_string)
-                || c.to_lowercase().contains(&search_string)
-                || e.to_lowercase().contains(&search_string)
+                || usage.to_lowercase().contains(&search_string)
+                || matches_term
             {
                 cols.push("name".into());
                 vals.push(Value::String {
@@ -136,10 +146,20 @@ fn help(
                 });
 
                 cols.push("usage".into());
-                vals.push(Value::String { val: c, span: head });
+                vals.push(Value::String {
+                    val: usage,
+                    span: head,
+                });
 
-                cols.push("extra_usage".into());
-                vals.push(Value::String { val: e, span: head });
+                cols.push("search_terms".into());
+                vals.push(if search_terms.is_empty() {
+                    Value::nothing(head)
+                } else {
+                    Value::String {
+                        val: search_terms.join(", "),
+                        span: head,
+                    }
+                });
 
                 found_cmds_vec.push(Value::Record {
                     cols,
@@ -163,11 +183,11 @@ fn help(
                 let mut vals = vec![];
 
                 let decl = engine_state.get_decl(decl_id);
-                let sig = decl.signature();
+                let sig = decl.signature().update_from_command(decl.borrow());
 
-                let key = sig.name.clone();
-                let c = sig.usage.clone();
-                let e = sig.extra_usage.clone();
+                let key = sig.name;
+                let usage = sig.usage;
+                let search_terms = sig.search_terms;
 
                 cols.push("name".into());
                 vals.push(Value::String {
@@ -200,10 +220,20 @@ fn help(
                 });
 
                 cols.push("usage".into());
-                vals.push(Value::String { val: c, span: head });
+                vals.push(Value::String {
+                    val: usage,
+                    span: head,
+                });
 
-                cols.push("extra_usage".into());
-                vals.push(Value::String { val: e, span: head });
+                cols.push("search_terms".into());
+                vals.push(if search_terms.is_empty() {
+                    Value::nothing(head)
+                } else {
+                    Value::String {
+                        val: search_terms.join(", "),
+                        span: head,
+                    }
+                });
 
                 found_cmds_vec.push(Value::Record {
                     cols,

@@ -127,7 +127,7 @@ fn display(model: &Model) -> Result<(), Box<dyn Error>> {
 impl Plugin for SubCommand {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("chart line")
-            .desc("Line charts")
+            .usage("Line charts")
             .switch("acc", "accumulate values", Some('a'))
             .optional(
                 "columns",

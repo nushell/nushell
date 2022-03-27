@@ -6,7 +6,7 @@ use nu_protocol::{ast::CellPath, Signature, SyntaxShape, Value};
 impl Plugin for Inc {
     fn signature(&self) -> Vec<Signature> {
         vec![Signature::build("inc")
-            .desc("Increment a value or version. Optionally use the column of a table.")
+            .usage("Increment a value or version. Optionally use the column of a table.")
             .optional("cell_path", SyntaxShape::CellPath, "cell path to update")
             .switch(
                 "major",

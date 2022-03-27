@@ -10,7 +10,7 @@ use nu_source::Tag;
 impl Plugin for ToSqlite {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("to sqlite")
-            .desc("Convert table into sqlite binary")
+            .usage("Convert table into sqlite binary")
             .filter())
     }
 

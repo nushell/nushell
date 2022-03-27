@@ -27,7 +27,6 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("fetch")
-            .desc("Load from a URL into a cell, convert to table if possible (avoid by appending '--raw').")
             .required(
                 "URL",
                 SyntaxShape::String,
@@ -45,15 +44,33 @@ impl Command for SubCommand {
                 "the password when authenticating",
                 Some('p'),
             )
-            .named("timeout", SyntaxShape::Int, "timeout period in seconds", Some('t'))
-            .named("headers",SyntaxShape::Any, "custom headers you want to add ", Some('H'))
-            .switch("raw", "fetch contents as text rather than a table", Some('r'))
+            .named(
+                "timeout",
+                SyntaxShape::Int,
+                "timeout period in seconds",
+                Some('t'),
+            )
+            .named(
+                "headers",
+                SyntaxShape::Any,
+                "custom headers you want to add ",
+                Some('H'),
+            )
+            .switch(
+                "raw",
+                "fetch contents as text rather than a table",
+                Some('r'),
+            )
             .filter()
             .category(Category::Network)
     }
 
     fn usage(&self) -> &str {
-        "Fetch the contents from a URL (HTTP GET operation)."
+        "Fetch the contents from a URL."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Performs HTTP GET operation."
     }
 
     fn run(

@@ -415,7 +415,7 @@ impl Command for Nu {
 
     fn signature(&self) -> Signature {
         Signature::build("nu")
-            .desc("The nushell language and shell.")
+            .usage("The nushell language and shell.")
             .switch("stdin", "redirect the stdin", None)
             .switch("login", "start as a login shell", Some('l'))
             .switch("interactive", "start as an interactive shell", Some('i'))

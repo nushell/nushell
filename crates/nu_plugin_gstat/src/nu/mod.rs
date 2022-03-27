@@ -5,7 +5,7 @@ use nu_protocol::{Category, Signature, Spanned, SyntaxShape, Value};
 impl Plugin for GStat {
     fn signature(&self) -> Vec<Signature> {
         vec![Signature::build("gstat")
-            .desc("Get the git status of a repo")
+            .usage("Get the git status of a repo")
             .optional("path", SyntaxShape::Filepath, "path to repo")
             .category(Category::Custom("Prompt".to_string()))]
     }

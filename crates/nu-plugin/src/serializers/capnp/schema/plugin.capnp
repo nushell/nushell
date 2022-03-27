@@ -55,13 +55,14 @@ struct Signature {
     name @0 :Text;
     usage @1 :Text;
     extraUsage @2 :Text;
-    requiredPositional @3 :List(Argument);
-    optionalPositional @4 :List(Argument);
+    searchTerms @3 :List(Text);
+    requiredPositional @4 :List(Argument);
+    optionalPositional @5 :List(Argument);
 	# Optional value. Check for existence when deserializing
-    rest @5 :Argument;
-    named @6 :List(Flag);
-    isFilter @7 :Bool;
-	category @8 :Category;
+    rest @6 :Argument;
+    named @7 :List(Flag);
+    isFilter @8 :Bool;
+	category @9 :Category;
 }
 
 enum Category {

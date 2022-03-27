@@ -9,7 +9,7 @@ impl Plugin for Example {
         // plugin is registered to nushell
         vec![
             Signature::build("nu-example-1")
-                .desc("Signature test 1 for plugin. Returns Value::Nothing")
+                .usage("Signature test 1 for plugin. Returns Value::Nothing")
                 .required("a", SyntaxShape::Int, "required integer value")
                 .required("b", SyntaxShape::String, "required string value")
                 .switch("flag", "a flag for the signature", Some('f'))
@@ -18,7 +18,7 @@ impl Plugin for Example {
                 .rest("rest", SyntaxShape::String, "rest value string")
                 .category(Category::Experimental),
             Signature::build("nu-example-2")
-                .desc("Signature test 2 for plugin. Returns list of records")
+                .usage("Signature test 2 for plugin. Returns list of records")
                 .required("a", SyntaxShape::Int, "required integer value")
                 .required("b", SyntaxShape::String, "required string value")
                 .switch("flag", "a flag for the signature", Some('f'))
@@ -27,7 +27,7 @@ impl Plugin for Example {
                 .rest("rest", SyntaxShape::String, "rest value string")
                 .category(Category::Experimental),
             Signature::build("nu-example-3")
-                .desc("Signature test 3 for plugin. Returns labeled error")
+                .usage("Signature test 3 for plugin. Returns labeled error")
                 .required("a", SyntaxShape::Int, "required integer value")
                 .required("b", SyntaxShape::String, "required string value")
                 .switch("flag", "a flag for the signature", Some('f'))

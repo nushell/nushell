@@ -36,6 +36,10 @@ impl Command for Reduce {
         "Aggregate a list table to a single value using an accumulator block."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["map", "fold", "foldl"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

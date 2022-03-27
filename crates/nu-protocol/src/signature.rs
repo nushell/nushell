@@ -95,6 +95,7 @@ pub struct Signature {
     pub name: String,
     pub usage: String,
     pub extra_usage: String,
+    pub search_terms: Vec<String>,
     pub required_positional: Vec<PositionalArg>,
     pub optional_positional: Vec<PositionalArg>,
     pub rest_positional: Option<PositionalArg>,
@@ -135,6 +136,7 @@ impl Signature {
             name: name.into(),
             usage: String::new(),
             extra_usage: String::new(),
+            search_terms: vec![],
             required_positional: vec![],
             optional_positional: vec![],
             rest_positional: None,
@@ -144,13 +146,38 @@ impl Signature {
             category: Category::Default,
         }
     }
+
     pub fn build(name: impl Into<String>) -> Signature {
         Signature::new(name.into())
     }
 
     /// Add a description to the signature
-    pub fn desc(mut self, usage: impl Into<String>) -> Signature {
-        self.usage = usage.into();
+    pub fn usage(mut self, msg: impl Into<String>) -> Signature {
+        self.usage = msg.into();
+        self
+    }
+
+    /// Add an extra description to the signature
+    pub fn extra_usage(mut self, msg: impl Into<String>) -> Signature {
+        self.extra_usage = msg.into();
+        self
+    }
+
+    /// Add search terms to the signature
+    pub fn search_terms(mut self, terms: Vec<String>) -> Signature {
+        self.search_terms = terms;
+        self
+    }
+
+    /// Update signature's fields from a Command trait implementation
+    pub fn update_from_command(mut self, command: &dyn Command) -> Signature {
+        self.search_terms = command
+            .search_terms()
+            .into_iter()
+            .map(|term| term.to_string())
+            .collect();
+        self.extra_usage = command.extra_usage().to_string();
+        self.usage = command.usage().to_string();
         self
     }
 

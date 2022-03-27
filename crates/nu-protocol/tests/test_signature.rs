@@ -9,14 +9,14 @@ fn test_signature() {
     assert_eq!(signature, from_build);
 
     // constructing signature with description
-    let signature = Signature::new("signature").desc("example usage");
+    let signature = Signature::new("signature").usage("example usage");
     assert_eq!(signature.usage, "example usage".to_string())
 }
 
 #[test]
 fn test_signature_chained() {
     let signature = Signature::new("new_signature")
-        .desc("description")
+        .usage("description")
         .required("required", SyntaxShape::String, "required description")
         .optional("optional", SyntaxShape::String, "optional description")
         .required_named(
@@ -129,7 +129,7 @@ fn test_signature_same_name() {
 #[test]
 fn test_signature_round_trip() {
     let signature = Signature::new("new_signature")
-        .desc("description")
+        .usage("description")
         .required("first", SyntaxShape::String, "first required")
         .required("second", SyntaxShape::Int, "second required")
         .optional("optional", SyntaxShape::String, "optional description")
