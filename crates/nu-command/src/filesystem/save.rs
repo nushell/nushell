@@ -4,7 +4,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
 };
-use std::io::Write;
+use std::io::{BufWriter, Write};
 
 use std::path::Path;
 
@@ -125,39 +125,71 @@ impl Command for Save {
                 )),
             }
         } else {
-            match input.into_value(span) {
-                Value::String { val, .. } => {
-                    if let Err(err) = file.write_all(val.as_bytes()) {
-                        return Err(ShellError::IOError(err.to_string()));
-                    }
+            match input {
+                PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(span)),
+                PipelineData::ExternalStream {
+                    stdout: Some(mut stream),
+                    ..
+                } => {
+                    let mut writer = BufWriter::new(file);
 
-                    Ok(PipelineData::new(span))
+                    stream
+                        .try_for_each(move |result| {
+                            let buf = match result {
+                                Ok(v) => match v {
+                                    Value::String { val, .. } => val.into_bytes(),
+                                    Value::Binary { val, .. } => val,
+                                    _ => {
+                                        return Err(ShellError::UnsupportedInput(
+                                            format!("{:?} not supported", v.get_type()),
+                                            v.span()?,
+                                        ));
+                                    }
+                                },
+                                Err(err) => return Err(err),
+                            };
+
+                            if let Err(err) = writer.write(&buf) {
+                                return Err(ShellError::IOError(err.to_string()));
+                            }
+                            Ok(())
+                        })
+                        .map(|_| PipelineData::new(span))
                 }
-                Value::Binary { val, .. } => {
-                    if let Err(err) = file.write_all(&val) {
-                        return Err(ShellError::IOError(err.to_string()));
+                input => match input.into_value(span) {
+                    Value::String { val, .. } => {
+                        if let Err(err) = file.write_all(val.as_bytes()) {
+                            return Err(ShellError::IOError(err.to_string()));
+                        }
+
+                        Ok(PipelineData::new(span))
                     }
+                    Value::Binary { val, .. } => {
+                        if let Err(err) = file.write_all(&val) {
+                            return Err(ShellError::IOError(err.to_string()));
+                        }
 
-                    Ok(PipelineData::new(span))
-                }
-                Value::List { vals, .. } => {
-                    let val = vals
-                        .into_iter()
-                        .map(|it| it.as_string())
-                        .collect::<Result<Vec<String>, ShellError>>()?
-                        .join("\n")
-                        + "\n";
-
-                    if let Err(err) = file.write_all(val.as_bytes()) {
-                        return Err(ShellError::IOError(err.to_string()));
+                        Ok(PipelineData::new(span))
                     }
+                    Value::List { vals, .. } => {
+                        let val = vals
+                            .into_iter()
+                            .map(|it| it.as_string())
+                            .collect::<Result<Vec<String>, ShellError>>()?
+                            .join("\n")
+                            + "\n";
 
-                    Ok(PipelineData::new(span))
-                }
-                v => Err(ShellError::UnsupportedInput(
-                    format!("{:?} not supported", v.get_type()),
-                    span,
-                )),
+                        if let Err(err) = file.write_all(val.as_bytes()) {
+                            return Err(ShellError::IOError(err.to_string()));
+                        }
+
+                        Ok(PipelineData::new(span))
+                    }
+                    v => Err(ShellError::UnsupportedInput(
+                        format!("{:?} not supported", v.get_type()),
+                        span,
+                    )),
+                },
             }
         }
     }
