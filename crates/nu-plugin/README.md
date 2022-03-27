@@ -13,3 +13,6 @@ The steps are as follows:
 4. Then, call `capnp compile -orust plugin.capnp` (change path as necessary)
 5. The result should be `plugin_capnp.rs` file: Use it to replace the old `src/plugin_capnp.rs`.
 6. It needs to be autoformatted (`cargo fmt --all`)
+7. Modify the serialize/deserialize functions. Check the following PRs for details:
+    * https://github.com/nushell/nushell/pull/4980
+    * https://github.com/nushell/nushell/pull/4920
