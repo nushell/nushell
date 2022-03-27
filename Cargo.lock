@@ -2170,9 +2170,9 @@ dependencies = [
 
 [[package]]
 name = "nu-ansi-term"
-version = "0.45.0"
+version = "0.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "280affd8593c03f90633b7305cee7a3b55ddab9fbad95041a39bda689f7b64f7"
+checksum = "c7bca0d33a384280d1563b97f49cb95303df9fa22588739a04b7d8015c1ccd50"
 dependencies = [
  "overload",
  "winapi",
@@ -3424,9 +3424,8 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ba0eb9271feb2de4b1516d651c96d80c892df24388e2711ef2495acc6ed9ce"
+version = "0.3.1"
+source = "git+https://github.com/nushell/reedline#bc528de132e74594fdd5a9202cf32aee51e921e8"
 dependencies = [
  "chrono",
  "crossterm",

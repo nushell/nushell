@@ -130,6 +130,13 @@ lazy_static! {
     AnsiCode{ short_name: Some("dgrd"), long_name: "dark_gray_dimmed", code: Color::DarkGray.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("dgrr"), long_name: "dark_gray_reverse", code: Color::DarkGray.reverse().prefix().to_string()},
 
+    AnsiCode{ short_name: Some("der"), long_name: "default", code: Color::Default.prefix().to_string()},
+    AnsiCode{ short_name: Some("deb"), long_name: "default_bold", code: Color::Default.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("deu"), long_name: "default_underline", code: Color::Default.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("dei"), long_name: "default_italic", code: Color::Default.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("ded"), long_name: "default_dimmed", code: Color::Default.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("der"), long_name: "default_reverse", code: Color::Default.reverse().prefix().to_string()},
+
     AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
     // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
     // Another good reference http://ascii-table.com/ansi-escape-sequences.php
@@ -247,6 +254,7 @@ following values:
     35/95    magenta            45/105    magenta
     36/96    cyan               46/106    cyan
     37/97    white              47/107    white
+    39       default            49        default
     https://en.wikipedia.org/wiki/ANSI_escape_code
 
 OSC: '\x1b]' is not required for --osc parameter
@@ -435,8 +443,8 @@ fn generate_ansi_code_list(
             };
             let name: Value = Value::string(String::from(ansi_code.long_name), call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
-            // The first 96 items in the ansi array are colors
-            let preview = if i < 96 {
+            // The first 102 items in the ansi array are colors
+            let preview = if i < 102 {
                 Value::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
             } else {
                 Value::string("\u{1b}[0m", call_span)
