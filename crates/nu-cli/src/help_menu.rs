@@ -141,6 +141,18 @@ impl NuHelpMenu {
         self
     }
 
+    /// Menu builder with new selection rows value
+    pub fn with_selection_rows(mut self, selection_rows: u16) -> Self {
+        self.default_details.selection_rows = selection_rows;
+        self
+    }
+
+    /// Menu builder with new description rows value
+    pub fn with_description_rows(mut self, description_rows: usize) -> Self {
+        self.default_details.description_rows = description_rows;
+        self
+    }
+
     /// Menu builder with marker
     pub fn with_marker(mut self, marker: String) -> Self {
         self.marker = marker;
@@ -270,13 +282,12 @@ impl NuHelpMenu {
         let examples = self
             .get_value()
             .and_then(|suggestion| suggestion.description)
-            .unwrap_or("".to_string())
+            .unwrap_or_else(|| "".to_string())
             .lines()
             .filter(|line| line.starts_with(EXAMPLE_MARKER))
             .map(|line| {
                 line.replace(EXAMPLE_MARKER, "")
                     .replace(EXAMPLE_NEW_LINE, "\r\n")
-                    .to_string()
             })
             .collect::<Vec<String>>();
 
@@ -346,7 +357,7 @@ impl NuHelpMenu {
         let description = self
             .get_value()
             .and_then(|suggestion| suggestion.description)
-            .unwrap_or("".to_string())
+            .unwrap_or_else(|| "".to_string())
             .lines()
             .filter(|line| !line.starts_with(EXAMPLE_MARKER))
             .skip(self.skipped_rows)
@@ -369,7 +380,7 @@ impl NuHelpMenu {
     /// Selectable list of examples from the actual value
     fn create_example_string(&self, use_ansi_coloring: bool) -> String {
         if !self.show_examples {
-            return "".into()
+            return "".into();
         }
 
         let examples: String = self
@@ -396,17 +407,15 @@ impl NuHelpMenu {
 
         if examples.is_empty() {
             "".into()
+        } else if use_ansi_coloring {
+            format!(
+                "{}\r\n\r\nExamples:\r\n{}{}",
+                self.color.description_style.prefix(),
+                RESET,
+                examples,
+            )
         } else {
-            if use_ansi_coloring {
-                format!(
-                    "{}\r\n\r\nExamples:\r\n{}{}",
-                    self.color.description_style.prefix(),
-                    RESET,
-                    examples,
-                )
-            } else {
-                examples
-            }
+            format!("\r\n\r\nExamples:\r\n{}", examples,)
         }
     }
 }
@@ -533,13 +542,14 @@ impl Menu for NuHelpMenu {
             }
 
             // Updating the working rows to display the description
-            if self.menu_required_lines(painter.screen_width()) < painter.remaining_lines() {
+            if self.menu_required_lines(painter.screen_width()) <= painter.remaining_lines() {
                 self.working_details.description_rows = self.default_details.description_rows;
                 self.show_examples = true;
             } else {
                 self.working_details.description_rows = painter
                     .remaining_lines()
-                    .saturating_sub(self.default_details.selection_rows + 1) as usize;
+                    .saturating_sub(self.default_details.selection_rows + 1)
+                    as usize;
 
                 self.show_examples = false;
             }
@@ -595,7 +605,7 @@ impl Menu for NuHelpMenu {
                     let description_rows = self
                         .get_value()
                         .and_then(|suggestion| suggestion.description)
-                        .unwrap_or("".to_string())
+                        .unwrap_or_else(|| "".to_string())
                         .lines()
                         .filter(|line| !line.starts_with(EXAMPLE_MARKER))
                         .count();
@@ -622,7 +632,7 @@ impl Menu for NuHelpMenu {
                     .examples
                     .get(example_index)
                     .expect("the example index is always checked");
-                line_buffer.replace(span.start..span.end, &example);
+                line_buffer.replace(span.start..span.end, example);
                 example.len()
             } else {
                 line_buffer.replace(span.start..span.end, &value);
@@ -630,7 +640,7 @@ impl Menu for NuHelpMenu {
             };
 
             let mut offset = line_buffer.insertion_point();
-            offset += string_len - (span.end - span.start);
+            offset += string_len.saturating_sub(span.end - span.start);
             line_buffer.set_insertion_point(offset);
         }
     }

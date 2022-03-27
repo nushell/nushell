@@ -77,7 +77,7 @@ impl NuHelpCompleter {
                     long_desc.push_str(&format!(
                         "{}{}\r\n",
                         EXAMPLE_MARKER,
-                        example.example.replace("\n", EXAMPLE_NEW_LINE)
+                        example.example.replace('\n', EXAMPLE_NEW_LINE)
                     ))
                 }
 

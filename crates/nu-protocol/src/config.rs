@@ -33,6 +33,7 @@ pub struct Config {
     pub menu_config: HashMap<String, Value>,
     pub keybindings: Vec<ParsedKeybinding>,
     pub history_config: HashMap<String, Value>,
+    pub help_config: HashMap<String, Value>,
     pub rm_always_trash: bool,
 }
 
@@ -55,8 +56,9 @@ impl Default for Config {
             max_history_size: 1000,
             log_level: String::new(),
             menu_config: HashMap::new(),
-            keybindings: Vec::new(),
             history_config: HashMap::new(),
+            help_config: HashMap::new(),
+            keybindings: Vec::new(),
             rm_always_trash: false,
         }
     }
@@ -211,18 +213,25 @@ impl Value {
                             eprintln!("$config.menu_config is not a record")
                         }
                     }
-                    "keybindings" => {
-                        if let Ok(keybindings) = create_keybindings(value, &config) {
-                            config.keybindings = keybindings;
-                        } else {
-                            eprintln!("$config.keybindings is not a valid keybindings list")
-                        }
-                    }
                     "history_config" => {
                         if let Ok(map) = create_map(value, &config) {
                             config.history_config = map;
                         } else {
                             eprintln!("$config.history_config is not a record")
+                        }
+                    }
+                    "help_config" => {
+                        if let Ok(map) = create_map(value, &config) {
+                            config.help_config = map;
+                        } else {
+                            eprintln!("$config.help_config is not a record")
+                        }
+                    }
+                    "keybindings" => {
+                        if let Ok(keybindings) = create_keybindings(value, &config) {
+                            config.keybindings = keybindings;
+                        } else {
+                            eprintln!("$config.keybindings is not a valid keybindings list")
                         }
                     }
                     x => {

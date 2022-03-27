@@ -550,15 +550,13 @@ impl NuCompleter {
                                             (x.0, x.1)
                                         }
                                     })
-                                    .map(move |x| {
-                                        Suggestion {
-                                            value: x.1,
-                                            description: None,
-                                            span: reedline::Span {
-                                                start: x.0.start - offset,
-                                                end: x.0.end - offset,
-                                            },
-                                        }
+                                    .map(move |x| Suggestion {
+                                        value: x.1,
+                                        description: None,
+                                        span: reedline::Span {
+                                            start: x.0.start - offset,
+                                            end: x.0.end - offset,
+                                        },
                                     })
                                     .chain(subcommands.into_iter())
                                     .chain(commands.into_iter())

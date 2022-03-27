@@ -4,7 +4,7 @@ use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Value};
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    CompletionMenu, EditCommand, HistoryMenu, Keybindings, Reedline, ReedlineEvent, Completer,
+    Completer, CompletionMenu, EditCommand, HistoryMenu, Keybindings, Reedline, ReedlineEvent,
 };
 
 // Creates an input object for the completion menu based on the dictionary
@@ -134,7 +134,7 @@ pub(crate) fn add_help_menu(
     let mut help_menu = NuHelpMenu::default();
 
     help_menu = match config
-        .menu_config
+        .help_config
         .get("columns")
         .and_then(|value| value.as_integer().ok())
     {
@@ -144,14 +144,14 @@ pub(crate) fn add_help_menu(
 
     help_menu = help_menu.with_column_width(
         config
-            .menu_config
+            .help_config
             .get("col_width")
             .and_then(|value| value.as_integer().ok())
             .map(|value| value as usize),
     );
 
     help_menu = match config
-        .menu_config
+        .help_config
         .get("col_padding")
         .and_then(|value| value.as_integer().ok())
     {
@@ -160,7 +160,25 @@ pub(crate) fn add_help_menu(
     };
 
     help_menu = match config
-        .menu_config
+        .help_config
+        .get("selection_rows")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => help_menu.with_selection_rows(value as u16),
+        None => help_menu,
+    };
+
+    help_menu = match config
+        .help_config
+        .get("description_rows")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => help_menu.with_description_rows(value as usize),
+        None => help_menu,
+    };
+
+    help_menu = match config
+        .help_config
         .get("text_style")
         .and_then(|value| value.as_string().ok())
     {
@@ -169,7 +187,7 @@ pub(crate) fn add_help_menu(
     };
 
     help_menu = match config
-        .menu_config
+        .help_config
         .get("selected_text_style")
         .and_then(|value| value.as_string().ok())
     {
@@ -178,7 +196,16 @@ pub(crate) fn add_help_menu(
     };
 
     help_menu = match config
-        .menu_config
+        .help_config
+        .get("description_text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => help_menu.with_description_text_style(lookup_ansi_color_style(&value)),
+        None => help_menu,
+    };
+
+    help_menu = match config
+        .help_config
         .get("marker")
         .and_then(|value| value.as_string().ok())
     {
