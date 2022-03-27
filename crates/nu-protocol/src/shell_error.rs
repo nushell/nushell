@@ -360,19 +360,10 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
 }
 
 pub fn did_you_mean(possibilities: &[String], tried: &str) -> Option<String> {
-    // First see if we can find the same string just cased differently
-    let great_match_index = possibilities
-        .iter()
-        .position(|word| word.to_lowercase() == tried.to_lowercase());
-
-    if let Some(index) = great_match_index {
-        return Some(possibilities[index].to_owned());
-    }
-
     let mut possible_matches: Vec<_> = possibilities
         .iter()
         .map(|word| {
-            let edit_distance = levenshtein_distance(word, tried);
+            let edit_distance = levenshtein_distance(&word.to_lowercase(), &tried.to_lowercase());
             (edit_distance, word.to_owned())
         })
         .collect();
@@ -445,4 +436,33 @@ pub fn levenshtein_distance(a: &str, b: &str) -> usize {
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::did_you_mean;
+
+    #[test]
+    fn did_you_mean_works_with_wrong_case() {
+        let possibilities = &["OS".into(), "PWD".into()];
+        let actual = did_you_mean(possibilities, "pwd");
+        let expected = Some(String::from("PWD"));
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn did_you_mean_works_with_typo() {
+        let possibilities = &["OS".into(), "PWD".into()];
+        let actual = did_you_mean(possibilities, "PWF");
+        let expected = Some(String::from("PWD"));
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn did_you_mean_works_with_wrong_case_and_typo() {
+        let possibilities = &["OS".into(), "PWD".into()];
+        let actual = did_you_mean(possibilities, "pwf");
+        let expected = Some(String::from("PWD"));
+        assert_eq!(actual, expected)
+    }
 }
