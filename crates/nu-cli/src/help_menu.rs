@@ -93,7 +93,7 @@ impl Default for NuHelpMenu {
             values: Vec::new(),
             col_pos: 0,
             row_pos: 0,
-            marker: "| ".to_string(),
+            marker: "? ".to_string(),
             event: None,
             input: None,
             examples: Vec::new(),

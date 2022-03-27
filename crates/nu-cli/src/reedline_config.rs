@@ -222,7 +222,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyModifiers::NONE,
         KeyCode::Tab,
         ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("completer_menu".to_string()),
+            ReedlineEvent::Menu("completion_menu".to_string()),
             ReedlineEvent::MenuNext,
         ]),
     );
@@ -255,7 +255,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
     // Help menu keybinding
     keybindings.add_binding(
         KeyModifiers::CONTROL,
-        KeyCode::Char('i'),
+        KeyCode::Char('q'),
         ReedlineEvent::Menu("help_menu".to_string()),
     );
 }
