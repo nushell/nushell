@@ -74,7 +74,6 @@ terminal_size = "0.1.17"
 thiserror = "1.0.29"
 titlecase = "1.1.0"
 toml = "0.5.8"
-trash = { version = "2.0.2", optional = true }
 unicode-segmentation = "1.8.0"
 url = "2.2.1"
 uuid = { version = "0.8.2", features = ["v4"] }
@@ -86,6 +85,10 @@ zip = { version="0.5.9", optional = true }
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"
 users = "0.11.0"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
+version = "2.0.2"
+optional = true
 
 [dependencies.polars]
 version = "0.20.0"

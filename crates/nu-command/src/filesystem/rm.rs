@@ -1,5 +1,9 @@
 use std::collections::HashMap;
-#[cfg(feature = "trash-support")]
+#[cfg(all(
+    feature = "trash-support",
+    not(target_os = "android"),
+    not(target_os = "ios")
+))]
 use std::io::ErrorKind;
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
@@ -35,7 +39,13 @@ impl Command for Rm {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("rm")
+        let sig = Signature::build("rm");
+        #[cfg(all(
+            feature = "trash-support",
+            not(target_os = "android"),
+            not(target_os = "ios")
+        ))]
+        let sig = sig
             .switch(
                 "trash",
                 "use the platform's recycle bin instead of permanently deleting",
@@ -45,8 +55,8 @@ impl Command for Rm {
                 "permanent",
                 "don't use recycle bin, delete permanently",
                 Some('p'),
-            )
-            .switch("recursive", "delete subdirectories recursively", Some('r'))
+            );
+        sig.switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
             .switch("quiet", "suppress output showing files deleted", Some('q'))
             // .switch("interactive", "ask user to confirm action", Some('i'))
@@ -69,12 +79,18 @@ impl Command for Rm {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
+        let mut examples = vec![
             Example {
                 description: "Delete or move a file to the system trash (depending on 'rm_always_trash' config option)",
                 example: "rm file.txt",
                 result: None,
-            },
+            }];
+        #[cfg(all(
+            feature = "trash-support",
+            not(target_os = "android"),
+            not(target_os = "ios")
+        ))]
+        examples.append(&mut vec![
             Example {
                 description: "Move a file to the system trash",
                 example: "rm --trash file.txt",
@@ -85,12 +101,13 @@ impl Command for Rm {
                 example: "rm --permanent file.txt",
                 result: None,
             },
-            Example {
-                description: "Delete a file, and suppress errors if no file is found",
-                example: "rm --force file.txt",
-                result: None,
-            }
-        ]
+        ]);
+        examples.push(Example {
+            description: "Delete a file, and suppress errors if no file is found",
+            example: "rm --force file.txt",
+            result: None,
+        });
+        examples
     }
 }
 
@@ -100,7 +117,11 @@ fn rm(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let trash = call.has_flag("trash");
-    #[cfg(feature = "trash-support")]
+    #[cfg(all(
+        feature = "trash-support",
+        not(target_os = "android"),
+        not(target_os = "ios")
+    ))]
     let permanent = call.has_flag("permanent");
     let recursive = call.has_flag("recursive");
     let force = call.has_flag("force");
@@ -116,20 +137,26 @@ fn rm(
 
     let rm_always_trash = config.rm_always_trash;
 
-    #[cfg(not(feature = "trash-support"))]
+    #[cfg(any(
+        not(feature = "trash-support"),
+        target_os = "android",
+        target_os = "ios"
+    ))]
     {
         if rm_always_trash {
             return Err(ShellError::SpannedLabeledError(
                 "Cannot execute `rm`; the current configuration specifies \
                     `rm_always_trash = true`, but the current nu executable was not \
-                    built with feature `trash_support`."
+                    built with feature `trash_support` or trash is not supported on \
+                    your platform."
                     .into(),
                 "trash required to be true but not supported".into(),
                 span,
             ));
         } else if trash {
             return Err(ShellError::SpannedLabeledError(
-                "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled"
+                "Cannot execute `rm` with option `--trash`; feature `trash-support` not \
+                    enabled or trash is not supported on your platform"
                     .into(),
                 "this option is only available if nu is built with the `trash-support` feature"
                     .into(),
@@ -241,7 +268,11 @@ fn rm(
                     || is_empty()
                 {
                     let result;
-                    #[cfg(feature = "trash-support")]
+                    #[cfg(all(
+                        feature = "trash-support",
+                        not(target_os = "android"),
+                        not(target_os = "ios")
+                    ))]
                     {
                         use std::io::Error;
                         result = if trash || (rm_always_trash && !permanent) {
@@ -254,7 +285,11 @@ fn rm(
                             std::fs::remove_dir_all(&f)
                         };
                     }
-                    #[cfg(not(feature = "trash-support"))]
+                    #[cfg(any(
+                        not(feature = "trash-support"),
+                        target_os = "android",
+                        target_os = "ios"
+                    ))]
                     {
                         result = if metadata.is_file() || is_socket || is_fifo {
                             std::fs::remove_file(&f)

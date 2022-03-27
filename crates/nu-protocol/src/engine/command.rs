@@ -27,11 +27,6 @@ pub trait Command: Send + Sync + CommandClone {
         false
     }
 
-    // Commands that are not meant to be run by users
-    fn is_private(&self) -> bool {
-        false
-    }
-
     fn examples(&self) -> Vec<Example> {
         Vec::new()
     }
@@ -49,6 +44,11 @@ pub trait Command: Send + Sync + CommandClone {
     // Is a sub command
     fn is_sub(&self) -> bool {
         self.name().contains(' ')
+    }
+
+    // Is a parser keyword (source, def, etc.)
+    fn is_parser_keyword(&self) -> bool {
+        false
     }
 
     // Is a plugin command (returns plugin's path, encoding and type of shell
