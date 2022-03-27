@@ -462,6 +462,8 @@ pub(crate) fn dir_entry_dict(
             } else {
                 vals.push(Value::nothing(span));
             }
+        } else {
+            vals.push(Value::nothing(span));
         }
     } else {
         vals.push(Value::nothing(span));
