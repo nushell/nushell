@@ -360,6 +360,15 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
 }
 
 pub fn did_you_mean(possibilities: &[String], tried: &str) -> Option<String> {
+    // First see if we can find the same string just cased differently
+    let great_match_index = possibilities
+        .iter()
+        .position(|word| word.to_lowercase() == tried.to_lowercase());
+
+    if let Some(index) = great_match_index {
+        return Some(possibilities[index].to_owned());
+    }
+
     let mut possible_matches: Vec<_> = possibilities
         .iter()
         .map(|word| {
