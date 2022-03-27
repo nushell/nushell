@@ -255,7 +255,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
     // Help menu keybinding
     keybindings.add_binding(
         KeyModifiers::CONTROL,
-        KeyCode::Char('h'),
+        KeyCode::Char('i'),
         ReedlineEvent::Menu("help_menu".to_string()),
     );
 }
