@@ -168,12 +168,13 @@ impl ExternalCommand {
 
                             if let Ok(input) = input {
                                 for value in input.into_iter() {
-                                    if let Value::String { val, span: _ } = value {
-                                        if stdin_write.write(val.as_bytes()).is_err() {
-                                            return Ok(());
-                                        }
-                                    } else {
-                                        return Err(());
+                                    let buf = match value {
+                                        Value::String { val, .. } => val.into_bytes(),
+                                        Value::Binary { val, .. } => val,
+                                        _ => return Err(()),
+                                    };
+                                    if stdin_write.write(&buf).is_err() {
+                                        return Ok(());
                                     }
                                 }
                             }

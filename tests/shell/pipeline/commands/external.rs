@@ -97,7 +97,6 @@ fn redirects_custom_command_external() {
     assert_eq!(actual.out, "8");
 }
 
-#[ignore]
 #[test]
 fn passes_binary_data_between_externals() {
     let actual = nu!(cwd: "tests/fixtures/formats", r#"nu --testbin meowb sample.db | nu --testbin relay | hash sha256"#);
