@@ -159,6 +159,8 @@ fn main() -> Result<()> {
                     "echo_env" => test_bins::echo_env(),
                     "cococo" => test_bins::cococo(),
                     "meow" => test_bins::meow(),
+                    "meowb" => test_bins::meowb(),
+                    "relay" => test_bins::relay(),
                     "iecho" => test_bins::iecho(),
                     "fail" => test_bins::fail(),
                     "nonu" => test_bins::nonu(),

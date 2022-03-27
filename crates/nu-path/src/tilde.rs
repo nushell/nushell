@@ -16,7 +16,14 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
                 path.strip_prefix("~").unwrap_or(path).into()
             } else {
                 if let Ok(p) = path.strip_prefix("~/") {
-                    h.push(p)
+                    // Corner case: `p` is empty;
+                    // Don't append extra '/', just keep `h` as is.
+                    // This happens because PathBuf.push will always
+                    // add a separator if the pushed path is relative,
+                    // even if it's empty
+                    if p != Path::new("") {
+                        h.push(p)
+                    }
                 }
                 h
             }
@@ -33,6 +40,7 @@ pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::MAIN_SEPARATOR;
 
     fn check_expanded(s: &str) {
         let home = Path::new("/home");
@@ -69,6 +77,15 @@ mod tests {
     #[test]
     fn does_not_expand_tilde_if_tilde_is_not_first_character() {
         check_not_expanded("1~1");
+    }
+
+    #[test]
+    fn path_does_not_include_trailing_separator() {
+        let home = Path::new("/home");
+        let buf = Some(PathBuf::from(home));
+        let expanded = expand_tilde_with_home(Path::new("~"), buf);
+        let expanded_str = expanded.to_str().unwrap();
+        assert!(!expanded_str.ends_with(MAIN_SEPARATOR));
     }
 
     #[cfg(windows)]

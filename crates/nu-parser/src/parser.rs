@@ -1438,7 +1438,14 @@ pub fn parse_string_interpolation(
 
     #[allow(clippy::needless_range_loop)]
     while b != end {
-        if contents[b - start] == b'(' && mode == InterpolationMode::String {
+        if contents[b - start] == b'('
+            && (if double_quote && (b - start) > 0 {
+                contents[b - start - 1] != b'\\'
+            } else {
+                true
+            })
+            && mode == InterpolationMode::String
+        {
             mode = InterpolationMode::Expression;
             if token_start < b {
                 let span = Span {

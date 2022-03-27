@@ -346,6 +346,11 @@ fn string_escape_interpolation() -> TestResult {
 }
 
 #[test]
+fn string_escape_interpolation2() -> TestResult {
+    run_test(r#"$"2 + 2 is \(2 + 2)""#, "2 + 2 is (2 + 2)")
+}
+
+#[test]
 fn proper_rest_types() -> TestResult {
     run_test(
         r#"def foo [--verbose(-v): bool, # my test flag

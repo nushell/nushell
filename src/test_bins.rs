@@ -34,6 +34,25 @@ pub fn meow() {
     }
 }
 
+// A binary version of meow
+pub fn meowb() {
+    let args: Vec<String> = args();
+
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+
+    for arg in args.iter().skip(1) {
+        let buf = std::fs::read(arg).expect("Expected a filepath");
+        handle.write_all(&buf).expect("failed to write to stdout");
+    }
+}
+
+// Relays anything received on stdin to stdout
+pub fn relay() {
+    io::copy(&mut io::stdin().lock(), &mut io::stdout().lock())
+        .expect("failed to copy stdin to stdout");
+}
+
 pub fn nonu() {
     args().iter().skip(1).for_each(|arg| print!("{}", arg));
 }

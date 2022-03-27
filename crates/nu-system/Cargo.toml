@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers", "procs creators"]
 description = "Nushell system querying"
 name = "nu-system"
-version = "0.60.0"
+version = "0.60.1"
 edition = "2021"
 license = "MIT"
 
@@ -15,7 +15,7 @@ path = "src/main.rs"
 [dependencies]
 
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 procfs  = "0.12.0"
 users = "0.11"
 which = "4"

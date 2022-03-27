@@ -977,12 +977,6 @@ pub fn create_scope(
                 span,
             });
 
-            cols.push("is_private".to_string());
-            vals.push(Value::Bool {
-                val: decl.is_private(),
-                span,
-            });
-
             cols.push("is_builtin".to_string());
             // we can only be a is_builtin or is_custom, not both
             vals.push(Value::Bool {
@@ -1005,6 +999,12 @@ pub fn create_scope(
             cols.push("is_custom".to_string());
             vals.push(Value::Bool {
                 val: decl.get_block_id().is_some(),
+                span,
+            });
+
+            cols.push("is_keyword".into());
+            vals.push(Value::Bool {
+                val: decl.is_parser_keyword(),
                 span,
             });
 

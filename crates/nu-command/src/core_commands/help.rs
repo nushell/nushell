@@ -85,15 +85,18 @@ fn help(
     let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
-    let full_commands = engine_state.get_signatures_with_examples(false);
+    let commands = engine_state.get_decl_ids_sorted(false);
 
     if let Some(f) = find {
         let search_string = f.item.to_lowercase();
         let mut found_cmds_vec = Vec::new();
 
-        for (sig, _, is_plugin, is_custom) in full_commands {
+        for decl_id in commands {
             let mut cols = vec![];
             let mut vals = vec![];
+
+            let decl = engine_state.get_decl(decl_id);
+            let sig = decl.signature();
 
             let key = sig.name.clone();
             let c = sig.usage.clone();
@@ -116,13 +119,19 @@ fn help(
 
                 cols.push("is_plugin".into());
                 vals.push(Value::Bool {
-                    val: is_plugin,
+                    val: decl.is_plugin().is_some(),
                     span: head,
                 });
 
                 cols.push("is_custom".into());
                 vals.push(Value::Bool {
-                    val: is_custom,
+                    val: decl.get_block_id().is_some(),
+                    span: head,
+                });
+
+                cols.push("is_keyword".into());
+                vals.push(Value::Bool {
+                    val: decl.is_parser_keyword(),
                     span: head,
                 });
 
@@ -149,9 +158,12 @@ fn help(
         let mut found_cmds_vec = Vec::new();
 
         if rest[0].item == "commands" {
-            for (sig, _, is_plugin, is_custom) in full_commands {
+            for decl_id in commands {
                 let mut cols = vec![];
                 let mut vals = vec![];
+
+                let decl = engine_state.get_decl(decl_id);
+                let sig = decl.signature();
 
                 let key = sig.name.clone();
                 let c = sig.usage.clone();
@@ -171,13 +183,19 @@ fn help(
 
                 cols.push("is_plugin".into());
                 vals.push(Value::Bool {
-                    val: is_plugin,
+                    val: decl.is_plugin().is_some(),
                     span: head,
                 });
 
                 cols.push("is_custom".into());
                 vals.push(Value::Bool {
-                    val: is_custom,
+                    val: decl.get_block_id().is_some(),
+                    span: head,
+                });
+
+                cols.push("is_keyword".into());
+                vals.push(Value::Bool {
+                    val: decl.is_parser_keyword(),
                     span: head,
                 });
 
@@ -207,7 +225,8 @@ fn help(
                 name.push_str(&r.item);
             }
 
-            let output = full_commands
+            let output = engine_state
+                .get_signatures_with_examples(false)
                 .iter()
                 .filter(|(signature, _, _, _)| signature.name == name)
                 .map(|(signature, examples, _, _)| {
