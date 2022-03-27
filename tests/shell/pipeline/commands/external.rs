@@ -97,6 +97,17 @@ fn redirects_custom_command_external() {
     assert_eq!(actual.out, "8");
 }
 
+#[ignore]
+#[test]
+fn passes_binary_data_between_externals() {
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"nu --testbin meowb sample.db | nu --testbin relay | hash sha256"#);
+
+    assert_eq!(
+        actual.out,
+        "2f5050e7eea415c1f3d80b5d93355efd15043ec9157a2bb167a9e73f2ae651f2"
+    )
+}
+
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};
