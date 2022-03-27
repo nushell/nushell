@@ -17,6 +17,7 @@ use pathdiff::diff_paths;
 use regex::Regex;
 
 const OUTPUT_BUFFER_SIZE: usize = 1024;
+const OUTPUT_BUFFERS_IN_FLIGHT: usize = 3;
 
 #[derive(Clone)]
 pub struct External;
@@ -187,8 +188,8 @@ impl ExternalCommand {
                 let redirect_stderr = self.redirect_stderr;
                 let span = self.name.span;
                 let output_ctrlc = ctrlc.clone();
-                let (stdout_tx, stdout_rx) = mpsc::channel();
-                let (stderr_tx, stderr_rx) = mpsc::channel();
+                let (stdout_tx, stdout_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
+                let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
                 let (exit_code_tx, exit_code_rx) = mpsc::channel();
 
                 std::thread::spawn(move || {
