@@ -221,7 +221,7 @@ let $config = {
     text_style: green
     selected_text_style: green_reverse
     description_text_style: yellow
-    marker: "% "
+    marker: "? "
   }
   keybindings: [
     {

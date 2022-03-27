@@ -1,5 +1,5 @@
 use nu_engine::documentation::get_flags_section;
-use nu_protocol::engine::EngineState;
+use nu_protocol::{engine::EngineState, levenshtein_distance};
 use reedline::{Completer, Suggestion};
 
 pub const EXAMPLE_MARKER: &str = ">>>>>>";
@@ -18,7 +18,7 @@ impl NuHelpCompleter {
         let full_commands = self.engine_state.get_signatures_with_examples(false);
 
         //Vec<(Signature, Vec<Example>, bool, bool)> {
-        full_commands
+        let mut commands = full_commands
             .iter()
             .filter(|(sig, _, _, _)| {
                 sig.name.to_lowercase().contains(&line.to_lowercase())
@@ -28,6 +28,16 @@ impl NuHelpCompleter {
                         .to_lowercase()
                         .contains(&line.to_lowercase())
             })
+            .collect::<Vec<_>>();
+
+        commands.sort_by(|(a, _, _, _), (b, _, _, _)| {
+            let a_distance = levenshtein_distance(line, &a.name);
+            let b_distance = levenshtein_distance(line, &b.name);
+            a_distance.cmp(&b_distance)
+        });
+
+        commands
+            .into_iter()
             .map(|(sig, examples, _, _)| {
                 let mut long_desc = String::new();
 
