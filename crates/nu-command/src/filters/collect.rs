@@ -54,7 +54,7 @@ impl Command for Collect {
             call.redirect_stdout,
             call.redirect_stderr,
         )
-        .map(|res| res.set_metadata(metadata))
+        .map(|x| x.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {
