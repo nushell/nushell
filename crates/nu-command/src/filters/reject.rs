@@ -72,6 +72,7 @@ fn reject(
     if columns.is_empty() {
         return Err(ShellError::CantFindColumn(span, span));
     }
+    let metadata = input.metadata();
 
     let mut keep_columns = vec![];
 
@@ -160,6 +161,7 @@ fn reject(
         }
         x => Ok(x),
     }
+    .map(|x| x.set_metadata(metadata))
 }
 
 fn get_input_cols(input: Vec<Value>) -> Vec<String> {

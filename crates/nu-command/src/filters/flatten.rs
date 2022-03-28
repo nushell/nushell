@@ -112,11 +112,14 @@ fn flatten(
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let tag = call.head;
     let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let metadata = input.metadata();
 
-    input.flat_map(
-        move |item| flat_value(&columns, &item, tag),
-        engine_state.ctrlc.clone(),
-    )
+    input
+        .flat_map(
+            move |item| flat_value(&columns, &item, tag),
+            engine_state.ctrlc.clone(),
+        )
+        .map(|x| x.set_metadata(metadata))
 }
 
 enum TableInside<'a> {

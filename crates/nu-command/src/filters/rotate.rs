@@ -205,6 +205,7 @@ pub fn rotate(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let metadata = input.metadata();
     let col_given_names: Vec<String> = call.rest(engine_state, stack, 0)?;
     let mut values = input.into_iter().collect::<Vec<_>>();
     let mut old_column_names = vec![];
@@ -288,7 +289,8 @@ pub fn rotate(
             }],
             span: call.head,
         }
-        .into_pipeline_data());
+        .into_pipeline_data()
+        .set_metadata(metadata));
     }
 
     // holder for the new records
@@ -344,7 +346,8 @@ pub fn rotate(
         vals: final_values,
         span: call.head,
     }
-    .into_pipeline_data())
+    .into_pipeline_data()
+    .set_metadata(metadata))
 }
 
 #[cfg(test)]

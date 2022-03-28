@@ -46,6 +46,7 @@ impl Command for Get {
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag("ignore-errors");
         let ctrlc = engine_state.ctrlc.clone();
+        let metadata = input.metadata();
 
         if rest.is_empty() {
             let output = input
@@ -81,6 +82,7 @@ impl Command for Get {
 
             Ok(output.into_iter().into_pipeline_data(ctrlc))
         }
+        .map(|x| x.set_metadata(metadata))
     }
     fn examples(&self) -> Vec<Example> {
         vec![

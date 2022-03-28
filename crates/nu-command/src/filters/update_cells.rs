@@ -129,6 +129,7 @@ impl Command for UpdateCells {
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
+        let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let block: Block = engine_state.get_block(block.block_id).clone();
 
@@ -163,7 +164,8 @@ impl Command for UpdateCells {
             redirect_stderr,
             span,
         }
-        .into_pipeline_data(ctrlc))
+        .into_pipeline_data(ctrlc)
+        .set_metadata(metadata))
     }
 }
 

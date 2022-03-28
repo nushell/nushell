@@ -144,6 +144,7 @@ impl Command for Window {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let ctrlc = engine_state.ctrlc.clone();
+        let metadata = input.metadata();
         let stride: Option<usize> = call.get_flag(engine_state, stack, "stride")?;
 
         let stride = stride.unwrap_or(1);
@@ -158,7 +159,9 @@ impl Command for Window {
             stride,
         };
 
-        Ok(each_group_iterator.into_pipeline_data(ctrlc))
+        Ok(each_group_iterator
+            .into_pipeline_data(ctrlc)
+            .set_metadata(metadata))
     }
 }
 

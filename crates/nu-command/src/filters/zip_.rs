@@ -87,6 +87,7 @@ impl Command for Zip {
         let other: Value = call.req(engine_state, stack, 0)?;
         let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
+        let metadata = input.metadata();
 
         Ok(input
             .into_iter()
@@ -95,7 +96,8 @@ impl Command for Zip {
                 vals: vec![x, y],
                 span: head,
             })
-            .into_pipeline_data(ctrlc))
+            .into_pipeline_data(ctrlc)
+            .set_metadata(metadata))
     }
 }
 

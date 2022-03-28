@@ -90,6 +90,7 @@ fn select(
     let input = if !rows.is_empty() {
         rows.sort_unstable();
         // let skip = call.has_flag("skip");
+        let metadata = input.metadata();
         let pipeline_iter: PipelineIterator = input.into_iter();
 
         NthIterator {
@@ -99,6 +100,7 @@ fn select(
             current: 0,
         }
         .into_pipeline_data(engine_state.ctrlc.clone())
+        .set_metadata(metadata)
     } else {
         input
     };
@@ -109,6 +111,7 @@ fn select(
                 vals: input_vals,
                 span,
             },
+            metadata,
             ..,
         ) => {
             let mut output = vec![];
@@ -133,9 +136,10 @@ fn select(
 
             Ok(output
                 .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+                .into_pipeline_data(engine_state.ctrlc.clone())
+                .set_metadata(metadata))
         }
-        PipelineData::ListStream(stream, ..) => Ok(stream
+        PipelineData::ListStream(stream, metadata, ..) => Ok(stream
             .map(move |x| {
                 if !columns.is_empty() {
                     let mut cols = vec![];
@@ -158,8 +162,9 @@ fn select(
                     x
                 }
             })
-            .into_pipeline_data(engine_state.ctrlc.clone())),
-        PipelineData::Value(v, ..) => {
+            .into_pipeline_data(engine_state.ctrlc.clone())
+            .set_metadata(metadata)),
+        PipelineData::Value(v, metadata, ..) => {
             if !columns.is_empty() {
                 let mut cols = vec![];
                 let mut vals = vec![];
@@ -172,9 +177,11 @@ fn select(
                     vals.push(result);
                 }
 
-                Ok(Value::Record { cols, vals, span }.into_pipeline_data())
+                Ok(Value::Record { cols, vals, span }
+                    .into_pipeline_data()
+                    .set_metadata(metadata))
             } else {
-                Ok(v.into_pipeline_data())
+                Ok(v.into_pipeline_data().set_metadata(metadata))
             }
         }
         _ => Ok(PipelineData::new(span)),

@@ -113,6 +113,7 @@ impl Command for Each {
         let numbered = call.has_flag("numbered");
         let keep_empty = call.has_flag("keep-empty");
 
+        let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let outer_ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
@@ -243,6 +244,7 @@ impl Command for Each {
                 outer_ctrlc,
             )
         })
+        .map(|x| x.set_metadata(metadata))
     }
 }
 

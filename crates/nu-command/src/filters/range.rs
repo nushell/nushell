@@ -65,6 +65,7 @@ impl Command for Range {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let metadata = input.metadata();
         let rows: nu_protocol::Range = call.req(engine_state, stack, 0)?;
 
         let rows_from = get_range_val(rows.from);
@@ -112,6 +113,7 @@ impl Command for Range {
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
         }
+        .map(|x| x.set_metadata(metadata))
     }
 }
 

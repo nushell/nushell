@@ -69,6 +69,8 @@ impl Command for Every {
 
         let skip = call.has_flag("skip");
 
+        let metadata = input.metadata();
+
         Ok(input
             .into_iter()
             .enumerate()
@@ -79,7 +81,8 @@ impl Command for Every {
                     None
                 }
             })
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data(engine_state.ctrlc.clone())
+            .set_metadata(metadata))
     }
 }
 

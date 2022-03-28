@@ -110,49 +110,52 @@ fn rename(
     }
 
     let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
+    let metadata = input.metadata();
 
-    input.map(
-        move |item| match item {
-            Value::Record {
-                mut cols,
-                vals,
-                span,
-            } => {
-                match &specified_column {
-                    Some(c) => {
-                        // check if the specified column to be renamed exists
-                        if !cols.contains(&c[0]) {
-                            return Value::Error {
-                                error: ShellError::UnsupportedInput(
-                                    "The specified column does not exist".to_string(),
-                                    specified_col_span.unwrap_or(span),
-                                ),
-                            };
+    input
+        .map(
+            move |item| match item {
+                Value::Record {
+                    mut cols,
+                    vals,
+                    span,
+                } => {
+                    match &specified_column {
+                        Some(c) => {
+                            // check if the specified column to be renamed exists
+                            if !cols.contains(&c[0]) {
+                                return Value::Error {
+                                    error: ShellError::UnsupportedInput(
+                                        "The specified column does not exist".to_string(),
+                                        specified_col_span.unwrap_or(span),
+                                    ),
+                                };
+                            }
+                            for (idx, val) in cols.iter_mut().enumerate() {
+                                if *val == c[0] {
+                                    cols[idx] = c[1].to_string();
+                                    break;
+                                }
+                            }
                         }
-                        for (idx, val) in cols.iter_mut().enumerate() {
-                            if *val == c[0] {
-                                cols[idx] = c[1].to_string();
-                                break;
+                        None => {
+                            for (idx, val) in columns.iter().enumerate() {
+                                if idx >= cols.len() {
+                                    // skip extra new columns names if we already reached the final column
+                                    break;
+                                }
+                                cols[idx] = val.clone();
                             }
                         }
                     }
-                    None => {
-                        for (idx, val) in columns.iter().enumerate() {
-                            if idx >= cols.len() {
-                                // skip extra new columns names if we already reached the final column
-                                break;
-                            }
-                            cols[idx] = val.clone();
-                        }
-                    }
+
+                    Value::Record { cols, vals, span }
                 }
-
-                Value::Record { cols, vals, span }
-            }
-            x => x,
-        },
-        engine_state.ctrlc.clone(),
-    )
+                x => x,
+            },
+            engine_state.ctrlc.clone(),
+        )
+        .map(|x| x.set_metadata(metadata))
 }
 
 #[cfg(test)]
