@@ -73,6 +73,7 @@ impl Command for Group {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let ctrlc = engine_state.ctrlc.clone();
+        let metadata = input.metadata();
 
         //FIXME: add in support for external redirection when engine-q supports it generally
 
@@ -82,7 +83,9 @@ impl Command for Group {
             span: call.head,
         };
 
-        Ok(each_group_iterator.into_pipeline_data(ctrlc))
+        Ok(each_group_iterator
+            .into_pipeline_data(ctrlc)
+            .set_metadata(metadata))
     }
 }
 
