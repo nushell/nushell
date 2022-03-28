@@ -288,7 +288,8 @@ impl Command for ParEach {
                     redirect_stderr,
                 )
             }
-        }.map(|res| res.set_metadata(metadata))
+        }
+        .map(|res| res.set_metadata(metadata))
     }
 }
 

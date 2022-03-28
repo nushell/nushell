@@ -81,7 +81,8 @@ impl Command for Get {
             }
 
             Ok(output.into_iter().into_pipeline_data(ctrlc))
-        }.map(|x| x.set_metadata(metadata))
+        }
+        .map(|x| x.set_metadata(metadata))
     }
     fn examples(&self) -> Vec<Example> {
         vec![

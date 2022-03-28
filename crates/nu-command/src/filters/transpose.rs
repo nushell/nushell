@@ -227,7 +227,8 @@ pub fn transpose(
             span: name,
         }
     }))
-    .into_pipeline_data(ctrlc).set_metadata(metadata))
+    .into_pipeline_data(ctrlc)
+    .set_metadata(metadata))
 }
 
 #[cfg(test)]
