@@ -283,9 +283,10 @@ impl PipelineData {
                 }
             }
 
-            PipelineData::Value(Value::Range { val, .. }, ..) => {
-                Ok(val.into_range_iter()?.map(f).into_pipeline_data(ctrlc))
-            }
+            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
+                .into_range_iter(ctrlc.clone())?
+                .map(f)
+                .into_pipeline_data(ctrlc)),
             PipelineData::Value(v, ..) => match f(v) {
                 Value::Error { error } => Err(error),
                 v => Ok(v.into_pipeline_data()),
@@ -337,10 +338,12 @@ impl PipelineData {
                     .into_pipeline_data(ctrlc))
                 }
             }
-            PipelineData::Value(Value::Range { val, .. }, ..) => match val.into_range_iter() {
-                Ok(iter) => Ok(iter.flat_map(f).into_pipeline_data(ctrlc)),
-                Err(error) => Err(error),
-            },
+            PipelineData::Value(Value::Range { val, .. }, ..) => {
+                match val.into_range_iter(ctrlc.clone()) {
+                    Ok(iter) => Ok(iter.flat_map(f).into_pipeline_data(ctrlc)),
+                    Err(error) => Err(error),
+                }
+            }
             PipelineData::Value(v, ..) => Ok(f(v).into_iter().into_pipeline_data(ctrlc)),
         }
     }
@@ -392,9 +395,10 @@ impl PipelineData {
                     }
                 }
             }
-            PipelineData::Value(Value::Range { val, .. }, ..) => {
-                Ok(val.into_range_iter()?.filter(f).into_pipeline_data(ctrlc))
-            }
+            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
+                .into_range_iter(ctrlc.clone())?
+                .filter(f)
+                .into_pipeline_data(ctrlc)),
             PipelineData::Value(v, ..) => {
                 if f(&v) {
                     Ok(v.into_pipeline_data())
@@ -425,7 +429,7 @@ impl IntoIterator for PipelineData {
                 ))
             }
             PipelineData::Value(Value::Range { val, .. }, metadata) => {
-                match val.into_range_iter() {
+                match val.into_range_iter(None) {
                     Ok(iter) => PipelineIterator(PipelineData::ListStream(
                         ListStream {
                             stream: Box::new(iter),

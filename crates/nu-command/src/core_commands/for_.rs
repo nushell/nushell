@@ -125,7 +125,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
                 .filter(|x| !x.is_nothing())
                 .into_pipeline_data(ctrlc)),
             Value::Range { val, .. } => Ok(val
-                .into_range_iter()?
+                .into_range_iter(ctrlc.clone())?
                 .enumerate()
                 .map(move |(idx, x)| {
                     stack.with_env(&orig_env_vars, &orig_env_hidden);

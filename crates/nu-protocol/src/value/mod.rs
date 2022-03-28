@@ -605,7 +605,7 @@ impl Value {
                             }
                         }
                         Value::Range { val, .. } => {
-                            if let Some(item) = val.clone().into_range_iter()?.nth(*count) {
+                            if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
                                 current = item.clone();
                             } else {
                                 return Err(ShellError::AccessBeyondEndOfStream(*origin_span));

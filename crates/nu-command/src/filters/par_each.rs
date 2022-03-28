@@ -71,7 +71,7 @@ impl Command for ParEach {
 
         match input {
             PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
-                .into_range_iter()?
+                .into_range_iter(ctrlc.clone())?
                 .enumerate()
                 .par_bridge()
                 .map(move |(idx, x)| {

@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 /// A Range is an iterator over integers.
 use crate::{
@@ -122,10 +125,13 @@ impl Range {
         }
     }
 
-    pub fn into_range_iter(self) -> Result<RangeIterator, ShellError> {
+    pub fn into_range_iter(
+        self,
+        ctrlc: Option<Arc<AtomicBool>>,
+    ) -> Result<RangeIterator, ShellError> {
         let span = self.from.span()?;
 
-        Ok(RangeIterator::new(self, span))
+        Ok(RangeIterator::new(self, ctrlc, span))
     }
 }
 
@@ -155,10 +161,11 @@ pub struct RangeIterator {
     moves_up: bool,
     incr: Value,
     done: bool,
+    ctrlc: Option<Arc<AtomicBool>>,
 }
 
 impl RangeIterator {
-    pub fn new(range: Range, span: Span) -> RangeIterator {
+    pub fn new(range: Range, ctrlc: Option<Arc<AtomicBool>>, span: Span) -> RangeIterator {
         let moves_up = range.moves_up();
         let is_end_inclusive = range.is_end_inclusive();
 
@@ -183,6 +190,7 @@ impl RangeIterator {
             is_end_inclusive,
             done: false,
             incr: range.incr,
+            ctrlc,
         }
     }
 }
@@ -192,6 +200,12 @@ impl Iterator for RangeIterator {
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
             return None;
+        }
+
+        if let Some(ctrlc) = &self.ctrlc {
+            if ctrlc.load(core::sync::atomic::Ordering::SeqCst) {
+                return None;
+            }
         }
 
         let ordering = if matches!(self.end, Value::Nothing { .. }) {
