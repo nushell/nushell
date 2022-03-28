@@ -112,7 +112,7 @@ fn flatten(
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let tag = call.head;
     let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    let metadata = input.metadata().clone();
+    let metadata = input.metadata();
 
     input
         .flat_map(
