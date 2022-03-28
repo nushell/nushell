@@ -27,13 +27,11 @@ pub fn evaluate_repl(
     history_path: Option<PathBuf>,
     is_perf_true: bool,
 ) -> Result<()> {
-    // use crate::logger::{configure, logger};
     use reedline::{FileBackedHistory, Reedline, Signal};
 
     let mut entry_num = 0;
 
     let mut nu_prompt = NushellPrompt::new();
-    // let mut stack = nu_protocol::engine::Stack::new();
 
     // First, set up env vars as strings only
     // gather_parent_env_vars(engine_state);
@@ -147,6 +145,7 @@ pub fn evaluate_repl(
             }))
             .with_completer(Box::new(NuCompleter::new(
                 engine_state.clone(),
+                stack.clone(),
                 stack.vars.get(&CONFIG_VARIABLE_ID).cloned(),
             )))
             .with_quick_completions(config.quick_completions)
