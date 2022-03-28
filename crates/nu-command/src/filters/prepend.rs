@@ -82,12 +82,14 @@ impl Command for Prepend {
     ) -> Result<PipelineData, ShellError> {
         let val: Value = call.req(engine_state, stack, 0)?;
         let vec: Vec<Value> = process_value(val);
+        let metadata = input.metadata();
 
         Ok(vec
             .into_iter()
             .chain(input)
             .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data(engine_state.ctrlc.clone())
+            .set_metadata(metadata))
     }
 }
 
