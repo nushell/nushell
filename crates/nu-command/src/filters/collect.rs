@@ -37,6 +37,7 @@ impl Command for Collect {
         let block = engine_state.get_block(capture_block.block_id).clone();
         let mut stack = stack.captures_to_stack(&capture_block.captures);
 
+        let metadata = input.metadata();
         let input: Value = input.into_value(call.head);
 
         if let Some(var) = block.signature.get_positional(0) {
@@ -53,6 +54,7 @@ impl Command for Collect {
             call.redirect_stdout,
             call.redirect_stderr,
         )
+        .map(|res| res.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

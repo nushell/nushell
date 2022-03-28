@@ -77,31 +77,34 @@ pub fn compact(
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, ShellError> {
     let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
-    input.filter(
-        move |item| {
-            match item {
-                // Nothing is filtered out
-                Value::Nothing { .. } => false,
-                Value::Record { .. } => {
-                    for column in columns.iter() {
-                        match item.get_data_by_key(column) {
-                            None => return false,
-                            Some(x) => {
-                                if let Value::Nothing { .. } = x {
-                                    return false;
+    let metadata = input.metadata();
+    input
+        .filter(
+            move |item| {
+                match item {
+                    // Nothing is filtered out
+                    Value::Nothing { .. } => false,
+                    Value::Record { .. } => {
+                        for column in columns.iter() {
+                            match item.get_data_by_key(column) {
+                                None => return false,
+                                Some(x) => {
+                                    if let Value::Nothing { .. } = x {
+                                        return false;
+                                    }
                                 }
                             }
                         }
+                        // No defined columns contained Nothing
+                        true
                     }
-                    // No defined columns contained Nothing
-                    true
+                    // Any non-Nothing, non-record should be kept
+                    _ => true,
                 }
-                // Any non-Nothing, non-record should be kept
-                _ => true,
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
+            },
+            engine_state.ctrlc.clone(),
+        )
+        .map(|m| m.set_metadata(metadata))
 }
 
 #[cfg(test)]
