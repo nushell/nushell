@@ -77,11 +77,12 @@ impl Command for Headers {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let config = stack.get_config()?;
+        let metadata = input.metadata();
         let value = input.into_value(call.head);
         let headers = extract_headers(&value, &config)?;
         let new_headers = replace_headers(value, &headers)?;
 
-        Ok(new_headers.into_pipeline_data())
+        Ok(new_headers.into_pipeline_data().set_metadata(metadata))
     }
 }
 

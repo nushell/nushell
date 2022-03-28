@@ -110,6 +110,7 @@ fn rename(
     }
 
     let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
+    let metadata = input.metadata();
 
     input.map(
         move |item| match item {
@@ -153,6 +154,7 @@ fn rename(
         },
         engine_state.ctrlc.clone(),
     )
+    .map(|x| x.set_metadata(metadata))
 }
 
 #[cfg(test)]

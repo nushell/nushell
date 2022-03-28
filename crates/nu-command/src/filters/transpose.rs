@@ -133,6 +133,7 @@ pub fn transpose(
     };
 
     let ctrlc = engine_state.ctrlc.clone();
+    let metadata = input.metadata();
     let input: Vec<_> = input.into_iter().collect();
     let args = transpose_args;
 
@@ -226,7 +227,7 @@ pub fn transpose(
             span: name,
         }
     }))
-    .into_pipeline_data(ctrlc))
+    .into_pipeline_data(ctrlc).set_metadata(metadata))
 }
 
 #[cfg(test)]
