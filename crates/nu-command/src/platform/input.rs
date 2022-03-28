@@ -1,3 +1,4 @@
+use crossterm::event::{Event, KeyCode, KeyModifiers};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -27,6 +28,7 @@ impl Command for Input {
                 "read bytes (not text) until a stop byte",
                 Some('u'),
             )
+            .switch("suppress-output", "don't print keystroke values", Some('s'))
             .category(Category::Platform)
     }
 
@@ -39,6 +41,7 @@ impl Command for Input {
     ) -> Result<PipelineData, ShellError> {
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
         let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until")?;
+        let suppress_output = call.has_flag("suppress-output");
 
         if let Some(bytes_until) = bytes_until {
             let _ = crossterm::terminal::enable_raw_mode();
@@ -83,8 +86,38 @@ impl Command for Input {
                 let _ = std::io::stdout().flush();
             }
 
-            // Just read a normal line of text
             let mut buf = String::new();
+
+            if suppress_output {
+                let _ = crossterm::terminal::enable_raw_mode();
+                loop {
+                    let event = crossterm::event::read()?;
+                    if let Event::Key(k) = event {
+                        match k.code {
+                            // TODO: maintain keycode parity with existing command
+                            KeyCode::Char(_) if k.modifiers != KeyModifiers::NONE => continue,
+                            KeyCode::Char(c) => buf.push(c),
+
+                            // TODO: handle cursor position?
+                            KeyCode::Backspace => {
+                                let _ = buf.pop();
+                            }
+                            KeyCode::Enter => break,
+                            _ => continue,
+                        }
+                    } else {
+                        continue;
+                    }
+                }
+                let _ = crossterm::terminal::disable_raw_mode();
+                return Ok(Value::String {
+                    val: buf,
+                    span: call.head,
+                }
+                .into_pipeline_data());
+            }
+
+            // Just read a normal line of text
             let input = std::io::stdin().read_line(&mut buf);
 
             match input {
