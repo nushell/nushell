@@ -28,13 +28,15 @@ impl Default for CompletionOptions {
 #[derive(Clone)]
 pub struct NuCompleter {
     engine_state: EngineState,
+    stack: Stack,
     config: Option<Value>,
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: EngineState, config: Option<Value>) -> Self {
+    pub fn new(engine_state: EngineState, stack: Stack, config: Option<Value>) -> Self {
         Self {
             engine_state,
+            stack,
             config,
         }
     }
@@ -296,9 +298,8 @@ impl NuCompleter {
 
                         match &flat.1 {
                             FlatShape::Custom(decl_id) => {
-                                //let prefix = working_set.get_span_contents(flat.0).to_vec();
+                                let mut stack = self.stack.clone();
 
-                                let mut stack = Stack::new();
                                 // Set up our initial config to start from
                                 if let Some(conf) = &self.config {
                                     stack.vars.insert(CONFIG_VARIABLE_ID, conf.clone());
