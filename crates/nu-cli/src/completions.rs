@@ -3,7 +3,7 @@ use nu_parser::{flatten_expression, parse, trim_quotes, FlatShape};
 use nu_protocol::{
     ast::{Call, Expr},
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Value, CONFIG_VARIABLE_ID,
+    levenshtein_distance, PipelineData, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::{Completer, Suggestion};
 
@@ -173,7 +173,7 @@ impl NuCompleter {
 
         let prefix = working_set.get_span_contents(span);
         let prefix = String::from_utf8_lossy(prefix).to_string();
-        if find_externals {
+        let mut results = if find_externals {
             let results_external =
                 self.external_command_completion(&prefix)
                     .into_iter()
@@ -201,7 +201,15 @@ impl NuCompleter {
             results
         } else {
             results
-        }
+        };
+
+        results.sort_by(|a, b| {
+            let a_distance = levenshtein_distance(&prefix, &a.value);
+            let b_distance = levenshtein_distance(&prefix, &b.value);
+            a_distance.cmp(&b_distance)
+        });
+
+        results
     }
 
     fn completion_helper(&self, line: &str, pos: usize) -> Vec<Suggestion> {
@@ -449,7 +457,13 @@ impl NuCompleter {
                                             },
                                         })
                                         .collect();
-                                output.sort_by(|a, b| a.value.cmp(&b.value));
+                                // output.sort_by(|a, b| a.value.cmp(&b.value));
+                                output.sort_by(|a, b| {
+                                    let a_distance = levenshtein_distance(&prefix, &a.value);
+                                    let b_distance = levenshtein_distance(&prefix, &b.value);
+                                    a_distance.cmp(&b_distance)
+                                });
+
                                 return output;
                             }
                             flat_shape => {
@@ -562,7 +576,12 @@ impl NuCompleter {
                                     .chain(commands.into_iter())
                                     .collect::<Vec<_>>();
                                 //output.dedup_by(|a, b| a.1 == b.1);
-                                output.sort_by(|a, b| a.value.cmp(&b.value));
+                                //output.sort_by(|a, b| a.value.cmp(&b.value));
+                                output.sort_by(|a, b| {
+                                    let a_distance = levenshtein_distance(&prefix, &a.value);
+                                    let b_distance = levenshtein_distance(&prefix, &b.value);
+                                    a_distance.cmp(&b_distance)
+                                });
 
                                 return output;
                             }
@@ -609,7 +628,7 @@ fn file_path_completion(
         return Vec::new();
     }
 
-    if let Ok(result) = base_dir.read_dir() {
+    let mut results = if let Ok(result) = base_dir.read_dir() {
         result
             .filter_map(|entry| {
                 entry.ok().and_then(|entry| {
@@ -634,7 +653,15 @@ fn file_path_completion(
             .collect()
     } else {
         Vec::new()
-    }
+    };
+
+    results.sort_by(|a, b| {
+        let a_distance = levenshtein_distance(partial, &a.1);
+        let b_distance = levenshtein_distance(partial, &b.1);
+        a_distance.cmp(&b_distance)
+    });
+
+    results
 }
 
 fn matches(partial: &str, from: &str) -> bool {
