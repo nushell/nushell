@@ -97,8 +97,6 @@ impl Command for Input {
                             // TODO: maintain keycode parity with existing command
                             KeyCode::Char(_) if k.modifiers != KeyModifiers::NONE => continue,
                             KeyCode::Char(c) => buf.push(c),
-
-                            // TODO: handle cursor position?
                             KeyCode::Backspace => {
                                 let _ = buf.pop();
                             }
