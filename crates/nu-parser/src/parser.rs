@@ -4117,7 +4117,7 @@ pub fn parse_expression(
         // Check if there is any environment shorthand
         let name = working_set.get_span_contents(spans[pos]);
 
-        let split = name.split(|x| *x == b'=');
+        let split = name.splitn(2, |x| *x == b'=');
         let split: Vec<_> = split.collect();
         if split.len() == 2 && !split[0].is_empty() {
             let point = split[0].len() + 1;

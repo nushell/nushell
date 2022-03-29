@@ -14,8 +14,6 @@ fn env_shorthand() {
     assert_eq!(actual.out, "bar");
 }
 
-// FIXME: shorthand breaks when there's an equals sign in the env var
-#[ignore]
 #[test]
 fn env_shorthand_with_equals() {
     let actual = nu!(cwd: ".", r#"
@@ -24,8 +22,6 @@ fn env_shorthand_with_equals() {
     assert_eq!(actual.out, "my_module=info");
 }
 
-// FIXME: shorthand breaks when there's an equals sign in the env var
-#[ignore]
 #[test]
 fn env_shorthand_with_comma_equals() {
     let actual = nu!(cwd: ".", r#"
@@ -34,8 +30,6 @@ fn env_shorthand_with_comma_equals() {
     assert_eq!(actual.out, "info,my_module=info");
 }
 
-// FIXME: shorthand breaks when there's an equals sign in the env var
-#[ignore]
 #[test]
 fn env_shorthand_with_comma_colons_equals() {
     let actual = nu!(cwd: ".", r#"
@@ -44,8 +38,6 @@ fn env_shorthand_with_comma_colons_equals() {
     assert_eq!(actual.out, "info,my_module=info,lib_crate::lib_mod=trace");
 }
 
-// FIXME: shorthand breaks when there's an equals sign in the env var
-#[ignore]
 #[test]
 fn env_shorthand_multi_second_with_comma_colons_equals() {
     let actual = nu!(cwd: ".", r#"
@@ -57,8 +49,6 @@ fn env_shorthand_multi_second_with_comma_colons_equals() {
     );
 }
 
-// FIXME: shorthand breaks when there's an equals sign in the env var
-#[ignore]
 #[test]
 fn env_shorthand_multi_first_with_comma_colons_equals() {
     let actual = nu!(cwd: ".", r#"
