@@ -647,7 +647,7 @@ fn run_dynamic_blocks() {
     assert_eq!(actual.out, "holaaaa");
 }
 
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 #[test]
 fn argument_subexpression_reports_errors() {
     let actual = nu!(

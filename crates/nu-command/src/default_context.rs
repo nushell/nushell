@@ -142,7 +142,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Sys,
         };
 
-        #[cfg(feature = "which")]
+        #[cfg(feature = "which-support")]
         bind_command! { Which };
 
         // Strings

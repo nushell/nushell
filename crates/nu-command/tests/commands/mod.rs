@@ -66,7 +66,7 @@ mod update;
 mod upsert;
 mod use_;
 mod where_;
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 mod which;
 mod with_env;
 mod wrap;
