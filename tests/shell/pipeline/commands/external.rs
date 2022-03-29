@@ -1,6 +1,6 @@
 use nu_test_support::nu;
 
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 #[test]
 fn shows_error_for_command_not_found() {
     let actual = nu!(
@@ -11,7 +11,7 @@ fn shows_error_for_command_not_found() {
     assert!(!actual.err.is_empty());
 }
 
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 #[test]
 fn shows_error_for_command_not_found_in_pipeline() {
     let actual = nu!(
@@ -23,7 +23,7 @@ fn shows_error_for_command_not_found_in_pipeline() {
 }
 
 #[ignore] // jt: we can't test this using the -c workaround currently
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 #[test]
 fn automatically_change_directory() {
     use nu_test_support::playground::Playground;

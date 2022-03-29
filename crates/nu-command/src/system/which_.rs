@@ -128,7 +128,7 @@ fn get_entries_in_nu(
     all_entries
 }
 
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 fn get_first_entry_in_path(
     item: &str,
     span: Span,
@@ -140,7 +140,7 @@ fn get_first_entry_in_path(
         .ok()
 }
 
-#[cfg(not(feature = "which"))]
+#[cfg(not(feature = "which-support"))]
 fn get_first_entry_in_path(
     _item: &str,
     _span: Span,
@@ -150,7 +150,7 @@ fn get_first_entry_in_path(
     None
 }
 
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 fn get_all_entries_in_path(
     item: &str,
     span: Span,
@@ -165,7 +165,7 @@ fn get_all_entries_in_path(
         .unwrap_or_default()
 }
 
-#[cfg(not(feature = "which"))]
+#[cfg(not(feature = "which-support"))]
 fn get_all_entries_in_path(
     _item: &str,
     _span: Span,

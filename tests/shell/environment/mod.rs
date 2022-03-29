@@ -1,5 +1,7 @@
 mod env;
-mod nu_env;
+
+// FIXME: nu_env tests depend on autoenv which hasn't been ported yet
+// mod nu_env;
 
 pub mod support {
     use nu_test_support::{nu, playground::*, Outcome};

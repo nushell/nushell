@@ -256,7 +256,7 @@ fn features_enabled() -> Vec<String> {
         names.push("uuid".to_string());
     }
 
-    #[cfg(feature = "which")]
+    #[cfg(feature = "which-support")]
     {
         names.push("which".to_string());
     }
