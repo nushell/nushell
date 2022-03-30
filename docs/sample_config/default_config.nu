@@ -196,7 +196,8 @@ let $config = {
   use_ansi_coloring: true
   filesize_format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
   edit_mode: emacs # emacs, vi
-  max_history_size: 10000
+  max_history_size: 10000 # Session has to be reloaded for this to take effect
+  sync_history_on_enter: true # Enable to share the history between multiple sessions, else you have to close the session to persist history to file
   menu_config: {
     columns: 4
     col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
