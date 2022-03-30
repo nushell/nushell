@@ -80,7 +80,7 @@ extra = ["default", "dataframe"]
 wasi = []
 
 # Stable (Default)
-which-support = ["nu-command/which"]
+which-support = ["nu-command/which-support"]
 zip-support = ["nu-command/zip"]
 trash-support = ["nu-command/trash-support"]
 
