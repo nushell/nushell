@@ -101,6 +101,7 @@ features = [
 
 [features]
 trash-support = ["trash"]
+which-support = ["which"]
 plugin = ["nu-parser/plugin"]
 dataframe = ["polars", "num"]
 
