@@ -76,7 +76,7 @@ impl Command for LoadEnv {
                     Ok(PipelineData::new(call.head))
                 }
                 _ => Err(ShellError::UnsupportedInput(
-                    "Record not supported".into(),
+                    "'load-env' expects a single record".into(),
                     span,
                 )),
             },
