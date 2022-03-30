@@ -89,11 +89,10 @@ impl Command for Input {
             let mut buf = String::new();
 
             if suppress_output {
-                let _ = crossterm::terminal::enable_raw_mode();
+                crossterm::terminal::enable_raw_mode()?;
                 loop {
-                    let event = crossterm::event::read()?;
-                    if let Event::Key(k) = event {
-                        match k.code {
+                    match crossterm::event::read() {
+                        Ok(Event::Key(k)) => match k.code {
                             // TODO: maintain keycode parity with existing command
                             KeyCode::Char(_) if k.modifiers != KeyModifiers::NONE => continue,
                             KeyCode::Char(c) => buf.push(c),
@@ -102,12 +101,15 @@ impl Command for Input {
                             }
                             KeyCode::Enter => break,
                             _ => continue,
+                        },
+                        Ok(_) => continue,
+                        Err(event_error) => {
+                            crossterm::terminal::disable_raw_mode()?;
+                            return Err(event_error.into());
                         }
-                    } else {
-                        continue;
                     }
                 }
-                let _ = crossterm::terminal::disable_raw_mode();
+                crossterm::terminal::disable_raw_mode()?;
                 return Ok(Value::String {
                     val: buf,
                     span: call.head,
