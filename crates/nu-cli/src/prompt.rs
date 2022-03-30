@@ -138,7 +138,7 @@ impl Prompt for NushellPrompt {
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
         match &self.default_multiline_indicator {
             Some(indicator) => indicator.as_str().into(),
-            None => "::: ".into(),
+            None => "(build-string ::: )".into(),
         }
     }
 
