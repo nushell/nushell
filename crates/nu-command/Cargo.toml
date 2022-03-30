@@ -96,7 +96,7 @@ features = [
 	"default", "parquet", "json", "serde", "object",
 	"checked_arithmetic", "strings", "cum_agg", "is_in",
 	"rolling_window", "strings", "rows", "random",
-    "dtype-datetime"
+    "dtype-datetime", "dtype-struct", "lazy"
 ]
 
 [features]
