@@ -1,4 +1,4 @@
-use nu_engine::{get_full_help, CallExt};
+use nu_engine::{eval_block, get_full_help, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -141,12 +141,15 @@ impl Command for Open {
 
             if let Some(ext) = ext {
                 match engine_state.find_decl(format!("from {}", ext).as_bytes()) {
-                    Some(converter_id) => engine_state.get_decl(converter_id).run(
-                        engine_state,
-                        stack,
-                        &Call::new(arg_span),
-                        output,
-                    ),
+                    Some(converter_id) => {
+                        let decl = engine_state.get_decl(converter_id);
+                        if let Some(block_id) = decl.get_block_id() {
+                            let block = engine_state.get_block(block_id);
+                            eval_block(engine_state, stack, block, output, false, false)
+                        } else {
+                            decl.run(engine_state, stack, &Call::new(arg_span), output)
+                        }
+                    }
                     None => Ok(output),
                 }
             } else {
