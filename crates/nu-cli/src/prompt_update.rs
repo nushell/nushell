@@ -2,7 +2,6 @@ use crate::util::report_error;
 use crate::NushellPrompt;
 use log::info;
 use nu_engine::eval_subexpression;
-use nu_parser::parse;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Config, PipelineData, Span, Value,
@@ -59,28 +58,7 @@ fn get_prompt_string(
                     }
                 }
             }
-            Value::String { val: source, .. } => {
-                let mut working_set = StateWorkingSet::new(engine_state);
-                let (block, _) = parse(&mut working_set, None, source.as_bytes(), true, &[]);
-                // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                let ret_val = eval_subexpression(
-                    engine_state,
-                    stack,
-                    &block,
-                    PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
-                )
-                .ok();
-                if is_perf_true {
-                    info!(
-                        "get_prompt_string (string) {}:{}:{}",
-                        file!(),
-                        line!(),
-                        column!()
-                    );
-                }
-
-                ret_val
-            }
+            Value::String { .. } => Some(PipelineData::Value(v.clone(), None)),
             _ => None,
         })
         .and_then(|pipeline_data| {
