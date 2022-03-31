@@ -8,6 +8,7 @@ use crate::engine::EngineState;
 use crate::engine::Stack;
 use crate::BlockId;
 use crate::PipelineData;
+use crate::ShellError;
 use crate::SyntaxShape;
 use crate::VarId;
 
@@ -548,7 +549,9 @@ impl Command for BlockCommand {
         _call: &Call,
         _input: PipelineData,
     ) -> Result<crate::PipelineData, crate::ShellError> {
-        panic!("Internal error: can't run custom command with 'run', use block_id");
+        Err(ShellError::UnlabeledError(
+            "Internal error: can't run custom command with 'run', use block_id".to_string(),
+        ))
     }
 
     fn get_block_id(&self) -> Option<BlockId> {
