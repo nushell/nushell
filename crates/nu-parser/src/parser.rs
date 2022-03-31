@@ -2487,6 +2487,9 @@ pub fn parse_shape_name(
         b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
         b"variable" => SyntaxShape::Variable,
+        b"record" => SyntaxShape::Record,
+        b"list" => SyntaxShape::List(Box::new(SyntaxShape::Any)),
+        b"table" => SyntaxShape::Table,
         _ => {
             if bytes.contains(&b'@') {
                 let str = String::from_utf8_lossy(bytes);
