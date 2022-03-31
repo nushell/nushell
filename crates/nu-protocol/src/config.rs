@@ -29,6 +29,7 @@ pub struct Config {
     pub partial_completions: bool,
     pub edit_mode: String,
     pub max_history_size: i64,
+    pub sync_history_on_enter: bool,
     pub log_level: String,
     pub menu_config: HashMap<String, Value>,
     pub keybindings: Vec<ParsedKeybinding>,
@@ -54,6 +55,7 @@ impl Default for Config {
             partial_completions: true,
             edit_mode: "emacs".into(),
             max_history_size: 1000,
+            sync_history_on_enter: true,
             log_level: String::new(),
             menu_config: HashMap::new(),
             history_config: HashMap::new(),
@@ -197,6 +199,13 @@ impl Value {
                             config.max_history_size = i;
                         } else {
                             eprintln!("$config.max_history_size is not an integer")
+                        }
+                    }
+                    "sync_history_on_enter" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.sync_history_on_enter = b;
+                        } else {
+                            eprintln!("$config.sync_history_on_enter is not a bool")
                         }
                     }
                     "log_level" => {
