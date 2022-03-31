@@ -128,7 +128,7 @@ pub fn evaluate_repl(
     if is_perf_true {
         info!("setup reedline {}:{}:{}", file!(), line!(), column!());
     }
-    let mut line_editor = Reedline::create().into_diagnostic()?;
+    let mut line_editor = Reedline::create();
     if let Some(history_path) = history_path.as_deref() {
         if is_perf_true {
             info!("setup history {}:{}:{}", file!(), line!(), column!());
@@ -140,7 +140,7 @@ pub fn evaluate_repl(
             )
             .into_diagnostic()?,
         );
-        line_editor = line_editor.with_history(history).into_diagnostic()?;
+        line_editor = line_editor.with_history(history);
     };
 
     loop {
