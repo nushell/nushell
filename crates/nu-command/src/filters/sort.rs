@@ -15,7 +15,7 @@ impl Command for Sort {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("sort-by")
+        Signature::build("sort")
             .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "insensitive",
