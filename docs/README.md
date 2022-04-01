@@ -6,7 +6,7 @@ which is the configuration file one gets when they startup Nushell for the first
 It sets all of the default configuration to run Nushell.  From here one can
 then customize this file for their specific needs.
 
-To see where your config file is located on your system simply type this command.
+To see where *config.nu* is located on your system simply type this command.
 
 ```rust
 $nu.config-path
