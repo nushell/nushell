@@ -443,13 +443,14 @@ impl EngineState {
         None
     }
 
-    pub fn find_commands_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+    pub fn find_commands_by_prefix(&self, name: &[u8]) -> Vec<(Vec<u8>, Option<String>)> {
         let mut output = vec![];
 
         for scope in self.scope.iter().rev() {
             for decl in &scope.decls {
                 if decl.0.starts_with(name) {
-                    output.push(decl.0.clone());
+                    let command = self.get_decl(*decl.1);
+                    output.push((decl.0.clone(), Some(command.usage().to_string())));
                 }
             }
         }
@@ -1296,13 +1297,14 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn find_commands_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+    pub fn find_commands_by_prefix(&self, name: &[u8]) -> Vec<(Vec<u8>, Option<String>)> {
         let mut output = vec![];
 
         for scope in self.delta.scope.iter().rev() {
             for decl in &scope.decls {
                 if decl.0.starts_with(name) {
-                    output.push(decl.0.clone());
+                    let command = self.get_decl(*decl.1);
+                    output.push((decl.0.clone(), Some(command.usage().to_string())));
                 }
             }
         }

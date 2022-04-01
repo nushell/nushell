@@ -150,8 +150,8 @@ impl NuCompleter {
             .find_commands_by_prefix(prefix)
             .into_iter()
             .map(move |x| Suggestion {
-                value: String::from_utf8_lossy(&x).to_string(),
-                description: None,
+                value: String::from_utf8_lossy(&x.0).to_string(),
+                description: x.1,
                 span: reedline::Span {
                     start: span.start - offset,
                     end: span.end - offset,
