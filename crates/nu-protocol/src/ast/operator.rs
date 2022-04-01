@@ -23,6 +23,7 @@ pub enum Operator {
     And,
     Or,
     Pow,
+    StartsWith,
 }
 
 impl Display for Operator {
@@ -46,6 +47,7 @@ impl Display for Operator {
             Operator::Pow => write!(f, "**"),
             Operator::LessThanOrEqual => write!(f, "<="),
             Operator::GreaterThanOrEqual => write!(f, ">="),
+            Operator::StartsWith => write!(f, "=^"),
         }
     }
 }
