@@ -3940,6 +3940,7 @@ pub fn parse_operator(
         b">" => Operator::GreaterThan,
         b">=" => Operator::GreaterThanOrEqual,
         b"=~" => Operator::Contains,
+        b"=^" => Operator::StartsWith,
         b"!~" => Operator::NotContains,
         b"+" => Operator::Plus,
         b"-" => Operator::Minus,

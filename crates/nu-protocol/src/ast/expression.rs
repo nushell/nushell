@@ -34,6 +34,7 @@ impl Expression {
                     Operator::Plus | Operator::Minus => 90,
                     Operator::NotContains
                     | Operator::Contains
+                    | Operator::StartsWith
                     | Operator::LessThan
                     | Operator::LessThanOrEqual
                     | Operator::GreaterThan

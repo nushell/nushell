@@ -376,6 +376,19 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
+        Operator::StartsWith => match &right {
+            Value::String { val, .. } => {
+                let starts_with_pattern = format!("^{}", val);
+                contains_series_pat(&lhs, &starts_with_pattern, lhs_span)
+            }
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: operator.span,
+                lhs_ty: left.get_type(),
+                lhs_span: left.span()?,
+                rhs_ty: right.get_type(),
+                rhs_span: right.span()?,
+            }),
+        },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
             lhs_ty: left.get_type(),

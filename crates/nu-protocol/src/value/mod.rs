@@ -2031,6 +2031,27 @@ impl Value {
         }
     }
 
+    pub fn starts_with(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span()?, rhs.span()?]);
+
+        match (self, rhs) {
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs.starts_with(rhs),
+                span,
+            }),
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::StartsWith, op, rhs)
+            }
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
     pub fn not_contains(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span()?, rhs.span()?]);
 
