@@ -11,11 +11,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "date to-table"
+        "date to-record"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date to-table").category(Category::Date)
+        Signature::build("date to-record").category(Category::Date)
     }
 
     fn usage(&self) -> &str {
@@ -36,18 +36,18 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert the date into a structured table.",
+                description: "Convert the current date into a structured table.",
                 example: "date to-table",
                 result: None,
             },
             Example {
-                description: "Convert the date into a structured table.",
-                example: "date now | date to-table",
+                description: "Convert the current date into a structured table.",
+                example: "date now | date to-record",
                 result: None,
             },
             Example {
                 description: "Convert a given date into a structured table.",
-                example: " '2020-04-12 22:10:57 +0200' | date to-table",
+                example: " '2020-04-12 22:10:57 +0200' | date to-record",
                 result: {
                     let span = Span::test_data();
                     let cols = vec![
@@ -71,10 +71,7 @@ impl Command for SubCommand {
                             span,
                         },
                     ];
-                    Some(Value::List {
-                        vals: vec![Value::Record { cols, vals, span }],
-                        span,
-                    })
+                    Some(Value::Record { cols, vals, span })
                 },
             },
         ]
@@ -123,12 +120,9 @@ fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span)
                     span: head,
                 },
             ];
-            Value::List {
-                vals: vec![Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                }],
+            Value::Record {
+                cols,
+                vals,
                 span: head,
             }
         }
