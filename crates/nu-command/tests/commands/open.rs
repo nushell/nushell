@@ -266,8 +266,8 @@ fn test_open_block_command() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
         r#"
-            def "from ssv" [] { lines | split column ";" }
-            let values = (open sample.ssv)
+            def "from blockcommandparser" [] { lines | split column ",|," }
+            let values = (open sample.blockcommandparser)
             echo ($values | get column1 | get 0)
             echo ($values | get column2 | get 0)
             echo ($values | get column1 | get 1)
