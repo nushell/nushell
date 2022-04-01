@@ -44,7 +44,7 @@ fn flatten_table_get() -> TestResult {
 #[test]
 fn flatten_table_column_get_last() -> TestResult {
     run_test(
-        "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions.0",
+        "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions",
         "0.22",
     )
 }
