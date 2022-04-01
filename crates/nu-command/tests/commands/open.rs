@@ -261,7 +261,6 @@ fn open_dir_is_ls() {
     })
 }
 
-
 #[test]
 fn test_open_block_command() {
     let actual = nu!(
