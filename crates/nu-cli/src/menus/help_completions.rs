@@ -2,9 +2,6 @@ use nu_engine::documentation::get_flags_section;
 use nu_protocol::{engine::EngineState, levenshtein_distance};
 use reedline::{Completer, Suggestion};
 
-pub const EXAMPLE_MARKER: &str = ">>>>>>";
-pub const EXAMPLE_NEW_LINE: &str = "%%%%%%";
-
 pub struct NuHelpCompleter {
     engine_state: EngineState,
 }
@@ -83,18 +80,15 @@ impl NuHelpCompleter {
                     }
                 }
 
-                for example in examples {
-                    long_desc.push_str(&format!(
-                        "{}{}\r\n",
-                        EXAMPLE_MARKER,
-                        example.example.replace('\n', EXAMPLE_NEW_LINE)
-                    ))
-                }
+                let extra: Vec<String> = examples
+                    .iter()
+                    .map(|example| example.example.to_string())
+                    .collect();
 
                 Suggestion {
                     value: sig.name.clone(),
                     description: Some(long_desc),
-                    extra: None,
+                    extra: Some(extra),
                     span: reedline::Span {
                         start: 0,
                         end: sig.name.len(),

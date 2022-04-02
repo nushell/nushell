@@ -1,5 +1,4 @@
 use {
-    crate::help_completions::{EXAMPLE_MARKER, EXAMPLE_NEW_LINE},
     nu_ansi_term::{ansi::RESET, Style},
     reedline::{
         menu_functions::string_difference, Completer, LineBuffer, Menu, MenuEvent, MenuTextStyle,
@@ -279,19 +278,11 @@ impl NuHelpMenu {
 
     /// Update list of examples from the actual value
     fn update_examples(&mut self) {
-        let examples = self
+        self.examples = self
             .get_value()
-            .and_then(|suggestion| suggestion.description)
-            .unwrap_or_else(|| "".to_string())
-            .lines()
-            .filter(|line| line.starts_with(EXAMPLE_MARKER))
-            .map(|line| {
-                line.replace(EXAMPLE_MARKER, "")
-                    .replace(EXAMPLE_NEW_LINE, "\r\n")
-            })
-            .collect::<Vec<String>>();
+            .and_then(|suggestion| suggestion.extra)
+            .unwrap_or_default();
 
-        self.examples = examples;
         self.example_index = None;
     }
 
@@ -359,7 +350,6 @@ impl NuHelpMenu {
             .and_then(|suggestion| suggestion.description)
             .unwrap_or_else(|| "".to_string())
             .lines()
-            .filter(|line| !line.starts_with(EXAMPLE_MARKER))
             .skip(self.skipped_rows)
             .take(self.working_details.description_rows)
             .collect::<Vec<&str>>()
@@ -478,7 +468,7 @@ impl Menu for NuHelpMenu {
                     .map(|suggestion| Suggestion {
                         value: suggestion.value,
                         description: suggestion.description,
-                        extra: None,
+                        extra: suggestion.extra,
                         span: reedline::Span {
                             start,
                             end: start + input.len(),
@@ -601,7 +591,6 @@ impl Menu for NuHelpMenu {
                         .and_then(|suggestion| suggestion.description)
                         .unwrap_or_else(|| "".to_string())
                         .lines()
-                        .filter(|line| !line.starts_with(EXAMPLE_MARKER))
                         .count();
 
                     let allowed_skips =
