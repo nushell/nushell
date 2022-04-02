@@ -31,8 +31,8 @@ pub struct Config {
     pub max_history_size: i64,
     pub sync_history_on_enter: bool,
     pub log_level: String,
-    pub menu_config: HashMap<String, Value>,
     pub keybindings: Vec<ParsedKeybinding>,
+    pub menu_config: HashMap<String, Value>,
     pub history_config: HashMap<String, Value>,
     pub help_config: HashMap<String, Value>,
     pub rm_always_trash: bool,
@@ -57,10 +57,10 @@ impl Default for Config {
             max_history_size: 1000,
             sync_history_on_enter: true,
             log_level: String::new(),
+            keybindings: Vec::new(),
             menu_config: HashMap::new(),
             history_config: HashMap::new(),
             help_config: HashMap::new(),
-            keybindings: Vec::new(),
             rm_always_trash: false,
         }
     }

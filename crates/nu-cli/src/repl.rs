@@ -1,4 +1,4 @@
-use crate::reedline_config::{add_completion_menu, add_help_menu, add_history_menu};
+use crate::reedline_config::{add_columnar_menu, add_search_menu, add_description_menu};
 use crate::{prompt_update, reedline_config, NuHelpCompleter};
 use crate::{
     reedline_config::KeybindingsMode,
@@ -194,11 +194,16 @@ pub fn evaluate_repl(
             info!("update reedline {}:{}:{}", file!(), line!(), column!());
         }
 
-        line_editor = add_completion_menu(line_editor, &config);
-        line_editor = add_history_menu(line_editor, &config);
-
+        line_editor = line_editor.clear_menus();
+        line_editor = add_columnar_menu(line_editor, "completion_menu", &config.menu_config);
+        line_editor = add_search_menu(line_editor, "history_menu", &config.history_config);
         let help_completer = Box::new(NuHelpCompleter::new(engine_state.clone()));
-        line_editor = add_help_menu(line_editor, help_completer, &config);
+        line_editor = add_description_menu(
+            line_editor,
+            "help_menu",
+            &config.help_config,
+            help_completer,
+        );
 
         if is_perf_true {
             info!("setup colors {}:{}:{}", file!(), line!(), column!());

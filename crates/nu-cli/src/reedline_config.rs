@@ -7,204 +7,208 @@ use reedline::{
     ColumnarMenu, Completer, EditCommand, Keybindings, Reedline, ReedlineEvent, ReedlineMenu,
     SearchMenu,
 };
+use std::collections::HashMap;
 
-// Creates an input object for the completion menu based on the dictionary
-// stored in the config variable
-pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Reedline {
-    let mut completion_menu = ColumnarMenu::default().with_name("completion_menu");
-
-    completion_menu = match config
-        .menu_config
-        .get("columns")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => completion_menu.with_columns(value as u16),
-        None => completion_menu,
-    };
-
-    completion_menu = completion_menu.with_column_width(
-        config
-            .menu_config
-            .get("col_width")
-            .and_then(|value| value.as_integer().ok())
-            .map(|value| value as usize),
-    );
-
-    completion_menu = match config
-        .menu_config
-        .get("col_padding")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => completion_menu.with_column_padding(value as usize),
-        None => completion_menu,
-    };
-
-    completion_menu = match config
-        .menu_config
-        .get("text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => completion_menu.with_text_style(lookup_ansi_color_style(&value)),
-        None => completion_menu,
-    };
-
-    completion_menu = match config
-        .menu_config
-        .get("selected_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => completion_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => completion_menu,
-    };
-
-    completion_menu = match config
-        .menu_config
-        .get("marker")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => completion_menu.with_marker(value),
-        None => completion_menu,
-    };
-
-    line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(completion_menu)))
-}
-
-// Creates an input object for the history menu based on the dictionary
-// stored in the config variable
-pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedline {
-    let mut history_menu = SearchMenu::default().with_name("history_menu");
-
-    history_menu = match config
-        .history_config
-        .get("page_size")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => history_menu.with_page_size(value as usize),
-        None => history_menu,
-    };
-
-    history_menu = match config
-        .history_config
-        .get("text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => history_menu.with_text_style(lookup_ansi_color_style(&value)),
-        None => history_menu,
-    };
-
-    history_menu = match config
-        .history_config
-        .get("selected_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => history_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => history_menu,
-    };
-
-    history_menu = match config
-        .history_config
-        .get("marker")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => history_menu.with_marker(value),
-        None => history_menu,
-    };
-
-    line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(history_menu)))
-}
-
-// Creates an input object for the help menu based on the dictionary
-// stored in the config variable
-pub(crate) fn add_help_menu(
+// Adds a columnar menu to the editor engine
+pub(crate) fn add_columnar_menu(
     line_editor: Reedline,
-    help_completer: Box<dyn Completer>,
-    config: &Config,
+    name: &str,
+    config: &HashMap<String, Value>,
 ) -> Reedline {
-    let mut help_menu = NuHelpMenu::default();
+    let mut menu = ColumnarMenu::default().with_name(name);
 
-    help_menu = match config
-        .help_config
+    menu = match config
         .get("columns")
         .and_then(|value| value.as_integer().ok())
     {
-        Some(value) => help_menu.with_columns(value as u16),
-        None => help_menu,
+        Some(value) => menu.with_columns(value as u16),
+        None => menu,
     };
 
-    help_menu = help_menu.with_column_width(
+    menu = menu.with_column_width(
         config
-            .help_config
             .get("col_width")
             .and_then(|value| value.as_integer().ok())
             .map(|value| value as usize),
     );
 
-    help_menu = match config
-        .help_config
+    menu = match config
         .get("col_padding")
         .and_then(|value| value.as_integer().ok())
     {
-        Some(value) => help_menu.with_column_padding(value as usize),
-        None => help_menu,
+        Some(value) => menu.with_column_padding(value as usize),
+        None => menu,
     };
 
-    help_menu = match config
-        .help_config
-        .get("selection_rows")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => help_menu.with_selection_rows(value as u16),
-        None => help_menu,
-    };
-
-    help_menu = match config
-        .help_config
-        .get("description_rows")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => help_menu.with_description_rows(value as usize),
-        None => help_menu,
-    };
-
-    help_menu = match config
-        .help_config
+    menu = match config
         .get("text_style")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => help_menu.with_text_style(lookup_ansi_color_style(&value)),
-        None => help_menu,
+        Some(value) => menu.with_text_style(lookup_ansi_color_style(&value)),
+        None => menu,
     };
 
-    help_menu = match config
-        .help_config
+    menu = match config
         .get("selected_text_style")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => help_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => help_menu,
+        Some(value) => menu.with_selected_text_style(lookup_ansi_color_style(&value)),
+        None => menu,
     };
 
-    help_menu = match config
-        .help_config
+    menu = match config
         .get("description_text_style")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => help_menu.with_description_text_style(lookup_ansi_color_style(&value)),
-        None => help_menu,
+        Some(value) => menu.with_description_text_style(lookup_ansi_color_style(&value)),
+        None => menu,
     };
 
-    help_menu = match config
-        .help_config
+    menu = match config
         .get("marker")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => help_menu.with_marker(value),
-        None => help_menu,
+        Some(value) => menu.with_marker(value),
+        None => menu,
+    };
+
+    line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(menu)))
+}
+
+// Adds a search menu to the line editor
+pub(crate) fn add_search_menu(
+    line_editor: Reedline,
+    name: &str,
+    config: &HashMap<String, Value>,
+) -> Reedline {
+    let mut menu = SearchMenu::default().with_name(name);
+
+    menu = match config
+        .get("page_size")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => menu.with_page_size(value as usize),
+        None => menu,
+    };
+
+    menu = match config
+        .get("text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => menu.with_text_style(lookup_ansi_color_style(&value)),
+        None => menu,
+    };
+
+    menu = match config
+        .get("selected_text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => menu.with_selected_text_style(lookup_ansi_color_style(&value)),
+        None => menu,
+    };
+
+    menu = match config
+        .get("description_text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => menu.with_description_text_style(lookup_ansi_color_style(&value)),
+        None => menu,
+    };
+
+    menu = match config
+        .get("marker")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => menu.with_marker(value),
+        None => menu,
+    };
+
+    line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(menu)))
+}
+
+// Adds a description menu to the line editor
+pub(crate) fn add_description_menu(
+    line_editor: Reedline,
+    name: &str,
+    config: &HashMap<String, Value>,
+    completer: Box<dyn Completer>,
+) -> Reedline {
+    let mut menu = NuHelpMenu::default().with_name(name);
+
+    menu = match config
+        .get("columns")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => menu.with_columns(value as u16),
+        None => menu,
+    };
+
+    menu = menu.with_column_width(
+        config
+            .get("col_width")
+            .and_then(|value| value.as_integer().ok())
+            .map(|value| value as usize),
+    );
+
+    menu = match config
+        .get("col_padding")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => menu.with_column_padding(value as usize),
+        None => menu,
+    };
+
+    menu = match config
+        .get("selection_rows")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => menu.with_selection_rows(value as u16),
+        None => menu,
+    };
+
+    menu = match config
+        .get("description_rows")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => menu.with_description_rows(value as usize),
+        None => menu,
+    };
+
+    menu = match config
+        .get("text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => menu.with_text_style(lookup_ansi_color_style(&value)),
+        None => menu,
+    };
+
+    menu = match config
+        .get("selected_text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => menu.with_selected_text_style(lookup_ansi_color_style(&value)),
+        None => menu,
+    };
+
+    menu = match config
+        .get("description_text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => menu.with_description_text_style(lookup_ansi_color_style(&value)),
+        None => menu,
+    };
+
+    menu = match config
+        .get("marker")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => menu.with_marker(value),
+        None => menu,
     };
 
     line_editor.with_menu(ReedlineMenu::WithCompleter {
-        menu: Box::new(help_menu),
-        completer: help_completer,
+        menu: Box::new(menu),
+        completer,
     })
 }
 

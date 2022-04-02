@@ -48,6 +48,9 @@ struct WorkingDetails {
 
 /// Completion menu definition
 pub struct NuHelpMenu {
+    /// Menu name
+    name: String,
+    /// Menu status
     active: bool,
     /// Menu coloring
     color: MenuTextStyle,
@@ -84,6 +87,7 @@ pub struct NuHelpMenu {
 impl Default for NuHelpMenu {
     fn default() -> Self {
         Self {
+            name: "describe_mene".to_string(),
             active: false,
             color: MenuTextStyle::default(),
             default_details: DefaultMenuDetails::default(),
@@ -104,6 +108,12 @@ impl Default for NuHelpMenu {
 }
 
 impl NuHelpMenu {
+    /// Menu builder with new name 
+    pub fn with_name(mut self, name: &str) -> Self {
+        self.name = name.into();
+        self
+    }
+
     /// Menu builder with new value for text style
     pub fn with_text_style(mut self, text_style: Style) -> Self {
         self.color.text_style = text_style;
@@ -413,7 +423,7 @@ impl NuHelpMenu {
 impl Menu for NuHelpMenu {
     /// Menu name
     fn name(&self) -> &str {
-        "help_menu"
+        self.name.as_str()
     }
 
     /// Menu indicator
