@@ -4,13 +4,14 @@ use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Value};
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    Completer, CompletionMenu, EditCommand, HistoryMenu, Keybindings, Reedline, ReedlineEvent,
+    ColumnarMenu, Completer, EditCommand, Keybindings, Reedline, ReedlineEvent, ReedlineMenu,
+    SearchMenu,
 };
 
 // Creates an input object for the completion menu based on the dictionary
 // stored in the config variable
 pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Reedline {
-    let mut completion_menu = CompletionMenu::default();
+    let mut completion_menu = ColumnarMenu::default().with_name("completion_menu");
 
     completion_menu = match config
         .menu_config
@@ -65,13 +66,13 @@ pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Ree
         None => completion_menu,
     };
 
-    line_editor.with_menu(Box::new(completion_menu), None)
+    line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(completion_menu)))
 }
 
 // Creates an input object for the history menu based on the dictionary
 // stored in the config variable
 pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedline {
-    let mut history_menu = HistoryMenu::default();
+    let mut history_menu = SearchMenu::default().with_name("history_menu");
 
     history_menu = match config
         .history_config
@@ -79,18 +80,6 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
         .and_then(|value| value.as_integer().ok())
     {
         Some(value) => history_menu.with_page_size(value as usize),
-        None => history_menu,
-    };
-
-    history_menu = match config
-        .history_config
-        .get("selector")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => {
-            let char = value.chars().next().unwrap_or('!');
-            history_menu.with_selection_char(char)
-        }
         None => history_menu,
     };
 
@@ -121,7 +110,7 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
         None => history_menu,
     };
 
-    line_editor.with_menu(Box::new(history_menu), None)
+    line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(history_menu)))
 }
 
 // Creates an input object for the help menu based on the dictionary
@@ -213,7 +202,10 @@ pub(crate) fn add_help_menu(
         None => help_menu,
     };
 
-    line_editor.with_menu(Box::new(help_menu), Some(help_completer))
+    line_editor.with_menu(ReedlineMenu::WithCompleter {
+        menu: Box::new(help_menu),
+        completer: help_completer,
+    })
 }
 
 fn add_menu_keybindings(keybindings: &mut Keybindings) {

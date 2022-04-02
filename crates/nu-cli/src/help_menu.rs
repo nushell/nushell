@@ -2,8 +2,8 @@ use {
     crate::help_completions::{EXAMPLE_MARKER, EXAMPLE_NEW_LINE},
     nu_ansi_term::{ansi::RESET, Style},
     reedline::{
-        menu_functions::string_difference, Completer, History, LineBuffer, Menu, MenuEvent,
-        MenuTextStyle, Painter, Suggestion,
+        menu_functions::string_difference, Completer, LineBuffer, Menu, MenuEvent, MenuTextStyle,
+        Painter, Suggestion,
     },
 };
 
@@ -446,7 +446,6 @@ impl Menu for NuHelpMenu {
         &mut self,
         _values_updated: bool,
         _line_buffer: &mut LineBuffer,
-        _history: &dyn History,
         _completer: &dyn Completer,
     ) -> bool {
         false
@@ -468,12 +467,7 @@ impl Menu for NuHelpMenu {
     }
 
     /// Updates menu values
-    fn update_values(
-        &mut self,
-        line_buffer: &mut LineBuffer,
-        _history: &dyn History,
-        completer: &dyn Completer,
-    ) {
+    fn update_values(&mut self, line_buffer: &mut LineBuffer, completer: &dyn Completer) {
         if let Some(old_string) = &self.input {
             let (start, input) = string_difference(line_buffer.get_buffer(), old_string);
             if !input.is_empty() {
@@ -484,6 +478,7 @@ impl Menu for NuHelpMenu {
                     .map(|suggestion| Suggestion {
                         value: suggestion.value,
                         description: suggestion.description,
+                        extra: None,
                         span: reedline::Span {
                             start,
                             end: start + input.len(),
@@ -499,7 +494,6 @@ impl Menu for NuHelpMenu {
     fn update_working_details(
         &mut self,
         line_buffer: &mut LineBuffer,
-        history: &dyn History,
         completer: &dyn Completer,
         painter: &Painter,
     ) {
@@ -558,12 +552,12 @@ impl Menu for NuHelpMenu {
                 MenuEvent::Activate(_) => {
                     self.reset_position();
                     self.input = Some(line_buffer.get_buffer().to_string());
-                    self.update_values(line_buffer, history, completer);
+                    self.update_values(line_buffer, completer);
                 }
                 MenuEvent::Deactivate => self.active = false,
                 MenuEvent::Edit(_) => {
                     self.reset_position();
-                    self.update_values(line_buffer, history, completer);
+                    self.update_values(line_buffer, completer);
                     self.update_examples()
                 }
                 MenuEvent::NextElement => {
