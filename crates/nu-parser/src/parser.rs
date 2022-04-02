@@ -3993,7 +3993,7 @@ pub fn parse_math_expression(
     let mut last_prec = 1000000;
 
     let mut error = None;
-    let (lhs, err) = parse_value(
+    let (mut lhs, err) = parse_value(
         working_set,
         spans[0],
         &SyntaxShape::Any,
@@ -4001,6 +4001,13 @@ pub fn parse_math_expression(
     );
     error = error.or(err);
     idx += 1;
+
+    if idx >= spans.len() {
+        // We already found the one part of our expression, so let's expand
+        if let Some(row_var_id) = lhs_row_var_id {
+            expand_to_cell_path(working_set, &mut lhs, row_var_id, expand_aliases_denylist);
+        }
+    }
 
     expr_stack.push(lhs);
 
