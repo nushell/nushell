@@ -1,5 +1,5 @@
+mod description_menu;
 mod help_completions;
-mod help_menu;
 
+pub use description_menu::DescriptionMenu;
 pub use help_completions::NuHelpCompleter;
-pub use help_menu::NuHelpMenu;

@@ -1,7 +1,10 @@
-use super::NuHelpMenu;
+use super::DescriptionMenu;
+use crate::NuHelpCompleter;
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::lookup_ansi_color_style;
-use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Value};
+use nu_protocol::{
+    engine::EngineState, extract_value, Config, ParsedKeybinding, ShellError, Span, Value,
+};
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
     ColumnarMenu, Completer, EditCommand, Keybindings, Reedline, ReedlineEvent, ReedlineMenu,
@@ -9,11 +12,33 @@ use reedline::{
 };
 use std::collections::HashMap;
 
+// Adds all menus to line editor
+pub(crate) fn add_menus(
+    mut line_editor: Reedline,
+    engine_state: EngineState,
+    config: &Config,
+) -> Reedline {
+    line_editor = line_editor.clear_menus();
+
+    line_editor = add_columnar_menu(line_editor, "completion_menu", &config.menu_config, None);
+    line_editor = add_search_menu(line_editor, "history_menu", &config.history_config, None);
+    let help_completer = Box::new(NuHelpCompleter::new(engine_state));
+    line_editor = add_description_menu(
+        line_editor,
+        "help_menu",
+        &config.help_config,
+        help_completer,
+    );
+
+    line_editor
+}
+
 // Adds a columnar menu to the editor engine
 pub(crate) fn add_columnar_menu(
     line_editor: Reedline,
     name: &str,
     config: &HashMap<String, Value>,
+    completer: Option<Box<dyn Completer>>,
 ) -> Reedline {
     let mut menu = ColumnarMenu::default().with_name(name);
 
@@ -72,7 +97,13 @@ pub(crate) fn add_columnar_menu(
         None => menu,
     };
 
-    line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(menu)))
+    match completer {
+        Some(completer) => line_editor.with_menu(ReedlineMenu::WithCompleter {
+            menu: Box::new(menu),
+            completer,
+        }),
+        None => line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(menu))),
+    }
 }
 
 // Adds a search menu to the line editor
@@ -80,6 +111,7 @@ pub(crate) fn add_search_menu(
     line_editor: Reedline,
     name: &str,
     config: &HashMap<String, Value>,
+    completer: Option<Box<dyn Completer>>,
 ) -> Reedline {
     let mut menu = SearchMenu::default().with_name(name);
 
@@ -123,7 +155,13 @@ pub(crate) fn add_search_menu(
         None => menu,
     };
 
-    line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(menu)))
+    match completer {
+        Some(completer) => line_editor.with_menu(ReedlineMenu::WithCompleter {
+            menu: Box::new(menu),
+            completer,
+        }),
+        None => line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(menu))),
+    }
 }
 
 // Adds a description menu to the line editor
@@ -133,7 +171,7 @@ pub(crate) fn add_description_menu(
     config: &HashMap<String, Value>,
     completer: Box<dyn Completer>,
 ) -> Reedline {
-    let mut menu = NuHelpMenu::default().with_name(name);
+    let mut menu = DescriptionMenu::default().with_name(name);
 
     menu = match config
         .get("columns")

@@ -47,7 +47,7 @@ struct WorkingDetails {
 }
 
 /// Completion menu definition
-pub struct NuHelpMenu {
+pub struct DescriptionMenu {
     /// Menu name
     name: String,
     /// Menu status
@@ -84,7 +84,7 @@ pub struct NuHelpMenu {
     skipped_rows: usize,
 }
 
-impl Default for NuHelpMenu {
+impl Default for DescriptionMenu {
     fn default() -> Self {
         Self {
             name: "describe_mene".to_string(),
@@ -107,8 +107,8 @@ impl Default for NuHelpMenu {
     }
 }
 
-impl NuHelpMenu {
-    /// Menu builder with new name 
+impl DescriptionMenu {
+    /// Menu builder with new name
     pub fn with_name(mut self, name: &str) -> Self {
         self.name = name.into();
         self
@@ -420,7 +420,7 @@ impl NuHelpMenu {
     }
 }
 
-impl Menu for NuHelpMenu {
+impl Menu for DescriptionMenu {
     /// Menu name
     fn name(&self) -> &str {
         self.name.as_str()
@@ -436,12 +436,12 @@ impl Menu for NuHelpMenu {
         self.active
     }
 
-    /// The help menu stays active even with one record
+    /// The menu stays active even with one record
     fn can_quick_complete(&self) -> bool {
         false
     }
 
-    /// The help menu does not need to partially complete
+    /// The menu does not need to partially complete
     fn can_partially_complete(
         &mut self,
         _values_updated: bool,

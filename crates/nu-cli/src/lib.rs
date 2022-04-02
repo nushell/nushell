@@ -19,7 +19,7 @@ pub use completions::NuCompleter;
 pub use config_files::eval_config_contents;
 pub use errors::CliError;
 pub use eval_file::evaluate_file;
-pub use menus::{NuHelpCompleter, NuHelpMenu};
+pub use menus::{DescriptionMenu, NuHelpCompleter};
 pub use nu_highlight::NuHighlight;
 pub use print::Print;
 pub use prompt::NushellPrompt;
