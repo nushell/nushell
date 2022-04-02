@@ -367,3 +367,11 @@ fn proper_rest_types() -> TestResult {
         "not verbose!",
     )
 }
+
+#[test]
+fn single_value_row_condition() -> TestResult {
+    run_test(
+        r#"[[a, b]; [true, false], [true, true]] | where a | length"#,
+        "2",
+    )
+}
