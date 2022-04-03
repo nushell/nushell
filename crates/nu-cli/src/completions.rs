@@ -217,7 +217,7 @@ impl NuCompleter {
     fn completion_helper(&self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
-        let current_line_str = line.clone().trim().to_string();
+        let current_line_str = line.trim().to_string();
         let mut line = line.to_string();
         line.insert(pos, 'a');
         let line_pos = pos;
