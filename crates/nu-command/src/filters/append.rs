@@ -16,12 +16,16 @@ impl Command for Append {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("append")
-            .required("row", SyntaxShape::Any, "the row to append")
+            .required("row", SyntaxShape::Any, "the row (or list/table) to append")
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Append a row to the table."
+        "Append any number of rows to a table."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["concatenate"]
     }
 
     fn examples(&self) -> Vec<Example> {

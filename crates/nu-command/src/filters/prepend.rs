@@ -16,12 +16,20 @@ impl Command for Prepend {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("prepend")
-            .required("row", SyntaxShape::Any, "the row to prepend")
+            .required(
+                "row",
+                SyntaxShape::Any,
+                "the row (or list/table) to prepend",
+            )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Prepend a row to the table."
+        "Prepend any number of rows to a table."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["concatenate"]
     }
 
     fn examples(&self) -> Vec<Example> {
