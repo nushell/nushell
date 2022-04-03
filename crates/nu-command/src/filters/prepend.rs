@@ -19,7 +19,7 @@ impl Command for Prepend {
             .required(
                 "row",
                 SyntaxShape::Any,
-                "the row (or list/table) to prepend",
+                "the row, list, or table to prepend",
             )
             .category(Category::Filters)
     }

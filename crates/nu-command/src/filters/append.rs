@@ -16,7 +16,7 @@ impl Command for Append {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("append")
-            .required("row", SyntaxShape::Any, "the row (or list/table) to append")
+            .required("row", SyntaxShape::Any, "the row, list, or table to append")
             .category(Category::Filters)
     }
 
