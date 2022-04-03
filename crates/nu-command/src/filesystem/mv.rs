@@ -7,7 +7,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Spanned, SyntaxShape, Value,
 };
 
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
@@ -125,7 +125,7 @@ impl Command for Mv {
         Ok(sources
             .into_iter()
             .flatten()
-            .map(move |entry| {
+            .filter_map(move |entry| {
                 let result = move_file(
                     Spanned {
                         item: entry.clone(),
@@ -137,19 +137,18 @@ impl Command for Mv {
                     },
                 );
                 if let Err(error) = result {
-                    Value::Error { error }
+                    Some(Value::Error { error })
                 } else if quiet {
-                    Value::Nothing { span }
+                    None
                 } else {
                     let val = format!(
                         "moved {:} to {:}",
                         entry.to_string_lossy(),
                         destination.to_string_lossy()
                     );
-                    Value::String { val, span }
+                    Some(Value::String { val, span })
                 }
             })
-            .filter(|x| !matches!(x.get_type(), Type::Nothing))
             .into_pipeline_data(ctrlc))
     }
 
