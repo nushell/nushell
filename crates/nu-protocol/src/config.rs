@@ -13,6 +13,16 @@ pub struct ParsedKeybinding {
     pub mode: Value,
 }
 
+/// Definition of a parsed menu from the config object
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ParsedMenu {
+    pub name: Value,
+    pub marker: Value,
+    pub style: Value,
+    pub menu_type: Value,
+    pub source: Value,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub filesize_metric: bool,
@@ -32,9 +42,7 @@ pub struct Config {
     pub sync_history_on_enter: bool,
     pub log_level: String,
     pub keybindings: Vec<ParsedKeybinding>,
-    pub menu_config: HashMap<String, Value>,
-    pub history_config: HashMap<String, Value>,
-    pub help_config: HashMap<String, Value>,
+    pub menus: Vec<ParsedMenu>,
     pub rm_always_trash: bool,
 }
 
@@ -58,9 +66,7 @@ impl Default for Config {
             sync_history_on_enter: true,
             log_level: String::new(),
             keybindings: Vec::new(),
-            menu_config: HashMap::new(),
-            history_config: HashMap::new(),
-            help_config: HashMap::new(),
+            menus: Vec::new(),
             rm_always_trash: false,
         }
     }
@@ -215,25 +221,11 @@ impl Value {
                             eprintln!("$config.log_level is not a string")
                         }
                     }
-                    "menu_config" => {
-                        if let Ok(map) = create_map(value, &config) {
-                            config.menu_config = map;
+                    "menus" => {
+                        if let Ok(map) = create_menus(value, &config) {
+                            config.menus = map;
                         } else {
-                            eprintln!("$config.menu_config is not a record")
-                        }
-                    }
-                    "history_config" => {
-                        if let Ok(map) = create_map(value, &config) {
-                            config.history_config = map;
-                        } else {
-                            eprintln!("$config.history_config is not a record")
-                        }
-                    }
-                    "help_config" => {
-                        if let Ok(map) = create_map(value, &config) {
-                            config.help_config = map;
-                        } else {
-                            eprintln!("$config.help_config is not a record")
+                            eprintln!("$config.menus is not a valid list of menus")
                         }
                     }
                     "keybindings" => {
@@ -310,18 +302,19 @@ fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybin
     match value {
         Value::Record { cols, vals, span } => {
             // Finding the modifier value in the record
-            let modifier = extract_value("modifier", cols, vals, span)?;
-            let keycode = extract_value("keycode", cols, vals, span)?;
-            let mode = extract_value("mode", cols, vals, span)?;
-            let event = extract_value("event", cols, vals, span)?;
+            let modifier = extract_value("modifier", cols, vals, span)?.clone();
+            let keycode = extract_value("keycode", cols, vals, span)?.clone();
+            let mode = extract_value("mode", cols, vals, span)?.clone();
+            let event = extract_value("event", cols, vals, span)?.clone();
 
             let keybinding = ParsedKeybinding {
-                modifier: modifier.clone(),
-                keycode: keycode.clone(),
-                mode: mode.clone(),
-                event: event.clone(),
+                modifier,
+                keycode,
+                mode,
+                event,
             };
 
+            // We return a menu to be able to do recursion on the same function
             Ok(vec![keybinding])
         }
         Value::List { vals, .. } => {
@@ -334,6 +327,46 @@ fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybin
                 .into_iter()
                 .flatten()
                 .collect::<Vec<ParsedKeybinding>>();
+
+            Ok(res)
+        }
+        _ => Ok(Vec::new()),
+    }
+}
+
+// Parses the config object to extract the strings that will compose a keybinding for reedline
+fn create_menus(value: &Value, config: &Config) -> Result<Vec<ParsedMenu>, ShellError> {
+    match value {
+        Value::Record { cols, vals, span } => {
+            // Finding the modifier value in the record
+            let name = extract_value("name", cols, vals, span)?.clone();
+            let marker = extract_value("marker", cols, vals, span)?.clone();
+            let style = extract_value("style", cols, vals, span)?.clone();
+            let menu_type = extract_value("type", cols, vals, span)?.clone();
+
+            // Source is an optional value
+            let source = match extract_value("source", cols, vals, span) {
+                Ok(source) => source.clone(),
+                Err(_) => Value::Nothing { span: *span },
+            };
+
+            let menu = ParsedMenu {
+                name,
+                marker,
+                style,
+                menu_type,
+                source,
+            };
+
+            Ok(vec![menu])
+        }
+        Value::List { vals, .. } => {
+            let res = vals
+                .iter()
+                .map(|inner_value| create_menus(inner_value, config))
+                .collect::<Result<Vec<Vec<ParsedMenu>>, ShellError>>();
+
+            let res = res?.into_iter().flatten().collect::<Vec<ParsedMenu>>();
 
             Ok(res)
         }

@@ -620,20 +620,24 @@ impl Menu for DescriptionMenu {
     /// The buffer gets replaced in the Span location
     fn replace_in_buffer(&self, line_buffer: &mut LineBuffer) {
         if let Some(Suggestion { value, span, .. }) = self.get_value() {
+            let start = span.start.min(line_buffer.len());
+            let end = span.end.min(line_buffer.len());
+
             let string_len = if let Some(example_index) = self.example_index {
                 let example = self
                     .examples
                     .get(example_index)
                     .expect("the example index is always checked");
-                line_buffer.replace(span.start..span.end, example);
+
+                line_buffer.replace(start..end, example);
                 example.len()
             } else {
-                line_buffer.replace(span.start..span.end, &value);
+                line_buffer.replace(start..end, &value);
                 value.len()
             };
 
             let mut offset = line_buffer.insertion_point();
-            offset += string_len.saturating_sub(span.end - span.start);
+            offset += string_len.saturating_sub(end.saturating_sub(start));
             line_buffer.set_insertion_point(offset);
         }
     }

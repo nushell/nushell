@@ -3,251 +3,309 @@ use crate::NuHelpCompleter;
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{
-    engine::EngineState, extract_value, Config, ParsedKeybinding, ShellError, Span, Value,
+    engine::EngineState, extract_value, Config, ParsedKeybinding, ParsedMenu, ShellError, Span,
+    Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    ColumnarMenu, Completer, EditCommand, Keybindings, Reedline, ReedlineEvent, ReedlineMenu,
-    SearchMenu,
+    ColumnarMenu, EditCommand, Keybindings, Reedline, ReedlineEvent, ReedlineMenu, SearchMenu,
 };
-use std::collections::HashMap;
 
 // Adds all menus to line editor
 pub(crate) fn add_menus(
     mut line_editor: Reedline,
     engine_state: EngineState,
     config: &Config,
-) -> Reedline {
+) -> Result<Reedline, ShellError> {
     line_editor = line_editor.clear_menus();
 
-    line_editor = add_columnar_menu(line_editor, "completion_menu", &config.menu_config, None);
-    line_editor = add_search_menu(line_editor, "history_menu", &config.history_config, None);
-    let help_completer = Box::new(NuHelpCompleter::new(engine_state));
-    line_editor = add_description_menu(
-        line_editor,
-        "help_menu",
-        &config.help_config,
-        help_completer,
-    );
+    for menu in &config.menus {
+        if let Value::Record { cols, vals, span } = &menu.menu_type {
+            let layout = extract_value("layout", cols, vals, span)?.into_string("", config);
 
-    line_editor
+            line_editor = match layout.as_str() {
+                "columnar" => add_columnar_menu(line_editor, menu, config, engine_state.clone())?,
+                "list" => add_list_menu(line_editor, menu, config, engine_state.clone())?,
+                "description" => {
+                    add_description_menu(line_editor, menu, config, engine_state.clone())?
+                }
+                _ => {
+                    return Err(ShellError::UnsupportedConfigValue(
+                        "columnar, list or description".to_string(),
+                        menu.menu_type.into_abbreviated_string(config),
+                        menu.menu_type.span()?,
+                    ))
+                }
+            };
+        }
+    }
+
+    //line_editor = add_columnar_menu(line_editor, "completion_menu", &config.menu_config, None);
+    //line_editor = add_search_menu(line_editor, "history_menu", &config.history_config, None);
+    //let help_completer = Box::new(NuHelpCompleter::new(engine_state));
+    //line_editor = add_description_menu(
+    //    line_editor,
+    //    "help_menu",
+    //    &config.help_config,
+    //    help_completer,
+    //);
+
+    Ok(line_editor)
 }
 
 // Adds a columnar menu to the editor engine
 pub(crate) fn add_columnar_menu(
     line_editor: Reedline,
-    name: &str,
-    config: &HashMap<String, Value>,
-    completer: Option<Box<dyn Completer>>,
-) -> Reedline {
-    let mut menu = ColumnarMenu::default().with_name(name);
+    menu: &ParsedMenu,
+    config: &Config,
+    _engine_state: EngineState,
+) -> Result<Reedline, ShellError> {
+    let name = menu.name.into_string("", config);
+    let mut columnar_menu = ColumnarMenu::default().with_name(&name);
 
-    menu = match config
-        .get("columns")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => menu.with_columns(value as u16),
-        None => menu,
-    };
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
+        columnar_menu = match extract_value("columns", cols, vals, span) {
+            Ok(columns) => {
+                let columns = columns.as_integer()?;
+                columnar_menu.with_columns(columns as u16)
+            }
+            Err(_) => columnar_menu,
+        };
 
-    menu = menu.with_column_width(
-        config
-            .get("col_width")
-            .and_then(|value| value.as_integer().ok())
-            .map(|value| value as usize),
-    );
+        columnar_menu = match extract_value("col_width", cols, vals, span) {
+            Ok(col_width) => {
+                let col_width = col_width.as_integer()?;
+                columnar_menu.with_column_width(Some(col_width as usize))
+            }
+            Err(_) => columnar_menu,
+        };
 
-    menu = match config
-        .get("col_padding")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => menu.with_column_padding(value as usize),
-        None => menu,
-    };
+        columnar_menu = match extract_value("col_padding", cols, vals, span) {
+            Ok(col_padding) => {
+                let col_padding = col_padding.as_integer()?;
+                columnar_menu.with_column_padding(col_padding as usize)
+            }
+            Err(_) => columnar_menu,
+        };
+    }
 
-    menu = match config
-        .get("text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_text_style(lookup_ansi_color_style(&value)),
-        None => menu,
-    };
+    if let Value::Record { cols, vals, span } = &menu.style {
+        columnar_menu = match extract_value("text", cols, vals, span) {
+            Ok(text) => {
+                let text = text.into_string("", config);
+                columnar_menu.with_text_style(lookup_ansi_color_style(&text))
+            }
+            Err(_) => columnar_menu,
+        };
 
-    menu = match config
-        .get("selected_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => menu,
-    };
+        columnar_menu = match extract_value("selected_text", cols, vals, span) {
+            Ok(selected) => {
+                let selected = selected.into_string("", config);
+                columnar_menu.with_selected_text_style(lookup_ansi_color_style(&selected))
+            }
+            Err(_) => columnar_menu,
+        };
 
-    menu = match config
-        .get("description_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_description_text_style(lookup_ansi_color_style(&value)),
-        None => menu,
-    };
+        columnar_menu = match extract_value("description_text", cols, vals, span) {
+            Ok(description) => {
+                let description = description.into_string("", config);
+                columnar_menu.with_description_text_style(lookup_ansi_color_style(&description))
+            }
+            Err(_) => columnar_menu,
+        };
+    }
 
-    menu = match config
-        .get("marker")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_marker(value),
-        None => menu,
-    };
+    let marker = menu.marker.into_string("", config);
+    columnar_menu = columnar_menu.with_marker(marker);
 
-    match completer {
-        Some(completer) => line_editor.with_menu(ReedlineMenu::WithCompleter {
-            menu: Box::new(menu),
-            completer,
-        }),
-        None => line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(menu))),
+    match &menu.source {
+        Value::Nothing { .. } => {
+            Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
+        }
+        Value::Block { .. } => {
+            // Need to create completer that takes a block as source
+            unimplemented!()
+        }
+        _ => Err(ShellError::UnsupportedConfigValue(
+            "block or omitted value".to_string(),
+            menu.source.into_abbreviated_string(config),
+            menu.source.span()?,
+        )),
     }
 }
 
 // Adds a search menu to the line editor
-pub(crate) fn add_search_menu(
+pub(crate) fn add_list_menu(
     line_editor: Reedline,
-    name: &str,
-    config: &HashMap<String, Value>,
-    completer: Option<Box<dyn Completer>>,
-) -> Reedline {
-    let mut menu = SearchMenu::default().with_name(name);
+    menu: &ParsedMenu,
+    config: &Config,
+    _engine_state: EngineState,
+) -> Result<Reedline, ShellError> {
+    let name = menu.name.into_string("", config);
+    let mut list_menu = SearchMenu::default().with_name(&name);
 
-    menu = match config
-        .get("page_size")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => menu.with_page_size(value as usize),
-        None => menu,
-    };
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
+        list_menu = match extract_value("page_size", cols, vals, span) {
+            Ok(page_size) => {
+                let page_size = page_size.as_integer()?;
+                list_menu.with_page_size(page_size as usize)
+            }
+            Err(_) => list_menu,
+        };
+    }
 
-    menu = match config
-        .get("text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_text_style(lookup_ansi_color_style(&value)),
-        None => menu,
-    };
+    if let Value::Record { cols, vals, span } = &menu.style {
+        list_menu = match extract_value("text", cols, vals, span) {
+            Ok(text) => {
+                let text = text.into_string("", config);
+                list_menu.with_text_style(lookup_ansi_color_style(&text))
+            }
+            Err(_) => list_menu,
+        };
 
-    menu = match config
-        .get("selected_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => menu,
-    };
+        list_menu = match extract_value("selected_text", cols, vals, span) {
+            Ok(selected) => {
+                let selected = selected.into_string("", config);
+                list_menu.with_selected_text_style(lookup_ansi_color_style(&selected))
+            }
+            Err(_) => list_menu,
+        };
 
-    menu = match config
-        .get("description_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_description_text_style(lookup_ansi_color_style(&value)),
-        None => menu,
-    };
+        list_menu = match extract_value("description_text", cols, vals, span) {
+            Ok(description) => {
+                let description = description.into_string("", config);
+                list_menu.with_description_text_style(lookup_ansi_color_style(&description))
+            }
+            Err(_) => list_menu,
+        };
+    }
 
-    menu = match config
-        .get("marker")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_marker(value),
-        None => menu,
-    };
+    let marker = menu.marker.into_string("", config);
+    list_menu = list_menu.with_marker(marker);
 
-    match completer {
-        Some(completer) => line_editor.with_menu(ReedlineMenu::WithCompleter {
-            menu: Box::new(menu),
-            completer,
-        }),
-        None => line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(menu))),
+    match &menu.source {
+        Value::Nothing { .. } => {
+            Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
+        }
+        Value::Block { .. } => {
+            // Need to create completer that takes a block as source
+            //Some(completer) => line_editor.with_menu(ReedlineMenu::WithCompleter {
+            //    menu: Box::new(menu),
+            //    completer,
+            //}),
+            unimplemented!()
+        }
+        _ => Err(ShellError::UnsupportedConfigValue(
+            "block or omitted value".to_string(),
+            menu.source.into_abbreviated_string(config),
+            menu.source.span()?,
+        )),
     }
 }
 
 // Adds a description menu to the line editor
 pub(crate) fn add_description_menu(
     line_editor: Reedline,
-    name: &str,
-    config: &HashMap<String, Value>,
-    completer: Box<dyn Completer>,
-) -> Reedline {
-    let mut menu = DescriptionMenu::default().with_name(name);
+    menu: &ParsedMenu,
+    config: &Config,
+    engine_state: EngineState,
+) -> Result<Reedline, ShellError> {
+    let name = menu.name.into_string("", config);
+    let mut description_menu = DescriptionMenu::default().with_name(&name);
 
-    menu = match config
-        .get("columns")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => menu.with_columns(value as u16),
-        None => menu,
-    };
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
+        description_menu = match extract_value("columns", cols, vals, span) {
+            Ok(columns) => {
+                let columns = columns.as_integer()?;
+                description_menu.with_columns(columns as u16)
+            }
+            Err(_) => description_menu,
+        };
 
-    menu = menu.with_column_width(
-        config
-            .get("col_width")
-            .and_then(|value| value.as_integer().ok())
-            .map(|value| value as usize),
-    );
+        description_menu = match extract_value("col_width", cols, vals, span) {
+            Ok(col_width) => {
+                let col_width = col_width.as_integer()?;
+                description_menu.with_column_width(Some(col_width as usize))
+            }
+            Err(_) => description_menu,
+        };
 
-    menu = match config
-        .get("col_padding")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => menu.with_column_padding(value as usize),
-        None => menu,
-    };
+        description_menu = match extract_value("col_padding", cols, vals, span) {
+            Ok(col_padding) => {
+                let col_padding = col_padding.as_integer()?;
+                description_menu.with_column_padding(col_padding as usize)
+            }
+            Err(_) => description_menu,
+        };
 
-    menu = match config
-        .get("selection_rows")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => menu.with_selection_rows(value as u16),
-        None => menu,
-    };
+        description_menu = match extract_value("selection_rows", cols, vals, span) {
+            Ok(selection_rows) => {
+                let selection_rows = selection_rows.as_integer()?;
+                description_menu.with_selection_rows(selection_rows as u16)
+            }
+            Err(_) => description_menu,
+        };
 
-    menu = match config
-        .get("description_rows")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => menu.with_description_rows(value as usize),
-        None => menu,
-    };
+        description_menu = match extract_value("description_rows", cols, vals, span) {
+            Ok(description_rows) => {
+                let description_rows = description_rows.as_integer()?;
+                description_menu.with_description_rows(description_rows as usize)
+            }
+            Err(_) => description_menu,
+        };
+    }
 
-    menu = match config
-        .get("text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_text_style(lookup_ansi_color_style(&value)),
-        None => menu,
-    };
+    if let Value::Record { cols, vals, span } = &menu.style {
+        description_menu = match extract_value("text", cols, vals, span) {
+            Ok(text) => {
+                let text = text.into_string("", config);
+                description_menu.with_text_style(lookup_ansi_color_style(&text))
+            }
+            Err(_) => description_menu,
+        };
 
-    menu = match config
-        .get("selected_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => menu,
-    };
+        description_menu = match extract_value("selected_text", cols, vals, span) {
+            Ok(selected) => {
+                let selected = selected.into_string("", config);
+                description_menu.with_selected_text_style(lookup_ansi_color_style(&selected))
+            }
+            Err(_) => description_menu,
+        };
 
-    menu = match config
-        .get("description_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_description_text_style(lookup_ansi_color_style(&value)),
-        None => menu,
-    };
+        description_menu = match extract_value("description_text", cols, vals, span) {
+            Ok(description) => {
+                let description = description.into_string("", config);
+                description_menu.with_description_text_style(lookup_ansi_color_style(&description))
+            }
+            Err(_) => description_menu,
+        };
+    }
 
-    menu = match config
-        .get("marker")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => menu.with_marker(value),
-        None => menu,
-    };
+    let marker = menu.marker.into_string("", config);
+    description_menu = description_menu.with_marker(marker);
 
-    line_editor.with_menu(ReedlineMenu::WithCompleter {
-        menu: Box::new(menu),
-        completer,
-    })
+    match &menu.source {
+        Value::Nothing { .. } => {
+            let completer = Box::new(NuHelpCompleter::new(engine_state));
+            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
+                menu: Box::new(description_menu),
+                completer,
+            }))
+        }
+        Value::Block { .. } => {
+            // Need to create completer that takes a block as source
+            //Some(completer) => line_editor.with_menu(ReedlineMenu::WithCompleter {
+            //    menu: Box::new(menu),
+            //    completer,
+            //}),
+            unimplemented!()
+        }
+        _ => Err(ShellError::UnsupportedConfigValue(
+            "block or omitted value".to_string(),
+            menu.source.into_abbreviated_string(config),
+            menu.source.span()?,
+        )),
+    }
 }
 
 fn add_menu_keybindings(keybindings: &mut Keybindings) {

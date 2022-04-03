@@ -194,7 +194,16 @@ pub fn evaluate_repl(
             info!("update reedline {}:{}:{}", file!(), line!(), column!());
         }
 
-        line_editor = add_menus(line_editor, engine_state.clone(), &config);
+        line_editor = match add_menus(line_editor, engine_state.clone(), &config) {
+            Ok(line_editor) => line_editor,
+            Err(e) => {
+                let working_set = StateWorkingSet::new(engine_state);
+                return {
+                    report_error(&working_set, &e);
+                    Ok(())
+                };
+            }
+        };
 
         if is_perf_true {
             info!("setup colors {}:{}:{}", file!(), line!(), column!());
