@@ -1,9 +1,9 @@
 use nu_engine::eval_call;
 use nu_parser::{flatten_expression, parse, trim_quotes, FlatShape};
 use nu_protocol::{
-    ast::{Call, Expr},
+    ast::{Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
-    levenshtein_distance, PipelineData, Span, Value, CONFIG_VARIABLE_ID,
+    levenshtein_distance, PipelineData, Span, Type, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::{Completer, Suggestion};
 
@@ -219,6 +219,7 @@ impl NuCompleter {
         let offset = working_set.next_span_start();
         let mut line = line.to_string();
         line.insert(pos, 'a');
+        let line_pos = pos;
         let pos = offset + pos;
         let (output, _err) = parse(
             &mut working_set,
@@ -321,7 +322,20 @@ impl NuCompleter {
                                     &Call {
                                         decl_id: *decl_id,
                                         head: new_span,
-                                        positional: vec![],
+                                        positional: vec![
+                                            Expression {
+                                                span: Span { start: 0, end: 0 },
+                                                ty: Type::String,
+                                                expr: Expr::String(line.clone()),
+                                                custom_completion: None,
+                                            },
+                                            Expression {
+                                                span: Span { start: 0, end: 0 },
+                                                ty: Type::Int,
+                                                expr: Expr::Int(line_pos as i64),
+                                                custom_completion: None,
+                                            },
+                                        ],
                                         named: vec![],
                                         redirect_stdout: true,
                                         redirect_stderr: true,
