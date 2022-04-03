@@ -27,7 +27,7 @@ impl Command for Help {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in command usage",
+                "string to find in command names, usage, and search terms",
                 Some('f'),
             )
             .category(Category::Core)
@@ -70,7 +70,7 @@ impl Command for Help {
                 result: None,
             },
             Example {
-                description: "search for string in command usage",
+                description: "search for string in command names, usage and search terms",
                 example: "help --find char",
                 result: None,
             },
