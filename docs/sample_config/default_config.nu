@@ -198,53 +198,53 @@ let $config = {
   edit_mode: emacs # emacs, vi
   max_history_size: 10000 # Session has to be reloaded for this to take effect
   sync_history_on_enter: true # Enable to share the history between multiple sessions, else you have to close the session to persist history to file
-  menus: [
-      {
-        name: completion_menu
-        marker: "| "
-        type: {
-            layout: columnar
-            columns: 4
-            col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
-            col_padding: 2
-        }
-        style: {
-            text: green,
-            selected_text: green_reverse
-            description_text: yellow
-        }
-      }
-      {
-        name: history_menu
-        marker: "? "
-        type: {
-            layout: list
-            page_size: 10
-        }
-        style: {
-            text: green,
-            selected_text: green_reverse
-            description_text: yellow
-        }
-      }
-      {
-        name: help_menu
-        marker: "? "
-        type: {
-            layout: description
-            columns: 4
-            col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
-            col_padding: 2
-            selection_rows: 4
-            description_rows: 10
-        }
-        style: {
-            text: green,
-            selected_text: green_reverse
-            description_text: yellow
-        }
-      }
-  ]
+  #menus: [
+  #    {
+  #      name: completion_menu
+  #      marker: "| "
+  #      type: {
+  #          layout: columnar
+  #          columns: 4
+  #          col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
+  #          col_padding: 2
+  #      }
+  #      style: {
+  #          text: green,
+  #          selected_text: green_reverse
+  #          description_text: yellow
+  #      }
+  #    }
+  #    {
+  #      name: history_menu
+  #      marker: "? "
+  #      type: {
+  #          layout: list
+  #          page_size: 10
+  #      }
+  #      style: {
+  #          text: green,
+  #          selected_text: green_reverse
+  #          description_text: yellow
+  #      }
+  #    }
+  #    {
+  #      name: help_menu
+  #      marker: "? "
+  #      type: {
+  #          layout: description
+  #          columns: 4
+  #          col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
+  #          col_padding: 2
+  #          selection_rows: 4
+  #          description_rows: 10
+  #      }
+  #      style: {
+  #          text: green,
+  #          selected_text: green_reverse
+  #          description_text: yellow
+  #      }
+  #    }
+  #]
   keybindings: [
     {
       name: completion_menu

@@ -8,7 +8,7 @@ use nu_protocol::{
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    ColumnarMenu, EditCommand, Keybindings, Reedline, ReedlineEvent, ReedlineMenu, SearchMenu,
+    ColumnarMenu, EditCommand, Keybindings, ListMenu, Reedline, ReedlineEvent, ReedlineMenu,
 };
 
 // Adds all menus to line editor
@@ -38,6 +38,88 @@ pub(crate) fn add_menus(
                 }
             };
         }
+    }
+
+    // Checking that the default menus were added
+    if !config
+        .menus
+        .iter()
+        .any(|menu| menu.name.into_string("", config).as_str() == "completion_menu")
+    {
+        let cols: Vec<String> = vec![
+            "text".into(),
+            "selected_text".into(),
+            "description_text".into(),
+        ];
+        let vals = vec![
+            Value::String {
+                val: "green".into(),
+                span: Span::new(0, 0),
+            },
+            Value::String {
+                val: "green_reverse".into(),
+                span: Span::new(0, 0),
+            },
+            Value::String {
+                val: "yellow".into(),
+                span: Span::new(0, 0),
+            },
+        ];
+
+        let style = Value::Record {
+            cols,
+            vals,
+            span: Span::new(0, 0),
+        };
+
+        let cols: Vec<String> = vec![
+            "layout".into(),
+            "columns".into(),
+            "col_width".into(),
+            "col_padding".into(),
+        ];
+        let vals = vec![
+            Value::String {
+                val: "columnar".into(),
+                span: Span::new(0, 0),
+            },
+            Value::Int {
+                val: 4,
+                span: Span::new(0, 0),
+            },
+            Value::Int {
+                val: 20,
+                span: Span::new(0, 0),
+            },
+            Value::Int {
+                val: 2,
+                span: Span::new(0, 0),
+            },
+        ];
+
+        let menu_type = Value::Record {
+            cols,
+            vals,
+            span: Span::new(0, 0),
+        };
+
+        let default_completion = ParsedMenu {
+            name: Value::String {
+                val: "completion_menu".into(),
+                span: Span::new(0, 0),
+            },
+            marker: Value::String {
+                val: "|".into(),
+                span: Span::new(0, 0),
+            },
+            style,
+            menu_type,
+            source: Value::Nothing {
+                span: Span::new(0, 0),
+            },
+        };
+
+        line_editor = add_columnar_menu(line_editor, &default_completion, config, engine_state.clone())?;
     }
 
     //line_editor = add_columnar_menu(line_editor, "completion_menu", &config.menu_config, None);
@@ -77,7 +159,7 @@ pub(crate) fn add_columnar_menu(
                 let col_width = col_width.as_integer()?;
                 columnar_menu.with_column_width(Some(col_width as usize))
             }
-            Err(_) => columnar_menu,
+            Err(_) => columnar_menu.with_column_width(None),
         };
 
         columnar_menu = match extract_value("col_padding", cols, vals, span) {
@@ -142,7 +224,7 @@ pub(crate) fn add_list_menu(
     _engine_state: EngineState,
 ) -> Result<Reedline, ShellError> {
     let name = menu.name.into_string("", config);
-    let mut list_menu = SearchMenu::default().with_name(&name);
+    let mut list_menu = ListMenu::default().with_name(&name);
 
     if let Value::Record { cols, vals, span } = &menu.menu_type {
         list_menu = match extract_value("page_size", cols, vals, span) {
@@ -227,7 +309,7 @@ pub(crate) fn add_description_menu(
                 let col_width = col_width.as_integer()?;
                 description_menu.with_column_width(Some(col_width as usize))
             }
-            Err(_) => description_menu,
+            Err(_) => description_menu.with_column_width(None),
         };
 
         description_menu = match extract_value("col_padding", cols, vals, span) {
