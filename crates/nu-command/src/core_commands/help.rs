@@ -103,7 +103,7 @@ fn help(
             let key = sig.name;
             let usage = sig.usage;
             let search_terms = sig.search_terms;
-            let matches_term = if search_terms.is_empty() {
+            let matches_term = if !search_terms.is_empty() {
                 search_terms
                     .iter()
                     .any(|term| term.to_lowercase().contains(&search_string))
