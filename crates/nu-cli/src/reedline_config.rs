@@ -1,146 +1,161 @@
 use super::DescriptionMenu;
-use crate::NuHelpCompleter;
+use crate::{menus::NuMenuCompleter, NuHelpCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::lookup_ansi_color_style;
+use nu_engine::eval_block;
+use nu_parser::parse;
 use nu_protocol::{
-    engine::EngineState, extract_value, Config, ParsedKeybinding, ParsedMenu, ShellError, Span,
-    Value,
+    create_menus,
+    engine::{EngineState, Stack, StateWorkingSet},
+    extract_value, Config, IntoPipelineData, ParsedKeybinding, ParsedMenu, PipelineData,
+    ShellError, Span, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
     ColumnarMenu, EditCommand, Keybindings, ListMenu, Reedline, ReedlineEvent, ReedlineMenu,
 };
 
+const DEFAULT_COMPLETION_MENU: &str = r#"
+{
+  name: completion_menu
+  marker: "| "
+  type: {
+      layout: columnar
+      columns: 4
+      col_width: 20   
+      col_padding: 2
+  }
+  #style: {
+  #    text: green,
+  #    selected_text: green_reverse
+  #    description_text: yellow
+  #}
+}"#;
+
+const DEFAULT_HISTORY_MENU: &str = r#"
+{
+  name: history_menu
+  marker: "? "
+  type: {
+      layout: list
+      page_size: 10
+  }
+  style: {
+      text: green,
+      selected_text: green_reverse
+      description_text: yellow
+  }
+}"#;
+
+const DEFAULT_HELP_MENU: &str = r#"
+{
+  name: help_menu
+  marker: "? "
+  type: {
+      layout: description
+      columns: 4
+      col_width: 20   
+      col_padding: 2
+      selection_rows: 4
+      description_rows: 10
+  }
+  style: {
+      text: green,
+      selected_text: green_reverse
+      description_text: yellow
+  }
+}"#;
+
 // Adds all menus to line editor
 pub(crate) fn add_menus(
     mut line_editor: Reedline,
-    engine_state: EngineState,
+    engine_state: &EngineState,
+    stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
     line_editor = line_editor.clear_menus();
 
     for menu in &config.menus {
-        if let Value::Record { cols, vals, span } = &menu.menu_type {
-            let layout = extract_value("layout", cols, vals, span)?.into_string("", config);
+        line_editor = add_menu(line_editor, menu, engine_state, stack, config)?
+    }
 
-            line_editor = match layout.as_str() {
-                "columnar" => add_columnar_menu(line_editor, menu, config, engine_state.clone())?,
-                "list" => add_list_menu(line_editor, menu, config, engine_state.clone())?,
-                "description" => {
-                    add_description_menu(line_editor, menu, config, engine_state.clone())?
-                }
-                _ => {
-                    return Err(ShellError::UnsupportedConfigValue(
-                        "columnar, list or description".to_string(),
-                        menu.menu_type.into_abbreviated_string(config),
-                        menu.menu_type.span()?,
-                    ))
-                }
+    // Checking if the default menus have been added from the config file
+    let default_menus = vec![
+        ("completion_menu", DEFAULT_COMPLETION_MENU),
+        ("history_menu", DEFAULT_HISTORY_MENU),
+        ("help_menu", DEFAULT_HELP_MENU),
+    ];
+
+    for (name, definition) in default_menus {
+        if !config
+            .menus
+            .iter()
+            .any(|menu| menu.name.into_string("", config) == name)
+        {
+            let (block, _) = {
+                let mut working_set = StateWorkingSet::new(engine_state);
+                let (output, _) = parse(
+                    &mut working_set,
+                    Some(name), // format!("entry #{}", entry_num)
+                    definition.as_bytes(),
+                    true,
+                    &[],
+                );
+
+                (output, working_set.render())
             };
+
+            let mut temp_stack = Stack::new();
+            let input = Value::nothing(Span::test_data()).into_pipeline_data();
+            let res = eval_block(engine_state, &mut temp_stack, &block, input, false, false)?;
+
+            if let PipelineData::Value(value, None) = res {
+                for menu in create_menus(&value, config)? {
+                    line_editor = add_menu(line_editor, &menu, engine_state, stack, config)?;
+                }
+            }
         }
     }
 
-    // Checking that the default menus were added
-    if !config
-        .menus
-        .iter()
-        .any(|menu| menu.name.into_string("", config).as_str() == "completion_menu")
-    {
-        let cols: Vec<String> = vec![
-            "text".into(),
-            "selected_text".into(),
-            "description_text".into(),
-        ];
-        let vals = vec![
-            Value::String {
-                val: "green".into(),
-                span: Span::new(0, 0),
-            },
-            Value::String {
-                val: "green_reverse".into(),
-                span: Span::new(0, 0),
-            },
-            Value::String {
-                val: "yellow".into(),
-                span: Span::new(0, 0),
-            },
-        ];
-
-        let style = Value::Record {
-            cols,
-            vals,
-            span: Span::new(0, 0),
-        };
-
-        let cols: Vec<String> = vec![
-            "layout".into(),
-            "columns".into(),
-            "col_width".into(),
-            "col_padding".into(),
-        ];
-        let vals = vec![
-            Value::String {
-                val: "columnar".into(),
-                span: Span::new(0, 0),
-            },
-            Value::Int {
-                val: 4,
-                span: Span::new(0, 0),
-            },
-            Value::Int {
-                val: 20,
-                span: Span::new(0, 0),
-            },
-            Value::Int {
-                val: 2,
-                span: Span::new(0, 0),
-            },
-        ];
-
-        let menu_type = Value::Record {
-            cols,
-            vals,
-            span: Span::new(0, 0),
-        };
-
-        let default_completion = ParsedMenu {
-            name: Value::String {
-                val: "completion_menu".into(),
-                span: Span::new(0, 0),
-            },
-            marker: Value::String {
-                val: "|".into(),
-                span: Span::new(0, 0),
-            },
-            style,
-            menu_type,
-            source: Value::Nothing {
-                span: Span::new(0, 0),
-            },
-        };
-
-        line_editor = add_columnar_menu(line_editor, &default_completion, config, engine_state.clone())?;
-    }
-
-    //line_editor = add_columnar_menu(line_editor, "completion_menu", &config.menu_config, None);
-    //line_editor = add_search_menu(line_editor, "history_menu", &config.history_config, None);
-    //let help_completer = Box::new(NuHelpCompleter::new(engine_state));
-    //line_editor = add_description_menu(
-    //    line_editor,
-    //    "help_menu",
-    //    &config.help_config,
-    //    help_completer,
-    //);
-
     Ok(line_editor)
+}
+
+fn add_menu(
+    line_editor: Reedline,
+    menu: &ParsedMenu,
+    engine_state: &EngineState,
+    stack: &Stack,
+    config: &Config,
+) -> Result<Reedline, ShellError> {
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
+        let layout = extract_value("layout", cols, vals, span)?.into_string("", config);
+
+        match layout.as_str() {
+            "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, config),
+            "list" => add_list_menu(line_editor, menu, engine_state, config),
+            "description" => add_description_menu(line_editor, menu, engine_state, config),
+            _ => Err(ShellError::UnsupportedConfigValue(
+                "columnar, list or description".to_string(),
+                menu.menu_type.into_abbreviated_string(config),
+                menu.menu_type.span()?,
+            )),
+        }
+    } else {
+        Err(ShellError::UnsupportedConfigValue(
+            "only record type".to_string(),
+            menu.menu_type.into_abbreviated_string(config),
+            menu.menu_type.span()?,
+        ))
+    }
 }
 
 // Adds a columnar menu to the editor engine
 pub(crate) fn add_columnar_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
+    engine_state: &EngineState,
+    stack: &Stack,
     config: &Config,
-    _engine_state: EngineState,
 ) -> Result<Reedline, ShellError> {
     let name = menu.name.into_string("", config);
     let mut columnar_menu = ColumnarMenu::default().with_name(&name);
@@ -204,9 +219,22 @@ pub(crate) fn add_columnar_menu(
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
         }
-        Value::Block { .. } => {
+        Value::Block {
+            val,
+            captures,
+            span,
+        } => {
             // Need to create completer that takes a block as source
-            unimplemented!()
+            let menu_completer = NuMenuCompleter::new(
+                *val,
+                *span,
+                stack.captures_to_stack(captures),
+                engine_state.clone(),
+            );
+            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
+                menu: Box::new(columnar_menu),
+                completer: Box::new(menu_completer),
+            }))
         }
         _ => Err(ShellError::UnsupportedConfigValue(
             "block or omitted value".to_string(),
@@ -220,8 +248,8 @@ pub(crate) fn add_columnar_menu(
 pub(crate) fn add_list_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
+    _engine_state: &EngineState,
     config: &Config,
-    _engine_state: EngineState,
 ) -> Result<Reedline, ShellError> {
     let name = menu.name.into_string("", config);
     let mut list_menu = ListMenu::default().with_name(&name);
@@ -289,8 +317,8 @@ pub(crate) fn add_list_menu(
 pub(crate) fn add_description_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
+    engine_state: &EngineState,
     config: &Config,
-    engine_state: EngineState,
 ) -> Result<Reedline, ShellError> {
     let name = menu.name.into_string("", config);
     let mut description_menu = DescriptionMenu::default().with_name(&name);
@@ -368,7 +396,7 @@ pub(crate) fn add_description_menu(
 
     match &menu.source {
         Value::Nothing { .. } => {
-            let completer = Box::new(NuHelpCompleter::new(engine_state));
+            let completer = Box::new(NuHelpCompleter::new(engine_state.clone()));
             Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
                 menu: Box::new(description_menu),
                 completer,

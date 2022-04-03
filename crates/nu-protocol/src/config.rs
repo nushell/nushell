@@ -221,20 +221,20 @@ impl Value {
                             eprintln!("$config.log_level is not a string")
                         }
                     }
-                    "menus" => {
-                        if let Ok(map) = create_menus(value, &config) {
-                            config.menus = map;
-                        } else {
-                            eprintln!("$config.menus is not a valid list of menus")
+                    "menus" => match create_menus(value, &config) {
+                        Ok(map) => config.menus = map,
+                        Err(e) => {
+                            eprintln!("$config.menus is not a valid list of menus");
+                            eprintln!("{:?}", e);
                         }
-                    }
-                    "keybindings" => {
-                        if let Ok(keybindings) = create_keybindings(value, &config) {
-                            config.keybindings = keybindings;
-                        } else {
-                            eprintln!("$config.keybindings is not a valid keybindings list")
+                    },
+                    "keybindings" => match create_keybindings(value, &config) {
+                        Ok(keybindings) => config.keybindings = keybindings,
+                        Err(e) => {
+                            eprintln!("$config.keybindings is not a valid keybindings list");
+                            eprintln!("{:?}", e);
                         }
-                    }
+                    },
                     x => {
                         eprintln!("$config.{} is an unknown config setting", x)
                     }
@@ -335,7 +335,7 @@ fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybin
 }
 
 // Parses the config object to extract the strings that will compose a keybinding for reedline
-fn create_menus(value: &Value, config: &Config) -> Result<Vec<ParsedMenu>, ShellError> {
+pub fn create_menus(value: &Value, config: &Config) -> Result<Vec<ParsedMenu>, ShellError> {
     match value {
         Value::Record { cols, vals, span } => {
             // Finding the modifier value in the record
