@@ -65,12 +65,7 @@ impl Completer for NuMenuCompleter {
 
         if let Ok(values) = res {
             let values = values.into_value(self.span);
-            convert_to_suggestions(
-                values,
-                line,
-                pos,
-                self.only_buffer_difference,
-            )
+            convert_to_suggestions(values, line, pos, self.only_buffer_difference)
         } else {
             Vec::new()
         }
@@ -116,7 +111,7 @@ fn convert_to_suggestions(
                         _ => reedline::Span {
                             start: if only_buffer_difference { pos } else { 0 },
                             end: if only_buffer_difference {
-                                pos + line.len() 
+                                pos + line.len()
                             } else {
                                 line.len()
                             },
@@ -126,7 +121,7 @@ fn convert_to_suggestions(
                 _ => reedline::Span {
                     start: if only_buffer_difference { pos } else { 0 },
                     end: if only_buffer_difference {
-                        pos + line.len() 
+                        pos + line.len()
                     } else {
                         line.len()
                     },
@@ -157,9 +152,7 @@ fn convert_to_suggestions(
         }
         Value::List { vals, .. } => vals
             .into_iter()
-            .flat_map(|val| {
-                convert_to_suggestions(val, line, pos, only_buffer_difference)
-            })
+            .flat_map(|val| convert_to_suggestions(val, line, pos, only_buffer_difference))
             .collect(),
         _ => vec![Suggestion {
             value: "Nothing found".to_string(),

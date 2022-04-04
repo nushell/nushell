@@ -342,7 +342,8 @@ pub fn create_menus(value: &Value, config: &Config) -> Result<Vec<ParsedMenu>, S
             // Finding the modifier value in the record
             let name = extract_value("name", cols, vals, span)?.clone();
             let marker = extract_value("marker", cols, vals, span)?.clone();
-            let only_buffer_difference = extract_value("only_buffer_difference", cols, vals, span)?.clone();
+            let only_buffer_difference =
+                extract_value("only_buffer_difference", cols, vals, span)?.clone();
             let style = extract_value("style", cols, vals, span)?.clone();
             let menu_type = extract_value("type", cols, vals, span)?.clone();
 
