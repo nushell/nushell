@@ -193,6 +193,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Rm,
             Save,
             Touch,
+            Glob,
         };
 
         // Platform
