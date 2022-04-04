@@ -272,7 +272,7 @@ fn create_map(value: &Value, config: &Config) -> Result<HashMap<String, Value>, 
     Ok(hm)
 }
 
-fn color_value_string(
+pub fn color_value_string(
     span: &Span,
     inner_cols: &[String],
     inner_vals: &[Value],

@@ -5,7 +5,7 @@ use nu_color_config::lookup_ansi_color_style;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    create_menus,
+    color_value_string, create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
     extract_value, Config, IntoPipelineData, ParsedKeybinding, ParsedMenu, PipelineData,
     ShellError, Span, Value,
@@ -152,6 +152,26 @@ fn add_menu(
     }
 }
 
+macro_rules! add_style {
+    // first arm match add!(1,2), add!(2,3) etc
+    ($name:expr, $cols: expr, $vals:expr, $span:expr, $config: expr, $menu:expr, $f:expr) => {
+        $menu = match extract_value($name, $cols, $vals, $span) {
+            Ok(text) => {
+                let text = match text {
+                    Value::String { val, .. } => val.clone(),
+                    Value::Record { cols, vals, span } => {
+                        color_value_string(span, cols, vals, $config).into_string("", $config)
+                    }
+                    _ => "green".to_string(),
+                };
+                let style = lookup_ansi_color_style(&text);
+                $f($menu, style)
+            }
+            Err(_) => $menu,
+        };
+    };
+}
+
 // Adds a columnar menu to the editor engine
 pub(crate) fn add_columnar_menu(
     line_editor: Reedline,
@@ -190,29 +210,33 @@ pub(crate) fn add_columnar_menu(
     }
 
     if let Value::Record { cols, vals, span } = &menu.style {
-        columnar_menu = match extract_value("text", cols, vals, span) {
-            Ok(text) => {
-                let text = text.into_string("", config);
-                columnar_menu.with_text_style(lookup_ansi_color_style(&text))
-            }
-            Err(_) => columnar_menu,
-        };
-
-        columnar_menu = match extract_value("selected_text", cols, vals, span) {
-            Ok(selected) => {
-                let selected = selected.into_string("", config);
-                columnar_menu.with_selected_text_style(lookup_ansi_color_style(&selected))
-            }
-            Err(_) => columnar_menu,
-        };
-
-        columnar_menu = match extract_value("description_text", cols, vals, span) {
-            Ok(description) => {
-                let description = description.into_string("", config);
-                columnar_menu.with_description_text_style(lookup_ansi_color_style(&description))
-            }
-            Err(_) => columnar_menu,
-        };
+        add_style!(
+            "text",
+            cols,
+            vals,
+            span,
+            config,
+            columnar_menu,
+            ColumnarMenu::with_text_style
+        );
+        add_style!(
+            "selected_text",
+            cols,
+            vals,
+            span,
+            config,
+            columnar_menu,
+            ColumnarMenu::with_selected_text_style
+        );
+        add_style!(
+            "description_text",
+            cols,
+            vals,
+            span,
+            config,
+            columnar_menu,
+            ColumnarMenu::with_description_text_style
+        );
     }
 
     let marker = menu.marker.into_string("", config);
@@ -272,29 +296,33 @@ pub(crate) fn add_list_menu(
     }
 
     if let Value::Record { cols, vals, span } = &menu.style {
-        list_menu = match extract_value("text", cols, vals, span) {
-            Ok(text) => {
-                let text = text.into_string("", config);
-                list_menu.with_text_style(lookup_ansi_color_style(&text))
-            }
-            Err(_) => list_menu,
-        };
-
-        list_menu = match extract_value("selected_text", cols, vals, span) {
-            Ok(selected) => {
-                let selected = selected.into_string("", config);
-                list_menu.with_selected_text_style(lookup_ansi_color_style(&selected))
-            }
-            Err(_) => list_menu,
-        };
-
-        list_menu = match extract_value("description_text", cols, vals, span) {
-            Ok(description) => {
-                let description = description.into_string("", config);
-                list_menu.with_description_text_style(lookup_ansi_color_style(&description))
-            }
-            Err(_) => list_menu,
-        };
+        add_style!(
+            "text",
+            cols,
+            vals,
+            span,
+            config,
+            list_menu,
+            ListMenu::with_text_style
+        );
+        add_style!(
+            "selected_text",
+            cols,
+            vals,
+            span,
+            config,
+            list_menu,
+            ListMenu::with_selected_text_style
+        );
+        add_style!(
+            "description_text",
+            cols,
+            vals,
+            span,
+            config,
+            list_menu,
+            ListMenu::with_description_text_style
+        );
     }
 
     let marker = menu.marker.into_string("", config);
@@ -386,29 +414,33 @@ pub(crate) fn add_description_menu(
     }
 
     if let Value::Record { cols, vals, span } = &menu.style {
-        description_menu = match extract_value("text", cols, vals, span) {
-            Ok(text) => {
-                let text = text.into_string("", config);
-                description_menu.with_text_style(lookup_ansi_color_style(&text))
-            }
-            Err(_) => description_menu,
-        };
-
-        description_menu = match extract_value("selected_text", cols, vals, span) {
-            Ok(selected) => {
-                let selected = selected.into_string("", config);
-                description_menu.with_selected_text_style(lookup_ansi_color_style(&selected))
-            }
-            Err(_) => description_menu,
-        };
-
-        description_menu = match extract_value("description_text", cols, vals, span) {
-            Ok(description) => {
-                let description = description.into_string("", config);
-                description_menu.with_description_text_style(lookup_ansi_color_style(&description))
-            }
-            Err(_) => description_menu,
-        };
+        add_style!(
+            "text",
+            cols,
+            vals,
+            span,
+            config,
+            description_menu,
+            DescriptionMenu::with_text_style
+        );
+        add_style!(
+            "selected_text",
+            cols,
+            vals,
+            span,
+            config,
+            description_menu,
+            DescriptionMenu::with_selected_text_style
+        );
+        add_style!(
+            "description_text",
+            cols,
+            vals,
+            span,
+            config,
+            description_menu,
+            DescriptionMenu::with_description_text_style
+        );
     }
 
     let marker = menu.marker.into_string("", config);
