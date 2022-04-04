@@ -155,7 +155,7 @@ fn convert_to_suggestions(
             .flat_map(|val| convert_to_suggestions(val, line, pos, only_buffer_difference))
             .collect(),
         _ => vec![Suggestion {
-            value: "Nothing found".to_string(),
+            value: format!("Not a record: {:?}", value),
             description: None,
             extra: None,
             span: reedline::Span {
