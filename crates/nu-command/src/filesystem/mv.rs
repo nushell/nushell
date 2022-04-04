@@ -6,7 +6,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Value,
 };
 
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
@@ -40,6 +41,7 @@ impl Command for Mv {
                 SyntaxShape::Filepath,
                 "the location to move files/directories to",
             )
+            .switch("quiet", "suppress output showing files moved", Some('q'))
             // .switch("interactive", "ask user to confirm action", Some('i'))
             // .switch("force", "suppress error when no file", Some('f'))
             .category(Category::FileSystem)
@@ -55,8 +57,11 @@ impl Command for Mv {
         // TODO: handle invalid directory or insufficient permissions when moving
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
+        let quiet = call.has_flag("quiet");
         // let interactive = call.has_flag("interactive");
         // let force = call.has_flag("force");
+
+        let ctrlc = engine_state.ctrlc.clone();
 
         let path = current_dir(engine_state, stack)?;
         let source = path.join(spanned_source.item.as_str());
@@ -116,20 +121,35 @@ impl Command for Mv {
                 .collect();
         }
 
-        for entry in sources.into_iter().flatten() {
-            move_file(
-                Spanned {
-                    item: entry,
-                    span: spanned_source.span,
-                },
-                Spanned {
-                    item: destination.clone(),
-                    span: spanned_destination.span,
-                },
-            )?
-        }
-
-        Ok(PipelineData::new(call.head))
+        let span = call.head;
+        Ok(sources
+            .into_iter()
+            .flatten()
+            .filter_map(move |entry| {
+                let result = move_file(
+                    Spanned {
+                        item: entry.clone(),
+                        span: spanned_source.span,
+                    },
+                    Spanned {
+                        item: destination.clone(),
+                        span: spanned_destination.span,
+                    },
+                );
+                if let Err(error) = result {
+                    Some(Value::Error { error })
+                } else if quiet {
+                    None
+                } else {
+                    let val = format!(
+                        "moved {:} to {:}",
+                        entry.to_string_lossy(),
+                        destination.to_string_lossy()
+                    );
+                    Some(Value::String { val, span })
+                }
+            })
+            .into_pipeline_data(ctrlc))
     }
 
     fn examples(&self) -> Vec<Example> {
