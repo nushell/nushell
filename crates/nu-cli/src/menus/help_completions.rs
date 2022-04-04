@@ -98,7 +98,7 @@ impl NuHelpCompleter {
 }
 
 impl Completer for NuHelpCompleter {
-    fn complete(&self, line: &str, pos: usize) -> Vec<Suggestion> {
+    fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         self.completion_helper(line, pos)
     }
 }

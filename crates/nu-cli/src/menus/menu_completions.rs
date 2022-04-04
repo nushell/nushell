@@ -34,7 +34,7 @@ impl NuMenuCompleter {
 }
 
 impl Completer for NuMenuCompleter {
-    fn complete(&self, line: &str, pos: usize) -> Vec<Suggestion> {
+    fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let parsed = parse_selection_char(line, SELECTION_CHAR);
 
         let block = self.engine_state.get_block(self.block_id);

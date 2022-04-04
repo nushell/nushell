@@ -460,7 +460,7 @@ impl Menu for DescriptionMenu {
         &mut self,
         _values_updated: bool,
         _line_buffer: &mut LineBuffer,
-        _completer: &dyn Completer,
+        _completer: &mut dyn Completer,
     ) -> bool {
         false
     }
@@ -481,7 +481,7 @@ impl Menu for DescriptionMenu {
     }
 
     /// Updates menu values
-    fn update_values(&mut self, line_buffer: &mut LineBuffer, completer: &dyn Completer) {
+    fn update_values(&mut self, line_buffer: &mut LineBuffer, completer: &mut dyn Completer) {
         if self.only_buffer_difference {
             if let Some(old_string) = &self.input {
                 let (start, input) = string_difference(line_buffer.get_buffer(), old_string);
@@ -503,7 +503,7 @@ impl Menu for DescriptionMenu {
     fn update_working_details(
         &mut self,
         line_buffer: &mut LineBuffer,
-        completer: &dyn Completer,
+        completer: &mut dyn Completer,
         painter: &Painter,
     ) {
         if let Some(event) = self.event.take() {
