@@ -212,7 +212,7 @@ let $config = {
             col_padding: 2
         }
         style: {
-            text: green,
+            text: green
             selected_text: green_reverse
             description_text: yellow
         }
@@ -226,7 +226,7 @@ let $config = {
             page_size: 10
         }
         style: {
-            text: green,
+            text: green
             selected_text: green_reverse
             description_text: yellow
         }
@@ -244,7 +244,7 @@ let $config = {
             description_rows: 10
         }
         style: {
-            text: green,
+            text: green
             selected_text: green_reverse
             description_text: yellow
         }
@@ -263,7 +263,7 @@ let $config = {
             col_padding: 2
         }
         style: {
-            text: green,
+            text: green
             selected_text: green_reverse
             description_text: yellow
         }
@@ -282,7 +282,7 @@ let $config = {
             page_size: 10
         }
         style: {
-            text: green,
+            text: green
             selected_text: green_reverse
             description_text: yellow
         }
@@ -306,7 +306,7 @@ let $config = {
             description_rows: 10
         }
         style: {
-            text: green,
+            text: green
             selected_text: green_reverse
             description_text: yellow
         }
