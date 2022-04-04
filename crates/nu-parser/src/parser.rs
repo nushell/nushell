@@ -71,6 +71,7 @@ pub fn is_math_expression_like(bytes: &[u8]) -> bool {
         || b == b'$'
         || b == b'"'
         || b == b'\''
+        || b == b'`'
         || b == b'-'
 }
 
@@ -89,6 +90,7 @@ fn is_variable(bytes: &[u8]) -> bool {
 pub fn trim_quotes(bytes: &[u8]) -> &[u8] {
     if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
         || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
+        || (bytes.starts_with(b"`") && bytes.ends_with(b"`") && bytes.len() > 1)
     {
         &bytes[1..(bytes.len() - 1)]
     } else {
@@ -1482,10 +1484,16 @@ pub fn parse_string_interpolation(
                 if byte == b'"' {
                     delimiter_stack.pop();
                 }
+            } else if let Some(b'`') = delimiter_stack.last() {
+                if byte == b'`' {
+                    delimiter_stack.pop();
+                }
             } else if byte == b'\'' {
                 delimiter_stack.push(b'\'')
             } else if byte == b'"' {
                 delimiter_stack.push(b'"');
+            } else if byte == b'`' {
+                delimiter_stack.push(b'`')
             } else if byte == b'(' {
                 delimiter_stack.push(b')');
             } else if byte == b')' {
@@ -2681,7 +2689,11 @@ pub fn parse_var_with_opt_type(
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
 
-    if bytes.contains(&b' ') || bytes.contains(&b'"') || bytes.contains(&b'\'') {
+    if bytes.contains(&b' ')
+        || bytes.contains(&b'"')
+        || bytes.contains(&b'\'')
+        || bytes.contains(&b'`')
+    {
         return (
             garbage(spans[*spans_idx]),
             Some(ParseError::VariableNotValid(spans[*spans_idx])),

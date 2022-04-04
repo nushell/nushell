@@ -147,7 +147,7 @@ pub fn lex_item(
         } else if is_special_item(&block_level, c, special_tokens) && token_start == *curr_offset {
             *curr_offset += 1;
             break;
-        } else if c == b'\'' || c == b'"' {
+        } else if c == b'\'' || c == b'"' || c == b'`' {
             // We encountered the opening quote of a string literal.
             quote_start = Some(c);
         } else if c == b'[' {
