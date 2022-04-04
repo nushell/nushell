@@ -109,19 +109,14 @@ pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
         );
     }
 
-    fn escape(input: &str) -> String {
-        let output = input.replace('\\', "\\\\");
-        output.replace('"', "\\\"")
-    }
-
     fn put_env_to_fake_file(name: &str, val: &str, fake_env_file: &mut String) {
-        fake_env_file.push('"');
-        fake_env_file.push_str(&escape(name));
-        fake_env_file.push('"');
+        fake_env_file.push('`');
+        fake_env_file.push_str(name);
+        fake_env_file.push('`');
         fake_env_file.push('=');
-        fake_env_file.push('"');
-        fake_env_file.push_str(&escape(val));
-        fake_env_file.push('"');
+        fake_env_file.push('`');
+        fake_env_file.push_str(val);
+        fake_env_file.push('`');
         fake_env_file.push('\n');
     }
 
