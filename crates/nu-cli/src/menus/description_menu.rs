@@ -1,9 +1,8 @@
 use {
-    crate::help_completions::{EXAMPLE_MARKER, EXAMPLE_NEW_LINE},
     nu_ansi_term::{ansi::RESET, Style},
     reedline::{
-        menu_functions::string_difference, Completer, History, LineBuffer, Menu, MenuEvent,
-        MenuTextStyle, Painter, Suggestion,
+        menu_functions::string_difference, Completer, LineBuffer, Menu, MenuEvent, MenuTextStyle,
+        Painter, Suggestion,
     },
 };
 
@@ -48,7 +47,10 @@ struct WorkingDetails {
 }
 
 /// Completion menu definition
-pub struct NuHelpMenu {
+pub struct DescriptionMenu {
+    /// Menu name
+    name: String,
+    /// Menu status
     active: bool,
     /// Menu coloring
     color: MenuTextStyle,
@@ -80,11 +82,15 @@ pub struct NuHelpMenu {
     show_examples: bool,
     /// Skipped description rows
     skipped_rows: usize,
+    /// Calls the completer using only the line buffer difference difference
+    /// after the menu was activated
+    only_buffer_difference: bool,
 }
 
-impl Default for NuHelpMenu {
+impl Default for DescriptionMenu {
     fn default() -> Self {
         Self {
+            name: "description_menu".to_string(),
             active: false,
             color: MenuTextStyle::default(),
             default_details: DefaultMenuDetails::default(),
@@ -100,11 +106,19 @@ impl Default for NuHelpMenu {
             example_index: None,
             show_examples: true,
             skipped_rows: 0,
+            only_buffer_difference: true,
         }
     }
 }
 
-impl NuHelpMenu {
+// Menu configuration
+impl DescriptionMenu {
+    /// Menu builder with new name
+    pub fn with_name(mut self, name: &str) -> Self {
+        self.name = name.into();
+        self
+    }
+
     /// Menu builder with new value for text style
     pub fn with_text_style(mut self, text_style: Style) -> Self {
         self.color.text_style = text_style;
@@ -159,6 +173,15 @@ impl NuHelpMenu {
         self
     }
 
+    /// Menu builder with new only buffer difference
+    pub fn with_only_buffer_difference(mut self, only_buffer_difference: bool) -> Self {
+        self.only_buffer_difference = only_buffer_difference;
+        self
+    }
+}
+
+// Menu functionality
+impl DescriptionMenu {
     /// Move menu cursor to the next element
     fn move_next(&mut self) {
         let mut new_col = self.col_pos + 1;
@@ -279,19 +302,11 @@ impl NuHelpMenu {
 
     /// Update list of examples from the actual value
     fn update_examples(&mut self) {
-        let examples = self
+        self.examples = self
             .get_value()
-            .and_then(|suggestion| suggestion.description)
-            .unwrap_or_else(|| "".to_string())
-            .lines()
-            .filter(|line| line.starts_with(EXAMPLE_MARKER))
-            .map(|line| {
-                line.replace(EXAMPLE_MARKER, "")
-                    .replace(EXAMPLE_NEW_LINE, "\r\n")
-            })
-            .collect::<Vec<String>>();
+            .and_then(|suggestion| suggestion.extra)
+            .unwrap_or_default();
 
-        self.examples = examples;
         self.example_index = None;
     }
 
@@ -359,7 +374,6 @@ impl NuHelpMenu {
             .and_then(|suggestion| suggestion.description)
             .unwrap_or_else(|| "".to_string())
             .lines()
-            .filter(|line| !line.starts_with(EXAMPLE_MARKER))
             .skip(self.skipped_rows)
             .take(self.working_details.description_rows)
             .collect::<Vec<&str>>()
@@ -420,10 +434,10 @@ impl NuHelpMenu {
     }
 }
 
-impl Menu for NuHelpMenu {
+impl Menu for DescriptionMenu {
     /// Menu name
     fn name(&self) -> &str {
-        "help_menu"
+        self.name.as_str()
     }
 
     /// Menu indicator
@@ -436,17 +450,16 @@ impl Menu for NuHelpMenu {
         self.active
     }
 
-    /// The help menu stays active even with one record
+    /// The menu stays active even with one record
     fn can_quick_complete(&self) -> bool {
         false
     }
 
-    /// The help menu does not need to partially complete
+    /// The menu does not need to partially complete
     fn can_partially_complete(
         &mut self,
         _values_updated: bool,
         _line_buffer: &mut LineBuffer,
-        _history: &dyn History,
         _completer: &dyn Completer,
     ) -> bool {
         false
@@ -468,29 +481,20 @@ impl Menu for NuHelpMenu {
     }
 
     /// Updates menu values
-    fn update_values(
-        &mut self,
-        line_buffer: &mut LineBuffer,
-        _history: &dyn History,
-        completer: &dyn Completer,
-    ) {
-        if let Some(old_string) = &self.input {
-            let (start, input) = string_difference(line_buffer.get_buffer(), old_string);
-            if !input.is_empty() {
-                self.reset_position();
-                self.values = completer
-                    .complete(input, line_buffer.insertion_point())
-                    .into_iter()
-                    .map(|suggestion| Suggestion {
-                        value: suggestion.value,
-                        description: suggestion.description,
-                        span: reedline::Span {
-                            start,
-                            end: start + input.len(),
-                        },
-                    })
-                    .collect();
+    fn update_values(&mut self, line_buffer: &mut LineBuffer, completer: &dyn Completer) {
+        if self.only_buffer_difference {
+            if let Some(old_string) = &self.input {
+                let (start, input) = string_difference(line_buffer.get_buffer(), old_string);
+                if !input.is_empty() {
+                    self.reset_position();
+                    self.values = completer.complete(input, start);
+                }
             }
+        } else {
+            let trimmed_buffer = line_buffer.get_buffer().replace('\n', " ");
+            self.values =
+                completer.complete(trimmed_buffer.as_str(), line_buffer.insertion_point());
+            self.reset_position();
         }
     }
 
@@ -499,7 +503,6 @@ impl Menu for NuHelpMenu {
     fn update_working_details(
         &mut self,
         line_buffer: &mut LineBuffer,
-        history: &dyn History,
         completer: &dyn Completer,
         painter: &Painter,
     ) {
@@ -558,12 +561,12 @@ impl Menu for NuHelpMenu {
                 MenuEvent::Activate(_) => {
                     self.reset_position();
                     self.input = Some(line_buffer.get_buffer().to_string());
-                    self.update_values(line_buffer, history, completer);
+                    self.update_values(line_buffer, completer);
                 }
                 MenuEvent::Deactivate => self.active = false,
                 MenuEvent::Edit(_) => {
                     self.reset_position();
-                    self.update_values(line_buffer, history, completer);
+                    self.update_values(line_buffer, completer);
                     self.update_examples()
                 }
                 MenuEvent::NextElement => {
@@ -607,7 +610,6 @@ impl Menu for NuHelpMenu {
                         .and_then(|suggestion| suggestion.description)
                         .unwrap_or_else(|| "".to_string())
                         .lines()
-                        .filter(|line| !line.starts_with(EXAMPLE_MARKER))
                         .count();
 
                     let allowed_skips =
@@ -627,20 +629,24 @@ impl Menu for NuHelpMenu {
     /// The buffer gets replaced in the Span location
     fn replace_in_buffer(&self, line_buffer: &mut LineBuffer) {
         if let Some(Suggestion { value, span, .. }) = self.get_value() {
+            let start = span.start.min(line_buffer.len());
+            let end = span.end.min(line_buffer.len());
+
             let string_len = if let Some(example_index) = self.example_index {
                 let example = self
                     .examples
                     .get(example_index)
                     .expect("the example index is always checked");
-                line_buffer.replace(span.start..span.end, example);
+
+                line_buffer.replace(start..end, example);
                 example.len()
             } else {
-                line_buffer.replace(span.start..span.end, &value);
+                line_buffer.replace(start..end, &value);
                 value.len()
             };
 
             let mut offset = line_buffer.insertion_point();
-            offset += string_len.saturating_sub(span.end - span.start);
+            offset += string_len.saturating_sub(end.saturating_sub(start));
             line_buffer.set_insertion_point(offset);
         }
     }

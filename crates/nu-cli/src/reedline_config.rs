@@ -1,219 +1,453 @@
-use super::NuHelpMenu;
+use super::DescriptionMenu;
+use crate::{menus::NuMenuCompleter, NuHelpCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::lookup_ansi_color_style;
-use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Value};
+use nu_engine::eval_block;
+use nu_parser::parse;
+use nu_protocol::{
+    create_menus,
+    engine::{EngineState, Stack, StateWorkingSet},
+    extract_value, Config, IntoPipelineData, ParsedKeybinding, ParsedMenu, PipelineData,
+    ShellError, Span, Value,
+};
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    Completer, CompletionMenu, EditCommand, HistoryMenu, Keybindings, Reedline, ReedlineEvent,
+    ColumnarMenu, EditCommand, Keybindings, ListMenu, Reedline, ReedlineEvent, ReedlineMenu,
 };
 
-// Creates an input object for the completion menu based on the dictionary
-// stored in the config variable
-pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Reedline {
-    let mut completion_menu = CompletionMenu::default();
+const DEFAULT_COMPLETION_MENU: &str = r#"
+{
+  name: completion_menu
+  only_buffer_difference: false
+  marker: "| "
+  type: {
+      layout: columnar
+      columns: 4
+      col_width: 20   
+      col_padding: 2
+  }
+  style: {
+      text: green,
+      selected_text: green_reverse
+      description_text: yellow
+  }
+}"#;
 
-    completion_menu = match config
-        .menu_config
-        .get("columns")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => completion_menu.with_columns(value as u16),
-        None => completion_menu,
-    };
+const DEFAULT_HISTORY_MENU: &str = r#"
+{
+  name: history_menu
+  only_buffer_difference: true
+  marker: "? "
+  type: {
+      layout: list
+      page_size: 10
+  }
+  style: {
+      text: green,
+      selected_text: green_reverse
+      description_text: yellow
+  }
+}"#;
 
-    completion_menu = completion_menu.with_column_width(
-        config
-            .menu_config
-            .get("col_width")
-            .and_then(|value| value.as_integer().ok())
-            .map(|value| value as usize),
-    );
+const DEFAULT_HELP_MENU: &str = r#"
+{
+  name: help_menu
+  only_buffer_difference: true
+  marker: "? "
+  type: {
+      layout: description
+      columns: 4
+      col_width: 20   
+      col_padding: 2
+      selection_rows: 4
+      description_rows: 10
+  }
+  style: {
+      text: green,
+      selected_text: green_reverse
+      description_text: yellow
+  }
+}"#;
 
-    completion_menu = match config
-        .menu_config
-        .get("col_padding")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => completion_menu.with_column_padding(value as usize),
-        None => completion_menu,
-    };
-
-    completion_menu = match config
-        .menu_config
-        .get("text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => completion_menu.with_text_style(lookup_ansi_color_style(&value)),
-        None => completion_menu,
-    };
-
-    completion_menu = match config
-        .menu_config
-        .get("selected_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => completion_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => completion_menu,
-    };
-
-    completion_menu = match config
-        .menu_config
-        .get("marker")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => completion_menu.with_marker(value),
-        None => completion_menu,
-    };
-
-    line_editor.with_menu(Box::new(completion_menu), None)
-}
-
-// Creates an input object for the history menu based on the dictionary
-// stored in the config variable
-pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedline {
-    let mut history_menu = HistoryMenu::default();
-
-    history_menu = match config
-        .history_config
-        .get("page_size")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => history_menu.with_page_size(value as usize),
-        None => history_menu,
-    };
-
-    history_menu = match config
-        .history_config
-        .get("selector")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => {
-            let char = value.chars().next().unwrap_or('!');
-            history_menu.with_selection_char(char)
-        }
-        None => history_menu,
-    };
-
-    history_menu = match config
-        .history_config
-        .get("text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => history_menu.with_text_style(lookup_ansi_color_style(&value)),
-        None => history_menu,
-    };
-
-    history_menu = match config
-        .history_config
-        .get("selected_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => history_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => history_menu,
-    };
-
-    history_menu = match config
-        .history_config
-        .get("marker")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => history_menu.with_marker(value),
-        None => history_menu,
-    };
-
-    line_editor.with_menu(Box::new(history_menu), None)
-}
-
-// Creates an input object for the help menu based on the dictionary
-// stored in the config variable
-pub(crate) fn add_help_menu(
-    line_editor: Reedline,
-    help_completer: Box<dyn Completer>,
+// Adds all menus to line editor
+pub(crate) fn add_menus(
+    mut line_editor: Reedline,
+    engine_state: &EngineState,
+    stack: &Stack,
     config: &Config,
-) -> Reedline {
-    let mut help_menu = NuHelpMenu::default();
+) -> Result<Reedline, ShellError> {
+    line_editor = line_editor.clear_menus();
 
-    help_menu = match config
-        .help_config
-        .get("columns")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => help_menu.with_columns(value as u16),
-        None => help_menu,
-    };
+    for menu in &config.menus {
+        line_editor = add_menu(line_editor, menu, engine_state, stack, config)?
+    }
 
-    help_menu = help_menu.with_column_width(
-        config
-            .help_config
-            .get("col_width")
-            .and_then(|value| value.as_integer().ok())
-            .map(|value| value as usize),
-    );
+    // Checking if the default menus have been added from the config file
+    let default_menus = vec![
+        ("completion_menu", DEFAULT_COMPLETION_MENU),
+        ("history_menu", DEFAULT_HISTORY_MENU),
+        ("help_menu", DEFAULT_HELP_MENU),
+    ];
 
-    help_menu = match config
-        .help_config
-        .get("col_padding")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => help_menu.with_column_padding(value as usize),
-        None => help_menu,
-    };
+    for (name, definition) in default_menus {
+        if !config
+            .menus
+            .iter()
+            .any(|menu| menu.name.into_string("", config) == name)
+        {
+            let (block, _) = {
+                let mut working_set = StateWorkingSet::new(engine_state);
+                let (output, _) = parse(
+                    &mut working_set,
+                    Some(name), // format!("entry #{}", entry_num)
+                    definition.as_bytes(),
+                    true,
+                    &[],
+                );
 
-    help_menu = match config
-        .help_config
-        .get("selection_rows")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => help_menu.with_selection_rows(value as u16),
-        None => help_menu,
-    };
+                (output, working_set.render())
+            };
 
-    help_menu = match config
-        .help_config
-        .get("description_rows")
-        .and_then(|value| value.as_integer().ok())
-    {
-        Some(value) => help_menu.with_description_rows(value as usize),
-        None => help_menu,
-    };
+            let mut temp_stack = Stack::new();
+            let input = Value::nothing(Span::test_data()).into_pipeline_data();
+            let res = eval_block(engine_state, &mut temp_stack, &block, input, false, false)?;
 
-    help_menu = match config
-        .help_config
-        .get("text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => help_menu.with_text_style(lookup_ansi_color_style(&value)),
-        None => help_menu,
-    };
+            if let PipelineData::Value(value, None) = res {
+                for menu in create_menus(&value, config)? {
+                    line_editor = add_menu(line_editor, &menu, engine_state, stack, config)?;
+                }
+            }
+        }
+    }
 
-    help_menu = match config
-        .help_config
-        .get("selected_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => help_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => help_menu,
-    };
+    Ok(line_editor)
+}
 
-    help_menu = match config
-        .help_config
-        .get("description_text_style")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => help_menu.with_description_text_style(lookup_ansi_color_style(&value)),
-        None => help_menu,
-    };
+fn add_menu(
+    line_editor: Reedline,
+    menu: &ParsedMenu,
+    engine_state: &EngineState,
+    stack: &Stack,
+    config: &Config,
+) -> Result<Reedline, ShellError> {
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
+        let layout = extract_value("layout", cols, vals, span)?.into_string("", config);
 
-    help_menu = match config
-        .help_config
-        .get("marker")
-        .and_then(|value| value.as_string().ok())
-    {
-        Some(value) => help_menu.with_marker(value),
-        None => help_menu,
-    };
+        match layout.as_str() {
+            "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, config),
+            "list" => add_list_menu(line_editor, menu, engine_state, stack, config),
+            "description" => add_description_menu(line_editor, menu, engine_state, stack, config),
+            _ => Err(ShellError::UnsupportedConfigValue(
+                "columnar, list or description".to_string(),
+                menu.menu_type.into_abbreviated_string(config),
+                menu.menu_type.span()?,
+            )),
+        }
+    } else {
+        Err(ShellError::UnsupportedConfigValue(
+            "only record type".to_string(),
+            menu.menu_type.into_abbreviated_string(config),
+            menu.menu_type.span()?,
+        ))
+    }
+}
 
-    line_editor.with_menu(Box::new(help_menu), Some(help_completer))
+// Adds a columnar menu to the editor engine
+pub(crate) fn add_columnar_menu(
+    line_editor: Reedline,
+    menu: &ParsedMenu,
+    engine_state: &EngineState,
+    stack: &Stack,
+    config: &Config,
+) -> Result<Reedline, ShellError> {
+    let name = menu.name.into_string("", config);
+    let mut columnar_menu = ColumnarMenu::default().with_name(&name);
+
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
+        columnar_menu = match extract_value("columns", cols, vals, span) {
+            Ok(columns) => {
+                let columns = columns.as_integer()?;
+                columnar_menu.with_columns(columns as u16)
+            }
+            Err(_) => columnar_menu,
+        };
+
+        columnar_menu = match extract_value("col_width", cols, vals, span) {
+            Ok(col_width) => {
+                let col_width = col_width.as_integer()?;
+                columnar_menu.with_column_width(Some(col_width as usize))
+            }
+            Err(_) => columnar_menu.with_column_width(None),
+        };
+
+        columnar_menu = match extract_value("col_padding", cols, vals, span) {
+            Ok(col_padding) => {
+                let col_padding = col_padding.as_integer()?;
+                columnar_menu.with_column_padding(col_padding as usize)
+            }
+            Err(_) => columnar_menu,
+        };
+    }
+
+    if let Value::Record { cols, vals, span } = &menu.style {
+        columnar_menu = match extract_value("text", cols, vals, span) {
+            Ok(text) => {
+                let text = text.into_string("", config);
+                columnar_menu.with_text_style(lookup_ansi_color_style(&text))
+            }
+            Err(_) => columnar_menu,
+        };
+
+        columnar_menu = match extract_value("selected_text", cols, vals, span) {
+            Ok(selected) => {
+                let selected = selected.into_string("", config);
+                columnar_menu.with_selected_text_style(lookup_ansi_color_style(&selected))
+            }
+            Err(_) => columnar_menu,
+        };
+
+        columnar_menu = match extract_value("description_text", cols, vals, span) {
+            Ok(description) => {
+                let description = description.into_string("", config);
+                columnar_menu.with_description_text_style(lookup_ansi_color_style(&description))
+            }
+            Err(_) => columnar_menu,
+        };
+    }
+
+    let marker = menu.marker.into_string("", config);
+    columnar_menu = columnar_menu.with_marker(marker);
+
+    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
+    columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
+
+    match &menu.source {
+        Value::Nothing { .. } => {
+            Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
+        }
+        Value::Block {
+            val,
+            captures,
+            span,
+        } => {
+            let menu_completer = NuMenuCompleter::new(
+                *val,
+                *span,
+                stack.captures_to_stack(captures),
+                engine_state.clone(),
+                only_buffer_difference,
+            );
+            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
+                menu: Box::new(columnar_menu),
+                completer: Box::new(menu_completer),
+            }))
+        }
+        _ => Err(ShellError::UnsupportedConfigValue(
+            "block or omitted value".to_string(),
+            menu.source.into_abbreviated_string(config),
+            menu.source.span()?,
+        )),
+    }
+}
+
+// Adds a search menu to the line editor
+pub(crate) fn add_list_menu(
+    line_editor: Reedline,
+    menu: &ParsedMenu,
+    engine_state: &EngineState,
+    stack: &Stack,
+    config: &Config,
+) -> Result<Reedline, ShellError> {
+    let name = menu.name.into_string("", config);
+    let mut list_menu = ListMenu::default().with_name(&name);
+
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
+        list_menu = match extract_value("page_size", cols, vals, span) {
+            Ok(page_size) => {
+                let page_size = page_size.as_integer()?;
+                list_menu.with_page_size(page_size as usize)
+            }
+            Err(_) => list_menu,
+        };
+    }
+
+    if let Value::Record { cols, vals, span } = &menu.style {
+        list_menu = match extract_value("text", cols, vals, span) {
+            Ok(text) => {
+                let text = text.into_string("", config);
+                list_menu.with_text_style(lookup_ansi_color_style(&text))
+            }
+            Err(_) => list_menu,
+        };
+
+        list_menu = match extract_value("selected_text", cols, vals, span) {
+            Ok(selected) => {
+                let selected = selected.into_string("", config);
+                list_menu.with_selected_text_style(lookup_ansi_color_style(&selected))
+            }
+            Err(_) => list_menu,
+        };
+
+        list_menu = match extract_value("description_text", cols, vals, span) {
+            Ok(description) => {
+                let description = description.into_string("", config);
+                list_menu.with_description_text_style(lookup_ansi_color_style(&description))
+            }
+            Err(_) => list_menu,
+        };
+    }
+
+    let marker = menu.marker.into_string("", config);
+    list_menu = list_menu.with_marker(marker);
+
+    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
+    list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
+
+    match &menu.source {
+        Value::Nothing { .. } => {
+            Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
+        }
+        Value::Block {
+            val,
+            captures,
+            span,
+        } => {
+            let menu_completer = NuMenuCompleter::new(
+                *val,
+                *span,
+                stack.captures_to_stack(captures),
+                engine_state.clone(),
+                only_buffer_difference,
+            );
+            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
+                menu: Box::new(list_menu),
+                completer: Box::new(menu_completer),
+            }))
+        }
+        _ => Err(ShellError::UnsupportedConfigValue(
+            "block or omitted value".to_string(),
+            menu.source.into_abbreviated_string(config),
+            menu.source.span()?,
+        )),
+    }
+}
+
+// Adds a description menu to the line editor
+pub(crate) fn add_description_menu(
+    line_editor: Reedline,
+    menu: &ParsedMenu,
+    engine_state: &EngineState,
+    stack: &Stack,
+    config: &Config,
+) -> Result<Reedline, ShellError> {
+    let name = menu.name.into_string("", config);
+    let mut description_menu = DescriptionMenu::default().with_name(&name);
+
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
+        description_menu = match extract_value("columns", cols, vals, span) {
+            Ok(columns) => {
+                let columns = columns.as_integer()?;
+                description_menu.with_columns(columns as u16)
+            }
+            Err(_) => description_menu,
+        };
+
+        description_menu = match extract_value("col_width", cols, vals, span) {
+            Ok(col_width) => {
+                let col_width = col_width.as_integer()?;
+                description_menu.with_column_width(Some(col_width as usize))
+            }
+            Err(_) => description_menu.with_column_width(None),
+        };
+
+        description_menu = match extract_value("col_padding", cols, vals, span) {
+            Ok(col_padding) => {
+                let col_padding = col_padding.as_integer()?;
+                description_menu.with_column_padding(col_padding as usize)
+            }
+            Err(_) => description_menu,
+        };
+
+        description_menu = match extract_value("selection_rows", cols, vals, span) {
+            Ok(selection_rows) => {
+                let selection_rows = selection_rows.as_integer()?;
+                description_menu.with_selection_rows(selection_rows as u16)
+            }
+            Err(_) => description_menu,
+        };
+
+        description_menu = match extract_value("description_rows", cols, vals, span) {
+            Ok(description_rows) => {
+                let description_rows = description_rows.as_integer()?;
+                description_menu.with_description_rows(description_rows as usize)
+            }
+            Err(_) => description_menu,
+        };
+    }
+
+    if let Value::Record { cols, vals, span } = &menu.style {
+        description_menu = match extract_value("text", cols, vals, span) {
+            Ok(text) => {
+                let text = text.into_string("", config);
+                description_menu.with_text_style(lookup_ansi_color_style(&text))
+            }
+            Err(_) => description_menu,
+        };
+
+        description_menu = match extract_value("selected_text", cols, vals, span) {
+            Ok(selected) => {
+                let selected = selected.into_string("", config);
+                description_menu.with_selected_text_style(lookup_ansi_color_style(&selected))
+            }
+            Err(_) => description_menu,
+        };
+
+        description_menu = match extract_value("description_text", cols, vals, span) {
+            Ok(description) => {
+                let description = description.into_string("", config);
+                description_menu.with_description_text_style(lookup_ansi_color_style(&description))
+            }
+            Err(_) => description_menu,
+        };
+    }
+
+    let marker = menu.marker.into_string("", config);
+    description_menu = description_menu.with_marker(marker);
+
+    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
+    description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
+
+    match &menu.source {
+        Value::Nothing { .. } => {
+            let completer = Box::new(NuHelpCompleter::new(engine_state.clone()));
+            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
+                menu: Box::new(description_menu),
+                completer,
+            }))
+        }
+        Value::Block {
+            val,
+            captures,
+            span,
+        } => {
+            let menu_completer = NuMenuCompleter::new(
+                *val,
+                *span,
+                stack.captures_to_stack(captures),
+                engine_state.clone(),
+                only_buffer_difference,
+            );
+            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
+                menu: Box::new(description_menu),
+                completer: Box::new(menu_completer),
+            }))
+        }
+        _ => Err(ShellError::UnsupportedConfigValue(
+            "block or omitted value".to_string(),
+            menu.source.into_abbreviated_string(config),
+            menu.source.span()?,
+        )),
+    }
 }
 
 fn add_menu_keybindings(keybindings: &mut Keybindings) {

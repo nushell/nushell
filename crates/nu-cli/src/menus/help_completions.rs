@@ -2,20 +2,15 @@ use nu_engine::documentation::get_flags_section;
 use nu_protocol::{engine::EngineState, levenshtein_distance};
 use reedline::{Completer, Suggestion};
 
-pub const EXAMPLE_MARKER: &str = ">>>>>>";
-pub const EXAMPLE_NEW_LINE: &str = "%%%%%%";
-
-pub struct NuHelpCompleter {
-    engine_state: EngineState,
-}
+pub struct NuHelpCompleter(EngineState);
 
 impl NuHelpCompleter {
     pub fn new(engine_state: EngineState) -> Self {
-        Self { engine_state }
+        Self(engine_state)
     }
 
-    fn completion_helper(&self, line: &str, _pos: usize) -> Vec<Suggestion> {
-        let full_commands = self.engine_state.get_signatures_with_examples(false);
+    fn completion_helper(&self, line: &str, pos: usize) -> Vec<Suggestion> {
+        let full_commands = self.0.get_signatures_with_examples(false);
 
         //Vec<(Signature, Vec<Example>, bool, bool)> {
         let mut commands = full_commands
@@ -83,20 +78,18 @@ impl NuHelpCompleter {
                     }
                 }
 
-                for example in examples {
-                    long_desc.push_str(&format!(
-                        "{}{}\r\n",
-                        EXAMPLE_MARKER,
-                        example.example.replace('\n', EXAMPLE_NEW_LINE)
-                    ))
-                }
+                let extra: Vec<String> = examples
+                    .iter()
+                    .map(|example| example.example.to_string())
+                    .collect();
 
                 Suggestion {
                     value: sig.name.clone(),
                     description: Some(long_desc),
+                    extra: Some(extra),
                     span: reedline::Span {
-                        start: 0,
-                        end: sig.name.len(),
+                        start: pos,
+                        end: pos + line.len(),
                     },
                 }
             })

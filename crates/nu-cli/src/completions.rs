@@ -95,6 +95,7 @@ impl NuCompleter {
                 output.push(Suggestion {
                     value: builtin.to_string(),
                     description: None,
+                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
@@ -109,6 +110,7 @@ impl NuCompleter {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(v.0).to_string(),
                         description: None,
+                        extra: None,
                         span: reedline::Span {
                             start: span.start - offset,
                             end: span.end - offset,
@@ -123,6 +125,7 @@ impl NuCompleter {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(v.0).to_string(),
                         description: None,
+                        extra: None,
                         span: reedline::Span {
                             start: span.start - offset,
                             end: span.end - offset,
@@ -152,6 +155,7 @@ impl NuCompleter {
             .map(move |x| Suggestion {
                 value: String::from_utf8_lossy(&x.0).to_string(),
                 description: x.1,
+                extra: None,
                 span: reedline::Span {
                     start: span.start - offset,
                     end: span.end - offset,
@@ -165,6 +169,7 @@ impl NuCompleter {
                 .map(move |x| Suggestion {
                     value: String::from_utf8_lossy(&x).to_string(),
                     description: None,
+                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
@@ -182,6 +187,7 @@ impl NuCompleter {
                     .map(move |x| Suggestion {
                         value: x,
                         description: None,
+                        extra: None,
                         span: reedline::Span {
                             start: span.start - offset,
                             end: span.end - offset,
@@ -193,6 +199,7 @@ impl NuCompleter {
                     results.push(Suggestion {
                         value: format!("^{}", external.value),
                         description: None,
+                        extra: None,
                         span: external.span,
                     })
                 } else {
@@ -266,6 +273,7 @@ impl NuCompleter {
                                             output.push(Suggestion {
                                                 value: String::from_utf8_lossy(&named).to_string(),
                                                 description: Some(flag_desc.to_string()),
+                                                extra: None,
                                                 span: reedline::Span {
                                                     start: new_span.start - offset,
                                                     end: new_span.end - offset,
@@ -285,6 +293,7 @@ impl NuCompleter {
                                         output.push(Suggestion {
                                             value: String::from_utf8_lossy(&named).to_string(),
                                             description: Some(flag_desc.to_string()),
+                                            extra: None,
                                             span: reedline::Span {
                                                 start: new_span.start - offset,
                                                 end: new_span.end - offset,
@@ -341,6 +350,7 @@ impl NuCompleter {
                                             Ok(s) => Some(Suggestion {
                                                 value: s,
                                                 description: None,
+                                                extra: None,
                                                 span: reedline::Span {
                                                     start: new_span.start - offset,
                                                     end: new_span.end - offset,
@@ -453,6 +463,7 @@ impl NuCompleter {
                                         .map(move |x| Suggestion {
                                             value: x.1,
                                             description: None,
+                                            extra: None,
                                             span: reedline::Span {
                                                 start: x.0.start - offset,
                                                 end: x.0.end - offset,
@@ -569,6 +580,7 @@ impl NuCompleter {
                                     .map(move |x| Suggestion {
                                         value: x.1,
                                         description: None,
+                                        extra: None,
                                         span: reedline::Span {
                                             start: x.0.start - offset,
                                             end: x.0.end - offset,
