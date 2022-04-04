@@ -259,6 +259,7 @@ pub fn eval_source(
             &[],
         );
         if let Some(err) = err {
+            set_last_exit_code(stack, 1);
             report_error(&working_set, &err);
             return false;
         }
@@ -286,22 +287,10 @@ pub fn eval_source(
                 if let Some(exit_code) = exit_code.take().and_then(|it| it.last()) {
                     stack.add_env_var("LAST_EXIT_CODE".to_string(), exit_code);
                 } else {
-                    stack.add_env_var(
-                        "LAST_EXIT_CODE".to_string(),
-                        Value::Int {
-                            val: 0,
-                            span: Span { start: 0, end: 0 },
-                        },
-                    );
+                    set_last_exit_code(stack, 0);
                 }
             } else {
-                stack.add_env_var(
-                    "LAST_EXIT_CODE".to_string(),
-                    Value::Int {
-                        val: 0,
-                        span: Span { start: 0, end: 0 },
-                    },
-                );
+                set_last_exit_code(stack, 0);
             }
 
             if let Err(err) = print_pipeline_data(pipeline_data, engine_state, stack) {
@@ -319,13 +308,7 @@ pub fn eval_source(
             }
         }
         Err(err) => {
-            stack.add_env_var(
-                "LAST_EXIT_CODE".to_string(),
-                Value::Int {
-                    val: 1,
-                    span: Span { start: 0, end: 0 },
-                },
-            );
+            set_last_exit_code(stack, 1);
 
             let working_set = StateWorkingSet::new(engine_state);
 
@@ -336,6 +319,16 @@ pub fn eval_source(
     }
 
     true
+}
+
+fn set_last_exit_code(stack: &mut Stack, exit_code: i64) {
+    stack.add_env_var(
+        "LAST_EXIT_CODE".to_string(),
+        Value::Int {
+            val: exit_code,
+            span: Span { start: 0, end: 0 },
+        },
+    );
 }
 
 fn seems_like_number(bytes: &[u8]) -> bool {
