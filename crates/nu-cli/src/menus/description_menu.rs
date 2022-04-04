@@ -82,6 +82,9 @@ pub struct DescriptionMenu {
     show_examples: bool,
     /// Skipped description rows
     skipped_rows: usize,
+    /// Calls the completer using only the line buffer difference difference
+    /// after the menu was activated
+    only_buffer_difference: bool,
 }
 
 impl Default for DescriptionMenu {
@@ -103,10 +106,12 @@ impl Default for DescriptionMenu {
             example_index: None,
             show_examples: true,
             skipped_rows: 0,
+            only_buffer_difference: true,
         }
     }
 }
 
+// Menu configuration
 impl DescriptionMenu {
     /// Menu builder with new name
     pub fn with_name(mut self, name: &str) -> Self {
@@ -168,6 +173,15 @@ impl DescriptionMenu {
         self
     }
 
+    /// Menu builder with new only buffer difference
+    pub fn with_only_buffer_difference(mut self, only_buffer_difference: bool) -> Self {
+        self.only_buffer_difference = only_buffer_difference;
+        self
+    }
+}
+
+// Menu functionality
+impl DescriptionMenu {
     /// Move menu cursor to the next element
     fn move_next(&mut self) {
         let mut new_col = self.col_pos + 1;
@@ -468,24 +482,19 @@ impl Menu for DescriptionMenu {
 
     /// Updates menu values
     fn update_values(&mut self, line_buffer: &mut LineBuffer, completer: &dyn Completer) {
-        if let Some(old_string) = &self.input {
-            let (start, input) = string_difference(line_buffer.get_buffer(), old_string);
-            if !input.is_empty() {
-                self.reset_position();
-                self.values = completer
-                    .complete(input, line_buffer.insertion_point())
-                    .into_iter()
-                    .map(|suggestion| Suggestion {
-                        value: suggestion.value,
-                        description: suggestion.description,
-                        extra: suggestion.extra,
-                        span: reedline::Span {
-                            start,
-                            end: start + input.len(),
-                        },
-                    })
-                    .collect();
+        if self.only_buffer_difference {
+            if let Some(old_string) = &self.input {
+                let (start, input) = string_difference(line_buffer.get_buffer(), old_string);
+                if !input.is_empty() {
+                    self.reset_position();
+                    self.values = completer.complete(input, start);
+                }
             }
+        } else {
+            let trimmed_buffer = line_buffer.get_buffer().replace('\n', " ");
+            self.values =
+                completer.complete(trimmed_buffer.as_str(), line_buffer.insertion_point());
+            self.reset_position();
         }
     }
 

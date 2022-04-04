@@ -18,6 +18,7 @@ use reedline::{
 const DEFAULT_COMPLETION_MENU: &str = r#"
 {
   name: completion_menu
+  only_buffer_difference: false
   marker: "| "
   type: {
       layout: columnar
@@ -25,16 +26,17 @@ const DEFAULT_COMPLETION_MENU: &str = r#"
       col_width: 20   
       col_padding: 2
   }
-  #style: {
-  #    text: green,
-  #    selected_text: green_reverse
-  #    description_text: yellow
-  #}
+  style: {
+      text: green,
+      selected_text: green_reverse
+      description_text: yellow
+  }
 }"#;
 
 const DEFAULT_HISTORY_MENU: &str = r#"
 {
   name: history_menu
+  only_buffer_difference: true
   marker: "? "
   type: {
       layout: list
@@ -50,6 +52,7 @@ const DEFAULT_HISTORY_MENU: &str = r#"
 const DEFAULT_HELP_MENU: &str = r#"
 {
   name: help_menu
+  only_buffer_difference: true
   marker: "? "
   type: {
       layout: description
@@ -132,8 +135,8 @@ fn add_menu(
 
         match layout.as_str() {
             "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, config),
-            "list" => add_list_menu(line_editor, menu, engine_state, config),
-            "description" => add_description_menu(line_editor, menu, engine_state, config),
+            "list" => add_list_menu(line_editor, menu, engine_state, stack, config),
+            "description" => add_description_menu(line_editor, menu, engine_state, stack, config),
             _ => Err(ShellError::UnsupportedConfigValue(
                 "columnar, list or description".to_string(),
                 menu.menu_type.into_abbreviated_string(config),
@@ -215,6 +218,9 @@ pub(crate) fn add_columnar_menu(
     let marker = menu.marker.into_string("", config);
     columnar_menu = columnar_menu.with_marker(marker);
 
+    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
+    columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
+    
     match &menu.source {
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
@@ -224,12 +230,12 @@ pub(crate) fn add_columnar_menu(
             captures,
             span,
         } => {
-            // Need to create completer that takes a block as source
             let menu_completer = NuMenuCompleter::new(
                 *val,
                 *span,
                 stack.captures_to_stack(captures),
                 engine_state.clone(),
+                only_buffer_difference,
             );
             Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
                 menu: Box::new(columnar_menu),
@@ -248,7 +254,8 @@ pub(crate) fn add_columnar_menu(
 pub(crate) fn add_list_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
-    _engine_state: &EngineState,
+    engine_state: &EngineState,
+    stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
     let name = menu.name.into_string("", config);
@@ -293,17 +300,29 @@ pub(crate) fn add_list_menu(
     let marker = menu.marker.into_string("", config);
     list_menu = list_menu.with_marker(marker);
 
+    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
+    list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
+    
     match &menu.source {
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
         }
-        Value::Block { .. } => {
-            // Need to create completer that takes a block as source
-            //Some(completer) => line_editor.with_menu(ReedlineMenu::WithCompleter {
-            //    menu: Box::new(menu),
-            //    completer,
-            //}),
-            unimplemented!()
+        Value::Block {
+            val,
+            captures,
+            span,
+        } => {
+            let menu_completer = NuMenuCompleter::new(
+                *val,
+                *span,
+                stack.captures_to_stack(captures),
+                engine_state.clone(),
+                only_buffer_difference,
+            );
+            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
+                menu: Box::new(list_menu),
+                completer: Box::new(menu_completer),
+            }))
         }
         _ => Err(ShellError::UnsupportedConfigValue(
             "block or omitted value".to_string(),
@@ -318,6 +337,7 @@ pub(crate) fn add_description_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
     engine_state: &EngineState,
+    stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
     let name = menu.name.into_string("", config);
@@ -394,6 +414,9 @@ pub(crate) fn add_description_menu(
     let marker = menu.marker.into_string("", config);
     description_menu = description_menu.with_marker(marker);
 
+    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
+    description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
+
     match &menu.source {
         Value::Nothing { .. } => {
             let completer = Box::new(NuHelpCompleter::new(engine_state.clone()));
@@ -402,13 +425,22 @@ pub(crate) fn add_description_menu(
                 completer,
             }))
         }
-        Value::Block { .. } => {
-            // Need to create completer that takes a block as source
-            //Some(completer) => line_editor.with_menu(ReedlineMenu::WithCompleter {
-            //    menu: Box::new(menu),
-            //    completer,
-            //}),
-            unimplemented!()
+        Value::Block {
+            val,
+            captures,
+            span,
+        } => {
+            let menu_completer = NuMenuCompleter::new(
+                *val,
+                *span,
+                stack.captures_to_stack(captures),
+                engine_state.clone(),
+                only_buffer_difference,
+            );
+            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
+                menu: Box::new(description_menu),
+                completer: Box::new(menu_completer),
+            }))
         }
         _ => Err(ShellError::UnsupportedConfigValue(
             "block or omitted value".to_string(),

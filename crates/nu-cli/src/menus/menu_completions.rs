@@ -3,38 +3,60 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     IntoPipelineData, Span, Value,
 };
-use reedline::{Completer, Suggestion};
+use reedline::{menu_functions::parse_selection_char, Completer, Suggestion};
+
+const SELECTION_CHAR: char = '!';
 
 pub struct NuMenuCompleter {
     block_id: usize,
     span: Span,
     stack: Stack,
     engine_state: EngineState,
+    only_buffer_difference: bool,
 }
 
 impl NuMenuCompleter {
-    pub fn new(block_id: usize, span: Span, stack: Stack, engine_state: EngineState) -> Self {
+    pub fn new(
+        block_id: usize,
+        span: Span,
+        stack: Stack,
+        engine_state: EngineState,
+        only_buffer_difference: bool,
+    ) -> Self {
         Self {
             block_id,
             span,
             stack,
             engine_state,
+            only_buffer_difference,
         }
     }
 }
 
 impl Completer for NuMenuCompleter {
-    fn complete(&self, line: &str, _pos: usize) -> Vec<Suggestion> {
+    fn complete(&self, line: &str, pos: usize) -> Vec<Suggestion> {
+        let parsed = parse_selection_char(line, SELECTION_CHAR);
+
         let block = self.engine_state.get_block(self.block_id);
         let mut stack = self.stack.clone();
 
-        if let Some(var) = block.signature.get_positional(0) {
-            if let Some(var_id) = &var.var_id {
+        if let Some(buffer) = block.signature.get_positional(0) {
+            if let Some(buffer_id) = &buffer.var_id {
                 let line_buffer = Value::String {
-                    val: line.to_string(),
+                    val: parsed.remainder.to_string(),
                     span: self.span,
                 };
-                stack.add_var(*var_id, line_buffer);
+                stack.add_var(*buffer_id, line_buffer);
+            }
+        }
+
+        if let Some(position) = block.signature.get_positional(1) {
+            if let Some(position_id) = &position.var_id {
+                let line_buffer = Value::Int {
+                    val: pos as i64,
+                    span: self.span,
+                };
+                stack.add_var(*position_id, line_buffer);
             }
         }
 
@@ -43,14 +65,24 @@ impl Completer for NuMenuCompleter {
 
         if let Ok(values) = res {
             let values = values.into_value(self.span);
-            convert_to_suggestions(values, line)
+            convert_to_suggestions(
+                values,
+                line,
+                pos,
+                self.only_buffer_difference,
+            )
         } else {
             Vec::new()
         }
     }
 }
 
-fn convert_to_suggestions(value: Value, line: &str) -> Vec<Suggestion> {
+fn convert_to_suggestions(
+    value: Value,
+    line: &str,
+    pos: usize,
+    only_buffer_difference: bool,
+) -> Vec<Suggestion> {
     match value {
         Value::Record { .. } => {
             let text = match value
@@ -66,23 +98,68 @@ fn convert_to_suggestions(value: Value, line: &str) -> Vec<Suggestion> {
                 .and_then(|val| val.as_string().ok());
 
             let span = match value.get_data_by_key("span") {
-                Some(Value::Record { .. }) => unimplemented!(),
-                Some(_) | None => reedline::Span {
-                    start: 0,
-                    end: line.len(),
+                Some(span @ Value::Record { .. }) => {
+                    let start = span
+                        .get_data_by_key("start")
+                        .and_then(|val| val.as_integer().ok());
+                    let end = span
+                        .get_data_by_key("end")
+                        .and_then(|val| val.as_integer().ok());
+                    match (start, end) {
+                        (Some(start), Some(end)) => {
+                            let start = start.min(end);
+                            reedline::Span {
+                                start: start as usize,
+                                end: end as usize,
+                            }
+                        }
+                        _ => reedline::Span {
+                            start: if only_buffer_difference { pos } else { 0 },
+                            end: if only_buffer_difference {
+                                pos + line.len() 
+                            } else {
+                                line.len()
+                            },
+                        },
+                    }
+                }
+                _ => reedline::Span {
+                    start: if only_buffer_difference { pos } else { 0 },
+                    end: if only_buffer_difference {
+                        pos + line.len() 
+                    } else {
+                        line.len()
+                    },
                 },
+            };
+
+            let extra = match value.get_data_by_key("extra") {
+                Some(Value::List { vals, .. }) => {
+                    let extra: Vec<String> = vals
+                        .into_iter()
+                        .filter_map(|extra| match extra {
+                            Value::String { val, .. } => Some(val),
+                            _ => None,
+                        })
+                        .collect();
+
+                    Some(extra)
+                }
+                _ => None,
             };
 
             vec![Suggestion {
                 value: text,
                 description,
-                extra: None,
+                extra,
                 span,
             }]
         }
         Value::List { vals, .. } => vals
             .into_iter()
-            .flat_map(|val| convert_to_suggestions(val, line))
+            .flat_map(|val| {
+                convert_to_suggestions(val, line, pos, only_buffer_difference)
+            })
             .collect(),
         _ => vec![Suggestion {
             value: "Nothing found".to_string(),
