@@ -90,7 +90,7 @@ pub struct DescriptionMenu {
 impl Default for DescriptionMenu {
     fn default() -> Self {
         Self {
-            name: "describe_mene".to_string(),
+            name: "description_menu".to_string(),
             active: false,
             color: MenuTextStyle::default(),
             default_details: DefaultMenuDetails::default(),
