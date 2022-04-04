@@ -199,6 +199,8 @@ let $config = {
   max_history_size: 10000 # Session has to be reloaded for this to take effect
   sync_history_on_enter: true # Enable to share the history between multiple sessions, else you have to close the session to persist history to file
   menus: [
+      # Configuration for default nushell menus
+      # Note the lack of souce parameter
       {
         name: completion_menu
         only_buffer_difference: false
@@ -247,10 +249,13 @@ let $config = {
             description_text: yellow
         }
       }
+      # Example of extra menus created using a nushell source
+      # Use the source field to create a list of records that populates
+      # the menu
       {
         name: commands_menu
         only_buffer_difference: false
-        marker: "| "
+        marker: "# "
         type: {
             layout: columnar
             columns: 4
@@ -271,7 +276,7 @@ let $config = {
       {
         name: vars_menu
         only_buffer_difference: true
-        marker: "| "
+        marker: "# "
         type: {
             layout: list
             page_size: 10
@@ -291,7 +296,7 @@ let $config = {
       {
         name: commands_with_description
         only_buffer_difference: true
-        marker: "| "
+        marker: "# "
         type: {
             layout: description
             columns: 4
@@ -356,6 +361,7 @@ let $config = {
         ]
       }
     }
+    # Keybindings used to trigger the user defined menus
     {
       name: commands_menu
       modifier: control
