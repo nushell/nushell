@@ -95,6 +95,7 @@ def signatures():
                         "var_id": None,
                     },
                 ],
+                "search_terms": ["Python", "Example"],
                 "is_filter": False,
                 "creates_scope": False,
                 "category": "Experimental",
