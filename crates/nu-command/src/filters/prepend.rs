@@ -29,7 +29,7 @@ impl Command for Prepend {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["concatenate"]
+        vec!["add", "concatenate"]
     }
 
     fn examples(&self) -> Vec<Example> {

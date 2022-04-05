@@ -24,6 +24,10 @@ impl Command for SubCommand {
         "upcases text"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["uppercase", "upper case"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

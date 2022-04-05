@@ -35,6 +35,10 @@ impl Command for Tutor {
         "Run the tutorial. To begin, run: tutor"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["help", "learn", "tutorial"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

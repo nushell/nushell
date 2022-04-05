@@ -25,7 +25,7 @@ impl Command for Append {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["concatenate"]
+        vec!["add", "concatenate"]
     }
 
     fn examples(&self) -> Vec<Example> {

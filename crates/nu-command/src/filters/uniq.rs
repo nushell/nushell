@@ -35,6 +35,10 @@ impl Command for Uniq {
         "Return the unique rows."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["distinct", "deduplicate"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

@@ -33,6 +33,10 @@ impl Command for Insert {
         "Insert a new column."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["add"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

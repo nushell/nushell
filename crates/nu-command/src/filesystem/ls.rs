@@ -27,6 +27,10 @@ impl Command for Ls {
         "List the files in a directory."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["dir"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
             // Using a string instead of a glob pattern shape so it won't auto-expand
