@@ -29,6 +29,10 @@ impl Command for Drop {
         "Remove the last number of rows or columns."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["delete"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

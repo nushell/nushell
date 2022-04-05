@@ -27,6 +27,10 @@ impl Command for SubCommand {
         "downcases text"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["lower case", "lowercase"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

@@ -19,6 +19,10 @@ impl Command for Input {
         "Get input from the user."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["prompt", "interactive"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("input")
             .optional("prompt", SyntaxShape::String, "prompt to show the user")

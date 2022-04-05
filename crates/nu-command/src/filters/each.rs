@@ -18,6 +18,10 @@ impl Command for Each {
         "Run a block on each element of input"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["for", "loop", "iterate"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("each")
             .required(

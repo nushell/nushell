@@ -28,6 +28,10 @@ impl Command for DropColumn {
         "Remove the last number of columns. If you want to remove columns by name, try 'reject'."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["delete"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

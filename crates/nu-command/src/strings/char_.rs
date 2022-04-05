@@ -171,6 +171,10 @@ impl Command for Char {
         "Output special characters (e.g., 'newline')."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["line break", "newline", "Unicode"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
