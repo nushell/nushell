@@ -187,9 +187,23 @@ fn find_with_regex(
         .map_err(|e| ShellError::UnsupportedInput(format!("incorrect regex: {}", e), span))?;
 
     input.filter(
-        move |value| {
-            let string = value.into_string(" ", &config);
-            re.is_match(string.as_str()) != invert
+        move |value| match value {
+            Value::String { val, .. } => re.is_match(val.as_str()) != invert,
+            Value::Record { cols: _, vals, .. } => {
+                let matches: Vec<bool> = vals
+                    .iter()
+                    .map(|v| re.is_match(v.into_string(" ", &config).as_str()) != invert)
+                    .collect();
+                matches.iter().any(|b| *b == true)
+            }
+            Value::List { vals, .. } => {
+                let matches: Vec<bool> = vals
+                    .iter()
+                    .map(|v| re.is_match(v.into_string(" ", &config).as_str()) != invert)
+                    .collect();
+                matches.iter().any(|b| *b == true)
+            }
+            _ => false,
         },
         ctrlc,
     )
