@@ -121,8 +121,14 @@ impl Command for Input {
                 .into_pipeline_data());
             }
 
-            // Just read a normal line of text
+            // Just read a normal line of text, and trim the newline at the end
             let input = std::io::stdin().read_line(&mut buf);
+            if buf.ends_with('\n') {
+                buf.pop();
+                if buf.ends_with('\r') {
+                    buf.pop();
+                }
+            }
 
             match input {
                 Ok(_) => Ok(Value::String {
