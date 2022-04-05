@@ -103,6 +103,7 @@ fn main() -> Result<()> {
                 || arg == "--testbin"
                 || arg == "--log-level"
                 || arg == "--config"
+                || arg == "--env-config"
                 || arg == "--threads"
                 || arg == "-t"
             {
