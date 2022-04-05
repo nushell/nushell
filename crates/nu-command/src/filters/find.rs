@@ -194,14 +194,14 @@ fn find_with_regex(
                     .iter()
                     .map(|v| re.is_match(v.into_string(" ", &config).as_str()) != invert)
                     .collect();
-                matches.iter().any(|b| *b == true)
+                matches.iter().any(|b| *b)
             }
             Value::List { vals, .. } => {
                 let matches: Vec<bool> = vals
                     .iter()
                     .map(|v| re.is_match(v.into_string(" ", &config).as_str()) != invert)
                     .collect();
-                matches.iter().any(|b| *b == true)
+                matches.iter().any(|b| *b)
             }
             _ => false,
         },
