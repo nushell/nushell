@@ -53,3 +53,6 @@ let-env NU_LIB_DIRS = [
 let-env NU_PLUGIN_DIRS = [
     ($nu.config-path | path dirname | path join 'plugins')
 ]
+
+# To add entries to PATH (on Windows you might use Path), you can use the following pattern:
+# let-env PATH = ($env.PATH | prepend '/some/path')
