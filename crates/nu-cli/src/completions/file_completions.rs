@@ -1,7 +1,7 @@
-use crate::completions::{Completer, CompletionOptions, SortBy};
+use crate::completions::{Completer, CompletionOptions};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
-    Span,
+    levenshtein_distance, Span,
 };
 use reedline::Suggestion;
 use std::path::{is_separator, Path};
@@ -52,9 +52,50 @@ impl Completer for FileCompletion {
             .collect();
 
         // Options
-        let options = CompletionOptions::new(true, true, SortBy::LevenshteinDistance);
+        let options = CompletionOptions::default();
 
         (output, options)
+    }
+
+    // Sort results prioritizing the non hidden folders
+    fn sort(
+        &self,
+        items: Vec<Suggestion>,
+        prefix: Vec<u8>,
+        _: CompletionOptions, // Ignore the given options, once it's a custom sorting
+    ) -> Vec<Suggestion> {
+        let prefix_str = String::from_utf8_lossy(&prefix).to_string();
+
+        // Sort items
+        let mut sorted_items = items;
+        sorted_items.sort_by(|a, b| {
+            let a_distance = levenshtein_distance(&prefix_str, &a.value);
+            let b_distance = levenshtein_distance(&prefix_str, &b.value);
+            a_distance.cmp(&b_distance)
+        });
+
+        // Separate the results between hidden and non hidden
+        let mut hidden: Vec<Suggestion> = vec![];
+        let mut non_hidden: Vec<Suggestion> = vec![];
+
+        for item in sorted_items.into_iter() {
+            let item_path = Path::new(&item.value);
+
+            if let Some(value) = item_path.file_name() {
+                if let Some(value) = value.to_str() {
+                    if value.starts_with('.') {
+                        hidden.push(item);
+                    } else {
+                        non_hidden.push(item);
+                    }
+                }
+            }
+        }
+
+        // Append the hidden folders to the non hidden vec to avoid creating a new vec
+        non_hidden.append(&mut hidden);
+
+        non_hidden
     }
 }
 
