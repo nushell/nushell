@@ -111,6 +111,7 @@ impl Command for Glob {
             }
         };
 
+        #[allow(clippy::needless_collect)]
         let glob_results: Vec<Value> = glob
             .walk(path, folder_depth)
             .flatten()

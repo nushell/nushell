@@ -49,7 +49,7 @@ pub fn is_math_expression_like(bytes: &[u8]) -> bool {
         return false;
     }
 
-    if bytes == b"true" || bytes == b"false" || bytes == b"null" {
+    if bytes == b"true" || bytes == b"false" || bytes == b"null" || bytes == b"not" {
         return true;
     }
 
@@ -872,6 +872,10 @@ pub fn parse_call(
         let bytes = working_set.get_span_contents(*word_span);
 
         if is_math_expression_like(bytes)
+            && bytes != b"true"
+            && bytes != b"false"
+            && bytes != b"null"
+            && bytes != b"not"
             && !working_set
                 .permanent_state
                 .external_exceptions
@@ -4005,6 +4009,40 @@ pub fn parse_math_expression(
     let mut last_prec = 1000000;
 
     let mut error = None;
+
+    let first_span = working_set.get_span_contents(spans[0]);
+
+    if first_span == b"not" {
+        if spans.len() > 1 {
+            let (remainder, err) = parse_math_expression(
+                working_set,
+                &spans[1..],
+                lhs_row_var_id,
+                expand_aliases_denylist,
+            );
+            return (
+                Expression {
+                    expr: Expr::UnaryNot(Box::new(remainder)),
+                    span: span(spans),
+                    ty: Type::Bool,
+                    custom_completion: None,
+                },
+                err,
+            );
+        } else {
+            return (
+                garbage(spans[0]),
+                Some(ParseError::Expected(
+                    "expression".into(),
+                    Span {
+                        start: spans[0].end,
+                        end: spans[0].end,
+                    },
+                )),
+            );
+        }
+    }
+
     let (mut lhs, err) = parse_value(
         working_set,
         spans[0],
@@ -4715,6 +4753,10 @@ pub fn discover_captures_in_expr(
 
             output.extend(&lhs_result);
             output.extend(&rhs_result);
+        }
+        Expr::UnaryNot(expr) => {
+            let result = discover_captures_in_expr(working_set, expr, seen, seen_blocks);
+            output.extend(&result);
         }
         Expr::Block(block_id) => {
             let block = working_set.get_block(*block_id);

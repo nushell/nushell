@@ -319,6 +319,16 @@ pub fn eval_expression(
             span: expr.span,
         }),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::UnaryNot(expr) => {
+            let lhs = eval_expression(engine_state, stack, expr)?;
+            match lhs {
+                Value::Bool { val, .. } => Ok(Value::Bool {
+                    val: !val,
+                    span: expr.span,
+                }),
+                _ => Err(ShellError::TypeMismatch("bool".to_string(), expr.span)),
+            }
+        }
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
             let lhs = eval_expression(engine_state, stack, lhs)?;

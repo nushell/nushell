@@ -195,6 +195,12 @@ fn convert_to_value(
             "binary operators not supported in nuon".into(),
             expr.span,
         )),
+        Expr::UnaryNot(..) => Err(ShellError::OutsideSpannedLabeledError(
+            original_text.to_string(),
+            "Error when loading".into(),
+            "unary operators not supported in nuon".into(),
+            expr.span,
+        )),
         Expr::Block(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),

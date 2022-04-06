@@ -375,3 +375,39 @@ fn single_value_row_condition() -> TestResult {
         "2",
     )
 }
+
+#[test]
+fn unary_not_1() -> TestResult {
+    run_test(r#"not false"#, "true")
+}
+
+#[test]
+fn unary_not_2() -> TestResult {
+    run_test(r#"not (false)"#, "true")
+}
+
+#[test]
+fn unary_not_3() -> TestResult {
+    run_test(r#"(not false)"#, "true")
+}
+
+#[test]
+fn unary_not_4() -> TestResult {
+    run_test(r#"if not false { "hello" } else { "world" }"#, "hello")
+}
+
+#[test]
+fn unary_not_5() -> TestResult {
+    run_test(
+        r#"if not not not not false { "hello" } else { "world" }"#,
+        "world",
+    )
+}
+
+#[test]
+fn unary_not_6() -> TestResult {
+    run_test(
+        r#"[[name, present]; [abc, true], [def, false]] | where not present | get name.0"#,
+        "def",
+    )
+}

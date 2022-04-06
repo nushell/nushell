@@ -88,6 +88,17 @@ pub fn flatten_expression(
             output.extend(flatten_expression(working_set, rhs));
             output
         }
+        Expr::UnaryNot(inner_expr) => {
+            let mut output = vec![(
+                Span {
+                    start: expr.span.start,
+                    end: expr.span.start + 3,
+                },
+                FlatShape::Operator,
+            )];
+            output.extend(flatten_expression(working_set, inner_expr));
+            output
+        }
         Expr::Block(block_id) | Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let outer_span = expr.span;
 
