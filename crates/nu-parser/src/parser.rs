@@ -53,26 +53,44 @@ pub fn is_math_expression_like(bytes: &[u8]) -> bool {
         return true;
     }
 
-    let b = bytes[0];
-
-    b == b'0'
-        || b == b'1'
-        || b == b'2'
-        || b == b'3'
-        || b == b'4'
-        || b == b'5'
-        || b == b'6'
-        || b == b'7'
-        || b == b'8'
-        || b == b'9'
-        || b == b'('
-        || b == b'{'
-        || b == b'['
-        || b == b'$'
-        || b == b'"'
-        || b == b'\''
-        || b == b'`'
-        || b == b'-'
+    for &b in bytes.iter().take(4) {
+    // let b = bytes[0];
+    match b {
+            b'0'
+            | b'1'
+            | b'2'
+            | b'3'
+            | b'4'
+            | b'5'
+            | b'6'
+            | b'7'
+            | b'8'
+            | b'9'
+            | b'('
+            | b')'
+            | b'{'
+            | b'}'
+            | b'['
+            | b']'
+            | b'$'
+            | b'"'
+            | b'\''
+            | b'`'
+            | b'-'
+            | b'+'
+            | b'/'
+            | b'*'
+            | b'^'
+            /*
+            => true,
+        _ => false,
+    }
+    */
+             => (),
+            _ => return false
+        }
+    }
+    true
 }
 
 fn is_identifier(bytes: &[u8]) -> bool {
