@@ -2477,6 +2477,7 @@ dependencies = [
  "miette 4.2.1",
  "nu-json",
  "num-format",
+ "regex",
  "serde",
  "serde_json",
  "sys-locale",

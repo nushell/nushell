@@ -405,13 +405,13 @@ pub fn eval_expression(
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.not_in(op_span, &rhs)
                 }
-                Operator::Contains => {
+                Operator::RegexMatch => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.contains(op_span, &rhs)
+                    lhs.regex_match(op_span, &rhs, false)
                 }
-                Operator::NotContains => {
+                Operator::NotRegexMatch => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.not_contains(op_span, &rhs)
+                    lhs.regex_match(op_span, &rhs, true)
                 }
                 Operator::Modulo => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
