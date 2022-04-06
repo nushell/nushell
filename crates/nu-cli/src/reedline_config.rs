@@ -14,6 +14,7 @@ use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
     ColumnarMenu, EditCommand, Keybindings, ListMenu, Reedline, ReedlineEvent, ReedlineMenu,
 };
+use std::sync::Arc;
 
 const DEFAULT_COMPLETION_MENU: &str = r#"
 {
@@ -72,7 +73,7 @@ const DEFAULT_HELP_MENU: &str = r#"
 // Adds all menus to line editor
 pub(crate) fn add_menus(
     mut line_editor: Reedline,
-    engine_state: std::sync::Arc<EngineState>,
+    engine_state: Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -127,7 +128,7 @@ pub(crate) fn add_menus(
 fn add_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
-    engine_state: std::sync::Arc<EngineState>,
+    engine_state: Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -177,7 +178,7 @@ macro_rules! add_style {
 pub(crate) fn add_columnar_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
-    engine_state: std::sync::Arc<EngineState>,
+    engine_state: Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -279,7 +280,7 @@ pub(crate) fn add_columnar_menu(
 pub(crate) fn add_list_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
-    engine_state: std::sync::Arc<EngineState>,
+    engine_state: Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -365,7 +366,7 @@ pub(crate) fn add_list_menu(
 pub(crate) fn add_description_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
-    engine_state: std::sync::Arc<EngineState>,
+    engine_state: Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {

@@ -4,6 +4,7 @@ use nu_protocol::{
     IntoPipelineData, Span, Value,
 };
 use reedline::{menu_functions::parse_selection_char, Completer, Suggestion};
+use std::sync::Arc;
 
 const SELECTION_CHAR: char = '!';
 
@@ -11,7 +12,7 @@ pub struct NuMenuCompleter {
     block_id: usize,
     span: Span,
     stack: Stack,
-    engine_state: std::sync::Arc<EngineState>,
+    engine_state: Arc<EngineState>,
     only_buffer_difference: bool,
 }
 
@@ -20,7 +21,7 @@ impl NuMenuCompleter {
         block_id: usize,
         span: Span,
         stack: Stack,
-        engine_state: std::sync::Arc<EngineState>,
+        engine_state: Arc<EngineState>,
         only_buffer_difference: bool,
     ) -> Self {
         Self {
