@@ -10,8 +10,6 @@ use crate::logger::{configure, logger};
 use log::info;
 use miette::Result;
 #[cfg(feature = "plugin")]
-use nu_cli::add_plugin_file;
-#[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{
     evaluate_commands, evaluate_file, evaluate_repl, gather_parent_env_vars, get_init_cwd,
@@ -208,7 +206,12 @@ fn main() -> Result<()> {
 
             if let Some(commands) = &binary_args.commands {
                 #[cfg(feature = "plugin")]
-                add_plugin_file(&mut engine_state, NUSHELL_FOLDER);
+                read_plugin_file(
+                    &mut engine_state,
+                    &mut stack,
+                    NUSHELL_FOLDER,
+                    is_perf_true(),
+                );
 
                 let ret_val = evaluate_commands(
                     commands,
@@ -225,7 +228,12 @@ fn main() -> Result<()> {
                 ret_val
             } else if !script_name.is_empty() && binary_args.interactive_shell.is_none() {
                 #[cfg(feature = "plugin")]
-                add_plugin_file(&mut engine_state, NUSHELL_FOLDER);
+                read_plugin_file(
+                    &mut engine_state,
+                    &mut stack,
+                    NUSHELL_FOLDER,
+                    is_perf_true(),
+                );
 
                 let ret_val = evaluate_file(
                     script_name,
