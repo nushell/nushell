@@ -39,7 +39,6 @@ impl Completer for NuMenuCompleter {
         let parsed = parse_selection_char(line, SELECTION_CHAR);
 
         let block = self.engine_state.get_block(self.block_id);
-        let mut stack = self.stack.clone();
 
         if let Some(buffer) = block.signature.get_positional(0) {
             if let Some(buffer_id) = &buffer.var_id {
@@ -47,7 +46,7 @@ impl Completer for NuMenuCompleter {
                     val: parsed.remainder.to_string(),
                     span: self.span,
                 };
-                stack.add_var(*buffer_id, line_buffer);
+                self.stack.add_var(*buffer_id, line_buffer);
             }
         }
 
@@ -57,12 +56,19 @@ impl Completer for NuMenuCompleter {
                     val: pos as i64,
                     span: self.span,
                 };
-                stack.add_var(*position_id, line_buffer);
+                self.stack.add_var(*position_id, line_buffer);
             }
         }
 
         let input = Value::nothing(self.span).into_pipeline_data();
-        let res = eval_block(&self.engine_state, &mut stack, block, input, false, false);
+        let res = eval_block(
+            &self.engine_state,
+            &mut self.stack,
+            block,
+            input,
+            false,
+            false,
+        );
 
         if let Ok(values) = res {
             let values = values.into_value(self.span);
