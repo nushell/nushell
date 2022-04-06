@@ -7,9 +7,10 @@ use nu_protocol::{
     Span,
 };
 use reedline::Suggestion;
+use std::sync::Arc;
 
 pub struct CommandCompletion {
-    engine_state: EngineState,
+    engine_state: Arc<EngineState>,
     flattened: Vec<(Span, FlatShape)>,
     flat_idx: usize,
     flat_shape: FlatShape,
@@ -17,7 +18,7 @@ pub struct CommandCompletion {
 
 impl CommandCompletion {
     pub fn new(
-        engine_state: EngineState,
+        engine_state: Arc<EngineState>,
         _: &StateWorkingSet,
         flattened: Vec<(Span, FlatShape)>,
         flat_idx: usize,

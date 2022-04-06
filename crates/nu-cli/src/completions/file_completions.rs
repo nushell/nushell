@@ -5,16 +5,17 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 use std::path::{is_separator, Path};
+use std::sync::Arc;
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[derive(Clone)]
 pub struct FileCompletion {
-    engine_state: EngineState,
+    engine_state: Arc<EngineState>,
 }
 
 impl FileCompletion {
-    pub fn new(engine_state: EngineState) -> Self {
+    pub fn new(engine_state: Arc<EngineState>) -> Self {
         Self { engine_state }
     }
 }

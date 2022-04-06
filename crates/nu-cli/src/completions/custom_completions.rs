@@ -6,9 +6,10 @@ use nu_protocol::{
     PipelineData, Span, Type, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::Suggestion;
+use std::sync::Arc;
 
 pub struct CustomCompletion {
-    engine_state: EngineState,
+    engine_state: Arc<EngineState>,
     stack: Stack,
     config: Option<Value>,
     decl_id: usize,
@@ -17,7 +18,7 @@ pub struct CustomCompletion {
 
 impl CustomCompletion {
     pub fn new(
-        engine_state: EngineState,
+        engine_state: Arc<EngineState>,
         stack: Stack,
         config: Option<Value>,
         decl_id: usize,

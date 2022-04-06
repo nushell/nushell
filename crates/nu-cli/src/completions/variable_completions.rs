@@ -3,16 +3,16 @@ use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
 };
-
 use reedline::Suggestion;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct VariableCompletion {
-    engine_state: EngineState,
+    engine_state: Arc<EngineState>,
 }
 
 impl VariableCompletion {
-    pub fn new(engine_state: EngineState) -> Self {
+    pub fn new(engine_state: Arc<EngineState>) -> Self {
         Self { engine_state }
     }
 }
