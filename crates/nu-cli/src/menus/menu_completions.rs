@@ -11,7 +11,7 @@ pub struct NuMenuCompleter {
     block_id: usize,
     span: Span,
     stack: Stack,
-    engine_state: EngineState,
+    engine_state: std::sync::Arc<EngineState>,
     only_buffer_difference: bool,
 }
 
@@ -20,7 +20,7 @@ impl NuMenuCompleter {
         block_id: usize,
         span: Span,
         stack: Stack,
-        engine_state: EngineState,
+        engine_state: std::sync::Arc<EngineState>,
         only_buffer_difference: bool,
     ) -> Self {
         Self {

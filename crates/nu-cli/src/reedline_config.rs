@@ -72,14 +72,14 @@ const DEFAULT_HELP_MENU: &str = r#"
 // Adds all menus to line editor
 pub(crate) fn add_menus(
     mut line_editor: Reedline,
-    engine_state: &EngineState,
+    engine_state: std::sync::Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
     line_editor = line_editor.clear_menus();
 
     for menu in &config.menus {
-        line_editor = add_menu(line_editor, menu, engine_state, stack, config)?
+        line_editor = add_menu(line_editor, menu, engine_state.clone(), stack, config)?
     }
 
     // Checking if the default menus have been added from the config file
@@ -96,7 +96,7 @@ pub(crate) fn add_menus(
             .any(|menu| menu.name.into_string("", config) == name)
         {
             let (block, _) = {
-                let mut working_set = StateWorkingSet::new(engine_state);
+                let mut working_set = StateWorkingSet::new(&engine_state);
                 let (output, _) = parse(
                     &mut working_set,
                     Some(name), // format!("entry #{}", entry_num)
@@ -110,11 +110,12 @@ pub(crate) fn add_menus(
 
             let mut temp_stack = Stack::new();
             let input = Value::nothing(Span::test_data()).into_pipeline_data();
-            let res = eval_block(engine_state, &mut temp_stack, &block, input, false, false)?;
+            let res = eval_block(&engine_state, &mut temp_stack, &block, input, false, false)?;
 
             if let PipelineData::Value(value, None) = res {
                 for menu in create_menus(&value, config)? {
-                    line_editor = add_menu(line_editor, &menu, engine_state, stack, config)?;
+                    line_editor =
+                        add_menu(line_editor, &menu, engine_state.clone(), stack, config)?;
                 }
             }
         }
@@ -126,7 +127,7 @@ pub(crate) fn add_menus(
 fn add_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
-    engine_state: &EngineState,
+    engine_state: std::sync::Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -176,7 +177,7 @@ macro_rules! add_style {
 pub(crate) fn add_columnar_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
-    engine_state: &EngineState,
+    engine_state: std::sync::Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -258,7 +259,7 @@ pub(crate) fn add_columnar_menu(
                 *val,
                 *span,
                 stack.captures_to_stack(captures),
-                engine_state.clone(),
+                engine_state,
                 only_buffer_difference,
             );
             Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
@@ -278,7 +279,7 @@ pub(crate) fn add_columnar_menu(
 pub(crate) fn add_list_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
-    engine_state: &EngineState,
+    engine_state: std::sync::Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -344,7 +345,7 @@ pub(crate) fn add_list_menu(
                 *val,
                 *span,
                 stack.captures_to_stack(captures),
-                engine_state.clone(),
+                engine_state,
                 only_buffer_difference,
             );
             Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
@@ -364,7 +365,7 @@ pub(crate) fn add_list_menu(
 pub(crate) fn add_description_menu(
     line_editor: Reedline,
     menu: &ParsedMenu,
-    engine_state: &EngineState,
+    engine_state: std::sync::Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -451,7 +452,7 @@ pub(crate) fn add_description_menu(
 
     match &menu.source {
         Value::Nothing { .. } => {
-            let completer = Box::new(NuHelpCompleter::new(engine_state.clone()));
+            let completer = Box::new(NuHelpCompleter::new(engine_state));
             Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
                 menu: Box::new(description_menu),
                 completer,
@@ -466,7 +467,7 @@ pub(crate) fn add_description_menu(
                 *val,
                 *span,
                 stack.captures_to_stack(captures),
-                engine_state.clone(),
+                engine_state,
                 only_buffer_difference,
             );
             Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {

@@ -194,7 +194,8 @@ pub fn evaluate_repl(
             info!("update reedline {}:{}:{}", file!(), line!(), column!());
         }
 
-        line_editor = match add_menus(line_editor, engine_state, stack, &config) {
+        let engine_reference = std::sync::Arc::new(engine_state.clone());
+        line_editor = match add_menus(line_editor, engine_reference, stack, &config) {
             Ok(line_editor) => line_editor,
             Err(e) => {
                 let working_set = StateWorkingSet::new(engine_state);

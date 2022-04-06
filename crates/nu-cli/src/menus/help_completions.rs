@@ -2,10 +2,10 @@ use nu_engine::documentation::get_flags_section;
 use nu_protocol::{engine::EngineState, levenshtein_distance};
 use reedline::{Completer, Suggestion};
 
-pub struct NuHelpCompleter(EngineState);
+pub struct NuHelpCompleter(std::sync::Arc<EngineState>);
 
 impl NuHelpCompleter {
-    pub fn new(engine_state: EngineState) -> Self {
+    pub fn new(engine_state: std::sync::Arc<EngineState>) -> Self {
         Self(engine_state)
     }
 
