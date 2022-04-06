@@ -101,6 +101,7 @@ fn main() -> Result<()> {
                 || arg == "--testbin"
                 || arg == "--log-level"
                 || arg == "--config"
+                || arg == "--env-config"
                 || arg == "--threads"
                 || arg == "-t"
             {
@@ -249,7 +250,12 @@ fn main() -> Result<()> {
 
                 ret_val
             } else {
-                setup_config(&mut engine_state, &mut stack, binary_args.config_file);
+                setup_config(
+                    &mut engine_state,
+                    &mut stack,
+                    binary_args.config_file,
+                    binary_args.env_file,
+                );
                 let history_path = config_files::create_history_path();
 
                 let ret_val =
@@ -269,6 +275,7 @@ fn setup_config(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
+    env_file: Option<Spanned<String>>,
 ) {
     #[cfg(feature = "plugin")]
     read_plugin_file(engine_state, stack, NUSHELL_FOLDER, is_perf_true());
@@ -277,7 +284,8 @@ fn setup_config(
         info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     }
 
-    config_files::read_config_file(engine_state, stack, config_file, is_perf_true());
+    config_files::read_config_file(engine_state, stack, env_file, is_perf_true(), true);
+    config_files::read_config_file(engine_state, stack, config_file, is_perf_true(), false);
 }
 
 fn parse_commandline_args(
@@ -332,6 +340,7 @@ fn parse_commandline_args(
             let testbin: Option<Expression> = call.get_flag_expr("testbin");
             let perf = call.has_flag("perf");
             let config_file: Option<Expression> = call.get_flag_expr("config");
+            let env_file: Option<Expression> = call.get_flag_expr("env-config");
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
 
@@ -352,6 +361,7 @@ fn parse_commandline_args(
             let commands = extract_contents(commands, engine_state);
             let testbin = extract_contents(testbin, engine_state);
             let config_file = extract_contents(config_file, engine_state);
+            let env_file = extract_contents(env_file, engine_state);
             let log_level = extract_contents(log_level, engine_state);
 
             let help = call.has_flag("help");
@@ -387,6 +397,7 @@ fn parse_commandline_args(
                 commands,
                 testbin,
                 config_file,
+                env_file,
                 log_level,
                 perf,
                 threads,
@@ -408,6 +419,7 @@ struct NushellCliArgs {
     commands: Option<Spanned<String>>,
     testbin: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
+    env_file: Option<Spanned<String>>,
     log_level: Option<Spanned<String>>,
     perf: bool,
     threads: Option<Value>,
@@ -449,6 +461,12 @@ impl Command for Nu {
                 "config",
                 SyntaxShape::String,
                 "start with an alternate config file",
+                None,
+            )
+            .named(
+                "env-config",
+                SyntaxShape::String,
+                "start with an alternate environment config file",
                 None,
             )
             .named(
