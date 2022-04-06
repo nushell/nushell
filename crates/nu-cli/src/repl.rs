@@ -1,10 +1,10 @@
 use crate::reedline_config::add_menus;
+use crate::{completions::NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use crate::{prompt_update, reedline_config};
 use crate::{
     reedline_config::KeybindingsMode,
     util::{eval_source, report_error},
 };
-use crate::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};

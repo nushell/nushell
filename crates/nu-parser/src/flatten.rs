@@ -3,7 +3,7 @@ use nu_protocol::DeclId;
 use nu_protocol::{engine::StateWorkingSet, Span};
 use std::fmt::{Display, Formatter, Result};
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Eq, PartialEq, Ord, Clone, PartialOrd)]
 pub enum FlatShape {
     Garbage,
     Nothing,
