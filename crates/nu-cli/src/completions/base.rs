@@ -44,7 +44,7 @@ pub trait Completer {
             .collect()
     }
 
-    // Sort is results using the completion options
+    // Sort results using the completion options
     fn sort(
         &self,
         items: Vec<Suggestion>,

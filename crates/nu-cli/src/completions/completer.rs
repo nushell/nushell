@@ -8,16 +8,17 @@ use nu_protocol::{
     Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct NuCompleter {
-    engine_state: EngineState,
+    engine_state: Arc<EngineState>,
     stack: Stack,
     config: Option<Value>,
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: EngineState, stack: Stack, config: Option<Value>) -> Self {
+    pub fn new(engine_state: Arc<EngineState>, stack: Stack, config: Option<Value>) -> Self {
         Self {
             engine_state,
             stack,

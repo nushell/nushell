@@ -169,6 +169,7 @@ pub fn evaluate_repl(
             ctrlc.store(false, Ordering::SeqCst);
         }
 
+        let engine_reference = std::sync::Arc::new(engine_state.clone());
         line_editor = line_editor
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_state.clone(),
@@ -182,7 +183,7 @@ pub fn evaluate_repl(
                 DefaultHinter::default().with_style(color_hm["hints"]),
             ))
             .with_completer(Box::new(NuCompleter::new(
-                engine_state.clone(),
+                engine_reference.clone(),
                 stack.clone(),
                 stack.vars.get(&CONFIG_VARIABLE_ID).cloned(),
             )))
@@ -194,7 +195,7 @@ pub fn evaluate_repl(
             info!("update reedline {}:{}:{}", file!(), line!(), column!());
         }
 
-        line_editor = match add_menus(line_editor, engine_state, stack, &config) {
+        line_editor = match add_menus(line_editor, engine_reference, stack, &config) {
             Ok(line_editor) => line_editor,
             Err(e) => {
                 let working_set = StateWorkingSet::new(engine_state);
