@@ -18,7 +18,7 @@ impl Expression {
         Expression {
             expr: Expr::Garbage,
             span,
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         }
     }

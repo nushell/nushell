@@ -166,7 +166,7 @@ pub fn parse_for(
                     Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     },
                     err,
@@ -201,7 +201,7 @@ pub fn parse_for(
         Expression {
             expr: Expr::Call(call),
             span: call_span,
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         },
         error,
@@ -335,7 +335,7 @@ pub fn parse_def(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     err,
@@ -393,7 +393,7 @@ pub fn parse_def(
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
             span: call_span,
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         }]),
         error,
@@ -501,7 +501,7 @@ pub fn parse_extern(
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
             span: call_span,
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         }]),
         error,
@@ -561,7 +561,7 @@ pub fn parse_alias(
                 Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: span(spans),
-                    ty: Type::Unknown,
+                    ty: Type::Any,
                     custom_completion: None,
                 }]),
                 err,
@@ -989,7 +989,7 @@ pub fn parse_export(
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
             span: span(spans),
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         }]),
         exportable,
@@ -1194,7 +1194,7 @@ pub fn parse_module(
             Pipeline::from_vec(vec![Expression {
                 expr: Expr::Call(call),
                 span: span(spans),
-                ty: Type::Unknown,
+                ty: Type::Any,
                 custom_completion: None,
             }]),
             error,
@@ -1244,7 +1244,7 @@ pub fn parse_use(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     err,
@@ -1311,7 +1311,7 @@ pub fn parse_use(
                             Pipeline::from_vec(vec![Expression {
                                 expr: Expr::Call(call),
                                 span: call_span,
-                                ty: Type::Unknown,
+                                ty: Type::Any,
                                 custom_completion: None,
                             }]),
                             Some(ParseError::ModuleNotFound(spans[1])),
@@ -1350,7 +1350,7 @@ pub fn parse_use(
                             Pipeline::from_vec(vec![Expression {
                                 expr: Expr::Call(call),
                                 span: call_span,
-                                ty: Type::Unknown,
+                                ty: Type::Any,
                                 custom_completion: None,
                             }]),
                             Some(ParseError::ModuleNotFound(spans[1])),
@@ -1432,7 +1432,7 @@ pub fn parse_use(
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
             span: span(spans),
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         }]),
         error,
@@ -1473,7 +1473,7 @@ pub fn parse_hide(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     err,
@@ -1640,7 +1640,7 @@ pub fn parse_hide(
             Pipeline::from_vec(vec![Expression {
                 expr: Expr::Call(call),
                 span: span(spans),
-                ty: Type::Unknown,
+                ty: Type::Any,
                 custom_completion: None,
             }]),
             error,
@@ -1725,7 +1725,7 @@ pub fn parse_let(
                             Pipeline::from_vec(vec![Expression {
                                 expr: Expr::Call(call),
                                 span: nu_protocol::span(spans),
-                                ty: Type::Unknown,
+                                ty: Type::Any,
                                 custom_completion: None,
                             }]),
                             error,
@@ -1746,7 +1746,7 @@ pub fn parse_let(
                     expressions: vec![Expression {
                         expr: Expr::Call(call),
                         span: nu_protocol::span(spans),
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }],
                 },
@@ -1790,7 +1790,7 @@ pub fn parse_source(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: span(spans),
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     error,
@@ -1820,7 +1820,7 @@ pub fn parse_source(
                                     Pipeline::from_vec(vec![Expression {
                                         expr: Expr::Call(call),
                                         span: span(&spans[1..]),
-                                        ty: Type::Unknown,
+                                        ty: Type::Any,
                                         custom_completion: None,
                                     }]),
                                     // Return the file parse error
@@ -1837,7 +1837,7 @@ pub fn parse_source(
                                 call_with_block.positional.push(Expression {
                                     expr: Expr::Int(block_id as i64),
                                     span: spans[1],
-                                    ty: Type::Unknown,
+                                    ty: Type::Any,
                                     custom_completion: None,
                                 });
 
@@ -1845,7 +1845,7 @@ pub fn parse_source(
                                     Pipeline::from_vec(vec![Expression {
                                         expr: Expr::Call(call_with_block),
                                         span: span(spans),
-                                        ty: Type::Unknown,
+                                        ty: Type::Any,
                                         custom_completion: None,
                                     }]),
                                     None,
@@ -1863,7 +1863,7 @@ pub fn parse_source(
                 Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: span(spans),
-                    ty: Type::Unknown,
+                    ty: Type::Any,
                     custom_completion: None,
                 }]),
                 error,
@@ -1932,7 +1932,7 @@ pub fn parse_register(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     err,
@@ -2034,7 +2034,7 @@ pub fn parse_register(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     Some(err),
