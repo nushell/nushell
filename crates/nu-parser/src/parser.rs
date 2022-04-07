@@ -4401,7 +4401,7 @@ pub fn parse_expression(
             let expr = Expr::Call(Box::new(Call {
                 head: Span { start: 0, end: 0 },
                 decl_id,
-                arguments: arguments,
+                arguments,
                 redirect_stdout: true,
                 redirect_stderr: false,
             }));

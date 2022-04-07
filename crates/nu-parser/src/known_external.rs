@@ -47,9 +47,10 @@ impl Command for KnownExternal {
 
         let mut extern_call = Call::new(head_span);
 
-        let working_state = StateWorkingSet::new(&engine_state);
+        let working_state = StateWorkingSet::new(engine_state);
         let extern_name = working_state.get_span_contents(call.head);
-        let extern_name = String::from_utf8(extern_name.to_vec()).unwrap();
+        let extern_name = String::from_utf8(extern_name.to_vec())
+            .expect("this was already parsed as a command name");
         let arg_extern_name = Expression {
             expr: Expr::String(extern_name),
             span: call.head,
@@ -86,6 +87,6 @@ impl Command for KnownExternal {
             ))
         }
 
-        command.run(&engine_state, stack, &extern_call, input)
+        command.run(engine_state, stack, &extern_call, input)
     }
 }
