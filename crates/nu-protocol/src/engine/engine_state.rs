@@ -192,11 +192,11 @@ impl EngineState {
             files: im::vector![],
             file_contents: im::vector![],
             vars: im::vector![
-                Variable::new(Span::new(0, 0), Type::Unknown),
-                Variable::new(Span::new(0, 0), Type::Unknown),
-                Variable::new(Span::new(0, 0), Type::Unknown),
-                Variable::new(Span::new(0, 0), Type::Unknown),
-                Variable::new(Span::new(0, 0), Type::Unknown)
+                Variable::new(Span::new(0, 0), Type::Any),
+                Variable::new(Span::new(0, 0), Type::Any),
+                Variable::new(Span::new(0, 0), Type::Any),
+                Variable::new(Span::new(0, 0), Type::Any),
+                Variable::new(Span::new(0, 0), Type::Any)
             ],
             decls: im::vector![],
             aliases: im::vector![],

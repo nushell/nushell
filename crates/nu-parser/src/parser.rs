@@ -292,7 +292,7 @@ pub fn parse_external_call(
         Expression {
             expr: Expr::ExternalCall(head, args),
             span: span(spans),
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         },
         error,
@@ -663,7 +663,7 @@ pub fn parse_multispan_value(
                             Box::new(Expression::garbage(arg_span)),
                         ),
                         span: arg_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     },
                     error,
@@ -1008,7 +1008,7 @@ pub fn parse_call(
             Expression {
                 expr: Expr::Call(call),
                 span: span(spans),
-                ty: Type::Unknown, // FIXME: calls should have known output types
+                ty: Type::Any, // FIXME: calls should have known output types
                 custom_completion: None,
             },
             err,
@@ -1615,7 +1615,7 @@ pub fn parse_variable_expr(
             Expression {
                 expr: Expr::Var(nu_protocol::NU_VARIABLE_ID),
                 span,
-                ty: Type::Unknown,
+                ty: Type::Any,
                 custom_completion: None,
             },
             None,
@@ -1625,7 +1625,7 @@ pub fn parse_variable_expr(
             Expression {
                 expr: Expr::Var(nu_protocol::IN_VARIABLE_ID),
                 span,
-                ty: Type::Unknown,
+                ty: Type::Any,
                 custom_completion: None,
             },
             None,
@@ -1635,7 +1635,7 @@ pub fn parse_variable_expr(
             Expression {
                 expr: Expr::Var(nu_protocol::CONFIG_VARIABLE_ID),
                 span,
-                ty: Type::Unknown,
+                ty: Type::Any,
                 custom_completion: None,
             },
             None,
@@ -1645,7 +1645,7 @@ pub fn parse_variable_expr(
             Expression {
                 expr: Expr::Var(nu_protocol::ENV_VARIABLE_ID),
                 span,
-                ty: Type::Unknown,
+                ty: Type::Any,
                 custom_completion: None,
             },
             None,
@@ -1782,7 +1782,7 @@ pub fn parse_full_cell_path(
                 Expression {
                     expr: Expr::Subexpression(block_id),
                     span: head_span,
-                    ty: Type::Unknown, // FIXME
+                    ty: Type::Any, // FIXME
                     custom_completion: None,
                 },
                 true,
@@ -1819,7 +1819,7 @@ pub fn parse_full_cell_path(
                 Expression {
                     expr: Expr::Var(var_id),
                     span: Span::new(0, 0),
-                    ty: Type::Unknown,
+                    ty: Type::Any,
                     custom_completion: None,
                 },
                 false,
@@ -1842,7 +1842,7 @@ pub fn parse_full_cell_path(
             (
                 Expression {
                     expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                    ty: Type::Unknown,
+                    ty: Type::Any,
                     span: full_cell_span,
                     custom_completion: None,
                 },
@@ -2565,11 +2565,11 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
         b"date" => Type::Date,
         b"filesize" => Type::Filesize,
         b"number" => Type::Number,
-        b"table" => Type::Table,
+        b"table" => Type::Table(vec![]), //FIXME
         b"error" => Type::Error,
         b"binary" => Type::Binary,
 
-        _ => Type::Unknown,
+        _ => Type::Any,
     }
 }
 
@@ -2746,13 +2746,13 @@ pub fn parse_var_with_opt_type(
             let id = working_set.add_variable(
                 bytes[0..(bytes.len() - 1)].to_vec(),
                 spans[*spans_idx],
-                Type::Unknown,
+                Type::Any,
             );
             (
                 Expression {
                     expr: Expr::VarDecl(id),
                     span: spans[*spans_idx],
-                    ty: Type::Unknown,
+                    ty: Type::Any,
                     custom_completion: None,
                 },
                 Some(ParseError::MissingType(spans[*spans_idx])),
@@ -2763,23 +2763,20 @@ pub fn parse_var_with_opt_type(
             Expression {
                 expr: Expr::Var(CONFIG_VARIABLE_ID),
                 span: spans[*spans_idx],
-                ty: Type::Unknown,
+                ty: Type::Any,
                 custom_completion: None,
             },
             None,
         )
     } else {
-        let id = working_set.add_variable(
-            bytes,
-            span(&spans[*spans_idx..*spans_idx + 1]),
-            Type::Unknown,
-        );
+        let id =
+            working_set.add_variable(bytes, span(&spans[*spans_idx..*spans_idx + 1]), Type::Any);
 
         (
             Expression {
                 expr: Expr::VarDecl(id),
                 span: span(&spans[*spans_idx..*spans_idx + 1]),
-                ty: Type::Unknown,
+                ty: Type::Any,
                 custom_completion: None,
             },
             None,
@@ -2812,7 +2809,7 @@ pub fn parse_row_condition(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
-    let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Unknown);
+    let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Any);
     let (expression, err) =
         parse_math_expression(working_set, spans, Some(var_id), expand_aliases_denylist);
     let span = span(spans);
@@ -2973,7 +2970,7 @@ pub fn parse_signature_helper(
                                 let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
                                 let variable_name = flags[0][2..].to_vec();
                                 let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Unknown);
+                                    working_set.add_variable(variable_name, span, Type::Any);
 
                                 if flags.len() == 1 {
                                     args.push(Arg::Flag(Flag {
@@ -3003,11 +3000,8 @@ pub fn parse_signature_helper(
                                     let chars: Vec<char> = short_flag.chars().collect();
                                     let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
                                     let variable_name = flags[0][2..].to_vec();
-                                    let var_id = working_set.add_variable(
-                                        variable_name,
-                                        span,
-                                        Type::Unknown,
-                                    );
+                                    let var_id =
+                                        working_set.add_variable(variable_name, span, Type::Any);
 
                                     if chars.len() == 1 {
                                         args.push(Arg::Flag(Flag {
@@ -3042,7 +3036,7 @@ pub fn parse_signature_helper(
                                 let len = chars[0].encode_utf8(&mut encoded_var_name).len();
                                 let variable_name = encoded_var_name[0..len].to_vec();
                                 let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Unknown);
+                                    working_set.add_variable(variable_name, span, Type::Any);
 
                                 args.push(Arg::Flag(Flag {
                                     arg: None,
@@ -3100,8 +3094,7 @@ pub fn parse_signature_helper(
                                 let contents: Vec<_> = contents[..(contents.len() - 1)].into();
                                 let name = String::from_utf8_lossy(&contents).to_string();
 
-                                let var_id =
-                                    working_set.add_variable(contents, span, Type::Unknown);
+                                let var_id = working_set.add_variable(contents, span, Type::Any);
 
                                 // Positional arg, optional
                                 args.push(Arg::Positional(
@@ -3119,7 +3112,7 @@ pub fn parse_signature_helper(
                                 let contents_vec: Vec<u8> = contents.to_vec();
 
                                 let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Unknown);
+                                    working_set.add_variable(contents_vec, span, Type::Any);
 
                                 args.push(Arg::RestPositional(PositionalArg {
                                     desc: String::new(),
@@ -3133,7 +3126,7 @@ pub fn parse_signature_helper(
                                 let contents_vec = contents.to_vec();
 
                                 let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Unknown);
+                                    working_set.add_variable(contents_vec, span, Type::Any);
 
                                 // Positional arg, required
                                 args.push(Arg::Positional(
@@ -3200,7 +3193,7 @@ pub fn parse_signature_helper(
                                         let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         match var_type {
-                                            Type::Unknown => {
+                                            Type::Any => {
                                                 working_set.set_variable_type(
                                                     var_id,
                                                     expression.ty.clone(),
@@ -3248,7 +3241,7 @@ pub fn parse_signature_helper(
                                         // Flags with a boolean type are just present/not-present switches
                                         if var_type != &Type::Bool {
                                             match var_type {
-                                                Type::Unknown => {
+                                                Type::Any => {
                                                     *arg = Some(expression_ty.to_shape());
                                                     working_set
                                                         .set_variable_type(var_id, expression_ty);
@@ -3403,7 +3396,7 @@ pub fn parse_list_expression(
 
                 if let Some(ref ctype) = contained_type {
                     if *ctype != arg.ty {
-                        contained_type = Some(Type::Unknown);
+                        contained_type = Some(Type::Any);
                     }
                 } else {
                     contained_type = Some(arg.ty.clone());
@@ -3423,7 +3416,7 @@ pub fn parse_list_expression(
             ty: Type::List(Box::new(if let Some(ty) = contained_type {
                 ty
             } else {
-                Type::Unknown
+                Type::Any
             })),
             custom_completion: None,
         },
@@ -3466,7 +3459,7 @@ pub fn parse_table_expression(
             Expression {
                 expr: Expr::List(vec![]),
                 span: original_span,
-                ty: Type::List(Box::new(Type::Unknown)),
+                ty: Type::List(Box::new(Type::Any)),
                 custom_completion: None,
             },
             None,
@@ -3538,7 +3531,7 @@ pub fn parse_table_expression(
                 Expression {
                     expr: Expr::Table(table_headers, rows),
                     span: original_span,
-                    ty: Type::Table,
+                    ty: Type::Table(vec![]), //FIXME
                     custom_completion: None,
                 },
                 error,
@@ -3995,7 +3988,7 @@ pub fn parse_operator(
         Expression {
             expr: Expr::Operator(operator),
             span,
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         },
         None,
@@ -4403,7 +4396,7 @@ pub fn parse_expression(
                 Expression {
                     expr: Expr::List(env_vars),
                     span: span(&spans[..pos]),
-                    ty: Type::Unknown,
+                    ty: Type::Any,
                     custom_completion: None,
                 },
                 Expression {
@@ -4428,7 +4421,7 @@ pub fn parse_expression(
                     expr,
                     custom_completion: None,
                     span: span(spans),
-                    ty: Type::Unknown,
+                    ty: Type::Any,
                 },
                 err,
             )
@@ -4575,7 +4568,7 @@ pub fn parse_record(
         Expression {
             expr: Expr::Record(output),
             span,
-            ty: Type::Unknown, //FIXME: but we don't know the contents of the fields, do we?
+            ty: Type::Any, //FIXME: but we don't know the contents of the fields, do we?
             custom_completion: None,
         },
         error,
@@ -4989,7 +4982,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         output.push(Expression {
             expr: Expr::Block(block_id),
             span,
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         });
 

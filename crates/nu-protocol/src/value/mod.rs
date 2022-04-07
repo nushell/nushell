@@ -378,7 +378,26 @@ impl Value {
                     .map(|(x, y)| (x.clone(), y.get_type()))
                     .collect(),
             ),
-            Value::List { .. } => Type::List(Box::new(Type::Unknown)), // FIXME
+            Value::List { vals, .. } => {
+                let mut ty = None;
+                for val in vals {
+                    let val_ty = val.get_type();
+                    match &ty {
+                        Some(x) => {
+                            if &val_ty != x {
+                                ty = Some(Type::Any)
+                            }
+                        }
+                        None => ty = Some(val_ty),
+                    }
+                }
+
+                match ty {
+                    Some(Type::Record(columns)) => Type::Table(columns),
+                    Some(ty) => Type::List(Box::new(ty)),
+                    None => Type::List(Box::new(ty.unwrap_or(Type::Any))),
+                }
+            }
             Value::Nothing { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
             Value::Error { .. } => Type::Error,
@@ -1735,8 +1754,8 @@ impl Value {
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Unknown)
-            && (rhs.get_type() != Type::Unknown)
+            && (self.get_type() != Type::Any)
+            && (rhs.get_type() != Type::Any)
         {
             return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
         }
@@ -1763,8 +1782,8 @@ impl Value {
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Unknown)
-            && (rhs.get_type() != Type::Unknown)
+            && (self.get_type() != Type::Any)
+            && (rhs.get_type() != Type::Any)
         {
             return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
         }
@@ -1791,8 +1810,8 @@ impl Value {
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Unknown)
-            && (rhs.get_type() != Type::Unknown)
+            && (self.get_type() != Type::Any)
+            && (rhs.get_type() != Type::Any)
         {
             return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
         }
@@ -1819,8 +1838,8 @@ impl Value {
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Unknown)
-            && (rhs.get_type() != Type::Unknown)
+            && (self.get_type() != Type::Any)
+            && (rhs.get_type() != Type::Any)
         {
             return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
         }

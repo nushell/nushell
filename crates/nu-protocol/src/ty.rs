@@ -20,9 +20,9 @@ pub enum Type {
     Number,
     Nothing,
     Record(Vec<(String, Type)>),
-    Table,
+    Table(Vec<(String, Type)>),
     ListStream,
-    Unknown,
+    Any,
     Error,
     Binary,
     Custom,
@@ -46,9 +46,9 @@ impl Type {
             Type::Number => SyntaxShape::Number,
             Type::Nothing => SyntaxShape::Any,
             Type::Record(_) => SyntaxShape::Record,
-            Type::Table => SyntaxShape::Table,
+            Type::Table(_) => SyntaxShape::Table,
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
-            Type::Unknown => SyntaxShape::Any,
+            Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,
             Type::Binary => SyntaxShape::Binary,
             Type::Custom => SyntaxShape::Any,
@@ -78,13 +78,21 @@ impl Display for Type {
                     .collect::<Vec<String>>()
                     .join(", "),
             ),
-            Type::Table => write!(f, "table"),
+            Type::Table(columns) => write!(
+                f,
+                "table<{}>",
+                columns
+                    .iter()
+                    .map(|(x, y)| format!("{}: {}", x, y))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
             Type::List(l) => write!(f, "list<{}>", l),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),
             Type::ListStream => write!(f, "list stream"),
-            Type::Unknown => write!(f, "unknown"),
+            Type::Any => write!(f, "any"),
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),
             Type::Custom => write!(f, "custom"),
