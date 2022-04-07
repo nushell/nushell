@@ -1,6 +1,7 @@
 use std::fs::OpenOptions;
+use std::path::Path;
 
-use chrono::{DateTime, Datelike, FixedOffset, Local};
+use chrono::{DateTime, Datelike, Local};
 use filetime::FileTime;
 
 use nu_engine::CallExt;
@@ -42,9 +43,15 @@ impl Command for Touch {
                 "change the file or directory time to a date",
                 Some('d'),
             )
+            .named(
+                "reference",
+                SyntaxShape::String,
+                "change the file or directory time to the time of the reference file/directory",
+                Some('r'),
+            )
             .switch(
                 "modify",
-                "change the modification time of the file or directory. If no timestamp or date is given, the current time is used",
+                "change the modification time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
                 Some('m'),
             )
             .rest("rest", SyntaxShape::Filepath, "additional files to create")
@@ -65,13 +72,14 @@ impl Command for Touch {
         let change_stamp: bool = call.has_flag("timestamp");
         let change_mtime: bool = call.has_flag("modify");
         let change_date: bool = call.has_flag("date");
+        let change_reference: bool = call.has_flag("reference");
         let target: String = call.req(engine_state, stack, 0)?;
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 
-        let mut date: Option<DateTime<FixedOffset>> = None;
+        let mut date: Option<DateTime<Local>> = None;
 
         if change_mtime {
-            date = Some(Local::now().into());
+            date = Some(Local::now());
         }
 
         if change_stamp || change_date {
@@ -149,7 +157,7 @@ impl Command for Touch {
             };
 
             date = if let Ok(parsed_date) = parse_date_from_string(&val, span) {
-                Some(parsed_date)
+                Some(parsed_date.into())
             } else {
                 let flag = if change_stamp { "timestamp" } else { "date" };
                 return Err(ShellError::UnsupportedInput(
@@ -157,6 +165,37 @@ impl Command for Touch {
                     span,
                 ));
             };
+        }
+
+        if change_reference {
+            let reference: Option<Spanned<String>> =
+                call.get_flag(engine_state, stack, "reference")?;
+            match reference {
+                Some(reference) => {
+                    let reference_path = Path::new(&reference.item);
+                    if !reference_path.exists() {
+                        return Err(ShellError::UnsupportedInput(
+                            "path provided is invalid".to_string(),
+                            reference.span,
+                        ));
+                    }
+
+                    date = Some(
+                        reference_path
+                            .metadata()
+                            .unwrap() // This should always be valid as the path is checked above
+                            .modified()
+                            .unwrap() // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
+                            .into(),
+                    );
+                }
+                None => {
+                    return Err(ShellError::MissingParameter(
+                        "reference".to_string(),
+                        call.head,
+                    ));
+                }
+            }
         }
 
         for (index, item) in vec![target].into_iter().chain(rest).enumerate() {
@@ -167,7 +206,7 @@ impl Command for Touch {
                 ));
             };
 
-            if change_stamp || change_mtime || change_date {
+            if change_stamp || change_mtime || change_date || change_reference {
                 // Safe to unwrap as we return an error above if we can't parse the date
                 match filetime::set_file_mtime(
                     &item,
@@ -212,6 +251,11 @@ impl Command for Touch {
             Example {
                 description: "Changes the last modified time of files a, b and c to a date",
                 example: r#"touch -m -d "yesterday" a b c"#,
+                result: None,
+            },
+            Example {
+                description: r#"Changes the last modified time of file d and e to "fixture.json"'s last modified time"#,
+                example: r#"touch -m -r fixture.json d e"#,
                 result: None,
             },
         ]

@@ -222,3 +222,32 @@ fn change_modified_time_to_date() {
         assert_eq!(time, actual_time);
     })
 }
+
+#[test]
+fn change_modified_time_to_time_of_reference() {
+    Playground::setup("change_time_test_11", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            Stub::EmptyFile("file.txt"),
+            Stub::EmptyFile("reference.txt"),
+        ]);
+
+        nu!(
+            cwd: dirs.test(),
+            r#"touch -m -t 201908241230.30 reference.txt"#
+        );
+
+        nu!(
+            cwd: dirs.test(),
+            r#"touch -m -r reference.txt file.txt"#
+        );
+
+        let path = dirs.test().join("file.txt");
+        let ref_path = dirs.test().join("reference.txt");
+
+        let time: DateTime<Local> = DateTime::from(path.metadata().unwrap().modified().unwrap());
+        let ref_time: DateTime<Local> =
+            DateTime::from(ref_path.metadata().unwrap().modified().unwrap());
+
+        assert_eq!(time, ref_time);
+    })
+}
