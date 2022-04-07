@@ -9,20 +9,20 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::sync::Arc;
 
-pub struct CommandCompletion {
+pub struct CommandCompletion<'a> {
     engine_state: Arc<EngineState>,
-    flattened: Vec<(Span, FlatShape)>,
+    flattened: &'a [(Span, FlatShape)],
     flat_idx: usize,
-    flat_shape: FlatShape,
+    flat_shape: &'a FlatShape,
 }
 
-impl CommandCompletion {
+impl<'a> CommandCompletion<'a> {
     pub fn new(
         engine_state: Arc<EngineState>,
         _: &StateWorkingSet,
-        flattened: Vec<(Span, FlatShape)>,
+        flattened: &'a [(Span, FlatShape)],
         flat_idx: usize,
-        flat_shape: FlatShape,
+        flat_shape: &'a FlatShape,
     ) -> Self {
         Self {
             engine_state,
@@ -146,7 +146,7 @@ impl CommandCompletion {
     }
 }
 
-impl Completer for CommandCompletion {
+impl<'a> Completer for CommandCompletion<'a> {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
