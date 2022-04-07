@@ -239,7 +239,7 @@ impl Command for Touch {
             if let Err(err) = OpenOptions::new().write(true).create(true).open(&item) {
                 return Err(ShellError::CreateNotPossible(
                     format!("Failed to create file: {}", err),
-                    call.positional[index].span,
+                    call.positional_iter().nth(index).unwrap().span,
                 ));
             };
 
@@ -251,7 +251,7 @@ impl Command for Touch {
                 ) {
                     return Err(ShellError::ChangeModifiedTimeNotPossible(
                         format!("Failed to change the modified time: {}", err),
-                        call.positional[index].span,
+                        call.positional_iter().nth(index).unwrap().span,
                     ));
                 };
             }
@@ -268,7 +268,7 @@ impl Command for Touch {
                     ) {
                         return Err(ShellError::ChangeAccessTimeNotPossible(
                             format!("Failed to change the access time: {}", err),
-                            call.positional[index].span,
+                            call.positional_iter().nth(index).unwrap().span,
                         ));
                     };
                 } else {
@@ -279,7 +279,7 @@ impl Command for Touch {
                     ) {
                         return Err(ShellError::ChangeAccessTimeNotPossible(
                             format!("Failed to change the access time: {}", err),
-                            call.positional[index].span,
+                            call.positional_iter().nth(index).unwrap().span,
                         ));
                     };
                 }

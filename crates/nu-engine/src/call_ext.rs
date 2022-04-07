@@ -59,7 +59,7 @@ impl CallExt for Call {
     ) -> Result<Vec<T>, ShellError> {
         let mut output = vec![];
 
-        for expr in self.positional.iter().skip(starting_pos) {
+        for expr in self.positional_iter().skip(starting_pos) {
             let result = eval_expression(engine_state, stack, expr)?;
             output.push(FromValue::from_value(&result)?);
         }
@@ -92,7 +92,7 @@ impl CallExt for Call {
             FromValue::from_value(&result)
         } else {
             Err(ShellError::AccessBeyondEnd(
-                self.positional.len(),
+                self.positional_iter().count(),
                 self.head,
             ))
         }

@@ -32,7 +32,7 @@ pub fn eval_call(
 ) -> Result<PipelineData, ShellError> {
     let decl = engine_state.get_decl(call.decl_id);
 
-    if !decl.is_known_external() && call.named.iter().any(|(flag, _)| flag.item == "help") {
+    if !decl.is_known_external() && call.named_iter().any(|(flag, _)| flag.item == "help") {
         let mut signature = decl.signature();
         signature.usage = decl.usage().to_string();
         signature.extra_usage = decl.extra_usage().to_string();
@@ -59,7 +59,7 @@ pub fn eval_call(
                 .var_id
                 .expect("internal error: all custom parameters must have var_ids");
 
-            if let Some(arg) = call.positional.get(param_idx) {
+            if let Some(arg) = call.positional_iter().nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
                 callee_stack.add_var(var_id, result);
             } else if let Some(arg) = &param.default_value {
@@ -73,7 +73,7 @@ pub fn eval_call(
         if let Some(rest_positional) = decl.signature().rest_positional {
             let mut rest_items = vec![];
 
-            for arg in call.positional.iter().skip(
+            for arg in call.positional_iter().skip(
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
             ) {
@@ -101,7 +101,7 @@ pub fn eval_call(
         for named in decl.signature().named {
             if let Some(var_id) = named.var_id {
                 let mut found = false;
-                for call_named in &call.named {
+                for call_named in call.named_iter() {
                     if call_named.0.item == named.long {
                         if let Some(arg) = &call_named.1 {
                             let result = eval_expression(engine_state, caller_stack, arg)?;
@@ -198,14 +198,14 @@ fn eval_external(
 
     let mut call = Call::new(head.span);
 
-    call.positional.push(head.clone());
+    call.add_positional(head.clone());
 
     for arg in args {
-        call.positional.push(arg.clone())
+        call.add_positional(arg.clone())
     }
 
     if redirect_stdout {
-        call.named.push((
+        call.add_named((
             Spanned {
                 item: "redirect-stdout".into(),
                 span: head.span,
@@ -215,7 +215,7 @@ fn eval_external(
     }
 
     if redirect_stderr {
-        call.named.push((
+        call.add_named((
             Spanned {
                 item: "redirect-stderr".into(),
                 span: head.span,

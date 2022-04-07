@@ -54,8 +54,7 @@ impl Command for BuildString {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let config = stack.get_config().unwrap_or_default();
         let output = call
-            .positional
-            .iter()
+            .positional_iter()
             .map(|expr| {
                 eval_expression(engine_state, stack, expr).map(|val| val.into_string(", ", &config))
             })

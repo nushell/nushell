@@ -99,7 +99,7 @@ fn with_env(
                         return Err(ShellError::CantConvert(
                             "string list or single row".into(),
                             x.get_type().to_string(),
-                            call.positional[1].span,
+                            call.positional_iter().nth(1).unwrap().span,
                         ));
                     }
                 }
@@ -123,7 +123,7 @@ fn with_env(
             return Err(ShellError::CantConvert(
                 "string list or single row".into(),
                 x.get_type().to_string(),
-                call.positional[1].span,
+                call.positional_iter().nth(1).unwrap().span,
             ));
         }
     };

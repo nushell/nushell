@@ -44,7 +44,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         let import_pattern = if let Some(Expression {
             expr: Expr::ImportPattern(pat),
             ..
-        }) = call.positional.get(0)
+        }) = call.nth(0)
         {
             pat
         } else {
@@ -115,7 +115,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
                 };
 
                 if stack.remove_env_var(engine_state, &name).is_none() {
-                    return Err(ShellError::NotFound(call.positional[0].span));
+                    return Err(ShellError::NotFound(call.nth(0).unwrap().span));
                 }
             }
         } else if !import_pattern.hidden.contains(&import_pattern.head.name)

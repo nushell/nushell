@@ -133,12 +133,12 @@ impl Expression {
             Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
-                for positional in &call.positional {
+                for positional in call.positional_iter() {
                     if positional.has_in_variable(working_set) {
                         return true;
                     }
                 }
-                for named in &call.named {
+                for named in call.named_iter() {
                     if let Some(expr) = &named.1 {
                         if expr.has_in_variable(working_set) {
                             return true;
@@ -302,10 +302,10 @@ impl Expression {
             Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
-                for positional in &mut call.positional {
+                for positional in call.positional_iter_mut() {
                     positional.replace_in_variable(working_set, new_var_id);
                 }
-                for named in &mut call.named {
+                for named in call.named_iter_mut() {
                     if let Some(expr) = &mut named.1 {
                         expr.replace_in_variable(working_set, new_var_id)
                     }
@@ -449,10 +449,10 @@ impl Expression {
                 if replaced.contains_span(call.head) {
                     call.head = new_span;
                 }
-                for positional in &mut call.positional {
+                for positional in call.positional_iter_mut() {
                     positional.replace_span(working_set, replaced, new_span);
                 }
-                for named in &mut call.named {
+                for named in call.named_iter_mut() {
                     if let Some(expr) = &mut named.1 {
                         expr.replace_span(working_set, replaced, new_span)
                     }
