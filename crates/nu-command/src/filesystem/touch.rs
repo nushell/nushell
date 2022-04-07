@@ -153,7 +153,9 @@ impl Command for Touch {
                         AddYear::Full => (format!("{}{}", year, val), span),
                         AddYear::FirstDigits => {
                             // Compliance with the Unix version of touch
-                            let yy = val[0..2].parse::<u8>().unwrap();
+                            let yy = val[0..2]
+                                .parse::<u8>()
+                                .expect("should be a valid 2 digit number");
                             let mut year = 20;
                             if (69..=99).contains(&yy) {
                                 year = 19;
@@ -202,18 +204,18 @@ impl Command for Touch {
                     date = Some(
                         reference_path
                             .metadata()
-                            .unwrap() // This should always be valid as the path is checked above
+                            .expect("should be a valid path") // Should never fail as the path exists
                             .modified()
-                            .unwrap() // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
+                            .expect("should have metadata") // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
                             .into(),
                     );
 
                     ref_date_atime = Some(
                         reference_path
                             .metadata()
-                            .unwrap() // This should always be valid as the path is checked above
+                            .expect("should be a valid path") // Should never fail as the path exists
                             .accessed()
-                            .unwrap() // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
+                            .expect("should have metadata") // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
                             .into(),
                     );
                 }
@@ -242,10 +244,10 @@ impl Command for Touch {
             };
 
             if change_mtime {
-                // Safe to unwrap as we return an error above if we can't parse the date
+                // Should not panic as we return an error above if we can't parse the date
                 if let Err(err) = filetime::set_file_mtime(
                     &item,
-                    FileTime::from_system_time(date.unwrap().into()),
+                    FileTime::from_system_time(date.expect("should be a valid date").into()),
                 ) {
                     return Err(ShellError::ChangeModifiedTimeNotPossible(
                         format!("Failed to change the modified time: {}", err),
@@ -257,10 +259,12 @@ impl Command for Touch {
             if change_atime {
                 // Reference file/directory may have different access and modified times
                 if use_reference {
-                    // Safe to unwrap as we return an error above if we can't parse the date
+                    // Should not panic as we return an error above if we can't parse the date
                     if let Err(err) = filetime::set_file_atime(
                         &item,
-                        FileTime::from_system_time(ref_date_atime.unwrap().into()),
+                        FileTime::from_system_time(
+                            ref_date_atime.expect("should be a valid date").into(),
+                        ),
                     ) {
                         return Err(ShellError::ChangeAccessTimeNotPossible(
                             format!("Failed to change the access time: {}", err),
@@ -268,10 +272,10 @@ impl Command for Touch {
                         ));
                     };
                 } else {
-                    // Safe to unwrap as we return an error above if we can't parse the date
+                    // Should not panic as we return an error above if we can't parse the date
                     if let Err(err) = filetime::set_file_atime(
                         &item,
-                        FileTime::from_system_time(date.unwrap().into()),
+                        FileTime::from_system_time(date.expect("should be a valid date").into()),
                     ) {
                         return Err(ShellError::ChangeAccessTimeNotPossible(
                             format!("Failed to change the access time: {}", err),
