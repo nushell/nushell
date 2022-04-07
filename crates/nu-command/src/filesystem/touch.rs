@@ -59,6 +59,11 @@ impl Command for Touch {
                 "change the access time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
                 Some('a'),
             )
+            .switch(
+                "no-create",
+                "do not create the file if it does not exist",
+                Some('c'),
+            )
             .rest("rest", SyntaxShape::Filepath, "additional files to create")
             .category(Category::FileSystem)
     }
@@ -79,6 +84,7 @@ impl Command for Touch {
         let use_stamp: bool = call.has_flag("timestamp");
         let use_date: bool = call.has_flag("date");
         let use_reference: bool = call.has_flag("reference");
+        let no_create: bool = call.has_flag("no-create");
         let target: String = call.req(engine_state, stack, 0)?;
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 
@@ -221,6 +227,13 @@ impl Command for Touch {
         }
 
         for (index, item) in vec![target].into_iter().chain(rest).enumerate() {
+            if no_create {
+                let path = Path::new(&item);
+                if !path.exists() {
+                    continue;
+                }
+            }
+
             if let Err(err) = OpenOptions::new().write(true).create(true).open(&item) {
                 return Err(ShellError::CreateNotPossible(
                     format!("Failed to create file: {}", err),
@@ -307,6 +320,11 @@ impl Command for Touch {
             Example {
                 description: r#"Changes the last accessed time of "fixture.json" to a date"#,
                 example: r#"touch -a -d "August 24, 2019; 12:30:30" fixture.json"#,
+                result: None,
+            },
+            Example {
+                description: "Changes both last modified and accessed time of a, b and c to a timestamp only if they exist",
+                example: r#"touch -c -t 201908241230.30 a b c"#,
                 result: None,
             },
         ]

@@ -743,3 +743,26 @@ fn change_modified_and_access_time_to_time_of_reference() {
         assert_eq!(mtime, ref_mtime);
     })
 }
+
+#[test]
+fn not_create_file_if_it_not_exists() {
+    Playground::setup("change_time_test_28", |dirs, _sandbox| {
+        nu!(
+            cwd: dirs.test(),
+            r#"touch -c -d "August 24, 2019; 12:30:30" file.txt"#
+        );
+
+        let path = dirs.test().join("file.txt");
+
+        assert!(!path.exists());
+
+        nu!(
+            cwd: dirs.test(),
+            r#"touch -c file.txt"#
+        );
+
+        let path = dirs.test().join("file.txt");
+
+        assert!(!path.exists());
+    })
+}
