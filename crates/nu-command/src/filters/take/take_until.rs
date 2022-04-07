@@ -7,11 +7,11 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct KeepUntil;
+pub struct TakeUntil;
 
-impl Command for KeepUntil {
+impl Command for TakeUntil {
     fn name(&self) -> &str {
-        "keep until"
+        "take until"
     }
 
     fn signature(&self) -> Signature {
@@ -19,19 +19,19 @@ impl Command for KeepUntil {
             .required(
                 "predicate",
                 SyntaxShape::RowCondition,
-                "the predicate that kept element must not match",
+                "the predicate that element(s) must not match",
             )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Keep elements of the input until a predicate is true."
+        "Take elements of the input until a predicate is true."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Keep until the element is positive",
-            example: "echo [-1 -2 9 1] | keep until $it > 0",
+            description: "Take until the element is positive",
+            example: "echo [-1 -2 9 1] | take until $it > 0",
             result: Some(Value::List {
                 vals: vec![Value::test_int(-1), Value::test_int(-2)],
                 span: Span::test_data(),
@@ -86,12 +86,12 @@ impl Command for KeepUntil {
 
 #[cfg(test)]
 mod tests {
-    use crate::KeepUntil;
+    use crate::TakeUntil;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(KeepUntil)
+        test_examples(TakeUntil)
     }
 }
