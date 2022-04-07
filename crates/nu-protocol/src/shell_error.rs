@@ -269,6 +269,10 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::create_not_possible), url(docsrs))]
     CreateNotPossible(String, #[label("{0}")] Span),
 
+    #[error("Not possible to change the modified time")]
+    #[diagnostic(code(nu::shell::change_modified_time_not_possible), url(docsrs))]
+    ChangeModifiedTimeNotPossible(String, #[label("{0}")] Span),
+
     #[error("Remove not possible")]
     #[diagnostic(code(nu::shell::remove_not_possible), url(docsrs))]
     RemoveNotPossible(String, #[label("{0}")] Span),
