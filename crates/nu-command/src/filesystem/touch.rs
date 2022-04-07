@@ -50,9 +50,14 @@ impl Command for Touch {
                 Some('r'),
             )
             .switch(
-                "modify",
+                "modified",
                 "change the modification time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
                 Some('m'),
+            )
+            .switch(
+                "access",
+                "change the access time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
+                Some('a'),
             )
             .rest("rest", SyntaxShape::Filepath, "additional files to create")
             .category(Category::FileSystem)
@@ -69,21 +74,29 @@ impl Command for Touch {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let change_stamp: bool = call.has_flag("timestamp");
-        let change_mtime: bool = call.has_flag("modify");
-        let change_date: bool = call.has_flag("date");
-        let change_reference: bool = call.has_flag("reference");
+        let mut change_mtime: bool = call.has_flag("modified");
+        let mut change_atime: bool = call.has_flag("access");
+        let use_stamp: bool = call.has_flag("timestamp");
+        let use_date: bool = call.has_flag("date");
+        let use_reference: bool = call.has_flag("reference");
         let target: String = call.req(engine_state, stack, 0)?;
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 
         let mut date: Option<DateTime<Local>> = None;
+        let mut ref_date_atime: Option<DateTime<Local>> = None;
 
-        if change_mtime {
+        // Change both times if none is specified
+        if !change_mtime && !change_atime {
+            change_mtime = true;
+            change_atime = true;
+        }
+
+        if change_mtime || change_atime {
             date = Some(Local::now());
         }
 
-        if change_stamp || change_date {
-            let (val, span) = if change_stamp {
+        if use_stamp || use_date {
+            let (val, span) = if use_stamp {
                 let stamp: Option<Spanned<String>> =
                     call.get_flag(engine_state, stack, "timestamp")?;
                 let (stamp, span) = match stamp {
@@ -159,7 +172,7 @@ impl Command for Touch {
             date = if let Ok(parsed_date) = parse_date_from_string(&val, span) {
                 Some(parsed_date.into())
             } else {
-                let flag = if change_stamp { "timestamp" } else { "date" };
+                let flag = if use_stamp { "timestamp" } else { "date" };
                 return Err(ShellError::UnsupportedInput(
                     format!("input has an invalid {}", flag),
                     span,
@@ -167,7 +180,7 @@ impl Command for Touch {
             };
         }
 
-        if change_reference {
+        if use_reference {
             let reference: Option<Spanned<String>> =
                 call.get_flag(engine_state, stack, "reference")?;
             match reference {
@@ -185,6 +198,15 @@ impl Command for Touch {
                             .metadata()
                             .unwrap() // This should always be valid as the path is checked above
                             .modified()
+                            .unwrap() // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
+                            .into(),
+                    );
+
+                    ref_date_atime = Some(
+                        reference_path
+                            .metadata()
+                            .unwrap() // This should always be valid as the path is checked above
+                            .accessed()
                             .unwrap() // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
                             .into(),
                     );
@@ -206,20 +228,44 @@ impl Command for Touch {
                 ));
             };
 
-            if change_stamp || change_mtime || change_date || change_reference {
+            if change_mtime {
                 // Safe to unwrap as we return an error above if we can't parse the date
-                match filetime::set_file_mtime(
+                if let Err(err) = filetime::set_file_mtime(
                     &item,
                     FileTime::from_system_time(date.unwrap().into()),
                 ) {
-                    Ok(_) => continue,
-                    Err(err) => {
-                        return Err(ShellError::ChangeModifiedTimeNotPossible(
-                            format!("Failed to change the modified time: {}", err),
+                    return Err(ShellError::ChangeModifiedTimeNotPossible(
+                        format!("Failed to change the modified time: {}", err),
+                        call.positional[index].span,
+                    ));
+                };
+            }
+
+            if change_atime {
+                // Reference file/directory may have different access and modified times
+                if use_reference {
+                    // Safe to unwrap as we return an error above if we can't parse the date
+                    if let Err(err) = filetime::set_file_atime(
+                        &item,
+                        FileTime::from_system_time(ref_date_atime.unwrap().into()),
+                    ) {
+                        return Err(ShellError::ChangeAccessTimeNotPossible(
+                            format!("Failed to change the access time: {}", err),
                             call.positional[index].span,
                         ));
-                    }
-                };
+                    };
+                } else {
+                    // Safe to unwrap as we return an error above if we can't parse the date
+                    if let Err(err) = filetime::set_file_atime(
+                        &item,
+                        FileTime::from_system_time(date.unwrap().into()),
+                    ) {
+                        return Err(ShellError::ChangeAccessTimeNotPossible(
+                            format!("Failed to change the access time: {}", err),
+                            call.positional[index].span,
+                        ));
+                    };
+                }
             }
         }
 
@@ -256,6 +302,11 @@ impl Command for Touch {
             Example {
                 description: r#"Changes the last modified time of file d and e to "fixture.json"'s last modified time"#,
                 example: r#"touch -m -r fixture.json d e"#,
+                result: None,
+            },
+            Example {
+                description: r#"Changes the last accessed time of "fixture.json" to a date"#,
+                example: r#"touch -a -d "August 24, 2019; 12:30:30" fixture.json"#,
                 result: None,
             },
         ]
