@@ -1,5 +1,9 @@
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{ast::{Argument, Call, Expr, Expression}, engine::Command, ShellError, Signature};
+use nu_protocol::{
+    ast::{Argument, Call, Expr, Expression},
+    engine::Command,
+    ShellError, Signature,
+};
 use nu_protocol::{PipelineData, Spanned, Type};
 
 #[derive(Clone)]
@@ -61,7 +65,6 @@ impl Command for KnownExternal {
                 Argument::Named(named) => extern_call.add_named(named.clone()),
             }
         }
-        
 
         if call.redirect_stdout {
             extern_call.add_named((

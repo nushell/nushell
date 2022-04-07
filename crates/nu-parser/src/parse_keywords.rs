@@ -1,8 +1,8 @@
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead, ImportPatternMember,
-        Pipeline,
+        Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
+        ImportPatternMember, Pipeline,
     },
     engine::StateWorkingSet,
     span, Exportable, Overlay, PositionalArg, Span, SyntaxShape, Type, CONFIG_VARIABLE_ID,
@@ -178,8 +178,14 @@ pub fn parse_for(
     };
 
     // All positional arguments must be in the call positional vector by this point
-    let var_decl = call.positional_iter().nth(0).expect("for call already checked");
-    let block = call.positional_iter().nth(2).expect("for call already checked");
+    let var_decl = call
+        .positional_iter()
+        .nth(0)
+        .expect("for call already checked");
+    let block = call
+        .positional_iter()
+        .nth(2)
+        .expect("for call already checked");
 
     let error = None;
     if let (Some(var_id), Some(block_id)) = (&var_decl.as_var(), block.as_block()) {
@@ -347,9 +353,18 @@ pub fn parse_def(
     };
 
     // All positional arguments must be in the call positional vector by this point
-    let name_expr = call.positional_iter().nth(0).expect("def call already checked");
-    let sig = call.positional_iter().nth(1).expect("def call already checked");
-    let block = call.positional_iter().nth(2).expect("def call already checked");
+    let name_expr = call
+        .positional_iter()
+        .nth(0)
+        .expect("def call already checked");
+    let sig = call
+        .positional_iter()
+        .nth(1)
+        .expect("def call already checked");
+    let block = call
+        .positional_iter()
+        .nth(2)
+        .expect("def call already checked");
 
     let mut error = None;
 
@@ -1714,7 +1729,10 @@ pub fn parse_let(
                         let call = Box::new(Call {
                             decl_id,
                             head: spans[0],
-                            arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                            arguments: vec![
+                                Argument::Positional(lvalue),
+                                Argument::Positional(rvalue),
+                            ],
                             redirect_stdout: true,
                             redirect_stderr: false,
                         });

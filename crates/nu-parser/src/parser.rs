@@ -8,8 +8,9 @@ use crate::{
 
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, CellPath, Expr, Expression, FullCellPath, ImportPattern, ImportPatternHead,
-        ImportPatternMember, Operator, PathMember, Pipeline, RangeInclusion, RangeOperator,
+        Argument, Block, Call, CellPath, Expr, Expression, FullCellPath, ImportPattern,
+        ImportPatternHead, ImportPatternMember, Operator, PathMember, Pipeline, RangeInclusion,
+        RangeOperator,
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,

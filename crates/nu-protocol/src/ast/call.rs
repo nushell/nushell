@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use super::Expression;
 use crate::{DeclId, Span, Spanned};
 
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Argument {
     Positional(Expression),
@@ -31,22 +30,20 @@ impl Call {
         }
     }
 
-    pub fn named_iter(&self) -> impl Iterator<Item=&(Spanned<String>, Option<Expression>)> {
-        self.arguments
-            .iter()
-            .filter_map(|arg| match arg {
-                Argument::Named(named) => Some(named),
-                Argument::Positional(_) => None,
-            })
+    pub fn named_iter(&self) -> impl Iterator<Item = &(Spanned<String>, Option<Expression>)> {
+        self.arguments.iter().filter_map(|arg| match arg {
+            Argument::Named(named) => Some(named),
+            Argument::Positional(_) => None,
+        })
     }
 
-    pub fn named_iter_mut(&mut self) -> impl Iterator<Item=&mut (Spanned<String>, Option<Expression>)> {
-        self.arguments
-            .iter_mut()
-            .filter_map(|arg| match arg {
-                Argument::Named(named) => Some(named),
-                Argument::Positional(_) => None,
-            })
+    pub fn named_iter_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut (Spanned<String>, Option<Expression>)> {
+        self.arguments.iter_mut().filter_map(|arg| match arg {
+            Argument::Named(named) => Some(named),
+            Argument::Positional(_) => None,
+        })
     }
 
     pub fn add_named(&mut self, named: (Spanned<String>, Option<Expression>)) {
@@ -57,22 +54,18 @@ impl Call {
         self.arguments.push(Argument::Positional(positional));
     }
 
-    pub fn positional_iter(&self) -> impl Iterator<Item=&Expression> {
-        self.arguments
-            .iter()
-            .filter_map(|arg| match arg {
-                Argument::Named(_) => None,
-                Argument::Positional(positional) => Some(positional),
-            })
+    pub fn positional_iter(&self) -> impl Iterator<Item = &Expression> {
+        self.arguments.iter().filter_map(|arg| match arg {
+            Argument::Named(_) => None,
+            Argument::Positional(positional) => Some(positional),
+        })
     }
 
-    pub fn positional_iter_mut(&mut self) -> impl Iterator<Item=&mut Expression> {
-        self.arguments
-            .iter_mut()
-            .filter_map(|arg| match arg {
-                Argument::Named(_) => None,
-                Argument::Positional(positional) => Some(positional),
-            })
+    pub fn positional_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
+        self.arguments.iter_mut().filter_map(|arg| match arg {
+            Argument::Named(_) => None,
+            Argument::Positional(positional) => Some(positional),
+        })
     }
 
     pub fn has_flag(&self, flag_name: &str) -> bool {
