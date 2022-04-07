@@ -232,3 +232,23 @@ fn change_modified_time_timestamp_precedence() {
         assert_eq!(time, actual_time);
     })
 }
+
+#[test]
+fn change_modified_time_to_date() {
+    Playground::setup("change_time_test_11", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+
+        nu!(
+            cwd: dirs.test(),
+            r#"touch -m -d "August 24, 2019; 12:30:30" file.txt"#
+        );
+
+        let path = dirs.test().join("file.txt");
+
+        let time = Local.ymd(2019, 8, 24).and_hms(12, 30, 30);
+        let actual_time: DateTime<Local> =
+            DateTime::from(path.metadata().unwrap().modified().unwrap());
+
+        assert_eq!(time, actual_time);
+    })
+}
