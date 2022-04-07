@@ -34,7 +34,7 @@ fn creates_two_files() {
 
 #[test]
 fn change_modified_time_of_file() {
-    Playground::setup("change_time_test_1", |dirs, sandbox| {
+    Playground::setup("change_time_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
 
         nu!(
@@ -54,7 +54,7 @@ fn change_modified_time_of_file() {
 
 #[test]
 fn create_and_change_modified_time_of_file() {
-    Playground::setup("change_time_test_1", |dirs, _sandbox| {
+    Playground::setup("change_time_test_4", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
             "touch -t 201908241230 i_will_be_created.txt"
@@ -73,7 +73,7 @@ fn create_and_change_modified_time_of_file() {
 
 #[test]
 fn change_modified_time_of_file_no_year() {
-    Playground::setup("change_time_test_1", |dirs, sandbox| {
+    Playground::setup("change_time_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
 
         nu!(
@@ -93,7 +93,7 @@ fn change_modified_time_of_file_no_year() {
 
 #[test]
 fn change_modified_time_of_file_no_year_no_second() {
-    Playground::setup("change_time_test_1", |dirs, sandbox| {
+    Playground::setup("change_time_test_6", |dirs, sandbox| {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
 
         nu!(
@@ -113,7 +113,7 @@ fn change_modified_time_of_file_no_year_no_second() {
 
 #[test]
 fn change_modified_time_of_files() {
-    Playground::setup("change_time_test_1", |dirs, sandbox| {
+    Playground::setup("change_time_test_7", |dirs, sandbox| {
         sandbox.with_files(vec![
             Stub::EmptyFile("file.txt"),
             Stub::EmptyFile("file2.txt"),
@@ -142,7 +142,7 @@ fn change_modified_time_of_files() {
 
 #[test]
 fn errors_if_change_modified_time_of_file_with_invalid_timestamp() {
-    Playground::setup("change_time_test_1", |dirs, sandbox| {
+    Playground::setup("change_time_test_8", |dirs, sandbox| {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
 
         let mut outcome = nu!(
@@ -184,7 +184,7 @@ fn errors_if_change_modified_time_of_file_with_invalid_timestamp() {
 
 #[test]
 fn change_modified_time_of_file_to_today() {
-    Playground::setup("change_time_test_1", |dirs, sandbox| {
+    Playground::setup("change_time_test_9", |dirs, sandbox| {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
 
         nu!(
@@ -204,38 +204,8 @@ fn change_modified_time_of_file_to_today() {
 }
 
 #[test]
-fn change_modified_time_timestamp_precedence() {
-    Playground::setup("change_time_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
-
-        nu!(
-            cwd: dirs.test(),
-            "touch -m -t 201908241230.30 file.txt"
-        );
-
-        let path = dirs.test().join("file.txt");
-
-        let time = Local.ymd(2019, 8, 24).and_hms(12, 30, 30);
-        let actual_time: DateTime<Local> =
-            DateTime::from(path.metadata().unwrap().modified().unwrap());
-
-        assert_eq!(time, actual_time);
-
-        nu!(
-            cwd: dirs.test(),
-            "touch -t 201908241230.30 -m file.txt"
-        );
-
-        let actual_time: DateTime<Local> =
-            DateTime::from(path.metadata().unwrap().modified().unwrap());
-
-        assert_eq!(time, actual_time);
-    })
-}
-
-#[test]
 fn change_modified_time_to_date() {
-    Playground::setup("change_time_test_11", |dirs, sandbox| {
+    Playground::setup("change_time_test_10", |dirs, sandbox| {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
 
         nu!(
