@@ -206,7 +206,7 @@ impl Command for Touch {
             },
             Example {
                 description: "Creates files d and e and set its last modified time to a timestamp",
-                example: "touch -t 201908241230.30 d e",
+                example: "touch -m -t 201908241230.30 d e",
                 result: None,
             },
             Example {
