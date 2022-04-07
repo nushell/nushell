@@ -27,10 +27,6 @@ pub fn evaluate_file(
         std::process::exit(1);
     }
 
-    // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::util::external_exceptions(engine_state, stack);
-    engine_state.external_exceptions = exceptions;
-
     let file = std::fs::read(&path).into_diagnostic()?;
 
     let mut working_set = StateWorkingSet::new(engine_state);

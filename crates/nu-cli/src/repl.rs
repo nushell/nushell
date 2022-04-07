@@ -83,10 +83,6 @@ pub fn evaluate_repl(
         report_error(&working_set, &e);
     }
 
-    // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::util::external_exceptions(engine_state, stack);
-    engine_state.external_exceptions = exceptions;
-
     // seed env vars
     stack.add_env_var(
         "CMD_DURATION_MS".into(),
@@ -356,10 +352,6 @@ pub fn evaluate_repl(
                     let _ = std::env::set_current_dir(path);
                     engine_state.env_vars.insert("PWD".into(), cwd);
                 }
-
-                // Make a note of the exceptions we see for externals that look like math expressions
-                let exceptions = crate::util::external_exceptions(engine_state, stack);
-                engine_state.external_exceptions = exceptions;
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
