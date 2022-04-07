@@ -97,6 +97,11 @@ impl Completer for FileCompletion {
 
         non_hidden
     }
+
+    // Replace base filter with no filter once all the results are already based in the current path
+    fn filter(&self, _: Vec<u8>, items: Vec<Suggestion>, _: CompletionOptions) -> Vec<Suggestion> {
+        items
+    }
 }
 
 pub fn file_path_completion(
