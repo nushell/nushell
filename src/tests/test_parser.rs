@@ -411,3 +411,8 @@ fn unary_not_6() -> TestResult {
         "def",
     )
 }
+
+#[test]
+fn date_literal() -> TestResult {
+    run_test(r#"2022-09-10 | date to-record | get day"#, "10")
+}
