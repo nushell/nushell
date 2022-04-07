@@ -283,7 +283,7 @@ pub fn math_result_type(
             },
             Operator::Equal => (Type::Bool, None),
             Operator::NotEqual => (Type::Bool, None),
-            Operator::Contains => match (&lhs.ty, &rhs.ty) {
+            Operator::RegexMatch => match (&lhs.ty, &rhs.ty) {
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -301,7 +301,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::NotContains => match (&lhs.ty, &rhs.ty) {
+            Operator::NotRegexMatch => match (&lhs.ty, &rhs.ty) {
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),

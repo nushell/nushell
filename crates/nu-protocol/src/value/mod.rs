@@ -12,6 +12,7 @@ pub use from_value::FromValue;
 use indexmap::map::IndexMap;
 use num_format::{Locale, ToFormattedString};
 pub use range::*;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 pub use stream::*;
 use sys_locale::get_locale;
@@ -2029,17 +2030,38 @@ impl Value {
         }
     }
 
-    pub fn contains(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+    pub fn regex_match(&self, op: Span, rhs: &Value, invert: bool) -> Result<Value, ShellError> {
         let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs.contains(rhs),
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Contains, op, rhs)
+            (
+                Value::String { val: lhs, .. },
+                Value::String {
+                    val: rhs,
+                    span: rhs_span,
+                },
+            ) => {
+                // We are leaving some performance on the table by compiling the regex every time.
+                // Small regexes compile in microseconds, and the simplicity of this approach currently
+                // outweighs the performance costs. Revisit this if it ever becomes a bottleneck.
+                let regex = Regex::new(rhs)
+                    .map_err(|e| ShellError::UnsupportedInput(format!("{e}"), *rhs_span))?;
+                let is_match = regex.is_match(lhs);
+                Ok(Value::Bool {
+                    val: if invert { !is_match } else { is_match },
+                    span,
+                })
             }
+            (Value::CustomValue { val: lhs, span }, rhs) => lhs.operation(
+                *span,
+                if invert {
+                    Operator::NotRegexMatch
+                } else {
+                    Operator::RegexMatch
+                },
+                op,
+                rhs,
+            ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -2060,27 +2082,6 @@ impl Value {
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
                 lhs.operation(*span, Operator::StartsWith, op, rhs)
-            }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type(),
-                lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span()?,
-            }),
-        }
-    }
-
-    pub fn not_contains(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
-        match (self, rhs) {
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: !lhs.contains(rhs),
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::NotContains, op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,

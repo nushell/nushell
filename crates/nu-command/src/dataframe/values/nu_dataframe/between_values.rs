@@ -366,7 +366,8 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::Contains => match &right {
+        // TODO: update this to do a regex match instead of a simple contains?
+        Operator::RegexMatch => match &right {
             Value::String { val, .. } => contains_series_pat(&lhs, val, lhs_span),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
