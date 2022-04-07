@@ -1,6 +1,6 @@
 use std::fs::OpenOptions;
 
-use chrono::{offset::Utc, DateTime, Datelike, FixedOffset};
+use chrono::{DateTime, Datelike, FixedOffset, Local};
 use filetime::FileTime;
 
 use nu_engine::CallExt;
@@ -36,6 +36,11 @@ impl Command for Touch {
                 "change the file or directory last modified time to a timestamp. Format: [[CC]YY]MMDDhhmm[.ss]",
                 Some('t'),
             )
+            .switch(
+                "modify",
+                "change the file or directory last modified time to today's date",
+                Some('m'),
+            )
             .rest("rest", SyntaxShape::Filepath, "additional files to create")
             .category(Category::FileSystem)
     }
@@ -52,11 +57,17 @@ impl Command for Touch {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let change_stamp: bool = call.has_flag("timestamp");
+        let change_mtime: bool = call.has_flag("modify");
         let target: String = call.req(engine_state, stack, 0)?;
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 
         let mut date: Option<DateTime<FixedOffset>> = None;
 
+        if change_mtime {
+            date = Some(Local::now().into());
+        }
+
+        // Timestamp has precedence over modify flag as seen in the Unix version of touch(tested on MacOS)
         if change_stamp {
             let stamp: Option<Spanned<String>> = call.get_flag(engine_state, stack, "timestamp")?;
             let (stamp, span) = match stamp {
@@ -102,7 +113,7 @@ impl Command for Touch {
             };
 
             let val: String = if let Some(add_year) = add_year {
-                let year = Utc::now().year();
+                let year = Local::now().year();
                 match add_year {
                     AddYear::Full => format!("{}{}", year, val),
                     AddYear::FirstDigits => format!("{}{}", year / 100, val),
@@ -111,8 +122,8 @@ impl Command for Touch {
                 val
             };
 
-            date = if let Ok(date) = parse_date_from_string(&val, span) {
-                Some(date)
+            date = if let Ok(parsed_date) = parse_date_from_string(&val, span) {
+                Some(parsed_date)
             } else {
                 return Err(ShellError::UnsupportedInput(
                     "input has an invalid timestamp".to_string(),
@@ -129,7 +140,7 @@ impl Command for Touch {
                 ));
             };
 
-            if change_stamp {
+            if change_stamp || change_mtime {
                 // Safe to unwrap as we return an error above if we can't parse the date
                 match filetime::set_file_mtime(
                     &item,
@@ -162,8 +173,13 @@ impl Command for Touch {
                 result: None,
             },
             Example {
-                description: "Creates files a, b and c with a timestamp",
-                example: "touch -t 201908241230.30 a b c",
+                description: r#"Changes the last modified time of "fixture.json" to today's date"#,
+                example: "touch -m fixture.json",
+                result: None,
+            },
+            Example {
+                description: "Creates files d and e and set its last modified time to a timestamp",
+                example: "touch -t 201908241230.30 d e",
                 result: None,
             },
         ]

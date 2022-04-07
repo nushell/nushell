@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local, TimeZone};
+use chrono::{Date, DateTime, Local, TimeZone};
 use nu_test_support::fs::Stub;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
@@ -132,8 +132,6 @@ fn change_modified_time_of_files() {
 
         assert_eq!(time, actual_time);
 
-        let path = dirs.test().join("file2.txt");
-
         let time = Local.ymd(2019, 8, 24).and_hms(12, 30, 30);
         let actual_time: DateTime<Local> =
             DateTime::from(path.metadata().unwrap().modified().unwrap());
@@ -181,5 +179,56 @@ fn errors_if_change_modified_time_of_file_with_invalid_timestamp() {
         );
 
         assert!(outcome.err.contains("input has an invalid timestamp"));
+    })
+}
+
+#[test]
+fn change_modified_time_of_file_to_today() {
+    Playground::setup("change_time_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+
+        nu!(
+            cwd: dirs.test(),
+            "touch -m file.txt"
+        );
+
+        let path = dirs.test().join("file.txt");
+
+        // Check only the date since the time may not match exactly
+        let time: Date<Local> = Local::now().date();
+        let actual_time: Date<Local> =
+            DateTime::from(path.metadata().unwrap().modified().unwrap()).date();
+
+        assert_eq!(time, actual_time);
+    })
+}
+
+#[test]
+fn change_modified_time_timestamp_precedence() {
+    Playground::setup("change_time_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+
+        nu!(
+            cwd: dirs.test(),
+            "touch -m -t 201908241230.30 file.txt"
+        );
+
+        let path = dirs.test().join("file.txt");
+
+        let time = Local.ymd(2019, 8, 24).and_hms(12, 30, 30);
+        let actual_time: DateTime<Local> =
+            DateTime::from(path.metadata().unwrap().modified().unwrap());
+
+        assert_eq!(time, actual_time);
+
+        nu!(
+            cwd: dirs.test(),
+            "touch -t 201908241230.30 -m file.txt"
+        );
+
+        let actual_time: DateTime<Local> =
+            DateTime::from(path.metadata().unwrap().modified().unwrap());
+
+        assert_eq!(time, actual_time);
     })
 }
