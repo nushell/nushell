@@ -1,3 +1,6 @@
+mod keep_;
+mod keep_until;
+mod keep_while;
 mod match_;
 mod nth;
 mod pivot;
@@ -7,6 +10,9 @@ mod str_find_replace;
 mod str_int;
 mod unalias;
 
+pub use keep_::KeepDeprecated;
+pub use keep_until::KeepUntilDeprecated;
+pub use keep_while::KeepWhileDeprecated;
 pub use match_::MatchDeprecated;
 pub use nth::NthDeprecated;
 pub use pivot::PivotDeprecated;
