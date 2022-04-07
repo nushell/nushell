@@ -165,7 +165,7 @@ fn find_and_replaces() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str find-replace KATZ "5289" fortune.teller.phone
+                 | str replace KATZ "5289" fortune.teller.phone
                  | get fortune.teller.phone
              "#
         ));
@@ -190,7 +190,7 @@ fn find_and_replaces_without_passing_field() {
             r#"
                  open sample.toml
                  | get fortune.teller.phone
-                 | str find-replace KATZ "5289"
+                 | str replace KATZ "5289"
              "#
         ));
 

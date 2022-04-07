@@ -166,7 +166,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             StrContains,
             StrDowncase,
             StrEndswith,
-            StrFindReplace,
+            StrReplace,
             StrIndexOf,
             StrKebabCase,
             StrLength,
@@ -370,6 +370,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             MatchDeprecated,
             NthDeprecated,
             UnaliasDeprecated,
+            StrFindReplaceDeprecated,
         };
 
         #[cfg(feature = "dataframe")]
