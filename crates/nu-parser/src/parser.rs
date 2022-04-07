@@ -44,7 +44,12 @@ fn is_identifier_byte(b: u8) -> bool {
     b != b'.' && b != b'[' && b != b'(' && b != b'{'
 }
 
-pub fn is_math_expression_like(bytes: &[u8]) -> bool {
+pub fn is_math_expression_like(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    expand_aliases_denylist: &[usize],
+) -> bool {
+    let bytes = working_set.get_span_contents(span);
     if bytes.is_empty() {
         return false;
     }
@@ -55,17 +60,7 @@ pub fn is_math_expression_like(bytes: &[u8]) -> bool {
 
     let b = bytes[0];
 
-    b == b'0'
-        || b == b'1'
-        || b == b'2'
-        || b == b'3'
-        || b == b'4'
-        || b == b'5'
-        || b == b'6'
-        || b == b'7'
-        || b == b'8'
-        || b == b'9'
-        || b == b'('
+    if b == b'('
         || b == b'{'
         || b == b'['
         || b == b'$'
@@ -73,6 +68,34 @@ pub fn is_math_expression_like(bytes: &[u8]) -> bool {
         || b == b'\''
         || b == b'`'
         || b == b'-'
+    {
+        return true;
+    }
+
+    if parse_number(bytes, span).1.is_none() {
+        return true;
+    }
+
+    if parse_filesize(working_set, span).1.is_none() {
+        return true;
+    }
+
+    if parse_duration(working_set, span).1.is_none() {
+        return true;
+    }
+
+    if parse_binary(working_set, span).1.is_none() {
+        return true;
+    }
+
+    if parse_range(working_set, span, expand_aliases_denylist)
+        .1
+        .is_none()
+    {
+        return true;
+    }
+
+    false
 }
 
 fn is_identifier(bytes: &[u8]) -> bool {
@@ -869,20 +892,12 @@ pub fn parse_call(
 
     for word_span in spans[cmd_start..].iter() {
         // Find the longest group of words that could form a command
-        let bytes = working_set.get_span_contents(*word_span);
 
-        if is_math_expression_like(bytes)
-            && bytes != b"true"
-            && bytes != b"false"
-            && bytes != b"null"
-            && bytes != b"not"
-            && !working_set
-                .permanent_state
-                .external_exceptions
-                .iter()
-                .any(|x| x == bytes)
-        {
-            break;
+        if is_math_expression_like(working_set, *word_span, expand_aliases_denylist) {
+            let bytes = working_set.get_span_contents(*word_span);
+            if bytes != b"true" && bytes != b"false" && bytes != b"null" && bytes != b"not" {
+                break;
+            }
         }
 
         name_spans.push(*word_span);
@@ -1951,7 +1966,7 @@ pub fn parse_datetime(
 
 /// Parse a duration type, eg '10day'
 pub fn parse_duration(
-    working_set: &mut StateWorkingSet,
+    working_set: &StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: duration");
@@ -2055,7 +2070,7 @@ pub fn parse_duration_bytes(bytes: &[u8], span: Span) -> Option<Expression> {
 
 /// Parse a unit type, eg '10kb'
 pub fn parse_filesize(
-    working_set: &mut StateWorkingSet,
+    working_set: &StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: duration");
@@ -4228,17 +4243,12 @@ pub fn parse_expression(
         );
     }
 
-    let bytes = working_set.get_span_contents(spans[pos]);
-
-    let (output, err) = if is_math_expression_like(bytes)
-        && !working_set
-            .permanent_state
-            .external_exceptions
-            .iter()
-            .any(|x| x == bytes)
+    let (output, err) = if is_math_expression_like(working_set, spans[pos], expand_aliases_denylist)
     {
         parse_math_expression(working_set, &spans[pos..], None, expand_aliases_denylist)
     } else {
+        let bytes = working_set.get_span_contents(spans[pos]);
+
         // For now, check for special parses of certain keywords
         match bytes {
             b"def" => (

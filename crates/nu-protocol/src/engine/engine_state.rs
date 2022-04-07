@@ -178,9 +178,6 @@ pub struct EngineState {
     pub env_vars: im::HashMap<String, Value>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
-
-    // A list of external commands that look like math expressions
-    pub external_exceptions: Vec<Vec<u8>>,
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
@@ -210,7 +207,6 @@ impl EngineState {
             env_vars: im::HashMap::new(),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
-            external_exceptions: vec![],
         }
     }
 
