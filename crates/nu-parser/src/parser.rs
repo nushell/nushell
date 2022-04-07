@@ -84,6 +84,10 @@ pub fn is_math_expression_like(
         return true;
     }
 
+    if parse_datetime(working_set, span).1.is_none() {
+        return true;
+    }
+
     if parse_binary(working_set, span).1.is_none() {
         return true;
     }
