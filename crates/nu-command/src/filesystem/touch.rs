@@ -33,7 +33,7 @@ impl Command for Touch {
             .named(
                 "timestamp",
                 SyntaxShape::String,
-                "change the file or directory last modified time to a timestamp. Format: [[CC]YY]MMDDhhmm[.ss]",
+                "change the file or directory time to a timestamp. Format: [[CC]YY]MMDDhhmm[.ss]\n\n      If neither YY or CC is given, the current year will be assumed. If YY is specified, but CC is not, CC will be derived as follows:\n      \tIf YY is between [69, 99], CC is 19\n      \tIf YY is between [00, 68], CC is 20\n      Note: It is expected that in a future version of this standard the default century inferred from a 2-digit year will change",
                 Some('t'),
             )
             .named(
@@ -44,7 +44,7 @@ impl Command for Touch {
             )
             .switch(
                 "modify",
-                "change the file or directory last modified time to today's date",
+                "change the modification time of the file or directory. If no timestamp or date is given, the current time is used",
                 Some('m'),
             )
             .rest("rest", SyntaxShape::Filepath, "additional files to create")
