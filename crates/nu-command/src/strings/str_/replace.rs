@@ -117,7 +117,7 @@ impl Command for SubCommand {
                 description: "Find and replace the first occurence using string replacement *not* regular expressions",
                 example: r#"'c:\some\cool\path' | str replace 'c:\some\cool' '~' -s"#,
                 result: Some(Value::String {
-                    val: "~\\cool".to_string(),
+                    val: "~\\path".to_string(),
                     span: Span::test_data(),
                 }),
             },
@@ -143,7 +143,7 @@ fn operate(
     let find: Spanned<String> = call.req(engine_state, stack, 0)?;
     let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
     let literal_replace = call.has_flag("no-expand");
-    let no_regex = call.has_flag("normal");
+    let no_regex = call.has_flag("string");
 
     let options = Arc::new(Arguments {
         all: call.has_flag("all"),
