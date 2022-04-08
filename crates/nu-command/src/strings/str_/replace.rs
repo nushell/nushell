@@ -13,6 +13,7 @@ struct Arguments {
     replace: String,
     column_paths: Vec<CellPath>,
     literal_replace: bool,
+    no_regex: bool,
 }
 
 #[derive(Clone)]
@@ -37,6 +38,11 @@ impl Command for SubCommand {
                 "no-expand",
                 "do not expand the replace parameter as a regular expression",
                 Some('n'),
+            )
+            .switch(
+                "string",
+                "do not use regular expressions for string find and replace",
+                Some('s'),
             )
             .category(Category::Strings)
     }
@@ -107,7 +113,22 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
-
+            Example {
+                description: "Find and replace the first occurence using string replacement *not* regular expressions",
+                example: r#"'c:\some\cool\path' | str replace 'c:\some\cool' '~' -s"#,
+                result: Some(Value::String {
+                    val: "~\\path".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Find and replace all occurences using string replacement *not* regular expressions",
+                example: r#"'abc abc abc' | str replace -a 'b' 'z' -s"#,
+                result: Some(Value::String {
+                    val: "azc azc azc".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -118,9 +139,11 @@ fn operate(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let head = call.head;
     let find: Spanned<String> = call.req(engine_state, stack, 0)?;
     let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
     let literal_replace = call.has_flag("no-expand");
+    let no_regex = call.has_flag("string");
 
     let options = Arc::new(Arguments {
         all: call.has_flag("all"),
@@ -128,8 +151,9 @@ fn operate(
         replace: replace.item,
         column_paths: call.rest(engine_state, stack, 2)?,
         literal_replace,
+        no_regex,
     });
-    let head = call.head;
+
     input.map(
         move |v| {
             if options.column_paths.is_empty() {
@@ -162,6 +186,7 @@ fn action(
         replace,
         all,
         literal_replace,
+        no_regex,
         ..
     }: &Arguments,
     head: Span,
@@ -169,38 +194,54 @@ fn action(
     match input {
         Value::String { val, .. } => {
             let FindReplace(find, replacement) = FindReplace(find, replace);
-            let regex = Regex::new(find);
-
-            match regex {
-                Ok(re) => {
-                    if *all {
-                        Value::String {
-                            val: {
-                                if *literal_replace {
-                                    re.replace_all(val, NoExpand(replacement)).to_string()
-                                } else {
-                                    re.replace_all(val, replacement).to_string()
-                                }
-                            },
-                            span: head,
-                        }
-                    } else {
-                        Value::String {
-                            val: {
-                                if *literal_replace {
-                                    re.replace(val, NoExpand(replacement)).to_string()
-                                } else {
-                                    re.replace(val, replacement).to_string()
-                                }
-                            },
-                            span: head,
-                        }
+            if *no_regex {
+                // just use regular string replacement vs regular expressions
+                if *all {
+                    Value::String {
+                        val: val.replace(find, replacement),
+                        span: head,
+                    }
+                } else {
+                    Value::String {
+                        val: val.replacen(find, replacement, 1),
+                        span: head,
                     }
                 }
-                Err(_) => Value::String {
-                    val: val.to_string(),
-                    span: head,
-                },
+            } else {
+                // use regular expressions to replace strings
+                let regex = Regex::new(find);
+
+                match regex {
+                    Ok(re) => {
+                        if *all {
+                            Value::String {
+                                val: {
+                                    if *literal_replace {
+                                        re.replace_all(val, NoExpand(replacement)).to_string()
+                                    } else {
+                                        re.replace_all(val, replacement).to_string()
+                                    }
+                                },
+                                span: head,
+                            }
+                        } else {
+                            Value::String {
+                                val: {
+                                    if *literal_replace {
+                                        re.replace(val, NoExpand(replacement)).to_string()
+                                    } else {
+                                        re.replace(val, replacement).to_string()
+                                    }
+                                },
+                                span: head,
+                            }
+                        }
+                    }
+                    Err(_) => Value::String {
+                        val: val.to_string(),
+                        span: head,
+                    },
+                }
             }
         }
         other => Value::Error {
@@ -240,6 +281,7 @@ mod tests {
             column_paths: vec![],
             literal_replace: false,
             all: false,
+            no_regex: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
