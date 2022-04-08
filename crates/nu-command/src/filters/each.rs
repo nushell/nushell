@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, SyntaxShape,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
+    Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -150,13 +150,13 @@ impl Command for Each {
                                                 val: idx as i64,
                                                 span,
                                             },
-                                            x,
+                                            x.clone(),
                                         ],
                                         span,
                                     },
                                 );
                             } else {
-                                stack.add_var(*var_id, x);
+                                stack.add_var(*var_id, x.clone());
                             }
                         }
                     }
@@ -165,7 +165,7 @@ impl Command for Each {
                         &engine_state,
                         &mut stack,
                         &block,
-                        PipelineData::new(span),
+                        x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
                     ) {
@@ -201,13 +201,13 @@ impl Command for Each {
                                                 val: idx as i64,
                                                 span,
                                             },
-                                            x,
+                                            x.clone(),
                                         ],
                                         span,
                                     },
                                 );
                             } else {
-                                stack.add_var(*var_id, x);
+                                stack.add_var(*var_id, x.clone());
                             }
                         }
                     }
@@ -216,7 +216,7 @@ impl Command for Each {
                         &engine_state,
                         &mut stack,
                         &block,
-                        PipelineData::new(span),
+                        x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
                     ) {
@@ -228,7 +228,7 @@ impl Command for Each {
             PipelineData::Value(x, ..) => {
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, x);
+                        stack.add_var(*var_id, x.clone());
                     }
                 }
 
@@ -236,7 +236,7 @@ impl Command for Each {
                     &engine_state,
                     &mut stack,
                     &block,
-                    PipelineData::new(span),
+                    x.into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
                 )
