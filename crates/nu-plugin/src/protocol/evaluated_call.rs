@@ -28,7 +28,7 @@ impl EvaluatedCall {
             .map(|expr| eval_expression(engine_state, stack, expr))
             .collect::<Result<Vec<Value>, ShellError>>()?;
 
-        let mut named = Vec::with_capacity(call.named_iter().count());
+        let mut named = Vec::with_capacity(call.named_len());
         for (string, expr) in call.named_iter() {
             let value = match expr {
                 None => None,

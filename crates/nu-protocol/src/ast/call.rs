@@ -46,6 +46,10 @@ impl Call {
         })
     }
 
+    pub fn named_len(&self) -> usize {
+        self.named_iter().count()
+    }
+
     pub fn add_named(&mut self, named: (Spanned<String>, Option<Expression>)) {
         self.arguments.push(Argument::Named(named));
     }
