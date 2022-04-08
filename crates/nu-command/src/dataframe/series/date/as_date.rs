@@ -17,7 +17,11 @@ impl Command for AsDate {
     }
 
     fn usage(&self) -> &str {
-        r#"Converts string to date. Format example: 
+        r#"Converts string to date."#
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"Format example:
         "%Y-%m-%d"    => 2021-12-31
         "%d-%m-%Y"    => 31-12-2021
         "%Y%m%d"      => 2021319 (2021-03-19)"#
@@ -25,7 +29,7 @@ impl Command for AsDate {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("format", SyntaxShape::String, "formating date string")
+            .required("format", SyntaxShape::String, "formatting date string")
             .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
             .category(Category::Custom("dataframe".into()))
     }
