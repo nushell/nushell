@@ -73,8 +73,8 @@ impl CallExt for Call {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        if let Some(expr) = self.nth(pos) {
-            let result = eval_expression(engine_state, stack, &expr)?;
+        if let Some(expr) = self.positional_nth(pos) {
+            let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(&result).map(Some)
         } else {
             Ok(None)
@@ -87,12 +87,12 @@ impl CallExt for Call {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<T, ShellError> {
-        if let Some(expr) = self.nth(pos) {
-            let result = eval_expression(engine_state, stack, &expr)?;
+        if let Some(expr) = self.positional_nth(pos) {
+            let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(&result)
         } else {
             Err(ShellError::AccessBeyondEnd(
-                self.positional_iter().count(),
+                self.positional_len(),
                 self.head,
             ))
         }

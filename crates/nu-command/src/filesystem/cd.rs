@@ -28,7 +28,7 @@ impl Command for Cd {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let raw_path = call.nth(0);
+        let raw_path = call.positional_nth(0);
         let path_val: Option<Value> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
 

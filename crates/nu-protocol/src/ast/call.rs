@@ -68,6 +68,14 @@ impl Call {
         })
     }
 
+    pub fn positional_nth(&self, i: usize) -> Option<&Expression> {
+        self.positional_iter().nth(i)
+    }
+
+    pub fn positional_len(&self) -> usize {
+        self.positional_iter().count()
+    }
+
     pub fn has_flag(&self, flag_name: &str) -> bool {
         for name in self.named_iter() {
             if flag_name == name.0.item {
@@ -96,10 +104,6 @@ impl Call {
         }
 
         None
-    }
-
-    pub fn nth(&self, pos: usize) -> Option<Expression> {
-        self.positional_iter().nth(pos).cloned()
     }
 
     pub fn span(&self) -> Span {

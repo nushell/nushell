@@ -142,7 +142,7 @@ pub fn parse_for(
             let sig = decl.signature();
 
             // Let's get our block and make sure it has the right signature
-            if let Some(arg) = call.positional_iter().nth(2) {
+            if let Some(arg) = call.positional_nth(2) {
                 match arg {
                     Expression {
                         expr: Expr::Block(block_id),
@@ -317,7 +317,7 @@ pub fn parse_def(
             let sig = decl.signature();
 
             // Let's get our block and make sure it has the right signature
-            if let Some(arg) = call.positional_iter().nth(2) {
+            if let Some(arg) = call.positional_nth(2) {
                 match arg {
                     Expression {
                         expr: Expr::Block(block_id),
@@ -472,8 +472,8 @@ pub fn parse_extern(
             (call, call_span)
         }
     };
-    let name_expr = call.positional_iter().nth(0);
-    let sig = call.positional_iter().nth(1);
+    let name_expr = call.positional_nth(0);
+    let sig = call.positional_nth(1);
 
     if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
@@ -1280,7 +1280,7 @@ pub fn parse_use(
         }
     };
 
-    let import_pattern = if let Some(expr) = call.nth(0) {
+    let import_pattern = if let Some(expr) = call.positional_nth(0) {
         if let Some(pattern) = expr.as_import_pattern() {
             pattern
         } else {
@@ -1508,7 +1508,7 @@ pub fn parse_hide(
         }
     };
 
-    let import_pattern = if let Some(expr) = call.nth(0) {
+    let import_pattern = if let Some(expr) = call.positional_nth(0) {
         if let Some(pattern) = expr.as_import_pattern() {
             pattern
         } else {
@@ -2008,7 +2008,7 @@ pub fn parse_register(
 
     // Signature is an optional value from the call and will be used to decide if
     // the plugin is called to get the signatures or to use the given signature
-    let signature = call.positional_iter().nth(1).map(|expr| {
+    let signature = call.positional_nth(1).map(|expr| {
         let signature = working_set.get_span_contents(expr.span);
         serde_json::from_slice::<Signature>(signature).map_err(|_| {
             ParseError::LabeledError(

@@ -36,9 +36,8 @@ impl Command for LetEnv {
         let env_var = call.req(engine_state, stack, 0)?;
 
         let keyword_expr = call
-            .positional_iter()
-            .nth(1)
-            .unwrap()
+            .positional_nth(1)
+            .expect("checked through parser")
             .as_keyword()
             .expect("internal error: missing keyword");
 

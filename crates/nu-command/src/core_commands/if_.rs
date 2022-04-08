@@ -50,9 +50,9 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let cond = call.positional_iter().nth(0).unwrap();
+        let cond = call.positional_nth(0).expect("checked through parser");
         let then_block: CaptureBlock = call.req(engine_state, stack, 1)?;
-        let else_case = call.positional_iter().nth(2);
+        let else_case = call.positional_nth(2);
 
         let result = eval_expression(engine_state, stack, cond)?;
         match &result {

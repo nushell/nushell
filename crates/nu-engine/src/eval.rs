@@ -59,7 +59,7 @@ pub fn eval_call(
                 .var_id
                 .expect("internal error: all custom parameters must have var_ids");
 
-            if let Some(arg) = call.positional_iter().nth(param_idx) {
+            if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
                 callee_stack.add_var(var_id, result);
             } else if let Some(arg) = &param.default_value {

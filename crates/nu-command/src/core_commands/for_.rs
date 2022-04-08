@@ -62,16 +62,14 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
         let var_id = call
-            .positional_iter()
-            .nth(0)
-            .expect("internal error: missing variable")
+            .positional_nth(0)
+            .expect("checked through parser")
             .as_var()
             .expect("internal error: missing variable");
 
         let keyword_expr = call
-            .positional_iter()
-            .nth(1)
-            .expect("internal error: missing variable")
+            .positional_nth(1)
+            .expect("checked through parser")
             .as_keyword()
             .expect("internal error: missing keyword");
         let values = eval_expression(engine_state, stack, keyword_expr)?;

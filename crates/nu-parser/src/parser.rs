@@ -132,7 +132,7 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
         return None;
     }
 
-    if call.positional_iter().count() < sig.required_positional.len() {
+    if call.positional_len() < sig.required_positional.len() {
         // Comparing the types of all signature positional arguments against the parsed
         // expressions found in the call. If one type is not found then it could be assumed
         // that that positional argument is missing from the parsed call
@@ -167,7 +167,7 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
             }
         }
 
-        let missing = &sig.required_positional[call.positional_iter().count()];
+        let missing = &sig.required_positional[call.positional_len()];
         if let Some(last) = call.positional_iter().last() {
             Some(ParseError::MissingPositional(
                 missing.name.clone(),
