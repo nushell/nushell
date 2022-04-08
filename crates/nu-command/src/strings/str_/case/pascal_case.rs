@@ -26,7 +26,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "converts a string to PascalCase"
+        "Convert a string to PascalCase"
     }
 
     fn run(

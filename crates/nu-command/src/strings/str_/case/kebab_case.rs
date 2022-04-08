@@ -26,7 +26,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "converts a string to kebab-case"
+        "Convert a string to kebab-case"
     }
 
     fn run(

@@ -18,7 +18,7 @@ impl Command for Date {
     }
 
     fn usage(&self) -> &str {
-        "date"
+        "Date-related commands"
     }
 
     fn run(

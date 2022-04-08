@@ -24,7 +24,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "splits contents over multiple rows via the separator."
+        "Split a string into multiple rows using a separator"
     }
 
     fn run(

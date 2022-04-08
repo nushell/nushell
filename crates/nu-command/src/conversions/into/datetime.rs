@@ -101,7 +101,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "converts text into datetime"
+        "Convert text into a datetime"
     }
 
     fn examples(&self) -> Vec<Example> {

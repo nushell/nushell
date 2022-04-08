@@ -22,7 +22,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "gets the host of a url"
+        "Get the host of a URL"
     }
 
     fn run(

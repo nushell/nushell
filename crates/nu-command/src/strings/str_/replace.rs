@@ -42,7 +42,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "finds and replaces text"
+        "Find and replace text"
     }
 
     fn run(

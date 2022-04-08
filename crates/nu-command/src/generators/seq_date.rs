@@ -17,7 +17,7 @@ impl Command for SeqDate {
     }
 
     fn usage(&self) -> &str {
-        "print sequences of dates"
+        "Print sequences of dates"
     }
 
     fn signature(&self) -> nu_protocol::Signature {

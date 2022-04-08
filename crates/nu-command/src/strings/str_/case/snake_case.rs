@@ -24,7 +24,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
     fn usage(&self) -> &str {
-        "converts a string to snake_case"
+        "Convert a string to snake_case"
     }
 
     fn run(
