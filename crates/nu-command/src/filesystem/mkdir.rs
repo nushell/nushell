@@ -57,13 +57,18 @@ impl Command for Mkdir {
         }
 
         for (i, dir) in directories.enumerate() {
-            let span = call.positional_nth(i).expect("already checked through directories").span;
+            let span = call
+                .positional_nth(i)
+                .expect("already checked through directories")
+                .span;
             let dir_res = std::fs::create_dir_all(&dir);
 
             if let Err(reason) = dir_res {
                 return Err(ShellError::CreateNotPossible(
                     format!("failed to create directory: {}", reason),
-                    call.positional_nth(i).expect("already checked through directories").span,
+                    call.positional_nth(i)
+                        .expect("already checked through directories")
+                        .span,
                 ));
             }
 

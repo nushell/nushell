@@ -380,7 +380,9 @@ Format: #
                 None => {
                     return Err(ShellError::UnsupportedInput(
                         String::from("Unknown ansi code"),
-                        call.positional_nth(0).expect("Unexpected missing argument").span,
+                        call.positional_nth(0)
+                            .expect("Unexpected missing argument")
+                            .span,
                     ))
                 }
             }
