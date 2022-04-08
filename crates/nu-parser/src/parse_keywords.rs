@@ -178,12 +178,8 @@ pub fn parse_for(
     };
 
     // All positional arguments must be in the call positional vector by this point
-    let var_decl = call
-        .positional_nth(0)
-        .expect("for call already checked");
-    let block = call
-        .positional_nth(2)
-        .expect("for call already checked");
+    let var_decl = call.positional_nth(0).expect("for call already checked");
+    let block = call.positional_nth(2).expect("for call already checked");
 
     let error = None;
     if let (Some(var_id), Some(block_id)) = (&var_decl.as_var(), block.as_block()) {
@@ -351,15 +347,9 @@ pub fn parse_def(
     };
 
     // All positional arguments must be in the call positional vector by this point
-    let name_expr = call
-        .positional_nth(0)
-        .expect("def call already checked");
-    let sig = call
-        .positional_nth(1)
-        .expect("def call already checked");
-    let block = call
-        .positional_nth(2)
-        .expect("def call already checked");
+    let name_expr = call.positional_nth(0).expect("def call already checked");
+    let sig = call.positional_nth(1).expect("def call already checked");
+    let block = call.positional_nth(2).expect("def call already checked");
 
     let mut error = None;
 
