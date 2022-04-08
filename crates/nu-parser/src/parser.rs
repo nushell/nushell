@@ -4667,10 +4667,11 @@ pub fn parse_block(
                                             }
                                         }
                                         continue;
-                                    } else if expr.has_in_variable(working_set) {
+                                    } else if expr.has_in_variable(working_set) && !is_subexpression
+                                    {
                                         *expr = wrap_expr_with_collect(working_set, expr);
                                     }
-                                } else if expr.has_in_variable(working_set) {
+                                } else if expr.has_in_variable(working_set) && !is_subexpression {
                                     *expr = wrap_expr_with_collect(working_set, expr);
                                 }
                             }
