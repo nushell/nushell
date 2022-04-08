@@ -38,7 +38,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "pad a string with a character a certain length"
+        "Right-pad a string to a specific length"
     }
 
     fn run(
@@ -54,7 +54,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Right pad a string with a character a number of places",
+                description: "Right-pad a string with asterisks until it's 10 characters wide",
                 example: "'nushell' | str rpad -l 10 -c '*'",
                 result: Some(Value::String {
                     val: "nushell***".to_string(),
@@ -62,7 +62,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Right pad a string with a character a number of places",
+                description: "Right-pad a string with zeroes until it's 10 characters wide",
                 example: "'123' | str rpad -l 10 -c '0'",
                 result: Some(Value::String {
                     val: "1230000000".to_string(),

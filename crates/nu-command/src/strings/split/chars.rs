@@ -17,7 +17,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "splits a string's characters into separate rows"
+        "Split a string's characters into separate rows"
     }
 
     fn examples(&self) -> Vec<Example> {

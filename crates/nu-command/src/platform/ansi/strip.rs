@@ -18,13 +18,13 @@ impl Command for SubCommand {
             .rest(
                 "column path",
                 SyntaxShape::CellPath,
-                "optionally, remove ansi sequences by column paths",
+                "optionally, remove ANSI sequences by column paths",
             )
             .category(Category::Platform)
     }
 
     fn usage(&self) -> &str {
-        "strip ansi escape sequences from string"
+        "Strip ANSI escape sequences from a string"
     }
 
     fn run(
@@ -39,7 +39,7 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "strip ansi escape sequences from string",
+            description: "Strip ANSI escape sequences from a string",
             example: r#"echo [ (ansi green) (ansi cursor_on) "hello" ] | str collect | ansi strip"#,
             result: Some(Value::test_string("hello")),
         }]

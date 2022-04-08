@@ -14,7 +14,7 @@ impl Command for Fmt {
     }
 
     fn usage(&self) -> &str {
-        "format numbers"
+        "Format a number"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -23,7 +23,7 @@ impl Command for Fmt {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "format numbers",
+            description: "Get a record containing multiple formats for the number 42",
             example: "42 | fmt",
             result: Some(Value::Record {
                 cols: vec![

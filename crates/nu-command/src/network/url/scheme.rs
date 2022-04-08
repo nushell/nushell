@@ -22,7 +22,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "gets the scheme (eg http, file) of a url"
+        "Get the scheme (e.g. http, file) of a URL"
     }
 
     fn run(
@@ -39,7 +39,7 @@ impl Command for SubCommand {
         let span = Span::test_data();
         vec![
             Example {
-                description: "Get scheme of a url",
+                description: "Get the scheme of a URL",
                 example: "echo 'http://www.example.com' | url scheme",
                 result: Some(Value::String {
                     val: "http".to_string(),

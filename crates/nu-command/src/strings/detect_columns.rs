@@ -32,7 +32,7 @@ impl Command for DetectColumns {
     }
 
     fn usage(&self) -> &str {
-        "splits contents across multiple columns via the separator."
+        "Attempt to automatically split text into multiple columns"
     }
 
     fn run(

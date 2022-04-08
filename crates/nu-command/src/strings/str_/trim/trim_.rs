@@ -59,7 +59,7 @@ impl Command for SubCommand {
             .switch("format", "trims spaces replacing multiple characters with singles in the middle (default: whitespace)", Some('f'))
     }
     fn usage(&self) -> &str {
-        "trims text"
+        "Trim text"
     }
 
     fn run(

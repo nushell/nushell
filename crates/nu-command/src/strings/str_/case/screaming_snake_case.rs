@@ -25,7 +25,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "converts a string to SCREAMING_SNAKE_CASE"
+        "Convert a string to SCREAMING_SNAKE_CASE"
     }
 
     fn run(

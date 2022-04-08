@@ -22,7 +22,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "converts text into decimal"
+        "Convert text into a decimal"
     }
 
     fn run(

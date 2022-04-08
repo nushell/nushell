@@ -16,7 +16,7 @@ impl Command for RenameDF {
     }
 
     fn usage(&self) -> &str {
-        "rename a dataframe column"
+        "Rename a dataframe column"
     }
 
     fn signature(&self) -> Signature {

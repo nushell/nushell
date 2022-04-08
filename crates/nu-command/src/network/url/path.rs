@@ -22,7 +22,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "gets the path of a url"
+        "Get the path of a URL"
     }
 
     fn run(
