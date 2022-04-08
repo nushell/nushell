@@ -1776,7 +1776,8 @@ pub fn parse_full_cell_path(
             let (output, err) = lite_parse(&output);
             error = error.or(err);
 
-            let (output, err) = parse_block(working_set, &output, true, expand_aliases_denylist);
+            let (output, err) =
+                parse_block(working_set, &output, true, expand_aliases_denylist, true);
             error = error.or(err);
 
             let block_id = working_set.add_block(output);
@@ -3660,7 +3661,8 @@ pub fn parse_block_expression(
         }
     }
 
-    let (mut output, err) = parse_block(working_set, &output, false, expand_aliases_denylist);
+    let (mut output, err) =
+        parse_block(working_set, &output, false, expand_aliases_denylist, false);
     error = error.or(err);
 
     if let Some(signature) = signature {
@@ -4570,6 +4572,7 @@ pub fn parse_block(
     lite_block: &LiteBlock,
     scoped: bool,
     expand_aliases_denylist: &[usize],
+    is_subexpression: bool,
 ) -> (Block, Option<ParseError>) {
     trace!("parsing block: {:?}", lite_block);
 
@@ -4614,9 +4617,17 @@ pub fn parse_block(
                     })
                     .collect::<Vec<Expression>>();
 
-                for expr in output.iter_mut().skip(1) {
-                    if expr.has_in_variable(working_set) {
-                        *expr = wrap_expr_with_collect(working_set, expr);
+                if is_subexpression {
+                    for expr in output.iter_mut().skip(1) {
+                        if expr.has_in_variable(working_set) {
+                            *expr = wrap_expr_with_collect(working_set, expr);
+                        }
+                    }
+                } else {
+                    for expr in output.iter_mut() {
+                        if expr.has_in_variable(working_set) {
+                            *expr = wrap_expr_with_collect(working_set, expr);
+                        }
                     }
                 }
 
@@ -4656,7 +4667,12 @@ pub fn parse_block(
                                             }
                                         }
                                         continue;
+                                    } else if expr.has_in_variable(working_set) && !is_subexpression
+                                    {
+                                        *expr = wrap_expr_with_collect(working_set, expr);
                                     }
+                                } else if expr.has_in_variable(working_set) && !is_subexpression {
+                                    *expr = wrap_expr_with_collect(working_set, expr);
                                 }
                             }
                         }
@@ -5026,7 +5042,8 @@ pub fn parse(
     let (output, err) = lite_parse(&output);
     error = error.or(err);
 
-    let (mut output, err) = parse_block(working_set, &output, scoped, expand_aliases_denylist);
+    let (mut output, err) =
+        parse_block(working_set, &output, scoped, expand_aliases_denylist, false);
     error = error.or(err);
 
     let mut seen = vec![];
