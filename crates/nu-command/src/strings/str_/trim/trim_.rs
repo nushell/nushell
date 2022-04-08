@@ -59,7 +59,11 @@ impl Command for SubCommand {
             .switch("format", "trims spaces replacing multiple characters with singles in the middle (default: whitespace)", Some('f'))
     }
     fn usage(&self) -> &str {
-        "Trim text"
+        "Trim whitespace or specific character"
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["whitespace", "strip", "lstrip", "rstrip"]
     }
 
     fn run(
