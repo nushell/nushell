@@ -30,7 +30,7 @@ pub use custom_value::CustomValue;
 
 use crate::ShellError;
 
-/// Core structured values that pass through the pipeline in engine-q
+/// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the
 // impact on the PartialOrd implementation and the global sort order
 #[derive(Debug, Serialize, Deserialize)]
