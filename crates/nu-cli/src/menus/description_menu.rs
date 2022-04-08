@@ -322,21 +322,21 @@ impl DescriptionMenu {
         if use_ansi_coloring {
             if index == self.index() {
                 format!(
-                    "{}{}{:>empty$}{}{}",
+                    "{}{}{}{:>empty$}{}",
                     self.color.selected_text_style.prefix(),
                     &suggestion.value,
-                    "",
                     RESET,
+                    "",
                     self.end_of_line(column, index),
                     empty = empty_space,
                 )
             } else {
                 format!(
-                    "{}{}{:>empty$}{}{}",
+                    "{}{}{}{:>empty$}{}",
                     self.color.text_style.prefix(),
                     &suggestion.value,
-                    "",
                     RESET,
+                    "",
                     self.end_of_line(column, index),
                     empty = empty_space,
                 )
