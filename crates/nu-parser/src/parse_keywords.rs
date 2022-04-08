@@ -179,12 +179,10 @@ pub fn parse_for(
 
     // All positional arguments must be in the call positional vector by this point
     let var_decl = call
-        .positional_iter()
-        .nth(0)
+        .positional_nth(0)
         .expect("for call already checked");
     let block = call
-        .positional_iter()
-        .nth(2)
+        .positional_nth(2)
         .expect("for call already checked");
 
     let error = None;
@@ -354,16 +352,13 @@ pub fn parse_def(
 
     // All positional arguments must be in the call positional vector by this point
     let name_expr = call
-        .positional_iter()
-        .nth(0)
+        .positional_nth(0)
         .expect("def call already checked");
     let sig = call
-        .positional_iter()
-        .nth(1)
+        .positional_nth(1)
         .expect("def call already checked");
     let block = call
-        .positional_iter()
-        .nth(2)
+        .positional_nth(2)
         .expect("def call already checked");
 
     let mut error = None;
@@ -1963,8 +1958,7 @@ pub fn parse_register(
     // The ? operator is not used because the error has to be kept to be printed in the shell
     // For that reason the values are kept in a result that will be passed at the end of this call
     let arguments = call
-        .positional_iter()
-        .nth(0)
+        .positional_nth(0)
         .map(|expr| {
             let name_expr = working_set.get_span_contents(expr.span);
 
