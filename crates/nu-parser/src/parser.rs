@@ -3631,7 +3631,7 @@ pub fn parse_block_expression(
     // TODO: Finish this
     if let SyntaxShape::Block(Some(v)) = shape {
         if let Some((sig, sig_span)) = &signature {
-            if sig.num_positionals() != v.len() {
+            if sig.num_positionals() > v.len() {
                 error = error.or_else(|| {
                     Some(ParseError::Expected(
                         format!(
@@ -3658,20 +3658,6 @@ pub fn parse_block_expression(
                     });
                 }
             }
-        } else if !v.is_empty() {
-            error = error.or_else(|| {
-                Some(ParseError::Expected(
-                    format!(
-                        "{} block parameter{}",
-                        v.len(),
-                        if v.len() > 1 { "s" } else { "" }
-                    ),
-                    Span {
-                        start: span.start + 1,
-                        end: span.start + 1,
-                    },
-                ))
-            });
         }
     }
 
