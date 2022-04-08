@@ -1,7 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Collect;
@@ -42,7 +44,7 @@ impl Command for Collect {
 
         if let Some(var) = block.signature.get_positional(0) {
             if let Some(var_id) = &var.var_id {
-                stack.add_var(*var_id, input);
+                stack.add_var(*var_id, input.clone());
             }
         }
 
@@ -50,7 +52,7 @@ impl Command for Collect {
             engine_state,
             &mut stack,
             &block,
-            PipelineData::new(call.head),
+            input.into_pipeline_data(),
             call.redirect_stdout,
             call.redirect_stderr,
         )
