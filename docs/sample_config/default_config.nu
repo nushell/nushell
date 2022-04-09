@@ -316,7 +316,7 @@ let $config = {
       event: { send: menu name: commands_menu }
     }
     {
-      name: commands_menu
+      name: vars_menu
       modifier: control
       keycode: char_y
       mode: [emacs, vi_normal, vi_insert]
