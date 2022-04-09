@@ -128,7 +128,7 @@ pub fn trim_quotes(bytes: &[u8]) -> &[u8] {
 
 pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError> {
     // Allow the call to pass if they pass in the help flag
-    if call.named_iter().any(|(n, _)| n.item == "help") {
+    if call.named_iter().any(|(n, _, _)| n.item == "help") {
         return None;
     }
 
@@ -189,7 +189,7 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
         }
     } else {
         for req_flag in sig.named.iter().filter(|x| x.required) {
-            if call.named_iter().all(|(n, _)| n.item != req_flag.long) {
+            if call.named_iter().all(|(n, _, _)| n.item != req_flag.long) {
                 return Some(ParseError::MissingRequiredFlag(
                     req_flag.long.clone(),
                     command,
@@ -744,7 +744,7 @@ pub fn parse_internal_call(
         if let Some(long_name) = long_name {
             // We found a long flag, like --bar
             error = error.or(err);
-            call.add_named((long_name, arg));
+            call.add_named((long_name, None, arg));
             spans_idx += 1;
             continue;
         }
@@ -767,13 +767,30 @@ pub fn parse_internal_call(
                             parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
                         error = error.or(err);
 
-                        call.add_named((
-                            Spanned {
-                                item: flag.long.clone(),
-                                span: spans[spans_idx],
-                            },
-                            Some(arg),
-                        ));
+                        if flag.long.is_empty() {
+                            if let Some(short) = flag.short {
+                                call.add_named((
+                                    Spanned {
+                                        item: String::new(),
+                                        span: spans[spans_idx],
+                                    },
+                                    Some(Spanned {
+                                        item: short.to_string(),
+                                        span: spans[spans_idx],
+                                    }),
+                                    Some(arg),
+                                ));
+                            }
+                        } else {
+                            call.add_named((
+                                Spanned {
+                                    item: flag.long.clone(),
+                                    span: spans[spans_idx],
+                                },
+                                None,
+                                Some(arg),
+                            ));
+                        }
                         spans_idx += 1;
                     } else {
                         error = error.or_else(|| {
@@ -783,12 +800,27 @@ pub fn parse_internal_call(
                             ))
                         })
                     }
+                } else if flag.long.is_empty() {
+                    if let Some(short) = flag.short {
+                        call.add_named((
+                            Spanned {
+                                item: String::new(),
+                                span: spans[spans_idx],
+                            },
+                            Some(Spanned {
+                                item: short.to_string(),
+                                span: spans[spans_idx],
+                            }),
+                            None,
+                        ));
+                    }
                 } else {
                     call.add_named((
                         Spanned {
                             item: flag.long.clone(),
                             span: spans[spans_idx],
                         },
+                        None,
                         None,
                     ));
                 }
@@ -4811,7 +4843,7 @@ pub fn discover_captures_in_expr(
             }
 
             for named in call.named_iter() {
-                if let Some(arg) = &named.1 {
+                if let Some(arg) = &named.2 {
                     let result = discover_captures_in_expr(working_set, arg, seen, seen_blocks);
                     output.extend(&result);
                 }

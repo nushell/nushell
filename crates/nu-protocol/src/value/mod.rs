@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use std::{cmp::Ordering, fmt::Debug};
 
 use crate::ast::{CellPath, PathMember};
-use crate::{did_you_mean, span, BlockId, Config, Span, Spanned, Type, VarId};
+use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 
 use crate::ast::Operator;
 pub use custom_value::CustomValue;
@@ -1413,9 +1413,7 @@ impl PartialEq for Value {
 }
 
 impl Value {
-    pub fn add(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn add(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
@@ -1486,9 +1484,7 @@ impl Value {
             }),
         }
     }
-    pub fn sub(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn sub(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_sub(*rhs) {
@@ -1566,9 +1562,7 @@ impl Value {
             }),
         }
     }
-    pub fn mul(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn mul(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_mul(*rhs) {
@@ -1629,9 +1623,7 @@ impl Value {
             }),
         }
     }
-    pub fn div(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
@@ -1747,9 +1739,7 @@ impl Value {
             }),
         }
     }
-    pub fn lt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn lt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::LessThan, op, rhs);
         }
@@ -1775,9 +1765,7 @@ impl Value {
             }),
         }
     }
-    pub fn lte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn lte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::LessThanOrEqual, op, rhs);
         }
@@ -1803,9 +1791,7 @@ impl Value {
             }),
         }
     }
-    pub fn gt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn gt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::GreaterThan, op, rhs);
         }
@@ -1831,9 +1817,7 @@ impl Value {
             }),
         }
     }
-    pub fn gte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn gte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::GreaterThanOrEqual, op, rhs);
         }
@@ -1859,9 +1843,7 @@ impl Value {
             }),
         }
     }
-    pub fn eq(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn eq(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::Equal, op, rhs);
         }
@@ -1885,9 +1867,7 @@ impl Value {
             },
         }
     }
-    pub fn ne(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn ne(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::NotEqual, op, rhs);
         }
@@ -1912,9 +1892,7 @@ impl Value {
         }
     }
 
-    pub fn r#in(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn r#in(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
                 val: rhs.contains(lhs),
@@ -1971,9 +1949,7 @@ impl Value {
         }
     }
 
-    pub fn not_in(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn not_in(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
                 val: !rhs.contains(lhs),
@@ -2030,9 +2006,13 @@ impl Value {
         }
     }
 
-    pub fn regex_match(&self, op: Span, rhs: &Value, invert: bool) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn regex_match(
+        &self,
+        op: Span,
+        rhs: &Value,
+        invert: bool,
+        span: Span,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (
                 Value::String { val: lhs, .. },
@@ -2072,9 +2052,7 @@ impl Value {
         }
     }
 
-    pub fn starts_with(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn starts_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
                 val: lhs.starts_with(rhs),
@@ -2093,9 +2071,7 @@ impl Value {
         }
     }
 
-    pub fn modulo(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
@@ -2151,9 +2127,7 @@ impl Value {
         }
     }
 
-    pub fn and(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
                 val: *lhs && *rhs,
@@ -2172,9 +2146,7 @@ impl Value {
         }
     }
 
-    pub fn or(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
                 val: *lhs || *rhs,
@@ -2193,9 +2165,7 @@ impl Value {
         }
     }
 
-    pub fn pow(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span()?, rhs.span()?]);
-
+    pub fn pow(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {

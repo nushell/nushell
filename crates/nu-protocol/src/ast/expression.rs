@@ -139,7 +139,7 @@ impl Expression {
                     }
                 }
                 for named in call.named_iter() {
-                    if let Some(expr) = &named.1 {
+                    if let Some(expr) = &named.2 {
                         if expr.has_in_variable(working_set) {
                             return true;
                         }
@@ -306,7 +306,7 @@ impl Expression {
                     positional.replace_in_variable(working_set, new_var_id);
                 }
                 for named in call.named_iter_mut() {
-                    if let Some(expr) = &mut named.1 {
+                    if let Some(expr) = &mut named.2 {
                         expr.replace_in_variable(working_set, new_var_id)
                     }
                 }
@@ -453,7 +453,7 @@ impl Expression {
                     positional.replace_span(working_set, replaced, new_span);
                 }
                 for named in call.named_iter_mut() {
-                    if let Some(expr) = &mut named.1 {
+                    if let Some(expr) = &mut named.2 {
                         expr.replace_span(working_set, replaced, new_span)
                     }
                 }

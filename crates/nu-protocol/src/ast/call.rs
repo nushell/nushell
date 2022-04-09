@@ -6,7 +6,7 @@ use crate::{DeclId, Span, Spanned};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Argument {
     Positional(Expression),
-    Named((Spanned<String>, Option<Expression>)),
+    Named((Spanned<String>, Option<Spanned<String>>, Option<Expression>)),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -30,7 +30,9 @@ impl Call {
         }
     }
 
-    pub fn named_iter(&self) -> impl Iterator<Item = &(Spanned<String>, Option<Expression>)> {
+    pub fn named_iter(
+        &self,
+    ) -> impl Iterator<Item = &(Spanned<String>, Option<Spanned<String>>, Option<Expression>)> {
         self.arguments.iter().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
@@ -39,7 +41,8 @@ impl Call {
 
     pub fn named_iter_mut(
         &mut self,
-    ) -> impl Iterator<Item = &mut (Spanned<String>, Option<Expression>)> {
+    ) -> impl Iterator<Item = &mut (Spanned<String>, Option<Spanned<String>>, Option<Expression>)>
+    {
         self.arguments.iter_mut().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
@@ -50,7 +53,10 @@ impl Call {
         self.named_iter().count()
     }
 
-    pub fn add_named(&mut self, named: (Spanned<String>, Option<Expression>)) {
+    pub fn add_named(
+        &mut self,
+        named: (Spanned<String>, Option<Spanned<String>>, Option<Expression>),
+    ) {
         self.arguments.push(Argument::Named(named));
     }
 
@@ -93,7 +99,7 @@ impl Call {
     pub fn get_flag_expr(&self, flag_name: &str) -> Option<Expression> {
         for name in self.named_iter() {
             if flag_name == name.0.item {
-                return name.1.clone();
+                return name.2.clone();
             }
         }
 
@@ -119,7 +125,7 @@ impl Call {
             }
         }
 
-        for (named, val) in self.named_iter() {
+        for (named, _, val) in self.named_iter() {
             if named.span.end > span.end {
                 span.end = named.span.end;
             }

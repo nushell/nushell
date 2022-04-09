@@ -305,13 +305,13 @@ fn find_with_rest(
                 | Value::Block { .. }
                 | Value::Nothing { .. }
                 | Value::Error { .. } => lower_value
-                    .eq(span, term)
+                    .eq(span, term, span)
                     .map_or(false, |value| value.is_true()),
                 Value::String { .. }
                 | Value::List { .. }
                 | Value::CellPath { .. }
                 | Value::CustomValue { .. } => term
-                    .r#in(span, &lower_value)
+                    .r#in(span, &lower_value, span)
                     .map_or(false, |value| value.is_true()),
                 Value::Record { vals, .. } => vals.iter().any(|val| {
                     if let Ok(span) = val.span() {
@@ -320,10 +320,11 @@ fn find_with_rest(
                             Span::test_data(),
                         );
 
-                        term.r#in(span, &lower_val)
+                        term.r#in(span, &lower_val, span)
                             .map_or(false, |value| value.is_true())
                     } else {
-                        term.r#in(span, val).map_or(false, |value| value.is_true())
+                        term.r#in(span, val, span)
+                            .map_or(false, |value| value.is_true())
                     }
                 }),
                 Value::Binary { .. } => false,
