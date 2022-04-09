@@ -24,13 +24,12 @@ impl EvaluatedCall {
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
         let positional = call
-            .positional
-            .iter()
+            .positional_iter()
             .map(|expr| eval_expression(engine_state, stack, expr))
             .collect::<Result<Vec<Value>, ShellError>>()?;
 
-        let mut named = Vec::with_capacity(call.named.len());
-        for (string, expr) in call.named.iter() {
+        let mut named = Vec::with_capacity(call.named_len());
+        for (string, _, expr) in call.named_iter() {
             let value = match expr {
                 None => None,
                 Some(expr) => Some(eval_expression(engine_state, stack, expr)?),

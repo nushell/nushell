@@ -25,7 +25,11 @@ impl Command for StrCollect {
     }
 
     fn usage(&self) -> &str {
-        "creates a string from the input, optionally using a separator"
+        "Concatenate multiple strings into a single string, with an optional separator between each"
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["join", "concatenate"]
     }
 
     fn run(

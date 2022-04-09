@@ -98,7 +98,7 @@ pub fn sum(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
             | Value::Float { .. }
             | Value::Filesize { .. }
             | Value::Duration { .. } => {
-                acc = acc.add(head, value)?;
+                acc = acc.add(head, value, head)?;
             }
             other => {
                 return Err(ShellError::UnsupportedInput(
@@ -129,7 +129,7 @@ pub fn product(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
     for value in &data {
         match value {
             Value::Int { .. } | Value::Float { .. } => {
-                acc = acc.mul(head, value)?;
+                acc = acc.mul(head, value, head)?;
             }
             other => {
                 return Err(ShellError::UnsupportedInput(

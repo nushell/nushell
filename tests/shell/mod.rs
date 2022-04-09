@@ -14,7 +14,7 @@ fn plugins_are_declared_with_wix() {
         r#"
             open Cargo.toml
             | get bin.name
-            | str find-replace "nu_plugin_(extra|core)_(.*)" "nu_plugin_$2"
+            | str replace "nu_plugin_(extra|core)_(.*)" "nu_plugin_$2"
             | drop
             | sort-by
             | wrap cargo | merge {

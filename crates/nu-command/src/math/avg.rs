@@ -67,6 +67,7 @@ pub fn average(values: &[Value], head: &Span) -> Result<Value, ShellError> {
                 val: values.len() as i64,
                 span: *head,
             },
+            *head,
         ),
     }
 }

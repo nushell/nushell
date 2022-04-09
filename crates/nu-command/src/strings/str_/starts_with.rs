@@ -33,7 +33,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "checks if string starts with pattern"
+        "Check if string starts with a pattern"
     }
 
     fn run(

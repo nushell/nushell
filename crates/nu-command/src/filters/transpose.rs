@@ -44,6 +44,10 @@ impl Command for Transpose {
         "Transposes the table contents so rows become columns and columns become rows."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["pivot"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

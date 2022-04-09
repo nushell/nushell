@@ -171,6 +171,10 @@ impl Command for Char {
         "Output special characters (e.g., 'newline')."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["line break", "newline", "Unicode"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -241,7 +245,10 @@ impl Command for Char {
             }
             let mut multi_byte = String::new();
             for (i, arg) in args.iter().enumerate() {
-                let span = call.nth(i).expect("Unexpected missing argument").span;
+                let span = call
+                    .positional_nth(i)
+                    .expect("Unexpected missing argument")
+                    .span;
                 multi_byte.push(string_to_unicode_char(arg, &span)?)
             }
             Ok(Value::string(multi_byte, call_span).into_pipeline_data())
@@ -258,7 +265,9 @@ impl Command for Char {
             } else {
                 Err(ShellError::UnsupportedInput(
                     "error finding named character".into(),
-                    call.nth(0).expect("Unexpected missing argument").span,
+                    call.positional_nth(0)
+                        .expect("Unexpected missing argument")
+                        .span,
                 ))
             }
         }

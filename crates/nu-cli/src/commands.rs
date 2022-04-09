@@ -56,10 +56,6 @@ pub fn evaluate_commands(
         }
     };
 
-    // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::util::external_exceptions(engine_state, stack);
-    engine_state.external_exceptions = exceptions;
-
     // Merge the delta in case env vars changed in the config
     match nu_engine::env::current_dir(engine_state, stack) {
         Ok(cwd) => {

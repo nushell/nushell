@@ -32,7 +32,7 @@ pub fn eval_call(
 ) -> Result<PipelineData, ShellError> {
     let decl = engine_state.get_decl(call.decl_id);
 
-    if !decl.is_known_external() && call.named.iter().any(|(flag, _)| flag.item == "help") {
+    if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
         let mut signature = decl.signature();
         signature.usage = decl.usage().to_string();
         signature.extra_usage = decl.extra_usage().to_string();
@@ -59,7 +59,7 @@ pub fn eval_call(
                 .var_id
                 .expect("internal error: all custom parameters must have var_ids");
 
-            if let Some(arg) = call.positional.get(param_idx) {
+            if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
                 callee_stack.add_var(var_id, result);
             } else if let Some(arg) = &param.default_value {
@@ -73,7 +73,7 @@ pub fn eval_call(
         if let Some(rest_positional) = decl.signature().rest_positional {
             let mut rest_items = vec![];
 
-            for arg in call.positional.iter().skip(
+            for arg in call.positional_iter().skip(
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
             ) {
@@ -101,9 +101,9 @@ pub fn eval_call(
         for named in decl.signature().named {
             if let Some(var_id) = named.var_id {
                 let mut found = false;
-                for call_named in &call.named {
+                for call_named in call.named_iter() {
                     if call_named.0.item == named.long {
-                        if let Some(arg) = &call_named.1 {
+                        if let Some(arg) = &call_named.2 {
                             let result = eval_expression(engine_state, caller_stack, arg)?;
 
                             callee_stack.add_var(var_id, result);
@@ -198,28 +198,30 @@ fn eval_external(
 
     let mut call = Call::new(head.span);
 
-    call.positional.push(head.clone());
+    call.add_positional(head.clone());
 
     for arg in args {
-        call.positional.push(arg.clone())
+        call.add_positional(arg.clone())
     }
 
     if redirect_stdout {
-        call.named.push((
+        call.add_named((
             Spanned {
                 item: "redirect-stdout".into(),
                 span: head.span,
             },
             None,
+            None,
         ))
     }
 
     if redirect_stderr {
-        call.named.push((
+        call.add_named((
             Spanned {
                 item: "redirect-stderr".into(),
                 span: head.span,
             },
+            None,
             None,
         ))
     }
@@ -319,6 +321,16 @@ pub fn eval_expression(
             span: expr.span,
         }),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::UnaryNot(expr) => {
+            let lhs = eval_expression(engine_state, stack, expr)?;
+            match lhs {
+                Value::Bool { val, .. } => Ok(Value::Bool {
+                    val: !val,
+                    span: expr.span,
+                }),
+                _ => Err(ShellError::TypeMismatch("bool".to_string(), expr.span)),
+            }
+        }
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
             let lhs = eval_expression(engine_state, stack, lhs)?;
@@ -333,7 +345,7 @@ pub fn eval_expression(
                         })
                     } else {
                         let rhs = eval_expression(engine_state, stack, rhs)?;
-                        lhs.and(op_span, &rhs)
+                        lhs.and(op_span, &rhs, expr.span)
                     }
                 }
                 Operator::Or => {
@@ -344,72 +356,76 @@ pub fn eval_expression(
                         })
                     } else {
                         let rhs = eval_expression(engine_state, stack, rhs)?;
-                        lhs.or(op_span, &rhs)
+                        lhs.or(op_span, &rhs, expr.span)
                     }
                 }
                 Operator::Plus => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.add(op_span, &rhs)
+                    lhs.add(op_span, &rhs, expr.span)
                 }
                 Operator::Minus => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.sub(op_span, &rhs)
+                    lhs.sub(op_span, &rhs, expr.span)
                 }
                 Operator::Multiply => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.mul(op_span, &rhs)
+                    lhs.mul(op_span, &rhs, expr.span)
                 }
                 Operator::Divide => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.div(op_span, &rhs)
+                    lhs.div(op_span, &rhs, expr.span)
                 }
                 Operator::LessThan => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.lt(op_span, &rhs)
+                    lhs.lt(op_span, &rhs, expr.span)
                 }
                 Operator::LessThanOrEqual => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.lte(op_span, &rhs)
+                    lhs.lte(op_span, &rhs, expr.span)
                 }
                 Operator::GreaterThan => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.gt(op_span, &rhs)
+                    lhs.gt(op_span, &rhs, expr.span)
                 }
                 Operator::GreaterThanOrEqual => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.gte(op_span, &rhs)
+                    lhs.gte(op_span, &rhs, expr.span)
                 }
                 Operator::Equal => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.eq(op_span, &rhs)
+                    lhs.eq(op_span, &rhs, expr.span)
                 }
                 Operator::NotEqual => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.ne(op_span, &rhs)
+                    lhs.ne(op_span, &rhs, expr.span)
                 }
                 Operator::In => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.r#in(op_span, &rhs)
+                    lhs.r#in(op_span, &rhs, expr.span)
                 }
                 Operator::NotIn => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.not_in(op_span, &rhs)
+                    lhs.not_in(op_span, &rhs, expr.span)
                 }
-                Operator::Contains => {
+                Operator::RegexMatch => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.contains(op_span, &rhs)
+                    lhs.regex_match(op_span, &rhs, false, expr.span)
                 }
-                Operator::NotContains => {
+                Operator::NotRegexMatch => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.not_contains(op_span, &rhs)
+                    lhs.regex_match(op_span, &rhs, true, expr.span)
                 }
                 Operator::Modulo => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.modulo(op_span, &rhs)
+                    lhs.modulo(op_span, &rhs, expr.span)
                 }
                 Operator::Pow => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.pow(op_span, &rhs)
+                    lhs.pow(op_span, &rhs, expr.span)
+                }
+                Operator::StartsWith => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.starts_with(op_span, &rhs, expr.span)
                 }
             }
         }
@@ -1138,6 +1154,7 @@ pub fn eval_variable(
 
             if let Some(mut config_path) = nu_path::config_dir() {
                 config_path.push("nushell");
+                let mut env_config_path = config_path.clone();
 
                 let mut history_path = config_path.clone();
 
@@ -1154,6 +1171,14 @@ pub fn eval_variable(
                 output_cols.push("config-path".into());
                 output_vals.push(Value::String {
                     val: config_path.to_string_lossy().to_string(),
+                    span,
+                });
+
+                env_config_path.push("env.nu");
+
+                output_cols.push("env-path".into());
+                output_vals.push(Value::String {
+                    val: env_config_path.to_string_lossy().to_string(),
                     span,
                 });
             }

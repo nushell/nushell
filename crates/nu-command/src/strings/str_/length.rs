@@ -24,7 +24,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "outputs the lengths of the strings in the pipeline"
+        "Output the length of any strings in the pipeline"
     }
 
     fn run(

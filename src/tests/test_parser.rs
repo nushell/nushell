@@ -316,22 +316,20 @@ fn capture_row_condition() -> TestResult {
 }
 
 #[test]
+fn starts_with_operator_succeeds() -> TestResult {
+    run_test(
+        r#"[Moe Larry Curly] | where $it =^ L | str collect"#,
+        "Larry",
+    )
+}
+
+#[test]
 fn proper_missing_param() -> TestResult {
     fail_test(r#"def foo [x y z w] { }; foo a b c"#, "missing w")
 }
 
 #[test]
 fn block_arity_check1() -> TestResult {
-    fail_test(r#"ls | each { 1 }"#, "expected 1 block parameter")
-}
-
-#[test]
-fn block_arity_check2() -> TestResult {
-    fail_test(r#"ls | reduce { 1 }"#, "expected 2 block parameters")
-}
-
-#[test]
-fn block_arity_check3() -> TestResult {
     fail_test(r#"ls | each { |x, y| 1}"#, "expected 1 block parameter")
 }
 
@@ -358,4 +356,53 @@ fn proper_rest_types() -> TestResult {
                 ] { if $verbose { print "verbose!" } else { print "not verbose!" } }; foo"#,
         "not verbose!",
     )
+}
+
+#[test]
+fn single_value_row_condition() -> TestResult {
+    run_test(
+        r#"[[a, b]; [true, false], [true, true]] | where a | length"#,
+        "2",
+    )
+}
+
+#[test]
+fn unary_not_1() -> TestResult {
+    run_test(r#"not false"#, "true")
+}
+
+#[test]
+fn unary_not_2() -> TestResult {
+    run_test(r#"not (false)"#, "true")
+}
+
+#[test]
+fn unary_not_3() -> TestResult {
+    run_test(r#"(not false)"#, "true")
+}
+
+#[test]
+fn unary_not_4() -> TestResult {
+    run_test(r#"if not false { "hello" } else { "world" }"#, "hello")
+}
+
+#[test]
+fn unary_not_5() -> TestResult {
+    run_test(
+        r#"if not not not not false { "hello" } else { "world" }"#,
+        "world",
+    )
+}
+
+#[test]
+fn unary_not_6() -> TestResult {
+    run_test(
+        r#"[[name, present]; [abc, true], [def, false]] | where not present | get name.0"#,
+        "def",
+    )
+}
+
+#[test]
+fn date_literal() -> TestResult {
+    run_test(r#"2022-09-10 | date to-record | get day"#, "10")
 }

@@ -109,19 +109,14 @@ pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
         );
     }
 
-    fn escape(input: &str) -> String {
-        let output = input.replace('\\', "\\\\");
-        output.replace('"', "\\\"")
-    }
-
     fn put_env_to_fake_file(name: &str, val: &str, fake_env_file: &mut String) {
-        fake_env_file.push('"');
-        fake_env_file.push_str(&escape(name));
-        fake_env_file.push('"');
+        fake_env_file.push('`');
+        fake_env_file.push_str(name);
+        fake_env_file.push('`');
         fake_env_file.push('=');
-        fake_env_file.push('"');
-        fake_env_file.push_str(&escape(val));
-        fake_env_file.push('"');
+        fake_env_file.push('`');
+        fake_env_file.push_str(val);
+        fake_env_file.push('`');
         fake_env_file.push('\n');
     }
 
@@ -259,6 +254,7 @@ pub fn eval_source(
             &[],
         );
         if let Some(err) = err {
+            set_last_exit_code(stack, 1);
             report_error(&working_set, &err);
             return false;
         }
@@ -286,22 +282,10 @@ pub fn eval_source(
                 if let Some(exit_code) = exit_code.take().and_then(|it| it.last()) {
                     stack.add_env_var("LAST_EXIT_CODE".to_string(), exit_code);
                 } else {
-                    stack.add_env_var(
-                        "LAST_EXIT_CODE".to_string(),
-                        Value::Int {
-                            val: 0,
-                            span: Span { start: 0, end: 0 },
-                        },
-                    );
+                    set_last_exit_code(stack, 0);
                 }
             } else {
-                stack.add_env_var(
-                    "LAST_EXIT_CODE".to_string(),
-                    Value::Int {
-                        val: 0,
-                        span: Span { start: 0, end: 0 },
-                    },
-                );
+                set_last_exit_code(stack, 0);
             }
 
             if let Err(err) = print_pipeline_data(pipeline_data, engine_state, stack) {
@@ -319,13 +303,7 @@ pub fn eval_source(
             }
         }
         Err(err) => {
-            stack.add_env_var(
-                "LAST_EXIT_CODE".to_string(),
-                Value::Int {
-                    val: 1,
-                    span: Span { start: 0, end: 0 },
-                },
-            );
+            set_last_exit_code(stack, 1);
 
             let working_set = StateWorkingSet::new(engine_state);
 
@@ -338,96 +316,14 @@ pub fn eval_source(
     true
 }
 
-fn seems_like_number(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        false
-    } else {
-        let b = bytes[0];
-
-        b == b'0'
-            || b == b'1'
-            || b == b'2'
-            || b == b'3'
-            || b == b'4'
-            || b == b'5'
-            || b == b'6'
-            || b == b'7'
-            || b == b'8'
-            || b == b'9'
-            || b == b'('
-            || b == b'{'
-            || b == b'['
-            || b == b'$'
-            || b == b'"'
-            || b == b'\''
-            || b == b'-'
-    }
-}
-
-/// Finds externals that have names that look like math expressions
-pub fn external_exceptions(engine_state: &EngineState, stack: &Stack) -> Vec<Vec<u8>> {
-    let mut executables = vec![];
-
-    if let Some(path) = stack.get_env_var(engine_state, "PATH") {
-        match path {
-            Value::List { vals, .. } => {
-                for val in vals {
-                    let path = val.as_string();
-
-                    if let Ok(path) = path {
-                        if let Ok(mut contents) = std::fs::read_dir(path) {
-                            while let Some(Ok(item)) = contents.next() {
-                                if is_executable::is_executable(&item.path()) {
-                                    if let Ok(name) = item.file_name().into_string() {
-                                        if seems_like_number(name.as_bytes()) {
-                                            let name = name.as_bytes().to_vec();
-                                            executables.push(name);
-                                        }
-                                    }
-
-                                    if let Some(name) = item.path().file_stem() {
-                                        let name = name.to_string_lossy();
-                                        if seems_like_number(name.as_bytes()) {
-                                            let name = name.as_bytes().to_vec();
-                                            executables.push(name);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Value::String { val, .. } => {
-                for path in std::env::split_paths(&val) {
-                    let path = path.to_string_lossy().to_string();
-
-                    if let Ok(mut contents) = std::fs::read_dir(path) {
-                        while let Some(Ok(item)) = contents.next() {
-                            if is_executable::is_executable(&item.path()) {
-                                if let Ok(name) = item.file_name().into_string() {
-                                    if seems_like_number(name.as_bytes()) {
-                                        let name = name.as_bytes().to_vec();
-                                        executables.push(name);
-                                    }
-                                }
-                                if let Some(name) = item.path().file_stem() {
-                                    let name = name.to_string_lossy();
-                                    if seems_like_number(name.as_bytes()) {
-                                        let name = name.as_bytes().to_vec();
-                                        executables.push(name);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    executables
+fn set_last_exit_code(stack: &mut Stack, exit_code: i64) {
+    stack.add_env_var(
+        "LAST_EXIT_CODE".to_string(),
+        Value::Int {
+            val: exit_code,
+            span: Span { start: 0, end: 0 },
+        },
+    );
 }
 
 pub fn report_error(

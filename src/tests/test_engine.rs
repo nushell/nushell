@@ -340,3 +340,37 @@ fn default_value11() -> TestResult {
 fn default_value12() -> TestResult {
     fail_test(r#"def foo [--x:int = "a"] { $x }"#, "default value not int")
 }
+
+#[test]
+fn loose_each() -> TestResult {
+    run_test(r#"[[1, 2, 3], [4, 5, 6]] | each { $in.1 } | math sum"#, "7")
+}
+
+#[test]
+fn in_means_input() -> TestResult {
+    run_test(r#"def shl [] { $in * 2 }; 2 | shl"#, "4")
+}
+
+#[test]
+fn in_iteration() -> TestResult {
+    run_test(
+        r#"[3, 4, 5] | each { echo $"hi ($in)" } | str collect"#,
+        "hi 3hi 4hi 5",
+    )
+}
+
+#[test]
+fn reuseable_in() -> TestResult {
+    run_test(
+        r#"[1, 2, 3, 4] | take (($in | length) - 1) | math sum"#,
+        "6",
+    )
+}
+
+#[test]
+fn better_operator_spans() -> TestResult {
+    run_test(
+        r#"metadata ({foo: 10} | (20 - $in.foo)) | get span | $in.start < $in.end"#,
+        "true",
+    )
+}

@@ -2,7 +2,6 @@ use crate::util::report_error;
 use crate::NushellPrompt;
 use log::info;
 use nu_engine::eval_subexpression;
-use nu_parser::parse;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Config, PipelineData, Span, Value,
@@ -16,49 +15,6 @@ pub(crate) const PROMPT_INDICATOR: &str = "PROMPT_INDICATOR";
 pub(crate) const PROMPT_INDICATOR_VI_INSERT: &str = "PROMPT_INDICATOR_VI_INSERT";
 pub(crate) const PROMPT_INDICATOR_VI_NORMAL: &str = "PROMPT_INDICATOR_VI_NORMAL";
 pub(crate) const PROMPT_MULTILINE_INDICATOR: &str = "PROMPT_MULTILINE_INDICATOR";
-
-pub(crate) fn get_prompt_indicators(
-    config: &Config,
-    engine_state: &EngineState,
-    stack: &Stack,
-    is_perf_true: bool,
-) -> (String, String, String, String) {
-    let prompt_indicator = match stack.get_env_var(engine_state, PROMPT_INDICATOR) {
-        Some(pi) => pi.into_string("", config),
-        None => "〉".to_string(),
-    };
-
-    let prompt_vi_insert = match stack.get_env_var(engine_state, PROMPT_INDICATOR_VI_INSERT) {
-        Some(pvii) => pvii.into_string("", config),
-        None => ": ".to_string(),
-    };
-
-    let prompt_vi_normal = match stack.get_env_var(engine_state, PROMPT_INDICATOR_VI_NORMAL) {
-        Some(pviv) => pviv.into_string("", config),
-        None => "〉".to_string(),
-    };
-
-    let prompt_multiline = match stack.get_env_var(engine_state, PROMPT_MULTILINE_INDICATOR) {
-        Some(pm) => pm.into_string("", config),
-        None => "::: ".to_string(),
-    };
-
-    if is_perf_true {
-        info!(
-            "get_prompt_indicators {}:{}:{}",
-            file!(),
-            line!(),
-            column!()
-        );
-    }
-
-    (
-        prompt_indicator,
-        prompt_vi_insert,
-        prompt_vi_normal,
-        prompt_multiline,
-    )
-}
 
 fn get_prompt_string(
     prompt: &str,
@@ -102,28 +58,7 @@ fn get_prompt_string(
                     }
                 }
             }
-            Value::String { val: source, .. } => {
-                let mut working_set = StateWorkingSet::new(engine_state);
-                let (block, _) = parse(&mut working_set, None, source.as_bytes(), true, &[]);
-                // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                let ret_val = eval_subexpression(
-                    engine_state,
-                    stack,
-                    &block,
-                    PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
-                )
-                .ok();
-                if is_perf_true {
-                    info!(
-                        "get_prompt_string (string) {}:{}:{}",
-                        file!(),
-                        line!(),
-                        column!()
-                    );
-                }
-
-                ret_val
-            }
+            Value::String { .. } => Some(PipelineData::Value(v.clone(), None)),
             _ => None,
         })
         .and_then(|pipeline_data| {
@@ -153,32 +88,60 @@ pub(crate) fn update_prompt<'prompt>(
     nu_prompt: &'prompt mut NushellPrompt,
     is_perf_true: bool,
 ) -> &'prompt dyn Prompt {
-    // get the other indicators
-    let (
-        prompt_indicator_string,
-        prompt_vi_insert_string,
-        prompt_vi_normal_string,
-        prompt_multiline_string,
-    ) = get_prompt_indicators(config, engine_state, stack, is_perf_true);
-
     let mut stack = stack.clone();
+
+    let left_prompt_string = get_prompt_string(
+        PROMPT_COMMAND,
+        config,
+        engine_state,
+        &mut stack,
+        is_perf_true,
+    );
+
+    let right_prompt_string = get_prompt_string(
+        PROMPT_COMMAND_RIGHT,
+        config,
+        engine_state,
+        &mut stack,
+        is_perf_true,
+    );
+
+    let prompt_indicator_string = get_prompt_string(
+        PROMPT_INDICATOR,
+        config,
+        engine_state,
+        &mut stack,
+        is_perf_true,
+    );
+
+    let prompt_multiline_string = get_prompt_string(
+        PROMPT_MULTILINE_INDICATOR,
+        config,
+        engine_state,
+        &mut stack,
+        is_perf_true,
+    );
+
+    let prompt_vi_insert_string = get_prompt_string(
+        PROMPT_INDICATOR_VI_INSERT,
+        config,
+        engine_state,
+        &mut stack,
+        is_perf_true,
+    );
+
+    let prompt_vi_normal_string = get_prompt_string(
+        PROMPT_INDICATOR_VI_NORMAL,
+        config,
+        engine_state,
+        &mut stack,
+        is_perf_true,
+    );
 
     // apply the other indicators
     nu_prompt.update_all_prompt_strings(
-        get_prompt_string(
-            PROMPT_COMMAND,
-            config,
-            engine_state,
-            &mut stack,
-            is_perf_true,
-        ),
-        get_prompt_string(
-            PROMPT_COMMAND_RIGHT,
-            config,
-            engine_state,
-            &mut stack,
-            is_perf_true,
-        ),
+        left_prompt_string,
+        right_prompt_string,
         prompt_indicator_string,
         prompt_multiline_string,
         (prompt_vi_insert_string, prompt_vi_normal_string),

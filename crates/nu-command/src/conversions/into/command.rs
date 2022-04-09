@@ -18,7 +18,7 @@ impl Command for Into {
     }
 
     fn usage(&self) -> &str {
-        "Apply into function."
+        "Commands to convert data from one type to another."
     }
 
     fn run(

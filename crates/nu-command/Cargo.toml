@@ -40,6 +40,7 @@ dtparse = "1.2.0"
 eml-parser = "0.1.0"
 encoding_rs = "0.8.30"
 filesize = "0.2.0"
+filetime = "0.2.15"
 fs_extra = "1.2.0"
 htmlescape = "0.3.1"
 ical = "0.7.0"
@@ -66,7 +67,7 @@ serde_ini = "0.2.0"
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.8.16"
 sha2 = "0.10.0"
-shadow-rs = "0.8.1"
+shadow-rs = "0.11.0"
 strip-ansi-escapes = "0.1.1"
 sysinfo = "0.23.5"
 terminal_size = "0.1.17"
@@ -77,8 +78,9 @@ unicode-segmentation = "1.8.0"
 url = "2.2.1"
 uuid = { version = "0.8.2", features = ["v4"] }
 which = { version = "4.2.2", optional = true }
-#reedline = "0.3.0"
-reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+#reedline =  {version = "0.3.0", features = ["bashisms"]}
+reedline = { git = "https://github.com/nushell/reedline", branch = "main", features = ["bashisms"]}
+wax = { version =  "0.4.0", features = ["diagnostics"] }
 zip = { version="0.5.9", optional = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -101,11 +103,12 @@ features = [
 
 [features]
 trash-support = ["trash"]
+which-support = ["which"]
 plugin = ["nu-parser/plugin"]
 dataframe = ["polars", "num"]
 
 [build-dependencies]
-shadow-rs = "0.8.1"
+shadow-rs = "0.11.0"
 
 [dev-dependencies]
 hamcrest2 = "0.3.0"

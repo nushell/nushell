@@ -1,10 +1,10 @@
-use crate::reedline_config::{add_completion_menu, add_help_menu, add_history_menu};
-use crate::{prompt_update, reedline_config, NuHelpCompleter};
+use crate::reedline_config::add_menus;
+use crate::{completions::NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
+use crate::{prompt_update, reedline_config};
 use crate::{
     reedline_config::KeybindingsMode,
     util::{eval_source, report_error},
 };
-use crate::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
@@ -83,10 +83,6 @@ pub fn evaluate_repl(
         report_error(&working_set, &e);
     }
 
-    // Make a note of the exceptions we see for externals that look like math expressions
-    let exceptions = crate::util::external_exceptions(engine_state, stack);
-    engine_state.external_exceptions = exceptions;
-
     // seed env vars
     stack.add_env_var(
         "CMD_DURATION_MS".into(),
@@ -104,6 +100,45 @@ pub fn evaluate_repl(
         },
     );
 
+    if is_perf_true {
+        info!(
+            "load config initially {}:{}:{}",
+            file!(),
+            line!(),
+            column!()
+        );
+    }
+
+    // Get the config once for the history `max_history_size`
+    // Updating that will not be possible in one session
+    let mut config = match stack.get_config() {
+        Ok(config) => config,
+        Err(e) => {
+            let working_set = StateWorkingSet::new(engine_state);
+
+            report_error(&working_set, &e);
+            Config::default()
+        }
+    };
+
+    if is_perf_true {
+        info!("setup reedline {}:{}:{}", file!(), line!(), column!());
+    }
+    let mut line_editor = Reedline::create();
+    if let Some(history_path) = history_path.as_deref() {
+        if is_perf_true {
+            info!("setup history {}:{}:{}", file!(), line!(), column!());
+        }
+        let history = Box::new(
+            FileBackedHistory::with_file(
+                config.max_history_size as usize,
+                history_path.to_path_buf(),
+            )
+            .into_diagnostic()?,
+        );
+        line_editor = line_editor.with_history(history);
+    };
+
     loop {
         if is_perf_true {
             info!(
@@ -114,7 +149,7 @@ pub fn evaluate_repl(
             );
         }
 
-        let config = match stack.get_config() {
+        config = match stack.get_config() {
             Ok(config) => config,
             Err(e) => {
                 let working_set = StateWorkingSet::new(engine_state);
@@ -123,18 +158,15 @@ pub fn evaluate_repl(
                 Config::default()
             }
         };
+        let color_hm = get_color_config(&config);
 
         //Reset the ctrl-c handler
         if let Some(ctrlc) = &mut engine_state.ctrlc {
             ctrlc.store(false, Ordering::SeqCst);
         }
 
-        if is_perf_true {
-            info!("setup line editor {}:{}:{}", file!(), line!(), column!());
-        }
-
-        let mut line_editor = Reedline::create()
-            .into_diagnostic()?
+        let engine_reference = std::sync::Arc::new(engine_state.clone());
+        line_editor = line_editor
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_state.clone(),
                 config: config.clone(),
@@ -143,8 +175,11 @@ pub fn evaluate_repl(
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_state.clone(),
             }))
+            .with_hinter(Box::new(
+                DefaultHinter::default().with_style(color_hm["hints"]),
+            ))
             .with_completer(Box::new(NuCompleter::new(
-                engine_state.clone(),
+                engine_reference.clone(),
                 stack.clone(),
                 stack.vars.get(&CONFIG_VARIABLE_ID).cloned(),
             )))
@@ -153,14 +188,17 @@ pub fn evaluate_repl(
             .with_ansi_colors(config.use_ansi_coloring);
 
         if is_perf_true {
-            info!("setup reedline {}:{}:{}", file!(), line!(), column!());
+            info!("update reedline {}:{}:{}", file!(), line!(), column!());
         }
 
-        line_editor = add_completion_menu(line_editor, &config);
-        line_editor = add_history_menu(line_editor, &config);
-
-        let help_completer = Box::new(NuHelpCompleter::new(engine_state.clone()));
-        line_editor = add_help_menu(line_editor, help_completer, &config);
+        line_editor = match add_menus(line_editor, engine_reference, stack, &config) {
+            Ok(line_editor) => line_editor,
+            Err(e) => {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(&working_set, &e);
+                Reedline::create()
+            }
+        };
 
         if is_perf_true {
             info!("setup colors {}:{}:{}", file!(), line!(), column!());
@@ -168,38 +206,12 @@ pub fn evaluate_repl(
         //FIXME: if config.use_ansi_coloring is false then we should
         // turn off the hinter but I don't see any way to do that yet.
 
-        let color_hm = get_color_config(&config);
-
-        if is_perf_true {
-            info!(
-                "setup history and hinter {}:{}:{}",
-                file!(),
-                line!(),
-                column!()
-            );
-        }
-
-        line_editor = if let Some(history_path) = history_path.clone() {
-            let history = std::fs::read_to_string(&history_path);
-            if history.is_ok() {
-                line_editor
-                    .with_hinter(Box::new(
-                        DefaultHinter::default().with_style(color_hm["hints"]),
-                    ))
-                    .with_history(Box::new(
-                        FileBackedHistory::with_file(
-                            config.max_history_size as usize,
-                            history_path.clone(),
-                        )
-                        .into_diagnostic()?,
-                    ))
-                    .into_diagnostic()?
-            } else {
-                line_editor
+        if config.sync_history_on_enter {
+            if is_perf_true {
+                info!("sync history {}:{}:{}", file!(), line!(), column!());
             }
-        } else {
-            line_editor
-        };
+            line_editor.sync_history().into_diagnostic()?;
+        }
 
         if is_perf_true {
             info!("setup keybindings {}:{}:{}", file!(), line!(), column!());
@@ -340,10 +352,6 @@ pub fn evaluate_repl(
                     let _ = std::env::set_current_dir(path);
                     engine_state.env_vars.insert("PWD".into(), cwd);
                 }
-
-                // Make a note of the exceptions we see for externals that look like math expressions
-                let exceptions = crate::util::external_exceptions(engine_state, stack);
-                engine_state.external_exceptions = exceptions;
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown

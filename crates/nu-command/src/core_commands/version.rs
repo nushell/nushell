@@ -1,4 +1,3 @@
-use indexmap::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Example, IntoPipelineData, PipelineData, ShellError, Signature, Value};
@@ -49,144 +48,130 @@ pub fn version(
     _input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let tag = call.head;
+    let mut cols = vec![];
+    let mut vals = vec![];
 
-    let mut indexmap = IndexMap::with_capacity(4);
+    cols.push("version".to_string());
+    vals.push(Value::String {
+        val: env!("CARGO_PKG_VERSION").to_string(),
+        span: tag,
+    });
 
-    indexmap.insert(
-        "version".to_string(),
-        Value::String {
-            val: env!("CARGO_PKG_VERSION").to_string(),
-            span: tag,
-        },
-    );
+    cols.push("branch".to_string());
+    vals.push(Value::String {
+        val: shadow_rs::branch(),
+        span: call.head,
+    });
 
-    let branch: Option<&str> = Some(shadow::BRANCH).filter(|x| !x.is_empty());
-    if let Some(branch) = branch {
-        indexmap.insert(
-            "branch".to_string(),
-            Value::String {
-                val: branch.to_string(),
-                span: call.head,
-            },
-        );
-    }
+    cols.push("tag".to_string());
+    vals.push(Value::String {
+        val: shadow_rs::tag(),
+        span: call.head,
+    });
 
     let short_commit: Option<&str> = Some(shadow::SHORT_COMMIT).filter(|x| !x.is_empty());
     if let Some(short_commit) = short_commit {
-        indexmap.insert(
-            "short_commit".to_string(),
-            Value::String {
-                val: short_commit.to_string(),
-                span: call.head,
-            },
-        );
+        cols.push("short_commit".to_string());
+        vals.push(Value::String {
+            val: short_commit.to_string(),
+            span: call.head,
+        });
     }
     let commit_hash: Option<&str> = Some(shadow::COMMIT_HASH).filter(|x| !x.is_empty());
     if let Some(commit_hash) = commit_hash {
-        indexmap.insert(
-            "commit_hash".to_string(),
-            Value::String {
-                val: commit_hash.to_string(),
-                span: call.head,
-            },
-        );
+        cols.push("commit_hash".to_string());
+        vals.push(Value::String {
+            val: commit_hash.to_string(),
+            span: call.head,
+        });
     }
     let commit_date: Option<&str> = Some(shadow::COMMIT_DATE).filter(|x| !x.is_empty());
     if let Some(commit_date) = commit_date {
-        indexmap.insert(
-            "commit_date".to_string(),
-            Value::String {
-                val: commit_date.to_string(),
-                span: call.head,
-            },
-        );
+        cols.push("commit_date".to_string());
+        vals.push(Value::String {
+            val: commit_date.to_string(),
+            span: call.head,
+        });
     }
 
     let build_os: Option<&str> = Some(shadow::BUILD_OS).filter(|x| !x.is_empty());
     if let Some(build_os) = build_os {
-        indexmap.insert(
-            "build_os".to_string(),
-            Value::String {
-                val: build_os.to_string(),
-                span: call.head,
-            },
-        );
+        cols.push("build_os".to_string());
+        vals.push(Value::String {
+            val: build_os.to_string(),
+            span: call.head,
+        });
+    }
+
+    let build_target: Option<&str> = Some(shadow::BUILD_TARGET).filter(|x| !x.is_empty());
+    if let Some(build_target) = build_target {
+        cols.push("build_os".to_string());
+        vals.push(Value::String {
+            val: build_target.to_string(),
+            span: call.head,
+        });
     }
 
     let rust_version: Option<&str> = Some(shadow::RUST_VERSION).filter(|x| !x.is_empty());
     if let Some(rust_version) = rust_version {
-        indexmap.insert(
-            "rust_version".to_string(),
-            Value::String {
-                val: rust_version.to_string(),
-                span: call.head,
-            },
-        );
+        cols.push("rust_version".to_string());
+        vals.push(Value::String {
+            val: rust_version.to_string(),
+            span: call.head,
+        });
     }
 
     let rust_channel: Option<&str> = Some(shadow::RUST_CHANNEL).filter(|x| !x.is_empty());
     if let Some(rust_channel) = rust_channel {
-        indexmap.insert(
-            "rust_channel".to_string(),
-            Value::String {
-                val: rust_channel.to_string(),
-                span: call.head,
-            },
-        );
+        cols.push("rust_channel".to_string());
+        vals.push(Value::String {
+            val: rust_channel.to_string(),
+            span: call.head,
+        });
     }
 
     let cargo_version: Option<&str> = Some(shadow::CARGO_VERSION).filter(|x| !x.is_empty());
     if let Some(cargo_version) = cargo_version {
-        indexmap.insert(
-            "cargo_version".to_string(),
-            Value::String {
-                val: cargo_version.to_string(),
-                span: call.head,
-            },
-        );
+        cols.push("cargo_version".to_string());
+        vals.push(Value::String {
+            val: cargo_version.to_string(),
+            span: call.head,
+        });
     }
 
     let pkg_version: Option<&str> = Some(shadow::PKG_VERSION).filter(|x| !x.is_empty());
     if let Some(pkg_version) = pkg_version {
-        indexmap.insert(
-            "pkg_version".to_string(),
-            Value::String {
-                val: pkg_version.to_string(),
-                span: call.head,
-            },
-        );
+        cols.push("pkg_version".to_string());
+        vals.push(Value::String {
+            val: pkg_version.to_string(),
+            span: call.head,
+        });
     }
 
     let build_time: Option<&str> = Some(shadow::BUILD_TIME).filter(|x| !x.is_empty());
     if let Some(build_time) = build_time {
-        indexmap.insert(
-            "build_time".to_string(),
-            Value::String {
-                val: build_time.to_string(),
-                span: call.head,
-            },
-        );
+        cols.push("build_time".to_string());
+        vals.push(Value::String {
+            val: build_time.to_string(),
+            span: call.head,
+        });
     }
 
     let build_rust_channel: Option<&str> =
         Some(shadow::BUILD_RUST_CHANNEL).filter(|x| !x.is_empty());
     if let Some(build_rust_channel) = build_rust_channel {
-        indexmap.insert(
-            "build_rust_channel".to_string(),
-            Value::String {
-                val: build_rust_channel.to_string(),
-                span: call.head,
-            },
-        );
+        cols.push("build_rust_channel".to_string());
+        vals.push(Value::String {
+            val: build_rust_channel.to_string(),
+            span: call.head,
+        });
     }
 
-    indexmap.insert(
-        "features".to_string(),
-        Value::String {
-            val: features_enabled().join(", "),
-            span: call.head,
-        },
-    );
+    cols.push("features".to_string());
+    vals.push(Value::String {
+        val: features_enabled().join(", "),
+        span: call.head,
+    });
 
     // Get a list of command names and check for plugins
     let installed_plugins = engine_state
@@ -196,28 +181,12 @@ pub fn version(
         .map(|x| x.name())
         .collect::<Vec<_>>();
 
-    indexmap.insert(
-        "installed_plugins".to_string(),
-        Value::String {
-            val: installed_plugins.join(", "),
-            span: call.head,
-        },
-    );
+    cols.push("installed_plugins".to_string());
+    vals.push(Value::String {
+        val: installed_plugins.join(", "),
+        span: call.head,
+    });
 
-    let cols = indexmap.keys().cloned().collect::<Vec<_>>();
-    let vals = indexmap.values().cloned().collect::<Vec<_>>();
-
-    // Ok(Value::List {
-    //     vals: vec![Value::Record {
-    //         cols,
-    //         vals,
-    //         span: call.head,
-    //     }],
-    //     span: call.head,
-    // }
-    // .into_pipeline_data())
-
-    // List looks better than table, imo
     Ok(Value::Record {
         cols,
         vals,

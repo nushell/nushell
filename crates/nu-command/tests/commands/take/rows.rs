@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn rows() {
-    Playground::setup("keep_test_1", |dirs, sandbox| {
+    Playground::setup("take_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "caballeros.csv",
             r#"
@@ -20,7 +20,7 @@ fn rows() {
             cwd: dirs.test(), pipeline(
             r#"
                 open caballeros.csv
-                | keep 3
+                | take 3
                 | get lucky_code
                 | math sum
                 "#

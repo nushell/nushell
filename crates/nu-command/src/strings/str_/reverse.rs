@@ -24,7 +24,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "outputs the reversals of the strings in the pipeline"
+        "Reverse every string in the pipeline"
     }
 
     fn run(
@@ -38,14 +38,37 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Return the reversals of multiple strings",
-            example: "'Nushell' | str reverse",
-            result: Some(Value::String {
-                val: "llehsuN".to_string(),
-                span: Span::test_data(),
-            }),
-        }]
+        vec![
+            Example {
+                description: "Reverse a single string",
+                example: "'Nushell' | str reverse",
+                result: Some(Value::String {
+                    val: "llehsuN".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Reverse multiple strings in a list",
+                example: "['Nushell' 'is' 'cool'] | str reverse",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::String {
+                            val: "llehsuN".to_string(),
+                            span: Span::test_data(),
+                        },
+                        Value::String {
+                            val: "si".to_string(),
+                            span: Span::test_data(),
+                        },
+                        Value::String {
+                            val: "looc".to_string(),
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 

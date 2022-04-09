@@ -9,28 +9,28 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Keep;
+pub struct Take;
 
-impl Command for Keep {
+impl Command for Take {
     fn name(&self) -> &str {
-        "keep"
+        "take"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional("n", SyntaxShape::Int, "the number of elements to keep")
+            .optional("n", SyntaxShape::Int, "the number of elements to take")
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Keep the first n elements of the input."
+        "Take the first n elements of the input."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Keep two elements",
-                example: "echo [[editions]; [2015] [2018] [2021]] | keep 2",
+                description: "Take two elements",
+                example: "echo [[editions]; [2015] [2018] [2021]] | take 2",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -48,8 +48,8 @@ impl Command for Keep {
                 }),
             },
             Example {
-                description: "Keep the first value",
-                example: "echo [2 4 6 8] | keep",
+                description: "Take the first value",
+                example: "echo [2 4 6 8] | take",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(2)],
                     span: Span::test_data(),
@@ -94,12 +94,12 @@ impl Command for Keep {
 
 #[cfg(test)]
 mod tests {
-    use crate::Keep;
+    use crate::Take;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(Keep {})
+        test_examples(Take {})
     }
 }

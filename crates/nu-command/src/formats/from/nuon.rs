@@ -89,7 +89,8 @@ impl Command for FromNuon {
         let (lite_block, err) = nu_parser::lite_parse(&lexed);
         error = error.or(err);
 
-        let (mut block, err) = nu_parser::parse_block(&mut working_set, &lite_block, true, &[]);
+        let (mut block, err) =
+            nu_parser::parse_block(&mut working_set, &lite_block, true, &[], false);
         error = error.or(err);
 
         if let Some(pipeline) = block.pipelines.get(1) {
@@ -193,6 +194,12 @@ fn convert_to_value(
             original_text.to_string(),
             "Error when loading".into(),
             "binary operators not supported in nuon".into(),
+            expr.span,
+        )),
+        Expr::UnaryNot(..) => Err(ShellError::OutsideSpannedLabeledError(
+            original_text.to_string(),
+            "Error when loading".into(),
+            "unary operators not supported in nuon".into(),
             expr.span,
         )),
         Expr::Block(..) => Err(ShellError::OutsideSpannedLabeledError(

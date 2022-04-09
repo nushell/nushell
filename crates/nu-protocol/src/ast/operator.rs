@@ -11,8 +11,8 @@ pub enum Operator {
     GreaterThan,
     LessThanOrEqual,
     GreaterThanOrEqual,
-    Contains,
-    NotContains,
+    RegexMatch,
+    NotRegexMatch,
     Plus,
     Minus,
     Multiply,
@@ -23,6 +23,7 @@ pub enum Operator {
     And,
     Or,
     Pow,
+    StartsWith,
 }
 
 impl Display for Operator {
@@ -32,8 +33,8 @@ impl Display for Operator {
             Operator::NotEqual => write!(f, "!="),
             Operator::LessThan => write!(f, "<"),
             Operator::GreaterThan => write!(f, ">"),
-            Operator::Contains => write!(f, "=~"),
-            Operator::NotContains => write!(f, "!~"),
+            Operator::RegexMatch => write!(f, "=~"),
+            Operator::NotRegexMatch => write!(f, "!~"),
             Operator::Plus => write!(f, "+"),
             Operator::Minus => write!(f, "-"),
             Operator::Multiply => write!(f, "*"),
@@ -46,6 +47,7 @@ impl Display for Operator {
             Operator::Pow => write!(f, "**"),
             Operator::LessThanOrEqual => write!(f, "<="),
             Operator::GreaterThanOrEqual => write!(f, ">="),
+            Operator::StartsWith => write!(f, "=^"),
         }
     }
 }

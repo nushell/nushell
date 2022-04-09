@@ -32,6 +32,10 @@ impl Command for Table {
         "Render the table."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["display", "render"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("table")
             .named(

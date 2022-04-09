@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn condition_is_met() {
-    Playground::setup("keep_while_test_1", |dirs, sandbox| {
+    Playground::setup("take_while_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "caballeros.txt",
             r#"
@@ -39,7 +39,7 @@ fn condition_is_met() {
                 | str collect (char nl)
                 | from csv
                 | skip 1
-                | keep while "Chicken Collection" != "Blue Chickens"
+                | take while "Chicken Collection" != "Blue Chickens"
                 | into int "31/04/2020"
                 | get "31/04/2020"
                 | math sum

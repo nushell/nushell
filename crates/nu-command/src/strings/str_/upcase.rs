@@ -21,7 +21,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "upcases text"
+        "Make text uppercase"
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["uppercase", "upper case"]
     }
 
     fn run(

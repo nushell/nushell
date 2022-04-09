@@ -14,7 +14,7 @@ use crate::To;
 #[cfg(test)]
 use super::{
     Ansi, Date, From, If, Into, Math, Path, Random, Split, SplitColumn, SplitRow, Str, StrCollect,
-    StrFindReplace, StrLength, Url, Wrap,
+    StrLength, StrReplace, Url, Wrap,
 };
 
 #[cfg(test)]
@@ -31,7 +31,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         working_set.add_decl(Box::new(Str));
         working_set.add_decl(Box::new(StrCollect));
         working_set.add_decl(Box::new(StrLength));
-        working_set.add_decl(Box::new(StrFindReplace));
+        working_set.add_decl(Box::new(StrReplace));
         working_set.add_decl(Box::new(BuildString));
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(If));

@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -30,14 +30,21 @@ impl Command for Last {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: "[1,2,3] | last 2",
-            description: "Get the last 2 items",
-            result: Some(Value::List {
-                vals: vec![Value::test_int(2), Value::test_int(3)],
-                span: Span::test_data(),
-            }),
-        }]
+        vec![
+            Example {
+                example: "[1,2,3] | last 2",
+                description: "Get the last 2 items",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2), Value::test_int(3)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: "[1,2,3] | last",
+                description: "Get the last item",
+                result: Some(Value::test_int(3)),
+            },
+        ]
     }
 
     fn run(
@@ -48,17 +55,28 @@ impl Command for Last {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
+        let span = call.head;
 
         let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
         let v: Vec<_> = input.into_iter().collect();
         let vlen: i64 = v.len() as i64;
         let beginning_rows_to_skip = rows_to_skip(vlen, rows);
 
-        let iter = v.into_iter().skip(beginning_rows_to_skip as usize);
+        if rows.is_some() {
+            let iter = v.into_iter().skip(beginning_rows_to_skip as usize);
 
-        Ok(iter
-            .into_pipeline_data(engine_state.ctrlc.clone())
-            .set_metadata(metadata))
+            Ok(iter
+                .into_pipeline_data(engine_state.ctrlc.clone())
+                .set_metadata(metadata))
+        } else {
+            let last = v.into_iter().nth(beginning_rows_to_skip as usize);
+
+            if let Some(last) = last {
+                Ok(last.into_pipeline_data().set_metadata(metadata))
+            } else {
+                Ok(PipelineData::new(span).set_metadata(metadata))
+            }
+        }
     }
 }
 

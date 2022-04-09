@@ -10,8 +10,8 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
         (Type::Number, Type::Int) => true,
         (Type::Number, Type::Float) => true,
-        (Type::Unknown, _) => true,
-        (_, Type::Unknown) => true,
+        (Type::Any, _) => true,
+        (_, Type::Any) => true,
         (lhs, rhs) => lhs == rhs,
     }
 }
@@ -35,13 +35,13 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Duration, None),
                 (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
 
-                (Type::Unknown, _) => (Type::Unknown, None),
-                (_, Type::Unknown) => (Type::Unknown, None),
+                (Type::Any, _) => (Type::Any, None),
+                (_, Type::Any) => (Type::Any, None),
                 (Type::Int, _) => {
                     let ty = rhs.ty.clone();
                     *rhs = Expression::garbage(rhs.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -54,7 +54,7 @@ pub fn math_result_type(
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -74,12 +74,12 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Duration, None),
                 (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
 
-                (Type::Unknown, _) => (Type::Unknown, None),
-                (_, Type::Unknown) => (Type::Unknown, None),
+                (Type::Any, _) => (Type::Any, None),
+                (_, Type::Any) => (Type::Any, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -101,12 +101,12 @@ pub fn math_result_type(
                 (Type::Duration, Type::Int) => (Type::Filesize, None),
                 (Type::Int, Type::Duration) => (Type::Filesize, None),
 
-                (Type::Unknown, _) => (Type::Unknown, None),
-                (_, Type::Unknown) => (Type::Unknown, None),
+                (Type::Any, _) => (Type::Any, None),
+                (_, Type::Any) => (Type::Any, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -123,12 +123,12 @@ pub fn math_result_type(
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
 
-                (Type::Unknown, _) => (Type::Unknown, None),
-                (_, Type::Unknown) => (Type::Unknown, None),
+                (Type::Any, _) => (Type::Any, None),
+                (_, Type::Any) => (Type::Any, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -150,12 +150,12 @@ pub fn math_result_type(
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
                 (Type::Duration, Type::Int) => (Type::Duration, None),
 
-                (Type::Unknown, _) => (Type::Unknown, None),
-                (_, Type::Unknown) => (Type::Unknown, None),
+                (Type::Any, _) => (Type::Any, None),
+                (_, Type::Any) => (Type::Any, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -169,12 +169,12 @@ pub fn math_result_type(
             Operator::And | Operator::Or => match (&lhs.ty, &rhs.ty) {
                 (Type::Bool, Type::Bool) => (Type::Bool, None),
 
-                (Type::Unknown, _) => (Type::Unknown, None),
-                (_, Type::Unknown) => (Type::Unknown, None),
+                (Type::Any, _) => (Type::Any, None),
+                (_, Type::Any) => (Type::Any, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -193,12 +193,12 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
-                (Type::Unknown, _) => (Type::Bool, None),
-                (_, Type::Unknown) => (Type::Bool, None),
+                (Type::Any, _) => (Type::Bool, None),
+                (_, Type::Any) => (Type::Bool, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -217,12 +217,12 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
-                (Type::Unknown, _) => (Type::Bool, None),
-                (_, Type::Unknown) => (Type::Bool, None),
+                (Type::Any, _) => (Type::Bool, None),
+                (_, Type::Any) => (Type::Bool, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -241,12 +241,12 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
-                (Type::Unknown, _) => (Type::Bool, None),
-                (_, Type::Unknown) => (Type::Bool, None),
+                (Type::Any, _) => (Type::Bool, None),
+                (_, Type::Any) => (Type::Bool, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -265,12 +265,12 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
-                (Type::Unknown, _) => (Type::Bool, None),
-                (_, Type::Unknown) => (Type::Bool, None),
+                (Type::Any, _) => (Type::Bool, None),
+                (_, Type::Any) => (Type::Bool, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -283,14 +283,14 @@ pub fn math_result_type(
             },
             Operator::Equal => (Type::Bool, None),
             Operator::NotEqual => (Type::Bool, None),
-            Operator::Contains => match (&lhs.ty, &rhs.ty) {
+            Operator::RegexMatch => match (&lhs.ty, &rhs.ty) {
                 (Type::String, Type::String) => (Type::Bool, None),
-                (Type::Unknown, _) => (Type::Bool, None),
-                (_, Type::Unknown) => (Type::Bool, None),
+                (Type::Any, _) => (Type::Bool, None),
+                (_, Type::Any) => (Type::Bool, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -301,14 +301,32 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::NotContains => match (&lhs.ty, &rhs.ty) {
+            Operator::NotRegexMatch => match (&lhs.ty, &rhs.ty) {
                 (Type::String, Type::String) => (Type::Bool, None),
-                (Type::Unknown, _) => (Type::Bool, None),
-                (_, Type::Unknown) => (Type::Bool, None),
+                (Type::Any, _) => (Type::Bool, None),
+                (_, Type::Any) => (Type::Bool, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
+                        Some(ParseError::UnsupportedOperation(
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
+                    )
+                }
+            },
+            Operator::StartsWith => match (&lhs.ty, &rhs.ty) {
+                (Type::String, Type::String) => (Type::Bool, None),
+                (Type::Any, _) => (Type::Bool, None),
+                (_, Type::Any) => (Type::Bool, None),
+                _ => {
+                    *op = Expression::garbage(op.span);
+                    (
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -325,12 +343,12 @@ pub fn math_result_type(
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::String, Type::Record(_)) => (Type::Bool, None),
 
-                (Type::Unknown, _) => (Type::Bool, None),
-                (_, Type::Unknown) => (Type::Bool, None),
+                (Type::Any, _) => (Type::Bool, None),
+                (_, Type::Any) => (Type::Bool, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -347,12 +365,12 @@ pub fn math_result_type(
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::String, Type::Record(_)) => (Type::Bool, None),
 
-                (Type::Unknown, _) => (Type::Bool, None),
-                (_, Type::Unknown) => (Type::Bool, None),
+                (Type::Any, _) => (Type::Bool, None),
+                (_, Type::Any) => (Type::Bool, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
-                        Type::Unknown,
+                        Type::Any,
                         Some(ParseError::UnsupportedOperation(
                             op.span,
                             lhs.span,
@@ -368,7 +386,7 @@ pub fn math_result_type(
             *op = Expression::garbage(op.span);
 
             (
-                Type::Unknown,
+                Type::Any,
                 Some(ParseError::IncompleteMathExpression(op.span)),
             )
         }

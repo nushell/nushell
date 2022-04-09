@@ -47,7 +47,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "draw text with a provided start and end code making a gradient"
+        "Draw text with a provided start and end code making a gradient"
     }
 
     fn run(

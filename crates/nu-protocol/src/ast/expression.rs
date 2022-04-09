@@ -18,7 +18,7 @@ impl Expression {
         Expression {
             expr: Expr::Garbage,
             span,
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         }
     }
@@ -32,8 +32,9 @@ impl Expression {
                     Operator::Pow => 100,
                     Operator::Multiply | Operator::Divide | Operator::Modulo => 95,
                     Operator::Plus | Operator::Minus => 90,
-                    Operator::NotContains
-                    | Operator::Contains
+                    Operator::NotRegexMatch
+                    | Operator::RegexMatch
+                    | Operator::StartsWith
                     | Operator::LessThan
                     | Operator::LessThanOrEqual
                     | Operator::GreaterThan
@@ -112,6 +113,7 @@ impl Expression {
             Expr::BinaryOp(left, _, right) => {
                 left.has_in_variable(working_set) || right.has_in_variable(working_set)
             }
+            Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
             Expr::Block(block_id) => {
                 let block = working_set.get_block(*block_id);
 
@@ -131,13 +133,13 @@ impl Expression {
             Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
-                for positional in &call.positional {
+                for positional in call.positional_iter() {
                     if positional.has_in_variable(working_set) {
                         return true;
                     }
                 }
-                for named in &call.named {
-                    if let Some(expr) = &named.1 {
+                for named in call.named_iter() {
+                    if let Some(expr) = &named.2 {
                         if expr.has_in_variable(working_set) {
                             return true;
                         }
@@ -263,6 +265,9 @@ impl Expression {
                 left.replace_in_variable(working_set, new_var_id);
                 right.replace_in_variable(working_set, new_var_id);
             }
+            Expr::UnaryNot(expr) => {
+                expr.replace_in_variable(working_set, new_var_id);
+            }
             Expr::Block(block_id) => {
                 let block = working_set.get_block(*block_id);
 
@@ -297,11 +302,11 @@ impl Expression {
             Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
-                for positional in &mut call.positional {
+                for positional in call.positional_iter_mut() {
                     positional.replace_in_variable(working_set, new_var_id);
                 }
-                for named in &mut call.named {
-                    if let Some(expr) = &mut named.1 {
+                for named in call.named_iter_mut() {
+                    if let Some(expr) = &mut named.2 {
                         expr.replace_in_variable(working_set, new_var_id)
                     }
                 }
@@ -424,6 +429,9 @@ impl Expression {
                 left.replace_span(working_set, replaced, new_span);
                 right.replace_span(working_set, replaced, new_span);
             }
+            Expr::UnaryNot(expr) => {
+                expr.replace_span(working_set, replaced, new_span);
+            }
             Expr::Block(block_id) => {
                 let mut block = working_set.get_block(*block_id).clone();
 
@@ -441,11 +449,11 @@ impl Expression {
                 if replaced.contains_span(call.head) {
                     call.head = new_span;
                 }
-                for positional in &mut call.positional {
+                for positional in call.positional_iter_mut() {
                     positional.replace_span(working_set, replaced, new_span);
                 }
-                for named in &mut call.named {
-                    if let Some(expr) = &mut named.1 {
+                for named in call.named_iter_mut() {
+                    if let Some(expr) = &mut named.2 {
                         expr.replace_span(working_set, replaced, new_span)
                     }
                 }

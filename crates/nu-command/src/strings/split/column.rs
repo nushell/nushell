@@ -18,7 +18,7 @@ impl Command for SubCommand {
             .required(
                 "separator",
                 SyntaxShape::String,
-                "the character that denotes what separates columns",
+                "the character or string that denotes what separates columns",
             )
             .switch("collapse-empty", "remove empty columns", Some('c'))
             .rest(
@@ -30,7 +30,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "splits contents across multiple columns via the separator."
+        "Split a string into multiple columns using a separator"
     }
 
     fn run(

@@ -22,6 +22,7 @@ nu-json = { path = "../nu-json", version = "0.60.1"  }
 typetag = "0.1.8"
 num-format = "0.4.0"
 sys-locale = "0.2.0"
+regex = "1.5.4"
 
 [features]
 plugin = ["serde_json"]

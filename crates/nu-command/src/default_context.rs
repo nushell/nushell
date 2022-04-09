@@ -80,11 +80,11 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Headers,
             Insert,
             SplitBy,
-            Keep,
+            Take,
             Merge,
             Move,
-            KeepUntil,
-            KeepWhile,
+            TakeWhile,
+            TakeUntil,
             Last,
             Length,
             Lines,
@@ -106,6 +106,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Skip,
             SkipUntil,
             SkipWhile,
+            Sort,
             SortBy,
             Transpose,
             Uniq,
@@ -165,7 +166,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             StrContains,
             StrDowncase,
             StrEndswith,
-            StrFindReplace,
+            StrReplace,
             StrIndexOf,
             StrKebabCase,
             StrLength,
@@ -192,6 +193,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Rm,
             Save,
             Touch,
+            Glob,
         };
 
         // Platform
@@ -217,6 +219,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             DateHumanize,
             DateListTimezones,
             DateNow,
+            DateToRecord,
             DateToTable,
             DateToTimezone,
         };
@@ -367,6 +370,10 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             MatchDeprecated,
             NthDeprecated,
             UnaliasDeprecated,
+            StrFindReplaceDeprecated,
+            KeepDeprecated,
+            KeepUntilDeprecated,
+            KeepWhileDeprecated,
         };
 
         #[cfg(feature = "dataframe")]

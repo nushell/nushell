@@ -1,9 +1,9 @@
-# Example of using python as script to create plugins for nushell
+# Example of using a Python script as a Nushell plugin
 #
 # The example uses JSON encoding but it should be a similar process using
-# capnp proto to move data betwee nushell and the plugin. The only difference
+# Cap'n Proto to move data between Nushell and the plugin. The only difference
 # would be that you need to compile the schema file in order have the objects
-# that decode and encode information that is read and written to stdin and stdour
+# that decode and encode information that is read and written to stdin and stdout
 #
 # To register the plugin use:
 # 	register <path-to-py-file> -e json
@@ -13,12 +13,12 @@
 # point to the beginning of the contents vector. We strongly suggest using the span
 # found in the plugin call head
 #
-# The plugin will be run using the active python implementation. If you are in
-# a python environment, that is the python version that is used
+# The plugin will be run using the active Python implementation. If you are in
+# a Python environment, that is the Python version that is used
 #
 # Note: To keep the plugin simple and without dependencies, the dictionaries that
-#   represent the data transferred between nushell and the plugin are kept as
-#   native python dictionaries. The encoding and decoding process could be improved
+#   represent the data transferred between Nushell and the plugin are kept as
+#   native Python dictionaries. The encoding and decoding process could be improved
 #   by using libraries like pydantic and marshmallow
 #
 # This plugin uses python3
@@ -29,8 +29,8 @@ import json
 
 def signatures():
     """
-    Multiple signatures can be sent to nushell. Each signature will be registered
-    as a different plugin function in nushell.
+    Multiple signatures can be sent to Nushell. Each signature will be registered
+    as a different plugin function in Nushell.
 
     In your plugin logic you can use the name of the signature to indicate what
     operation should be done with the plugin
@@ -39,7 +39,7 @@ def signatures():
         "Signature": [
             {
                 "name": "nu-python",
-                "usage": "Signature test for python",
+                "usage": "Signature test for Python",
                 "extra_usage": "",
                 "required_positional": [
                     {
@@ -95,6 +95,7 @@ def signatures():
                         "var_id": None,
                     },
                 ],
+                "search_terms": ["Python", "Example"],
                 "is_filter": False,
                 "creates_scope": False,
                 "category": "Experimental",
@@ -109,7 +110,7 @@ def process_call(plugin_call):
     It should contain:
             - The name of the call
             - The call data which includes the positional and named values
-            - The input from the pippeline
+            - The input from the pipeline
 
     Use this information to implement your plugin logic
     """
@@ -117,7 +118,7 @@ def process_call(plugin_call):
     sys.stderr.write(json.dumps(plugin_call, indent=4))
     sys.stderr.write("\n")
 
-    # Creates a Value of type List that will be encoded and sent to nushell
+    # Creates a Value of type List that will be encoded and sent to Nushell
     return {
         "Value": {
             "List": {
@@ -402,7 +403,7 @@ def plugin():
         sys.stdout.write(json.dumps(response))
 
     else:
-        # Use this error format if you want to return an error back to nushell
+        # Use this error format if you want to return an error back to Nushell
         error = {
             "Error": {
                 "label": "ERROR from plugin",

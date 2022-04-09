@@ -9,7 +9,7 @@ To use `nu-glob`, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-nu-glob = "0.59.1"
+nu-glob = "0.60.0"
 ```
 
 ## Examples

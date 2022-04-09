@@ -38,7 +38,7 @@ impl Range {
         };
 
         let to = if let Value::Nothing { .. } = to {
-            if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, &from) {
+            if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, &from, expr_span) {
                 Value::Int {
                     val: i64::MIN,
                     span: expr_span,
@@ -54,7 +54,10 @@ impl Range {
         };
 
         // Check if the range counts up or down
-        let moves_up = matches!(from.lte(expr_span, &to), Ok(Value::Bool { val: true, .. }));
+        let moves_up = matches!(
+            from.lte(expr_span, &to, expr_span),
+            Ok(Value::Bool { val: true, .. })
+        );
 
         // Convert the next value into the inctement
         let incr = if let Value::Nothing { .. } = next {
@@ -70,7 +73,7 @@ impl Range {
                 }
             }
         } else {
-            next.sub(operator.next_op_span, &from)?
+            next.sub(operator.next_op_span, &from, expr_span)?
         };
 
         let zero = Value::Int {
@@ -79,22 +82,25 @@ impl Range {
         };
 
         // Increment must be non-zero, otherwise we iterate forever
-        if matches!(incr.eq(expr_span, &zero), Ok(Value::Bool { val: true, .. })) {
+        if matches!(
+            incr.eq(expr_span, &zero, expr_span),
+            Ok(Value::Bool { val: true, .. })
+        ) {
             return Err(ShellError::CannotCreateRange(expr_span));
         }
 
         // If to > from, then incr > 0, otherwise we iterate forever
         if let (Value::Bool { val: true, .. }, Value::Bool { val: false, .. }) = (
-            to.gt(operator.span, &from)?,
-            incr.gt(operator.next_op_span, &zero)?,
+            to.gt(operator.span, &from, expr_span)?,
+            incr.gt(operator.next_op_span, &zero, expr_span)?,
         ) {
             return Err(ShellError::CannotCreateRange(expr_span));
         }
 
         // If to < from, then incr < 0, otherwise we iterate forever
         if let (Value::Bool { val: true, .. }, Value::Bool { val: false, .. }) = (
-            to.lt(operator.span, &from)?,
-            incr.lt(operator.next_op_span, &zero)?,
+            to.lt(operator.span, &from, expr_span)?,
+            incr.lt(operator.next_op_span, &zero, expr_span)?,
         ) {
             return Err(ShellError::CannotCreateRange(expr_span));
         }
@@ -231,7 +237,7 @@ impl Iterator for RangeIterator {
 
         if (ordering == desired_ordering) || (self.is_end_inclusive && ordering == Ordering::Equal)
         {
-            let next_value = self.curr.add(self.span, &self.incr);
+            let next_value = self.curr.add(self.span, &self.incr, self.span);
 
             let mut next = match next_value {
                 Ok(result) => result,

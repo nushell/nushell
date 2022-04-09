@@ -24,7 +24,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "capitalizes text"
+        "Capitalize text"
     }
 
     fn run(

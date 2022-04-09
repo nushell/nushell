@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 pub(crate) const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";
+const ENV_FILE: &str = "env.nu";
 const HISTORY_FILE: &str = "history.txt";
 
 pub(crate) fn read_config_file(
@@ -17,6 +18,7 @@ pub(crate) fn read_config_file(
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
     is_perf_true: bool,
+    is_env_config: bool,
 ) {
     // Load config startup file
     if let Some(file) = config_file {
@@ -43,10 +45,19 @@ pub(crate) fn read_config_file(
             }
         }
 
-        config_path.push(CONFIG_FILE);
+        config_path.push(if is_env_config { ENV_FILE } else { CONFIG_FILE });
 
         if !config_path.exists() {
-            println!("No config file found at {}", config_path.to_string_lossy());
+            let file_msg = if is_env_config {
+                "environment config"
+            } else {
+                "config"
+            };
+            println!(
+                "No {} file found at {}",
+                file_msg,
+                config_path.to_string_lossy()
+            );
             println!("Would you like to create one with defaults (Y/n): ");
 
             let mut answer = String::new();
@@ -54,7 +65,11 @@ pub(crate) fn read_config_file(
                 .read_line(&mut answer)
                 .expect("Failed to read user input");
 
-            let config_file = include_str!("../docs/sample_config/default_config.nu");
+            let config_file = if is_env_config {
+                include_str!("../docs/sample_config/default_env.nu")
+            } else {
+                include_str!("../docs/sample_config/default_config.nu")
+            };
 
             match answer.to_lowercase().trim() {
                 "y" | "" => {
@@ -64,12 +79,16 @@ pub(crate) fn read_config_file(
                 }
                 _ => {
                     println!("Continuing without config file");
-                    // Just use the contents of "default_config.nu"
+                    // Just use the contents of "default_config.nu" or "default_env.nu"
                     eval_source(
                         engine_state,
                         stack,
                         config_file.as_bytes(),
-                        "default_config.nu",
+                        if is_env_config {
+                            "default_env.nu"
+                        } else {
+                            "default_config.nu"
+                        },
                         PipelineData::new(Span::new(0, 0)),
                     );
                     return;

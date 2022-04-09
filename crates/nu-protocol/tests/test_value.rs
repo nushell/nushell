@@ -23,22 +23,22 @@ fn test_comparison_nothing() {
 
     for value in values {
         assert!(matches!(
-            value.eq(Span::test_data(), &nothing),
+            value.eq(Span::test_data(), &nothing, Span::test_data()),
             Ok(Value::Bool { val: false, .. })
         ));
 
         assert!(matches!(
-            value.ne(Span::test_data(), &nothing),
+            value.ne(Span::test_data(), &nothing, Span::test_data()),
             Ok(Value::Bool { val: true, .. })
         ));
 
         assert!(matches!(
-            nothing.eq(Span::test_data(), &value),
+            nothing.eq(Span::test_data(), &value, Span::test_data()),
             Ok(Value::Bool { val: false, .. })
         ));
 
         assert!(matches!(
-            nothing.ne(Span::test_data(), &value),
+            nothing.ne(Span::test_data(), &value, Span::test_data()),
             Ok(Value::Bool { val: true, .. })
         ));
     }

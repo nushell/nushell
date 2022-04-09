@@ -45,7 +45,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "substrings text"
+        "Get part of a string"
     }
 
     fn run(

@@ -35,7 +35,9 @@ impl Command for LetEnv {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let env_var = call.req(engine_state, stack, 0)?;
 
-        let keyword_expr = call.positional[1]
+        let keyword_expr = call
+            .positional_nth(1)
+            .expect("checked through parser")
             .as_keyword()
             .expect("internal error: missing keyword");
 

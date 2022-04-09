@@ -19,7 +19,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Print the date in a structured table."
+        "Convert the date into a structured table."
     }
 
     fn run(
@@ -36,17 +36,17 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Print the date in a structured table.",
+                description: "Convert the date into a structured table.",
                 example: "date to-table",
                 result: None,
             },
             Example {
-                description: "Print the date in a structured table.",
+                description: "Convert the date into a structured table.",
                 example: "date now | date to-table",
                 result: None,
             },
             Example {
-                description: "Print the date in a structured table.",
+                description: "Convert a given date into a structured table.",
                 example: " '2020-04-12 22:10:57 +0200' | date to-table",
                 result: {
                     let span = Span::test_data();

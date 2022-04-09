@@ -3,7 +3,7 @@ use nu_protocol::DeclId;
 use nu_protocol::{engine::StateWorkingSet, Span};
 use std::fmt::{Display, Formatter, Result};
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Eq, PartialEq, Ord, Clone, PartialOrd)]
 pub enum FlatShape {
     Garbage,
     Nothing,
@@ -88,6 +88,17 @@ pub fn flatten_expression(
             output.extend(flatten_expression(working_set, rhs));
             output
         }
+        Expr::UnaryNot(inner_expr) => {
+            let mut output = vec![(
+                Span {
+                    start: expr.span.start,
+                    end: expr.span.start + 3,
+                },
+                FlatShape::Operator,
+            )];
+            output.extend(flatten_expression(working_set, inner_expr));
+            output
+        }
         Expr::Block(block_id) | Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let outer_span = expr.span;
 
@@ -134,12 +145,12 @@ pub fn flatten_expression(
             let mut output = vec![(call.head, FlatShape::InternalCall)];
 
             let mut args = vec![];
-            for positional in &call.positional {
+            for positional in call.positional_iter() {
                 args.extend(flatten_expression(working_set, positional));
             }
-            for named in &call.named {
+            for named in call.named_iter() {
                 args.push((named.0.span, FlatShape::Flag));
-                if let Some(expr) = &named.1 {
+                if let Some(expr) = &named.2 {
                     args.extend(flatten_expression(working_set, expr));
                 }
             }

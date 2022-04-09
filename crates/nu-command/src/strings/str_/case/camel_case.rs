@@ -26,7 +26,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "converts a string to camelCase"
+        "Convert a string to camelCase"
     }
 
     fn run(

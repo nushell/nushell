@@ -35,7 +35,7 @@ impl Command for Metadata {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let arg = call.positional.get(0);
+        let arg = call.positional_nth(0);
         let head = call.head;
 
         match arg {

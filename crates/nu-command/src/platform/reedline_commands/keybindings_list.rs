@@ -57,16 +57,15 @@ impl Command for KeybindingsList {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let records = if call.named.is_empty() {
+        let records = if call.named_len() == 0 {
             let all_options = vec!["modifiers", "keycodes", "edits", "modes", "events"];
             all_options
                 .iter()
                 .flat_map(|argument| get_records(argument, &call.head))
                 .collect()
         } else {
-            call.named
-                .iter()
-                .flat_map(|(argument, _)| get_records(argument.item.as_str(), &call.head))
+            call.named_iter()
+                .flat_map(|(argument, _, _)| get_records(argument.item.as_str(), &call.head))
                 .collect()
         };
 

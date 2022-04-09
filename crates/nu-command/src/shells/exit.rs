@@ -3,7 +3,6 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
-/// Source a file for environment variables.
 #[derive(Clone)]
 pub struct Exit;
 
@@ -19,12 +18,16 @@ impl Command for Exit {
                 SyntaxShape::Int,
                 "Exit code to return immediately with",
             )
-            .switch("now", "Exit out of the shell immediately", Some('n'))
+            .switch(
+                "now",
+                "Exit out of all shells immediately (exiting Nu)",
+                Some('n'),
+            )
             .category(Category::Shells)
     }
 
     fn usage(&self) -> &str {
-        "Runs a script file in the current context."
+        "Exit a Nu shell or exit Nu entirely."
     }
 
     fn run(

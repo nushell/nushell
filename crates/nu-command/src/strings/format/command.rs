@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Config, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Value,
 };
 
 #[derive(Clone)]
@@ -34,13 +35,14 @@ impl Command for Format {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let config = stack.get_config()?;
         let specified_pattern: Result<Value, ShellError> = call.req(engine_state, stack, 0);
         match specified_pattern {
             Err(e) => Err(e),
             Ok(pattern) => {
                 let string_pattern = pattern.as_string()?;
                 let ops = extract_formatting_operations(string_pattern);
-                format(input, &ops, call.head)
+                format(input, &ops, call.head, &config)
             }
         }
     }
@@ -72,7 +74,7 @@ enum FormatOperation {
 
 /// Given a pattern that is fed into the Format command, we can process it and subdivide it
 /// in two kind of operations.
-/// FormatOperation::FixedText contains a portion of the patter that has to be placed
+/// FormatOperation::FixedText contains a portion of the pattern that has to be placed
 /// there without any further processing.
 /// FormatOperation::ValueFromColumn contains the name of a column whose values will be
 /// formatted according to the input pattern.
@@ -119,28 +121,33 @@ fn format(
     input_data: PipelineData,
     format_operations: &[FormatOperation],
     span: Span,
+    config: &Config,
 ) -> Result<PipelineData, ShellError> {
     let data_as_value = input_data.into_value(span);
 
-    //  We can only handle a Record or a List of Record's
+    //  We can only handle a Record or a List of Records
     match data_as_value {
-        Value::Record { .. } => match format_record(format_operations, &data_as_value, span) {
-            Ok(value) => Ok(PipelineData::Value(Value::string(value, span), None)),
-            Err(value) => Err(value),
-        },
+        Value::Record { .. } => {
+            match format_record(format_operations, &data_as_value, span, config) {
+                Ok(value) => Ok(PipelineData::Value(Value::string(value, span), None)),
+                Err(value) => Err(value),
+            }
+        }
 
         Value::List { vals, .. } => {
             let mut list = vec![];
             for val in vals.iter() {
                 match val {
-                    Value::Record { .. } => match format_record(format_operations, val, span) {
-                        Ok(value) => {
-                            list.push(Value::string(value, span));
+                    Value::Record { .. } => {
+                        match format_record(format_operations, val, span, config) {
+                            Ok(value) => {
+                                list.push(Value::string(value, span));
+                            }
+                            Err(value) => {
+                                return Err(value);
+                            }
                         }
-                        Err(value) => {
-                            return Err(value);
-                        }
-                    },
+                    }
 
                     _ => {
                         return Err(ShellError::UnsupportedInput(
@@ -167,13 +174,14 @@ fn format_record(
     format_operations: &[FormatOperation],
     data_as_value: &Value,
     span: Span,
+    config: &Config,
 ) -> Result<String, ShellError> {
     let mut output = String::new();
     for op in format_operations {
         match op {
             FormatOperation::FixedText(s) => output.push_str(s.as_str()),
 
-            //  The referenced code suggest to use the correct Span's
+            //  The referenced code suggests to use the correct Spans
             //  See: https://github.com/nushell/nushell/blob/c4af5df828135159633d4bc3070ce800518a42a2/crates/nu-command/src/commands/strings/format/command.rs#L61
             FormatOperation::ValueFromColumn(col_name) => {
                 match data_as_value
@@ -182,7 +190,9 @@ fn format_record(
                         val: col_name.clone(),
                         span,
                     }]) {
-                    Ok(value_at_column) => output.push_str(value_at_column.as_string()?.as_str()),
+                    Ok(value_at_column) => {
+                        output.push_str(value_at_column.into_string(", ", config).as_str())
+                    }
                     Err(se) => return Err(se),
                 }
             }

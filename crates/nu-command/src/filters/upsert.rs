@@ -33,6 +33,10 @@ impl Command for Upsert {
         "Update an existing column to have a new value, or insert a new column."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["add"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

@@ -26,7 +26,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "checks if string ends with pattern"
+        "Check if a string ends with a pattern"
     }
 
     fn run(

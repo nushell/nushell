@@ -22,7 +22,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "gets the query of a url"
+        "Get the query string of a URL"
     }
 
     fn run(
@@ -39,7 +39,7 @@ impl Command for SubCommand {
         let span = Span::test_data();
         vec![
             Example {
-                description: "Get query of a url",
+                description: "Get a query string",
                 example: "echo 'http://www.example.com/?foo=bar&baz=quux' | url query",
                 result: Some(Value::String {
                     val: "foo=bar&baz=quux".to_string(),
@@ -47,7 +47,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "No query gives the empty string",
+                description: "Returns an empty string if there is no query string",
                 example: "echo 'http://www.example.com/' | url query",
                 result: Some(Value::String {
                     val: "".to_string(),

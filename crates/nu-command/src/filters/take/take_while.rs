@@ -7,11 +7,11 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct KeepWhile;
+pub struct TakeWhile;
 
-impl Command for KeepWhile {
+impl Command for TakeWhile {
     fn name(&self) -> &str {
-        "keep while"
+        "take while"
     }
 
     fn signature(&self) -> Signature {
@@ -19,19 +19,19 @@ impl Command for KeepWhile {
             .required(
                 "predicate",
                 SyntaxShape::RowCondition,
-                "the predicate that kept element must not match",
+                "the predicate that element(s) must match",
             )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Keep elements of the input while a predicate is true."
+        "Take elements of the input while a predicate is true."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Keep while the element is negative",
-            example: "echo [-1 -2 9 1] | keep while $it < 0",
+            description: "Take while the element is negative",
+            example: "echo [-1 -2 9 1] | take while $it < 0",
             result: Some(Value::List {
                 vals: vec![Value::test_int(-1), Value::test_int(-2)],
                 span: Span::test_data(),
@@ -86,12 +86,12 @@ impl Command for KeepWhile {
 
 #[cfg(test)]
 mod tests {
-    use crate::KeepWhile;
+    use crate::TakeWhile;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(KeepWhile)
+        test_examples(TakeWhile)
     }
 }

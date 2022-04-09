@@ -1,8 +1,8 @@
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
-        Block, Call, Expr, Expression, ImportPattern, ImportPatternHead, ImportPatternMember,
-        Pipeline,
+        Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
+        ImportPatternMember, Pipeline,
     },
     engine::StateWorkingSet,
     span, Exportable, Overlay, PositionalArg, Span, SyntaxShape, Type, CONFIG_VARIABLE_ID,
@@ -142,7 +142,7 @@ pub fn parse_for(
             let sig = decl.signature();
 
             // Let's get our block and make sure it has the right signature
-            if let Some(arg) = call.positional.get(2) {
+            if let Some(arg) = call.positional_nth(2) {
                 match arg {
                     Expression {
                         expr: Expr::Block(block_id),
@@ -166,7 +166,7 @@ pub fn parse_for(
                     Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     },
                     err,
@@ -178,8 +178,8 @@ pub fn parse_for(
     };
 
     // All positional arguments must be in the call positional vector by this point
-    let var_decl = call.positional.get(0).expect("for call already checked");
-    let block = call.positional.get(2).expect("for call already checked");
+    let var_decl = call.positional_nth(0).expect("for call already checked");
+    let block = call.positional_nth(2).expect("for call already checked");
 
     let error = None;
     if let (Some(var_id), Some(block_id)) = (&var_decl.as_var(), block.as_block()) {
@@ -201,7 +201,7 @@ pub fn parse_for(
         Expression {
             expr: Expr::Call(call),
             span: call_span,
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         },
         error,
@@ -311,7 +311,7 @@ pub fn parse_def(
             let sig = decl.signature();
 
             // Let's get our block and make sure it has the right signature
-            if let Some(arg) = call.positional.get(2) {
+            if let Some(arg) = call.positional_nth(2) {
                 match arg {
                     Expression {
                         expr: Expr::Block(block_id),
@@ -335,7 +335,7 @@ pub fn parse_def(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     err,
@@ -347,9 +347,9 @@ pub fn parse_def(
     };
 
     // All positional arguments must be in the call positional vector by this point
-    let name_expr = call.positional.get(0).expect("def call already checked");
-    let sig = call.positional.get(1).expect("def call already checked");
-    let block = call.positional.get(2).expect("def call already checked");
+    let name_expr = call.positional_nth(0).expect("def call already checked");
+    let sig = call.positional_nth(1).expect("def call already checked");
+    let block = call.positional_nth(2).expect("def call already checked");
 
     let mut error = None;
 
@@ -393,7 +393,7 @@ pub fn parse_def(
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
             span: call_span,
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         }]),
         error,
@@ -457,8 +457,8 @@ pub fn parse_extern(
             (call, call_span)
         }
     };
-    let name_expr = call.positional.get(0);
-    let sig = call.positional.get(1);
+    let name_expr = call.positional_nth(0);
+    let sig = call.positional_nth(1);
 
     if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
@@ -501,7 +501,7 @@ pub fn parse_extern(
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
             span: call_span,
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         }]),
         error,
@@ -561,7 +561,7 @@ pub fn parse_alias(
                 Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: span(spans),
-                    ty: Type::Unknown,
+                    ty: Type::Any,
                     custom_completion: None,
                 }]),
                 err,
@@ -626,8 +626,7 @@ pub fn parse_export(
     let mut call = Box::new(Call {
         head: spans[0],
         decl_id: export_decl_id,
-        positional: vec![],
-        named: vec![],
+        arguments: vec![],
         redirect_stdout: true,
         redirect_stderr: false,
     });
@@ -895,7 +894,7 @@ pub fn parse_export(
                 if let Some(name_span) = spans.get(2) {
                     let (name_expr, err) = parse_string(working_set, *name_span);
                     error = error.or(err);
-                    call.positional.push(name_expr);
+                    call.add_positional(name_expr);
 
                     if let Some(block_span) = spans.get(3) {
                         let (block_expr, err) = parse_block_expression(
@@ -922,7 +921,7 @@ pub fn parse_export(
                             None
                         };
 
-                        call.positional.push(block_expr);
+                        call.add_positional(block_expr);
 
                         exportable
                     } else {
@@ -989,7 +988,7 @@ pub fn parse_export(
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
             span: span(spans),
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         }]),
         exportable,
@@ -1184,8 +1183,10 @@ pub fn parse_module(
         let call = Box::new(Call {
             head: spans[0],
             decl_id: module_decl_id,
-            positional: vec![module_name_expr, block_expr],
-            named: vec![],
+            arguments: vec![
+                Argument::Positional(module_name_expr),
+                Argument::Positional(block_expr),
+            ],
             redirect_stdout: true,
             redirect_stderr: false,
         });
@@ -1194,7 +1195,7 @@ pub fn parse_module(
             Pipeline::from_vec(vec![Expression {
                 expr: Expr::Call(call),
                 span: span(spans),
-                ty: Type::Unknown,
+                ty: Type::Any,
                 custom_completion: None,
             }]),
             error,
@@ -1244,7 +1245,7 @@ pub fn parse_use(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     err,
@@ -1264,7 +1265,7 @@ pub fn parse_use(
         }
     };
 
-    let import_pattern = if let Some(expr) = call.nth(0) {
+    let import_pattern = if let Some(expr) = call.positional_nth(0) {
         if let Some(pattern) = expr.as_import_pattern() {
             pattern
         } else {
@@ -1311,7 +1312,7 @@ pub fn parse_use(
                             Pipeline::from_vec(vec![Expression {
                                 expr: Expr::Call(call),
                                 span: call_span,
-                                ty: Type::Unknown,
+                                ty: Type::Any,
                                 custom_completion: None,
                             }]),
                             Some(ParseError::ModuleNotFound(spans[1])),
@@ -1350,7 +1351,7 @@ pub fn parse_use(
                             Pipeline::from_vec(vec![Expression {
                                 expr: Expr::Call(call),
                                 span: call_span,
-                                ty: Type::Unknown,
+                                ty: Type::Any,
                                 custom_completion: None,
                             }]),
                             Some(ParseError::ModuleNotFound(spans[1])),
@@ -1422,8 +1423,7 @@ pub fn parse_use(
     let call = Box::new(Call {
         head: spans[0],
         decl_id: use_decl_id,
-        positional: vec![import_pattern_expr],
-        named: vec![],
+        arguments: vec![Argument::Positional(import_pattern_expr)],
         redirect_stdout: true,
         redirect_stderr: false,
     });
@@ -1432,7 +1432,7 @@ pub fn parse_use(
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
             span: span(spans),
-            ty: Type::Unknown,
+            ty: Type::Any,
             custom_completion: None,
         }]),
         error,
@@ -1473,7 +1473,7 @@ pub fn parse_hide(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     err,
@@ -1493,7 +1493,7 @@ pub fn parse_hide(
         }
     };
 
-    let import_pattern = if let Some(expr) = call.nth(0) {
+    let import_pattern = if let Some(expr) = call.positional_nth(0) {
         if let Some(pattern) = expr.as_import_pattern() {
             pattern
         } else {
@@ -1630,8 +1630,7 @@ pub fn parse_hide(
         let call = Box::new(Call {
             head: spans[0],
             decl_id: hide_decl_id,
-            positional: vec![import_pattern_expr],
-            named: vec![],
+            arguments: vec![Argument::Positional(import_pattern_expr)],
             redirect_stdout: true,
             redirect_stderr: false,
         });
@@ -1640,7 +1639,7 @@ pub fn parse_hide(
             Pipeline::from_vec(vec![Expression {
                 expr: Expr::Call(call),
                 span: span(spans),
-                ty: Type::Unknown,
+                ty: Type::Any,
                 custom_completion: None,
             }]),
             error,
@@ -1715,8 +1714,10 @@ pub fn parse_let(
                         let call = Box::new(Call {
                             decl_id,
                             head: spans[0],
-                            positional: vec![lvalue, rvalue],
-                            named: vec![],
+                            arguments: vec![
+                                Argument::Positional(lvalue),
+                                Argument::Positional(rvalue),
+                            ],
                             redirect_stdout: true,
                             redirect_stderr: false,
                         });
@@ -1725,7 +1726,7 @@ pub fn parse_let(
                             Pipeline::from_vec(vec![Expression {
                                 expr: Expr::Call(call),
                                 span: nu_protocol::span(spans),
-                                ty: Type::Unknown,
+                                ty: Type::Any,
                                 custom_completion: None,
                             }]),
                             error,
@@ -1746,7 +1747,7 @@ pub fn parse_let(
                     expressions: vec![Expression {
                         expr: Expr::Call(call),
                         span: nu_protocol::span(spans),
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }],
                 },
@@ -1790,7 +1791,7 @@ pub fn parse_source(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: span(spans),
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     error,
@@ -1820,7 +1821,7 @@ pub fn parse_source(
                                     Pipeline::from_vec(vec![Expression {
                                         expr: Expr::Call(call),
                                         span: span(&spans[1..]),
-                                        ty: Type::Unknown,
+                                        ty: Type::Any,
                                         custom_completion: None,
                                     }]),
                                     // Return the file parse error
@@ -1834,10 +1835,10 @@ pub fn parse_source(
 
                                 // Adding this expression to the positional creates a syntax highlighting error
                                 // after writing `source example.nu`
-                                call_with_block.positional.push(Expression {
+                                call_with_block.add_positional(Expression {
                                     expr: Expr::Int(block_id as i64),
                                     span: spans[1],
-                                    ty: Type::Unknown,
+                                    ty: Type::Any,
                                     custom_completion: None,
                                 });
 
@@ -1845,7 +1846,7 @@ pub fn parse_source(
                                     Pipeline::from_vec(vec![Expression {
                                         expr: Expr::Call(call_with_block),
                                         span: span(spans),
-                                        ty: Type::Unknown,
+                                        ty: Type::Any,
                                         custom_completion: None,
                                     }]),
                                     None,
@@ -1863,7 +1864,7 @@ pub fn parse_source(
                 Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: span(spans),
-                    ty: Type::Unknown,
+                    ty: Type::Any,
                     custom_completion: None,
                 }]),
                 error,
@@ -1932,7 +1933,7 @@ pub fn parse_register(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     err,
@@ -1947,8 +1948,7 @@ pub fn parse_register(
     // The ? operator is not used because the error has to be kept to be printed in the shell
     // For that reason the values are kept in a result that will be passed at the end of this call
     let arguments = call
-        .positional
-        .get(0)
+        .positional_nth(0)
         .map(|expr| {
             let name_expr = working_set.get_span_contents(expr.span);
 
@@ -1992,7 +1992,7 @@ pub fn parse_register(
 
     // Signature is an optional value from the call and will be used to decide if
     // the plugin is called to get the signatures or to use the given signature
-    let signature = call.positional.get(1).map(|expr| {
+    let signature = call.positional_nth(1).map(|expr| {
         let signature = working_set.get_span_contents(expr.span);
         serde_json::from_slice::<Signature>(signature).map_err(|_| {
             ParseError::LabeledError(
@@ -2034,7 +2034,7 @@ pub fn parse_register(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Unknown,
+                        ty: Type::Any,
                         custom_completion: None,
                     }]),
                     Some(err),

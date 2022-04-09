@@ -31,6 +31,10 @@ impl Command for DropNth {
         "Drop the selected rows."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["delete"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
