@@ -78,15 +78,15 @@ fn sum_of_squares(values: &[Value], span: &Span) -> Result<Value, ShellError> {
                     value.span().unwrap_or(*span),
                 ))
         }?;
-        let v_squared = &v.mul(*span, v)?;
-        sum_x2 = sum_x2.add(*span, v_squared)?;
-        sum_x = sum_x.add(*span, v)?;
+        let v_squared = &v.mul(*span, v, *span)?;
+        sum_x2 = sum_x2.add(*span, v_squared, *span)?;
+        sum_x = sum_x.add(*span, v, *span)?;
     }
 
-    let sum_x_squared = sum_x.mul(*span, &sum_x)?;
-    let sum_x_squared_div_n = sum_x_squared.div(*span, &n)?;
+    let sum_x_squared = sum_x.mul(*span, &sum_x, *span)?;
+    let sum_x_squared_div_n = sum_x_squared.div(*span, &n, *span)?;
 
-    let ss = sum_x2.sub(*span, &sum_x_squared_div_n)?;
+    let ss = sum_x2.sub(*span, &sum_x_squared_div_n, *span)?;
 
     Ok(ss)
 }
@@ -111,7 +111,7 @@ pub fn compute_variance(sample: bool) -> impl Fn(&[Value], &Span) -> Result<Valu
             val: n as i64,
             span: *span,
         };
-        ss.div(*span, &n)
+        ss.div(*span, &n, *span)
     }
 }
 

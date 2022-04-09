@@ -51,8 +51,11 @@ impl Command for KnownExternal {
         let extern_name = working_state.get_span_contents(call.head);
         let extern_name = String::from_utf8(extern_name.to_vec())
             .expect("this was already parsed as a command name");
+
+        let extern_name: Vec<_> = extern_name.split(' ').collect();
+
         let arg_extern_name = Expression {
-            expr: Expr::String(extern_name),
+            expr: Expr::String(extern_name[0].to_string()),
             span: call.head,
             ty: Type::String,
             custom_completion: None,
@@ -60,10 +63,38 @@ impl Command for KnownExternal {
 
         extern_call.add_positional(arg_extern_name);
 
+        for subcommand in extern_name.into_iter().skip(1) {
+            extern_call.add_positional(Expression {
+                expr: Expr::String(subcommand.to_string()),
+                span: call.head,
+                ty: Type::String,
+                custom_completion: None,
+            });
+        }
+
         for arg in &call.arguments {
             match arg {
                 Argument::Positional(positional) => extern_call.add_positional(positional.clone()),
-                Argument::Named(named) => extern_call.add_named(named.clone()),
+                Argument::Named(named) => {
+                    if let Some(short) = &named.1 {
+                        extern_call.add_positional(Expression {
+                            expr: Expr::String(format!("-{}", short.item)),
+                            span: named.0.span,
+                            ty: Type::String,
+                            custom_completion: None,
+                        });
+                    } else {
+                        extern_call.add_positional(Expression {
+                            expr: Expr::String(format!("--{}", named.0.item)),
+                            span: named.0.span,
+                            ty: Type::String,
+                            custom_completion: None,
+                        });
+                    }
+                    if let Some(arg) = &named.2 {
+                        extern_call.add_positional(arg.clone());
+                    }
+                }
             }
         }
 
@@ -74,6 +105,7 @@ impl Command for KnownExternal {
                     span: call_span,
                 },
                 None,
+                None,
             ))
         }
 
@@ -83,6 +115,7 @@ impl Command for KnownExternal {
                     item: "redirect-stderr".into(),
                     span: call_span,
                 },
+                None,
                 None,
             ))
         }

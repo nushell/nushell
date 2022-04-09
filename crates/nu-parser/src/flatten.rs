@@ -150,7 +150,7 @@ pub fn flatten_expression(
             }
             for named in call.named_iter() {
                 args.push((named.0.span, FlatShape::Flag));
-                if let Some(expr) = &named.1 {
+                if let Some(expr) = &named.2 {
                     args.extend(flatten_expression(working_set, expr));
                 }
             }

@@ -366,3 +366,11 @@ fn reuseable_in() -> TestResult {
         "6",
     )
 }
+
+#[test]
+fn better_operator_spans() -> TestResult {
+    run_test(
+        r#"metadata ({foo: 10} | (20 - $in.foo)) | get span | $in.start < $in.end"#,
+        "true",
+    )
+}

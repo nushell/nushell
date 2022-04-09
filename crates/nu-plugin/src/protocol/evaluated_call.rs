@@ -29,7 +29,7 @@ impl EvaluatedCall {
             .collect::<Result<Vec<Value>, ShellError>>()?;
 
         let mut named = Vec::with_capacity(call.named_len());
-        for (string, expr) in call.named_iter() {
+        for (string, _, expr) in call.named_iter() {
             let value = match expr {
                 None => None,
                 Some(expr) => Some(eval_expression(engine_state, stack, expr)?),
