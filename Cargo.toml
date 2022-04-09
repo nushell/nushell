@@ -34,7 +34,6 @@ members = [
 [dependencies]
 chrono = "0.4.19"
 crossterm = "0.23.0"
-crossterm_winapi = "0.9.0"
 ctrlc = "3.2.1"
 log = "0.4"
 miette = "4.1.0"
@@ -52,7 +51,6 @@ nu-protocol = { path = "./crates/nu-protocol", version = "0.60.1"  }
 nu-system = { path = "./crates/nu-system", version = "0.60.1" }
 nu-table = { path = "./crates/nu-table", version = "0.60.1"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.60.1"  }
-nu-utils = { path = "./crates/nu-utils", version = "0.60.1" }
 pretty_env_logger = "0.4.0"
 rayon = "1.5.1"
 #reedline = {version = "0.3.0", features = ["bashisms"]}
