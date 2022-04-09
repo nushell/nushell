@@ -1,6 +1,6 @@
 use crate::DirBuilder;
 use crate::DirInfo;
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Local};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -479,7 +479,7 @@ pub(crate) fn dir_entry_dict(
             if let Ok(c) = md.created() {
                 let utc: DateTime<Local> = c.into();
                 vals.push(Value::Date {
-                    val: utc.with_timezone(utc.offset()).into(),
+                    val: utc.with_timezone(utc.offset()),
                     span,
                 });
             } else {
@@ -490,7 +490,7 @@ pub(crate) fn dir_entry_dict(
             if let Ok(a) = md.accessed() {
                 let utc: DateTime<Local> = a.into();
                 vals.push(Value::Date {
-                    val: utc.with_timezone(utc.offset()).into(),
+                    val: utc.with_timezone(utc.offset()),
                     span,
                 });
             } else {
@@ -502,7 +502,7 @@ pub(crate) fn dir_entry_dict(
         if let Ok(m) = md.modified() {
             let utc: DateTime<Local> = m.into();
             vals.push(Value::Date {
-                val: utc.with_timezone(utc.offset()).into(),
+                val: utc.with_timezone(utc.offset()),
                 span,
             });
         } else {
