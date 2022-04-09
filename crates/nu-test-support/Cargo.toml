@@ -11,13 +11,9 @@ doctest = false
 
 [dependencies]
 nu-path = { path="../nu-path", version = "0.60.1"  }
-nu-protocol = { path="../nu-protocol", version = "0.60.1"  }
 nu-glob = { path = "../nu-glob", version = "0.60.1" }
 
-bigdecimal = { package = "bigdecimal", version = "0.3.0", features = ["serde"] }
-chrono = "0.4.19"
 getset = "0.1.1"
-indexmap = { version="1.6.1", features=["serde-1"] }
 num-bigint = { version="0.4.3", features=["serde"] }
 tempfile = "3.2.0"
 hamcrest2 = "0.3.0"

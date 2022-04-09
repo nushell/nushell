@@ -257,18 +257,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
-name = "bigdecimal"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aaf33151a6429fe9211d1b276eafdf70cdff28b071e76c0b0e1503221ea3744"
-dependencies = [
- "num-bigint 0.4.3",
- "num-integer",
- "num-traits",
- "serde",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2247,7 +2235,6 @@ dependencies = [
  "assert_cmd",
  "chrono",
  "crossterm",
- "crossterm_winapi",
  "ctrlc",
  "embed-resource",
  "hamcrest2",
@@ -2270,7 +2257,6 @@ dependencies = [
  "nu-table",
  "nu-term-grid",
  "nu-test-support",
- "nu-utils",
  "pretty_assertions",
  "pretty_env_logger",
  "rayon",
@@ -2295,7 +2281,6 @@ name = "nu-cli"
 version = "0.60.1"
 dependencies = [
  "crossterm",
- "crossterm_winapi",
  "is_executable",
  "log",
  "miette 4.2.1",
@@ -2509,8 +2494,6 @@ dependencies = [
  "ntapi",
  "once_cell",
  "procfs",
- "users",
- "which",
  "winapi",
 ]
 
@@ -2539,14 +2522,10 @@ dependencies = [
 name = "nu-test-support"
 version = "0.60.1"
 dependencies = [
- "bigdecimal",
- "chrono",
  "getset",
  "hamcrest2",
- "indexmap",
  "nu-glob",
  "nu-path",
- "nu-protocol",
  "num-bigint 0.4.3",
  "tempfile",
 ]
