@@ -2293,7 +2293,6 @@ name = "nu-cli"
 version = "0.60.1"
 dependencies = [
  "crossterm",
- "crossterm_winapi",
  "is_executable",
  "log",
  "miette 4.2.1",
