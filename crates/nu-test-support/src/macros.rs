@@ -49,6 +49,8 @@ macro_rules! nu {
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };
 
+        println!("paths_joined: {:?}", paths_joined);
+
         let target_cwd = $crate::fs::in_directory(&$cwd);
 
         let mut process = match Command::new($crate::fs::executable_path())
