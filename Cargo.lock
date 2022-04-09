@@ -2506,8 +2506,6 @@ dependencies = [
  "ntapi",
  "once_cell",
  "procfs",
- "users",
- "which",
  "winapi",
 ]
 
