@@ -8,8 +8,9 @@ use crate::{
 
 use nu_protocol::{
     ast::{
-        Block, Call, CellPath, Expr, Expression, FullCellPath, ImportPattern, ImportPatternHead,
-        ImportPatternMember, Operator, PathMember, Pipeline, RangeInclusion, RangeOperator,
+        Argument, Block, Call, CellPath, Expr, Expression, FullCellPath, ImportPattern,
+        ImportPatternHead, ImportPatternMember, Operator, PathMember, Pipeline, RangeInclusion,
+        RangeOperator,
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
@@ -127,16 +128,16 @@ pub fn trim_quotes(bytes: &[u8]) -> &[u8] {
 
 pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError> {
     // Allow the call to pass if they pass in the help flag
-    if call.named.iter().any(|(n, _)| n.item == "help") {
+    if call.named_iter().any(|(n, _)| n.item == "help") {
         return None;
     }
 
-    if call.positional.len() < sig.required_positional.len() {
+    if call.positional_len() < sig.required_positional.len() {
         // Comparing the types of all signature positional arguments against the parsed
         // expressions found in the call. If one type is not found then it could be assumed
         // that that positional argument is missing from the parsed call
         for argument in &sig.required_positional {
-            let found = call.positional.iter().fold(false, |ac, expr| {
+            let found = call.positional_iter().fold(false, |ac, expr| {
                 if argument.shape.to_type() == expr.ty || argument.shape == SyntaxShape::Any {
                     true
                 } else {
@@ -144,7 +145,7 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
                 }
             });
             if !found {
-                if let Some(last) = call.positional.last() {
+                if let Some(last) = call.positional_iter().last() {
                     return Some(ParseError::MissingPositional(
                         argument.name.clone(),
                         Span {
@@ -166,8 +167,8 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
             }
         }
 
-        let missing = &sig.required_positional[call.positional.len()];
-        if let Some(last) = call.positional.last() {
+        let missing = &sig.required_positional[call.positional_len()];
+        if let Some(last) = call.positional_iter().last() {
             Some(ParseError::MissingPositional(
                 missing.name.clone(),
                 Span {
@@ -188,7 +189,7 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
         }
     } else {
         for req_flag in sig.named.iter().filter(|x| x.required) {
-            if call.named.iter().all(|(n, _)| n.item != req_flag.long) {
+            if call.named_iter().all(|(n, _)| n.item != req_flag.long) {
                 return Some(ParseError::MissingRequiredFlag(
                     req_flag.long.clone(),
                     command,
@@ -743,7 +744,7 @@ pub fn parse_internal_call(
         if let Some(long_name) = long_name {
             // We found a long flag, like --bar
             error = error.or(err);
-            call.named.push((long_name, arg));
+            call.add_named((long_name, arg));
             spans_idx += 1;
             continue;
         }
@@ -766,7 +767,7 @@ pub fn parse_internal_call(
                             parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
                         error = error.or(err);
 
-                        call.named.push((
+                        call.add_named((
                             Spanned {
                                 item: flag.long.clone(),
                                 span: spans[spans_idx],
@@ -783,7 +784,7 @@ pub fn parse_internal_call(
                         })
                     }
                 } else {
-                    call.named.push((
+                    call.add_named((
                         Spanned {
                             item: flag.long.clone(),
                             span: spans[spans_idx],
@@ -844,10 +845,10 @@ pub fn parse_internal_call(
             } else {
                 arg
             };
-            call.positional.push(arg);
+            call.add_positional(arg);
             positional_idx += 1;
         } else {
-            call.positional.push(Expression::garbage(arg_span));
+            call.add_positional(Expression::garbage(arg_span));
             error = error.or_else(|| {
                 Some(ParseError::ExtraPositional(
                     signature.call_signature(),
@@ -4384,26 +4385,25 @@ pub fn parse_expression(
                 env_vars.push(sh.1);
             }
 
-            let positional = vec![
-                Expression {
+            let arguments = vec![
+                Argument::Positional(Expression {
                     expr: Expr::List(env_vars),
                     span: span(&spans[..pos]),
                     ty: Type::Any,
                     custom_completion: None,
-                },
-                Expression {
+                }),
+                Argument::Positional(Expression {
                     expr: Expr::Block(block_id),
                     span: span(&spans[pos..]),
                     ty,
                     custom_completion: None,
-                },
+                }),
             ];
 
             let expr = Expr::Call(Box::new(Call {
                 head: Span { start: 0, end: 0 },
                 decl_id,
-                named: vec![],
-                positional,
+                arguments,
                 redirect_stdout: true,
                 redirect_stderr: false,
             }));
@@ -4657,7 +4657,7 @@ pub fn parse_block(
                                         if let Some(Expression {
                                             expr: Expr::Keyword(_, _, expr),
                                             ..
-                                        }) = call.positional.get_mut(1)
+                                        }) = call.positional_iter_mut().nth(1)
                                         {
                                             if expr.has_in_variable(working_set) {
                                                 *expr = Box::new(wrap_expr_with_collect(
@@ -4810,14 +4810,14 @@ pub fn discover_captures_in_expr(
                 }
             }
 
-            for named in &call.named {
+            for named in call.named_iter() {
                 if let Some(arg) = &named.1 {
                     let result = discover_captures_in_expr(working_set, arg, seen, seen_blocks);
                     output.extend(&result);
                 }
             }
 
-            for positional in &call.positional {
+            for positional in call.positional_iter() {
                 let result = discover_captures_in_expr(working_set, positional, seen, seen_blocks);
                 output.extend(&result);
             }
@@ -4985,12 +4985,12 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
 
         let block_id = working_set.add_block(block);
 
-        output.push(Expression {
+        output.push(Argument::Positional(Expression {
             expr: Expr::Block(block_id),
             span,
             ty: Type::Any,
             custom_completion: None,
-        });
+        }));
 
         // The containing, synthetic call to `collect`.
         // We don't want to have a real span as it will confuse flattening
@@ -4998,8 +4998,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         Expression {
             expr: Expr::Call(Box::new(Call {
                 head: Span::new(0, 0),
-                named: vec![],
-                positional: output,
+                arguments: output,
                 decl_id,
                 redirect_stdout: true,
                 redirect_stderr: false,

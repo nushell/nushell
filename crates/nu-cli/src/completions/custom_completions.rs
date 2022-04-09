@@ -1,7 +1,7 @@
 use crate::completions::{Completer, CompletionOptions, SortBy};
 use nu_engine::eval_call;
 use nu_protocol::{
-    ast::{Call, Expr, Expression},
+    ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Type, Value, CONFIG_VARIABLE_ID,
 };
@@ -92,21 +92,20 @@ impl Completer for CustomCompletion {
             &Call {
                 decl_id: self.decl_id,
                 head: span,
-                positional: vec![
-                    Expression {
+                arguments: vec![
+                    Argument::Positional(Expression {
                         span: Span { start: 0, end: 0 },
                         ty: Type::String,
                         expr: Expr::String(self.line.clone()),
                         custom_completion: None,
-                    },
-                    Expression {
+                    }),
+                    Argument::Positional(Expression {
                         span: Span { start: 0, end: 0 },
                         ty: Type::Int,
                         expr: Expr::Int(line_pos as i64),
                         custom_completion: None,
-                    },
+                    }),
                 ],
-                named: vec![],
                 redirect_stdout: true,
                 redirect_stderr: true,
             },

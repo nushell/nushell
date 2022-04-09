@@ -145,10 +145,10 @@ pub fn flatten_expression(
             let mut output = vec![(call.head, FlatShape::InternalCall)];
 
             let mut args = vec![];
-            for positional in &call.positional {
+            for positional in call.positional_iter() {
                 args.extend(flatten_expression(working_set, positional));
             }
-            for named in &call.named {
+            for named in call.named_iter() {
                 args.push((named.0.span, FlatShape::Flag));
                 if let Some(expr) = &named.1 {
                     args.extend(flatten_expression(working_set, expr));
