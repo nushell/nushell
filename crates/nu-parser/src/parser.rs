@@ -1085,7 +1085,7 @@ fn parse_binary_with_base(
     working_set: &mut StateWorkingSet,
     span: Span,
     base: u32,
-    digits_per_byte: usize,
+    min_digits_per_byte: usize,
     prefix: &[u8],
     suffix: &[u8],
 ) -> (Expression, Option<ParseError>) {
@@ -1119,20 +1119,21 @@ fn parse_binary_with_base(
                 }
             }
 
-            if binary_value.len() % digits_per_byte != 0 {
-                return (
-                    garbage(span),
-                    Some(ParseError::IncorrectValue(
-                        "incomplete binary".into(),
-                        span,
-                        "number of binary digits needs to form a whole number of bytes".into(),
-                    )),
-                );
+            let required_padding = (min_digits_per_byte - binary_value.len() % min_digits_per_byte)
+                % min_digits_per_byte;
+
+            if required_padding != 0 {
+                binary_value = {
+                    let mut tail = binary_value;
+                    let mut binary_value: Vec<u8> = vec![b'0'; required_padding];
+                    binary_value.append(&mut tail);
+                    binary_value
+                };
             }
 
             let str = String::from_utf8_lossy(&binary_value).to_string();
 
-            match decode_with_base(&str, base, digits_per_byte) {
+            match decode_with_base(&str, base, min_digits_per_byte) {
                 Ok(v) => {
                     return (
                         Expression {

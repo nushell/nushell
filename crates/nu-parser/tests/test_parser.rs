@@ -76,6 +76,20 @@ pub fn parse_binary_with_hex_format() {
 }
 
 #[test]
+pub fn parse_binary_with_incomplete_hex_format() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let (block, err) = parse(&mut working_set, None, b"0x[3]", true, &[]);
+
+    assert!(err.is_none());
+    assert!(block.len() == 1);
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert_eq!(expressions[0].expr, Expr::Binary(vec![0x03]))
+}
+
+#[test]
 pub fn parse_binary_with_binary_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -87,6 +101,20 @@ pub fn parse_binary_with_binary_format() {
     let expressions = &block[0];
     assert!(expressions.len() == 1);
     assert_eq!(expressions[0].expr, Expr::Binary(vec![0b10101000]))
+}
+
+#[test]
+pub fn parse_binary_with_incomplete_binary_format() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let (block, err) = parse(&mut working_set, None, b"0b[10]", true, &[]);
+
+    assert!(err.is_none());
+    assert!(block.len() == 1);
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert_eq!(expressions[0].expr, Expr::Binary(vec![0b00000010]))
 }
 
 #[test]
