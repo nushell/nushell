@@ -81,7 +81,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
                         for (name, span) in names {
                             if let Some(id) = overlay.get_env_var_id(name) {
                                 output.push((name.clone(), id));
-                            } else if !overlay.has_decl(name) {
+                            } else if !overlay.has_decl(name) && !overlay.has_alias(name) {
                                 return Err(ShellError::EnvVarNotFoundAtRuntime(
                                     String::from_utf8_lossy(name).into(),
                                     *span,
