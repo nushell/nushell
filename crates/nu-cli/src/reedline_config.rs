@@ -543,6 +543,15 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     let mut insert_keybindings = default_vi_insert_keybindings();
     let mut normal_keybindings = default_vi_normal_keybindings();
 
+    match config.edit_mode.as_str() {
+        "emacs" => {
+            add_menu_keybindings(&mut emacs_keybindings);
+        }
+        _ => {
+            add_menu_keybindings(&mut insert_keybindings);
+            add_menu_keybindings(&mut normal_keybindings);
+        }
+    }
     for keybinding in parsed_keybindings {
         add_keybinding(
             &keybinding.mode,
@@ -555,20 +564,11 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     }
 
     match config.edit_mode.as_str() {
-        "emacs" => {
-            add_menu_keybindings(&mut emacs_keybindings);
-
-            Ok(KeybindingsMode::Emacs(emacs_keybindings))
-        }
-        _ => {
-            add_menu_keybindings(&mut insert_keybindings);
-            add_menu_keybindings(&mut normal_keybindings);
-
-            Ok(KeybindingsMode::Vi {
-                insert_keybindings,
-                normal_keybindings,
-            })
-        }
+        "emacs" => Ok(KeybindingsMode::Emacs(emacs_keybindings)),
+        _ => Ok(KeybindingsMode::Vi {
+            insert_keybindings,
+            normal_keybindings,
+        }),
     }
 }
 
