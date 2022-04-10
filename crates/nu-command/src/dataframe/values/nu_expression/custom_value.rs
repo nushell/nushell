@@ -1,10 +1,10 @@
-use super::NuLazyFrame;
+use super::NuExpression;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 
 // CustomValue implementation for NuDataFrame
-impl CustomValue for NuLazyFrame {
+impl CustomValue for NuExpression {
     fn typetag_name(&self) -> &'static str {
-        "lazyframe"
+        "expression"
     }
 
     fn typetag_deserialize(&self) {
@@ -12,7 +12,7 @@ impl CustomValue for NuLazyFrame {
     }
 
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        let cloned = NuLazyFrame(self.0.clone());
+        let cloned = NuExpression(self.0.clone());
 
         Value::CustomValue {
             val: Box::new(cloned),
@@ -25,8 +25,7 @@ impl CustomValue for NuLazyFrame {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        // TODO. Better representation of the lazy frame in nushell
-        Ok(Value::nothing(span))
+        Ok(self.to_value(span))
     }
 
     fn to_json(&self) -> nu_json::Value {

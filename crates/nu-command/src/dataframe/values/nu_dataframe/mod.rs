@@ -130,6 +130,7 @@ impl NuDataFrame {
 
         for value in iter {
             match value {
+                Value::CustomValue { .. } => return Self::try_from_value(value),
                 Value::List { vals, .. } => {
                     let cols = (0..vals.len())
                         .map(|i| format!("{}", i))
@@ -195,7 +196,7 @@ impl NuDataFrame {
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
         let value = input.into_value(span);
-        NuDataFrame::try_from_value(value)
+        Self::try_from_value(value)
     }
 
     pub fn column(&self, column: &str, span: Span) -> Result<Self, ShellError> {
