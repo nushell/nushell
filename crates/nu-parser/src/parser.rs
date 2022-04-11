@@ -1074,26 +1074,40 @@ pub fn parse_binary(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
-    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect()
+    let (hex_value, err) = parse_binary_with_base(working_set, span, 16, 2, b"0x[", b"]");
+    if err.is_some() {
+        return parse_binary_with_base(working_set, span, 2, 8, b"0b[", b"]");
     }
+    (hex_value, err)
+}
 
+fn parse_binary_with_base(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    base: u32,
+    min_digits_per_byte: usize,
+    prefix: &[u8],
+    suffix: &[u8],
+) -> (Expression, Option<ParseError>) {
     let token = working_set.get_span_contents(span);
 
-    if let Some(token) = token.strip_prefix(b"0x[") {
-        if let Some(token) = token.strip_suffix(b"]") {
-            let (lexed, err) = lex(token, span.start + 3, &[b',', b'\r', b'\n'], &[], true);
+    if let Some(token) = token.strip_prefix(prefix) {
+        if let Some(token) = token.strip_suffix(suffix) {
+            let (lexed, err) = lex(
+                token,
+                span.start + prefix.len(),
+                &[b',', b'\r', b'\n'],
+                &[],
+                true,
+            );
 
-            let mut hex_value = vec![];
+            let mut binary_value = vec![];
             for token in lexed {
                 match token.contents {
                     TokenContents::Item => {
                         let contents = working_set.get_span_contents(token.span);
 
-                        hex_value.extend_from_slice(contents);
+                        binary_value.extend_from_slice(contents);
                     }
                     TokenContents::Pipe => {
                         return (
@@ -1105,20 +1119,21 @@ pub fn parse_binary(
                 }
             }
 
-            if hex_value.len() % 2 != 0 {
-                return (
-                    garbage(span),
-                    Some(ParseError::IncorrectValue(
-                        "incomplete binary".into(),
-                        span,
-                        "number of binary digits needs to be a multiple of 2".into(),
-                    )),
-                );
+            let required_padding = (min_digits_per_byte - binary_value.len() % min_digits_per_byte)
+                % min_digits_per_byte;
+
+            if required_padding != 0 {
+                binary_value = {
+                    let mut tail = binary_value;
+                    let mut binary_value: Vec<u8> = vec![b'0'; required_padding];
+                    binary_value.append(&mut tail);
+                    binary_value
+                };
             }
 
-            let str = String::from_utf8_lossy(&hex_value).to_string();
+            let str = String::from_utf8_lossy(&binary_value).to_string();
 
-            match decode_hex(&str) {
+            match decode_with_base(&str, base, min_digits_per_byte) {
                 Ok(v) => {
                     return (
                         Expression {
@@ -1147,6 +1162,13 @@ pub fn parse_binary(
         garbage(span),
         Some(ParseError::Expected("binary".into(), span)),
     )
+}
+
+fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8>, ParseIntError> {
+    (0..s.len())
+        .step_by(digits_per_byte)
+        .map(|i| u8::from_str_radix(&s[i..i + digits_per_byte], base))
+        .collect()
 }
 
 pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
