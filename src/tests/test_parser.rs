@@ -1,4 +1,5 @@
-use crate::tests::{fail_test, run_test, TestResult};
+use crate::tests::{fail_test, run_test, run_test_with_env, TestResult};
+use std::collections::HashMap;
 
 use super::run_test_contains;
 
@@ -197,9 +198,11 @@ fn equals_separates_long_flag() -> TestResult {
 
 #[test]
 fn let_env_expressions() -> TestResult {
-    run_test(
-        r#"let-env PATH = if (env | any? name == VENV_OLD_PATH) { $env.VENV_OLD_PATH } else { $env.PATH }; echo done"#,
-        "done",
+    let env = HashMap::from([("VENV_OLD_PATH", "Foobar"), ("Path", "Quux")]);
+    run_test_with_env(
+        r#"let-env Path = if (env | any? name == VENV_OLD_PATH) { $env.VENV_OLD_PATH } else { $env.Path }; echo $env.Path"#,
+        "Foobar",
+        &env,
     )
 }
 
