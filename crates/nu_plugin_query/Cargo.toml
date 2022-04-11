@@ -1,6 +1,6 @@
 [package]
 authors = ["The Nushell Project Developers"]
-description = "A set of query commands for Nushell"
+description = "A Nushell plugin to query JSON, XML, and various web data"
 edition = "2021"
 license = "MIT"
 name = "nu_plugin_query"

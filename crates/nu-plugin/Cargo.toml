@@ -1,6 +1,6 @@
 [package]
 authors = ["The Nushell Project Developers"]
-description = "A set of query commands for Nushell"
+description = "Functionality for building Nushell plugins"
 edition = "2021"
 license = "MIT"
 name = "nu-plugin"
