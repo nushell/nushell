@@ -1,6 +1,6 @@
 [package]
 authors = ["The Nushell Project Developers"]
-description = "A set of query commands for Nushell"
+description = "Nushell's parser"
 edition = "2021"
 license = "MIT"
 name = "nu-parser"
