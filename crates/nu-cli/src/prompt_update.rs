@@ -147,6 +147,10 @@ pub(crate) fn update_prompt<'prompt>(
         (prompt_vi_insert_string, prompt_vi_normal_string),
     );
 
+    if config.use_ansi_coloring {
+        nu_prompt.enable_shell_integration();
+    }
+
     let ret_val = nu_prompt as &dyn Prompt;
     if is_perf_true {
         info!("update_prompt {}:{}:{}", file!(), line!(), column!());
