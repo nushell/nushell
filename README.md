@@ -274,9 +274,10 @@ Please submit an issue or PR to be added to this list.
 -   [zoxide](https://github.com/ajeetdsouza/zoxide)
 -   [starship](https://github.com/starship/starship)
 -   [oh-my-posh](https://ohmyposh.dev)
+-   [Couchbase Shell](https://github.com/couchbaselabs/couchbase-shell)
 ###   Mentions
 -   [The Python Launcher for Unix](https://github.com/brettcannon/python-launcher#how-do-i-get-a-table-of-python-executables-in-nushell)
--   [Couchbase Shell](https://github.com/couchbaselabs/couchbase-shell)
+
 ## Contributing
 
 See [Contributing](CONTRIBUTING.md) for details.
