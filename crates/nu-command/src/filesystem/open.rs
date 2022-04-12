@@ -2,10 +2,12 @@ use nu_engine::{eval_block, get_full_help, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Spanned,
-    SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Value,
 };
-use std::io::{BufRead, BufReader, Read};
+use rusqlite::types::ValueRef;
+use rusqlite::{Connection, Row};
+use std::io::{BufRead, BufReader, Read, Seek};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -91,32 +93,39 @@ impl Command for Open {
             );
             #[cfg(not(unix))]
             let error_msg = String::from("Permission denied");
-            Ok(PipelineData::Value(
-                Value::Error {
-                    error: ShellError::SpannedLabeledError(
-                        "Permission denied".into(),
-                        error_msg,
-                        arg_span,
-                    ),
-                },
-                None,
-            ))
+            return Err(ShellError::SpannedLabeledError(
+                "Permission denied".into(),
+                error_msg,
+                arg_span,
+            ));
         } else {
-            let file = match std::fs::File::open(path) {
+            let mut file = match std::fs::File::open(path) {
                 Ok(file) => file,
                 Err(err) => {
-                    return Ok(PipelineData::Value(
-                        Value::Error {
-                            error: ShellError::SpannedLabeledError(
-                                "Permission denied".into(),
-                                err.to_string(),
-                                arg_span,
-                            ),
-                        },
-                        None,
+                    return Err(ShellError::SpannedLabeledError(
+                        "Permission denied".into(),
+                        err.to_string(),
+                        arg_span,
                     ));
                 }
             };
+
+            // Peek at the file to see if we can detect a SQLite database
+            if !raw {
+                let sqlite_magic_bytes = "SQLite format 3\0".as_bytes();
+                let mut buf: [u8; 16] = [0; 16];
+
+                if let Ok(_) = file.read_exact(&mut buf) {
+                    if buf == sqlite_magic_bytes {
+                        return open_and_read_sqlite_db(path, call_span)
+                            .map(|val| PipelineData::Value(val, None));
+                    }
+                }
+
+                if let Err(_) = file.rewind() {
+                    return Err(ShellError::IOError("Failed to rewind file".into()));
+                };
+            }
 
             let buf_reader = BufReader::new(file);
 
@@ -161,8 +170,13 @@ impl Command for Open {
     fn examples(&self) -> Vec<nu_protocol::Example> {
         vec![
             Example {
-                description: "Open a file, with structure (based on file extension)",
+                description: "Open a file, with structure (based on file extension) if possible",
                 example: "open myfile.json",
+                result: None,
+            },
+            Example {
+                description: "Open a SQLite database (detected by looking for the SQLite file format) with structure",
+                example: "open northwind.db",
                 result: None,
             },
             Example {
@@ -181,6 +195,106 @@ impl Command for Open {
                 result: None,
             },
         ]
+    }
+}
+
+fn open_and_read_sqlite_db(path: &Path, call_span: Span) -> Result<Value, nu_protocol::ShellError> {
+    let path = path.to_string_lossy().to_string();
+
+    match Connection::open(path) {
+        Ok(conn) => match read_sqlite_db(conn, call_span) {
+            Ok(data) => Ok(data),
+            Err(err) => Err(ShellError::SpannedLabeledError(
+                "Failed to read from SQLite database".into(),
+                err.to_string(),
+                call_span,
+            )),
+        },
+        Err(err) => {
+            return Err(ShellError::SpannedLabeledError(
+                "Failed to open SQLite database".into(),
+                err.to_string(),
+                call_span,
+            ));
+        }
+    }
+}
+
+fn read_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rusqlite::Error> {
+    let mut table_names: Vec<String> = Vec::new();
+    let mut tables: Vec<Value> = Vec::new();
+
+    let mut get_table_names =
+        conn.prepare("SELECT name from sqlite_master where type = 'table'")?;
+    let rows = get_table_names.query_map([], |row| Ok(row.get(0)?))?;
+
+    for row in rows {
+        let table_name: String = row?;
+        table_names.push(table_name.clone());
+
+        let mut rows = Vec::new();
+        let mut table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
+        let mut table_rows = table_stmt.query([])?;
+        while let Some(table_row) = table_rows.next()? {
+            rows.push(convert_sqlite_row_to_nu_value(table_row, call_span))
+        }
+
+        let table_record = Value::List {
+            vals: rows,
+            span: call_span,
+        };
+
+        tables.push(table_record);
+    }
+
+    Ok(Value::Record {
+        cols: table_names,
+        vals: tables,
+        span: call_span,
+    })
+}
+
+fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
+    let mut vals = Vec::new();
+    let colnamestr = row.as_ref().column_names().to_vec();
+    let colnames = colnamestr.iter().map(|s| s.to_string()).collect();
+
+    for (i, c) in row.as_ref().column_names().iter().enumerate() {
+        let _column = c.to_string();
+        let val = convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), span);
+        vals.push(val);
+    }
+
+    Value::Record {
+        cols: colnames,
+        vals: vals,
+        span: span,
+    }
+}
+
+fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
+    match value {
+        ValueRef::Null => Value::Nothing { span },
+        ValueRef::Integer(i) => Value::Int { val: i, span: span },
+        ValueRef::Real(f) => Value::Float { val: f, span: span },
+        ValueRef::Text(buf) => {
+            let s = match std::str::from_utf8(buf) {
+                Ok(v) => v,
+                Err(_) => {
+                    return Value::Error {
+                        error: ShellError::NonUtf8(span),
+                    }
+                }
+            };
+            Value::String {
+                val: s.to_string(),
+                span: span,
+            }
+        }
+        ValueRef::Blob(u) => Value::Binary {
+            val: u.to_vec(),
+            span: span,
+        },
     }
 }
 
