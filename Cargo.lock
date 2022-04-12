@@ -1996,13 +1996,13 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "4.2.1"
+version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7ea7314b2a8dd373c2f2d2322e866ddea5d62ffd3d6cd7f2bb8c1467e56529f"
+checksum = "0a097de91d72c13382f60213ed9f7f7a26afd8bee0ea320b47f886a9a67ca5a1"
 dependencies = [
  "atty",
  "backtrace",
- "miette-derive 4.2.1",
+ "miette-derive 4.4.0",
  "once_cell",
  "owo-colors",
  "supports-color",
@@ -2027,9 +2027,9 @@ dependencies = [
 
 [[package]]
 name = "miette-derive"
-version = "4.2.1"
+version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c547b28d4f52cae473fb5a30ca087ed7fc5d1bac150bd6dfd9ec0a4562303aa3"
+checksum = "45a95a48d0bc28f9af628286e8a4da09f96f34a97744a2e9a5a4db9814ad527d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2218,7 +2218,7 @@ dependencies = [
  "is_executable",
  "itertools",
  "log",
- "miette 4.2.1",
+ "miette 4.4.0",
  "nu-ansi-term",
  "nu-cli",
  "nu-color-config",
@@ -2260,7 +2260,7 @@ dependencies = [
  "crossterm",
  "is_executable",
  "log",
- "miette 4.2.1",
+ "miette 4.4.0",
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
@@ -2404,7 +2404,7 @@ version = "0.61.0"
 dependencies = [
  "chrono",
  "log",
- "miette 4.2.1",
+ "miette 4.4.0",
  "nu-path",
  "nu-plugin",
  "nu-protocol",
@@ -2448,7 +2448,7 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "indexmap",
- "miette 4.2.1",
+ "miette 4.4.0",
  "nu-json",
  "num-format",
  "regex",
@@ -4287,9 +4287,9 @@ checksum = "507e9898683b6c43a9aa55b64259b721b52ba226e0f3779137e50ad114a4c90b"
 
 [[package]]
 name = "textwrap"
-version = "0.14.2"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0066c8d12af8b5acd21e00547c3797fde4e8677254a7ee429176ccebbe93dd80"
+checksum = "b1141d4d61095b28419e22cb0bbf02755f5e54e0526f97f1e3d1d160e60885fb"
 dependencies = [
  "smawk",
  "unicode-linebreak",
