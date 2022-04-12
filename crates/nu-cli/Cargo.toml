@@ -18,8 +18,7 @@ nu-color-config = { path = "../nu-color-config", version = "0.61.0"  }
 crossterm = "0.23.0"
 miette = { version = "4.1.0", features = ["fancy"] }
 thiserror = "1.0.29"
-#reedline = {"0.3.0", features = ["bashisms"]}
-reedline = { git = "https://github.com/nushell/reedline", branch = "main", features = ["bashisms"]}
+reedline = { version = "0.4.0", features = ["bashisms"]}
 
 log = "0.4"
 is_executable = "1.0.1"
