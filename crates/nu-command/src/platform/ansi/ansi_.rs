@@ -130,12 +130,12 @@ lazy_static! {
     AnsiCode{ short_name: Some("dgrd"), long_name: "dark_gray_dimmed", code: Color::DarkGray.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("dgrr"), long_name: "dark_gray_reverse", code: Color::DarkGray.reverse().prefix().to_string()},
 
-    AnsiCode{ short_name: Some("der"), long_name: "default", code: Color::Default.prefix().to_string()},
-    AnsiCode{ short_name: Some("deb"), long_name: "default_bold", code: Color::Default.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("deu"), long_name: "default_underline", code: Color::Default.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("dei"), long_name: "default_italic", code: Color::Default.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("ded"), long_name: "default_dimmed", code: Color::Default.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("der"), long_name: "default_reverse", code: Color::Default.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("def"), long_name: "default", code: Color::Default.prefix().to_string()},
+    AnsiCode{ short_name: Some("defb"), long_name: "default_bold", code: Color::Default.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("defu"), long_name: "default_underline", code: Color::Default.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("defi"), long_name: "default_italic", code: Color::Default.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("defd"), long_name: "default_dimmed", code: Color::Default.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("defr"), long_name: "default_reverse", code: Color::Default.reverse().prefix().to_string()},
 
     AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
     // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797

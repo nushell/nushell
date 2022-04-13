@@ -161,6 +161,13 @@ pub fn lookup_ansi_color_style(s: &str) -> Style {
             "dgrbl" | "dark_gray_blink" => Color::DarkGray.blink(),
             "dgrst" | "dark_gray_strike" => Color::DarkGray.strikethrough(),
 
+            "def" | "default" => Color::Default.normal(),
+            "defb" | "default_bold" => Color::Default.bold(),
+            "defu" | "default_underline" => Color::Default.underline(),
+            "defi" | "default_italic" => Color::Default.italic(),
+            "defd" | "default_dimmed" => Color::Default.dimmed(),
+            "defr" | "default_reverse" => Color::Default.reverse(),
+
             _ => Color::White.normal(),
         }
     }
