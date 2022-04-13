@@ -84,63 +84,38 @@ fn parses_more_bson_complexity() {
 
 // sample.db has the following format:
 //
-// ━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━
-//  # │ table_name │ table_values
-// ───┼────────────┼──────────────
-//  0 │ strings    │ [6 items]
-//  1 │ ints       │ [5 items]
-//  2 │ floats     │ [4 items]
-// ━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━
+// ╭─────────┬────────────────╮
+// │ strings │ [table 6 rows] │
+// │ ints    │ [table 5 rows] │
+// │ floats  │ [table 4 rows] │
+// ╰─────────┴────────────────╯
 //
 // In this case, this represents a sqlite database
 // with three tables named `strings`, `ints`, and `floats`.
-// The table_values represent the values for the tables:
 //
-// ━━━━┯━━━━━━━┯━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  #  │ x     │ y        │ z    │ f
-// ────┼───────┼──────────┼──────┼──────────────────────────────────────────────────────────────────────
-//   0 │ hello │ <binary> │      │
-//   1 │ hello │ <binary> │      │
-//   2 │ hello │ <binary> │      │
-//   3 │ hello │ <binary> │      │
-//   4 │ world │ <binary> │      │
-//   5 │ world │ <binary> │      │
-//   6 │       │          │    1 │
-//   7 │       │          │   42 │
-//   8 │       │          │  425 │
-//   9 │       │          │ 4253 │
-//  10 │       │          │      │
-//  11 │       │          │      │                                                    3.400000000000000
-//  12 │       │          │      │                                                    3.141592650000000
-//  13 │       │          │      │                                                    23.00000000000000
-//  14 │       │          │      │ this string that doesn't really belong here but sqlite is what it is
-// ━━━━┷━━━━━━━┷━━━━━━━━━━┷━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//
-// We can see here that each table has different columns. `strings` has `x` and `y`, while
-// `ints` has just `z`, and `floats` has only the column `f`. This means, in general, when working
+// Each table has different columns. `strings` has `x` and `y`, while
+// `ints` has just `z`, and `floats` has only the column `f`. In general, when working
 // with sqlite, one will want to select a single table, e.g.:
 //
-// open sample.db | select 1 | get table_values
-// ━━━┯━━━━━━
-//  # │ z
-// ───┼──────
-//  0 │    1
-//  1 │   42
-//  2 │  425
-//  3 │ 4253
-//  4 │
-// ━━━┷━━━━━━
+// open sample.db | get ints
+// ╭───┬──────╮
+// │ # │  z   │
+// ├───┼──────┤
+// │ 0 │    1 │
+// │ 1 │   42 │
+// │ 2 │  425 │
+// │ 3 │ 4253 │
+// │ 4 │      │
+// ╰───┴──────╯
 
-#[cfg(feature = "sqlite")]
 #[test]
 fn parses_sqlite() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample.db
-            | get table_values
-            | select 2
-            | get x
+            | get strings
+            | get x.0
         "#
     ));
 

@@ -7,7 +7,6 @@ mod json;
 mod markdown;
 mod nuon;
 mod ods;
-mod sqlite;
 mod ssv;
 mod toml;
 mod tsv;
