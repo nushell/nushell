@@ -5,7 +5,7 @@
 # Other tags: nushell/debian-nu.0.61, nushell
 FROM debian:bullseye-slim
 
-LABEL maintainer=hustcer<hustcer@outlook.com>
+LABEL maintainer=nushell
 
 RUN apt update \
     && apt upgrade -y \
@@ -21,11 +21,11 @@ RUN apt update \
     && mkdir -p /root/.config/nushell && cd /root/.config/nushell \
     && aria2c https://raw.githubusercontent.com/nushell/nushell/main/docs/sample_config/default_env.nu -o env.nu \
     && aria2c https://raw.githubusercontent.com/nushell/nushell/main/docs/sample_config/default_config.nu -o config.nu \
-    # Cleanup nu source and cargo caches, etc.
+    # Do some cleanup work
     && cd /lib; rm -rf nu_0* nu-latest.tar.gz \
     && rm -rf /var/lib/apt/lists/* && apt autoremove -y \
     && echo '/usr/local/bin/nu' >> /etc/shells \
-    # Add and nushell user and create home dir
-    && useradd -m -s /user/local/bin/nu nushell
+    # Add an nushell user and create home dir
+    && useradd -m -s /usr/local/bin/nu nushell
 
 CMD [ "nu" ]
