@@ -152,11 +152,11 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::invalid_probability), url(docsrs))]
     InvalidProbability(#[label = "invalid probability"] Span),
 
-    /// The first number in a `..` range is greater than the second one. Reverse ranges are not supported.
+    /// The first value in a `..` range must be compatible with the second one.
     ///
     /// ## Resolution
     ///
-    /// Check the range values to make sure the left input is less than the right input.
+    /// Check to make sure both values are compatible, and that the values are enumerable in Nushell.
     #[error("Invalid range {0}..{1}")]
     #[diagnostic(code(nu::shell::invalid_range), url(docsrs))]
     InvalidRange(String, String, #[label = "expected a valid range"] Span),
@@ -190,7 +190,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::variable_not_found), url(docsrs))]
     VariableNotFoundAtRuntime(#[label = "variable not found"] Span),
 
-    /// A referened environment variable was not found at runtime.
+    /// A referenced environment variable was not found at runtime.
     ///
     /// ## Resolution
     ///
