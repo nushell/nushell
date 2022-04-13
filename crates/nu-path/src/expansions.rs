@@ -73,3 +73,16 @@ where
 
     expand_path(path)
 }
+
+/// Resolve similarly to other shells - tilde is expanded, and ndot path components are expanded.
+///
+/// This function will take a leading tilde path component, and expand it to the user's home directory;
+/// it will also expand any path elements consisting of only dots into the correct number of `..` path elements.
+/// It does not touch the system at all, except for getting the home directory of the current user.
+pub fn expand_path_for_external_programs<P>(path: P) -> PathBuf
+where
+    P: AsRef<Path>,
+{
+    let path = expand_tilde(path);
+    expand_ndots(path)
+}

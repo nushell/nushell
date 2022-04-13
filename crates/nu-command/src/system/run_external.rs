@@ -397,25 +397,10 @@ impl ExternalCommand {
 
     /// Spawn a command without shelling out to an external shell
     pub fn spawn_simple_command(&self, cwd: &str) -> Result<std::process::Command, ShellError> {
-        let is_path = |arg: &str| {
-            let head = match arg.split_once(::std::path::is_separator) {
-                Some((x, _)) => x,
-                None => arg,
-            };
-            head == "~" || head.chars().all(|ch| ch == '.')
-        };
-        let expand_path = |arg: String| {
-            if is_path(&arg) {
-                nu_path::expand_path_with(arg, cwd)
-                    .to_string_lossy()
-                    .to_string()
-            } else {
-                arg
-            }
-        };
-
         let head = trim_enclosing_quotes(&self.name.item);
-        let head = expand_path(head);
+        let head = nu_path::expand_path_for_external_programs(head)
+            .to_string_lossy()
+            .to_string();
 
         let mut process = std::process::Command::new(&head);
 
@@ -424,7 +409,9 @@ impl ExternalCommand {
                 item: trim_enclosing_quotes(&arg.item),
                 span: arg.span,
             };
-            arg.item = expand_path(arg.item);
+            arg.item = nu_path::expand_path_for_external_programs(arg.item)
+                .to_string_lossy()
+                .to_string();
 
             let cwd = PathBuf::from(cwd);
 
