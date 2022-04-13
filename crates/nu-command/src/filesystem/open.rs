@@ -338,3 +338,109 @@ impl<R: Read> Iterator for BufferedReader<R> {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn can_read_empty_db() {
+        let db = Connection::open_in_memory().unwrap();
+        let converted_db = read_sqlite_db(db, Span::test_data()).unwrap();
+
+        let expected = Value::Record {
+            cols: vec![],
+            vals: vec![],
+            span: Span::test_data(),
+        };
+
+        assert_eq!(converted_db, expected);
+    }
+
+    #[test]
+    fn can_read_empty_table() {
+        let db = Connection::open_in_memory().unwrap();
+
+        db.execute(
+            "CREATE TABLE person (
+                    id     INTEGER PRIMARY KEY,
+                    name   TEXT NOT NULL,
+                    data   BLOB
+                    )",
+            [],
+        )
+        .unwrap();
+        let converted_db = read_sqlite_db(db, Span::test_data()).unwrap();
+
+        let expected = Value::Record {
+            cols: vec!["person".to_string()],
+            vals: vec![Value::List {
+                vals: vec![],
+                span: Span::test_data(),
+            }],
+            span: Span::test_data(),
+        };
+
+        assert_eq!(converted_db, expected);
+    }
+
+    #[test]
+    fn can_read_null_and_non_null_data() {
+        let span = Span::test_data();
+        let db = Connection::open_in_memory().unwrap();
+
+        db.execute(
+            "CREATE TABLE item (
+                    id     INTEGER PRIMARY KEY,
+                    name   TEXT
+                    )",
+            [],
+        )
+        .unwrap();
+
+        db.execute("INSERT INTO item (id, name) VALUES (123, NULL)", [])
+            .unwrap();
+
+        db.execute("INSERT INTO item (id, name) VALUES (456, 'foo bar')", [])
+            .unwrap();
+
+        let converted_db = read_sqlite_db(db, span).unwrap();
+
+        let expected = Value::Record {
+            cols: vec!["item".to_string()],
+            vals: vec![Value::List {
+                vals: vec![
+                    Value::Record {
+                        cols: vec!["id".to_string(), "name".to_string()],
+                        vals: vec![
+                            Value::Int {
+                                val: 123,
+                                span: span,
+                            },
+                            Value::Nothing { span: span },
+                        ],
+                        span: span,
+                    },
+                    Value::Record {
+                        cols: vec!["id".to_string(), "name".to_string()],
+                        vals: vec![
+                            Value::Int {
+                                val: 456,
+                                span: span,
+                            },
+                            Value::String {
+                                val: "foo bar".to_string(),
+                                span: span,
+                            },
+                        ],
+                        span: span,
+                    },
+                ],
+                span: span,
+            }],
+            span: span,
+        };
+
+        assert_eq!(converted_db, expected);
+    }
+}
