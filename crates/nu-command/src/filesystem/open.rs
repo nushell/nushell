@@ -93,11 +93,11 @@ impl Command for Open {
             );
             #[cfg(not(unix))]
             let error_msg = String::from("Permission denied");
-            return Err(ShellError::SpannedLabeledError(
+            Err(ShellError::SpannedLabeledError(
                 "Permission denied".into(),
                 error_msg,
                 arg_span,
-            ));
+            ))
         } else {
             let mut file = match std::fs::File::open(path) {
                 Ok(file) => file,
@@ -115,14 +115,12 @@ impl Command for Open {
                 let sqlite_magic_bytes = "SQLite format 3\0".as_bytes();
                 let mut buf: [u8; 16] = [0; 16];
 
-                if let Ok(_) = file.read_exact(&mut buf) {
-                    if buf == sqlite_magic_bytes {
-                        return open_and_read_sqlite_db(path, call_span)
-                            .map(|val| PipelineData::Value(val, None));
-                    }
+                if file.read_exact(&mut buf).is_ok() && buf == sqlite_magic_bytes {
+                    return open_and_read_sqlite_db(path, call_span)
+                        .map(|val| PipelineData::Value(val, None));
                 }
 
-                if let Err(_) = file.rewind() {
+                if file.rewind().is_err() {
                     return Err(ShellError::IOError("Failed to rewind file".into()));
                 };
             }
@@ -170,13 +168,8 @@ impl Command for Open {
     fn examples(&self) -> Vec<nu_protocol::Example> {
         vec![
             Example {
-                description: "Open a file, with structure (based on file extension) if possible",
+                description: "Open a file, with structure (based on file extension or SQLite database header)",
                 example: "open myfile.json",
-                result: None,
-            },
-            Example {
-                description: "Open a SQLite database (detected by looking for the SQLite file format) with structure",
-                example: "open northwind.db",
                 result: None,
             },
             Example {
@@ -210,13 +203,11 @@ fn open_and_read_sqlite_db(path: &Path, call_span: Span) -> Result<Value, nu_pro
                 call_span,
             )),
         },
-        Err(err) => {
-            return Err(ShellError::SpannedLabeledError(
-                "Failed to open SQLite database".into(),
-                err.to_string(),
-                call_span,
-            ));
-        }
+        Err(err) => Err(ShellError::SpannedLabeledError(
+            "Failed to open SQLite database".into(),
+            err.to_string(),
+            call_span,
+        )),
     }
 }
 
@@ -226,7 +217,7 @@ fn read_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rusqlite::
 
     let mut get_table_names =
         conn.prepare("SELECT name from sqlite_master where type = 'table'")?;
-    let rows = get_table_names.query_map([], |row| Ok(row.get(0)?))?;
+    let rows = get_table_names.query_map([], |row| row.get(0))?;
 
     for row in rows {
         let table_name: String = row?;
@@ -267,16 +258,16 @@ fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
 
     Value::Record {
         cols: colnames,
-        vals: vals,
-        span: span,
+        vals,
+        span,
     }
 }
 
 fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
     match value {
         ValueRef::Null => Value::Nothing { span },
-        ValueRef::Integer(i) => Value::Int { val: i, span: span },
-        ValueRef::Real(f) => Value::Float { val: f, span: span },
+        ValueRef::Integer(i) => Value::Int { val: i, span },
+        ValueRef::Real(f) => Value::Float { val: f, span },
         ValueRef::Text(buf) => {
             let s = match std::str::from_utf8(buf) {
                 Ok(v) => v,
@@ -288,12 +279,12 @@ fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
             };
             Value::String {
                 val: s.to_string(),
-                span: span,
+                span,
             }
         }
         ValueRef::Blob(u) => Value::Binary {
             val: u.to_vec(),
-            span: span,
+            span,
         },
     }
 }
@@ -438,7 +429,7 @@ mod test {
                 ],
                 span: span,
             }],
-            span: span,
+            span,
         };
 
         assert_eq!(converted_db, expected);
