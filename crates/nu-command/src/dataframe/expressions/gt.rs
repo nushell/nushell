@@ -47,6 +47,7 @@ impl Command for ExprGt {
     ) -> Result<PipelineData, ShellError> {
         let literal: Value = call.req(engine_state, stack, 0)?;
         let literal = NuExpression::try_from_value(literal)?;
+
         let expr = NuExpression::try_from_pipeline(input, call.head)?;
         let expr = expr.apply_with_expr(literal, Expr::gt);
 

@@ -1,3 +1,4 @@
+mod alias;
 mod command;
 mod dsl;
 mod gt;
@@ -7,6 +8,7 @@ use nu_protocol::engine::StateWorkingSet;
 
 use crate::dataframe::expressions::dsl::*;
 
+use crate::dataframe::expressions::alias::ExprAlias;
 use crate::dataframe::expressions::command::LazyExpression;
 use crate::dataframe::expressions::gt::ExprGt;
 use crate::dataframe::expressions::to_nu::ExprToNu;
@@ -22,5 +24,12 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
         }
 
     // Dataframe commands
-    bind_command!(LazyExpression, ExprCol, ExprGt, ExprLit, ExprToNu);
+    bind_command!(
+        LazyExpression,
+        ExprAlias,
+        ExprCol,
+        ExprGt,
+        ExprLit,
+        ExprToNu
+    );
 }

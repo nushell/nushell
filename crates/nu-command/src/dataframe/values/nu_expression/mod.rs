@@ -2,20 +2,14 @@ mod custom_value;
 
 use core::fmt;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
-use polars::prelude::Expr;
-use polars::prelude::Literal;
+use polars::prelude::{Expr, Literal};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // Polars Expression wrapper for Nushell operations
 // Object is behind and Option to allow easy implementation of
 // the Deserialize trait
+#[derive(Default, Clone)]
 pub struct NuExpression(Option<Expr>);
-
-impl Default for NuExpression {
-    fn default() -> Self {
-        Self(None)
-    }
-}
 
 // Mocked serialization of the LazyFrame object
 impl Serialize for NuExpression {
@@ -99,7 +93,7 @@ impl NuExpression {
         Self::try_from_value(value)
     }
 
-    pub fn to_polars(self) -> Expr {
+    pub fn into_polars(self) -> Expr {
         self.0.expect("Expression cannot be none to convert")
     }
 
@@ -132,6 +126,7 @@ impl NuExpression {
 pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
     let cols = vec!["expr".to_string(), "value".to_string()];
 
+    println!("{:?}", expr);
     match expr {
         Expr::Not(_) => todo!(),
         Expr::Alias(..) => todo!(),
@@ -158,7 +153,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                     .iter()
                     .map(|col| Value::String {
                         val: col.clone(),
-                        span: span.clone(),
+                        span,
                     })
                     .collect(),
                 span,
@@ -181,7 +176,23 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let vals = vec![expr_type, value];
             Value::Record { cols, vals, span }
         }
-        Expr::BinaryExpr { .. } => todo!(),
+        Expr::BinaryExpr { left, op, right } => {
+            let left_val = expr_to_value(&left, span.clone());
+            let right_val = expr_to_value(&right, span.clone());
+
+            let operator = Value::String {
+                val: format!("{:?}", op),
+                span: span.clone(),
+            };
+
+            let cols = vec!["left".to_string(), "op".to_string(), "right".to_string()];
+
+            Value::Record {
+                cols,
+                vals: vec![left_val, operator, right_val],
+                span,
+            }
+        }
         Expr::IsNotNull(_) => todo!(),
         Expr::IsNull(_) => todo!(),
         Expr::Cast { .. } => todo!(),

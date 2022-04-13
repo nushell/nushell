@@ -3,9 +3,9 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use polars::prelude::{col, cols};
+use polars::prelude::col;
 
 #[derive(Clone)]
 pub struct ExprCol;
@@ -22,18 +22,31 @@ impl Command for ExprCol {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "column(s) name",
-                SyntaxShape::Any,
-                "Name of column(s) to be used",
+                "column name",
+                SyntaxShape::String,
+                "Name of column to be used",
             )
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Creates a named column expression",
-            example: "expr col col_a",
-            result: None,
+            description: "Creates a named column expression and converts it to a nu object",
+            example: "expr col col_a | expr to-nu",
+            result: Some(Value::Record {
+                cols: vec!["expr".into(), "value".into()],
+                vals: vec![
+                    Value::String {
+                        val: "column".into(),
+                        span: Span::test_data(),
+                    },
+                    Value::String {
+                        val: "col_a".into(),
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }),
         }]
     }
 
@@ -44,36 +57,21 @@ impl Command for ExprCol {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let names: Value = call.req(engine_state, stack, 0)?;
+        let name: String = call.req(engine_state, stack, 0)?;
+        let expr = NuExpression::new(col(name.as_str()));
 
-        let expr = match names {
-            Value::String { val, .. } => Ok(NuExpression::new(col(val.as_str()))),
-            Value::List { vals, .. } => vals
-                .iter()
-                .map(|val| val.as_string())
-                .collect::<Result<Vec<String>, ShellError>>()
-                .map(|names| NuExpression::new(cols(names))),
-            _ => Err(ShellError::SpannedLabeledError(
-                "Incorrect type for columns".into(),
-                "Expected string or list of strings".into(),
-                names.span()?,
-            )),
-        }?;
-
-        Ok(PipelineData::Value(
-            NuExpression::into_value(expr, call.head),
-            None,
-        ))
+        Ok(PipelineData::Value(expr.into_value(call.head), None))
     }
 }
 
-//#[cfg(test)]
-//mod test {
-//    use super::super::super::test_dataframe::test_dataframe;
-//    use super::*;
-//
-//    #[test]
-//    fn test_examples() {
-//        test_dataframe(vec![Box::new(ExprCol {})])
-//    }
-//}
+#[cfg(test)]
+mod test {
+    use super::super::super::super::test_dataframe::test_dataframe;
+    use super::super::super::ExprToNu;
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        test_dataframe(vec![Box::new(ExprCol {}), Box::new(ExprToNu {})])
+    }
+}

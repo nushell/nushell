@@ -3,7 +3,7 @@ use super::super::values::NuExpression;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature,
+    Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -11,11 +11,11 @@ pub struct ExprToNu;
 
 impl Command for ExprToNu {
     fn name(&self) -> &str {
-        "expr to_nu"
+        "expr to-nu"
     }
 
     fn usage(&self) -> &str {
-        "Convert expression to a nu value"
+        "Convert expression to a nu value for access and exploration"
     }
 
     fn signature(&self) -> Signature {
@@ -24,9 +24,22 @@ impl Command for ExprToNu {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "",
-            example: "",
-            result: None,
+            description: "Convert a col expression into a nushell value",
+            example: "expr col col_a | expr to-nu",
+            result: Some(Value::Record {
+                cols: vec!["expr".into(), "value".into()],
+                vals: vec![
+                    Value::String {
+                        val: "column".into(),
+                        span: Span::test_data(),
+                    },
+                    Value::String {
+                        val: "col_a".into(),
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }),
         }]
     }
 
@@ -44,13 +57,14 @@ impl Command for ExprToNu {
     }
 }
 
-//#[cfg(test)]
-//mod test {
-//    use super::super::super::test_dataframe::test_dataframe;
-//    use super::*;
-//
-//    #[test]
-//    fn test_examples() {
-//        test_dataframe(vec![Box::new(ExprToNu {})])
-//    }
-//}
+#[cfg(test)]
+mod test {
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::super::ExprCol;
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        test_dataframe(vec![Box::new(ExprToNu {}), Box::new(ExprCol {})])
+    }
+}

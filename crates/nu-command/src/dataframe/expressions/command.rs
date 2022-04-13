@@ -17,6 +17,11 @@ impl Command for LazyExpression {
         "Lazy dataframe expressions"
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"Expressions are the backbone of lazy frames. They represent the chained 
+operations that can be performed with a lazy dataframe"#
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name()).category(Category::Custom("dataframe".into()))
     }

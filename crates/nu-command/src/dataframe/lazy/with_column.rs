@@ -9,23 +9,23 @@ use nu_protocol::{
 use polars::prelude::LazyFrame;
 
 #[derive(Clone)]
-pub struct LazyFilter;
+pub struct LazyWithColumn;
 
-impl Command for LazyFilter {
+impl Command for LazyWithColumn {
     fn name(&self) -> &str {
-        "dfl filter"
+        "dfl with-column"
     }
 
     fn usage(&self) -> &str {
-        "filters a dataframe based on an expression"
+        "Adds a new column for the dataframe"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "filter expression",
+                "Defining expression",
                 SyntaxShape::Any,
-                "filtering expression",
+                "Expression to create the column",
             )
             .category(Category::Custom("dataframe".into()))
     }
@@ -49,7 +49,7 @@ impl Command for LazyFilter {
         let expr = NuExpression::try_from_value(expr)?;
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
-        let lazy = lazy.apply_with_expr(expr, LazyFrame::filter);
+        let lazy = lazy.apply_with_expr(expr, LazyFrame::with_column);
 
         Ok(PipelineData::Value(
             NuLazyFrame::into_value(lazy, call.head),
@@ -65,6 +65,6 @@ impl Command for LazyFilter {
 //
 //    #[test]
 //    fn test_examples() {
-//        test_dataframe(vec![Box::new(LazyFilter {})])
+//        test_dataframe(vec![Box::new(LazyWithColumn {})])
 //    }
 //}

@@ -9,13 +9,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 // Lazyframe wrapper for Nushell operations
 // Polars LazyFrame is behind and Option to allow easy implementation of
 // the Deserialize trait
+#[derive(Default)]
 pub struct NuLazyFrame(Option<LazyFrame>);
-
-impl Default for NuLazyFrame {
-    fn default() -> Self {
-        Self(None)
-    }
-}
 
 // Mocked serialization of the LazyFrame object
 impl Serialize for NuLazyFrame {
@@ -114,12 +109,22 @@ impl NuLazyFrame {
         Self::try_from_value(value)
     }
 
+    pub fn apply<F>(self, f: F) -> Self
+    where
+        F: Fn(LazyFrame) -> LazyFrame,
+    {
+        let df = self.0.expect("Lazy frame must not be empty to apply");
+        let new_frame = f(df);
+
+        Self::new(new_frame)
+    }
+
     pub fn apply_with_expr<F>(self, expr: NuExpression, f: F) -> Self
     where
         F: Fn(LazyFrame, Expr) -> LazyFrame,
     {
         let df = self.0.expect("Lazy frame must not be empty to apply");
-        let expr = expr.to_polars();
+        let expr = expr.into_polars();
         let new_frame = f(df, expr);
 
         Self::new(new_frame)

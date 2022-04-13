@@ -1,31 +1,30 @@
-use super::super::values::NuLazyFrame;
-use crate::dataframe::values::NuExpression;
+use super::super::values::NuExpression;
+
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape,
 };
-use polars::prelude::LazyFrame;
 
 #[derive(Clone)]
-pub struct LazyFilter;
+pub struct ExprAlias;
 
-impl Command for LazyFilter {
+impl Command for ExprAlias {
     fn name(&self) -> &str {
-        "dfl filter"
+        "expr alias"
     }
 
     fn usage(&self) -> &str {
-        "filters a dataframe based on an expression"
+        "Creates an alias expression"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "filter expression",
-                SyntaxShape::Any,
-                "filtering expression",
+                "Alias name",
+                SyntaxShape::String,
+                "Alias name for the expression",
             )
             .category(Category::Custom("dataframe".into()))
     }
@@ -45,14 +44,14 @@ impl Command for LazyFilter {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let expr: Value = call.req(engine_state, stack, 0)?;
-        let expr = NuExpression::try_from_value(expr)?;
+        let alias: String = call.req(engine_state, stack, 0)?;
 
-        let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
-        let lazy = lazy.apply_with_expr(expr, LazyFrame::filter);
+        let expr = NuExpression::try_from_pipeline(input, call.head)?;
+        let expr = expr.into_polars().alias(alias.as_str());
+        let expr = NuExpression::new(expr);
 
         Ok(PipelineData::Value(
-            NuLazyFrame::into_value(lazy, call.head),
+            NuExpression::into_value(expr, call.head),
             None,
         ))
     }
@@ -65,6 +64,6 @@ impl Command for LazyFilter {
 //
 //    #[test]
 //    fn test_examples() {
-//        test_dataframe(vec![Box::new(LazyFilter {})])
+//        test_dataframe(vec![Box::new(ExprAlias {})])
 //    }
 //}

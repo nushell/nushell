@@ -1,14 +1,18 @@
 mod collect;
 mod command;
 mod filter;
+mod reverse;
 mod to_lazy;
+mod with_column;
 
 use nu_protocol::engine::StateWorkingSet;
 
 use crate::dataframe::lazy::collect::LazyCollect;
 use crate::dataframe::lazy::command::LazyDataframe;
 use crate::dataframe::lazy::filter::LazyFilter;
+use crate::dataframe::lazy::reverse::LazyReverse;
 use crate::dataframe::lazy::to_lazy::ToLazyFrame;
+use crate::dataframe::lazy::with_column::LazyWithColumn;
 
 pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {
@@ -21,5 +25,12 @@ pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
         }
 
     // Dataframe commands
-    bind_command!(LazyDataframe, ToLazyFrame, LazyCollect, LazyFilter);
+    bind_command!(
+        LazyDataframe,
+        ToLazyFrame,
+        LazyCollect,
+        LazyFilter,
+        LazyReverse,
+        LazyWithColumn
+    );
 }
