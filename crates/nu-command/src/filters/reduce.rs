@@ -129,7 +129,8 @@ impl Command for Reduce {
 
         let mut acc = start_val;
 
-        for (idx, x) in input_iter.enumerate() {
+        let mut input_iter = input_iter.enumerate().peekable();
+        while let Some((idx, x)) = input_iter.next() {
             stack.with_env(&orig_env_vars, &orig_env_hidden);
             // if the acc coming from previous iter is indexed, drop the index
             acc = if let Value::Record { cols, vals, .. } = &acc {
@@ -178,7 +179,8 @@ impl Command for Reduce {
                 &mut stack,
                 block,
                 PipelineData::new(span),
-                redirect_stdout,
+                // redirect stdout until its the last input value
+                redirect_stdout || input_iter.peek().is_some(),
                 redirect_stderr,
             )?
             .into_value(span);
