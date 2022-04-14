@@ -194,7 +194,7 @@ impl Command for Char {
                 result: Some(Value::test_string("\u{1f378}")),
             },
             Example {
-                description: "Create unicode from integer",
+                description: "Create Unicode from integer codepoint values",
                 example: r#"char -i (0x60 + 1) (0x60 + 2)"#,
                 result: Some(Value::test_string("ab")),
             },
