@@ -164,6 +164,7 @@ impl Command for Char {
             .rest("rest", SyntaxShape::String, "multiple Unicode bytes")
             .switch("list", "List all supported character names", Some('l'))
             .switch("unicode", "Unicode string i.e. 1f378", Some('u'))
+            .switch("integer", "Create a codepoint from an integer", Some('i'))
             .category(Category::Strings)
     }
 
@@ -193,9 +194,9 @@ impl Command for Char {
                 result: Some(Value::test_string("\u{1f378}")),
             },
             Example {
-                description: "Output a character from an integer",
-                example: r#"char -u 0x61"#,
-                result: Some(Value::test_string("a")),
+                description: "Create Unicode from integer codepoint values",
+                example: r#"char -i (0x60 + 1) (0x60 + 2)"#,
+                result: Some(Value::test_string("ab")),
             },
             Example {
                 description: "Output multi-byte Unicode character",
@@ -240,8 +241,25 @@ impl Command for Char {
                 .into_pipeline_data(engine_state.ctrlc.clone()));
         }
         // handle -u flag
-        if call.has_flag("unicode") {
-            let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        if call.has_flag("integer") {
+            let args: Vec<i64> = call.rest(engine_state, stack, 0)?;
+            if args.is_empty() {
+                return Err(ShellError::MissingParameter(
+                    "missing at least one unicode character".into(),
+                    call_span,
+                ));
+            }
+            let mut multi_byte = String::new();
+            for (i, &arg) in args.iter().enumerate() {
+                let span = call
+                    .positional_nth(i)
+                    .expect("Unexpected missing argument")
+                    .span;
+                multi_byte.push(integer_to_unicode_char(arg, &span)?)
+            }
+            Ok(Value::string(multi_byte, call_span).into_pipeline_data())
+        } else if call.has_flag("unicode") {
+            let args: Vec<String> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
                 return Err(ShellError::MissingParameter(
                     "missing at least one unicode character".into(),
@@ -254,7 +272,7 @@ impl Command for Char {
                     .positional_nth(i)
                     .expect("Unexpected missing argument")
                     .span;
-                multi_byte.push(value_to_unicode_char(arg, &span)?)
+                multi_byte.push(string_to_unicode_char(arg, &span)?)
             }
             Ok(Value::string(multi_byte, call_span).into_pipeline_data())
         } else {
@@ -280,14 +298,23 @@ impl Command for Char {
     }
 }
 
-fn value_to_unicode_char(value: &Value, t: &Span) -> Result<char, ShellError> {
-    let decoded_char = match *value {
-        Value::String { ref val, .. } => u32::from_str_radix(val, 16)
-            .ok()
-            .and_then(std::char::from_u32),
-        Value::Int { val, .. } => val.try_into().ok().and_then(std::char::from_u32),
-        _ => return Err(ShellError::TypeMismatch("string or int".to_owned(), *t)),
-    };
+fn integer_to_unicode_char(value: i64, t: &Span) -> Result<char, ShellError> {
+    let decoded_char = value.try_into().ok().and_then(std::char::from_u32);
+
+    if let Some(ch) = decoded_char {
+        Ok(ch)
+    } else {
+        Err(ShellError::UnsupportedInput(
+            "not a valid Unicode codepoint".into(),
+            *t,
+        ))
+    }
+}
+
+fn string_to_unicode_char(s: &str, t: &Span) -> Result<char, ShellError> {
+    let decoded_char = u32::from_str_radix(s, 16)
+        .ok()
+        .and_then(std::char::from_u32);
 
     if let Some(ch) = decoded_char {
         Ok(ch)
