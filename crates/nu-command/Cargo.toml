@@ -32,7 +32,7 @@ bytesize = "1.1.0"
 calamine = "0.18.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 chrono-humanize = "0.2.1"
-chrono-tz = "0.6.0"
+chrono-tz = "0.6.1"
 crossterm = "0.23.0"
 csv = "1.1.6"
 dialoguer = "0.9.0"
