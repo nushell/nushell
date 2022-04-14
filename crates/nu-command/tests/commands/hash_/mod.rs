@@ -93,7 +93,7 @@ fn md5_works_with_file() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        open sample.db | hash md5
+        open sample.db --raw | hash md5
         "#
         )
     );
@@ -106,7 +106,7 @@ fn sha256_works_with_file() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        open sample.db | hash sha256
+        open sample.db --raw | hash sha256
         "#
         )
     );
