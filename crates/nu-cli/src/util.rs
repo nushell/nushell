@@ -1,7 +1,7 @@
 use crate::CliError;
 use log::trace;
 use nu_engine::eval_block;
-use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
+use nu_parser::{lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
     ast::Call,
@@ -110,13 +110,20 @@ pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
     }
 
     fn put_env_to_fake_file(name: &str, val: &str, fake_env_file: &mut String) {
-        fake_env_file.push('`');
-        fake_env_file.push_str(name);
-        fake_env_file.push('`');
+        fn push_string_literal(s: &str, fake_env_file: &mut String) {
+            fake_env_file.push('"');
+            for c in s.chars() {
+                if c == '\\' || c == '"' {
+                    fake_env_file.push('\\');
+                }
+                fake_env_file.push(c);
+            }
+            fake_env_file.push('"');
+        }
+
+        push_string_literal(name, fake_env_file);
         fake_env_file.push('=');
-        fake_env_file.push('`');
-        fake_env_file.push_str(val);
-        fake_env_file.push('`');
+        push_string_literal(val, fake_env_file);
         fake_env_file.push('\n');
     }
 
@@ -184,8 +191,19 @@ pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
                     continue;
                 }
 
-                let bytes = trim_quotes(bytes);
-                String::from_utf8_lossy(bytes).to_string()
+                let (bytes, parse_error) = unescape_unquote_string(bytes, *span);
+
+                if parse_error.is_some() {
+                    report_capture_error(
+                        engine_state,
+                        &String::from_utf8_lossy(contents),
+                        "Got unparsable name.",
+                    );
+
+                    continue;
+                }
+
+                bytes
             } else {
                 report_capture_error(
                     engine_state,
@@ -213,10 +231,20 @@ pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
                     continue;
                 }
 
-                let bytes = trim_quotes(bytes);
+                let (bytes, parse_error) = unescape_unquote_string(bytes, *span);
+
+                if parse_error.is_some() {
+                    report_capture_error(
+                        engine_state,
+                        &String::from_utf8_lossy(contents),
+                        "Got unparsable value.",
+                    );
+
+                    continue;
+                }
 
                 Value::String {
-                    val: String::from_utf8_lossy(bytes).to_string(),
+                    val: bytes,
                     span: *span,
                 }
             } else {
