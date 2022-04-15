@@ -98,6 +98,10 @@ pub fn print_pipeline_data(
 // env vars into it (in a "NAME"="value" format, quite similar to the output of the Unix 'env'
 // tool), then uses the file to get the spans. The file stays in memory, no filesystem IO is done.
 pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
+    gather_env_vars(std::env::vars(), engine_state);
+}
+
+fn gather_env_vars(vars: impl Iterator<Item = (String, String)>, engine_state: &mut EngineState) {
     fn report_capture_error(engine_state: &EngineState, env_str: &str, msg: &str) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
@@ -128,9 +132,17 @@ pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
     }
 
     let mut fake_env_file = String::new();
+    let mut has_pwd = false;
 
-    // Make sure we always have PWD
-    if std::env::var("PWD").is_err() {
+    // Write all the env vars into a fake file
+    for (name, val) in vars {
+        if name == "PWD" {
+            has_pwd = true;
+        }
+        put_env_to_fake_file(&name, &val, &mut fake_env_file);
+    }
+
+    if !has_pwd {
         match std::env::current_dir() {
             Ok(cwd) => {
                 put_env_to_fake_file("PWD", &cwd.to_string_lossy(), &mut fake_env_file);
@@ -147,11 +159,6 @@ pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
                 );
             }
         }
-    }
-
-    // Write all the env vars into a fake file
-    for (name, val) in std::env::vars() {
-        put_env_to_fake_file(&name, &val, &mut fake_env_file);
     }
 
     // Lex the fake file, assign spans to all environment variables and add them
@@ -376,5 +383,34 @@ pub fn get_init_cwd() -> PathBuf {
                 None => PathBuf::new(),
             },
         },
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_gather_env_vars() {
+        let mut engine_state = EngineState::new();
+        let symbols = r##" !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"##;
+
+        gather_env_vars(
+            [
+                ("FOO".into(), "foo".into()),
+                ("SYMBOLS".into(), symbols.into()),
+                (symbols.into(), "symbols".into()),
+            ]
+            .into_iter(),
+            &mut engine_state,
+        );
+
+        let env = engine_state.env_vars;
+
+        assert!(matches!(env.get("FOO"), Some(Value::String { val, .. }) if val == "foo"));
+        assert!(matches!(env.get("SYMBOLS"), Some(Value::String { val, .. }) if val == symbols));
+        assert!(matches!(env.get(symbols), Some(Value::String { val, .. }) if val == "symbols"));
+        assert!(env.get("PWD").is_some());
+        assert_eq!(env.len(), 4);
     }
 }
