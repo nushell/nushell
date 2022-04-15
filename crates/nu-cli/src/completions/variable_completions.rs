@@ -1,6 +1,6 @@
 use crate::completions::{Completer, CompletionOptions};
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
@@ -9,13 +9,15 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct VariableCompletion {
     engine_state: Arc<EngineState>,
+    stack: Stack,
     previous_expr: Vec<u8>,
 }
 
 impl VariableCompletion {
-    pub fn new(engine_state: Arc<EngineState>, previous_expr: Vec<u8>) -> Self {
+    pub fn new(engine_state: Arc<EngineState>, stack: Stack, previous_expr: Vec<u8>) -> Self {
         Self {
             engine_state,
+            stack,
             previous_expr,
         }
     }
@@ -38,9 +40,9 @@ impl Completer for VariableCompletion {
 
         // Completions for the given variable (e.g: $env.<tab> for completing $env.SOMETHING)
         if !self.previous_expr.is_empty() && previous_expr_str.as_str() == "$env" {
-            for env_var in working_set.list_env() {
+            for env_var in self.stack.get_env_vars(&self.engine_state) {
                 output.push(Suggestion {
-                    value: env_var,
+                    value: env_var.0,
                     description: None,
                     extra: None,
                     span: reedline::Span {

@@ -105,8 +105,11 @@ impl NuCompleter {
 
                         // Variables completion
                         if prefix.starts_with(b"$") || is_variable_completion {
-                            let mut completer =
-                                VariableCompletion::new(self.engine_state.clone(), previous_expr);
+                            let mut completer = VariableCompletion::new(
+                                self.engine_state.clone(),
+                                self.stack.clone(),
+                                previous_expr,
+                            );
 
                             return self.process_completion(
                                 &mut completer,
