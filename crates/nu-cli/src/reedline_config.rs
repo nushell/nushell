@@ -543,6 +543,15 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     let mut insert_keybindings = default_vi_insert_keybindings();
     let mut normal_keybindings = default_vi_normal_keybindings();
 
+    match config.edit_mode.as_str() {
+        "emacs" => {
+            add_menu_keybindings(&mut emacs_keybindings);
+        }
+        _ => {
+            add_menu_keybindings(&mut insert_keybindings);
+            add_menu_keybindings(&mut normal_keybindings);
+        }
+    }
     for keybinding in parsed_keybindings {
         add_keybinding(
             &keybinding.mode,
@@ -555,20 +564,11 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     }
 
     match config.edit_mode.as_str() {
-        "emacs" => {
-            add_menu_keybindings(&mut emacs_keybindings);
-
-            Ok(KeybindingsMode::Emacs(emacs_keybindings))
-        }
-        _ => {
-            add_menu_keybindings(&mut insert_keybindings);
-            add_menu_keybindings(&mut normal_keybindings);
-
-            Ok(KeybindingsMode::Vi {
-                insert_keybindings,
-                normal_keybindings,
-            })
-        }
+        "emacs" => Ok(KeybindingsMode::Emacs(emacs_keybindings)),
+        _ => Ok(KeybindingsMode::Vi {
+            insert_keybindings,
+            normal_keybindings,
+        }),
     }
 }
 
@@ -698,10 +698,11 @@ fn add_parsed_keybinding(
             ))
         }
     };
-
-    let event = parse_event(&keybinding.event, config)?;
-
-    keybindings.add_binding(modifier, keycode, event);
+    if let Some(event) = parse_event(&keybinding.event, config)? {
+        keybindings.add_binding(modifier, keycode, event);
+    } else {
+        keybindings.remove_binding(modifier, keycode);
+    }
 
     Ok(())
 }
@@ -726,7 +727,7 @@ impl<'config> EventType<'config> {
     }
 }
 
-fn parse_event(value: &Value, config: &Config) -> Result<ReedlineEvent, ShellError> {
+fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, ShellError> {
     match value {
         Value::Record { cols, vals, span } => {
             match EventType::try_from_columns(cols, vals, span)? {
@@ -736,7 +737,8 @@ fn parse_event(value: &Value, config: &Config) -> Result<ReedlineEvent, ShellErr
                     vals,
                     config,
                     span,
-                ),
+                )
+                .map(Some),
                 EventType::Edit(value) => {
                     let edit = edit_from_record(
                         value.into_string("", config).to_lowercase().as_str(),
@@ -745,16 +747,26 @@ fn parse_event(value: &Value, config: &Config) -> Result<ReedlineEvent, ShellErr
                         config,
                         span,
                     )?;
-                    Ok(ReedlineEvent::Edit(vec![edit]))
+                    Ok(Some(ReedlineEvent::Edit(vec![edit])))
                 }
                 EventType::Until(value) => match value {
                     Value::List { vals, .. } => {
                         let events = vals
                             .iter()
-                            .map(|value| parse_event(value, config))
+                            .map(|value| match parse_event(value, config) {
+                                Ok(inner) => match inner {
+                                    None => Err(ShellError::UnsupportedConfigValue(
+                                        "List containing valid events".to_string(),
+                                        "Nothing value (null)".to_string(),
+                                        value.span()?,
+                                    )),
+                                    Some(event) => Ok(event),
+                                },
+                                Err(e) => Err(e),
+                            })
                             .collect::<Result<Vec<ReedlineEvent>, ShellError>>()?;
 
-                        Ok(ReedlineEvent::UntilFound(events))
+                        Ok(Some(ReedlineEvent::UntilFound(events)))
                     }
                     v => Err(ShellError::UnsupportedConfigValue(
                         "list of events".to_string(),
@@ -767,13 +779,24 @@ fn parse_event(value: &Value, config: &Config) -> Result<ReedlineEvent, ShellErr
         Value::List { vals, .. } => {
             let events = vals
                 .iter()
-                .map(|value| parse_event(value, config))
+                .map(|value| match parse_event(value, config) {
+                    Ok(inner) => match inner {
+                        None => Err(ShellError::UnsupportedConfigValue(
+                            "List containing valid events".to_string(),
+                            "Nothing value (null)".to_string(),
+                            value.span()?,
+                        )),
+                        Some(event) => Ok(event),
+                    },
+                    Err(e) => Err(e),
+                })
                 .collect::<Result<Vec<ReedlineEvent>, ShellError>>()?;
 
-            Ok(ReedlineEvent::Multiple(events))
+            Ok(Some(ReedlineEvent::Multiple(events)))
         }
+        Value::Nothing { .. } => Ok(None),
         v => Err(ShellError::UnsupportedConfigValue(
-            "record or list of records".to_string(),
+            "record or list of records, null to unbind key".to_string(),
             v.into_abbreviated_string(config),
             v.span()?,
         )),
@@ -965,7 +988,7 @@ mod test {
         let config = Config::default();
 
         let parsed_event = parse_event(&event, &config).unwrap();
-        assert_eq!(parsed_event, ReedlineEvent::Enter);
+        assert_eq!(parsed_event, Some(ReedlineEvent::Enter));
     }
 
     #[test]
@@ -988,7 +1011,10 @@ mod test {
         let config = Config::default();
 
         let parsed_event = parse_event(&event, &config).unwrap();
-        assert_eq!(parsed_event, ReedlineEvent::Edit(vec![EditCommand::Clear]));
+        assert_eq!(
+            parsed_event,
+            Some(ReedlineEvent::Edit(vec![EditCommand::Clear]))
+        );
     }
 
     #[test]
@@ -1019,7 +1045,7 @@ mod test {
         let parsed_event = parse_event(&event, &config).unwrap();
         assert_eq!(
             parsed_event,
-            ReedlineEvent::Menu("history_menu".to_string())
+            Some(ReedlineEvent::Menu("history_menu".to_string()))
         );
     }
 
@@ -1078,10 +1104,10 @@ mod test {
         let parsed_event = parse_event(&event, &config).unwrap();
         assert_eq!(
             parsed_event,
-            ReedlineEvent::UntilFound(vec![
+            Some(ReedlineEvent::UntilFound(vec![
                 ReedlineEvent::Menu("history_menu".to_string()),
                 ReedlineEvent::Enter,
-            ])
+            ]))
         );
     }
 
@@ -1129,10 +1155,10 @@ mod test {
         let parsed_event = parse_event(&event, &config).unwrap();
         assert_eq!(
             parsed_event,
-            ReedlineEvent::Multiple(vec![
+            Some(ReedlineEvent::Multiple(vec![
                 ReedlineEvent::Menu("history_menu".to_string()),
                 ReedlineEvent::Enter,
-            ])
+            ]))
         );
     }
 

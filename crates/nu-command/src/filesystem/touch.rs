@@ -124,7 +124,7 @@ impl Command for Touch {
                 let size = val.len();
 
                 // Each stamp is a 2 digit number and the whole stamp must not be less than 4 or greater than 7 pairs
-                if (size % 2 != 0 || !(8..=14).contains(&size)) || val.parse::<usize>().is_err() {
+                if (size % 2 != 0 || !(8..=14).contains(&size)) || val.parse::<u64>().is_err() {
                     return Err(ShellError::UnsupportedInput(
                         "input has an invalid timestamp".to_string(),
                         span,

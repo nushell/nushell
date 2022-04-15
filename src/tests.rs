@@ -16,11 +16,24 @@ mod test_type_check;
 
 use assert_cmd::prelude::*;
 use pretty_assertions::assert_eq;
+use std::collections::HashMap;
 use std::io::Write;
 use std::process::Command;
 use tempfile::NamedTempFile;
 
 pub type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>) -> TestResult {
+    let mut file = NamedTempFile::new()?;
+    let name = file.path();
+
+    let mut cmd = Command::cargo_bin("nu")?;
+    cmd.arg(name).envs(env);
+
+    writeln!(file, "{}", input)?;
+
+    run_cmd_and_assert(cmd, expected)
+}
 
 #[cfg(test)]
 pub fn run_test(input: &str, expected: &str) -> TestResult {
@@ -32,6 +45,11 @@ pub fn run_test(input: &str, expected: &str) -> TestResult {
 
     writeln!(file, "{}", input)?;
 
+    run_cmd_and_assert(cmd, expected)
+}
+
+#[cfg(test)]
+fn run_cmd_and_assert(mut cmd: Command, expected: &str) -> TestResult {
     let output = cmd.output()?;
 
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();

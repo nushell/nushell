@@ -1,26 +1,24 @@
 [package]
 authors = ["The Nushell Project Developers"]
-description = "A set of query commands for Nushell"
+description = "CLI-related functionality for Nushell"
 edition = "2021"
 license = "MIT"
 name = "nu-cli"
-version = "0.60.1"
+version = "0.61.0"
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.60.1"  }
-nu-path = { path = "../nu-path", version = "0.60.1"  }
-nu-parser = { path = "../nu-parser", version = "0.60.1"  }
-nu-protocol = { path = "../nu-protocol", version = "0.60.1"  }
-nu-utils = { path = "../nu-utils", version = "0.60.1"  }
+nu-engine = { path = "../nu-engine", version = "0.61.0"  }
+nu-path = { path = "../nu-path", version = "0.61.0"  }
+nu-parser = { path = "../nu-parser", version = "0.61.0"  }
+nu-protocol = { path = "../nu-protocol", version = "0.61.0"  }
+nu-utils = { path = "../nu-utils", version = "0.61.0"  }
 nu-ansi-term = "0.45.1"
-nu-color-config = { path = "../nu-color-config", version = "0.60.1"  }
+nu-color-config = { path = "../nu-color-config", version = "0.61.0"  }
 
 crossterm = "0.23.0"
-crossterm_winapi = "0.9.0"
-miette = { version = "4.1.0", features = ["fancy"] }
+miette = { version = "4.4.0", features = ["fancy"] }
 thiserror = "1.0.29"
-#reedline = {"0.3.0", features = ["bashisms"]}
-reedline = { git = "https://github.com/nushell/reedline", branch = "main", features = ["bashisms"]}
+reedline = { version = "0.4.0", features = ["bashisms"]}
 
 log = "0.4"
 is_executable = "1.0.1"

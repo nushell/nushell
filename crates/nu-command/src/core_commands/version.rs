@@ -270,11 +270,6 @@ fn features_enabled() -> Vec<String> {
     //     names.push("bson".to_string());
     // }
 
-    // #[cfg(feature = "sqlite")]
-    // {
-    //     names.push("sqlite".to_string());
-    // }
-
     // #[cfg(feature = "s3")]
     // {
     //     names.push("s3".to_string());

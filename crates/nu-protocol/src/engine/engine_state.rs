@@ -166,16 +166,16 @@ impl Default for ScopeFrame {
 ///
 #[derive(Clone)]
 pub struct EngineState {
-    files: im::Vector<(String, usize, usize)>,
-    file_contents: im::Vector<(Vec<u8>, usize, usize)>,
-    vars: im::Vector<Variable>,
-    decls: im::Vector<Box<dyn Command + 'static>>,
-    aliases: im::Vector<Vec<Span>>,
-    blocks: im::Vector<Block>,
-    overlays: im::Vector<Overlay>,
-    pub scope: im::Vector<ScopeFrame>,
+    files: Vec<(String, usize, usize)>,
+    file_contents: Vec<(Vec<u8>, usize, usize)>,
+    vars: Vec<Variable>,
+    decls: Vec<Box<dyn Command + 'static>>,
+    aliases: Vec<Vec<Span>>,
+    blocks: Vec<Block>,
+    overlays: Vec<Overlay>,
+    pub scope: Vec<ScopeFrame>,
     pub ctrlc: Option<Arc<AtomicBool>>,
-    pub env_vars: im::HashMap<String, Value>,
+    pub env_vars: HashMap<String, Value>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
 }
@@ -189,22 +189,22 @@ pub const ENV_VARIABLE_ID: usize = 3;
 impl EngineState {
     pub fn new() -> Self {
         Self {
-            files: im::vector![],
-            file_contents: im::vector![],
-            vars: im::vector![
+            files: vec![],
+            file_contents: vec![],
+            vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any),
                 Variable::new(Span::new(0, 0), Type::Any),
                 Variable::new(Span::new(0, 0), Type::Any),
                 Variable::new(Span::new(0, 0), Type::Any),
-                Variable::new(Span::new(0, 0), Type::Any)
+                Variable::new(Span::new(0, 0), Type::Any),
             ],
-            decls: im::vector![],
-            aliases: im::vector![],
-            blocks: im::vector![],
-            overlays: im::vector![],
-            scope: im::vector![ScopeFrame::new()],
+            decls: vec![],
+            aliases: vec![],
+            blocks: vec![],
+            overlays: vec![],
+            scope: vec![ScopeFrame::new()],
             ctrlc: None,
-            env_vars: im::HashMap::new(),
+            env_vars: HashMap::new(),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
         }
@@ -232,7 +232,7 @@ impl EngineState {
         self.blocks.extend(delta.blocks);
         self.overlays.extend(delta.overlays);
 
-        if let Some(last) = self.scope.back_mut() {
+        if let Some(last) = self.scope.last_mut() {
             let first = delta.scope.remove(0);
             for item in first.decls.into_iter() {
                 last.decls.insert(item.0, item.1);
@@ -610,10 +610,9 @@ impl EngineState {
         let next_span_end = next_span_start + contents.len();
 
         self.file_contents
-            .push_back((contents, next_span_start, next_span_end));
+            .push((contents, next_span_start, next_span_end));
 
-        self.files
-            .push_back((filename, next_span_start, next_span_end));
+        self.files.push((filename, next_span_start, next_span_end));
 
         self.num_files() - 1
     }

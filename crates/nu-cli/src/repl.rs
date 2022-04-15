@@ -33,41 +33,6 @@ pub fn evaluate_repl(
 
     let mut nu_prompt = NushellPrompt::new();
 
-    // First, set up env vars as strings only
-    // gather_parent_env_vars(engine_state);
-
-    // Set up our initial config to start from
-    // stack.vars.insert(
-    //     CONFIG_VARIABLE_ID,
-    //     Value::Record {
-    //         cols: vec![],
-    //         vals: vec![],
-    //         span: Span::new(0, 0),
-    //     },
-    // );
-
-    if is_perf_true {
-        info!("read_plugin_file {}:{}:{}", file!(), line!(), column!());
-    }
-
-    // #[cfg(feature = "plugin")]
-    // config_files::read_plugin_file(engine_state, &mut stack, is_perf_true);
-    //
-    // if is_perf_true {
-    //     info!("read_config_file {}:{}:{}", file!(), line!(), column!());
-    // }
-    //
-    // config_files::read_config_file(engine_state, &mut stack, config_file, is_perf_true);
-    // let history_path = config_files::create_history_path();
-
-    // logger(|builder| {
-    //     configure(&config.log_level, builder)?;
-    //     // trace_filters(self, builder)?;
-    //     // debug_filters(self, builder)?;
-
-    //     Ok(())
-    // })?;
-
     if is_perf_true {
         info!(
             "translate environment vars {}:{}:{}",
@@ -158,6 +123,11 @@ pub fn evaluate_repl(
                 Config::default()
             }
         };
+
+        if is_perf_true {
+            info!("setup colors {}:{}:{}", file!(), line!(), column!());
+        }
+
         let color_hm = get_color_config(&config);
 
         //Reset the ctrl-c handler
@@ -165,6 +135,9 @@ pub fn evaluate_repl(
             ctrlc.store(false, Ordering::SeqCst);
         }
 
+        if is_perf_true {
+            info!("update reedline {}:{}:{}", file!(), line!(), column!());
+        }
         let engine_reference = std::sync::Arc::new(engine_state.clone());
         line_editor = line_editor
             .with_highlighter(Box::new(NuHighlighter {
@@ -175,9 +148,6 @@ pub fn evaluate_repl(
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_state.clone(),
             }))
-            .with_hinter(Box::new(
-                DefaultHinter::default().with_style(color_hm["hints"]),
-            ))
             .with_completer(Box::new(NuCompleter::new(
                 engine_reference.clone(),
                 stack.clone(),
@@ -187,9 +157,13 @@ pub fn evaluate_repl(
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring);
 
-        if is_perf_true {
-            info!("update reedline {}:{}:{}", file!(), line!(), column!());
-        }
+        line_editor = if config.use_ansi_coloring {
+            line_editor.with_hinter(Box::new(
+                DefaultHinter::default().with_style(color_hm["hints"]),
+            ))
+        } else {
+            line_editor.disable_hints()
+        };
 
         line_editor = match add_menus(line_editor, engine_reference, stack, &config) {
             Ok(line_editor) => line_editor,
@@ -199,12 +173,6 @@ pub fn evaluate_repl(
                 Reedline::create()
             }
         };
-
-        if is_perf_true {
-            info!("setup colors {}:{}:{}", file!(), line!(), column!());
-        }
-        //FIXME: if config.use_ansi_coloring is false then we should
-        // turn off the hinter but I don't see any way to do that yet.
 
         if config.sync_history_on_enter {
             if is_perf_true {

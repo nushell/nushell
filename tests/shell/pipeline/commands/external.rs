@@ -66,7 +66,7 @@ fn automatically_change_directory_with_trailing_slash_and_same_name_as_command()
 
 #[test]
 fn correctly_escape_external_arguments() {
-    let actual = nu!(cwd: ".", r#"^echo '$0'"#);
+    let actual = nu!(cwd: ".", r#"^nu --testbin cococo '$0'"#);
 
     assert_eq!(actual.out, "$0");
 }
@@ -76,8 +76,8 @@ fn execute_binary_in_string() {
     let actual = nu!(
     cwd: ".",
     r#"
-        let cmd = "echo"
-        ^$"($cmd)" "$0"
+        let cmd = "nu"
+        ^$"($cmd)" --testbin cococo "$0"
     "#);
 
     assert_eq!(actual.out, "$0");
