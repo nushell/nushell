@@ -206,8 +206,8 @@ fn helper(
 
     let mut request = http_client(args.insecure.is_some()).post(location);
 
-    // set the content-type header before using e.g., request.json bc
-    //  that will vaoid duplicating the header value
+    // set the content-type header before using e.g., request.json
+    // because that will avoid duplicating the header value
     if let Some(val) = args.content_type {
         request = request.header("Content-Type", val);
     }
