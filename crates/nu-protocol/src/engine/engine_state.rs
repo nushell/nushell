@@ -1233,6 +1233,16 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.env_vars.get(name)
     }
 
+    pub fn list_env(&self) -> Vec<String> {
+        let mut env_vars = vec![];
+
+        for env_var in self.permanent_state.env_vars.clone().into_iter() {
+            env_vars.push(env_var.0)
+        }
+
+        env_vars
+    }
+
     pub fn set_variable_type(&mut self, var_id: VarId, ty: Type) {
         let num_permanent_vars = self.permanent_state.num_vars();
         if var_id < num_permanent_vars {
