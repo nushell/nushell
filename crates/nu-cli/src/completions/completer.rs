@@ -8,6 +8,7 @@ use nu_protocol::{
     Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
+use std::str;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -69,6 +70,10 @@ impl NuCompleter {
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
                     if pos >= flat.0.start && pos < flat.0.end {
+                        // Context variables
+                        let mut is_variable_completion = false;
+                        let mut previous_expr: Vec<u8> = vec![];
+
                         // Create a new span
                         let new_span = Span {
                             start: flat.0.start,
@@ -79,9 +84,32 @@ impl NuCompleter {
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
                         prefix.remove(pos - flat.0.start);
 
+                        // Try to get the previous expression
+                        if flat_idx > 0 {
+                            match flattened.get(flat_idx - 1) {
+                                Some(value) => {
+                                    let previous_prefix =
+                                        working_set.get_span_contents(value.0).to_vec();
+
+                                    // Update the previous expression
+                                    previous_expr = previous_prefix;
+
+                                    // Check if should match variable completion
+                                    if matches!(value.1, FlatShape::Variable) {
+                                        is_variable_completion = true;
+                                    }
+                                }
+                                None => {}
+                            }
+                        }
+
                         // Variables completion
-                        if prefix.starts_with(b"$") {
-                            let mut completer = VariableCompletion::new(self.engine_state.clone());
+                        if prefix.starts_with(b"$") || is_variable_completion {
+                            let mut completer = VariableCompletion::new(
+                                self.engine_state.clone(),
+                                self.stack.clone(),
+                                previous_expr,
+                            );
 
                             return self.process_completion(
                                 &mut completer,
