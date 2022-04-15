@@ -5,34 +5,46 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use polars::prelude::col;
+use polars::prelude::when;
 
 #[derive(Clone)]
-pub struct ExprCol;
+pub struct ExprWhen;
 
-impl Command for ExprCol {
+impl Command for ExprWhen {
     fn name(&self) -> &str {
-        "col"
+        "when"
     }
 
     fn usage(&self) -> &str {
-        "Creates a named column expression"
+        "Creates a when expression"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "column name",
-                SyntaxShape::String,
+                "when predicate",
+                SyntaxShape::Any,
                 "Name of column to be used",
+            )
+            .required_named(
+                "then",
+                SyntaxShape::Any,
+                "Expression that will be applied when predicate is true",
+                Some('t')
+            )
+            .required_named(
+                "otherwise",
+                SyntaxShape::Any,
+                "Expression that will be applied when predicate is false",
+                Some('o')
             )
             .category(Category::Custom("expressions".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Creates a named column expression and converts it to a nu object",
-            example: "col col_a | to-nu",
+            description: "",
+            example: "",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![
@@ -57,8 +69,16 @@ impl Command for ExprCol {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name: String = call.req(engine_state, stack, 0)?;
-        let expr = NuExpression::new(col(name.as_str()));
+        let predicate: Value = call.req(engine_state, stack, 0)?;
+        let predicate = NuExpression::try_from_value(predicate)?;
+
+        let then: Value = call.get_flag(engine_state, stack, "then")?.expect("it is a required named value");
+        let then = NuExpression::try_from_value(then)?;
+        let otherwise: Value = call.get_flag(engine_state, stack, "otherwise")?.expect("it is a required named value");
+        let otherwise = NuExpression::try_from_value(otherwise)?;
+        
+        let expr = when(predicate.into_polars()).then(then.into_polars()).otherwise(otherwise.into_polars());
+        let expr = NuExpression::new(expr);
 
         Ok(PipelineData::Value(expr.into_value(call.head), None))
     }
@@ -72,6 +92,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ExprCol {}), Box::new(ExprToNu {})])
+        test_dataframe(vec![Box::new(ExprWhen {}), Box::new(ExprToNu {})])
     }
 }

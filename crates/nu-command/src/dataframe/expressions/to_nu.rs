@@ -11,7 +11,7 @@ pub struct ExprToNu;
 
 impl Command for ExprToNu {
     fn name(&self) -> &str {
-        "expr to-nu"
+        "to-nu"
     }
 
     fn usage(&self) -> &str {
@@ -19,13 +19,13 @@ impl Command for ExprToNu {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
+        Signature::build(self.name()).category(Category::Custom("expressions".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Convert a col expression into a nushell value",
-            example: "expr col col_a | expr to-nu",
+            example: "col col_a | to-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![

@@ -11,7 +11,7 @@ pub struct ExprLit;
 
 impl Command for ExprLit {
     fn name(&self) -> &str {
-        "expr lit"
+        "lit"
     }
 
     fn usage(&self) -> &str {
@@ -25,13 +25,13 @@ impl Command for ExprLit {
                 SyntaxShape::Any,
                 "literal to construct the expression",
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("expressions".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Created a literal expression and converts it to a nu object",
-            example: "expr lit 2 | expr to-nu",
+            example: "lit 2 | to-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![

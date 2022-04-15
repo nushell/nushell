@@ -126,10 +126,23 @@ impl NuExpression {
 pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
     let cols = vec!["expr".to_string(), "value".to_string()];
 
-    println!("{:?}", expr);
     match expr {
         Expr::Not(_) => todo!(),
-        Expr::Alias(..) => todo!(),
+        Expr::Alias(expr, alias) => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let alias = Value::String {
+                val: alias.as_ref().into(),
+                span,
+            };
+
+            let cols = vec!["expr".to_string(), "alias".to_string()];
+            
+            Value::Record {
+                cols,
+                vals: vec![expr, alias],
+                span,
+            }
+        }
         Expr::Column(name) => {
             let expr_type = Value::String {
                 val: "column".into(),
@@ -177,12 +190,12 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             Value::Record { cols, vals, span }
         }
         Expr::BinaryExpr { left, op, right } => {
-            let left_val = expr_to_value(&left, span.clone());
-            let right_val = expr_to_value(&right, span.clone());
+            let left_val = expr_to_value(left, span);
+            let right_val = expr_to_value(right, span);
 
             let operator = Value::String {
                 val: format!("{:?}", op),
-                span: span.clone(),
+                span,
             };
 
             let cols = vec!["left".to_string(), "op".to_string(), "right".to_string()];
@@ -193,6 +206,19 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             }
         }
+        Expr::Ternary { predicate, truthy, falsy} => {
+            let predicate = expr_to_value(predicate.as_ref(), span);
+            let truthy = expr_to_value(truthy.as_ref(), span);
+            let falsy = expr_to_value(falsy.as_ref(), span);
+            
+            let cols = vec!["predicate".to_string(), "truthy".to_string(), "falsy".to_string()];
+            
+            Value::Record {
+                cols,
+                vals: vec![predicate, truthy, falsy],
+                span,
+            }
+        }
         Expr::IsNotNull(_) => todo!(),
         Expr::IsNull(_) => todo!(),
         Expr::Cast { .. } => todo!(),
@@ -200,7 +226,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         Expr::Take { .. } => todo!(),
         Expr::SortBy { .. } => todo!(),
         Expr::Agg(_) => todo!(),
-        Expr::Ternary { .. } => todo!(),
         Expr::Function { .. } => todo!(),
         Expr::Shift { .. } => todo!(),
         Expr::Reverse(_) => todo!(),

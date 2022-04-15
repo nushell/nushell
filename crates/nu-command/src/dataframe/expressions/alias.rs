@@ -12,7 +12,7 @@ pub struct ExprAlias;
 
 impl Command for ExprAlias {
     fn name(&self) -> &str {
-        "expr alias"
+        "column-alias"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for ExprAlias {
                 SyntaxShape::String,
                 "Alias name for the expression",
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("expressions".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
