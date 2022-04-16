@@ -1,10 +1,10 @@
 use std::path::Path;
 
 use nu_engine::CallExt;
+use nu_path::expand_to_real_path;
 use nu_protocol::{
     engine::Command, Example, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
-use nu_path::expand_to_real_path;
 
 use super::PathSubcommandArguments;
 

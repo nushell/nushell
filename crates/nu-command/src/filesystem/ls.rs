@@ -3,13 +3,13 @@ use crate::DirInfo;
 use chrono::{DateTime, Local};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
+use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
-use nu_path::expand_to_real_path;
 use pathdiff::diff_paths;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
