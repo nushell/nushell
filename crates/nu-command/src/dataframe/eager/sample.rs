@@ -76,14 +76,14 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     match (rows, fraction) {
-        (Some(rows), None) => df.as_ref().sample_n(rows.item, replace, 0).map_err(|e| {
+        (Some(rows), None) => df.as_ref().sample_n(rows.item, replace, Some(0)).map_err(|e| {
             ShellError::SpannedLabeledError(
                 "Error creating sample".into(),
                 e.to_string(),
                 rows.span,
             )
         }),
-        (None, Some(frac)) => df.as_ref().sample_frac(frac.item, replace, 0).map_err(|e| {
+        (None, Some(frac)) => df.as_ref().sample_frac(frac.item, replace, Some(0)).map_err(|e| {
             ShellError::SpannedLabeledError(
                 "Error creating sample".into(),
                 e.to_string(),
