@@ -375,15 +375,32 @@ Format: #
             // OCS's need to end with a bell '\x07' char
             format!("\x1b]{};", code_string)
         } else if param_is_valid_string {
-            match str_to_ansi(&code_string) {
-                Some(c) => c,
-                None => {
-                    return Err(ShellError::UnsupportedInput(
-                        String::from("Unknown ansi code"),
-                        call.positional_nth(0)
-                            .expect("Unexpected missing argument")
-                            .span,
-                    ))
+            // parse hex colors like #00FF00
+            if code_string.starts_with('#') {
+                match nu_color_config::color_from_hex(&code_string) {
+                    Ok(color) => match color {
+                        Some(c) => c.prefix().to_string(),
+                        None => Color::White.prefix().to_string(),
+                    },
+                    Err(err) => {
+                        return Err(ShellError::SpannedLabeledError(
+                            "error parsing hex color".to_string(),
+                            format!("{}", err),
+                            code.span()?,
+                        ));
+                    }
+                }
+            } else {
+                match str_to_ansi(&code_string) {
+                    Some(c) => c,
+                    None => {
+                        return Err(ShellError::UnsupportedInput(
+                            String::from("Unknown ansi code"),
+                            call.positional_nth(0)
+                                .expect("Unexpected missing argument")
+                                .span,
+                        ))
+                    }
                 }
             }
         } else {
