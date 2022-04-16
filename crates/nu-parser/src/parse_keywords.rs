@@ -1359,7 +1359,11 @@ pub fn parse_use(
                     }
                 } else {
                     error = error.or(Some(ParseError::ModuleNotFound(import_pattern.head.span)));
-                    (ImportPattern::new(), Overlay::new())
+
+                    let mut import_pattern = ImportPattern::new();
+                    import_pattern.head.span = spans[1];
+
+                    (import_pattern, Overlay::new())
                 }
             } else {
                 return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));

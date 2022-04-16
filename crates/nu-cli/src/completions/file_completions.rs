@@ -104,23 +104,26 @@ impl Completer for FileCompletion {
     }
 }
 
+pub fn partial_from(input: &str) -> (String, String) {
+    let partial = input.replace('\'', "");
+
+    // If partial is only a word we want to search in the current dir
+    let (base, rest) = partial.rsplit_once(is_separator).unwrap_or((".", &partial));
+    // On windows, this standardizes paths to use \
+    let mut base = base.replace(is_separator, &SEP.to_string());
+
+    // rsplit_once removes the separator
+    base.push(SEP);
+
+    (base.to_string(), rest.to_string())
+}
+
 pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
     cwd: &str,
 ) -> Vec<(nu_protocol::Span, String)> {
-    let partial = partial.replace('\'', "");
-
-    let (base_dir_name, partial) = {
-        // If partial is only a word we want to search in the current dir
-        let (base, rest) = partial.rsplit_once(is_separator).unwrap_or((".", &partial));
-        // On windows, this standardizes paths to use \
-        let mut base = base.replace(is_separator, &SEP.to_string());
-
-        // rsplit_once removes the separator
-        base.push(SEP);
-        (base, rest)
-    };
+    let (base_dir_name, partial) = partial_from(partial);
 
     let base_dir = nu_path::expand_path_with(&base_dir_name, cwd);
     // This check is here as base_dir.read_dir() with base_dir == "" will open the current dir
@@ -134,7 +137,7 @@ pub fn file_path_completion(
             .filter_map(|entry| {
                 entry.ok().and_then(|entry| {
                     let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                    if matches(partial, &file_name) {
+                    if matches(&partial, &file_name) {
                         let mut path = format!("{}{}", base_dir_name, file_name);
                         if entry.path().is_dir() {
                             path.push(SEP);
