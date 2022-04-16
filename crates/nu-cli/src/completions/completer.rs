@@ -71,7 +71,6 @@ impl NuCompleter {
                 for (flat_idx, flat) in flattened.iter().enumerate() {
                     if pos >= flat.0.start && pos < flat.0.end {
                         // Context variables
-                        let mut is_variable_completion = false;
                         let most_left_var =
                             most_left_variable(flat_idx, &working_set, flattened.clone());
 
@@ -85,13 +84,8 @@ impl NuCompleter {
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
                         prefix.remove(pos - flat.0.start);
 
-                        // Check if has most left variable
-                        if most_left_var.is_some() {
-                            is_variable_completion = true;
-                        }
-
                         // Variables completion
-                        if prefix.starts_with(b"$") || is_variable_completion {
+                        if prefix.starts_with(b"$") || most_left_var.is_some() {
                             let mut completer = VariableCompletion::new(
                                 self.engine_state.clone(),
                                 self.stack.clone(),
