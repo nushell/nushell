@@ -27,7 +27,7 @@ impl Command for LazyWithColumn {
                 SyntaxShape::Any,
                 "Expression to create the column",
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

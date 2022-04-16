@@ -2,7 +2,7 @@ mod custom_value;
 
 use core::fmt;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
-use polars::prelude::{Expr, Literal};
+use polars::prelude::{Expr, Literal, AggExpr};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // Polars Expression wrapper for Nushell operations
@@ -54,11 +54,13 @@ impl AsMut<Expr> for NuExpression {
     }
 }
 
-impl NuExpression {
-    pub fn new(expr: Expr) -> Self {
+impl From<Expr> for NuExpression {
+    fn from(expr: Expr) -> Self {
         Self(Some(expr))
     }
+}
 
+impl NuExpression {
     pub fn into_value(self, span: Span) -> Value {
         Value::CustomValue {
             val: Box::new(self),
@@ -76,10 +78,10 @@ impl NuExpression {
                     span,
                 )),
             },
-            Value::String { val, .. } => Ok(Self::new(val.lit())),
-            Value::Int { val, .. } => Ok(Self::new(val.lit())),
-            Value::Bool { val, .. } => Ok(Self::new(val.lit())),
-            Value::Float { val, .. } => Ok(Self::new(val.lit())),
+            Value::String { val, .. } => Ok(val.lit().into()),
+            Value::Int { val, .. } => Ok(val.lit().into()),
+            Value::Bool { val, .. } => Ok(val.lit().into()),
+            Value::Float { val, .. } => Ok(val.lit().into()),
             x => Err(ShellError::CantConvert(
                 "lazy expression".into(),
                 x.get_type().to_string(),
@@ -113,9 +115,8 @@ impl NuExpression {
     {
         let expr = self.0.expect("Lazy expression must not be empty to apply");
         let other = other.0.expect("Lazy expression must not be empty to apply");
-        let new_expr = f(expr, other);
-
-        Self::new(new_expr)
+        
+        f(expr, other).into()
     }
 
     pub fn to_value(&self, span: Span) -> Value {
@@ -219,13 +220,38 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             }
         }
+        Expr::Agg(agg_expr) => {
+            let value = match agg_expr {
+                AggExpr::Min(expr) 
+                | AggExpr::Max(expr) 
+                | AggExpr::Median(expr) 
+                | AggExpr::NUnique(expr) 
+                | AggExpr::First(expr) 
+                | AggExpr::Last(expr) 
+                | AggExpr::Mean(expr) 
+                | AggExpr::List(expr) 
+                | AggExpr::Count(expr) 
+                | AggExpr::Sum(expr) 
+                | AggExpr::AggGroups(expr) 
+                | AggExpr::Std(expr) 
+                | AggExpr::Var(expr) => expr_to_value(expr.as_ref(), span),
+                AggExpr::Quantile { .. } => todo!(),
+            };
+            
+            let expr_type = Value::String {
+                val: "agg".into(),
+                span,
+            };
+
+            let vals = vec![expr_type, value];
+            Value::Record { cols, vals, span }
+        }
         Expr::IsNotNull(_) => todo!(),
         Expr::IsNull(_) => todo!(),
         Expr::Cast { .. } => todo!(),
         Expr::Sort { .. } => todo!(),
         Expr::Take { .. } => todo!(),
         Expr::SortBy { .. } => todo!(),
-        Expr::Agg(_) => todo!(),
         Expr::Function { .. } => todo!(),
         Expr::Shift { .. } => todo!(),
         Expr::Reverse(_) => todo!(),

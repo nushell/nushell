@@ -54,11 +54,13 @@ impl AsMut<LazyGroupBy> for NuLazyGroupBy {
     }
 }
 
-impl NuLazyGroupBy {
-    pub fn new(group_by: LazyGroupBy) -> Self {
+impl From<LazyGroupBy> for NuLazyGroupBy {
+    fn from(group_by: LazyGroupBy) -> Self {
         Self(Some(group_by))
     }
+}
 
+impl NuLazyGroupBy {
     pub fn into_value(self, span: Span) -> Value {
         Value::CustomValue {
             val: Box::new(self),
@@ -66,11 +68,15 @@ impl NuLazyGroupBy {
         }
     }
 
+    pub fn into_polars(self) -> LazyGroupBy {
+        self.0.expect("GroupBy cannot be none to convert")
+    }
+
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         match value {
             Value::CustomValue { val, span } => {
                 match val.as_any().downcast_ref::<NuLazyGroupBy>() {
-                    Some(expr) => Ok(NuLazyGroupBy(None)),
+                    Some(group) => Ok(Self(group.0.clone())),
                     None => Err(ShellError::CantConvert(
                         "lazy frame".into(),
                         "non-dataframe".into(),
@@ -79,7 +85,7 @@ impl NuLazyGroupBy {
                 }
             }
             x => Err(ShellError::CantConvert(
-                "lazy frame".into(),
+                "lazy groupby".into(),
                 x.get_type().to_string(),
                 x.span()?,
             )),

@@ -19,7 +19,7 @@ impl Command for ToLazyFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
+        Signature::build(self.name()).category(Category::Custom("lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -40,10 +40,7 @@ impl Command for ToLazyFrame {
         let df = NuDataFrame::try_from_iter(input.into_iter())?;
         let lazy = NuLazyFrame::from_dataframe(df);
 
-        Ok(PipelineData::Value(
-            NuLazyFrame::into_value(lazy, call.head),
-            None,
-        ))
+        Ok(PipelineData::Value(lazy.into_value(call.head), None))
     }
 }
 

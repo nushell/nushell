@@ -100,12 +100,30 @@ fn with_operator(
         Operator::Multiply => apply_arithmetic(left, right, lhs_span, Mul::mul),
         Operator::Divide => apply_arithmetic(left, right, lhs_span, Div::div),
         Operator::Modulo => apply_arithmetic(left, right, lhs_span, Rem::rem),
-        Operator::Equal => Ok(left.clone().apply_with_expr(right.clone(), Expr::eq).into_value(lhs_span)),
-        Operator::NotEqual => Ok(left.clone().apply_with_expr(right.clone(), Expr::neq).into_value(lhs_span)),
-        Operator::GreaterThan => Ok(left.clone().apply_with_expr(right.clone(), Expr::gt).into_value(lhs_span)),
-        Operator::GreaterThanOrEqual => Ok(left.clone().apply_with_expr(right.clone(), Expr::gt_eq).into_value(lhs_span)),
-        Operator::LessThan => Ok(left.clone().apply_with_expr(right.clone(), Expr::lt).into_value(lhs_span)),
-        Operator::LessThanOrEqual => Ok(left.clone().apply_with_expr(right.clone(), Expr::lt_eq).into_value(lhs_span)),
+        Operator::Equal => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), Expr::eq)
+            .into_value(lhs_span)),
+        Operator::NotEqual => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), Expr::neq)
+            .into_value(lhs_span)),
+        Operator::GreaterThan => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), Expr::gt)
+            .into_value(lhs_span)),
+        Operator::GreaterThanOrEqual => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), Expr::gt_eq)
+            .into_value(lhs_span)),
+        Operator::LessThan => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), Expr::lt)
+            .into_value(lhs_span)),
+        Operator::LessThanOrEqual => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), Expr::lt_eq)
+            .into_value(lhs_span)),
         _ => Err(ShellError::OperatorMismatch {
             op_span,
             lhs_ty: Type::Custom,
@@ -125,8 +143,7 @@ fn apply_arithmetic<F>(
 where
     F: Fn(Expr, Expr) -> Expr,
 {
-    let expr = f(left.as_ref().clone(), right.as_ref().clone());
-    let expr = NuExpression::new(expr);
+    let expr: NuExpression = f(left.as_ref().clone(), right.as_ref().clone()).into();
 
     Ok(expr.into_value(span))
 }

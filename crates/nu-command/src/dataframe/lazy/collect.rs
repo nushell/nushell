@@ -19,7 +19,7 @@ impl Command for LazyCollect {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
+        Signature::build(self.name()).category(Category::Custom("lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -39,7 +39,7 @@ impl Command for LazyCollect {
     ) -> Result<PipelineData, ShellError> {
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
         let eager = lazy.collect(call.head)?;
-
+        
         Ok(PipelineData::Value(
             NuDataFrame::into_value(eager, call.head),
             None,

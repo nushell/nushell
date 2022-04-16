@@ -55,11 +55,13 @@ impl AsMut<LazyFrame> for NuLazyFrame {
     }
 }
 
-impl NuLazyFrame {
-    pub fn new(df: LazyFrame) -> Self {
-        Self(Some(df))
+impl From<LazyFrame> for NuLazyFrame {
+    fn from(lazy_frame: LazyFrame) -> Self {
+        Self(Some(lazy_frame))
     }
+}
 
+impl NuLazyFrame {
     pub fn from_dataframe(df: NuDataFrame) -> Self {
         let lazy = df.as_ref().clone().lazy();
         Self(Some(lazy))
@@ -71,6 +73,11 @@ impl NuLazyFrame {
             span,
         }
     }
+    
+    pub fn into_polars(self) -> LazyFrame {
+        self.0.expect("lazyframe cannot be none to convert")
+    }
+
 
     pub fn collect(self, span: Span) -> Result<NuDataFrame, ShellError> {
         self.0
@@ -89,7 +96,7 @@ impl NuLazyFrame {
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         match value {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<NuLazyFrame>() {
-                Some(expr) => Ok(NuLazyFrame(expr.0.clone())),
+                Some(expr) => Ok(Self(expr.0.clone())),
                 None => Err(ShellError::CantConvert(
                     "lazy frame".into(),
                     "non-dataframe".into(),
@@ -116,7 +123,7 @@ impl NuLazyFrame {
         let df = self.0.expect("Lazy frame must not be empty to apply");
         let new_frame = f(df);
 
-        Self::new(new_frame)
+        new_frame.into()
     }
 
     pub fn apply_with_expr<F>(self, expr: NuExpression, f: F) -> Self
@@ -127,6 +134,6 @@ impl NuLazyFrame {
         let expr = expr.into_polars();
         let new_frame = f(df, expr);
 
-        Self::new(new_frame)
+        new_frame.into()
     }
 }

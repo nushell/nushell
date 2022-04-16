@@ -1,31 +1,31 @@
-use super::super::values::NuLazyFrame;
-use crate::dataframe::values::NuExpression;
+use crate::dataframe::values::{NuLazyGroupBy, NuLazyFrame};
+
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use polars::prelude::LazyFrame;
+use super::into_expression::IntoExpression;
 
 #[derive(Clone)]
-pub struct LazyFilter;
+pub struct LazyAggregate;
 
-impl Command for LazyFilter {
+impl Command for LazyAggregate {
     fn name(&self) -> &str {
-        "dfl filter"
+        "dfl aggregate"
     }
 
     fn usage(&self) -> &str {
-        "filters a dataframe based on an expression"
+        "Performs a series of aggregations from a lazy group by"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "filter expression",
+                "Group by expressions",
                 SyntaxShape::Any,
-                "filtering expression",
+                "Expression(s) that define the aggregations to be applied",
             )
             .category(Category::Custom("lazyframe".into()))
     }
@@ -45,18 +45,16 @@ impl Command for LazyFilter {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let expr: Value = call.req(engine_state, stack, 0)?;
-        let expr = NuExpression::try_from_value(expr)?;
+        let value: Value = call.req(engine_state, stack, 0)?;
+        let expressions = value.into_expressions()?;
 
-        let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
-        let lazy = lazy.apply_with_expr(expr, LazyFrame::filter);
+        let group_by = NuLazyGroupBy::try_from_pipeline(input, call.head)?.into_polars();
+        let lazy: NuLazyFrame = group_by.agg(&expressions).into();
 
-        Ok(PipelineData::Value(
-            NuLazyFrame::into_value(lazy, call.head),
-            None,
-        ))
+        Ok(PipelineData::Value(lazy.into_value(call.head), None))
     }
 }
+
 
 //#[cfg(test)]
 //mod test {
@@ -65,6 +63,6 @@ impl Command for LazyFilter {
 //
 //    #[test]
 //    fn test_examples() {
-//        test_dataframe(vec![Box::new(LazyFilter {})])
+//        test_dataframe(vec![Box::new(LazyAggregate {})])
 //    }
 //}

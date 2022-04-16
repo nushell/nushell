@@ -30,13 +30,13 @@ impl Command for ExprWhen {
                 "then",
                 SyntaxShape::Any,
                 "Expression that will be applied when predicate is true",
-                Some('t')
+                Some('t'),
             )
             .required_named(
                 "otherwise",
                 SyntaxShape::Any,
                 "Expression that will be applied when predicate is false",
-                Some('o')
+                Some('o'),
             )
             .category(Category::Custom("expressions".into()))
     }
@@ -72,13 +72,19 @@ impl Command for ExprWhen {
         let predicate: Value = call.req(engine_state, stack, 0)?;
         let predicate = NuExpression::try_from_value(predicate)?;
 
-        let then: Value = call.get_flag(engine_state, stack, "then")?.expect("it is a required named value");
+        let then: Value = call
+            .get_flag(engine_state, stack, "then")?
+            .expect("it is a required named value");
         let then = NuExpression::try_from_value(then)?;
-        let otherwise: Value = call.get_flag(engine_state, stack, "otherwise")?.expect("it is a required named value");
+        let otherwise: Value = call
+            .get_flag(engine_state, stack, "otherwise")?
+            .expect("it is a required named value");
         let otherwise = NuExpression::try_from_value(otherwise)?;
-        
-        let expr = when(predicate.into_polars()).then(then.into_polars()).otherwise(otherwise.into_polars());
-        let expr = NuExpression::new(expr);
+
+        let expr: NuExpression = when(predicate.into_polars())
+            .then(then.into_polars())
+            .otherwise(otherwise.into_polars())
+            .into();
 
         Ok(PipelineData::Value(expr.into_value(call.head), None))
     }

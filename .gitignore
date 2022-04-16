@@ -21,3 +21,6 @@ debian/nu/
 
 # VSCode's IDE items
 .vscode/*
+
+# Helix configuration folder
+.helix/*
