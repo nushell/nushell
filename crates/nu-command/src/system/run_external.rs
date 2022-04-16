@@ -398,7 +398,7 @@ impl ExternalCommand {
     /// Spawn a command without shelling out to an external shell
     pub fn spawn_simple_command(&self, cwd: &str) -> Result<std::process::Command, ShellError> {
         let head = trim_enclosing_quotes(&self.name.item);
-        let head = nu_path::expand_path_for_external_programs(head)
+        let head = nu_path::expand_to_real_path(head)
             .to_string_lossy()
             .to_string();
 
@@ -409,7 +409,7 @@ impl ExternalCommand {
                 item: trim_enclosing_quotes(&arg.item),
                 span: arg.span,
             };
-            arg.item = nu_path::expand_path_for_external_programs(arg.item)
+            arg.item = nu_path::expand_to_real_path(arg.item)
                 .to_string_lossy()
                 .to_string();
 
