@@ -2,7 +2,7 @@ mod custom_value;
 
 use core::fmt;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
-use polars::prelude::{Expr, Literal, AggExpr};
+use polars::prelude::{col, AggExpr, Expr, Literal};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // Polars Expression wrapper for Nushell operations
@@ -78,7 +78,7 @@ impl NuExpression {
                     span,
                 )),
             },
-            Value::String { val, .. } => Ok(val.lit().into()),
+            Value::String { val, .. } => Ok(col(val.as_str()).into()),
             Value::Int { val, .. } => Ok(val.lit().into()),
             Value::Bool { val, .. } => Ok(val.lit().into()),
             Value::Float { val, .. } => Ok(val.lit().into()),
@@ -115,7 +115,7 @@ impl NuExpression {
     {
         let expr = self.0.expect("Lazy expression must not be empty to apply");
         let other = other.0.expect("Lazy expression must not be empty to apply");
-        
+
         f(expr, other).into()
     }
 
@@ -137,7 +137,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             };
 
             let cols = vec!["expr".to_string(), "alias".to_string()];
-            
+
             Value::Record {
                 cols,
                 vals: vec![expr, alias],
@@ -207,13 +207,21 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             }
         }
-        Expr::Ternary { predicate, truthy, falsy} => {
+        Expr::Ternary {
+            predicate,
+            truthy,
+            falsy,
+        } => {
             let predicate = expr_to_value(predicate.as_ref(), span);
             let truthy = expr_to_value(truthy.as_ref(), span);
             let falsy = expr_to_value(falsy.as_ref(), span);
-            
-            let cols = vec!["predicate".to_string(), "truthy".to_string(), "falsy".to_string()];
-            
+
+            let cols = vec![
+                "predicate".to_string(),
+                "truthy".to_string(),
+                "falsy".to_string(),
+            ];
+
             Value::Record {
                 cols,
                 vals: vec![predicate, truthy, falsy],
@@ -222,22 +230,22 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         }
         Expr::Agg(agg_expr) => {
             let value = match agg_expr {
-                AggExpr::Min(expr) 
-                | AggExpr::Max(expr) 
-                | AggExpr::Median(expr) 
-                | AggExpr::NUnique(expr) 
-                | AggExpr::First(expr) 
-                | AggExpr::Last(expr) 
-                | AggExpr::Mean(expr) 
-                | AggExpr::List(expr) 
-                | AggExpr::Count(expr) 
-                | AggExpr::Sum(expr) 
-                | AggExpr::AggGroups(expr) 
-                | AggExpr::Std(expr) 
+                AggExpr::Min(expr)
+                | AggExpr::Max(expr)
+                | AggExpr::Median(expr)
+                | AggExpr::NUnique(expr)
+                | AggExpr::First(expr)
+                | AggExpr::Last(expr)
+                | AggExpr::Mean(expr)
+                | AggExpr::List(expr)
+                | AggExpr::Count(expr)
+                | AggExpr::Sum(expr)
+                | AggExpr::AggGroups(expr)
+                | AggExpr::Std(expr)
                 | AggExpr::Var(expr) => expr_to_value(expr.as_ref(), span),
                 AggExpr::Quantile { .. } => todo!(),
             };
-            
+
             let expr_type = Value::String {
                 val: "agg".into(),
                 span,

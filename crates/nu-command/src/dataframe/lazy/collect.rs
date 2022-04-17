@@ -39,7 +39,7 @@ impl Command for LazyCollect {
     ) -> Result<PipelineData, ShellError> {
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
         let eager = lazy.collect(call.head)?;
-        
+
         Ok(PipelineData::Value(
             NuDataFrame::into_value(eager, call.head),
             None,

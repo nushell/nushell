@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape,
 };
-use polars::prelude::{Utf8Methods, IntoSeries};
+use polars::prelude::{IntoSeries, Utf8Methods};
 
 #[derive(Clone)]
 pub struct AsDate;

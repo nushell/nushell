@@ -51,8 +51,22 @@ macro_rules! expr_command {
     };
 }
 
+// ExprNot command
+// Expands to a command definition for a not expression
+expr_command!(
+    ExprNot,
+    "not",
+    "creates a not expression",
+    vec![Example {
+        description: "",
+        example: "",
+        result: None,
+    }],
+    not
+);
+
 // ExprIsNull command
-// Expands to a command definition for a is null expression 
+// Expands to a command definition for a is null expression
 expr_command!(
     ExprIsNull,
     "is-null",
@@ -66,7 +80,7 @@ expr_command!(
 );
 
 // ExprIsNotNull command
-// Expands to a command definition for a is not null expression 
+// Expands to a command definition for a is not null expression
 expr_command!(
     ExprIsNotNull,
     "is-not-null",
@@ -80,7 +94,7 @@ expr_command!(
 );
 
 // ExprMax command
-// Expands to a command definition for a max expression 
+// Expands to a command definition for a max expression
 expr_command!(
     ExprMax,
     "max",
@@ -94,7 +108,7 @@ expr_command!(
 );
 
 // ExprMin command
-// Expands to a command definition for a min expression 
+// Expands to a command definition for a min expression
 expr_command!(
     ExprMin,
     "min",
@@ -108,7 +122,7 @@ expr_command!(
 );
 
 // ExprMean command
-// Expands to a command definition for a mean expression 
+// Expands to a command definition for a mean expression
 expr_command!(
     ExprMean,
     "mean",
@@ -122,7 +136,7 @@ expr_command!(
 );
 
 // ExprMedian command
-// Expands to a command definition for a median expression 
+// Expands to a command definition for a median expression
 expr_command!(
     ExprMedian,
     "median",
@@ -136,7 +150,7 @@ expr_command!(
 );
 
 // ExprSum command
-// Expands to a command definition for a sum expression 
+// Expands to a command definition for a sum expression
 expr_command!(
     ExprSum,
     "sum",
@@ -150,7 +164,7 @@ expr_command!(
 );
 
 // ExprNUnique command
-// Expands to a command definition for a n-unique expression 
+// Expands to a command definition for a n-unique expression
 expr_command!(
     ExprNUnique,
     "n-unique",
@@ -164,7 +178,7 @@ expr_command!(
 );
 
 // ExprFirst command
-// Expands to a command definition for a first expression 
+// Expands to a command definition for a first expression
 expr_command!(
     ExprFirst,
     "dfirst",
@@ -178,7 +192,7 @@ expr_command!(
 );
 
 // ExprLast command
-// Expands to a command definition for a last expression 
+// Expands to a command definition for a last expression
 expr_command!(
     ExprLast,
     "dlast",
@@ -192,7 +206,7 @@ expr_command!(
 );
 
 // ExprList command
-// Expands to a command definition for a list expression 
+// Expands to a command definition for a list expression
 expr_command!(
     ExprList,
     "list",
@@ -203,4 +217,46 @@ expr_command!(
         result: None,
     }],
     list
+);
+
+// ExprAggGroups command
+// Expands to a command definition for a agg groups expression
+expr_command!(
+    ExprAggGroups,
+    "agg-groups",
+    "creates an agg_groups expression",
+    vec![Example {
+        description: "",
+        example: "",
+        result: None,
+    }],
+    agg_groups
+);
+
+// ExprFlatten command
+// Expands to a command definition for a flatten expression
+expr_command!(
+    ExprFlatten,
+    "dflatten",
+    "creates a flatten expression",
+    vec![Example {
+        description: "",
+        example: "",
+        result: None,
+    }],
+    flatten
+);
+
+// ExprExplode command
+// Expands to a command definition for a explode expression
+expr_command!(
+    ExprExplode,
+    "explode",
+    "creates an explode expression",
+    vec![Example {
+        description: "",
+        example: "",
+        result: None,
+    }],
+    explode
 );

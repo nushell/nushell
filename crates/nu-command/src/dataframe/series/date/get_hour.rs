@@ -7,7 +7,6 @@ use nu_protocol::{
 };
 use polars::prelude::{DatetimeMethods, IntoSeries};
 
-
 #[derive(Clone)]
 pub struct GetHour;
 

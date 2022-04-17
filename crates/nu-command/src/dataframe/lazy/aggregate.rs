@@ -1,12 +1,12 @@
-use crate::dataframe::values::{NuLazyGroupBy, NuLazyFrame};
+use crate::dataframe::values::{NuLazyFrame, NuLazyGroupBy};
 
+use super::into_expression::IntoExpression;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use super::into_expression::IntoExpression;
 
 #[derive(Clone)]
 pub struct LazyAggregate;
@@ -54,7 +54,6 @@ impl Command for LazyAggregate {
         Ok(PipelineData::Value(lazy.into_value(call.head), None))
     }
 }
-
 
 //#[cfg(test)]
 //mod test {

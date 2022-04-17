@@ -1,5 +1,5 @@
-use super::super::values::NuExpression;
-
+use super::super::values::NuLazyFrame;
+use crate::dataframe::values::NuDataFrame;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -8,25 +8,25 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct ExprAlias;
+pub struct LazyFetch;
 
-impl Command for ExprAlias {
+impl Command for LazyFetch {
     fn name(&self) -> &str {
-        "as"
+        "dfl fetch"
     }
 
     fn usage(&self) -> &str {
-        "Creates an alias expression"
+        "collects the lazyframe to the selected rows"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "Alias name",
-                SyntaxShape::String,
-                "Alias name for the expression",
+                "rows",
+                SyntaxShape::Int,
+                "number of rows to be fetched from lazyframe",
             )
-            .category(Category::Custom("expressions".into()))
+            .category(Category::Custom("lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -44,13 +44,23 @@ impl Command for ExprAlias {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let alias: String = call.req(engine_state, stack, 0)?;
+        let rows: i64 = call.req(engine_state, stack, 0)?;
 
-        let expr = NuExpression::try_from_pipeline(input, call.head)?;
-        let expr: NuExpression = expr.into_polars().alias(alias.as_str()).into();
+        let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
+        let eager: NuDataFrame = lazy
+            .into_polars()
+            .fetch(rows as usize)
+            .map_err(|e| {
+                ShellError::SpannedLabeledError(
+                    "Error fetching rows".into(),
+                    e.to_string(),
+                    call.head,
+                )
+            })?
+            .into();
 
         Ok(PipelineData::Value(
-            NuExpression::into_value(expr, call.head),
+            NuDataFrame::into_value(eager, call.head),
             None,
         ))
     }
@@ -63,6 +73,6 @@ impl Command for ExprAlias {
 //
 //    #[test]
 //    fn test_examples() {
-//        test_dataframe(vec![Box::new(ExprAlias {})])
+//        test_dataframe(vec![Box::new(LazyFetch {})])
 //    }
 //}

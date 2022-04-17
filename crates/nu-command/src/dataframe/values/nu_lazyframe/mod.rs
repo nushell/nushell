@@ -73,11 +73,10 @@ impl NuLazyFrame {
             span,
         }
     }
-    
+
     pub fn into_polars(self) -> LazyFrame {
         self.0.expect("lazyframe cannot be none to convert")
     }
-
 
     pub fn collect(self, span: Span) -> Result<NuDataFrame, ShellError> {
         self.0

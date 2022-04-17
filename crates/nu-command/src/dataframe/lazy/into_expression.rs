@@ -1,7 +1,7 @@
 /// Trait definition to extract all Polars Expr that may be contained
 /// in a Nushell Value
 use nu_protocol::{ShellError, Value};
-use polars::prelude::Expr;
+use polars::prelude::{col, Expr};
 
 use crate::dataframe::values::NuExpression;
 
@@ -34,6 +34,7 @@ impl ExtractedExpr {
 
     fn extract_expressions(value: Value) -> Result<ExtractedExpr, ShellError> {
         match value {
+            Value::String { val, .. } => Ok(ExtractedExpr::Single(col(val.as_str()))),
             Value::CustomValue { .. } => NuExpression::try_from_value(value)
                 .map(NuExpression::into_polars)
                 .map(ExtractedExpr::Single),

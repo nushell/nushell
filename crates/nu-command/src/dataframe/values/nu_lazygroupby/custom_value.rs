@@ -25,8 +25,13 @@ impl CustomValue for NuLazyGroupBy {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        // TODO. Better representation of the lazy groupby in nushell
-        Ok(Value::nothing(span))
+        let cols = vec!["LazyGroupBy".into()];
+        let vals = vec![Value::String {
+            val: "apply aggregation to complete execution plan".into(),
+            span,
+        }];
+
+        Ok(Value::Record { cols, vals, span })
     }
 
     fn to_json(&self) -> nu_json::Value {

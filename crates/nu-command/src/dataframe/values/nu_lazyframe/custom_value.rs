@@ -25,8 +25,22 @@ impl CustomValue for NuLazyFrame {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        // TODO. Better representation of the lazy frame in nushell
-        Ok(Value::nothing(span))
+        let cols = vec!["plan".into(), "optimized_plan".into()];
+        let vals = vec![
+            Value::String {
+                val: self.as_ref().describe_plan(),
+                span,
+            },
+            Value::String {
+                val: self
+                    .as_ref()
+                    .describe_optimized_plan()
+                    .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string()),
+                span,
+            },
+        ];
+
+        Ok(Value::Record { cols, vals, span })
     }
 
     fn to_json(&self) -> nu_json::Value {

@@ -84,6 +84,12 @@ impl AsMut<DataFrame> for NuDataFrame {
     }
 }
 
+impl From<DataFrame> for NuDataFrame {
+    fn from(dataframe: DataFrame) -> Self {
+        Self(dataframe)
+    }
+}
+
 impl NuDataFrame {
     pub fn new(dataframe: DataFrame) -> Self {
         Self(dataframe)

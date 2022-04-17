@@ -1,14 +1,14 @@
-mod expressions_macro;
 mod alias;
 mod dsl;
+mod expressions_macro;
 mod to_nu;
 
 use nu_protocol::engine::StateWorkingSet;
 
 use crate::dataframe::expressions::dsl::*;
 
-use crate::dataframe::expressions::expressions_macro::*;
 use crate::dataframe::expressions::alias::ExprAlias;
+use crate::dataframe::expressions::expressions_macro::*;
 use crate::dataframe::expressions::to_nu::ExprToNu;
 
 pub fn add_expressions(working_set: &mut StateWorkingSet) {
@@ -26,6 +26,7 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
         ExprAlias,
         ExprCol,
         ExprLit,
+        ExprNot,
         ExprIsNull,
         ExprIsNotNull,
         ExprMax,
@@ -37,6 +38,9 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
         ExprFirst,
         ExprLast,
         ExprList,
+        ExprAggGroups,
+        ExprFlatten,
+        ExprExplode,
         ExprToNu,
         ExprWhen
     );
