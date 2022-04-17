@@ -1,6 +1,4 @@
-use crate::completions::{
-    file_completions::file_path_completion, Completer, CompletionOptions, SortBy,
-};
+use crate::completions::{file_completions::file_path_completion, Completer, SortBy};
 use nu_parser::{trim_quotes, FlatShape};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
@@ -154,7 +152,7 @@ impl Completer for CommandCompletion {
         span: Span,
         offset: usize,
         pos: usize,
-    ) -> (Vec<Suggestion>, CompletionOptions) {
+    ) -> Vec<Suggestion> {
         let last = self
             .flattened
             .iter()
@@ -172,9 +170,6 @@ impl Completer for CommandCompletion {
             })
             .last();
 
-        // Options
-        let options = CompletionOptions::new(true, true, SortBy::LevenshteinDistance);
-
         // The last item here would be the earliest shape that could possible by part of this subcommand
         let subcommands = if let Some(last) = last {
             self.complete_commands(
@@ -191,7 +186,7 @@ impl Completer for CommandCompletion {
         };
 
         if !subcommands.is_empty() {
-            return (subcommands, options);
+            return subcommands;
         }
 
         let commands = if matches!(self.flat_shape, nu_parser::FlatShape::External)
@@ -264,7 +259,7 @@ impl Completer for CommandCompletion {
             .chain(commands.into_iter())
             .collect::<Vec<_>>();
 
-        (output, options)
+        output
     }
 
     fn get_sort_by(&self) -> SortBy {

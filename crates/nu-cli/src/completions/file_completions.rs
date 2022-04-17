@@ -1,4 +1,4 @@
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::Completer;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -28,7 +28,7 @@ impl Completer for FileCompletion {
         span: Span,
         offset: usize,
         _: usize,
-    ) -> (Vec<Suggestion>, CompletionOptions) {
+    ) -> Vec<Suggestion> {
         let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
             match d.as_string() {
                 Ok(s) => s,
@@ -51,19 +51,11 @@ impl Completer for FileCompletion {
             })
             .collect();
 
-        // Options
-        let options = CompletionOptions::default();
-
-        (output, options)
+        output
     }
 
     // Sort results prioritizing the non hidden folders
-    fn sort(
-        &self,
-        items: Vec<Suggestion>,
-        prefix: Vec<u8>,
-        _: CompletionOptions, // Ignore the given options, once it's a custom sorting
-    ) -> Vec<Suggestion> {
+    fn sort(&self, items: Vec<Suggestion>, prefix: Vec<u8>) -> Vec<Suggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).to_string();
 
         // Sort items

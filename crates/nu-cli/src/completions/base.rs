@@ -1,4 +1,4 @@
-use crate::completions::{CompletionOptions, SortBy};
+use crate::completions::SortBy;
 use nu_protocol::{engine::StateWorkingSet, levenshtein_distance, Span};
 use reedline::Suggestion;
 
@@ -12,19 +12,13 @@ pub trait Completer {
         span: Span,
         offset: usize,
         pos: usize,
-    ) -> (Vec<Suggestion>, CompletionOptions);
+    ) -> Vec<Suggestion>;
 
     fn get_sort_by(&self) -> SortBy {
         SortBy::Ascending
     }
 
-    // Sort results using the completion options
-    fn sort(
-        &self,
-        items: Vec<Suggestion>,
-        prefix: Vec<u8>,
-        options: CompletionOptions,
-    ) -> Vec<Suggestion> {
+    fn sort(&self, items: Vec<Suggestion>, prefix: Vec<u8>) -> Vec<Suggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).to_string();
         let mut filtered_items = items;
 

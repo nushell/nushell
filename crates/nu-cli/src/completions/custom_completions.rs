@@ -61,7 +61,7 @@ impl Completer for CustomCompletion {
         span: Span,
         offset: usize,
         pos: usize,
-    ) -> (Vec<Suggestion>, CompletionOptions) {
+    ) -> Vec<Suggestion> {
         // Line position
         let line_pos = pos - offset;
 
@@ -150,7 +150,7 @@ impl Completer for CustomCompletion {
             _ => (vec![], CompletionOptions::default()),
         };
 
-        (filter(&prefix, suggestions, options.clone()), options)
+        filter(&prefix, suggestions, options)
     }
 
     fn get_sort_by(&self) -> SortBy {
