@@ -266,4 +266,8 @@ impl Completer for CommandCompletion {
 
         (output, options)
     }
+
+    fn get_sort_by(&self) -> SortBy {
+        SortBy::LevenshteinDistance
+    }
 }

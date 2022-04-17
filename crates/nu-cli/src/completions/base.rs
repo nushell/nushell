@@ -14,6 +14,10 @@ pub trait Completer {
         pos: usize,
     ) -> (Vec<Suggestion>, CompletionOptions);
 
+    fn get_sort_by(&self) -> SortBy {
+        SortBy::Ascending
+    }
+
     // Sort results using the completion options
     fn sort(
         &self,
@@ -25,7 +29,7 @@ pub trait Completer {
         let mut filtered_items = items;
 
         // Sort items
-        match options.sort_by {
+        match self.get_sort_by() {
             SortBy::LevenshteinDistance => {
                 filtered_items.sort_by(|a, b| {
                     let a_distance = levenshtein_distance(&prefix_str, &a.value);

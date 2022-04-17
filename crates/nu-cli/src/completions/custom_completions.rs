@@ -13,6 +13,7 @@ pub struct CustomCompletion {
     stack: Stack,
     decl_id: usize,
     line: String,
+    sort_by: SortBy,
 }
 
 impl CustomCompletion {
@@ -22,6 +23,7 @@ impl CustomCompletion {
             stack,
             decl_id,
             line,
+            sort_by: SortBy::None,
         }
     }
 
@@ -113,6 +115,10 @@ impl Completer for CustomCompletion {
                                 .and_then(|val| val.as_bool().ok())
                                 .unwrap_or(false);
 
+                            if should_sort {
+                                self.sort_by = SortBy::Ascending;
+                            }
+
                             CompletionOptions {
                                 case_sensitive: options
                                     .get_data_by_key("case_sensitive")
@@ -145,6 +151,10 @@ impl Completer for CustomCompletion {
         };
 
         (filter(&prefix, suggestions, options.clone()), options)
+    }
+
+    fn get_sort_by(&self) -> SortBy {
+        self.sort_by
     }
 }
 
