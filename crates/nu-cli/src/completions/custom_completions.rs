@@ -55,7 +55,7 @@ impl Completer for CustomCompletion {
     fn fetch(
         &mut self,
         _: &StateWorkingSet,
-        _: Vec<u8>,
+        prefix: Vec<u8>,
         span: Span,
         offset: usize,
         pos: usize,
@@ -144,6 +144,30 @@ impl Completer for CustomCompletion {
             _ => (vec![], CompletionOptions::default()),
         };
 
-        (suggestions, options)
+        (filter(&prefix, suggestions, options.clone()), options)
     }
+}
+
+fn filter(prefix: &[u8], items: Vec<Suggestion>, options: CompletionOptions) -> Vec<Suggestion> {
+    items
+        .into_iter()
+        .filter(|it| {
+            // Minimise clones for new functionality
+            match (options.case_sensitive, options.positional) {
+                (true, true) => it.value.as_bytes().starts_with(&prefix),
+                (true, false) => it
+                    .value
+                    .contains(std::str::from_utf8(&prefix).unwrap_or("")),
+                (false, positional) => {
+                    let value = it.value.to_lowercase();
+                    let prefix = std::str::from_utf8(&prefix).unwrap_or("").to_lowercase();
+                    if positional {
+                        value.starts_with(&prefix)
+                    } else {
+                        value.contains(&prefix)
+                    }
+                }
+            }
+        })
+        .collect()
 }
