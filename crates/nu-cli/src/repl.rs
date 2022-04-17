@@ -231,6 +231,13 @@ pub fn evaluate_repl(
         }
 
         let input = line_editor.read_line(prompt);
+
+        if config.use_ansi_coloring {
+            // Just before running a command/program, send the escape code (see
+            // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
+            print!("\x1b]133;C\x1b\\");
+        }
+
         match input {
             Ok(Signal::Success(s)) => {
                 let start_time = Instant::now();

@@ -16,6 +16,7 @@ pub struct NushellPrompt {
     default_vi_insert_prompt_indicator: Option<String>,
     default_vi_normal_prompt_indicator: Option<String>,
     default_multiline_indicator: Option<String>,
+    shell_integration: bool,
 }
 
 impl Default for NushellPrompt {
@@ -33,6 +34,7 @@ impl NushellPrompt {
             default_vi_insert_prompt_indicator: None,
             default_vi_normal_prompt_indicator: None,
             default_multiline_indicator: None,
+            shell_integration: false,
         }
     }
 
@@ -82,20 +84,34 @@ impl NushellPrompt {
     fn default_wrapped_custom_string(&self, str: String) -> String {
         format!("({})", str)
     }
+
+    pub(crate) fn enable_shell_integration(&mut self) {
+        self.shell_integration = true
+    }
 }
 
 impl Prompt for NushellPrompt {
     fn render_prompt_left(&self) -> Cow<str> {
-        if let Some(prompt_string) = &self.left_prompt_string {
-            prompt_string.replace('\n', "\r\n").into()
+        // Just before starting to draw the PS1 prompt send the escape code (see
+        // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
+        let mut prompt = if self.shell_integration {
+            String::from("\x1b]133;A\x1b\\")
         } else {
-            let default = DefaultPrompt::new();
-            default
-                .render_prompt_left()
-                .to_string()
-                .replace('\n', "\r\n")
-                .into()
-        }
+            String::new()
+        };
+
+        prompt.push_str(&match &self.left_prompt_string {
+            Some(prompt_string) => prompt_string.replace('\n', "\r\n"),
+            None => {
+                let default = DefaultPrompt::new();
+                default
+                    .render_prompt_left()
+                    .to_string()
+                    .replace('\n', "\r\n")
+            }
+        });
+
+        prompt.into()
     }
 
     fn render_prompt_right(&self) -> Cow<str> {
@@ -136,10 +152,21 @@ impl Prompt for NushellPrompt {
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
-        match &self.default_multiline_indicator {
-            Some(indicator) => indicator.as_str().into(),
-            None => "::: ".into(),
-        }
+        // Just before starting to draw the PS1 prompt send the escape code (see
+        // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
+        let mut prompt = if self.shell_integration {
+            String::from("\x1b]133;A;k=s\x1b\\")
+        } else {
+            String::new()
+        };
+
+        prompt.push_str(
+            self.default_multiline_indicator
+                .as_ref()
+                .unwrap_or(&String::from("::: ")),
+        );
+
+        prompt.into()
     }
 
     fn render_prompt_history_search_indicator(
