@@ -5,6 +5,7 @@ mod test_engine;
 mod test_env;
 mod test_hiding;
 mod test_iteration;
+mod test_known_external;
 mod test_math;
 mod test_modules;
 mod test_parser;
