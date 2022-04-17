@@ -16,6 +16,7 @@ fn known_external_unknown_flag() -> TestResult {
     )
 }
 
+/// GitHub issues #5179, #4618
 #[test]
 fn known_external_alias() -> TestResult {
     run_test(
@@ -24,6 +25,7 @@ fn known_external_alias() -> TestResult {
     )
 }
 
+/// GitHub issues #5179, #4618
 #[test]
 fn known_external_subcommand_alias() -> TestResult {
     run_test(
