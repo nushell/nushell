@@ -39,9 +39,6 @@ impl NuCompleter {
         let (mut suggestions, options) =
             completer.fetch(working_set, prefix.clone(), new_span, offset, pos);
 
-        // Filter
-        suggestions = completer.filter(prefix.clone(), suggestions, options.clone());
-
         // Sort
         suggestions = completer.sort(suggestions, prefix, options);
 
