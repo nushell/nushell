@@ -7,6 +7,7 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 use std::sync::Arc;
+const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[derive(Clone)]
 pub struct DotNuCompletion {
@@ -36,6 +37,7 @@ impl Completer for DotNuCompletion {
         let prefix_str = String::from_utf8_lossy(&prefix).to_string();
         let mut search_dirs: Vec<String> = vec![];
         let (base_dir, mut partial) = partial_from(&prefix_str);
+        let mut is_current_folder = false;
 
         // Fetch the lib dirs
         let lib_dirs: Vec<String> =
@@ -80,6 +82,7 @@ impl Completer for DotNuCompletion {
             } else {
                 "".to_string()
             };
+            is_current_folder = true;
 
             // Add the current folder and the lib dirs into the
             // directories to be searched
@@ -94,7 +97,15 @@ impl Completer for DotNuCompletion {
             .flat_map(|it| {
                 file_path_completion(span, &partial, &it)
                     .into_iter()
-                    .filter(|it| it.1.ends_with(".nu"))
+                    .filter(|it| {
+                        // Different base dir, so we list the .nu files or folders
+                        if !is_current_folder {
+                            return it.1.ends_with(".nu") || it.1.ends_with(SEP);
+                        } else {
+                            // Lib dirs, so we filter only the .nu files
+                            return it.1.ends_with(".nu");
+                        }
+                    })
                     .map(move |x| Suggestion {
                         value: x.1,
                         description: None,
