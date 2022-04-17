@@ -100,10 +100,10 @@ impl Completer for DotNuCompletion {
                     .filter(|it| {
                         // Different base dir, so we list the .nu files or folders
                         if !is_current_folder {
-                            return it.1.ends_with(".nu") || it.1.ends_with(SEP);
+                            it.1.ends_with(".nu") || it.1.ends_with(SEP)
                         } else {
                             // Lib dirs, so we filter only the .nu files
-                            return it.1.ends_with(".nu");
+                            it.1.ends_with(".nu")
                         }
                     })
                     .map(move |x| Suggestion {
