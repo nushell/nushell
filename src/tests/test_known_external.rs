@@ -5,10 +5,7 @@ use crate::tests::{fail_test, run_test_contains, TestResult};
 
 #[test]
 fn known_external_runs() -> TestResult {
-    run_test_contains(
-        r#"extern "cargo version" []; cargo version"#,
-        "cargo",
-    )
+    run_test_contains(r#"extern "cargo version" []; cargo version"#, "cargo")
 }
 
 #[test]
