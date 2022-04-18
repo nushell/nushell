@@ -11,7 +11,6 @@ mod reverse;
 mod sort_by_expr;
 mod to_lazy;
 mod with_column;
-mod open_csv;
 
 use nu_protocol::engine::StateWorkingSet;
 
@@ -26,7 +25,6 @@ use crate::dataframe::lazy::reverse::LazyReverse;
 use crate::dataframe::lazy::sort_by_expr::LazySortBy;
 use crate::dataframe::lazy::to_lazy::ToLazyFrame;
 use crate::dataframe::lazy::with_column::LazyWithColumn;
-use crate::dataframe::lazy::open_csv::LazyOpenCSV;
 
 pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {
@@ -47,7 +45,6 @@ pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
         LazyFilter,
         LazyJoin,
         LazyReverse,
-        LazyOpenCSV,
         LazySortBy,
         LazyWithColumn,
         ToLazyFrame,
