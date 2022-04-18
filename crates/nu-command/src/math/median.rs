@@ -22,6 +22,10 @@ impl Command for SubCommand {
         "Gets the median of a list of numbers"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["middle", "average"]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,

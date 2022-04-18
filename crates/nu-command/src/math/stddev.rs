@@ -22,6 +22,10 @@ impl Command for SubCommand {
         "Finds the stddev of a list of numbers or tables"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["SD", "standard", "deviation", "dispersion", "variation"]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,

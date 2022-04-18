@@ -18,6 +18,10 @@ impl Command for SubCommand {
         "Returns absolute values of a list of numbers"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["absolute", "modulus", "positive", "distance"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
