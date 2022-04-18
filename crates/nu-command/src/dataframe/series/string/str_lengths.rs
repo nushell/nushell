@@ -59,11 +59,12 @@ fn command(
     let series = df.as_series(call.head)?;
 
     let chunked = series.utf8().map_err(|e| {
-        ShellError::SpannedLabeledErrorHelp(
+        ShellError::GenericError(
             "Error casting to string".into(),
             e.to_string(),
-            call.head,
-            "The str-lengths command can only be used with string columns".into(),
+            Some(call.head),
+            Some("The str-lengths command can only be used with string columns".into()),
+            Vec::new(),
         )
     })?;
 

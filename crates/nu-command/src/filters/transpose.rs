@@ -146,10 +146,12 @@ pub fn transpose(
     let mut headers: Vec<String> = vec![];
 
     if !args.rest.is_empty() && args.header_row {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "Can not provide header names and use header row".into(),
             "using header row".into(),
-            name,
+            Some(name),
+            None,
+            Vec::new(),
         ));
     }
 
@@ -161,26 +163,32 @@ pub fn transpose(
                         if let Ok(s) = x.as_string() {
                             headers.push(s.to_string());
                         } else {
-                            return Err(ShellError::SpannedLabeledError(
+                            return Err(ShellError::GenericError(
                                 "Header row needs string headers".into(),
                                 "used non-string headers".into(),
-                                name,
+                                Some(name),
+                                None,
+                                Vec::new(),
                             ));
                         }
                     }
                     _ => {
-                        return Err(ShellError::SpannedLabeledError(
+                        return Err(ShellError::GenericError(
                             "Header row is incomplete and can't be used".into(),
                             "using incomplete header row".into(),
-                            name,
+                            Some(name),
+                            None,
+                            Vec::new(),
                         ));
                     }
                 }
             } else {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Header row is incomplete and can't be used".into(),
                     "using incomplete header row".into(),
-                    name,
+                    Some(name),
+                    None,
+                    Vec::new(),
                 ));
             }
         }

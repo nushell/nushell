@@ -144,32 +144,38 @@ fn rm(
     ))]
     {
         if rm_always_trash {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Cannot execute `rm`; the current configuration specifies \
                     `rm_always_trash = true`, but the current nu executable was not \
                     built with feature `trash_support` or trash is not supported on \
                     your platform."
                     .into(),
                 "trash required to be true but not supported".into(),
-                span,
+                Some(span),
+                None,
+                Vec::new(),
             ));
         } else if trash {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Cannot execute `rm` with option `--trash`; feature `trash-support` not \
                     enabled or trash is not supported on your platform"
                     .into(),
                 "this option is only available if nu is built with the `trash-support` feature"
                     .into(),
-                span,
+                Some(span),
+                None,
+                Vec::new(),
             ));
         }
     }
 
     if targets.is_empty() {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "rm requires target paths".into(),
             "needs parameter".into(),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         ));
     }
 
@@ -184,10 +190,12 @@ fn rm(
                 std::path::MAIN_SEPARATOR
             ))
         {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Cannot remove any parent directory".into(),
                 "cannot remove any parent directory".into(),
-                target.span,
+                Some(target.span),
+                None,
+                Vec::new(),
             ));
         }
 
@@ -214,30 +222,36 @@ fn rm(
                             all_targets.entry(f.clone()).or_insert_with(|| target.span);
                         }
                         Err(e) => {
-                            return Err(ShellError::SpannedLabeledError(
+                            return Err(ShellError::GenericError(
                                 format!("Could not remove {:}", path.to_string_lossy()),
                                 e.to_string(),
-                                target.span,
+                                Some(target.span),
+                                None,
+                                Vec::new(),
                             ));
                         }
                     }
                 }
             }
             Err(e) => {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     e.to_string(),
                     e.to_string(),
-                    call.head,
+                    Some(call.head),
+                    None,
+                    Vec::new(),
                 ))
             }
         };
     }
 
     if all_targets.is_empty() && !force {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "No valid paths".into(),
             "no valid paths".into(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         ));
     }
 
@@ -301,7 +315,13 @@ fn rm(
                     if let Err(e) = result {
                         let msg = format!("Could not delete because: {:}\nTry '--trash' flag", e);
                         Value::Error {
-                            error: ShellError::SpannedLabeledError(msg, e.to_string(), span),
+                            error: ShellError::GenericError(
+                                msg,
+                                e.to_string(),
+                                Some(span),
+                                None,
+                                Vec::new(),
+                            ),
                         }
                     } else if quiet {
                         Value::Nothing { span }
@@ -312,20 +332,24 @@ fn rm(
                 } else {
                     let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
                     Value::Error {
-                        error: ShellError::SpannedLabeledError(
+                        error: ShellError::GenericError(
                             msg,
                             "cannot remove non-empty directory".into(),
-                            span,
+                            Some(span),
+                            None,
+                            Vec::new(),
                         ),
                     }
                 }
             } else {
                 let msg = format!("no such file or directory: {:}", f.to_string_lossy());
                 Value::Error {
-                    error: ShellError::SpannedLabeledError(
+                    error: ShellError::GenericError(
                         msg,
                         "no such file or directory".into(),
-                        span,
+                        Some(span),
+                        None,
+                        Vec::new(),
                     ),
                 }
             }

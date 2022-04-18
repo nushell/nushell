@@ -63,10 +63,12 @@ impl Command for PluginDeclaration {
 
         let mut child = plugin_cmd.spawn().map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 format!("Unable to spawn plugin for {}", decl.name()),
                 format!("{}", err),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             )
         })?;
 
@@ -94,10 +96,12 @@ impl Command for PluginDeclaration {
 
             let response = self.encoding.decode_response(&mut buf_read).map_err(|err| {
                 let decl = engine_state.get_decl(call.decl_id);
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     format!("Unable to decode call for {}", decl.name()),
                     err.to_string(),
-                    call.head,
+                    Some(call.head),
+                    None,
+                    Vec::new(),
                 )
             });
 
@@ -106,18 +110,22 @@ impl Command for PluginDeclaration {
                     Ok(PipelineData::Value(value.as_ref().clone(), None))
                 }
                 Ok(PluginResponse::Error(err)) => Err(err.into()),
-                Ok(PluginResponse::Signature(..)) => Err(ShellError::SpannedLabeledError(
+                Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError(
                     "Plugin missing value".into(),
                     "Received a signature from plugin instead of value".into(),
-                    call.head,
+                    Some(call.head),
+                    None,
+                    Vec::new(),
                 )),
                 Err(err) => Err(err),
             }
         } else {
-            Err(ShellError::SpannedLabeledError(
+            Err(ShellError::GenericError(
                 "Error with stdout reader".into(),
                 "no stdout reader".into(),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             ))
         };
 

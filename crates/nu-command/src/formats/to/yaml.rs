@@ -103,7 +103,7 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
         }
         .into_pipeline_data()),
         _ => Ok(Value::Error {
-            error: ShellError::CantConvert("YAML".into(), value.get_type().to_string(), head),
+            error: ShellError::CantConvert("YAML".into(), value.get_type().to_string(), head, None),
         }
         .into_pipeline_data()),
     }

@@ -96,10 +96,12 @@ pub fn group_by(
     let mut group_strategy = Grouper::ByColumn(None);
 
     if values.is_empty() {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "expected table from pipeline".into(),
             "requires a table input".into(),
-            name,
+            Some(name),
+            None,
+            Vec::new(),
         ));
     }
 
@@ -133,10 +135,12 @@ pub fn group_by(
                             let collection: Vec<Value> = s.into_iter().collect();
 
                             if collection.len() > 1 {
-                                return Err(ShellError::SpannedLabeledError(
+                                return Err(ShellError::GenericError(
                                     "expected one value from the block".into(),
                                     "requires a table with one value for grouping".into(),
-                                    name,
+                                    Some(name),
+                                    None,
+                                    Vec::new(),
                                 ));
                             }
 

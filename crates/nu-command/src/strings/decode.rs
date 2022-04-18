@@ -60,13 +60,15 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
                 let bytes: Vec<u8> = stream.into_bytes()?.item;
 
                 let encoding = match Encoding::for_label(encoding.item.as_bytes()) {
-                    None => Err(ShellError::SpannedLabeledError(
+                    None => Err(ShellError::GenericError(
                         format!(
                             r#"{} is not a valid encoding, refer to https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics for a valid list of encodings"#,
                             encoding.item
                         ),
                         "invalid encoding".into(),
-                        encoding.span,
+                        Some(encoding.span),
+                        None,
+                        Vec::new(),
                     )),
                     Some(encoding) => Ok(encoding),
                 }?;
@@ -81,13 +83,15 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
             }
             PipelineData::Value(Value::Binary { val: bytes, .. }, ..) => {
                 let encoding = match Encoding::for_label(encoding.item.as_bytes()) {
-                    None => Err(ShellError::SpannedLabeledError(
+                    None => Err(ShellError::GenericError(
                         format!(
                             r#"{} is not a valid encoding, refer to https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics for a valid list of encodings"#,
                             encoding.item
                         ),
                         "invalid encoding".into(),
-                        encoding.span,
+                        Some(encoding.span),
+                        None,
+                        Vec::new(),
                     )),
                     Some(encoding) => Ok(encoding),
                 }?;

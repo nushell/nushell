@@ -95,10 +95,12 @@ fn command(
         df.as_ref()
             .sort(columns, reverse)
             .map_err(|e| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error sorting dataframe".into(),
                     e.to_string(),
-                    call.head,
+                    Some(call.head),
+                    None,
+                    Vec::new(),
                 )
             })
             .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
@@ -111,20 +113,24 @@ fn command(
             df.as_ref()
                 .sort(&col_string, reverse)
                 .map_err(|e| {
-                    ShellError::SpannedLabeledError(
+                    ShellError::GenericError(
                         "Error sorting dataframe".into(),
                         e.to_string(),
-                        col_span,
+                        Some(col_span),
+                        None,
+                        Vec::new(),
                     )
                 })
                 .map(|df| {
                     PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None)
                 })
         } else {
-            Err(ShellError::SpannedLabeledError(
+            Err(ShellError::GenericError(
                 "Missing columns".into(),
                 "missing column name to perform sort".into(),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             ))
         }
     }

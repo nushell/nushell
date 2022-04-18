@@ -193,7 +193,7 @@ fn from_eml(
         .with_body_preview(body_preview)
         .parse()
         .map_err(|_| {
-            ShellError::CantConvert("structured eml data".into(), "string".into(), head)
+            ShellError::CantConvert("structured eml data".into(), "string".into(), head, None)
         })?;
 
     let mut collected = IndexMap::new();

@@ -106,9 +106,12 @@ fn gather_env_vars(vars: impl Iterator<Item = (String, String)>, engine_state: &
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
             &working_set,
-            &ShellError::LabeledError(
+            &ShellError::GenericError(
                 format!("Environment variable was not captured: {}", env_str),
-                msg.into(),
+                "".to_string(),
+                None,
+                Some(msg.into()),
+                Vec::new(),
             ),
         );
     }
@@ -152,9 +155,12 @@ fn gather_env_vars(vars: impl Iterator<Item = (String, String)>, engine_state: &
                 let working_set = StateWorkingSet::new(engine_state);
                 report_error(
                     &working_set,
-                    &ShellError::LabeledError(
+                    &ShellError::GenericError(
                         "Current directory not found".to_string(),
-                        format!("Retrieving current directory failed: {:?}", e),
+                        "".to_string(),
+                        None,
+                        Some(format!("Retrieving current directory failed: {:?}", e)),
+                        Vec::new(),
                     ),
                 );
             }

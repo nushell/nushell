@@ -20,11 +20,12 @@ impl CumType {
             "min" => Ok(Self::Min),
             "max" => Ok(Self::Max),
             "sum" => Ok(Self::Sum),
-            _ => Err(ShellError::SpannedLabeledErrorHelp(
+            _ => Err(ShellError::GenericError(
                 "Wrong operation".into(),
                 "Operation not valid for cumulative".into(),
-                span,
-                "Allowed values: max, min, sum".into(),
+                Some(span),
+                Some("Allowed values: max, min, sum".into()),
+                Vec::new(),
             )),
         }
     }
@@ -102,10 +103,12 @@ fn command(
     let series = df.as_series(call.head)?;
 
     if let DataType::Object(_) = series.dtype() {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "Found object series".into(),
             "Series of type object cannot be used for cumulative operation".into(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         ));
     }
 

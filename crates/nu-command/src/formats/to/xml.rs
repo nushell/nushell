@@ -118,10 +118,12 @@ pub fn write_xml_events<W: Write>(
             for (k, v) in cols.iter().zip(vals.iter()) {
                 let mut e = BytesStart::owned(k.as_bytes(), k.len());
                 if !is_xml_row(v) {
-                    return Err(ShellError::SpannedLabeledError(
+                    return Err(ShellError::GenericError(
                         "Expected a row with 'children' and 'attributes' columns".to_string(),
                         "missing 'children' and 'attributes' columns ".to_string(),
-                        span,
+                        Some(span),
+                        None,
+                        Vec::new(),
                     ));
                 }
                 let a = get_attributes(v, config);
@@ -185,6 +187,7 @@ fn to_xml(
             "XML".into(),
             value_type.to_string(),
             head,
+            None,
         )),
     }
 }

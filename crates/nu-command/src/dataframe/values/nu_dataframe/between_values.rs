@@ -66,10 +66,12 @@ pub(super) fn compute_between_series(
                     res.rename(&name);
                     NuDataFrame::series_to_value(res, operation_span)
                 }
-                Err(e) => Err(ShellError::SpannedLabeledError(
+                Err(e) => Err(ShellError::GenericError(
                     "Division error".into(),
                     e.to_string(),
-                    right.span()?,
+                    Some(right.span()?),
+                    None,
+                    Vec::new(),
                 )),
             }
         }
@@ -121,10 +123,12 @@ pub(super) fn compute_between_series(
                         res.rename(&name);
                         NuDataFrame::series_to_value(res, operation_span)
                     }
-                    _ => Err(ShellError::SpannedLabeledError(
+                    _ => Err(ShellError::GenericError(
                         "Incompatible types".into(),
                         "unable to cast to boolean".into(),
-                        right.span()?,
+                        Some(right.span()?),
+                        None,
+                        Vec::new(),
                     )),
                 }
             }
@@ -148,10 +152,12 @@ pub(super) fn compute_between_series(
                         res.rename(&name);
                         NuDataFrame::series_to_value(res, operation_span)
                     }
-                    _ => Err(ShellError::SpannedLabeledError(
+                    _ => Err(ShellError::GenericError(
                         "Incompatible types".into(),
                         "unable to cast to boolean".into(),
-                        right.span()?,
+                        Some(right.span()?),
+                        None,
+                        Vec::new(),
                     )),
                 }
             }
@@ -413,10 +419,12 @@ where
                     let casted = series.i64();
                     compute_casted_i64(casted, val, f, span)
                 }
-                Err(e) => Err(ShellError::SpannedLabeledError(
+                Err(e) => Err(ShellError::GenericError(
                     "Unable to cast to i64".into(),
                     e.to_string(),
-                    span,
+                    Some(span),
+                    None,
+                    Vec::new(),
                 )),
             }
         }
@@ -424,13 +432,15 @@ where
             let casted = series.i64();
             compute_casted_i64(casted, val, f, span)
         }
-        _ => Err(ShellError::SpannedLabeledError(
+        _ => Err(ShellError::GenericError(
             "Incorrect type".into(),
             format!(
                 "Series of type {} can not be used for operations with an i64 value",
                 series.dtype()
             ),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -450,10 +460,12 @@ where
             let res = res.into_series();
             NuDataFrame::series_to_value(res, span)
         }
-        Err(e) => Err(ShellError::SpannedLabeledError(
+        Err(e) => Err(ShellError::GenericError(
             "Unable to cast to i64".into(),
             e.to_string(),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -476,10 +488,12 @@ where
                     let casted = series.f64();
                     compute_casted_f64(casted, val, f, span)
                 }
-                Err(e) => Err(ShellError::SpannedLabeledError(
+                Err(e) => Err(ShellError::GenericError(
                     "Unable to cast to f64".into(),
                     e.to_string(),
-                    span,
+                    Some(span),
+                    None,
+                    Vec::new(),
                 )),
             }
         }
@@ -487,13 +501,15 @@ where
             let casted = series.f64();
             compute_casted_f64(casted, val, f, span)
         }
-        _ => Err(ShellError::SpannedLabeledError(
+        _ => Err(ShellError::GenericError(
             "Incorrect type".into(),
             format!(
                 "Series of type {} can not be used for operations with a decimal value",
                 series.dtype()
             ),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -513,10 +529,12 @@ where
             let res = res.into_series();
             NuDataFrame::series_to_value(res, span)
         }
-        Err(e) => Err(ShellError::SpannedLabeledError(
+        Err(e) => Err(ShellError::GenericError(
             "Unable to cast to f64".into(),
             e.to_string(),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -537,10 +555,12 @@ where
                     let casted = series.i64();
                     compare_casted_i64(casted, val, f, span)
                 }
-                Err(e) => Err(ShellError::SpannedLabeledError(
+                Err(e) => Err(ShellError::GenericError(
                     "Unable to cast to f64".into(),
                     e.to_string(),
-                    span,
+                    Some(span),
+                    None,
+                    Vec::new(),
                 )),
             }
         }
@@ -556,10 +576,12 @@ where
                         .expect("already checked for casting");
                     compare_casted_i64(Ok(&casted), val, f, span)
                 }
-                Err(e) => Err(ShellError::SpannedLabeledError(
+                Err(e) => Err(ShellError::GenericError(
                     "Unable to cast to f64".into(),
                     e.to_string(),
-                    span,
+                    Some(span),
+                    None,
+                    Vec::new(),
                 )),
             }
         }
@@ -567,13 +589,15 @@ where
             let casted = series.i64();
             compare_casted_i64(casted, val, f, span)
         }
-        _ => Err(ShellError::SpannedLabeledError(
+        _ => Err(ShellError::GenericError(
             "Incorrect type".into(),
             format!(
                 "Series of type {} can not be used for operations with an i64 value",
                 series.dtype()
             ),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -593,10 +617,12 @@ where
             let res = res.into_series();
             NuDataFrame::series_to_value(res, span)
         }
-        Err(e) => Err(ShellError::SpannedLabeledError(
+        Err(e) => Err(ShellError::GenericError(
             "Unable to cast to i64".into(),
             e.to_string(),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -619,10 +645,12 @@ where
                     let casted = series.f64();
                     compare_casted_f64(casted, val, f, span)
                 }
-                Err(e) => Err(ShellError::SpannedLabeledError(
+                Err(e) => Err(ShellError::GenericError(
                     "Unable to cast to i64".into(),
                     e.to_string(),
-                    span,
+                    Some(span),
+                    None,
+                    Vec::new(),
                 )),
             }
         }
@@ -630,13 +658,15 @@ where
             let casted = series.f64();
             compare_casted_f64(casted, val, f, span)
         }
-        _ => Err(ShellError::SpannedLabeledError(
+        _ => Err(ShellError::GenericError(
             "Incorrect type".into(),
             format!(
                 "Series of type {} can not be used for operations with a decimal value",
                 series.dtype()
             ),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -656,10 +686,12 @@ where
             let res = res.into_series();
             NuDataFrame::series_to_value(res, span)
         }
-        Err(e) => Err(ShellError::SpannedLabeledError(
+        Err(e) => Err(ShellError::GenericError(
             "Unable to cast to f64".into(),
             e.to_string(),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -675,17 +707,21 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, 
                     let res = res.into_series();
                     NuDataFrame::series_to_value(res, span)
                 }
-                Err(e) => Err(ShellError::SpannedLabeledError(
+                Err(e) => Err(ShellError::GenericError(
                     "Error using contains".into(),
                     e.to_string(),
-                    span,
+                    Some(span),
+                    None,
+                    Vec::new(),
                 )),
             }
         }
-        Err(e) => Err(ShellError::SpannedLabeledError(
+        Err(e) => Err(ShellError::GenericError(
             "Unable to cast to string".into(),
             e.to_string(),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         )),
     }
 }

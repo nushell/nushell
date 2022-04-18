@@ -124,10 +124,12 @@ fn seq(
     let widths = call.has_flag("widths");
 
     if rest_nums.is_empty() {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "seq requires some parameters".into(),
             "needs parameter".into(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         ));
     }
 
@@ -142,10 +144,12 @@ fn seq(
             } else {
                 let vec_s: Vec<char> = s.item.chars().collect();
                 if vec_s.is_empty() {
-                    return Err(ShellError::SpannedLabeledError(
+                    return Err(ShellError::GenericError(
                         "Expected a single separator char from --separator".into(),
                         "requires a single character string input".into(),
-                        s.span,
+                        Some(s.span),
+                        None,
+                        Vec::new(),
                     ));
                 };
                 vec_s.iter().collect()
@@ -165,10 +169,12 @@ fn seq(
             } else {
                 let vec_t: Vec<char> = t.item.chars().collect();
                 if vec_t.is_empty() {
-                    return Err(ShellError::SpannedLabeledError(
+                    return Err(ShellError::GenericError(
                         "Expected a single terminator char from --terminator".into(),
                         "requires a single character string input".into(),
-                        t.span,
+                        Some(t.span),
+                        None,
+                        Vec::new(),
                     ));
                 };
                 vec_t.iter().collect()
@@ -228,7 +234,15 @@ pub fn run_seq(
         padding = dec;
         match parse_float(slice) {
             Ok(n) => n,
-            Err(s) => return Err(ShellError::LabeledError(s, "error parsing float".into())),
+            Err(s) => {
+                return Err(ShellError::GenericError(
+                    s,
+                    "".to_string(),
+                    None,
+                    Some("error parsing float".into()),
+                    Vec::new(),
+                ))
+            }
         }
     } else {
         1.0
@@ -241,7 +255,15 @@ pub fn run_seq(
         padding = cmp::max(padding, dec);
         match parse_float(slice) {
             Ok(n) => n,
-            Err(s) => return Err(ShellError::LabeledError(s, "error parsing float".into())),
+            Err(s) => {
+                return Err(ShellError::GenericError(
+                    s,
+                    "".to_string(),
+                    None,
+                    Some("error parsing float".into()),
+                    Vec::new(),
+                ))
+            }
         }
     } else {
         1.0
@@ -252,7 +274,13 @@ pub fn run_seq(
         match parse_float(slice) {
             Ok(n) => n,
             Err(s) => {
-                return Err(ShellError::LabeledError(s, "error parsing float".into()));
+                return Err(ShellError::GenericError(
+                    s,
+                    "".to_string(),
+                    None,
+                    Some("error parsing float".into()),
+                    Vec::new(),
+                ));
             }
         }
     };

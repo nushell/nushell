@@ -95,10 +95,11 @@ impl Command for FromNuon {
 
         if let Some(pipeline) = block.pipelines.get(1) {
             if let Some(expr) = pipeline.expressions.get(0) {
-                return Err(ShellError::SpannedLabeledErrorRelated(
+                return Err(ShellError::GenericError(
                     "error when loading nuon text".into(),
                     "could not load nuon text".into(),
-                    head,
+                    Some(head),
+                    None,
                     vec![ShellError::OutsideSpannedLabeledError(
                         string_input,
                         "error when loading".into(),
@@ -107,14 +108,17 @@ impl Command for FromNuon {
                     )],
                 ));
             } else {
-                return Err(ShellError::SpannedLabeledErrorRelated(
+                return Err(ShellError::GenericError(
                     "error when loading nuon text".into(),
                     "could not load nuon text".into(),
-                    head,
-                    vec![ShellError::SpannedLabeledError(
+                    Some(head),
+                    None,
+                    vec![ShellError::GenericError(
                         "error when loading".into(),
                         "excess values when loading".into(),
-                        head,
+                        Some(head),
+                        None,
+                        Vec::new(),
                     )],
                 ));
             }
@@ -131,10 +135,11 @@ impl Command for FromNuon {
             let mut pipeline = block.pipelines.remove(0);
 
             if let Some(expr) = pipeline.expressions.get(1) {
-                return Err(ShellError::SpannedLabeledErrorRelated(
+                return Err(ShellError::GenericError(
                     "error when loading nuon text".into(),
                     "could not load nuon text".into(),
-                    head,
+                    Some(head),
+                    None,
                     vec![ShellError::OutsideSpannedLabeledError(
                         string_input,
                         "error when loading".into(),
@@ -157,10 +162,11 @@ impl Command for FromNuon {
         };
 
         if let Some(err) = error {
-            return Err(ShellError::SpannedLabeledErrorRelated(
+            return Err(ShellError::GenericError(
                 "error when parsing nuon text".into(),
                 "could not parse nuon text".into(),
-                head,
+                Some(head),
+                None,
                 vec![ShellError::OutsideSpannedLabeledError(
                     string_input,
                     "error when parsing".into(),
@@ -174,10 +180,11 @@ impl Command for FromNuon {
 
         match result {
             Ok(result) => Ok(result.into_pipeline_data()),
-            Err(err) => Err(ShellError::SpannedLabeledErrorRelated(
+            Err(err) => Err(ShellError::GenericError(
                 "error when loading nuon text".into(),
                 "could not load nuon text".into(),
-                head,
+                Some(head),
+                None,
                 vec![err],
             )),
         }

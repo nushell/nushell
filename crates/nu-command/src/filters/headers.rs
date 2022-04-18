@@ -131,10 +131,12 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
             .map(|value| extract_headers(value, config))
             .next()
             .ok_or_else(|| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Found empty list".to_string(),
                     "unable to extract headers".to_string(),
-                    *span,
+                    Some(*span),
+                    None,
+                    Vec::new(),
                 )
             })?,
         _ => Err(ShellError::TypeMismatch(

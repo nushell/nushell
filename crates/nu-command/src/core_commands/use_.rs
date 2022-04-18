@@ -46,10 +46,12 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         {
             pat
         } else {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Unexpected import".into(),
                 "import pattern not supported".into(),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             ));
         };
 
@@ -120,13 +122,15 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         } else {
             // TODO: This is a workaround since call.positional[0].span points at 0 for some reason
             // when this error is triggered
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 format!(
                     "Could not import from '{}'",
                     String::from_utf8_lossy(&import_pattern.head.name)
                 ),
                 "module does not exist".to_string(),
-                import_pattern.head.span,
+                Some(import_pattern.head.span),
+                None,
+                Vec::new(),
             ));
         }
 

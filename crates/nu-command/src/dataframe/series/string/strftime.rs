@@ -69,11 +69,12 @@ fn command(
     let series = df.as_series(call.head)?;
 
     let casted = series.datetime().map_err(|e| {
-        ShellError::SpannedLabeledErrorHelp(
+        ShellError::GenericError(
             "Error casting to date".into(),
             e.to_string(),
-            call.head,
-            "The str-slice command can only be used with string columns".into(),
+            Some(call.head),
+            Some("The str-slice command can only be used with string columns".into()),
+            Vec::new(),
         )
     })?;
 

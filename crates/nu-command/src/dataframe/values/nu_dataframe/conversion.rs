@@ -122,7 +122,13 @@ pub fn create_column(
         }
         DataType::UInt8 => {
             let casted = series.u8().map_err(|e| {
-                ShellError::LabeledError("Error casting column to u8".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to u8".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
             let values = casted
                 .into_iter()
@@ -141,7 +147,13 @@ pub fn create_column(
         }
         DataType::UInt16 => {
             let casted = series.u16().map_err(|e| {
-                ShellError::LabeledError("Error casting column to u16".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to u16".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
             let values = casted
                 .into_iter()
@@ -160,7 +172,13 @@ pub fn create_column(
         }
         DataType::UInt32 => {
             let casted = series.u32().map_err(|e| {
-                ShellError::LabeledError("Error casting column to u32".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to u32".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
             let values = casted
                 .into_iter()
@@ -179,7 +197,13 @@ pub fn create_column(
         }
         DataType::UInt64 => {
             let casted = series.u64().map_err(|e| {
-                ShellError::LabeledError("Error casting column to u64".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to u64".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
             let values = casted
                 .into_iter()
@@ -198,7 +222,13 @@ pub fn create_column(
         }
         DataType::Int8 => {
             let casted = series.i8().map_err(|e| {
-                ShellError::LabeledError("Error casting column to i8".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to i8".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
             let values = casted
                 .into_iter()
@@ -217,7 +247,13 @@ pub fn create_column(
         }
         DataType::Int16 => {
             let casted = series.i16().map_err(|e| {
-                ShellError::LabeledError("Error casting column to i16".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to i16".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
             let values = casted
                 .into_iter()
@@ -236,7 +272,13 @@ pub fn create_column(
         }
         DataType::Int32 => {
             let casted = series.i32().map_err(|e| {
-                ShellError::LabeledError("Error casting column to i32".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to i32".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
             let values = casted
                 .into_iter()
@@ -255,7 +297,13 @@ pub fn create_column(
         }
         DataType::Int64 => {
             let casted = series.i64().map_err(|e| {
-                ShellError::LabeledError("Error casting column to i64".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to i64".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
             let values = casted
                 .into_iter()
@@ -274,7 +322,13 @@ pub fn create_column(
         }
         DataType::Float32 => {
             let casted = series.f32().map_err(|e| {
-                ShellError::LabeledError("Error casting column to f32".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to f32".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
             let values = casted
                 .into_iter()
@@ -293,7 +347,13 @@ pub fn create_column(
         }
         DataType::Float64 => {
             let casted = series.f64().map_err(|e| {
-                ShellError::LabeledError("Error casting column to f64".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to f64".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
             let values = casted
                 .into_iter()
@@ -309,7 +369,13 @@ pub fn create_column(
         }
         DataType::Boolean => {
             let casted = series.bool().map_err(|e| {
-                ShellError::LabeledError("Error casting column to bool".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to bool".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
 
             let values = casted
@@ -326,7 +392,13 @@ pub fn create_column(
         }
         DataType::Utf8 => {
             let casted = series.utf8().map_err(|e| {
-                ShellError::LabeledError("Error casting column to string".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to string".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
 
             let values = casted
@@ -350,9 +422,12 @@ pub fn create_column(
                 .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
 
             match casted {
-                None => Err(ShellError::LabeledError(
+                None => Err(ShellError::GenericError(
                     "Error casting object from series".into(),
-                    format!("Object not supported for conversion: {}", x),
+                    "".to_string(),
+                    None,
+                    Some(format!("Object not supported for conversion: {}", x)),
+                    Vec::new(),
                 )),
                 Some(ca) => {
                     let values = ca
@@ -371,7 +446,13 @@ pub fn create_column(
         }
         DataType::Date => {
             let casted = series.date().map_err(|e| {
-                ShellError::LabeledError("Error casting column to date".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to date".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
 
             let values = casted
@@ -401,7 +482,13 @@ pub fn create_column(
         }
         DataType::Datetime(_, _) => {
             let casted = series.datetime().map_err(|e| {
-                ShellError::LabeledError("Error casting column to datetime".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to datetime".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
 
             let values = casted
@@ -431,7 +518,13 @@ pub fn create_column(
         }
         DataType::Time => {
             let casted = series.timestamp(TimeUnit::Nanoseconds).map_err(|e| {
-                ShellError::LabeledError("Error casting column to time".into(), e.to_string())
+                ShellError::GenericError(
+                    "Error casting column to time".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
             })?;
 
             let values = casted
@@ -449,9 +542,12 @@ pub fn create_column(
 
             Ok(Column::new(casted.name().into(), values))
         }
-        e => Err(ShellError::LabeledError(
+        e => Err(ShellError::GenericError(
             "Error creating Dataframe".into(),
-            format!("Value not supported in nushell: {}", e),
+            "".to_string(),
+            None,
+            Some(format!("Value not supported in nushell: {}", e)),
+            Vec::new(),
         )),
     }
 }
@@ -620,5 +716,13 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
 
     DataFrame::new(df_series)
         .map(NuDataFrame::new)
-        .map_err(|e| ShellError::LabeledError("Error creating dataframe".into(), e.to_string()))
+        .map_err(|e| {
+            ShellError::GenericError(
+                "Error creating dataframe".into(),
+                "".to_string(),
+                None,
+                Some(e.to_string()),
+                Vec::new(),
+            )
+        })
 }

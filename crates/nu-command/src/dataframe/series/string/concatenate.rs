@@ -75,19 +75,23 @@ fn command(
 
     let other_series = other_df.as_series(other_span)?;
     let other_chunked = other_series.utf8().map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "The concatenate only with string columns".into(),
             e.to_string(),
-            other_span,
+            Some(other_span),
+            None,
+            Vec::new(),
         )
     })?;
 
     let series = df.as_series(call.head)?;
     let chunked = series.utf8().map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "The concatenate only with string columns".into(),
             e.to_string(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })?;
 

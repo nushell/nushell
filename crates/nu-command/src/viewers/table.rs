@@ -417,9 +417,12 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
     let val_float = match val.trim().parse::<f64>() {
         Ok(f) => f,
         Err(e) => {
-            return Err(ShellError::LabeledError(
+            return Err(ShellError::GenericError(
                 format!("error converting string [{}] to f64", &val),
-                e.to_string(),
+                "".to_string(),
+                None,
+                Some(e.to_string()),
+                Vec::new(),
             ));
         }
     };
