@@ -194,13 +194,8 @@ pub fn evaluate_repl(
             info!("prompt_update {}:{}:{}", file!(), line!(), column!());
         }
 
-        let prompt = prompt_update::update_prompt(
-            config,
-            engine_state,
-            stack,
-            &mut nu_prompt,
-            is_perf_true,
-        );
+        let prompt =
+            prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt, is_perf_true);
 
         entry_num += 1;
 

@@ -1705,6 +1705,14 @@ pub fn parse_let(
                             parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx);
                         error = error.or(err);
 
+                        let var_id = lvalue.as_var();
+
+                        let rhs_type = rvalue.ty.clone();
+
+                        if let Some(var_id) = var_id {
+                            working_set.set_variable_type(var_id, rhs_type);
+                        }
+
                         let call = Box::new(Call {
                             decl_id,
                             head: spans[0],

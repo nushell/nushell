@@ -2,7 +2,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, 
+    PipelineData, Span,
 };
 
 use super::eager::ToDataFrame;
