@@ -22,7 +22,7 @@ impl Command for NuHighlight {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -30,7 +30,7 @@ impl Command for NuHighlight {
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
-        let config = stack.get_config()?;
+        let config = engine_state.get_config().clone();
 
         let highlighter = crate::NuHighlighter {
             engine_state,

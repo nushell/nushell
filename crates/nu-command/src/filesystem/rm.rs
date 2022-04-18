@@ -133,7 +133,7 @@ fn rm(
     let targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
     let span = call.head;
 
-    let config = stack.get_config()?;
+    let config = engine_state.get_config();
 
     let rm_always_trash = config.rm_always_trash;
 

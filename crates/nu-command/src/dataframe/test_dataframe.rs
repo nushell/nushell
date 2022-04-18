@@ -2,7 +2,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Value, CONFIG_VARIABLE_ID,
+    PipelineData, Span, 
 };
 
 use super::eager::ToDataFrame;
@@ -62,16 +62,6 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
         let _ = engine_state.merge_delta(delta, None, &cwd);
 
         let mut stack = Stack::new();
-
-        // Set up our initial config to start from
-        stack.vars.insert(
-            CONFIG_VARIABLE_ID,
-            Value::Record {
-                cols: vec![],
-                vals: vec![],
-                span: Span::test_data(),
-            },
-        );
 
         match eval_block(
             &engine_state,

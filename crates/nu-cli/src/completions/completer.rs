@@ -5,7 +5,7 @@ use crate::completions::{
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Span, Value,
+    Span,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::str;
@@ -15,15 +15,13 @@ use std::sync::Arc;
 pub struct NuCompleter {
     engine_state: Arc<EngineState>,
     stack: Stack,
-    config: Option<Value>,
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: Arc<EngineState>, stack: Stack, config: Option<Value>) -> Self {
+    pub fn new(engine_state: Arc<EngineState>, stack: Stack) -> Self {
         Self {
             engine_state,
             stack,
-            config,
         }
     }
 
@@ -146,7 +144,6 @@ impl NuCompleter {
                                 let mut completer = CustomCompletion::new(
                                     self.engine_state.clone(),
                                     self.stack.clone(),
-                                    self.config.clone(),
                                     *decl_id,
                                     line,
                                 );

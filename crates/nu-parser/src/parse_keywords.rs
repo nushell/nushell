@@ -5,7 +5,7 @@ use nu_protocol::{
         ImportPatternMember, Pipeline,
     },
     engine::StateWorkingSet,
-    span, Exportable, Overlay, PositionalArg, Span, SyntaxShape, Type, CONFIG_VARIABLE_ID,
+    span, Exportable, Overlay, PositionalArg, Span, SyntaxShape, Type,
 };
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -1704,16 +1704,6 @@ pub fn parse_let(
                         let (lvalue, err) =
                             parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx);
                         error = error.or(err);
-
-                        let var_id = lvalue.as_var();
-
-                        let rhs_type = rvalue.ty.clone();
-
-                        if let Some(var_id) = var_id {
-                            if var_id != CONFIG_VARIABLE_ID {
-                                working_set.set_variable_type(var_id, rhs_type);
-                            }
-                        }
 
                         let call = Box::new(Call {
                             decl_id,

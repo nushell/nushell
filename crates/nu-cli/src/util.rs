@@ -21,7 +21,7 @@ pub fn print_pipeline_data(
     // If the table function is in the declarations, then we can use it
     // to create the table value that will be printed in the terminal
 
-    let config = stack.get_config().unwrap_or_default();
+    let config = engine_state.get_config();
 
     let stdout = std::io::stdout();
 
@@ -61,7 +61,7 @@ pub fn print_pipeline_data(
                     return Err(error);
                 }
 
-                let mut out = item.into_string("\n", &config);
+                let mut out = item.into_string("\n", config);
                 out.push('\n');
 
                 match stdout.lock().write_all(out.as_bytes()) {
@@ -78,7 +78,7 @@ pub fn print_pipeline_data(
                     return Err(error);
                 }
 
-                let mut out = item.into_string("\n", &config);
+                let mut out = item.into_string("\n", config);
                 out.push('\n');
 
                 match stdout.lock().write_all(out.as_bytes()) {
