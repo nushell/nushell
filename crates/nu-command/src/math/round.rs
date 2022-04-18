@@ -28,6 +28,10 @@ impl Command for SubCommand {
         "Applies the round function to a list of numbers"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["approx", "rough"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

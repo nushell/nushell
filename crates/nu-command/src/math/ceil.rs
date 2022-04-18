@@ -18,6 +18,10 @@ impl Command for SubCommand {
         "Applies the ceil function to a list of numbers"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["ceiling"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

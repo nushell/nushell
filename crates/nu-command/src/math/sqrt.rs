@@ -18,6 +18,10 @@ impl Command for SubCommand {
         "Applies the square root function to a list of numbers"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["square", "root"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
