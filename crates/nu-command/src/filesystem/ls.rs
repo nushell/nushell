@@ -3,6 +3,7 @@ use crate::DirInfo;
 use chrono::{DateTime, Local};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
+use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -76,7 +77,7 @@ impl Command for Ls {
         let (path, p_tag, absolute_path) = match pattern_arg {
             Some(p) => {
                 let p_tag = p.span;
-                let mut p = PathBuf::from(p.item);
+                let mut p = expand_to_real_path(p.item);
 
                 let expanded = nu_path::expand_path_with(&p, &cwd);
                 if expanded.is_dir() {
@@ -224,6 +225,11 @@ impl Command for Ls {
                 result: None,
             },
             Example {
+                description: "List all files with full path in the parent directory",
+                example: "ls -f ..",
+                result: None,
+            },
+            Example {
                 description: "List all rust files",
                 example: "ls *.rs",
                 result: None,
@@ -234,8 +240,8 @@ impl Command for Ls {
                 result: None,
             },
             Example {
-                description: "List all dirs with full path name in your home directory",
-                example: "ls -f ~ | where type == dir",
+                description: "List all dirs in your home directory",
+                example: "ls ~ | where type == dir",
                 result: None,
             },
             Example {

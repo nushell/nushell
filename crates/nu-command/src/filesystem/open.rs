@@ -1,3 +1,4 @@
+use crate::filesystem::util::BufferedReader;
 use nu_engine::{eval_block, get_full_help, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -7,7 +8,7 @@ use nu_protocol::{
 };
 use rusqlite::types::ValueRef;
 use rusqlite::{Connection, Row};
-use std::io::{BufRead, BufReader, Read, Seek};
+use std::io::{BufReader, Read, Seek};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -293,40 +294,6 @@ fn permission_denied(dir: impl AsRef<Path>) -> bool {
     match dir.as_ref().read_dir() {
         Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
         Ok(_) => false,
-    }
-}
-
-pub struct BufferedReader<R: Read> {
-    input: BufReader<R>,
-}
-
-impl<R: Read> BufferedReader<R> {
-    pub fn new(input: BufReader<R>) -> Self {
-        Self { input }
-    }
-}
-
-impl<R: Read> Iterator for BufferedReader<R> {
-    type Item = Result<Vec<u8>, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let buffer = self.input.fill_buf();
-        match buffer {
-            Ok(s) => {
-                let result = s.to_vec();
-
-                let buffer_len = s.len();
-
-                if buffer_len == 0 {
-                    None
-                } else {
-                    self.input.consume(buffer_len);
-
-                    Some(Ok(result))
-                }
-            }
-            Err(e) => Some(Err(ShellError::IOError(e.to_string()))),
-        }
     }
 }
 

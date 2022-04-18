@@ -1,4 +1,5 @@
 use crate::formats::value_to_json_value;
+use crate::BufferedReader;
 use base64::encode;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -12,7 +13,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read};
+use std::io::BufReader;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -392,33 +393,6 @@ fn helper(
     }
 }
 
-pub struct BufferedReader<R: Read> {
-    input: BufReader<R>,
-}
-
-impl<R: Read> Iterator for BufferedReader<R> {
-    type Item = Result<Vec<u8>, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let buffer = self.input.fill_buf();
-        match buffer {
-            Ok(s) => {
-                let result = s.to_vec();
-
-                let buffer_len = s.len();
-
-                if buffer_len == 0 {
-                    None
-                } else {
-                    self.input.consume(buffer_len);
-
-                    Some(Ok(result))
-                }
-            }
-            Err(e) => Some(Err(ShellError::IOError(e.to_string()))),
-        }
-    }
-}
 fn response_to_buffer(
     response: Response,
     engine_state: &EngineState,
