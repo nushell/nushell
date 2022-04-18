@@ -220,7 +220,8 @@ impl Completer for CommandCompletion {
         };
         // let prefix = working_set.get_span_contents(flat.0);
         let prefix = String::from_utf8_lossy(&prefix).to_string();
-        let output = file_path_completion(span, &prefix, &cwd)
+
+        file_path_completion(span, &prefix, &cwd)
             .into_iter()
             .map(move |x| {
                 if self.flat_idx == 0 {
@@ -257,9 +258,7 @@ impl Completer for CommandCompletion {
             })
             .chain(subcommands.into_iter())
             .chain(commands.into_iter())
-            .collect::<Vec<_>>();
-
-        output
+            .collect::<Vec<_>>()
     }
 
     fn get_sort_by(&self) -> SortBy {
