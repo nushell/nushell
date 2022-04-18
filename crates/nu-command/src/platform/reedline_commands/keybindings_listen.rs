@@ -25,14 +25,14 @@ impl Command for KeybindingsListen {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        stack: &mut Stack,
+        engine_state: &EngineState,
+        _stack: &mut Stack,
         _call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         println!("Type any key combination to see key details. Press ESC to abort.");
 
-        match print_events(stack) {
+        match print_events(engine_state) {
             Ok(v) => Ok(v.into_pipeline_data()),
             Err(e) => {
                 terminal::disable_raw_mode()?;
@@ -56,8 +56,8 @@ impl Command for KeybindingsListen {
     }
 }
 
-pub fn print_events(stack: &mut Stack) -> Result<Value, ShellError> {
-    let config = stack.get_config()?;
+pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
+    let config = engine_state.get_config();
 
     stdout().flush()?;
     terminal::enable_raw_mode()?;
@@ -78,7 +78,7 @@ pub fn print_events(stack: &mut Stack) -> Result<Value, ShellError> {
             Value::Record { cols, vals, .. } => cols
                 .iter()
                 .zip(vals.iter())
-                .map(|(x, y)| format!("{}: {}", x, y.into_string("", &config)))
+                .map(|(x, y)| format!("{}: {}", x, y.into_string("", config)))
                 .collect::<Vec<String>>()
                 .join(", "),
 

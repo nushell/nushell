@@ -15,7 +15,7 @@ use nu_protocol::engine::Stack;
 use nu_protocol::PipelineData;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
-    Config, ShellError, Span, Value, CONFIG_VARIABLE_ID,
+    ShellError, Span, Value,
 };
 use reedline::{DefaultHinter, Emacs, Vi};
 use std::path::PathBuf;
@@ -76,15 +76,7 @@ pub fn evaluate_repl(
 
     // Get the config once for the history `max_history_size`
     // Updating that will not be possible in one session
-    let mut config = match stack.get_config() {
-        Ok(config) => config,
-        Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-
-            report_error(&working_set, &e);
-            Config::default()
-        }
-    };
+    let mut config = engine_state.get_config();
 
     if is_perf_true {
         info!("setup reedline {}:{}:{}", file!(), line!(), column!());
@@ -114,26 +106,18 @@ pub fn evaluate_repl(
             );
         }
 
-        config = match stack.get_config() {
-            Ok(config) => config,
-            Err(e) => {
-                let working_set = StateWorkingSet::new(engine_state);
+        //Reset the ctrl-c handler
+        if let Some(ctrlc) = &mut engine_state.ctrlc {
+            ctrlc.store(false, Ordering::SeqCst);
+        }
 
-                report_error(&working_set, &e);
-                Config::default()
-            }
-        };
+        config = engine_state.get_config();
 
         if is_perf_true {
             info!("setup colors {}:{}:{}", file!(), line!(), column!());
         }
 
-        let color_hm = get_color_config(&config);
-
-        //Reset the ctrl-c handler
-        if let Some(ctrlc) = &mut engine_state.ctrlc {
-            ctrlc.store(false, Ordering::SeqCst);
-        }
+        let color_hm = get_color_config(config);
 
         if is_perf_true {
             info!("update reedline {}:{}:{}", file!(), line!(), column!());
@@ -151,7 +135,6 @@ pub fn evaluate_repl(
             .with_completer(Box::new(NuCompleter::new(
                 engine_reference.clone(),
                 stack.clone(),
-                stack.vars.get(&CONFIG_VARIABLE_ID).cloned(),
             )))
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
@@ -165,7 +148,7 @@ pub fn evaluate_repl(
             line_editor.disable_hints()
         };
 
-        line_editor = match add_menus(line_editor, engine_reference, stack, &config) {
+        line_editor = match add_menus(line_editor, engine_reference, stack, config) {
             Ok(line_editor) => line_editor,
             Err(e) => {
                 let working_set = StateWorkingSet::new(engine_state);
@@ -186,7 +169,7 @@ pub fn evaluate_repl(
         }
 
         // Changing the line editor based on the found keybindings
-        line_editor = match reedline_config::create_keybindings(&config) {
+        line_editor = match reedline_config::create_keybindings(config) {
             Ok(keybindings) => match keybindings {
                 KeybindingsMode::Emacs(keybindings) => {
                     let edit_mode = Box::new(Emacs::new(keybindings));
@@ -211,13 +194,8 @@ pub fn evaluate_repl(
             info!("prompt_update {}:{}:{}", file!(), line!(), column!());
         }
 
-        let prompt = prompt_update::update_prompt(
-            &config,
-            engine_state,
-            stack,
-            &mut nu_prompt,
-            is_perf_true,
-        );
+        let prompt =
+            prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt, is_perf_true);
 
         entry_num += 1;
 

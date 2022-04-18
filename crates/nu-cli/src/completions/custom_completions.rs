@@ -3,7 +3,7 @@ use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value, CONFIG_VARIABLE_ID,
+    PipelineData, Span, Type, Value,
 };
 use reedline::Suggestion;
 use std::sync::Arc;
@@ -11,23 +11,15 @@ use std::sync::Arc;
 pub struct CustomCompletion {
     engine_state: Arc<EngineState>,
     stack: Stack,
-    config: Option<Value>,
     decl_id: usize,
     line: String,
 }
 
 impl CustomCompletion {
-    pub fn new(
-        engine_state: Arc<EngineState>,
-        stack: Stack,
-        config: Option<Value>,
-        decl_id: usize,
-        line: String,
-    ) -> Self {
+    pub fn new(engine_state: Arc<EngineState>, stack: Stack, decl_id: usize, line: String) -> Self {
         Self {
             engine_state,
             stack,
-            config,
             decl_id,
             line,
         }
@@ -70,20 +62,6 @@ impl Completer for CustomCompletion {
     ) -> (Vec<Suggestion>, CompletionOptions) {
         // Line position
         let line_pos = pos - offset;
-
-        // Set up our initial config to start from
-        if let Some(conf) = &self.config {
-            self.stack.vars.insert(CONFIG_VARIABLE_ID, conf.clone());
-        } else {
-            self.stack.vars.insert(
-                CONFIG_VARIABLE_ID,
-                Value::Record {
-                    cols: vec![],
-                    vals: vec![],
-                    span: Span { start: 0, end: 0 },
-                },
-            );
-        }
 
         // Call custom declaration
         let result = eval_call(

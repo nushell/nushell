@@ -147,15 +147,12 @@ impl ExternalCommand {
             )),
             Ok(mut child) => {
                 if !input.is_nothing() {
-                    let engine_state = engine_state.clone();
+                    let mut engine_state = engine_state.clone();
                     let mut stack = stack.clone();
-                    stack.update_config(
-                        "use_ansi_coloring",
-                        Value::Bool {
-                            val: false,
-                            span: Span::new(0, 0),
-                        },
-                    );
+
+                    // Turn off color as we pass data through
+                    engine_state.config.use_ansi_coloring = false;
+
                     // if there is a string or a stream, that is sent to the pipe std
                     if let Some(mut stdin_write) = child.stdin.take() {
                         std::thread::spawn(move || {

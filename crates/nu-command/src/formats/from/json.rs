@@ -70,13 +70,13 @@ impl Command for FromJson {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let config = stack.get_config().unwrap_or_default();
-        let string_input = input.collect_string("", &config)?;
+        let config = engine_state.get_config();
+        let string_input = input.collect_string("", config)?;
 
         if string_input.is_empty() {
             return Ok(PipelineData::new(span));

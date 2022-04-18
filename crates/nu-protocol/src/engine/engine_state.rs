@@ -1,7 +1,7 @@
 use super::{Command, Stack};
 use crate::{
-    ast::Block, AliasId, BlockId, DeclId, Example, Overlay, OverlayId, ShellError, Signature, Span,
-    Type, VarId, Variable,
+    ast::Block, AliasId, BlockId, Config, DeclId, Example, Overlay, OverlayId, ShellError,
+    Signature, Span, Type, VarId, Variable,
 };
 use core::panic;
 use std::{
@@ -176,14 +176,14 @@ pub struct EngineState {
     pub scope: Vec<ScopeFrame>,
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub env_vars: HashMap<String, Value>,
+    pub config: Config,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
 pub const IN_VARIABLE_ID: usize = 1;
-pub const CONFIG_VARIABLE_ID: usize = 2;
-pub const ENV_VARIABLE_ID: usize = 3;
+pub const ENV_VARIABLE_ID: usize = 2;
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
 impl EngineState {
@@ -205,6 +205,7 @@ impl EngineState {
             scope: vec![ScopeFrame::new()],
             ctrlc: None,
             env_vars: HashMap::new(),
+            config: Config::default(),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
         }
@@ -263,6 +264,10 @@ impl EngineState {
         if let Some(stack) = stack {
             for mut env_scope in stack.env_vars.drain(..) {
                 for (k, v) in env_scope.drain() {
+                    if k == "config" {
+                        self.config = v.clone().into_config().unwrap_or_default();
+                    }
+
                     self.env_vars.insert(k, v);
                 }
             }
@@ -472,6 +477,10 @@ impl EngineState {
         }
 
         panic!("internal error: span missing in file contents cache")
+    }
+
+    pub fn get_config(&self) -> &Config {
+        &self.config
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {
@@ -1231,6 +1240,10 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn get_env(&self, name: &str) -> Option<&Value> {
         self.permanent_state.env_vars.get(name)
+    }
+
+    pub fn get_config(&self) -> &Config {
+        &self.permanent_state.config
     }
 
     pub fn list_env(&self) -> Vec<String> {

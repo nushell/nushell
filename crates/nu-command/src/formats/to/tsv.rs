@@ -35,14 +35,14 @@ impl Command for ToTsv {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        stack: &mut Stack,
+        engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
         let noheaders = call.has_flag("noheaders");
-        let config = stack.get_config().unwrap_or_default();
+        let config = engine_state.get_config();
         to_tsv(input, noheaders, head, config)
     }
 }
@@ -51,7 +51,7 @@ fn to_tsv(
     input: PipelineData,
     noheaders: bool,
     head: Span,
-    config: Config,
+    config: &Config,
 ) -> Result<PipelineData, ShellError> {
     to_delimited_data(noheaders, '\t', "TSV", input, head, config)
 }

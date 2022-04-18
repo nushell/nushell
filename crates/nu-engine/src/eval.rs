@@ -506,12 +506,12 @@ pub fn eval_expression(
                 parts.push(eval_expression(engine_state, stack, expr)?);
             }
 
-            let config = stack.get_config().unwrap_or_default();
+            let config = engine_state.get_config();
 
             parts
                 .into_iter()
                 .into_pipeline_data(None)
-                .collect_string("", &config)
+                .collect_string("", config)
                 .map(|x| Value::String {
                     val: x,
                     span: expr.span,
@@ -634,7 +634,7 @@ pub fn eval_block(
                     let exit_code = exit_code.take();
 
                     // Drain the input to the screen via tabular output
-                    let config = stack.get_config().unwrap_or_default();
+                    let config = engine_state.get_config();
 
                     match engine_state.find_decl("table".as_bytes()) {
                         Some(decl_id) => {
@@ -652,7 +652,7 @@ pub fn eval_block(
                                     return Err(error);
                                 }
 
-                                let mut out = item.into_string("\n", &config);
+                                let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
                                 match stdout.lock().write_all(out.as_bytes()) {
@@ -669,7 +669,7 @@ pub fn eval_block(
                                     return Err(error);
                                 }
 
-                                let mut out = item.into_string("\n", &config);
+                                let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
                                 match stdout.lock().write_all(out.as_bytes()) {
@@ -690,7 +690,7 @@ pub fn eval_block(
                 }
                 _ => {
                     // Drain the input to the screen via tabular output
-                    let config = stack.get_config().unwrap_or_default();
+                    let config = engine_state.get_config();
 
                     match engine_state.find_decl("table".as_bytes()) {
                         Some(decl_id) => {
@@ -708,7 +708,7 @@ pub fn eval_block(
                                     return Err(error);
                                 }
 
-                                let mut out = item.into_string("\n", &config);
+                                let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
                                 match stdout.lock().write_all(out.as_bytes()) {
@@ -725,7 +725,7 @@ pub fn eval_block(
                                     return Err(error);
                                 }
 
-                                let mut out = item.into_string("\n", &config);
+                                let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
                                 match stdout.lock().write_all(out.as_bytes()) {

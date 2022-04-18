@@ -15,7 +15,7 @@ mod value;
 mod variable;
 
 pub use config::*;
-pub use engine::{CONFIG_VARIABLE_ID, ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};
+pub use engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};
 pub use example::*;
 pub use exportable::*;
 pub use id::*;

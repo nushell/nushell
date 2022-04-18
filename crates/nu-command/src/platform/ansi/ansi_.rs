@@ -317,7 +317,7 @@ Format: #
         let list: bool = call.has_flag("list");
         let escape: bool = call.has_flag("escape");
         let osc: bool = call.has_flag("osc");
-        let use_ansi_coloring = stack.get_config()?.use_ansi_coloring;
+        let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
 
         if list {
             return generate_ansi_code_list(engine_state, call.head, use_ansi_coloring);

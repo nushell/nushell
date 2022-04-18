@@ -87,8 +87,8 @@ fn detect_columns(
     let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
     let noheader = call.has_flag("no-headers");
     let ctrlc = engine_state.ctrlc.clone();
-    let config = stack.get_config()?;
-    let input = input.collect_string("", &config)?;
+    let config = engine_state.get_config();
+    let input = input.collect_string("", config)?;
 
     #[allow(clippy::needless_collect)]
     let input: Vec<_> = input

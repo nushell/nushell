@@ -378,31 +378,22 @@ mod test {
                 vals: vec![
                     Value::Record {
                         cols: vec!["id".to_string(), "name".to_string()],
-                        vals: vec![
-                            Value::Int {
-                                val: 123,
-                                span: span,
-                            },
-                            Value::Nothing { span: span },
-                        ],
-                        span: span,
+                        vals: vec![Value::Int { val: 123, span }, Value::Nothing { span }],
+                        span,
                     },
                     Value::Record {
                         cols: vec!["id".to_string(), "name".to_string()],
                         vals: vec![
-                            Value::Int {
-                                val: 456,
-                                span: span,
-                            },
+                            Value::Int { val: 456, span },
                             Value::String {
                                 val: "foo bar".to_string(),
-                                span: span,
+                                span,
                             },
                         ],
-                        span: span,
+                        span,
                     },
                 ],
-                span: span,
+                span,
             }],
             span,
         };

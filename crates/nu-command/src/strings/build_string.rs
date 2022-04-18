@@ -52,11 +52,11 @@ impl Command for BuildString {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let config = stack.get_config().unwrap_or_default();
+        let config = engine_state.get_config();
         let output = call
             .positional_iter()
             .map(|expr| {
-                eval_expression(engine_state, stack, expr).map(|val| val.into_string(", ", &config))
+                eval_expression(engine_state, stack, expr).map(|val| val.into_string(", ", config))
             })
             .collect::<Result<Vec<String>, ShellError>>()?;
 
