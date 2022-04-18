@@ -77,29 +77,36 @@ fn command(
 
     match (rows, fraction) {
         (Some(rows), None) => df.as_ref().sample_n(rows.item, replace, 0).map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error creating sample".into(),
                 e.to_string(),
-                rows.span,
+                Some(rows.span),
+                None,
+                Vec::new(),
             )
         }),
         (None, Some(frac)) => df.as_ref().sample_frac(frac.item, replace, 0).map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error creating sample".into(),
                 e.to_string(),
-                frac.span,
+                Some(frac.span),
+                None,
+                Vec::new(),
             )
         }),
-        (Some(_), Some(_)) => Err(ShellError::SpannedLabeledError(
+        (Some(_), Some(_)) => Err(ShellError::GenericError(
             "Incompatible flags".into(),
             "Only one selection criterion allowed".into(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )),
-        (None, None) => Err(ShellError::SpannedLabeledErrorHelp(
+        (None, None) => Err(ShellError::GenericError(
             "No selection".into(),
             "No selection criterion was found".into(),
-            call.head,
-            "Perhaps you want to use the flag -n or -f".into(),
+            Some(call.head),
+            Some("Perhaps you want to use the flag -n or -f".into()),
+            Vec::new(),
         )),
     }
     .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))

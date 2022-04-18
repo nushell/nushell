@@ -155,10 +155,12 @@ impl Command for SeqDate {
                 } else {
                     let vec_s: Vec<char> = s.item.chars().collect();
                     if vec_s.is_empty() {
-                        return Err(ShellError::SpannedLabeledError(
+                        return Err(ShellError::GenericError(
                             "Expected a single separator char from --separator".to_string(),
                             "requires a single character string input".to_string(),
-                            s.span,
+                            Some(s.span),
+                            None,
+                            Vec::new(),
                         ));
                     };
                     vec_s.iter().collect()
@@ -231,10 +233,12 @@ pub fn run_seq_dates(
         .expect("unable to change increment to i64");
 
     if step_size == 0 {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "increment cannot be 0".to_string(),
             "increment cannot be 0".to_string(),
-            increment.span()?,
+            Some(increment.span()?),
+            None,
+            Vec::new(),
         ));
     }
 
@@ -242,9 +246,12 @@ pub fn run_seq_dates(
         Some(i) => match i.as_string() {
             Ok(v) => v,
             Err(e) => {
-                return Err(ShellError::LabeledError(
+                return Err(ShellError::GenericError(
                     e.to_string(),
-                    "error with input_format as_string".to_string(),
+                    "".to_string(),
+                    None,
+                    Some("error with input_format as_string".to_string()),
+                    Vec::new(),
                 ));
             }
         },
@@ -255,9 +262,12 @@ pub fn run_seq_dates(
         Some(i) => match i.as_string() {
             Ok(v) => v,
             Err(e) => {
-                return Err(ShellError::LabeledError(
+                return Err(ShellError::GenericError(
                     e.to_string(),
-                    "error with output_format as_string".to_string(),
+                    "".to_string(),
+                    None,
+                    Some("error with output_format as_string".to_string()),
+                    Vec::new(),
                 ));
             }
         },
@@ -268,10 +278,12 @@ pub fn run_seq_dates(
         Some(d) => match parse_date_string(&d, &in_format) {
             Ok(nd) => nd,
             Err(e) => {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     e.to_string(),
                     "Failed to parse date".to_string(),
-                    Span::test_data(),
+                    Some(Span::test_data()),
+                    None,
+                    Vec::new(),
                 ))
             }
         },
@@ -282,10 +294,12 @@ pub fn run_seq_dates(
         Some(d) => match parse_date_string(&d, &in_format) {
             Ok(nd) => nd,
             Err(e) => {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     e.to_string(),
                     "Failed to parse date".to_string(),
-                    Span::test_data(),
+                    Some(Span::test_data()),
+                    None,
+                    Vec::new(),
                 ))
             }
         },
@@ -307,10 +321,12 @@ pub fn run_seq_dates(
         end_date = match start_date.checked_add_signed(Duration::days(days_to_output)) {
             Some(date) => date,
             None => {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "integer value too large".to_string(),
                     "integer value too large".to_string(),
-                    Span::test_data(),
+                    Some(Span::test_data()),
+                    None,
+                    Vec::new(),
                 ));
             }
         }
@@ -327,10 +343,12 @@ pub fn run_seq_dates(
 
     let mut next = start_date;
     if is_out_of_range(next) {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "date is out of range".to_string(),
             "date is out of range".to_string(),
-            Span::test_data(),
+            Some(Span::test_data()),
+            None,
+            Vec::new(),
         ));
     }
 

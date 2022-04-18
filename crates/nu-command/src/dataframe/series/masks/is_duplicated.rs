@@ -69,10 +69,12 @@ fn command(
         .as_series(call.head)?
         .is_duplicated()
         .map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error finding duplicates".into(),
                 e.to_string(),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             )
         })?
         .into_series();

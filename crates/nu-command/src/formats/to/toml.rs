@@ -107,7 +107,7 @@ fn toml_into_pipeline_data(
         }
         .into_pipeline_data()),
         _ => Ok(Value::Error {
-            error: ShellError::CantConvert("TOML".into(), value_type.to_string(), span),
+            error: ShellError::CantConvert("TOML".into(), value_type.to_string(), span, None),
         }
         .into_pipeline_data()),
     }

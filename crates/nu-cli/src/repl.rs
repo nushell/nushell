@@ -262,7 +262,7 @@ pub fn evaluate_repl(
 
                             report_error(
                                 &working_set,
-                                &ShellError::DirectoryNotFound(tokens.0[0].span),
+                                &ShellError::DirectoryNotFound(tokens.0[0].span, None),
                             );
                         }
 

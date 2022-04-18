@@ -140,10 +140,12 @@ pub fn split_by(
             });
             Ok(split(&splitter, input, name)?)
         }
-        None => Err(ShellError::SpannedLabeledError(
+        None => Err(ShellError::GenericError(
             "expected name".into(),
             "requires a column name for splitting".into(),
-            name,
+            Some(name),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -225,10 +227,12 @@ pub fn data_split(
             }
         }
         _ => {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "unsupported input".into(),
                 "requires a table with one row for splitting".into(),
-                span,
+                Some(span),
+                None,
+                Vec::new(),
             ))
         }
     }

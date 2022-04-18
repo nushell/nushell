@@ -71,10 +71,12 @@ impl Command for Mv {
             .map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Invalid file or pattern".into(),
                 "invalid file or pattern".into(),
-                spanned_source.span,
+                Some(spanned_source.span),
+                None,
+                Vec::new(),
             ));
         }
 
@@ -91,10 +93,12 @@ impl Command for Mv {
         if (destination.exists() && !destination.is_dir() && sources.len() > 1)
             || (!destination.exists() && sources.len() > 1)
         {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Can only move multiple sources if destination is a directory".into(),
                 "destination must be a directory when multiple sources".into(),
-                spanned_destination.span,
+                Some(spanned_destination.span),
+                None,
+                Vec::new(),
             ));
         }
 
@@ -103,13 +107,15 @@ impl Command for Mv {
             .find(|f| matches!(f, Ok(f) if destination.starts_with(f)));
         if destination.exists() && destination.is_dir() && sources.len() == 1 {
             if let Some(Ok(filename)) = some_if_source_is_destination {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     format!(
                         "Not possible to move {:?} to itself",
                         filename.file_name().expect("Invalid file name")
                     ),
                     "cannot move to itself".into(),
-                    spanned_destination.span,
+                    Some(spanned_destination.span),
+                    None,
+                    Vec::new(),
                 ));
             }
         }
@@ -202,14 +208,14 @@ fn move_file(
     };
 
     if !destination_dir_exists {
-        return Err(ShellError::DirectoryNotFound(to_span));
+        return Err(ShellError::DirectoryNotFound(to_span, None));
     }
 
     let mut to = to;
     if to.is_dir() {
         let from_file_name = match from.file_name() {
             Some(name) => name,
-            None => return Err(ShellError::DirectoryNotFound(to_span)),
+            None => return Err(ShellError::DirectoryNotFound(to_span, None)),
         };
 
         to.push(from_file_name);
@@ -233,10 +239,12 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
             fs_extra::dir::move_dir(from, to, &options)
         } {
             Ok(_) => Ok(()),
-            Err(e) => Err(ShellError::SpannedLabeledError(
+            Err(e) => Err(ShellError::GenericError(
                 format!("Could not move {:?} to {:?}. {:}", from, to, e),
                 "could not move".into(),
-                from_span,
+                Some(from_span),
+                None,
+                Vec::new(),
             )),
         }
     })

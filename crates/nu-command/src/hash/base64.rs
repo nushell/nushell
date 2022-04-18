@@ -102,10 +102,12 @@ fn operate(
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     if encode && decode {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "only one of --decode and --encode flags can be used".to_string(),
             "conflicting flags".to_string(),
-            head,
+            Some(head),
+            None,
+            Vec::new(),
         ));
     }
 
@@ -181,13 +183,15 @@ fn action(
             } else if &base64_config.character_set == "crypt" {
                 base64::CRYPT
             } else {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "value is not an accepted character set".to_string(),
                     format!(
                         "{} is not a valid character-set.\nPlease use `help hash base64` to see a list of valid character sets.",
                         &base64_config.character_set
                     ),
-                    *span,
+                    Some(*span),
+                    None,
+                    Vec::new(),
                 ));
             };
 
@@ -205,13 +209,15 @@ fn action(
                             std::string::String::from_utf8_lossy(&decoded_value),
                             *command_span,
                         )),
-                        Err(_) => Err(ShellError::SpannedLabeledError(
+                        Err(_) => Err(ShellError::GenericError(
                             "value could not be base64 decoded".to_string(),
                             format!(
                                 "invalid base64 input for character set {}",
                                 &base64_config.character_set
                             ),
-                            *command_span,
+                            Some(*command_span),
+                            None,
+                            Vec::new(),
                         )),
                     }
                 }

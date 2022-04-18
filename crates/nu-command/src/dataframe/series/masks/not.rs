@@ -65,7 +65,13 @@ fn command(
     let series = df.as_series(call.head)?;
 
     let bool = series.bool().map_err(|e| {
-        ShellError::SpannedLabeledError("Error inverting mask".into(), e.to_string(), call.head)
+        ShellError::GenericError(
+            "Error inverting mask".into(),
+            e.to_string(),
+            Some(call.head),
+            None,
+            Vec::new(),
+        )
     })?;
 
     let res = bool.not();

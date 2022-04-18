@@ -13,10 +13,12 @@ pub(crate) fn convert_columns(
     let mut col_span = columns
         .get(0)
         .ok_or_else(|| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Empty column list".into(),
                 "Empty list found for command".into(),
-                span,
+                Some(span),
+                None,
+                Vec::new(),
             )
         })
         .and_then(|v| v.span())?;
@@ -28,10 +30,12 @@ pub(crate) fn convert_columns(
                 col_span = span_join(&[col_span, span]);
                 Ok(Spanned { item: val, span })
             }
-            _ => Err(ShellError::SpannedLabeledError(
+            _ => Err(ShellError::GenericError(
                 "Incorrect column format".into(),
                 "Only string as column name".into(),
-                span,
+                Some(span),
+                None,
+                Vec::new(),
             )),
         })
         .collect::<Result<Vec<Spanned<String>>, _>>()?;
@@ -49,10 +53,12 @@ pub(crate) fn convert_columns_string(
     let mut col_span = columns
         .get(0)
         .ok_or_else(|| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Empty column list".into(),
                 "Empty list found for command".into(),
-                span,
+                Some(span),
+                None,
+                Vec::new(),
             )
         })
         .and_then(|v| v.span())?;
@@ -64,10 +70,12 @@ pub(crate) fn convert_columns_string(
                 col_span = span_join(&[col_span, span]);
                 Ok(val)
             }
-            _ => Err(ShellError::SpannedLabeledError(
+            _ => Err(ShellError::GenericError(
                 "Incorrect column format".into(),
                 "Only string as column name".into(),
-                span,
+                Some(span),
+                None,
+                Vec::new(),
             )),
         })
         .collect::<Result<Vec<String>, _>>()?;

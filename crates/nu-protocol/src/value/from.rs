@@ -8,6 +8,7 @@ impl Value {
                 "f64".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }
@@ -19,6 +20,7 @@ impl Value {
                 "i64".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }

@@ -260,11 +260,11 @@ fn action(
                     Ok(d) => Value::Date { val: d, span: head },
                     Err(reason) => {
                         return Value::Error {
-                            error: ShellError::CantConvertWithHelp(
+                            error: ShellError::CantConvert(
                                 format!("could not parse as datetime using format '{}'", dt.0),
                                 reason.to_string(),
                                 head,
-                                "you can use `into datetime` without a format string to enable flexible parsing".to_string()
+                                Some("you can use `into datetime` without a format string to enable flexible parsing".to_string())
                             ),
                         }
                     }

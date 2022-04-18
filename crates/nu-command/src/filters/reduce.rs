@@ -120,10 +120,12 @@ impl Command for Reduce {
         } else if let Some(val) = input_iter.next() {
             (1, val)
         } else {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Expected input".to_string(),
                 "needs input".to_string(),
-                span,
+                Some(span),
+                None,
+                Vec::new(),
             ));
         };
 

@@ -121,18 +121,22 @@ fn command(
                     if (&0.0..=&1.0).contains(&val) {
                         Ok(*val)
                     } else {
-                        Err(ShellError::SpannedLabeledError(
+                        Err(ShellError::GenericError(
                             "Incorrect value for quantile".to_string(),
                             "value should be between 0 and 1".to_string(),
-                            *span,
+                            Some(*span),
+                            None,
+                            Vec::new(),
                         ))
                     }
                 }
                 _ => match value.span() {
-                    Ok(span) => Err(ShellError::SpannedLabeledError(
+                    Ok(span) => Err(ShellError::GenericError(
                         "Incorrect value for quantile".to_string(),
                         "value should be a float".to_string(),
-                        span,
+                        Some(span),
+                        None,
+                        Vec::new(),
                     )),
                     Err(e) => Err(e),
                 },
@@ -242,7 +246,13 @@ fn command(
 
     DataFrame::new(res)
         .map_err(|e| {
-            ShellError::SpannedLabeledError("Dataframe Error".into(), e.to_string(), call.head)
+            ShellError::GenericError(
+                "Dataframe Error".into(),
+                e.to_string(),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }

@@ -97,10 +97,12 @@ fn command(
     df.as_ref()
         .distinct(subset_slice, keep_strategy)
         .map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error dropping duplicates".into(),
                 e.to_string(),
-                col_span,
+                Some(col_span),
+                None,
+                Vec::new(),
             )
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))

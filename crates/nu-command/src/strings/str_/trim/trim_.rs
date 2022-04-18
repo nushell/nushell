@@ -149,10 +149,12 @@ where
     let to_trim = match options.character.as_ref() {
         Some(v) => {
             if v.item.chars().count() > 1 {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Trim only works with single character".into(),
                     "needs single character".into(),
-                    v.span,
+                    Some(v.span),
+                    None,
+                    Vec::new(),
                 ));
             }
             v.item.chars().next()

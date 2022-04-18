@@ -74,10 +74,12 @@ fn command(
     let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let mut file = File::create(&file_name.item).map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error with file name".into(),
             e.to_string(),
-            file_name.span,
+            Some(file_name.span),
+            None,
+            Vec::new(),
         )
     })?;
 
@@ -93,10 +95,12 @@ fn command(
         None => writer,
         Some(d) => {
             if d.item.len() != 1 {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Incorrect delimiter".into(),
                     "Delimiter has to be one char".into(),
-                    d.span,
+                    Some(d.span),
+                    None,
+                    Vec::new(),
                 ));
             } else {
                 let delimiter = match d.item.chars().next() {
@@ -110,10 +114,12 @@ fn command(
     };
 
     writer.finish(df.as_mut()).map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error writing to file".into(),
             e.to_string(),
-            file_name.span,
+            Some(file_name.span),
+            None,
+            Vec::new(),
         )
     })?;
 

@@ -68,6 +68,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                         "URL".into(),
                         value.get_type().to_string(),
                         head,
+                        None,
                     )),
                 }
             }

@@ -207,7 +207,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     match i64::from_str_radix(&i, radix) {
         Ok(n) => Value::Int { val: n, span: head },
         Err(_reason) => Value::Error {
-            error: ShellError::CantConvert("int".to_string(), "string".to_string(), head),
+            error: ShellError::CantConvert("int".to_string(), "string".to_string(), head, None),
         },
     }
 }
@@ -219,29 +219,30 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             let num = match i64::from_str_radix(b.trim_start_matches("0b"), 2) {
                 Ok(n) => n,
                 Err(_reason) => {
-                    return Err(ShellError::CantConvertWithHelp(
+                    return Err(ShellError::CantConvert(
                         "int".to_string(),
                         "string".to_string(),
                         span,
-                        r#"digits following "0b" can only be 0 or 1"#.to_string(),
+                        Some(r#"digits following "0b" can only be 0 or 1"#.to_string()),
                     ))
                 }
             };
             Ok(num)
         }
         h if h.starts_with("0x") => {
-            let num = match i64::from_str_radix(h.trim_start_matches("0x"), 16) {
-                Ok(n) => n,
-                Err(_reason) => {
-                    return Err(ShellError::CantConvertWithHelp(
+            let num =
+                match i64::from_str_radix(h.trim_start_matches("0x"), 16) {
+                    Ok(n) => n,
+                    Err(_reason) => return Err(ShellError::CantConvert(
                         "int".to_string(),
                         "string".to_string(),
                         span,
-                        r#"hexadecimal digits following "0x" should be in 0-9, a-f, or A-F"#
-                            .to_string(),
-                    ))
-                }
-            };
+                        Some(
+                            r#"hexadecimal digits following "0x" should be in 0-9, a-f, or A-F"#
+                                .to_string(),
+                        ),
+                    )),
+                };
             Ok(num)
         }
         _ => match a_string.parse::<i64>() {
@@ -252,6 +253,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                     "int".to_string(),
                     "string".to_string(),
                     span,
+                    None,
                 )),
             },
         },

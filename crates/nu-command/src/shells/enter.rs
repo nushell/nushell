@@ -42,7 +42,7 @@ impl Command for Enter {
         let new_path = nu_path::canonicalize_with(new_path, &cwd)?;
 
         if !new_path.exists() {
-            return Err(ShellError::DirectoryNotFound(path_span));
+            return Err(ShellError::DirectoryNotFound(path_span, None));
         }
 
         if !new_path.is_dir() {

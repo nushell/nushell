@@ -104,9 +104,12 @@ impl Command for Glob {
         let glob = match WaxGlob::new(&glob_pattern.item) {
             Ok(p) => p,
             Err(e) => {
-                return Err(ShellError::LabeledError(
+                return Err(ShellError::GenericError(
                     "error with glob pattern".to_string(),
-                    format!("{}", e),
+                    "".to_string(),
+                    None,
+                    Some(format!("{}", e)),
+                    Vec::new(),
                 ))
             }
         };

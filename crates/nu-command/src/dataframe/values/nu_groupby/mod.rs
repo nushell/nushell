@@ -78,12 +78,14 @@ impl NuGroupBy {
                     "groupby".into(),
                     "non-dataframe".into(),
                     span,
+                    None,
                 )),
             },
             x => Err(ShellError::CantConvert(
                 "groupby".into(),
                 x.get_type().to_string(),
                 x.span()?,
+                None,
             )),
         }
     }
@@ -95,7 +97,13 @@ impl NuGroupBy {
 
     pub fn to_groupby(&self) -> Result<GroupBy, ShellError> {
         let by = self.dataframe.select_series(&self.by).map_err(|e| {
-            ShellError::LabeledError("Error creating groupby".into(), e.to_string())
+            ShellError::GenericError(
+                "Error creating groupby".into(),
+                "".to_string(),
+                None,
+                Some(e.to_string()),
+                Vec::new(),
+            )
         })?;
 
         Ok(GroupBy::new(

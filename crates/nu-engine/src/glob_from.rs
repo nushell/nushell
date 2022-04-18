@@ -44,7 +44,7 @@ pub fn glob_from(
         let path = if let Ok(p) = canonicalize_with(path, &cwd) {
             p
         } else {
-            return Err(ShellError::DirectoryNotFound(pattern.span));
+            return Err(ShellError::DirectoryNotFound(pattern.span, None));
         };
 
         if path.is_dir() {
@@ -62,10 +62,12 @@ pub fn glob_from(
                 #[cfg(not(unix))]
                 let error_msg = String::from("Permission denied");
 
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Permission denied".into(),
                     error_msg,
-                    pattern.span,
+                    Some(pattern.span),
+                    None,
+                    Vec::new(),
                 ));
             }
 
@@ -82,10 +84,12 @@ pub fn glob_from(
     let pattern = pattern.to_string_lossy().to_string();
 
     let glob = nu_glob::glob(&pattern).map_err(|err| {
-        nu_protocol::ShellError::SpannedLabeledError(
+        nu_protocol::ShellError::GenericError(
             "Error extracting glob pattern".into(),
             err.to_string(),
-            span,
+            Some(span),
+            None,
+            Vec::new(),
         )
     })?;
 
@@ -93,10 +97,12 @@ pub fn glob_from(
         prefix,
         Box::new(glob.map(move |x| match x {
             Ok(v) => Ok(v),
-            Err(err) => Err(nu_protocol::ShellError::SpannedLabeledError(
+            Err(err) => Err(nu_protocol::ShellError::GenericError(
                 "Error extracting glob pattern".into(),
                 err.to_string(),
-                span,
+                Some(span),
+                None,
+                Vec::new(),
             )),
         })),
     ))

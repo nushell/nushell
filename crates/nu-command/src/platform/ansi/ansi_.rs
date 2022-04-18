@@ -383,10 +383,12 @@ Format: #
                         None => Color::White.prefix().to_string(),
                     },
                     Err(err) => {
-                        return Err(ShellError::SpannedLabeledError(
+                        return Err(ShellError::GenericError(
                             "error parsing hex color".to_string(),
                             format!("{}", err),
-                            code.span()?,
+                            Some(code.span()?),
+                            None,
+                            Vec::new(),
                         ));
                     }
                 }

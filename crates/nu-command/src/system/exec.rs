@@ -93,10 +93,12 @@ fn exec(
     println!("{:#?}", command);
     let err = command.exec(); // this replaces our process, should not return
 
-    Err(ShellError::SpannedLabeledError(
+    Err(ShellError::GenericError(
         "Error on exec".to_string(),
         err.to_string(),
-        name_span,
+        Some(name_span),
+        None,
+        Vec::new(),
     ))
 }
 
@@ -106,9 +108,11 @@ fn exec(
     _stack: &mut Stack,
     call: &Call,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-    Err(ShellError::SpannedLabeledError(
+    Err(ShellError::GenericError(
         "Error on exec".to_string(),
         "exec is not supported on your platform".to_string(),
-        call.head,
+        Some(call.head),
+        None,
+        Vec::new(),
     ))
 }

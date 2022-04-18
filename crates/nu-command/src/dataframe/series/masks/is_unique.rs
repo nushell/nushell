@@ -66,10 +66,12 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let mut res = df.as_series(call.head)?.is_unique().map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error finding unique values".into(),
             e.to_string(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })?;
     res.rename("is_unique");

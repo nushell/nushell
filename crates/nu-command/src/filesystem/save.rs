@@ -57,10 +57,12 @@ impl Command for Save {
             Err(err) => {
                 return Ok(PipelineData::Value(
                     Value::Error {
-                        error: ShellError::SpannedLabeledError(
+                        error: ShellError::GenericError(
                             "Permission denied".into(),
                             err.to_string(),
-                            arg_span,
+                            Some(arg_span),
+                            None,
+                            Vec::new(),
                         ),
                     },
                     None,

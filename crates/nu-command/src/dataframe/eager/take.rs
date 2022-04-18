@@ -95,26 +95,31 @@ fn command(
     let casted = match index.dtype() {
         DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => {
             index.cast(&DataType::UInt32).map_err(|e| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error casting index list".into(),
                     e.to_string(),
-                    index_span,
+                    Some(index_span),
+                    None,
+                    Vec::new(),
                 )
             })
         }
-        _ => Err(ShellError::SpannedLabeledErrorHelp(
+        _ => Err(ShellError::GenericError(
             "Incorrect type".into(),
             "Series with incorrect type".into(),
-            call.head,
-            "Consider using a Series with type int type".into(),
+            Some(call.head),
+            Some("Consider using a Series with type int type".into()),
+            Vec::new(),
         )),
     }?;
 
     let indices = casted.u32().map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error casting index list".into(),
             e.to_string(),
-            index_span,
+            Some(index_span),
+            None,
+            Vec::new(),
         )
     })?;
 
@@ -122,10 +127,12 @@ fn command(
         df.as_ref()
             .take(indices)
             .map_err(|e| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error taking values".into(),
                     e.to_string(),
-                    call.head,
+                    Some(call.head),
+                    None,
+                    Vec::new(),
                 )
             })
             .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))

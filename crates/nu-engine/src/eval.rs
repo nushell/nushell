@@ -257,6 +257,7 @@ pub fn eval_expression(
                 "unit value".into(),
                 x.get_type().to_string(),
                 e.span,
+                None,
             )),
         },
         Expr::Range(from, next, to, operator) => {
@@ -1319,20 +1320,24 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
         Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
-                error: ShellError::SpannedLabeledError(
+                error: ShellError::GenericError(
                     "duration too large".into(),
                     "duration too large".into(),
-                    span,
+                    Some(span),
+                    None,
+                    Vec::new(),
                 ),
             },
         },
         Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
-                error: ShellError::SpannedLabeledError(
+                error: ShellError::GenericError(
                     "duration too large".into(),
                     "duration too large".into(),
-                    span,
+                    Some(span),
+                    None,
+                    Vec::new(),
                 ),
             },
         },
