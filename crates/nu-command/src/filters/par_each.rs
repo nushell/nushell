@@ -92,13 +92,13 @@ impl Command for ParEach {
                                                 val: idx as i64,
                                                 span,
                                             },
-                                            x,
+                                            x.clone(),
                                         ],
                                         span,
                                     },
                                 );
                             } else {
-                                stack.add_var(*var_id, x);
+                                stack.add_var(*var_id, x.clone());
                             }
                         }
                     }
@@ -107,7 +107,7 @@ impl Command for ParEach {
                         &engine_state,
                         &mut stack,
                         block,
-                        PipelineData::new(span),
+                        x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
                     ) {
@@ -140,13 +140,13 @@ impl Command for ParEach {
                                                 val: idx as i64,
                                                 span,
                                             },
-                                            x,
+                                            x.clone(),
                                         ],
                                         span,
                                     },
                                 );
                             } else {
-                                stack.add_var(*var_id, x);
+                                stack.add_var(*var_id, x.clone());
                             }
                         }
                     }
@@ -155,7 +155,7 @@ impl Command for ParEach {
                         &engine_state,
                         &mut stack,
                         block,
-                        PipelineData::new(span),
+                        x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
                     ) {
@@ -187,13 +187,13 @@ impl Command for ParEach {
                                                 val: idx as i64,
                                                 span,
                                             },
-                                            x,
+                                            x.clone(),
                                         ],
                                         span,
                                     },
                                 );
                             } else {
-                                stack.add_var(*var_id, x);
+                                stack.add_var(*var_id, x.clone());
                             }
                         }
                     }
@@ -202,7 +202,7 @@ impl Command for ParEach {
                         &engine_state,
                         &mut stack,
                         block,
-                        PipelineData::new(span),
+                        x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
                     ) {
@@ -243,13 +243,13 @@ impl Command for ParEach {
                                                 val: idx as i64,
                                                 span,
                                             },
-                                            x,
+                                            x.clone(),
                                         ],
                                         span,
                                     },
                                 );
                             } else {
-                                stack.add_var(*var_id, x);
+                                stack.add_var(*var_id, x.clone());
                             }
                         }
                     }
@@ -258,7 +258,7 @@ impl Command for ParEach {
                         &engine_state,
                         &mut stack,
                         block,
-                        PipelineData::new(span),
+                        x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
                     ) {
@@ -275,7 +275,7 @@ impl Command for ParEach {
 
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, x);
+                        stack.add_var(*var_id, x.clone());
                     }
                 }
 
@@ -283,7 +283,7 @@ impl Command for ParEach {
                     &engine_state,
                     &mut stack,
                     block,
-                    PipelineData::new(span),
+                    x.into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
                 )
