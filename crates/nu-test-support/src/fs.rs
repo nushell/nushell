@@ -258,7 +258,7 @@ pub fn binaries() -> PathBuf {
 }
 
 pub fn fixtures() -> PathBuf {
-    root().join("tests/fixtures")
+    root().join("tests").join("fixtures")
 }
 
 pub fn assets() -> PathBuf {
