@@ -15,7 +15,7 @@ mod util;
 mod validation;
 
 pub use commands::evaluate_commands;
-pub use completions::NuCompleter;
+pub use completions::{FileCompletion, NuCompleter};
 pub use config_files::eval_config_contents;
 pub use errors::CliError;
 pub use eval_file::evaluate_file;
