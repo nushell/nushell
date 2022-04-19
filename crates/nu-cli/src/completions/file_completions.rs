@@ -1,4 +1,4 @@
-use crate::completions::Completer;
+use crate::completions::{Completer, CompletionOptions};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -28,6 +28,7 @@ impl Completer for FileCompletion {
         span: Span,
         offset: usize,
         _: usize,
+        _options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
             match d.as_string() {

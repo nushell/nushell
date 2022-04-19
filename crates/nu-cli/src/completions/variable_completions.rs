@@ -1,4 +1,4 @@
-use crate::completions::Completer;
+use crate::completions::{Completer, CompletionOptions};
 use nu_engine::eval_variable;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -37,6 +37,7 @@ impl Completer for VariableCompletion {
         span: Span,
         offset: usize,
         _: usize,
+        _options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let mut output = vec![];
         let builtins = ["$nu", "$in", "$config", "$env", "$nothing"];

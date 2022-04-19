@@ -97,6 +97,7 @@ impl Completer for CustomCompletion {
         span: Span,
         offset: usize,
         pos: usize,
+        _options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         // Line position
         let line_pos = pos - offset;

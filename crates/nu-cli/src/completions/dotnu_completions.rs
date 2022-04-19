@@ -1,4 +1,6 @@
-use crate::completions::{file_path_completion, partial_from, Completer, SortBy};
+use crate::completions::{
+    file_path_completion, partial_from, Completer, CompletionOptions, SortBy,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
@@ -26,6 +28,7 @@ impl Completer for DotNuCompletion {
         span: Span,
         offset: usize,
         _: usize,
+        _options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).to_string();
         let mut search_dirs: Vec<String> = vec![];
