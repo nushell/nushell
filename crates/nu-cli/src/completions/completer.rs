@@ -36,14 +36,10 @@ impl NuCompleter {
         pos: usize,
     ) -> Vec<Suggestion> {
         // Fetch
-        let (mut suggestions, options) =
-            completer.fetch(working_set, prefix.clone(), new_span, offset, pos);
-
-        // Filter
-        suggestions = completer.filter(prefix.clone(), suggestions, options.clone());
+        let mut suggestions = completer.fetch(working_set, prefix.clone(), new_span, offset, pos);
 
         // Sort
-        suggestions = completer.sort(suggestions, prefix, options);
+        suggestions = completer.sort(suggestions, prefix);
 
         suggestions
     }
