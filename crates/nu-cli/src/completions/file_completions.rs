@@ -1,4 +1,4 @@
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::{Completer, CompletionOptions, MatchAlgorithm};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -28,7 +28,7 @@ impl Completer for FileCompletion {
         span: Span,
         offset: usize,
         _: usize,
-        _options: &CompletionOptions,
+        options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
             match d.as_string() {
@@ -39,7 +39,7 @@ impl Completer for FileCompletion {
             "".to_string()
         };
         let prefix = String::from_utf8_lossy(&prefix).to_string();
-        let output: Vec<_> = file_path_completion(span, &prefix, &cwd)
+        let output: Vec<_> = file_path_completion(span, &prefix, &cwd, options.match_algorithm)
             .into_iter()
             .map(move |x| Suggestion {
                 value: x.1,
@@ -111,6 +111,7 @@ pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
     cwd: &str,
+    match_algorithm: MatchAlgorithm,
 ) -> Vec<(nu_protocol::Span, String)> {
     let (base_dir_name, partial) = partial_from(partial);
 
@@ -126,7 +127,7 @@ pub fn file_path_completion(
             .filter_map(|entry| {
                 entry.ok().and_then(|entry| {
                     let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                    if matches(&partial, &file_name) {
+                    if matches(&partial, &file_name, match_algorithm) {
                         let mut path = format!("{}{}", base_dir_name, file_name);
                         if entry.path().is_dir() {
                             path.push(SEP);
@@ -154,7 +155,6 @@ pub fn file_path_completion(
     Vec::new()
 }
 
-pub fn matches(partial: &str, from: &str) -> bool {
-    from.to_ascii_lowercase()
-        .starts_with(&partial.to_ascii_lowercase())
+pub fn matches(partial: &str, from: &str, match_algorithm: MatchAlgorithm) -> bool {
+    match_algorithm.matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase())
 }

@@ -1,4 +1,4 @@
-use crate::completions::{Completer, CompletionOptions, SortBy};
+use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
 use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
@@ -170,6 +170,7 @@ impl Completer for CustomCompletion {
                                 } else {
                                     SortBy::None
                                 },
+                                match_algorithm: MatchAlgorithm::Prefix,
                             }
                         } else {
                             CompletionOptions::default()

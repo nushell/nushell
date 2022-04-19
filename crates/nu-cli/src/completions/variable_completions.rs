@@ -37,7 +37,7 @@ impl Completer for VariableCompletion {
         span: Span,
         offset: usize,
         _: usize,
-        _options: &CompletionOptions,
+        options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let mut output = vec![];
         let builtins = ["$nu", "$in", "$config", "$env", "$nothing"];
@@ -55,7 +55,10 @@ impl Completer for VariableCompletion {
             // Completion for $env.<tab>
             if var_str.as_str() == "$env" {
                 for env_var in self.stack.get_env_vars(&self.engine_state) {
-                    if env_var.0.as_bytes().starts_with(&prefix) {
+                    if options
+                        .match_algorithm
+                        .matches_u8(env_var.0.as_bytes(), &prefix)
+                    {
                         output.push(Suggestion {
                             value: env_var.0,
                             description: None,
@@ -156,7 +159,10 @@ impl Completer for VariableCompletion {
 
         // Variable completion (e.g: $en<tab> to complete $env)
         for builtin in builtins {
-            if builtin.as_bytes().starts_with(&prefix) {
+            if options
+                .match_algorithm
+                .matches_u8(builtin.as_bytes(), &prefix)
+            {
                 output.push(Suggestion {
                     value: builtin.to_string(),
                     description: None,
@@ -169,7 +175,7 @@ impl Completer for VariableCompletion {
         // Working set scope vars
         for scope in &working_set.delta.scope {
             for v in &scope.vars {
-                if v.0.starts_with(&prefix) {
+                if options.match_algorithm.matches_u8(v.0, &prefix) {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(v.0).to_string(),
                         description: None,
@@ -183,7 +189,7 @@ impl Completer for VariableCompletion {
         // Permanent state vars
         for scope in &self.engine_state.scope {
             for v in &scope.vars {
-                if v.0.starts_with(&prefix) {
+                if options.match_algorithm.matches_u8(v.0, &prefix) {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(v.0).to_string(),
                         description: None,
