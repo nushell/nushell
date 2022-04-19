@@ -1249,6 +1249,18 @@ pub fn eval_variable(
             output_cols.push("pid".into());
             output_vals.push(Value::int(pid as i64, span));
 
+            let os_record = Value::Record {
+                cols: vec!["os".into(), "arch".into(), "family".into()],
+                vals: vec![
+                    Value::string(std::env::consts::OS, span),
+                    Value::string(std::env::consts::ARCH, span),
+                    Value::string(std::env::consts::FAMILY, span),
+                ],
+                span,
+            };
+            output_cols.push("os-info".into());
+            output_vals.push(os_record);
+
             Ok(Value::Record {
                 cols: output_cols,
                 vals: output_vals,
