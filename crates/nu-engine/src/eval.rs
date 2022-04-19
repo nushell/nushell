@@ -1249,6 +1249,10 @@ pub fn eval_variable(
             output_cols.push("pid".into());
             output_vals.push(Value::int(pid as i64, span));
 
+            let os = std::env::consts::OS;
+            output_cols.push("os".into());
+            output_vals.push(Value::string(os, span));
+
             Ok(Value::Record {
                 cols: output_cols,
                 vals: output_vals,
