@@ -68,6 +68,7 @@ impl Completer for FileCompletion {
 
         // Sort items
         let mut sorted_items = items;
+        sorted_items.sort_by(|a, b| a.value.cmp(&b.value));
         sorted_items.sort_by(|a, b| {
             let a_distance = levenshtein_distance(&prefix_str, &a.value);
             let b_distance = levenshtein_distance(&prefix_str, &b.value);
