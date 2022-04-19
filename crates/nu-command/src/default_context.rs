@@ -47,6 +47,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             History,
             If,
             Ignore,
+            Lay,
             Let,
             Metadata,
             Module,

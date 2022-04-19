@@ -1297,7 +1297,7 @@ pub fn parse_use(
         if let Some(overlay_id) = working_set.find_overlay(&import_pattern.head.name) {
             (import_pattern, working_set.get_overlay(overlay_id).clone())
         } else {
-            // TODO: Do not close over when loading module from file
+            // TODO: Do not close over when loading module from file?
             // It could be a file
             if let Ok(module_filename) =
                 String::from_utf8(trim_quotes(&import_pattern.head.name).to_vec())
@@ -1657,6 +1657,176 @@ pub fn parse_hide(
             )),
         )
     }
+}
+
+pub fn parse_lay(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    if working_set.get_span_contents(spans[0]) != b"lay" {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for 'lay' command".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    let (call, call_span, lay_decl_id) = match working_set.find_decl(b"lay") {
+        Some(decl_id) => {
+            let (call, mut err) = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
+            let decl = working_set.get_decl(decl_id);
+
+            let call_span = span(spans);
+
+            err = check_call(call_span, &decl.signature(), &call).or(err);
+            if err.is_some() || call.has_flag("help") {
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    err,
+                );
+            }
+
+            (call, call_span, decl_id)
+        }
+        None => {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: 'lay' declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+    };
+
+    let (module_name, module_name_span) = if let Some(expr) = call.positional_nth(0) {
+        if let Some(s) = expr.as_string() {
+            (s, expr.span)
+        } else {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: Module name not a string".into(),
+                    call_span,
+                )),
+            );
+        }
+    } else {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Missing required positional after call parsing".into(),
+                call_span,
+            )),
+        );
+    };
+
+    let has_prefix = call.has_flag("prefix");
+
+    let cwd = working_set.get_cwd();
+
+    let mut error = None;
+
+    // TODO: Add checking for importing too long import patterns, e.g.:
+    // > use spam foo non existent names here do not throw error
+    let (overlay, overlay_id) =
+        if let Some(overlay_id) = working_set.find_overlay(module_name.as_bytes()) {
+            (working_set.get_overlay(overlay_id).clone(), Some(overlay_id))
+        } else {
+            // TODO: Do not close over when loading module from file?
+            // It could be a file
+            if let Ok(module_filename) =
+                String::from_utf8(trim_quotes(module_name.as_bytes()).to_vec())
+            {
+                if let Some(module_path) =
+                    find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
+                {
+                    let module_name = if let Some(stem) = module_path.file_stem() {
+                        stem.to_string_lossy().to_string()
+                    } else {
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            Some(ParseError::ModuleNotFound(spans[1])),
+                        );
+                    };
+
+                    if let Ok(contents) = std::fs::read(module_path) {
+                        let span_start = working_set.next_span_start();
+                        working_set.add_file(module_filename, &contents);
+                        let span_end = working_set.next_span_start();
+
+                        let (block, overlay, err) = parse_module_block(
+                            working_set,
+                            Span::new(span_start, span_end),
+                            expand_aliases_denylist,
+                        );
+                        error = error.or(err);
+
+                        let _ = working_set.add_block(block);
+                        let overlay_id = working_set.add_overlay(&module_name, overlay.clone());
+
+                        (overlay, Some(overlay_id))
+                    } else {
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            Some(ParseError::ModuleNotFound(spans[1])),
+                        );
+                    }
+                } else {
+                    error = error.or(Some(ParseError::ModuleNotFound(module_name_span)));
+                    (Overlay::new(), None)
+                }
+            } else {
+                return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
+            }
+        };
+
+    if let Some(id) = overlay_id {
+        let (decls_to_lay, aliases_to_lay) = if has_prefix {
+            (
+                overlay.decls_with_head(module_name.as_bytes()),
+                overlay.aliases_with_head(module_name.as_bytes()),
+            )
+        } else {
+            (overlay.decls(), overlay.aliases())
+        };
+
+        working_set.lay_overlay(decls_to_lay, aliases_to_lay, module_name.as_bytes().to_owned());
+    }
+
+    (
+        Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: span(spans),
+            ty: Type::Any,
+            custom_completion: None,
+        }]),
+        error,
+    )
 }
 
 pub fn parse_let(

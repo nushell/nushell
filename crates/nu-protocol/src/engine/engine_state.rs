@@ -24,6 +24,7 @@ static PWD_ENV: &str = "PWD";
 pub struct Visibility {
     decl_ids: HashMap<DeclId, bool>,
     alias_ids: HashMap<AliasId, bool>,
+    overlay_ids: HashMap<OverlayId, bool>
 }
 
 impl Visibility {
@@ -31,6 +32,7 @@ impl Visibility {
         Visibility {
             decl_ids: HashMap::new(),
             alias_ids: HashMap::new(),
+            overlay_ids: HashMap::new(),
         }
     }
 
@@ -42,12 +44,20 @@ impl Visibility {
         *self.alias_ids.get(alias_id).unwrap_or(&true) // by default it's visible
     }
 
+    pub fn is_overlay_id_visible(&self, overlay_id: &OverlayId) -> bool {
+        *self.overlay_ids.get(overlay_id).unwrap_or(&true) // by default it's visible
+    }
+
     fn hide_decl_id(&mut self, decl_id: &DeclId) {
         self.decl_ids.insert(*decl_id, false);
     }
 
     fn hide_alias_id(&mut self, alias_id: &AliasId) {
         self.alias_ids.insert(*alias_id, false);
+    }
+
+    fn hide_overlay_id(&mut self, overlay_id: &OverlayId) {
+        self.overlay_ids.insert(*overlay_id, false);
     }
 
     fn use_decl_id(&mut self, decl_id: &DeclId) {
@@ -58,10 +68,15 @@ impl Visibility {
         self.alias_ids.insert(*alias_id, true);
     }
 
+    fn use_overlay_id(&mut self, overlay_id: &OverlayId) {
+        self.overlay_ids.insert(*overlay_id, true);
+    }
+
     pub fn merge_with(&mut self, other: Visibility) {
         // overwrite own values with the other
         self.decl_ids.extend(other.decl_ids);
         self.alias_ids.extend(other.alias_ids);
+        self.overlay_ids.extend(other.overlay_ids);
         // self.env_var_ids.extend(other.env_var_ids);
     }
 
@@ -96,6 +111,7 @@ pub struct ScopeFrame {
     pub env_vars: HashMap<Vec<u8>, BlockId>,
     pub overlays: HashMap<Vec<u8>, OverlayId>,
     pub visibility: Visibility,
+    overlay_frames: Vec<OverlayFrame>,
 }
 
 impl ScopeFrame {
@@ -108,6 +124,7 @@ impl ScopeFrame {
             env_vars: HashMap::new(),
             overlays: HashMap::new(),
             visibility: Visibility::new(),
+            overlay_frames: vec![],
         }
     }
 
@@ -119,6 +136,33 @@ impl ScopeFrame {
 impl Default for ScopeFrame {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct OverlayFrame {
+    pub name: Vec<u8>,
+    pub vars: HashMap<Vec<u8>, VarId>,
+    predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
+    pub decls: HashMap<Vec<u8>, DeclId>,
+    pub aliases: HashMap<Vec<u8>, AliasId>,
+    pub env_vars: HashMap<Vec<u8>, BlockId>,
+    pub overlays: HashMap<Vec<u8>, OverlayId>,
+    pub visibility: Visibility,
+}
+
+impl OverlayFrame {
+    pub fn new(name: Vec<u8>) -> Self {
+        Self {
+            name,
+            vars: HashMap::new(),
+            predecls: HashMap::new(),
+            decls: HashMap::new(),
+            aliases: HashMap::new(),
+            env_vars: HashMap::new(),
+            overlays: HashMap::new(),
+            visibility: Visibility::new(),
+        }
     }
 }
 
@@ -247,6 +291,11 @@ impl EngineState {
             for item in first.overlays.into_iter() {
                 last.overlays.insert(item.0, item.1);
             }
+
+            for item in first.overlay_frames.into_iter() {
+                last.overlay_frames.push(item);
+            }
+
             last.visibility.merge_with(first.visibility);
 
             #[cfg(feature = "plugin")]
@@ -764,9 +813,21 @@ impl<'a> StateWorkingSet<'a> {
             .last_mut()
             .expect("internal error: missing required scope frame");
 
-        for (name, decl_id) in decls {
-            scope_frame.decls.insert(name, decl_id);
-            scope_frame.visibility.use_decl_id(&decl_id);
+        if scope_frame.overlay_frames.is_empty() {
+            for (name, decl_id) in decls {
+                scope_frame.decls.insert(name, decl_id);
+                scope_frame.visibility.use_decl_id(&decl_id);
+            }
+        } else {
+            let overlay_frame = scope_frame
+                .overlay_frames
+                .last_mut()
+                .expect("internal error: missing required scope frame");
+
+            for (name, decl_id) in decls {
+                overlay_frame.decls.insert(name, decl_id);
+                overlay_frame.visibility.use_decl_id(&decl_id);
+            }
         }
     }
 
@@ -1078,6 +1139,37 @@ impl<'a> StateWorkingSet<'a> {
         let mut visibility: Visibility = Visibility::new();
 
         for scope in self.delta.scope.iter().rev() {
+            for overlay_scope in scope.overlay_frames.iter().rev() {
+                visibility.append(&overlay_scope.visibility);
+
+                // TODO: Do we need predecls in overlays???
+                // if let Some(decl_id) = scope.predecls.get(name) {
+                //     if visibility.is_decl_id_visible(decl_id) {
+                //         return Some(*decl_id);
+                //     }
+                // }
+
+                if let Some(decl_id) = overlay_scope.decls.get(name) {
+                    if visibility.is_decl_id_visible(decl_id) {
+                        return Some(*decl_id);
+                    }
+                }
+            }
+        }
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            for overlay_scope in scope.overlay_frames.iter().rev() {
+                visibility.append(&overlay_scope.visibility);
+
+                if let Some(decl_id) = overlay_scope.decls.get(name) {
+                    if visibility.is_decl_id_visible(decl_id) {
+                        return Some(*decl_id);
+                    }
+                }
+            }
+        }
+
+        for scope in self.delta.scope.iter().rev() {
             visibility.append(&scope.visibility);
 
             if let Some(decl_id) = scope.predecls.get(name) {
@@ -1380,6 +1472,27 @@ impl<'a> StateWorkingSet<'a> {
                 .get_mut(block_id - num_permanent_blocks)
                 .expect("internal error: missing block")
         }
+    }
+
+    pub fn lay_overlay(
+        &mut self,
+        decls: Vec<(Vec<u8>, DeclId)>,
+        aliases: Vec<(Vec<u8>, AliasId)>,
+        name: Vec<u8>,
+    ) {
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        // TODO: If the same overlay is being added twice, remove the original one
+        scope_frame
+            .overlay_frames
+            .push(OverlayFrame::new(name));
+
+        self.use_decls(decls);
+        self.use_aliases(aliases);
     }
 
     pub fn render(self) -> StateDelta {

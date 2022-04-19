@@ -18,7 +18,7 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_use,
+    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_use, parse_lay,
 };
 
 use log::trace;
@@ -4340,6 +4340,16 @@ pub fn parse_expression(
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("use".into(), spans[0])),
             ),
+            b"lay" => (
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
+                Some(ParseError::BuiltinCommandInPipeline("lay".into(), spans[0])),
+            ),
             b"source" => (
                 parse_call(
                     working_set,
@@ -4494,6 +4504,7 @@ pub fn parse_builtin_commands(
         b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
         b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
         b"use" => parse_use(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"lay" => parse_lay(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => (
             garbage_pipeline(&lite_command.parts),
