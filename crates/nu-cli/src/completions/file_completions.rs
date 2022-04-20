@@ -132,14 +132,8 @@ pub fn file_path_completion(
                             file_name.push(SEP);
                         }
 
-                        if path.contains(' ') {
-                            path = format!("\'{}\'", path);
-                        }
-
-                        // Fix files or folders with quotes
-                        if path.contains('\'') || path.contains('"') {
-                            path = format!("`{}`", path);
-                        }
+                        // Escape path string if necessary
+                        path = escape_path_str(path);
 
                         Some((span, path))
                     } else {
@@ -156,4 +150,19 @@ pub fn file_path_completion(
 pub fn matches(partial: &str, from: &str) -> bool {
     from.to_ascii_lowercase()
         .starts_with(&partial.to_ascii_lowercase())
+}
+
+// escape paths that contains some special characters
+pub fn escape_path_str(path: String) -> String {
+    let mut path = path;
+    if path.contains(' ') || path.contains('\\') || path.contains('"') {
+        // Escape characters
+        path = path.replace('\\', "\\\\");
+        path = path.replace('"', "\"");
+
+        // Wrap with double quotes
+        path = format!("\"{}\"", path);
+    }
+
+    path
 }
