@@ -1,6 +1,4 @@
-use crate::completions::{
-    file_path_completion, partial_from, Completer, CompletionOptions, SortBy,
-};
+use crate::completions::{file_path_completion, partial_from, Completer, SortBy};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
@@ -21,11 +19,6 @@ impl DotNuCompletion {
 }
 
 impl Completer for DotNuCompletion {
-    // Replace base filter with no filter once all the results are already filtered
-    fn filter(&self, _: Vec<u8>, items: Vec<Suggestion>, _: CompletionOptions) -> Vec<Suggestion> {
-        items
-    }
-
     fn fetch(
         &mut self,
         _: &StateWorkingSet,
@@ -33,7 +26,7 @@ impl Completer for DotNuCompletion {
         span: Span,
         offset: usize,
         _: usize,
-    ) -> (Vec<Suggestion>, CompletionOptions) {
+    ) -> Vec<Suggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).to_string();
         let mut search_dirs: Vec<String> = vec![];
         let (base_dir, mut partial) = partial_from(&prefix_str);
@@ -118,9 +111,10 @@ impl Completer for DotNuCompletion {
             })
             .collect();
 
-        // Options
-        let options = CompletionOptions::new(false, true, SortBy::LevenshteinDistance);
+        output
+    }
 
-        (output, options)
+    fn get_sort_by(&self) -> SortBy {
+        SortBy::LevenshteinDistance
     }
 }

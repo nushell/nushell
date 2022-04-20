@@ -39,6 +39,7 @@ mod open;
 mod parse;
 mod path;
 mod prepend;
+mod query;
 mod random;
 mod range;
 mod reduce;

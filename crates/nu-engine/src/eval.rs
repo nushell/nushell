@@ -7,7 +7,7 @@ use nu_protocol::ast::{Block, Call, Expr, Expression, Operator};
 use nu_protocol::engine::{EngineState, Stack, Visibility};
 use nu_protocol::{
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
-    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 
 use crate::{current_dir_str, get_full_help};
@@ -506,12 +506,12 @@ pub fn eval_expression(
                 parts.push(eval_expression(engine_state, stack, expr)?);
             }
 
-            let config = stack.get_config().unwrap_or_default();
+            let config = engine_state.get_config();
 
             parts
                 .into_iter()
                 .into_pipeline_data(None)
-                .collect_string("", &config)
+                .collect_string("", config)
                 .map(|x| Value::String {
                     val: x,
                     span: expr.span,
@@ -634,7 +634,7 @@ pub fn eval_block(
                     let exit_code = exit_code.take();
 
                     // Drain the input to the screen via tabular output
-                    let config = stack.get_config().unwrap_or_default();
+                    let config = engine_state.get_config();
 
                     match engine_state.find_decl("table".as_bytes()) {
                         Some(decl_id) => {
@@ -652,7 +652,7 @@ pub fn eval_block(
                                     return Err(error);
                                 }
 
-                                let mut out = item.into_string("\n", &config);
+                                let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
                                 match stdout.lock().write_all(out.as_bytes()) {
@@ -669,7 +669,7 @@ pub fn eval_block(
                                     return Err(error);
                                 }
 
-                                let mut out = item.into_string("\n", &config);
+                                let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
                                 match stdout.lock().write_all(out.as_bytes()) {
@@ -690,7 +690,7 @@ pub fn eval_block(
                 }
                 _ => {
                     // Drain the input to the screen via tabular output
-                    let config = stack.get_config().unwrap_or_default();
+                    let config = engine_state.get_config();
 
                     match engine_state.find_decl("table".as_bytes()) {
                         Some(decl_id) => {
@@ -708,7 +708,7 @@ pub fn eval_block(
                                     return Err(error);
                                 }
 
-                                let mut out = item.into_string("\n", &config);
+                                let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
                                 match stdout.lock().write_all(out.as_bytes()) {
@@ -725,7 +725,7 @@ pub fn eval_block(
                                     return Err(error);
                                 }
 
-                                let mut out = item.into_string("\n", &config);
+                                let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
                                 match stdout.lock().write_all(out.as_bytes()) {
@@ -758,6 +758,17 @@ pub fn eval_subexpression(
     }
 
     Ok(input)
+}
+
+fn extract_custom_completion_from_arg(engine_state: &EngineState, shape: &SyntaxShape) -> String {
+    return match shape {
+        SyntaxShape::Custom(_, custom_completion_decl_id) => {
+            let custom_completion_command = engine_state.get_decl(*custom_completion_decl_id);
+            let custom_completion_command_name: &str = &*custom_completion_command.name();
+            custom_completion_command_name.to_string()
+        }
+        _ => "".to_string(),
+    };
 }
 
 pub fn create_scope(
@@ -852,6 +863,7 @@ pub fn create_scope(
                     "is_optional".to_string(),
                     "short_flag".to_string(),
                     "description".to_string(),
+                    "custom_completion".to_string(),
                 ];
 
                 // required_positional
@@ -864,6 +876,10 @@ pub fn create_scope(
                         Value::boolean(false, span),
                         Value::nothing(span),
                         Value::string(req.desc, span),
+                        Value::string(
+                            extract_custom_completion_from_arg(engine_state, &req.shape),
+                            span,
+                        ),
                     ];
 
                     sig_records.push(Value::Record {
@@ -883,6 +899,10 @@ pub fn create_scope(
                         Value::boolean(true, span),
                         Value::nothing(span),
                         Value::string(opt.desc, span),
+                        Value::string(
+                            extract_custom_completion_from_arg(engine_state, &opt.shape),
+                            span,
+                        ),
                     ];
 
                     sig_records.push(Value::Record {
@@ -903,6 +923,10 @@ pub fn create_scope(
                             Value::boolean(true, span),
                             Value::nothing(span),
                             Value::string(rest.desc, span),
+                            Value::string(
+                                extract_custom_completion_from_arg(engine_state, &rest.shape),
+                                span,
+                            ),
                         ];
 
                         sig_records.push(Value::Record {
@@ -922,8 +946,11 @@ pub fn create_scope(
                         continue;
                     }
 
+                    let mut custom_completion_command_name: String = "".to_string();
                     let shape = if let Some(arg) = named.arg {
                         flag_type = Value::string("named", span);
+                        custom_completion_command_name =
+                            extract_custom_completion_from_arg(engine_state, &arg);
                         Value::string(arg.to_string(), span)
                     } else {
                         flag_type = Value::string("switch", span);
@@ -944,6 +971,7 @@ pub fn create_scope(
                         Value::boolean(!named.required, span),
                         short_flag,
                         Value::string(named.desc, span),
+                        Value::string(custom_completion_command_name, span),
                     ];
 
                     sig_records.push(Value::Record {
@@ -1220,6 +1248,18 @@ pub fn eval_variable(
             let pid = std::process::id();
             output_cols.push("pid".into());
             output_vals.push(Value::int(pid as i64, span));
+
+            let os_record = Value::Record {
+                cols: vec!["os".into(), "arch".into(), "family".into()],
+                vals: vec![
+                    Value::string(std::env::consts::OS, span),
+                    Value::string(std::env::consts::ARCH, span),
+                    Value::string(std::env::consts::FAMILY, span),
+                ],
+                span,
+            };
+            output_cols.push("os-info".into());
+            output_vals.push(os_record);
 
             Ok(Value::Record {
                 cols: output_cols,

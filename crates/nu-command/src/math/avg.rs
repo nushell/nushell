@@ -20,6 +20,10 @@ impl Command for SubCommand {
         "Finds the average of a list of numbers or tables"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["average", "mean"]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,

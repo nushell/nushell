@@ -59,15 +59,15 @@ impl Command for ToMd {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        stack: &mut Stack,
+        engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
         let pretty = call.has_flag("pretty");
         let per_element = call.has_flag("per-element");
-        let config = stack.get_config().unwrap_or_default();
+        let config = engine_state.get_config();
         to_md(input, pretty, per_element, config, head)
     }
 }
@@ -76,17 +76,17 @@ fn to_md(
     input: PipelineData,
     pretty: bool,
     per_element: bool,
-    config: Config,
+    config: &Config,
     head: Span,
 ) -> Result<PipelineData, ShellError> {
-    let (grouped_input, single_list) = group_by(input, head, &config);
+    let (grouped_input, single_list) = group_by(input, head, config);
     if per_element || single_list {
         return Ok(Value::string(
             grouped_input
                 .into_iter()
                 .map(move |val| match val {
-                    Value::List { .. } => table(val.into_pipeline_data(), pretty, &config),
-                    other => fragment(other, pretty, &config),
+                    Value::List { .. } => table(val.into_pipeline_data(), pretty, config),
+                    other => fragment(other, pretty, config),
                 })
                 .collect::<Vec<String>>()
                 .join(""),
@@ -94,7 +94,7 @@ fn to_md(
         )
         .into_pipeline_data());
     }
-    Ok(Value::string(table(grouped_input, pretty, &config), head).into_pipeline_data())
+    Ok(Value::string(table(grouped_input, pretty, config), head).into_pipeline_data())
 }
 
 fn fragment(input: Value, pretty: bool, config: &Config) -> String {

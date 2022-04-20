@@ -1,4 +1,4 @@
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::Completer;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -28,7 +28,7 @@ impl Completer for FileCompletion {
         span: Span,
         offset: usize,
         _: usize,
-    ) -> (Vec<Suggestion>, CompletionOptions) {
+    ) -> Vec<Suggestion> {
         let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
             match d.as_string() {
                 Ok(s) => s,
@@ -51,23 +51,16 @@ impl Completer for FileCompletion {
             })
             .collect();
 
-        // Options
-        let options = CompletionOptions::default();
-
-        (output, options)
+        output
     }
 
     // Sort results prioritizing the non hidden folders
-    fn sort(
-        &self,
-        items: Vec<Suggestion>,
-        prefix: Vec<u8>,
-        _: CompletionOptions, // Ignore the given options, once it's a custom sorting
-    ) -> Vec<Suggestion> {
+    fn sort(&self, items: Vec<Suggestion>, prefix: Vec<u8>) -> Vec<Suggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).to_string();
 
         // Sort items
         let mut sorted_items = items;
+        sorted_items.sort_by(|a, b| a.value.cmp(&b.value));
         sorted_items.sort_by(|a, b| {
             let a_distance = levenshtein_distance(&prefix_str, &a.value);
             let b_distance = levenshtein_distance(&prefix_str, &b.value);
@@ -96,11 +89,6 @@ impl Completer for FileCompletion {
         non_hidden.append(&mut hidden);
 
         non_hidden
-    }
-
-    // Replace base filter with no filter once all the results are already based in the current path
-    fn filter(&self, _: Vec<u8>, items: Vec<Suggestion>, _: CompletionOptions) -> Vec<Suggestion> {
-        items
     }
 }
 
@@ -146,6 +134,11 @@ pub fn file_path_completion(
 
                         if path.contains(' ') {
                             path = format!("\'{}\'", path);
+                        }
+
+                        // Fix files or folders with quotes
+                        if path.contains('\'') || path.contains('"') {
+                            path = format!("`{}`", path);
                         }
 
                         Some((span, path))

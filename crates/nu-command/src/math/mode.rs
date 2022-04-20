@@ -43,6 +43,10 @@ impl Command for SubCommand {
         "Gets the most frequent element(s) from a list of numbers or tables"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["common", "often", "average"]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,

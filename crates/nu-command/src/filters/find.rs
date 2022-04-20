@@ -157,13 +157,13 @@ impl Command for Find {
 fn find_with_regex(
     regex: String,
     engine_state: &EngineState,
-    stack: &mut Stack,
+    _stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
     let ctrlc = engine_state.ctrlc.clone();
-    let config = stack.get_config()?;
+    let config = engine_state.get_config().clone();
 
     let insensitive = call.has_flag("insensitive");
     let multiline = call.has_flag("multiline");
@@ -271,7 +271,7 @@ fn find_with_rest(
     let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
     let engine_state = engine_state.clone();
-    let config = stack.get_config()?;
+    let config = engine_state.get_config().clone();
     let invert = call.has_flag("invert");
 
     let terms = call.rest::<Value>(&engine_state, stack, 0)?;

@@ -20,6 +20,10 @@ impl Command for SubCommand {
         "Finds the product of a list of numbers or tables"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["times", "multiply", "x", "*"]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,

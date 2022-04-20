@@ -20,14 +20,14 @@ impl Command for FromUrl {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        stack: &mut Stack,
+        engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = stack.get_config().unwrap_or_default();
-        from_url(input, head, &config)
+        let config = engine_state.get_config();
+        from_url(input, head, config)
     }
 
     fn examples(&self) -> Vec<Example> {

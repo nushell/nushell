@@ -17,6 +17,10 @@ impl Command for SubCommand {
         "Evaluate a math expression into a number"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["evaluation", "solve", "equation", "expression"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("math eval")
             .optional(

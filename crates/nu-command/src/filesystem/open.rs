@@ -1,13 +1,12 @@
 use crate::filesystem::util::BufferedReader;
+use crate::SQLiteDatabase;
 use nu_engine::{eval_block, get_full_help, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Spanned,
+    SyntaxShape, Value,
 };
-use rusqlite::types::ValueRef;
-use rusqlite::{Connection, Row};
 use std::io::{BufReader, Read, Seek};
 
 #[cfg(unix)]
@@ -121,8 +120,12 @@ impl Command for Open {
                 let mut buf: [u8; 16] = [0; 16];
 
                 if file.read_exact(&mut buf).is_ok() && buf == sqlite_magic_bytes {
-                    return open_and_read_sqlite_db(path, call_span)
-                        .map(|val| PipelineData::Value(val, None));
+                    let custom_val = Value::CustomValue {
+                        val: Box::new(SQLiteDatabase::new(path)),
+                        span: call.head,
+                    };
+
+                    return Ok(custom_val.into_pipeline_data());
                 }
 
                 if file.rewind().is_err() {
@@ -196,217 +199,9 @@ impl Command for Open {
     }
 }
 
-fn open_and_read_sqlite_db(path: &Path, call_span: Span) -> Result<Value, nu_protocol::ShellError> {
-    let path = path.to_string_lossy().to_string();
-
-    match Connection::open(path) {
-        Ok(conn) => match read_sqlite_db(conn, call_span) {
-            Ok(data) => Ok(data),
-            Err(err) => Err(ShellError::GenericError(
-                "Failed to read from SQLite database".into(),
-                err.to_string(),
-                Some(call_span),
-                None,
-                Vec::new(),
-            )),
-        },
-        Err(err) => Err(ShellError::GenericError(
-            "Failed to open SQLite database".into(),
-            err.to_string(),
-            Some(call_span),
-            None,
-            Vec::new(),
-        )),
-    }
-}
-
-fn read_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rusqlite::Error> {
-    let mut table_names: Vec<String> = Vec::new();
-    let mut tables: Vec<Value> = Vec::new();
-
-    let mut get_table_names =
-        conn.prepare("SELECT name from sqlite_master where type = 'table'")?;
-    let rows = get_table_names.query_map([], |row| row.get(0))?;
-
-    for row in rows {
-        let table_name: String = row?;
-        table_names.push(table_name.clone());
-
-        let mut rows = Vec::new();
-        let mut table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
-        let mut table_rows = table_stmt.query([])?;
-        while let Some(table_row) = table_rows.next()? {
-            rows.push(convert_sqlite_row_to_nu_value(table_row, call_span))
-        }
-
-        let table_record = Value::List {
-            vals: rows,
-            span: call_span,
-        };
-
-        tables.push(table_record);
-    }
-
-    Ok(Value::Record {
-        cols: table_names,
-        vals: tables,
-        span: call_span,
-    })
-}
-
-fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
-    let mut vals = Vec::new();
-    let colnamestr = row.as_ref().column_names().to_vec();
-    let colnames = colnamestr.iter().map(|s| s.to_string()).collect();
-
-    for (i, c) in row.as_ref().column_names().iter().enumerate() {
-        let _column = c.to_string();
-        let val = convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), span);
-        vals.push(val);
-    }
-
-    Value::Record {
-        cols: colnames,
-        vals,
-        span,
-    }
-}
-
-fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
-    match value {
-        ValueRef::Null => Value::Nothing { span },
-        ValueRef::Integer(i) => Value::Int { val: i, span },
-        ValueRef::Real(f) => Value::Float { val: f, span },
-        ValueRef::Text(buf) => {
-            let s = match std::str::from_utf8(buf) {
-                Ok(v) => v,
-                Err(_) => {
-                    return Value::Error {
-                        error: ShellError::NonUtf8(span),
-                    }
-                }
-            };
-            Value::String {
-                val: s.to_string(),
-                span,
-            }
-        }
-        ValueRef::Blob(u) => Value::Binary {
-            val: u.to_vec(),
-            span,
-        },
-    }
-}
-
 fn permission_denied(dir: impl AsRef<Path>) -> bool {
     match dir.as_ref().read_dir() {
         Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
         Ok(_) => false,
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn can_read_empty_db() {
-        let db = Connection::open_in_memory().unwrap();
-        let converted_db = read_sqlite_db(db, Span::test_data()).unwrap();
-
-        let expected = Value::Record {
-            cols: vec![],
-            vals: vec![],
-            span: Span::test_data(),
-        };
-
-        assert_eq!(converted_db, expected);
-    }
-
-    #[test]
-    fn can_read_empty_table() {
-        let db = Connection::open_in_memory().unwrap();
-
-        db.execute(
-            "CREATE TABLE person (
-                    id     INTEGER PRIMARY KEY,
-                    name   TEXT NOT NULL,
-                    data   BLOB
-                    )",
-            [],
-        )
-        .unwrap();
-        let converted_db = read_sqlite_db(db, Span::test_data()).unwrap();
-
-        let expected = Value::Record {
-            cols: vec!["person".to_string()],
-            vals: vec![Value::List {
-                vals: vec![],
-                span: Span::test_data(),
-            }],
-            span: Span::test_data(),
-        };
-
-        assert_eq!(converted_db, expected);
-    }
-
-    #[test]
-    fn can_read_null_and_non_null_data() {
-        let span = Span::test_data();
-        let db = Connection::open_in_memory().unwrap();
-
-        db.execute(
-            "CREATE TABLE item (
-                    id     INTEGER PRIMARY KEY,
-                    name   TEXT
-                    )",
-            [],
-        )
-        .unwrap();
-
-        db.execute("INSERT INTO item (id, name) VALUES (123, NULL)", [])
-            .unwrap();
-
-        db.execute("INSERT INTO item (id, name) VALUES (456, 'foo bar')", [])
-            .unwrap();
-
-        let converted_db = read_sqlite_db(db, span).unwrap();
-
-        let expected = Value::Record {
-            cols: vec!["item".to_string()],
-            vals: vec![Value::List {
-                vals: vec![
-                    Value::Record {
-                        cols: vec!["id".to_string(), "name".to_string()],
-                        vals: vec![
-                            Value::Int {
-                                val: 123,
-                                span: span,
-                            },
-                            Value::Nothing { span: span },
-                        ],
-                        span: span,
-                    },
-                    Value::Record {
-                        cols: vec!["id".to_string(), "name".to_string()],
-                        vals: vec![
-                            Value::Int {
-                                val: 456,
-                                span: span,
-                            },
-                            Value::String {
-                                val: "foo bar".to_string(),
-                                span: span,
-                            },
-                        ],
-                        span: span,
-                    },
-                ],
-                span: span,
-            }],
-            span,
-        };
-
-        assert_eq!(converted_db, expected);
     }
 }
