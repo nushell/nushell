@@ -314,9 +314,6 @@ pub fn evaluate_repl(
                 println!();
                 break;
             }
-            Ok(Signal::CtrlL) => {
-                line_editor.clear_screen().into_diagnostic()?;
-            }
             Err(err) => {
                 let message = err.to_string();
                 if !message.contains("duration") {
