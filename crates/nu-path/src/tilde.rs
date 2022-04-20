@@ -1,5 +1,6 @@
-use pwd::Passwd;
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use pwd::Passwd;
 
 fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
     let path = path.as_ref();
@@ -71,6 +72,10 @@ fn user_home_dir(username: &str) -> String {
         .expect("no passwd linked to username")
         .dir
     // Returns home dir of user.
+}
+#[cfg(not(target_os = "linux"))]
+fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
+    return PathBuf::new();
 }
 
 #[cfg(any(target_os = "linux"))]
