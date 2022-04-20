@@ -28,13 +28,13 @@ impl Command for FromTsv {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        stack: &mut Stack,
+        engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        let config = stack.get_config().unwrap_or_default();
-        from_tsv(call, input, &config)
+        let config = engine_state.get_config();
+        from_tsv(call, input, config)
     }
 
     fn examples(&self) -> Vec<Example> {

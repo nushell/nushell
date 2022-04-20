@@ -115,11 +115,12 @@ fn command(
     df.as_ref()
         .to_dummies()
         .map_err(|e| {
-            ShellError::SpannedLabeledErrorHelp(
+            ShellError::GenericError(
                 "Error calculating dummies".into(),
                 e.to_string(),
-                call.head,
-                "The only allowed column types for dummies are String or Int".into(),
+                Some(call.head),
+                Some("The only allowed column types for dummies are String or Int".into()),
+                Vec::new(),
             )
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))

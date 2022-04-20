@@ -78,10 +78,12 @@ fn command(
         .as_series(call.head)?
         .is_in(&other)
         .map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error finding in other".into(),
                 e.to_string(),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             )
         })?
         .into_series();

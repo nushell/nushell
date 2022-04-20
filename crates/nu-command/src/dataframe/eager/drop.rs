@@ -66,18 +66,22 @@ fn command(
     let new_df = col_string
         .get(0)
         .ok_or_else(|| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Empty names list".into(),
                 "No column names where found".into(),
-                col_span,
+                Some(col_span),
+                None,
+                Vec::new(),
             )
         })
         .and_then(|col| {
             df.as_ref().drop(&col.item).map_err(|e| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error dropping column".into(),
                     e.to_string(),
-                    col.span,
+                    Some(col.span),
+                    None,
+                    Vec::new(),
                 )
             })
         })?;
@@ -89,10 +93,12 @@ fn command(
         .skip(1)
         .try_fold(new_df, |new_df, col| {
             new_df.drop(&col.item).map_err(|e| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error dropping column".into(),
                     e.to_string(),
-                    col.span,
+                    Some(col.span),
+                    None,
+                    Vec::new(),
                 )
             })
         })

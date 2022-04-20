@@ -120,17 +120,21 @@ impl Command for Move {
                 span: v.span()?,
             },
             (Some(_), Some(_)) => {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Cannot move columns".to_string(),
                     "Use either --after, or --before, not both".to_string(),
-                    call.head,
+                    Some(call.head),
+                    None,
+                    Vec::new(),
                 ))
             }
             (None, None) => {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Cannot move columns".to_string(),
                     "Missing --after or --before flag".to_string(),
-                    call.head,
+                    Some(call.head),
+                    None,
+                    Vec::new(),
                 ))
             }
         };
@@ -199,19 +203,23 @@ fn move_record_columns(
     match &before_or_after.item {
         BeforeOrAfter::After(after) => {
             if !inp_cols.contains(after) {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Cannot move columns".to_string(),
                     "column does not exist".to_string(),
-                    before_or_after.span,
+                    Some(before_or_after.span),
+                    None,
+                    Vec::new(),
                 ));
             }
         }
         BeforeOrAfter::Before(before) => {
             if !inp_cols.contains(before) {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Cannot move columns".to_string(),
                     "column does not exist".to_string(),
-                    before_or_after.span,
+                    Some(before_or_after.span),
+                    None,
+                    Vec::new(),
                 ));
             }
         }
@@ -224,10 +232,12 @@ fn move_record_columns(
         if let Some(idx) = inp_cols.iter().position(|inp_col| &column_str == inp_col) {
             column_idx.push(idx);
         } else {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Cannot move columns".to_string(),
                 "column does not exist".to_string(),
-                column.span()?,
+                Some(column.span()?),
+                None,
+                Vec::new(),
             ));
         }
     }

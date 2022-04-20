@@ -28,8 +28,16 @@ pub struct LabeledError {
 impl From<LabeledError> for ShellError {
     fn from(error: LabeledError) -> Self {
         match error.span {
-            Some(span) => ShellError::SpannedLabeledError(error.label, error.msg, span),
-            None => ShellError::LabeledError(error.label, error.msg),
+            Some(span) => {
+                ShellError::GenericError(error.label, error.msg, Some(span), None, Vec::new())
+            }
+            None => ShellError::GenericError(
+                error.label,
+                "".to_string(),
+                None,
+                Some(error.msg),
+                Vec::new(),
+            ),
         }
     }
 }
@@ -37,18 +45,10 @@ impl From<LabeledError> for ShellError {
 impl From<ShellError> for LabeledError {
     fn from(error: ShellError) -> Self {
         match error {
-            ShellError::SpannedLabeledError(label, msg, span) => LabeledError {
-                label,
-                msg,
-                span: Some(span),
-            },
-            ShellError::LabeledError(label, msg) => LabeledError {
-                label,
-                msg,
-                span: None,
-            },
-            ShellError::CantConvert(expected, input, span)
-            | ShellError::CantConvertWithHelp(expected, input, span, _) => LabeledError {
+            ShellError::GenericError(label, msg, span, _help, _related) => {
+                LabeledError { label, msg, span }
+            }
+            ShellError::CantConvert(expected, input, span, _help) => LabeledError {
                 label: format!("Can't convert to {}", expected),
                 msg: format!("can't convert {} to {}", expected, input),
                 span: Some(span),

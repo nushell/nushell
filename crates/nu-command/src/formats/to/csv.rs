@@ -60,7 +60,7 @@ impl Command for ToCsv {
         let head = call.head;
         let noheaders = call.has_flag("noheaders");
         let separator: Option<Spanned<String>> = call.get_flag(engine_state, stack, "separator")?;
-        let config = stack.get_config().unwrap_or_default();
+        let config = engine_state.get_config();
         to_csv(input, noheaders, separator, head, config)
     }
 }
@@ -70,7 +70,7 @@ fn to_csv(
     noheaders: bool,
     separator: Option<Spanned<String>>,
     head: Span,
-    config: Config,
+    config: &Config,
 ) -> Result<PipelineData, ShellError> {
     let sep = match separator {
         Some(Spanned { item: s, span, .. }) => {

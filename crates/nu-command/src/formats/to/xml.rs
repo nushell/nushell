@@ -61,9 +61,9 @@ impl Command for ToXml {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = stack.get_config().unwrap_or_default();
+        let config = engine_state.get_config();
         let pretty: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "pretty")?;
-        to_xml(input, head, pretty, &config)
+        to_xml(input, head, pretty, config)
     }
 }
 
@@ -118,10 +118,12 @@ pub fn write_xml_events<W: Write>(
             for (k, v) in cols.iter().zip(vals.iter()) {
                 let mut e = BytesStart::owned(k.as_bytes(), k.len());
                 if !is_xml_row(v) {
-                    return Err(ShellError::SpannedLabeledError(
+                    return Err(ShellError::GenericError(
                         "Expected a row with 'children' and 'attributes' columns".to_string(),
                         "missing 'children' and 'attributes' columns ".to_string(),
-                        span,
+                        Some(span),
+                        None,
+                        Vec::new(),
                     ));
                 }
                 let a = get_attributes(v, config);
@@ -185,6 +187,7 @@ fn to_xml(
             "XML".into(),
             value_type.to_string(),
             head,
+            None,
         )),
     }
 }

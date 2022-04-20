@@ -16,7 +16,7 @@ nu-ansi-term = "0.45.1"
 nu-color-config = { path = "../nu-color-config", version = "0.61.1"  }
 
 crossterm = "0.23.0"
-miette = { version = "4.4.0", features = ["fancy"] }
+miette = { version = "4.5.0", features = ["fancy"] }
 thiserror = "1.0.29"
 reedline = { version = "0.4.0", features = ["bashisms"]}
 

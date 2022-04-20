@@ -46,9 +46,9 @@ impl Command for Cd {
                         let path = match nu_path::canonicalize_with(path, &cwd) {
                             Ok(p) => p,
                             Err(e) => {
-                                return Err(ShellError::DirectoryNotFoundHelp(
+                                return Err(ShellError::DirectoryNotFound(
                                     *span,
-                                    format!("IO Error: {:?}", e),
+                                    Some(format!("IO Error: {:?}", e)),
                                 ))
                             }
                         };
@@ -69,9 +69,9 @@ impl Command for Cd {
                             }
 
                             Err(e) => {
-                                return Err(ShellError::DirectoryNotFoundHelp(
+                                return Err(ShellError::DirectoryNotFound(
                                     v.span()?,
-                                    format!("IO Error: {:?}", e),
+                                    Some(format!("IO Error: {:?}", e)),
                                 ))
                             }
                         };

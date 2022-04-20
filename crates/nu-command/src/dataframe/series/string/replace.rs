@@ -83,18 +83,22 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
     let chunked = series.utf8().map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error convertion to string".into(),
             e.to_string(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })?;
 
     let mut res = chunked.replace(&pattern, &replace).map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error finding pattern other".into(),
             e.to_string(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })?;
 

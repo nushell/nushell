@@ -14,7 +14,7 @@ use nu_protocol::{
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
-    CONFIG_VARIABLE_ID, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -1689,16 +1689,6 @@ pub fn parse_variable_expr(
             },
             None,
         );
-    } else if contents == b"$config" {
-        return (
-            Expression {
-                expr: Expr::Var(nu_protocol::CONFIG_VARIABLE_ID),
-                span,
-                ty: Type::Any,
-                custom_completion: None,
-            },
-            None,
-        );
     } else if contents == b"$env" {
         return (
             Expression {
@@ -2818,16 +2808,6 @@ pub fn parse_var_with_opt_type(
                 Some(ParseError::MissingType(spans[*spans_idx])),
             )
         }
-    } else if bytes == b"$config" || bytes == b"config" {
-        (
-            Expression {
-                expr: Expr::Var(CONFIG_VARIABLE_ID),
-                span: spans[*spans_idx],
-                ty: Type::Any,
-                custom_completion: None,
-            },
-            None,
-        )
     } else {
         let id =
             working_set.add_variable(bytes, span(&spans[*spans_idx..*spans_idx + 1]), Type::Any);

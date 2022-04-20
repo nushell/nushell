@@ -138,10 +138,12 @@ impl NuDataFrame {
                     .collect::<Vec<Series>>();
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| {
-                    ShellError::SpannedLabeledError(
+                    ShellError::GenericError(
                         "Error creating dataframe".into(),
                         e.to_string(),
-                        span,
+                        Some(span),
+                        None,
+                        Vec::new(),
                     )
                 })?;
 
@@ -183,10 +185,12 @@ impl NuDataFrame {
                         match res {
                             Ok(s) => Ok(s.clone()),
                             Err(e) => Err({
-                                ShellError::SpannedLabeledError(
+                                ShellError::GenericError(
                                     "Error appending dataframe".into(),
                                     format!("Unable to append: {}", e),
-                                    span,
+                                    Some(span),
+                                    None,
+                                    Vec::new(),
                                 )
                             }),
                         }
@@ -194,10 +198,12 @@ impl NuDataFrame {
                     .collect::<Result<Vec<Series>, ShellError>>()?;
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| {
-                    ShellError::SpannedLabeledError(
+                    ShellError::GenericError(
                         "Error appending dataframe".into(),
                         format!("Unable to append dataframes: {}", e),
-                        span,
+                        Some(span),
+                        None,
+                        Vec::new(),
                     )
                 })?;
 

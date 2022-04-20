@@ -78,10 +78,12 @@ fn first_helper(
         match input_peek
             .peek()
             .ok_or_else(|| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error in first".into(),
                     "unable to pick on next value".into(),
-                    call.head,
+                    Some(call.head),
+                    None,
+                    Vec::new(),
                 )
             })?
             .get_type()

@@ -57,10 +57,12 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let res = df.as_series(call.head)?.n_unique().map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error counting unique values".into(),
             e.to_string(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })?;
 

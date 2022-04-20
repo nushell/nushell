@@ -28,11 +28,12 @@ impl Operation {
             "max" => Ok(Operation::Max),
             "mean" => Ok(Operation::Mean),
             "median" => Ok(Operation::Median),
-            _ => Err(ShellError::SpannedLabeledErrorHelp(
+            _ => Err(ShellError::GenericError(
                 "Operation not fount".into(),
                 "Operation does not exist for pivot".into(),
-                name.span,
-                "Options: first, sum, min, max, mean, median".into(),
+                Some(name.span),
+                Some("Options: first, sum, min, max, mean, median".into()),
+                Vec::new(),
             )),
         }
     }
@@ -116,7 +117,13 @@ fn command(
         Operation::Median => pivot.median(),
     }
     .map_err(|e| {
-        ShellError::SpannedLabeledError("Error creating pivot".into(), e.to_string(), call.head)
+        ShellError::GenericError(
+            "Error creating pivot".into(),
+            e.to_string(),
+            Some(call.head),
+            None,
+            Vec::new(),
+        )
     })
     .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }
@@ -126,7 +133,13 @@ fn check_pivot_column(
     col: &Spanned<String>,
 ) -> Result<(), ShellError> {
     let series = df.column(&col.item).map_err(|e| {
-        ShellError::SpannedLabeledError("Column not found".into(), e.to_string(), col.span)
+        ShellError::GenericError(
+            "Column not found".into(),
+            e.to_string(),
+            Some(col.span),
+            None,
+            Vec::new(),
+        )
     })?;
 
     match series.dtype() {
@@ -139,10 +152,12 @@ fn check_pivot_column(
         | DataType::Int32
         | DataType::Int64
         | DataType::Utf8 => Ok(()),
-        _ => Err(ShellError::SpannedLabeledError(
+        _ => Err(ShellError::GenericError(
             "Pivot error".into(),
             format!("Unsupported datatype {}", series.dtype()),
-            col.span,
+            Some(col.span),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -152,7 +167,13 @@ fn check_value_column(
     col: &Spanned<String>,
 ) -> Result<(), ShellError> {
     let series = df.column(&col.item).map_err(|e| {
-        ShellError::SpannedLabeledError("Column not found".into(), e.to_string(), col.span)
+        ShellError::GenericError(
+            "Column not found".into(),
+            e.to_string(),
+            Some(col.span),
+            None,
+            Vec::new(),
+        )
     })?;
 
     match series.dtype() {
@@ -166,10 +187,12 @@ fn check_value_column(
         | DataType::Int64
         | DataType::Float32
         | DataType::Float64 => Ok(()),
-        _ => Err(ShellError::SpannedLabeledError(
+        _ => Err(ShellError::GenericError(
             "Pivot error".into(),
             format!("Unsupported datatype {}", series.dtype()),
-            col.span,
+            Some(col.span),
+            None,
+            Vec::new(),
         )),
     }
 }

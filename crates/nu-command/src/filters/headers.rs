@@ -71,15 +71,15 @@ impl Command for Headers {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        stack: &mut Stack,
+        engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        let config = stack.get_config()?;
+        let config = engine_state.get_config();
         let metadata = input.metadata();
         let value = input.into_value(call.head);
-        let headers = extract_headers(&value, &config)?;
+        let headers = extract_headers(&value, config)?;
         let new_headers = replace_headers(value, &headers)?;
 
         Ok(new_headers.into_pipeline_data().set_metadata(metadata))
@@ -131,10 +131,12 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
             .map(|value| extract_headers(value, config))
             .next()
             .ok_or_else(|| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Found empty list".to_string(),
                     "unable to extract headers".to_string(),
-                    *span,
+                    Some(*span),
+                    None,
+                    Vec::new(),
                 )
             })?,
         _ => Err(ShellError::TypeMismatch(

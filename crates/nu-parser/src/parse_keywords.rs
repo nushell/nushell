@@ -5,7 +5,7 @@ use nu_protocol::{
         ImportPatternMember, Pipeline,
     },
     engine::StateWorkingSet,
-    span, Exportable, Overlay, PositionalArg, Span, SyntaxShape, Type, CONFIG_VARIABLE_ID,
+    span, Exportable, Overlay, PositionalArg, Span, SyntaxShape, Type,
 };
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -1359,7 +1359,11 @@ pub fn parse_use(
                     }
                 } else {
                     error = error.or(Some(ParseError::ModuleNotFound(import_pattern.head.span)));
-                    (ImportPattern::new(), Overlay::new())
+
+                    let mut import_pattern = ImportPattern::new();
+                    import_pattern.head.span = spans[1];
+
+                    (import_pattern, Overlay::new())
                 }
             } else {
                 return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
@@ -1706,9 +1710,7 @@ pub fn parse_let(
                         let rhs_type = rvalue.ty.clone();
 
                         if let Some(var_id) = var_id {
-                            if var_id != CONFIG_VARIABLE_ID {
-                                working_set.set_variable_type(var_id, rhs_type);
-                            }
+                            working_set.set_variable_type(var_id, rhs_type);
                         }
 
                         let call = Box::new(Call {

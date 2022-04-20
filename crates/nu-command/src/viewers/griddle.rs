@@ -64,7 +64,7 @@ prints out the list properly."#
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
         let color_param: bool = call.has_flag("color");
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
-        let config = stack.get_config().unwrap_or_default();
+        let config = engine_state.get_config();
         let env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
             Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
             None => None,
@@ -74,7 +74,7 @@ prints out the list properly."#
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
-                let data = convert_to_list(vals, &config, call.head);
+                let data = convert_to_list(vals, config, call.head);
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
@@ -91,7 +91,7 @@ prints out the list properly."#
             }
             PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
-                let data = convert_to_list(stream, &config, call.head);
+                let data = convert_to_list(stream, config, call.head);
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
@@ -112,7 +112,7 @@ prints out the list properly."#
                 let mut items = vec![];
 
                 for (i, (c, v)) in cols.into_iter().zip(vals.into_iter()).enumerate() {
-                    items.push((i, c, v.into_string(", ", &config)))
+                    items.push((i, c, v.into_string(", ", config)))
                 }
 
                 Ok(create_grid_output(

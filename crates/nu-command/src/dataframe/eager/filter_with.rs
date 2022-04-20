@@ -63,11 +63,12 @@ fn command(
     let mask_span = mask_value.span()?;
     let mask = NuDataFrame::try_from_value(mask_value)?.as_series(mask_span)?;
     let mask = mask.bool().map_err(|e| {
-        ShellError::SpannedLabeledErrorHelp(
+        ShellError::GenericError(
             "Error casting to bool".into(),
             e.to_string(),
-            mask_span,
-            "Perhaps you want to use a series with booleans as mask".into(),
+            Some(mask_span),
+            Some("Perhaps you want to use a series with booleans as mask".into()),
+            Vec::new(),
         )
     })?;
 
@@ -76,11 +77,12 @@ fn command(
     df.as_ref()
         .filter(mask)
         .map_err(|e| {
-            ShellError::SpannedLabeledErrorHelp(
+            ShellError::GenericError(
                 "Error calculating dummies".into(),
                 e.to_string(),
-                call.head,
-                "The only allowed column types for dummies are String or Int".into(),
+                Some(call.head),
+                Some("The only allowed column types for dummies are String or Int".into()),
+                Vec::new(),
             )
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))

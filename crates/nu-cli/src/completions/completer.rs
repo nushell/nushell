@@ -1,11 +1,11 @@
 use crate::completions::{
-    CommandCompletion, Completer, CustomCompletion, FileCompletion, FlagCompletion,
-    VariableCompletion,
+    CommandCompletion, Completer, CustomCompletion, DotNuCompletion, FileCompletion,
+    FlagCompletion, VariableCompletion,
 };
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Span, Value,
+    Span,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::str;
@@ -15,15 +15,13 @@ use std::sync::Arc;
 pub struct NuCompleter {
     engine_state: Arc<EngineState>,
     stack: Stack,
-    config: Option<Value>,
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: Arc<EngineState>, stack: Stack, config: Option<Value>) -> Self {
+    pub fn new(engine_state: Arc<EngineState>, stack: Stack) -> Self {
         Self {
             engine_state,
             stack,
-            config,
         }
     }
 
@@ -38,14 +36,10 @@ impl NuCompleter {
         pos: usize,
     ) -> Vec<Suggestion> {
         // Fetch
-        let (mut suggestions, options) =
-            completer.fetch(working_set, prefix.clone(), new_span, offset, pos);
-
-        // Filter
-        suggestions = completer.filter(prefix.clone(), suggestions, options.clone());
+        let mut suggestions = completer.fetch(working_set, prefix.clone(), new_span, offset, pos);
 
         // Sort
-        suggestions = completer.sort(suggestions, prefix, options);
+        suggestions = completer.sort(suggestions, prefix);
 
         suggestions
     }
@@ -71,7 +65,6 @@ impl NuCompleter {
                 for (flat_idx, flat) in flattened.iter().enumerate() {
                     if pos >= flat.0.start && pos < flat.0.end {
                         // Context variables
-                        let mut is_variable_completion = false;
                         let most_left_var =
                             most_left_variable(flat_idx, &working_set, flattened.clone());
 
@@ -85,13 +78,32 @@ impl NuCompleter {
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
                         prefix.remove(pos - flat.0.start);
 
-                        // Check if has most left variable
-                        if most_left_var.is_some() {
-                            is_variable_completion = true;
+                        // Completions that depends on the previous expression (e.g: use, source)
+                        if flat_idx > 0 {
+                            if let Some(previous_expr) = flattened.get(flat_idx - 1) {
+                                // Read the content for the previous expression
+                                let prev_expr_str =
+                                    working_set.get_span_contents(previous_expr.0).to_vec();
+
+                                // Completion for .nu files
+                                if prev_expr_str == b"use" || prev_expr_str == b"source" {
+                                    let mut completer =
+                                        DotNuCompletion::new(self.engine_state.clone());
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
+                                }
+                            }
                         }
 
                         // Variables completion
-                        if prefix.starts_with(b"$") || is_variable_completion {
+                        if prefix.starts_with(b"$") || most_left_var.is_some() {
                             let mut completer = VariableCompletion::new(
                                 self.engine_state.clone(),
                                 self.stack.clone(),
@@ -128,7 +140,6 @@ impl NuCompleter {
                                 let mut completer = CustomCompletion::new(
                                     self.engine_state.clone(),
                                     self.stack.clone(),
-                                    self.config.clone(),
                                     *decl_id,
                                     line,
                                 );

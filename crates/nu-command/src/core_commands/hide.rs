@@ -48,10 +48,12 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         {
             pat
         } else {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Unexpected import".into(),
                 "import pattern not supported".into(),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             ));
         };
 

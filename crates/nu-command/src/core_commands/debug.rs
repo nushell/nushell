@@ -25,12 +25,12 @@ impl Command for Debug {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let config = stack.get_config().unwrap_or_default();
+        let config = engine_state.get_config().clone();
         let raw = call.has_flag("raw");
 
         input.map(

@@ -215,21 +215,11 @@ pub enum ShellError {
     /// Not all values can be coerced this way. Check the supported type(s) and try again.
     #[error("Can't convert to {0}.")]
     #[diagnostic(code(nu::shell::cant_convert), url(docsrs))]
-    CantConvert(String, String, #[label("can't convert {1} to {0}")] Span),
-
-    /// Failed to convert a value of one type into a different type.
-    ///
-    /// ## Resolution
-    ///
-    /// Not all values can be coerced this way. Check the supported type(s) and try again, referring to the help text in the specific error message.
-    #[error("Can't convert to {0}.")]
-    #[diagnostic(code(nu::shell::cant_convert), url(docsrs), help("{3}"))]
-    // Identical to above, but with help
-    CantConvertWithHelp(
+    CantConvert(
         String,
         String,
         #[label("can't convert {1} to {0}")] Span,
-        String,
+        #[help] Option<String>,
     ),
 
     /// An environment variable cannot be represented as a string.
@@ -473,7 +463,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Make sure the directory in the error message actually exists before trying again.
     #[error("Directory not found")]
     #[diagnostic(code(nu::shell::directory_not_found), url(docsrs))]
-    DirectoryNotFound(#[label("directory not found")] Span),
+    DirectoryNotFound(#[label("directory not found")] Span, #[help] Option<String>),
 
     /// Attempted to perform an operation on a directory that doesn't exist.
     ///
@@ -483,15 +473,6 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Directory not found")]
     #[diagnostic(code(nu::shell::directory_not_found_custom), url(docsrs))]
     DirectoryNotFoundCustom(String, #[label("{0}")] Span),
-
-    /// Attempted to perform an operation on a directory that doesn't exist.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure the directory in the error message actually exists before trying again.
-    #[error("Directory not found")]
-    #[diagnostic(code(nu::shell::directory_not_found_help), url(docsrs), help("{1}"))]
-    DirectoryNotFoundHelp(#[label("directory not found")] Span, String),
 
     /// The requested move operation cannot be completed. This is typically because both paths exist,
     /// but are of different types. For example, you might be trying to overwrite an existing file with
@@ -621,31 +602,13 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// This is a generic error type used for different situations.
     #[error("{0}")]
     #[diagnostic()]
-    SpannedLabeledError(String, String, #[label("{1}")] Span),
-
-    /// This is a generic error type used for different situations.
-    #[error("{0}")]
-    #[diagnostic(help("{3}"))]
-    SpannedLabeledErrorHelp(String, String, #[label("{1}")] Span, String),
-
-    /// This is a generic error type used for different situations.
-    #[error("{0}")]
-    #[diagnostic()]
-    SpannedLabeledErrorRelated(
+    GenericError(
         String,
         String,
-        #[label("{1}")] Span,
+        #[label("{1}")] Option<Span>,
+        #[help] Option<String>,
         #[related] Vec<ShellError>,
     ),
-
-    /// This is a generic error type used for different situations.
-    #[error("{0}")]
-    #[diagnostic(help("{1}"))]
-    LabeledError(String, String),
-
-    /// This is a generic error type used for different situations.
-    #[error("{0}")]
-    UnlabeledError(String),
 
     /// This is a generic error type used for different situations.
     #[error("{1}")]

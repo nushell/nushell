@@ -147,15 +147,12 @@ impl ExternalCommand {
             )),
             Ok(mut child) => {
                 if !input.is_nothing() {
-                    let engine_state = engine_state.clone();
+                    let mut engine_state = engine_state.clone();
                     let mut stack = stack.clone();
-                    stack.update_config(
-                        "use_ansi_coloring",
-                        Value::Bool {
-                            val: false,
-                            span: Span::new(0, 0),
-                        },
-                    );
+
+                    // Turn off color as we pass data through
+                    engine_state.config.use_ansi_coloring = false;
+
                     // if there is a string or a stream, that is sent to the pipe std
                     if let Some(mut stdin_write) = child.stdin.take() {
                         std::thread::spawn(move || {
@@ -345,14 +342,15 @@ impl ExternalCommand {
             process.current_dir(d);
             process
         } else {
-            return Err(ShellError::SpannedLabeledErrorHelp(
+            return Err(ShellError::GenericError(
                 "Current directory not found".to_string(),
                 "did not find PWD environment variable".to_string(),
-                span,
-                concat!(
+                Some(span),
+                Some(concat!(
                     "The environment variable 'PWD' was not found. ",
                     "It is required to define the current directory when running an external command."
-                ).to_string(),
+                ).to_string()),
+                Vec::new(),
             ));
         };
 
@@ -398,7 +396,7 @@ impl ExternalCommand {
     /// Spawn a command without shelling out to an external shell
     pub fn spawn_simple_command(&self, cwd: &str) -> Result<std::process::Command, ShellError> {
         let head = trim_enclosing_quotes(&self.name.item);
-        let head = nu_path::expand_path_for_external_programs(head)
+        let head = nu_path::expand_to_real_path(head)
             .to_string_lossy()
             .to_string();
 
@@ -409,7 +407,7 @@ impl ExternalCommand {
                 item: trim_enclosing_quotes(&arg.item),
                 span: arg.span,
             };
-            arg.item = nu_path::expand_path_for_external_programs(arg.item)
+            arg.item = nu_path::expand_to_real_path(arg.item)
                 .to_string_lossy()
                 .to_string();
 

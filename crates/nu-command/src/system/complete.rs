@@ -85,10 +85,12 @@ impl Command for Complete {
                 }
                 .into_pipeline_data())
             }
-            _ => Err(ShellError::SpannedLabeledError(
+            _ => Err(ShellError::GenericError(
                 "Complete only works with external streams".to_string(),
                 "complete only works on external streams".to_string(),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             )),
         }
     }

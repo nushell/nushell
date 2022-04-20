@@ -8,7 +8,7 @@ version = "0.61.1"
 
 [dependencies]
 chrono = "0.4.19"
-miette = "4.4.0"
+miette = "4.5.0"
 thiserror = "1.0.29"
 serde_json = "1.0"
 nu-path = {path = "../nu-path", version = "0.61.1" }

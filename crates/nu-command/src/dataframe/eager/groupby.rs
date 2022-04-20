@@ -61,7 +61,13 @@ fn command(
     // dataframe. Once it has been done these values can be stored
     // in a NuGroupBy
     let groupby = df.as_ref().groupby(&col_string).map_err(|e| {
-        ShellError::SpannedLabeledError("Error creating groupby".into(), e.to_string(), col_span)
+        ShellError::GenericError(
+            "Error creating groupby".into(),
+            e.to_string(),
+            Some(col_span),
+            None,
+            Vec::new(),
+        )
     })?;
 
     let groups = groupby.get_groups();

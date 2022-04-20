@@ -59,10 +59,12 @@ fn command(
 
     let series = df.as_series(call.head)?;
     let bool = series.bool().map_err(|_| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error converting to bool".into(),
             "all-false only works with series of type bool".into(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })?;
 

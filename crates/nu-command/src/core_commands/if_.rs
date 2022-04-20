@@ -100,6 +100,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
                 "bool".into(),
                 x.get_type().to_string(),
                 result.span()?,
+                None,
             )),
         }
     }

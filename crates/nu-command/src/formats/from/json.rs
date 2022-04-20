@@ -70,13 +70,13 @@ impl Command for FromJson {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let config = stack.get_config().unwrap_or_default();
-        let string_input = input.collect_string("", &config)?;
+        let config = engine_state.get_config();
+        let string_input = input.collect_string("", config)?;
 
         if string_input.is_empty() {
             return Ok(PipelineData::new(span));
@@ -137,6 +137,7 @@ fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> Value {
                         "i64 sized integer".into(),
                         "value larger than i64".into(),
                         span,
+                        None,
                     ),
                 }
             } else {
@@ -188,10 +189,11 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
             nu_json::Error::Syntax(_, row, col) => {
                 let label = x.to_string();
                 let label_span = convert_row_column_to_span(row, col, &string_input);
-                Err(ShellError::SpannedLabeledErrorRelated(
+                Err(ShellError::GenericError(
                     "Error while parsing JSON text".into(),
                     "error parsing JSON text".into(),
-                    span,
+                    Some(span),
+                    None,
                     vec![ShellError::OutsideSpannedLabeledError(
                         string_input,
                         "Error while parsing JSON text".into(),
@@ -204,6 +206,7 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
                 format!("structured json data ({})", x),
                 "string".into(),
                 span,
+                None,
             )),
         },
     }

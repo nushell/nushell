@@ -22,11 +22,12 @@ impl RollType {
             "max" => Ok(Self::Max),
             "sum" => Ok(Self::Sum),
             "mean" => Ok(Self::Mean),
-            _ => Err(ShellError::SpannedLabeledErrorHelp(
+            _ => Err(ShellError::GenericError(
                 "Wrong operation".into(),
                 "Operation not valid for cumulative".into(),
-                span,
-                "Allowed values: min, max, sum, mean".into(),
+                Some(span),
+                Some("Allowed values: min, max, sum, mean".into()),
+                Vec::new(),
             )),
         }
     }
@@ -123,10 +124,12 @@ fn command(
     let series = df.as_series(call.head)?;
 
     if let DataType::Object(_) = series.dtype() {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "Found object series".into(),
             "Series of type object cannot be used for rolling operation".into(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         ));
     }
 
@@ -146,10 +149,12 @@ fn command(
     };
 
     let mut res = res.map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error calculating rolling values".into(),
             e.to_string(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })?;
 

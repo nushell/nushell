@@ -3,6 +3,7 @@ use crate::DirInfo;
 use chrono::{DateTime, Local};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
+use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -76,7 +77,7 @@ impl Command for Ls {
         let (path, p_tag, absolute_path) = match pattern_arg {
             Some(p) => {
                 let p_tag = p.span;
-                let mut p = PathBuf::from(p.item);
+                let mut p = expand_to_real_path(p.item);
 
                 let expanded = nu_path::expand_path_with(&p, &cwd);
                 if expanded.is_dir() {
@@ -95,10 +96,12 @@ impl Command for Ls {
                         );
                         #[cfg(not(unix))]
                         let error_msg = String::from("Permission denied");
-                        return Err(ShellError::SpannedLabeledError(
+                        return Err(ShellError::GenericError(
                             "Permission denied".to_string(),
                             error_msg,
-                            p_tag,
+                            Some(p_tag),
+                            None,
+                            Vec::new(),
                         ));
                     }
                     if is_empty_dir(&expanded) {
@@ -128,9 +131,12 @@ impl Command for Ls {
 
         let mut paths_peek = paths.peekable();
         if paths_peek.peek().is_none() {
-            return Err(ShellError::LabeledError(
+            return Err(ShellError::GenericError(
                 format!("No matches found for {}", &path.display().to_string()),
-                "no matches found".to_string(),
+                "".to_string(),
+                None,
+                Some("no matches found".to_string()),
+                Vec::new(),
             ));
         }
 
@@ -175,10 +181,12 @@ impl Command for Ls {
                         Some(path.to_string_lossy().to_string())
                     }
                     .ok_or_else(|| {
-                        ShellError::SpannedLabeledError(
+                        ShellError::GenericError(
                             format!("Invalid file name: {:}", path.to_string_lossy()),
                             "invalid file name".into(),
-                            call_span,
+                            Some(call_span),
+                            None,
+                            Vec::new(),
                         )
                     });
 
@@ -224,6 +232,11 @@ impl Command for Ls {
                 result: None,
             },
             Example {
+                description: "List all files with full path in the parent directory",
+                example: "ls -f ..",
+                result: None,
+            },
+            Example {
                 description: "List all rust files",
                 example: "ls *.rs",
                 result: None,
@@ -234,8 +247,8 @@ impl Command for Ls {
                 result: None,
             },
             Example {
-                description: "List all dirs with full path name in your home directory",
-                example: "ls -f ~ | where type == dir",
+                description: "List all dirs in your home directory",
+                example: "ls ~ | where type == dir",
                 result: None,
             },
             Example {

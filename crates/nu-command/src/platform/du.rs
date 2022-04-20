@@ -95,7 +95,13 @@ impl Command for Du {
 
         let exclude = args.exclude.map_or(Ok(None), move |x| {
             Pattern::new(&x.item).map(Some).map_err(|e| {
-                ShellError::SpannedLabeledError(e.msg.to_string(), "glob error".to_string(), x.span)
+                ShellError::GenericError(
+                    e.msg.to_string(),
+                    "glob error".to_string(),
+                    Some(x.span),
+                    None,
+                    Vec::new(),
+                )
             })
         })?;
 
@@ -108,7 +114,13 @@ impl Command for Du {
             None => nu_glob::glob_with("*", GLOB_PARAMS),
         }
         .map_err(|e| {
-            ShellError::SpannedLabeledError(e.msg.to_string(), "glob error".to_string(), tag)
+            ShellError::GenericError(
+                e.msg.to_string(),
+                "glob error".to_string(),
+                Some(tag),
+                None,
+                Vec::new(),
+            )
         })?
         .filter(move |p| {
             if include_files {

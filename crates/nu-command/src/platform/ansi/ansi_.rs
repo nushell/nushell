@@ -317,7 +317,7 @@ Format: #
         let list: bool = call.has_flag("list");
         let escape: bool = call.has_flag("escape");
         let osc: bool = call.has_flag("osc");
-        let use_ansi_coloring = stack.get_config()?.use_ansi_coloring;
+        let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
 
         if list {
             return generate_ansi_code_list(engine_state, call.head, use_ansi_coloring);
@@ -375,15 +375,34 @@ Format: #
             // OCS's need to end with a bell '\x07' char
             format!("\x1b]{};", code_string)
         } else if param_is_valid_string {
-            match str_to_ansi(&code_string) {
-                Some(c) => c,
-                None => {
-                    return Err(ShellError::UnsupportedInput(
-                        String::from("Unknown ansi code"),
-                        call.positional_nth(0)
-                            .expect("Unexpected missing argument")
-                            .span,
-                    ))
+            // parse hex colors like #00FF00
+            if code_string.starts_with('#') {
+                match nu_color_config::color_from_hex(&code_string) {
+                    Ok(color) => match color {
+                        Some(c) => c.prefix().to_string(),
+                        None => Color::White.prefix().to_string(),
+                    },
+                    Err(err) => {
+                        return Err(ShellError::GenericError(
+                            "error parsing hex color".to_string(),
+                            format!("{}", err),
+                            Some(code.span()?),
+                            None,
+                            Vec::new(),
+                        ));
+                    }
+                }
+            } else {
+                match str_to_ansi(&code_string) {
+                    Some(c) => c,
+                    None => {
+                        return Err(ShellError::UnsupportedInput(
+                            String::from("Unknown ansi code"),
+                            call.positional_nth(0)
+                                .expect("Unexpected missing argument")
+                                .span,
+                        ))
+                    }
                 }
             }
         } else {

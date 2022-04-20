@@ -79,7 +79,7 @@ fn from_csv(
 
     let noheaders = call.has_flag("noheaders");
     let separator: Option<Value> = call.get_flag(engine_state, stack, "separator")?;
-    let config = stack.get_config().unwrap_or_default();
+    let config = engine_state.get_config();
 
     let sep = match separator {
         Some(Value::String { val: s, span }) => {
@@ -99,7 +99,7 @@ fn from_csv(
         _ => ',',
     };
 
-    from_delimited_data(noheaders, sep, input, name, &config)
+    from_delimited_data(noheaders, sep, input, name, config)
 }
 
 #[cfg(test)]

@@ -57,17 +57,21 @@ impl Command for ViewSource {
                             Ok(Value::string(String::from_utf8_lossy(contents), call.head)
                                 .into_pipeline_data())
                         } else {
-                            Err(ShellError::SpannedLabeledError(
+                            Err(ShellError::GenericError(
                                 "Cannot view value".to_string(),
                                 "the command does not have a viewable block".to_string(),
-                                arg_span,
+                                Some(arg_span),
+                                None,
+                                Vec::new(),
                             ))
                         }
                     } else {
-                        Err(ShellError::SpannedLabeledError(
+                        Err(ShellError::GenericError(
                             "Cannot view value".to_string(),
                             "the command does not have a viewable block".to_string(),
-                            arg_span,
+                            Some(arg_span),
+                            None,
+                            Vec::new(),
                         ))
                     }
                 } else if let Some(overlay_id) = engine_state.find_overlay(val.as_bytes()) {
@@ -78,24 +82,30 @@ impl Command for ViewSource {
                         Ok(Value::string(String::from_utf8_lossy(contents), call.head)
                             .into_pipeline_data())
                     } else {
-                        Err(ShellError::SpannedLabeledError(
+                        Err(ShellError::GenericError(
                             "Cannot view value".to_string(),
                             "the module does not have a viewable block".to_string(),
-                            arg_span,
+                            Some(arg_span),
+                            None,
+                            Vec::new(),
                         ))
                     }
                 } else {
-                    Err(ShellError::SpannedLabeledError(
+                    Err(ShellError::GenericError(
                         "Cannot view value".to_string(),
                         "this name does not correspond to a viewable value".to_string(),
-                        arg_span,
+                        Some(arg_span),
+                        None,
+                        Vec::new(),
                     ))
                 }
             }
-            _ => Err(ShellError::SpannedLabeledError(
+            _ => Err(ShellError::GenericError(
                 "Cannot view value".to_string(),
                 "this value cannot be viewed".to_string(),
-                arg_span,
+                Some(arg_span),
+                None,
+                Vec::new(),
             )),
         }
     }

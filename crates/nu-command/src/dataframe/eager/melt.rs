@@ -148,29 +148,35 @@ fn command(
         .as_ref()
         .melt(&id_col_string, &val_col_string)
         .map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error calculating melt".into(),
                 e.to_string(),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             )
         })?;
 
     if let Some(name) = &variable_name {
         res.rename("variable", &name.item).map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error renaming column".into(),
                 e.to_string(),
-                name.span,
+                Some(name.span),
+                None,
+                Vec::new(),
             )
         })?;
     }
 
     if let Some(name) = &value_name {
         res.rename("value", &name.item).map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error renaming column".into(),
                 e.to_string(),
-                name.span,
+                Some(name.span),
+                None,
+                Vec::new(),
             )
         })?;
     }
@@ -187,10 +193,12 @@ fn check_column_datatypes<T: AsRef<str>>(
     col_span: Span,
 ) -> Result<(), ShellError> {
     if cols.is_empty() {
-        return Err(ShellError::SpannedLabeledError(
+        return Err(ShellError::GenericError(
             "Merge error".into(),
             "empty column list".into(),
-            col_span,
+            Some(col_span),
+            None,
+            Vec::new(),
         ));
     }
 
@@ -198,31 +206,36 @@ fn check_column_datatypes<T: AsRef<str>>(
     if cols.len() > 1 {
         for w in cols.windows(2) {
             let l_series = df.column(w[0].as_ref()).map_err(|e| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error selecting columns".into(),
                     e.to_string(),
-                    col_span,
+                    Some(col_span),
+                    None,
+                    Vec::new(),
                 )
             })?;
 
             let r_series = df.column(w[1].as_ref()).map_err(|e| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error selecting columns".into(),
                     e.to_string(),
-                    col_span,
+                    Some(col_span),
+                    None,
+                    Vec::new(),
                 )
             })?;
 
             if l_series.dtype() != r_series.dtype() {
-                return Err(ShellError::SpannedLabeledErrorHelp(
+                return Err(ShellError::GenericError(
                     "Merge error".into(),
                     "found different column types in list".into(),
-                    col_span,
-                    format!(
+                    Some(col_span),
+                    Some(format!(
                         "datatypes {} and {} are incompatible",
                         l_series.dtype(),
                         r_series.dtype()
-                    ),
+                    )),
+                    Vec::new(),
                 ));
             }
         }
