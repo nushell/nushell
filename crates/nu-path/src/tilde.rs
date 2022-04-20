@@ -1,4 +1,4 @@
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 use pwd::Passwd;
 use std::path::{Path, PathBuf};
 
@@ -9,32 +9,9 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
         return path.into();
     }
 
-    if path
-        .to_str()
-        .expect("path could not be read as string")
-        .len()
-        > 1
-        && path
-            .to_str()
-            .expect("path could not be read as string")
-            .chars()
-            .nth(1)
-            .expect("no value found")
-            != ' '
-        && path
-            .to_str()
-            .expect("path could not be read as string")
-            .chars()
-            .nth(1)
-            .expect("no value found")
-            != '/'
-        && path
-            .to_str()
-            .expect("path could not be read as string")
-            .chars()
-            .nth(1)
-            .expect("no value found")
-            != '\\'
+    if !(path.starts_with("~/")
+        || path.starts_with("~\\")
+        || path.strip_prefix("~") == Ok(Path::new("")))
     {
         return expand_tilde_with_another_user_home(path);
         // these checks ensure that the path is ~user format.
@@ -64,7 +41,7 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
     }
 }
 
-#[cfg(any(target_os = "linux"))]
+#[cfg(not(target_os = "windows"))]
 fn user_home_dir(username: &str) -> String {
     let passwd = Passwd::from_name(username);
     passwd
@@ -73,36 +50,31 @@ fn user_home_dir(username: &str) -> String {
         .dir
     // Returns home dir of user.
 }
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "windows")]
 fn expand_tilde_with_another_user_home(_path: &Path) -> PathBuf {
     PathBuf::new()
 }
 
-#[cfg(any(target_os = "linux"))]
+#[cfg(not(target_os = "windows"))]
 fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
-    return if !path.to_str().expect("error in path").contains('/') {
-        // If path is equal to only ~user, without slash
-        let mut user = String::from(path.to_str().expect("err"));
-        user.remove(0);
-        // sets user to user (removing the ~)
-        PathBuf::from(user_home_dir(&user))
-    } else {
-        let index: &usize = &path
-            .to_str()
-            .expect("err")
-            .chars()
-            .position(|c| c == '/')
-            .expect("'/' could not be found - earlier check failed.");
-        // finds the index of the first '/'.
-        let user = &(String::from(path.to_str().expect("err")))[1..*index];
-        // sets user to user.
-        let mut dir = user_home_dir(user);
-        dir.push_str(
-            &(String::from(path.to_str().expect("err")))[*index..path.to_str().expect("err").len()],
-        );
-        // pushes the rest of the previous string onto the home directory of the user.
-        PathBuf::from(dir)
-    };
+    let file_path = path
+        .to_str()
+        .expect("path could not be converted to string.");
+    let mut file = file_path.to_string();
+    match file_path.chars().position(|c| c == '/') {
+        None => {
+            file.remove(0);
+            PathBuf::from(user_home_dir(&file))
+        }
+        Some(i) => {
+            let (pre_name, rest_of_path) = file.split_at(i);
+            let mut name = pre_name.to_string();
+            name.remove(0);
+            let mut path = user_home_dir(&name);
+            path.push_str(rest_of_path);
+            PathBuf::from(path)
+        }
+    }
 }
 
 /// Expand tilde ("~") into a home directory if it is the first path component
