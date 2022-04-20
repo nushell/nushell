@@ -8,14 +8,35 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
         return path.into();
     }
 
-    if path.to_str().unwrap().len() > 1 {
-        if path.to_str().expect("err").chars().nth(1).unwrap() != ' '
-            && path.to_str().expect("err").chars().nth(1).unwrap() != '/'
-            && path.to_str().expect("err").chars().nth(1).unwrap() != '\\'
-        {
-            return expand_tilde_with_another_user_home(path);
-            // these checks ensure that the path is ~user format.
-        }
+    if path
+        .to_str()
+        .expect("path could not be read as string")
+        .len()
+        > 1
+        && path
+            .to_str()
+            .expect("path could not be read as string")
+            .chars()
+            .nth(1)
+            .expect("no value found")
+            != ' '
+        && path
+            .to_str()
+            .expect("path could not be read as string")
+            .chars()
+            .nth(1)
+            .expect("no value found")
+            != '/'
+        && path
+            .to_str()
+            .expect("path could not be read as string")
+            .chars()
+            .nth(1)
+            .expect("no value found")
+            != '\\'
+    {
+        return expand_tilde_with_another_user_home(path);
+        // these checks ensure that the path is ~user format.
     }
 
     match home {
@@ -45,7 +66,10 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
 #[cfg(any(target_os = "linux"))]
 fn user_home_dir(username: &str) -> String {
     let passwd = Passwd::from_name(username);
-    passwd.unwrap().unwrap().dir
+    passwd
+        .expect("error finding passwd linked to username")
+        .expect("no passwd linked to username")
+        .dir
     // Returns home dir of user.
 }
 
@@ -63,7 +87,7 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
             .expect("err")
             .chars()
             .position(|c| c == '/')
-            .unwrap();
+            .expect("'/' could not be found - earlier check failed.");
         // finds the index of the first '/'.
         let user = &(String::from(path.to_str().expect("err")))[1..*index];
         // sets user to user.
