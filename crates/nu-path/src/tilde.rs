@@ -74,8 +74,8 @@ fn user_home_dir(username: &str) -> String {
     // Returns home dir of user.
 }
 #[cfg(not(target_os = "linux"))]
-fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
-    return PathBuf::new();
+fn expand_tilde_with_another_user_home(_path: &Path) -> PathBuf {
+    PathBuf::new()
 }
 
 #[cfg(any(target_os = "linux"))]
