@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
 #[cfg(target_os = "linux")]
 use pwd::Passwd;
+use std::path::{Path, PathBuf};
 
 fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
     let path = path.as_ref();
