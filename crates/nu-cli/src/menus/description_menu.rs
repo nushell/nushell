@@ -272,7 +272,7 @@ impl DescriptionMenu {
     }
 
     fn no_records_msg(&self, use_ansi_coloring: bool) -> String {
-        let msg = "TYPE TO START SEACH";
+        let msg = "TYPE TO START SEARCH";
         if use_ansi_coloring {
             format!(
                 "{}{}{}",
