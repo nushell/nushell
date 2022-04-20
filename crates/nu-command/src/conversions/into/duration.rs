@@ -28,6 +28,10 @@ impl Command for SubCommand {
         "Convert value to duration"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "time", "period"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
