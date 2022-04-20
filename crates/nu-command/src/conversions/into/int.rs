@@ -33,6 +33,10 @@ impl Command for SubCommand {
         "Convert value to integer"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "number", "natural"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

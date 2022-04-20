@@ -53,7 +53,7 @@ nu-table = { path = "./crates/nu-table", version = "0.61.1"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.61.1"  }
 pretty_env_logger = "0.4.0"
 rayon = "1.5.1"
-reedline = { version = "0.4.0", features = ["bashisms"]}
+reedline = { git = "https://github.com/nushell/reedline", branch = "main", features = ["bashisms"]}
 is_executable = "1.0.1"
 
 [dev-dependencies]
@@ -71,14 +71,13 @@ embed-resource = "1"
 
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
-default = ["plugin", "which-support", "zip-support", "trash-support"]
+default = ["plugin", "which-support", "trash-support"]
 stable = ["default"]
 extra = ["default", "dataframe"]
 wasi = []
 
 # Stable (Default)
 which-support = ["nu-command/which-support"]
-zip-support = ["nu-command/zip"]
 trash-support = ["nu-command/trash-support"]
 
 # Extra

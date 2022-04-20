@@ -28,6 +28,10 @@ impl Command for SubCommand {
         "Convert value to a binary primitive"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "binary", "bytes", "bin"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

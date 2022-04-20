@@ -46,7 +46,7 @@ mod upsert;
 mod where_;
 mod window;
 mod wrap;
-mod zip_;
+mod zip;
 
 pub use all::All;
 pub use any::Any;
@@ -96,4 +96,4 @@ pub use upsert::Upsert;
 pub use where_::Where;
 pub use window::Window;
 pub use wrap::Wrap;
-pub use zip_::Zip;
+pub use zip::Zip;
