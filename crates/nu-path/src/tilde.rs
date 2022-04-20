@@ -45,7 +45,7 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
 #[cfg(any(target_os = "linux"))]
 fn user_home_dir(username: &str) -> String {
     let passwd = Passwd::from_name(username);
-    return passwd.unwrap().unwrap().dir;
+    passwd.unwrap().unwrap().dir
     // Returns home dir of user.
 }
 
