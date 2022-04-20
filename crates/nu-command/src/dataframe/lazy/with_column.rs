@@ -1,4 +1,5 @@
 use super::super::values::NuLazyFrame;
+use super::into_expression::IntoExpression;
 use crate::dataframe::values::NuExpression;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -17,15 +18,15 @@ impl Command for LazyWithColumn {
     }
 
     fn usage(&self) -> &str {
-        "Adds a new column for the dataframe"
+        "Adds new column(s) for the dataframe"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "Defining expression",
+                "expression(s)",
                 SyntaxShape::Any,
-                "Expression to create the column",
+                "Expression(s) that will create the new column(s)",
             )
             .category(Category::Custom("lazyframe".into()))
     }
@@ -45,11 +46,23 @@ impl Command for LazyWithColumn {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let expr: Value = call.req(engine_state, stack, 0)?;
-        let expr = NuExpression::try_from_value(expr)?;
+        let value: Value = call.req(engine_state, stack, 0)?;
+        let value_span = value.span()?;
+        let expr = NuExpression::try_from_value(value.clone());
+        let expressions = value.into_expressions();
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
-        let lazy = lazy.apply_with_expr(expr, LazyFrame::with_column);
+
+        let lazy: NuLazyFrame = match (expr, expressions) {
+            (Ok(expr), Err(_)) => lazy.apply_with_expr(expr, LazyFrame::with_column),
+            (Err(_), Ok(expressions)) => lazy.into_polars().with_columns(&expressions).into(),
+            _ => {
+                return Err(ShellError::IncompatibleParametersSingle(
+                    "Expected only a expression or list of expressions".into(),
+                    value_span,
+                ));
+            }
+        };
 
         Ok(PipelineData::Value(
             NuLazyFrame::into_value(lazy, call.head),

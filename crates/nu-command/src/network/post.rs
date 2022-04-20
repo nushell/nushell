@@ -269,6 +269,7 @@ fn helper(
                                 "string list or single row".into(),
                                 x.get_type().to_string(),
                                 headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                                None,
                             ));
                         }
                     }
@@ -287,6 +288,7 @@ fn helper(
                     "string list or single row".into(),
                     x.get_type().to_string(),
                     headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                    None,
                 ));
             }
         };
@@ -302,21 +304,33 @@ fn helper(
         Ok(resp) => match resp.headers().get("content-type") {
             Some(content_type) => {
                 let content_type = content_type.to_str().map_err(|e| {
-                    ShellError::LabeledError(e.to_string(), "MIME type were invalid".to_string())
+                    ShellError::GenericError(
+                        e.to_string(),
+                        "".to_string(),
+                        None,
+                        Some("MIME type were invalid".to_string()),
+                        Vec::new(),
+                    )
                 })?;
                 let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-                    ShellError::LabeledError(
+                    ShellError::GenericError(
                         format!("MIME type unknown: {}", content_type),
-                        "given unknown MIME type".to_string(),
+                        "".to_string(),
+                        None,
+                        Some("given unknown MIME type".to_string()),
+                        Vec::new(),
                     )
                 })?;
                 let ext = match (content_type.type_(), content_type.subtype()) {
                     (mime::TEXT, mime::PLAIN) => {
                         let path_extension = url::Url::parse(&requested_url)
                             .map_err(|_| {
-                                ShellError::LabeledError(
+                                ShellError::GenericError(
                                     format!("Cannot parse URL: {}", requested_url),
-                                    "cannot parse".to_string(),
+                                    "".to_string(),
+                                    None,
+                                    Some("cannot parse".to_string()),
+                                    Vec::new(),
                                 )
                             })?
                             .path_segments()

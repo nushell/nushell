@@ -96,10 +96,12 @@ impl Command for Ls {
                         );
                         #[cfg(not(unix))]
                         let error_msg = String::from("Permission denied");
-                        return Err(ShellError::SpannedLabeledError(
+                        return Err(ShellError::GenericError(
                             "Permission denied".to_string(),
                             error_msg,
-                            p_tag,
+                            Some(p_tag),
+                            None,
+                            Vec::new(),
                         ));
                     }
                     if is_empty_dir(&expanded) {
@@ -129,9 +131,12 @@ impl Command for Ls {
 
         let mut paths_peek = paths.peekable();
         if paths_peek.peek().is_none() {
-            return Err(ShellError::LabeledError(
+            return Err(ShellError::GenericError(
                 format!("No matches found for {}", &path.display().to_string()),
-                "no matches found".to_string(),
+                "".to_string(),
+                None,
+                Some("no matches found".to_string()),
+                Vec::new(),
             ));
         }
 
@@ -176,10 +181,12 @@ impl Command for Ls {
                         Some(path.to_string_lossy().to_string())
                     }
                     .ok_or_else(|| {
-                        ShellError::SpannedLabeledError(
+                        ShellError::GenericError(
                             format!("Invalid file name: {:}", path.to_string_lossy()),
                             "invalid file name".into(),
-                            call_span,
+                            Some(call_span),
+                            None,
+                            Vec::new(),
                         )
                     });
 

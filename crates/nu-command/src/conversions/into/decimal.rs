@@ -101,7 +101,12 @@ fn action(input: &Value, head: Span) -> Value {
             match other.parse::<f64>() {
                 Ok(x) => Value::Float { val: x, span: head },
                 Err(reason) => Value::Error {
-                    error: ShellError::CantConvert("float".to_string(), reason.to_string(), *span),
+                    error: ShellError::CantConvert(
+                        "float".to_string(),
+                        reason.to_string(),
+                        *span,
+                        None,
+                    ),
                 },
             }
         }

@@ -124,6 +124,7 @@ pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value
             "structured toml data".into(),
             "string".into(),
             span,
+            None,
         )),
     }
 }

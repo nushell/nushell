@@ -89,9 +89,9 @@ impl Command for LazyJoin {
         }
 
         // Checking that both list of expressions are made out of col expressions or strings
-        for (index, list) in vec![(1, &left_on), (2, &left_on)] {
+        for (index, list) in &[(1usize, &left_on), (2, &left_on)] {
             if list.iter().any(|expr| !matches!(expr, Expr::Column(..))) {
-                let value: Value = call.req(engine_state, stack, index)?;
+                let value: Value = call.req(engine_state, stack, *index)?;
                 return Err(ShellError::IncompatibleParametersSingle(
                     "Expected only a string, col expressions or list of strings".into(),
                     value.span()?,
@@ -100,7 +100,7 @@ impl Command for LazyJoin {
         }
 
         let suffix: Option<String> = call.get_flag(engine_state, stack, "suffix")?;
-        let suffix = suffix.unwrap_or("_x".into());
+        let suffix = suffix.unwrap_or_else(|| "_x".into());
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?.into_polars();
         let lazy: NuLazyFrame = lazy

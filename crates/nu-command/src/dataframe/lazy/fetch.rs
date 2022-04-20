@@ -51,10 +51,12 @@ impl Command for LazyFetch {
             .into_polars()
             .fetch(rows as usize)
             .map_err(|e| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error fetching rows".into(),
                     e.to_string(),
-                    call.head,
+                    Some(call.head),
+                    None,
+                    Vec::new(),
                 )
             })?
             .into();

@@ -58,15 +58,23 @@ fn command(
     let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let file = File::create(&file_name.item).map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error with file name".into(),
             e.to_string(),
-            file_name.span,
+            Some(file_name.span),
+            None,
+            Vec::new(),
         )
     })?;
 
     ParquetWriter::new(file).finish(df.as_mut()).map_err(|e| {
-        ShellError::SpannedLabeledError("Error saving file".into(), e.to_string(), file_name.span)
+        ShellError::GenericError(
+            "Error saving file".into(),
+            e.to_string(),
+            Some(file_name.span),
+            None,
+            Vec::new(),
+        )
     })?;
 
     let file_value = Value::String {

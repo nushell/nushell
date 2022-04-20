@@ -76,6 +76,7 @@ impl NuExpression {
                     "lazy expression".into(),
                     "non-dataframe".into(),
                     span,
+                    None,
                 )),
             },
             Value::String { val, .. } => Ok(col(val.as_str()).into()),
@@ -86,6 +87,7 @@ impl NuExpression {
                 "lazy expression".into(),
                 x.get_type().to_string(),
                 x.span()?,
+                None,
             )),
         }
     }

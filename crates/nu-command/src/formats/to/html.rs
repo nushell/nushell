@@ -325,10 +325,12 @@ fn to_html(
         let color_hm = match color_hm {
             Ok(c) => c,
             _ => {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Error finding theme name".to_string(),
                     "Error finding theme name".to_string(),
-                    theme_span,
+                    Some(theme_span),
+                    None,
+                    Vec::new(),
                 ))
             }
         };

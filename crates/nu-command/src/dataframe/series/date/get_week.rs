@@ -61,10 +61,12 @@ fn command(
     let series = df.as_series(call.head)?;
 
     let casted = series.datetime().map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error casting to datetime type".into(),
             e.to_string(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })?;
 

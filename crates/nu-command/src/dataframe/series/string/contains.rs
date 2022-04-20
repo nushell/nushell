@@ -71,18 +71,22 @@ fn command(
 
     let series = df.as_series(call.head)?;
     let chunked = series.utf8().map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "The contains command only with string columns".into(),
             e.to_string(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })?;
 
     let res = chunked.contains(&pattern).map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Error searching in series".into(),
             e.to_string(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })?;
 

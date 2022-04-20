@@ -1,6 +1,5 @@
-use crate::dataframe::values::{NuLazyFrame, NuLazyGroupBy};
-
 use super::into_expression::IntoExpression;
+use crate::dataframe::values::{NuLazyFrame, NuLazyGroupBy};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,

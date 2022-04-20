@@ -39,10 +39,12 @@ impl Command for ErrorMake {
             Ok(make_error(&arg)
                 .map(|err| Value::Error { error: err })
                 .unwrap_or_else(|| Value::Error {
-                    error: ShellError::SpannedLabeledError(
+                    error: ShellError::GenericError(
                         "Creating error value not supported.".into(),
                         "unsupported error format".into(),
-                        span,
+                        Some(span),
+                        None,
+                        Vec::new(),
                     ),
                 })
                 .into_pipeline_data())
@@ -52,10 +54,12 @@ impl Command for ErrorMake {
                     make_error(&value)
                         .map(|err| Value::Error { error: err })
                         .unwrap_or_else(|| Value::Error {
-                            error: ShellError::SpannedLabeledError(
+                            error: ShellError::GenericError(
                                 "Creating error value not supported.".into(),
                                 "unsupported error format".into(),
-                                span,
+                                Some(span),
+                                None,
+                                Vec::new(),
                             ),
                         })
                 },
@@ -103,20 +107,26 @@ fn make_error(value: &Value) -> Option<ShellError> {
                         Some(Value::String {
                             val: label_text, ..
                         }),
-                    ) => Some(ShellError::SpannedLabeledError(
+                    ) => Some(ShellError::GenericError(
                         message,
                         label_text,
-                        Span {
+                        Some(Span {
                             start: start as usize,
                             end: end as usize,
-                        },
+                        }),
+                        None,
+                        Vec::new(),
                     )),
                     _ => None,
                 }
             }
-            (Some(Value::String { val: message, .. }), None) => {
-                Some(ShellError::UnlabeledError(message))
-            }
+            (Some(Value::String { val: message, .. }), None) => Some(ShellError::GenericError(
+                message,
+                "".to_string(),
+                None,
+                None,
+                Vec::new(),
+            )),
             _ => None,
         }
     } else {

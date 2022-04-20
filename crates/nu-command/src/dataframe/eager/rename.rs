@@ -72,7 +72,13 @@ fn command(
     df.as_mut()
         .rename(&from, &to)
         .map_err(|e| {
-            ShellError::SpannedLabeledError("Error renaming".into(), e.to_string(), call.head)
+            ShellError::GenericError(
+                "Error renaming".into(),
+                e.to_string(),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )
         })
         .map(|df| {
             PipelineData::Value(

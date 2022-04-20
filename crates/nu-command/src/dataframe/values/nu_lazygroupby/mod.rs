@@ -81,6 +81,7 @@ impl NuLazyGroupBy {
                         "lazy frame".into(),
                         "non-dataframe".into(),
                         span,
+                        None,
                     )),
                 }
             }
@@ -88,6 +89,7 @@ impl NuLazyGroupBy {
                 "lazy groupby".into(),
                 x.get_type().to_string(),
                 x.span()?,
+                None,
             )),
         }
     }

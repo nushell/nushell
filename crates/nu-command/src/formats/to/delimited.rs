@@ -142,6 +142,7 @@ pub fn to_delimited_data(
             format_name.into(),
             value.get_type().to_string(),
             value.span().unwrap_or(span),
+            None,
         )),
     }?;
     Ok(Value::string(output, span).into_pipeline_data())

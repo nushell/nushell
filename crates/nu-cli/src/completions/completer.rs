@@ -1,6 +1,6 @@
 use crate::completions::{
-    CommandCompletion, Completer, CustomCompletion, FileCompletion, FlagCompletion,
-    VariableCompletion,
+    CommandCompletion, Completer, CustomCompletion, DotNuCompletion, FileCompletion,
+    FlagCompletion, VariableCompletion,
 };
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
@@ -83,6 +83,30 @@ impl NuCompleter {
                         // Parses the prefix
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
                         prefix.remove(pos - flat.0.start);
+
+                        // Completions that depends on the previous expression (e.g: use, source)
+                        if flat_idx > 0 {
+                            if let Some(previous_expr) = flattened.get(flat_idx - 1) {
+                                // Read the content for the previous expression
+                                let prev_expr_str =
+                                    working_set.get_span_contents(previous_expr.0).to_vec();
+
+                                // Completion for .nu files
+                                if prev_expr_str == b"use" || prev_expr_str == b"source" {
+                                    let mut completer =
+                                        DotNuCompletion::new(self.engine_state.clone());
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
+                                }
+                            }
+                        }
 
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {

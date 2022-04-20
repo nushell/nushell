@@ -94,19 +94,23 @@ impl Command for Open {
             );
             #[cfg(not(unix))]
             let error_msg = String::from("Permission denied");
-            Err(ShellError::SpannedLabeledError(
+            Err(ShellError::GenericError(
                 "Permission denied".into(),
                 error_msg,
-                arg_span,
+                Some(arg_span),
+                None,
+                Vec::new(),
             ))
         } else {
             let mut file = match std::fs::File::open(path) {
                 Ok(file) => file,
                 Err(err) => {
-                    return Err(ShellError::SpannedLabeledError(
+                    return Err(ShellError::GenericError(
                         "Permission denied".into(),
                         err.to_string(),
-                        arg_span,
+                        Some(arg_span),
+                        None,
+                        Vec::new(),
                     ));
                 }
             };
@@ -198,16 +202,20 @@ fn open_and_read_sqlite_db(path: &Path, call_span: Span) -> Result<Value, nu_pro
     match Connection::open(path) {
         Ok(conn) => match read_sqlite_db(conn, call_span) {
             Ok(data) => Ok(data),
-            Err(err) => Err(ShellError::SpannedLabeledError(
+            Err(err) => Err(ShellError::GenericError(
                 "Failed to read from SQLite database".into(),
                 err.to_string(),
-                call_span,
+                Some(call_span),
+                None,
+                Vec::new(),
             )),
         },
-        Err(err) => Err(ShellError::SpannedLabeledError(
+        Err(err) => Err(ShellError::GenericError(
             "Failed to open SQLite database".into(),
             err.to_string(),
-            call_span,
+            Some(call_span),
+            None,
+            Vec::new(),
         )),
     }
 }

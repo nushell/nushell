@@ -83,10 +83,12 @@ impl NuLazyFrame {
             .expect("No empty lazy for collect")
             .collect()
             .map_err(|e| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error collecting lazy frame".to_string(),
                     e.to_string(),
-                    span,
+                    Some(span),
+                    None,
+                    Vec::new(),
                 )
             })
             .map(NuDataFrame::new)
@@ -100,12 +102,14 @@ impl NuLazyFrame {
                     "lazy frame".into(),
                     "non-dataframe".into(),
                     span,
+                    None,
                 )),
             },
             x => Err(ShellError::CantConvert(
                 "lazy frame".into(),
                 x.get_type().to_string(),
                 x.span()?,
+                None,
             )),
         }
     }
@@ -113,16 +117,6 @@ impl NuLazyFrame {
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(value)
-    }
-
-    pub fn apply<F>(self, f: F) -> Self
-    where
-        F: Fn(LazyFrame) -> LazyFrame,
-    {
-        let df = self.0.expect("Lazy frame must not be empty to apply");
-        let new_frame = f(df);
-
-        new_frame.into()
     }
 
     pub fn apply_with_expr<F>(self, expr: NuExpression, f: F) -> Self

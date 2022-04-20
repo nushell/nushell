@@ -345,14 +345,15 @@ impl ExternalCommand {
             process.current_dir(d);
             process
         } else {
-            return Err(ShellError::SpannedLabeledErrorHelp(
+            return Err(ShellError::GenericError(
                 "Current directory not found".to_string(),
                 "did not find PWD environment variable".to_string(),
-                span,
-                concat!(
+                Some(span),
+                Some(concat!(
                     "The environment variable 'PWD' was not found. ",
                     "It is required to define the current directory when running an external command."
-                ).to_string(),
+                ).to_string()),
+                Vec::new(),
             ));
         };
 

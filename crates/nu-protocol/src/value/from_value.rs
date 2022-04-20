@@ -37,6 +37,7 @@ impl FromValue for Spanned<i64> {
                 "integer".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -53,6 +54,7 @@ impl FromValue for i64 {
                 "integer".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -74,6 +76,7 @@ impl FromValue for Spanned<f64> {
                 "float".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -88,6 +91,7 @@ impl FromValue for f64 {
                 "float".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -131,6 +135,7 @@ impl FromValue for Spanned<usize> {
                 "non-negative integer".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -165,6 +170,7 @@ impl FromValue for usize {
                 "non-negative integer".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -180,6 +186,7 @@ impl FromValue for String {
                 "string".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -196,6 +203,7 @@ impl FromValue for Spanned<String> {
                         "string".into(),
                         v.get_type().to_string(),
                         v.span()?,
+                        None,
                     ))
                 }
             },
@@ -216,6 +224,7 @@ impl FromValue for Vec<String> {
                         "string".into(),
                         c.get_type().to_string(),
                         c.span()?,
+                        None,
                     )),
                 })
                 .collect::<Result<Vec<String>, ShellError>>(),
@@ -223,6 +232,7 @@ impl FromValue for Vec<String> {
                 "string".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -239,6 +249,7 @@ impl FromValue for Vec<bool> {
                         "bool".into(),
                         c.get_type().to_string(),
                         c.span()?,
+                        None,
                     )),
                 })
                 .collect::<Result<Vec<bool>, ShellError>>(),
@@ -246,6 +257,7 @@ impl FromValue for Vec<bool> {
                 "bool".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -278,6 +290,7 @@ impl FromValue for CellPath {
                 "cell path".into(),
                 x.get_type().to_string(),
                 span,
+                None,
             )),
         }
     }
@@ -291,6 +304,7 @@ impl FromValue for bool {
                 "bool".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -307,6 +321,7 @@ impl FromValue for Spanned<bool> {
                 "bool".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -320,6 +335,7 @@ impl FromValue for DateTime<FixedOffset> {
                 "date".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -336,6 +352,7 @@ impl FromValue for Spanned<DateTime<FixedOffset>> {
                 "date".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -349,6 +366,7 @@ impl FromValue for Range {
                 "range".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -365,6 +383,7 @@ impl FromValue for Spanned<Range> {
                 "range".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -379,6 +398,7 @@ impl FromValue for Vec<u8> {
                 "binary data".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -396,6 +416,7 @@ impl FromValue for Spanned<PathBuf> {
                 "range".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -410,6 +431,7 @@ impl FromValue for Vec<Value> {
                 "Vector of values".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -424,6 +446,7 @@ impl FromValue for (Vec<String>, Vec<Value>) {
                 "Record".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -440,6 +463,7 @@ impl FromValue for CaptureBlock {
                 "Block".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }
@@ -463,6 +487,7 @@ impl FromValue for Spanned<CaptureBlock> {
                 "Block".into(),
                 v.get_type().to_string(),
                 v.span()?,
+                None,
             )),
         }
     }

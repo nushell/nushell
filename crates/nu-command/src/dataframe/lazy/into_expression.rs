@@ -47,6 +47,7 @@ impl ExtractedExpr {
                 "expression".into(),
                 x.get_type().to_string(),
                 x.span()?,
+                None,
             )),
         }
     }

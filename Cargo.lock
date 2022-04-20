@@ -2025,13 +2025,13 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "4.4.0"
+version = "4.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a097de91d72c13382f60213ed9f7f7a26afd8bee0ea320b47f886a9a67ca5a1"
+checksum = "01ff8e2f24552a78cbf93f2b197f6a788192200c7200648514647cce438714bf"
 dependencies = [
  "atty",
  "backtrace",
- "miette-derive 4.4.0",
+ "miette-derive 4.5.0",
  "once_cell",
  "owo-colors",
  "supports-color",
@@ -2056,9 +2056,9 @@ dependencies = [
 
 [[package]]
 name = "miette-derive"
-version = "4.4.0"
+version = "4.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45a95a48d0bc28f9af628286e8a4da09f96f34a97744a2e9a5a4db9814ad527d"
+checksum = "7119608a3ee194199d537849bb7b600f9e04bb1c91b98fb2620b9a867f17ef20"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2243,7 +2243,7 @@ dependencies = [
  "is_executable",
  "itertools",
  "log",
- "miette 4.4.0",
+ "miette 4.5.0",
  "nu-ansi-term",
  "nu-cli",
  "nu-color-config",
@@ -2285,7 +2285,7 @@ dependencies = [
  "crossterm",
  "is_executable",
  "log",
- "miette 4.4.0",
+ "miette 4.5.0",
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
@@ -2430,7 +2430,7 @@ version = "0.61.1"
 dependencies = [
  "chrono",
  "log",
- "miette 4.4.0",
+ "miette 4.5.0",
  "nu-path",
  "nu-plugin",
  "nu-protocol",
@@ -2474,7 +2474,7 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "indexmap",
- "miette 4.4.0",
+ "miette 4.5.0",
  "nu-json",
  "num-format",
  "regex",

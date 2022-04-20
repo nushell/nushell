@@ -112,7 +112,13 @@ fn command(
     df.as_ref()
         .drop_nulls(subset_slice)
         .map_err(|e| {
-            ShellError::SpannedLabeledError("Error dropping nulls".into(), e.to_string(), col_span)
+            ShellError::GenericError(
+                "Error dropping nulls".into(),
+                e.to_string(),
+                Some(col_span),
+                None,
+                Vec::new(),
+            )
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }

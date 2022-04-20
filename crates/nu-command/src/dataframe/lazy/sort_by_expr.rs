@@ -61,10 +61,12 @@ impl Command for LazySortBy {
                         .get_flag::<Value>(engine_state, stack, "reverse")?
                         .expect("already checked and it exists")
                         .span()?;
-                    return Err(ShellError::SpannedLabeledError(
+                    return Err(ShellError::GenericError(
                         "Incorrect list size".into(),
                         "Size doesn't match expression list".into(),
-                        span,
+                        Some(span),
+                        None,
+                        Vec::new(),
                     ));
                 } else {
                     list

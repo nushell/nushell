@@ -157,9 +157,12 @@ pub fn sort(
     insensitive: bool,
 ) -> Result<(), ShellError> {
     if vec.is_empty() {
-        return Err(ShellError::LabeledError(
+        return Err(ShellError::GenericError(
             "no values to work with".to_string(),
-            "no values to work with".to_string(),
+            "".to_string(),
+            None,
+            Some("no values to work with".to_string()),
+            Vec::new(),
         ));
     }
 
