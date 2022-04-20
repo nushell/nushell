@@ -158,83 +158,30 @@ fn get_theme_from_asset_file(
     theme: &Option<Spanned<String>>,
 ) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
-        Some(s) => s.item.clone(),
-        None => "default".to_string(), // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
+        Some(s) => &s.item,
+        None => "default", // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
     };
 
     // 228 themes come from
     // https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/windowsterminal
     // we should find a hit on any name in there
-    let asset = get_asset_by_name_as_html_themes("228_themes.zip", "228_themes.json");
-
-    // If asset doesn't work, make sure to return the default theme
-    let asset = match asset {
-        Ok(a) => a,
-        _ => HtmlThemes::default(),
-    };
+    let asset = get_html_themes("228_themes.json").unwrap_or_default();
 
     // Find the theme by theme name
     let th = asset
         .themes
-        .iter()
-        .find(|&n| n.name.to_lowercase() == theme_name.to_lowercase()); // case insensitive search
+        .into_iter()
+        .find(|n| n.name.to_lowercase() == theme_name.to_lowercase()) // case insensitive search
+        .unwrap_or_default();
 
-    // If no theme is found by the name provided, ensure we return the default theme
-    let default_theme = HtmlTheme::default();
-    let th = match th {
-        Some(t) => t,
-        None => &default_theme,
-    };
-
-    // this just means no theme was passed in
-    if th.name.to_lowercase().eq(&"nu_default".to_string())
-        // this means there was a theme passed in
-        && theme.is_some()
-    {
-        return Err(ShellError::NotFound(
-            theme.as_ref().expect("this should never trigger").span,
-        ));
-    }
-
-    Ok(convert_html_theme_to_hash_map(is_dark, th))
-}
-
-#[allow(unused_variables)]
-fn get_asset_by_name_as_html_themes(
-    zip_name: &str,
-    json_name: &str,
-) -> Result<HtmlThemes, Box<dyn Error>> {
-    match Assets::get(zip_name) {
-        Some(content) => {
-            let asset: Vec<u8> = content.data.into();
-            let reader = std::io::Cursor::new(asset);
-            #[cfg(feature = "zip")]
-            {
-                use std::io::Read;
-                let mut archive = zip::ZipArchive::new(reader)?;
-                let mut zip_file = archive.by_name(json_name)?;
-                let mut contents = String::new();
-                zip_file.read_to_string(&mut contents)?;
-                Ok(nu_json::from_str(&contents)?)
-            }
-            #[cfg(not(feature = "zip"))]
-            {
-                let th = HtmlThemes::default();
-                Ok(th)
-            }
-        }
-        None => {
-            let th = HtmlThemes::default();
-            Ok(th)
-        }
-    }
+    Ok(convert_html_theme_to_hash_map(is_dark, &th))
 }
 
 fn convert_html_theme_to_hash_map(
     is_dark: bool,
     theme: &HtmlTheme,
 ) -> HashMap<&'static str, String> {
-    let mut hm: HashMap<&str, String> = HashMap::new();
+    let mut hm: HashMap<&str, String> = HashMap::with_capacity(18);
 
     hm.insert("bold_black", theme.brightBlack[..].to_string());
     hm.insert("bold_red", theme.brightRed[..].to_string());
@@ -268,18 +215,17 @@ fn convert_html_theme_to_hash_map(
     hm
 }
 
+fn get_html_themes(json_name: &str) -> Result<HtmlThemes, Box<dyn Error>> {
+    match Assets::get(json_name) {
+        Some(content) => Ok(nu_json::from_slice(&content.data)?),
+        None => Ok(HtmlThemes::default()),
+    }
+}
+
 fn get_list_of_theme_names() -> Vec<String> {
-    let asset = get_asset_by_name_as_html_themes("228_themes.zip", "228_themes.json");
-
     // If asset doesn't work, make sure to return the default theme
-    let html_themes = match asset {
-        Ok(a) => a,
-        _ => HtmlThemes::default(),
-    };
-
-    let theme_names: Vec<String> = html_themes.themes.iter().map(|n| n.name.clone()).collect();
-
-    theme_names
+    let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
+    html_themes.themes.into_iter().map(|n| n.name).collect()
 }
 
 fn to_html(
@@ -302,7 +248,7 @@ fn to_html(
     let headers = Some(headers)
         .filter(|headers| !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()));
     let mut output_string = String::new();
-    let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::new();
+    let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::with_capacity(17);
 
     if list {
         // Get the list of theme names
