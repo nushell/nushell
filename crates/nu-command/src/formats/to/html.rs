@@ -225,8 +225,7 @@ fn get_html_themes(json_name: &str) -> Result<HtmlThemes, Box<dyn Error>> {
 fn get_list_of_theme_names() -> Vec<String> {
     // If asset doesn't work, make sure to return the default theme
     let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
-    let theme_names = html_themes.themes.into_iter().map(|n| n.name).collect();
-    theme_names
+    html_themes.themes.into_iter().map(|n| n.name).collect()
 }
 
 fn to_html(
