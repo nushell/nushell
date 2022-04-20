@@ -109,7 +109,22 @@ fn parses_more_bson_complexity() {
 // ╰───┴──────╯
 
 #[test]
+
 fn parses_sqlite() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample.db
+            | columns
+            | length
+        "#
+    ));
+
+    assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn parses_sqlite_get_column_name() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"

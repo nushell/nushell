@@ -28,14 +28,14 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     // Follow cell path functions
     fn follow_path_int(&self, _count: usize, span: Span) -> Result<Value, ShellError> {
         Err(ShellError::IncompatiblePathAccess(
-            format!("{} does't support path access", self.value_string()),
+            format!("{} doesn't support path access", self.value_string()),
             span,
         ))
     }
 
     fn follow_path_string(&self, _column_name: String, span: Span) -> Result<Value, ShellError> {
         Err(ShellError::IncompatiblePathAccess(
-            format!("{} does't support path access", self.value_string()),
+            format!("{} doesn't support path access", self.value_string()),
             span,
         ))
     }

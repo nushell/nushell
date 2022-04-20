@@ -361,6 +361,11 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ViewSource,
         };
 
+        // Database-related
+        bind_command! {
+            QueryDb
+        };
+
         // Deprecated
         bind_command! {
             PivotDeprecated,
