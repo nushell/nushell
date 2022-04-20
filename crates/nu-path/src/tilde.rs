@@ -1,3 +1,4 @@
+use pwd::Passwd;
 use std::path::{Path, PathBuf};
 
 fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
@@ -5,6 +6,16 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
 
     if !path.starts_with("~") {
         return path.into();
+    }
+
+    if path.to_str().unwrap().len() > 1 {
+        if path.to_str().expect("err").chars().nth(1).unwrap() != ' '
+            && path.to_str().expect("err").chars().nth(1).unwrap() != '/'
+            && path.to_str().expect("err").chars().nth(1).unwrap() != '\\'
+        {
+            return expand_tilde_with_another_user_home(path);
+            // these checks ensure that the path is ~user format.
+        }
     }
 
     match home {
@@ -29,6 +40,40 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
             }
         }
     }
+}
+
+#[cfg(any(target_os = "linux"))]
+fn user_home_dir(username: &str) -> String {
+    let passwd = Passwd::from_name(username);
+    return passwd.unwrap().unwrap().dir;
+    // Returns home dir of user.
+}
+
+#[cfg(any(target_os = "linux"))]
+fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
+    return if !path.to_str().expect("error in path").contains('/') {
+        // If path is equal to only ~user, without slash
+        let mut user = String::from(path.to_str().expect("err"));
+        user.remove(0);
+        // sets user to user (removing the ~)
+        PathBuf::from(user_home_dir(&user))
+    } else {
+        let index: &usize = &path
+            .to_str()
+            .expect("err")
+            .chars()
+            .position(|c| c == '/')
+            .unwrap();
+        // finds the index of the first '/'.
+        let user = &(String::from(path.to_str().expect("err")))[1..*index];
+        // sets user to user.
+        let mut dir = user_home_dir(user);
+        dir.push_str(
+            &(String::from(path.to_str().expect("err")))[*index..path.to_str().expect("err").len()],
+        );
+        // pushes the rest of the previous string onto the home directory of the user.
+        PathBuf::from(dir)
+    };
 }
 
 /// Expand tilde ("~") into a home directory if it is the first path component
