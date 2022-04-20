@@ -71,14 +71,13 @@ embed-resource = "1"
 
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
-default = ["plugin", "which-support", "zip-support", "trash-support"]
+default = ["plugin", "which-support", "trash-support"]
 stable = ["default"]
 extra = ["default", "dataframe"]
 wasi = []
 
 # Stable (Default)
 which-support = ["nu-command/which-support"]
-zip-support = ["nu-command/zip"]
 trash-support = ["nu-command/trash-support"]
 
 # Extra
