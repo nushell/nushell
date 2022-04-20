@@ -35,8 +35,13 @@ impl Command for Describe {
             ))
         } else {
             let value = input.into_value(call.head);
+            let description = match value {
+                Value::CustomValue { val, .. } => val.value_string(),
+                _ => value.get_type().to_string(),
+            };
+
             Ok(Value::String {
-                val: value.get_type().to_string(),
+                val: description,
                 span: head,
             }
             .into_pipeline_data())
