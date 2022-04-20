@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use nu_engine::CallExt;
+use nu_path::expand_to_real_path;
 use nu_protocol::{
     engine::Command, Example, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
@@ -114,10 +115,12 @@ path."#
 }
 
 fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
-    match path.strip_prefix(Path::new(&args.path.item)) {
+    let lhs = expand_to_real_path(path);
+    let rhs = expand_to_real_path(&args.path.item);
+    match lhs.strip_prefix(&rhs) {
         Ok(p) => Value::string(p.to_string_lossy(), span),
         Err(e) => Value::Error {
-            error: ShellError::CantConvert(e.to_string(), "string".into(), span),
+            error: ShellError::CantConvert(e.to_string(), "string".into(), span, None),
         },
     }
 }

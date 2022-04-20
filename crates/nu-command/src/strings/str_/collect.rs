@@ -41,7 +41,7 @@ impl Command for StrCollect {
     ) -> Result<PipelineData, ShellError> {
         let separator: Option<String> = call.opt(engine_state, stack, 0)?;
 
-        let config = stack.get_config().unwrap_or_default();
+        let config = engine_state.get_config();
 
         // let output = input.collect_string(&separator.unwrap_or_default(), &config)?;
         // Hmm, not sure what we actually want. If you don't use debug_string, Date comes out as human readable
@@ -54,7 +54,7 @@ impl Command for StrCollect {
                     return Err(error);
                 }
                 value => {
-                    strings.push(value.debug_string("\n", &config));
+                    strings.push(value.debug_string("\n", config));
                 }
             }
         }

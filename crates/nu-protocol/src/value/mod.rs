@@ -188,6 +188,7 @@ impl Value {
                         "string".into(),
                         "binary".into(),
                         self.span()?,
+                        None,
                     ));
                 }
             }),
@@ -195,6 +196,7 @@ impl Value {
                 "string".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }
@@ -215,6 +217,7 @@ impl Value {
                         "string".into(),
                         "binary".into(),
                         self.span()?,
+                        None,
                     ))
                 }
             }),
@@ -222,6 +225,7 @@ impl Value {
                 "string".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }
@@ -233,6 +237,7 @@ impl Value {
                 "path".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }
@@ -244,6 +249,7 @@ impl Value {
                 "block".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }
@@ -256,6 +262,7 @@ impl Value {
                 "binary".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }
@@ -267,6 +274,7 @@ impl Value {
                 "record".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }
@@ -278,6 +286,7 @@ impl Value {
                 "list".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }
@@ -289,6 +298,7 @@ impl Value {
                 "boolean".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }
@@ -301,6 +311,7 @@ impl Value {
                 "float".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }
@@ -312,6 +323,7 @@ impl Value {
                 "integer".into(),
                 x.get_type().to_string(),
                 self.span()?,
+                None,
             )),
         }
     }

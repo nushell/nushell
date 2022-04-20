@@ -5,6 +5,7 @@ mod test_engine;
 mod test_env;
 mod test_hiding;
 mod test_iteration;
+mod test_known_external;
 mod test_math;
 mod test_modules;
 mod test_parser;
@@ -42,6 +43,10 @@ pub fn run_test(input: &str, expected: &str) -> TestResult {
 
     let mut cmd = Command::cargo_bin("nu")?;
     cmd.arg(name);
+    cmd.env(
+        "PWD",
+        std::env::current_dir().expect("Can't get current dir"),
+    );
 
     writeln!(file, "{}", input)?;
 

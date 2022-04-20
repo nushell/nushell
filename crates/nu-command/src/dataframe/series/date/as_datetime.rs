@@ -98,7 +98,13 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
     let casted = series.utf8().map_err(|e| {
-        ShellError::SpannedLabeledError("Error casting to string".into(), e.to_string(), call.head)
+        ShellError::GenericError(
+            "Error casting to string".into(),
+            e.to_string(),
+            Some(call.head),
+            None,
+            Vec::new(),
+        )
     })?;
 
     let res = if not_exact {
@@ -109,10 +115,12 @@ fn command(
 
     let mut res = res
         .map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error creating datetime".into(),
                 e.to_string(),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             )
         })?
         .into_series();

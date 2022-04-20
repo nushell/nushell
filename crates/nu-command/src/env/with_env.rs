@@ -102,6 +102,7 @@ fn with_env(
                             call.positional_nth(1)
                                 .expect("already checked through .req")
                                 .span,
+                            None,
                         ));
                     }
                 }
@@ -128,6 +129,7 @@ fn with_env(
                 call.positional_nth(1)
                     .expect("already checked through .req")
                     .span,
+                None,
             ));
         }
     };

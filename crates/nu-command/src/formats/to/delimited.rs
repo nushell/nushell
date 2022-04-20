@@ -125,10 +125,10 @@ pub fn to_delimited_data(
     format_name: &'static str,
     input: PipelineData,
     span: Span,
-    config: Config,
+    config: &Config,
 ) -> Result<PipelineData, ShellError> {
     let value = input.into_value(span);
-    let output = match from_value_to_delimited_string(&value, sep, &config, span) {
+    let output = match from_value_to_delimited_string(&value, sep, config, span) {
         Ok(mut x) => {
             if noheaders {
                 if let Some(second_line) = x.find('\n') {
@@ -142,6 +142,7 @@ pub fn to_delimited_data(
             format_name.into(),
             value.get_type().to_string(),
             value.span().unwrap_or(span),
+            None,
         )),
     }?;
     Ok(Value::string(output, span).into_pipeline_data())

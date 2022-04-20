@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::engine::EngineState;
-use crate::{Config, ShellError, Span, Value, VarId, CONFIG_VARIABLE_ID};
+use crate::{ShellError, Span, Value, VarId};
 
 /// A runtime value stack used during evaluation
 ///
@@ -97,11 +97,6 @@ impl Stack {
         output.env_vars = self.env_vars.clone();
         output.env_vars.push(HashMap::new());
 
-        let config = self
-            .get_var(CONFIG_VARIABLE_ID, Span::new(0, 0))
-            .expect("internal error: config is missing");
-        output.vars.insert(CONFIG_VARIABLE_ID, config);
-
         output
     }
 
@@ -121,11 +116,6 @@ impl Stack {
         // FIXME: this is probably slow
         output.env_vars = self.env_vars.clone();
         output.env_vars.push(HashMap::new());
-
-        let config = self
-            .get_var(CONFIG_VARIABLE_ID, fake_span)
-            .expect("internal error: config is missing");
-        output.vars.insert(CONFIG_VARIABLE_ID, config);
 
         output
     }
@@ -212,27 +202,27 @@ impl Stack {
         }
     }
 
-    pub fn get_config(&self) -> Result<Config, ShellError> {
-        let config = self.get_var(CONFIG_VARIABLE_ID, Span::new(0, 0));
+    // pub fn get_config(&self) -> Result<Config, ShellError> {
+    //     let config = self.get_var(CONFIG_VARIABLE_ID, Span::new(0, 0));
 
-        match config {
-            Ok(config) => config.into_config(),
-            Err(e) => Err(e),
-        }
-    }
+    //     match config {
+    //         Ok(config) => config.into_config(),
+    //         Err(e) => Err(e),
+    //     }
+    // }
 
-    pub fn update_config(&mut self, name: &str, value: Value) {
-        if let Some(Value::Record { cols, vals, .. }) = self.vars.get_mut(&CONFIG_VARIABLE_ID) {
-            for col_val in cols.iter().zip(vals.iter_mut()) {
-                if col_val.0 == name {
-                    *col_val.1 = value;
-                    return;
-                }
-            }
-            cols.push(name.to_string());
-            vals.push(value);
-        }
-    }
+    // pub fn update_config(&mut self, name: &str, value: Value) {
+    //     if let Some(Value::Record { cols, vals, .. }) = self.vars.get_mut(&CONFIG_VARIABLE_ID) {
+    //         for col_val in cols.iter().zip(vals.iter_mut()) {
+    //             if col_val.0 == name {
+    //                 *col_val.1 = value;
+    //                 return;
+    //             }
+    //         }
+    //         cols.push(name.to_string());
+    //         vals.push(value);
+    //     }
+    // }
 
     pub fn print_stack(&self) {
         println!("vars:");

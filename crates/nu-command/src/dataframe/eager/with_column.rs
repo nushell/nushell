@@ -83,10 +83,12 @@ fn command(
     df.as_mut()
         .with_column(series)
         .map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error adding column to dataframe".into(),
                 e.to_string(),
-                other_span,
+                Some(other_span),
+                None,
+                Vec::new(),
             )
         })
         .map(|df| {

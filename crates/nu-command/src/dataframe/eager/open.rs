@@ -115,7 +115,13 @@ fn from_parquet(
     let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
 
     let r = File::open(&file.item).map_err(|e| {
-        ShellError::SpannedLabeledError("Error opening file".into(), e.to_string(), file.span)
+        ShellError::GenericError(
+            "Error opening file".into(),
+            e.to_string(),
+            Some(file.span),
+            None,
+            Vec::new(),
+        )
     })?;
     let reader = ParquetReader::new(r);
 
@@ -125,10 +131,12 @@ fn from_parquet(
     };
 
     reader.finish().map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Parquet reader error".into(),
             format!("{:?}", e),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })
 }
@@ -140,14 +148,26 @@ fn from_json(
 ) -> Result<polars::prelude::DataFrame, ShellError> {
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
     let mut file = File::open(&file.item).map_err(|e| {
-        ShellError::SpannedLabeledError("Error opening file".into(), e.to_string(), file.span)
+        ShellError::GenericError(
+            "Error opening file".into(),
+            e.to_string(),
+            Some(file.span),
+            None,
+            Vec::new(),
+        )
     })?;
 
     let buf_reader = BufReader::new(&mut file);
     let reader = JsonReader::new(buf_reader);
 
     reader.finish().map_err(|e| {
-        ShellError::SpannedLabeledError("Json reader error".into(), format!("{:?}", e), call.head)
+        ShellError::GenericError(
+            "Json reader error".into(),
+            format!("{:?}", e),
+            Some(call.head),
+            None,
+            Vec::new(),
+        )
     })
 }
 
@@ -165,10 +185,12 @@ fn from_csv(
 
     let csv_reader = CsvReader::from_path(&file.item)
         .map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error creating CSV reader".into(),
                 e.to_string(),
-                file.span,
+                Some(file.span),
+                None,
+                Vec::new(),
             )
         })?
         .with_encoding(CsvEncoding::LossyUtf8);
@@ -177,10 +199,12 @@ fn from_csv(
         None => csv_reader,
         Some(d) => {
             if d.item.len() != 1 {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Incorrect delimiter".into(),
                     "Delimiter has to be one character".into(),
-                    d.span,
+                    Some(d.span),
+                    None,
+                    Vec::new(),
                 ));
             } else {
                 let delimiter = match d.item.chars().next() {
@@ -210,10 +234,12 @@ fn from_csv(
     };
 
     csv_reader.finish().map_err(|e| {
-        ShellError::SpannedLabeledError(
+        ShellError::GenericError(
             "Parquet reader error".into(),
             format!("{:?}", e),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )
     })
 }

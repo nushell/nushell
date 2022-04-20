@@ -5,7 +5,7 @@ use nu_parser::parse;
 #[cfg(test)]
 use nu_protocol::{
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Value, CONFIG_VARIABLE_ID,
+    PipelineData, Span, Value,
 };
 
 #[cfg(test)]
@@ -108,16 +108,6 @@ pub fn test_examples(cmd: impl Command + 'static) {
             "PWD".to_string(),
             Value::String {
                 val: cwd.to_string_lossy().to_string(),
-                span: Span::test_data(),
-            },
-        );
-
-        // Set up our initial config to start from
-        stack.vars.insert(
-            CONFIG_VARIABLE_ID,
-            Value::Record {
-                cols: vec![],
-                vals: vec![],
                 span: Span::test_data(),
             },
         );

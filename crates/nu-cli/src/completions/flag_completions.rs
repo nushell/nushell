@@ -1,4 +1,4 @@
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::Completer;
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
@@ -26,7 +26,7 @@ impl Completer for FlagCompletion {
         span: Span,
         offset: usize,
         _: usize,
-    ) -> (Vec<Suggestion>, CompletionOptions) {
+    ) -> Vec<Suggestion> {
         // Check if it's a flag
         if let Expr::Call(call) = &self.expression.expr {
             let decl = working_set.get_decl(call.decl_id);
@@ -73,9 +73,9 @@ impl Completer for FlagCompletion {
                 }
             }
 
-            return (output, CompletionOptions::default());
+            return output;
         }
 
-        (vec![], CompletionOptions::default())
+        vec![]
     }
 }

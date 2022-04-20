@@ -116,11 +116,12 @@ fn command(
             "outer" => JoinType::Outer,
             "left" => JoinType::Left,
             _ => {
-                return Err(ShellError::SpannedLabeledErrorHelp(
+                return Err(ShellError::GenericError(
                     "Incorrect join type".into(),
                     "Invalid join type".into(),
-                    val.span,
-                    "Options: inner, outer or left".into(),
+                    Some(val.span),
+                    Some("Options: inner, outer or left".into()),
+                    Vec::new(),
                 ))
             }
         },
@@ -150,10 +151,12 @@ fn command(
             suffix,
         )
         .map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error joining dataframes".into(),
                 e.to_string(),
-                l_col_span,
+                Some(l_col_span),
+                None,
+                Vec::new(),
             )
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
@@ -168,45 +171,51 @@ fn check_column_datatypes<T: AsRef<str>>(
     r_col_span: Span,
 ) -> Result<(), ShellError> {
     if l_cols.len() != r_cols.len() {
-        return Err(ShellError::SpannedLabeledErrorHelp(
+        return Err(ShellError::GenericError(
             "Mismatched number of column names".into(),
             format!(
                 "found {} left names vs {} right names",
                 l_cols.len(),
                 r_cols.len()
             ),
-            l_col_span,
-            "perhaps you need to change the number of columns to join".into(),
+            Some(l_col_span),
+            Some("perhaps you need to change the number of columns to join".into()),
+            Vec::new(),
         ));
     }
 
     for (l, r) in l_cols.iter().zip(r_cols) {
         let l_series = df_l.column(l.as_ref()).map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error selecting the columns".into(),
                 e.to_string(),
-                l_col_span,
+                Some(l_col_span),
+                None,
+                Vec::new(),
             )
         })?;
 
         let r_series = df_r.column(r.as_ref()).map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error selecting the columns".into(),
                 e.to_string(),
-                r_col_span,
+                Some(r_col_span),
+                None,
+                Vec::new(),
             )
         })?;
 
         if l_series.dtype() != r_series.dtype() {
-            return Err(ShellError::SpannedLabeledErrorHelp(
+            return Err(ShellError::GenericError(
                 "Mismatched datatypes".into(),
                 format!(
                     "left column type '{}' doesn't match '{}' right column match",
                     l_series.dtype(),
                     r_series.dtype()
                 ),
-                l_col_span,
-                "perhaps you need to select other column to match".into(),
+                Some(l_col_span),
+                Some("perhaps you need to select other column to match".into()),
+                Vec::new(),
             ));
         }
     }

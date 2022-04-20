@@ -67,10 +67,12 @@ fn command(
     df.as_ref()
         .select(&col_string)
         .map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error selecting columns".into(),
                 e.to_string(),
-                col_span,
+                Some(col_span),
+                None,
+                Vec::new(),
             )
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))

@@ -61,10 +61,12 @@ fn command(
         .as_series(call.head)?
         .arg_unique()
         .map_err(|e| {
-            ShellError::SpannedLabeledError(
+            ShellError::GenericError(
                 "Error extracting unique values".into(),
                 e.to_string(),
-                call.head,
+                Some(call.head),
+                None,
+                Vec::new(),
             )
         })?
         .into_series();

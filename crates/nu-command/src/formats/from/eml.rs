@@ -45,8 +45,8 @@ impl Command for FromEml {
         let head = call.head;
         let preview_body: Option<Spanned<i64>> =
             call.get_flag(engine_state, stack, "preview-body")?;
-        let config = stack.get_config().unwrap_or_default();
-        from_eml(input, preview_body, head, &config)
+        let config = engine_state.get_config();
+        from_eml(input, preview_body, head, config)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -193,7 +193,7 @@ fn from_eml(
         .with_body_preview(body_preview)
         .parse()
         .map_err(|_| {
-            ShellError::CantConvert("structured eml data".into(), "string".into(), head)
+            ShellError::CantConvert("structured eml data".into(), "string".into(), head, None)
         })?;
 
     let mut collected = IndexMap::new();

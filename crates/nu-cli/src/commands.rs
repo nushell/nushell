@@ -6,7 +6,7 @@ use nu_parser::{parse, trim_quotes};
 use nu_protocol::engine::Stack;
 use nu_protocol::{
     engine::{EngineState, StateDelta, StateWorkingSet},
-    Config, PipelineData, Spanned,
+    PipelineData, Spanned,
 };
 use std::path::Path;
 
@@ -46,15 +46,7 @@ pub fn evaluate_commands(
         report_error(&working_set, &err);
     }
 
-    let config = match stack.get_config() {
-        Ok(config) => config,
-        Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-
-            report_error(&working_set, &e);
-            Config::default()
-        }
-    };
+    let config = engine_state.get_config().clone();
 
     // Merge the delta in case env vars changed in the config
     match nu_engine::env::current_dir(engine_state, stack) {

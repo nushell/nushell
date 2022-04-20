@@ -1,4 +1,5 @@
 use crate::formats::value_to_json_value;
+use crate::BufferedReader;
 use base64::encode;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -12,7 +13,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read};
+use std::io::BufReader;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -268,6 +269,7 @@ fn helper(
                                 "string list or single row".into(),
                                 x.get_type().to_string(),
                                 headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                                None,
                             ));
                         }
                     }
@@ -286,6 +288,7 @@ fn helper(
                     "string list or single row".into(),
                     x.get_type().to_string(),
                     headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                    None,
                 ));
             }
         };
@@ -301,21 +304,33 @@ fn helper(
         Ok(resp) => match resp.headers().get("content-type") {
             Some(content_type) => {
                 let content_type = content_type.to_str().map_err(|e| {
-                    ShellError::LabeledError(e.to_string(), "MIME type were invalid".to_string())
+                    ShellError::GenericError(
+                        e.to_string(),
+                        "".to_string(),
+                        None,
+                        Some("MIME type were invalid".to_string()),
+                        Vec::new(),
+                    )
                 })?;
                 let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-                    ShellError::LabeledError(
+                    ShellError::GenericError(
                         format!("MIME type unknown: {}", content_type),
-                        "given unknown MIME type".to_string(),
+                        "".to_string(),
+                        None,
+                        Some("given unknown MIME type".to_string()),
+                        Vec::new(),
                     )
                 })?;
                 let ext = match (content_type.type_(), content_type.subtype()) {
                     (mime::TEXT, mime::PLAIN) => {
                         let path_extension = url::Url::parse(&requested_url)
                             .map_err(|_| {
-                                ShellError::LabeledError(
+                                ShellError::GenericError(
                                     format!("Cannot parse URL: {}", requested_url),
-                                    "cannot parse".to_string(),
+                                    "".to_string(),
+                                    None,
+                                    Some("cannot parse".to_string()),
+                                    Vec::new(),
                                 )
                             })?
                             .path_segments()
@@ -392,33 +407,6 @@ fn helper(
     }
 }
 
-pub struct BufferedReader<R: Read> {
-    input: BufReader<R>,
-}
-
-impl<R: Read> Iterator for BufferedReader<R> {
-    type Item = Result<Vec<u8>, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let buffer = self.input.fill_buf();
-        match buffer {
-            Ok(s) => {
-                let result = s.to_vec();
-
-                let buffer_len = s.len();
-
-                if buffer_len == 0 {
-                    None
-                } else {
-                    self.input.consume(buffer_len);
-
-                    Some(Ok(result))
-                }
-            }
-            Err(e) => Some(Err(ShellError::IOError(e.to_string()))),
-        }
-    }
-}
 fn response_to_buffer(
     response: Response,
     engine_state: &EngineState,

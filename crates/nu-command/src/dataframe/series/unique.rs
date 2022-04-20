@@ -59,11 +59,12 @@ fn command(
     let series = df.as_series(call.head)?;
 
     let res = series.unique().map_err(|e| {
-        ShellError::SpannedLabeledErrorHelp(
+        ShellError::GenericError(
             "Error calculating unique values".into(),
             e.to_string(),
-            call.head,
-            "The str-slice command can only be used with string columns".into(),
+            Some(call.head),
+            Some("The str-slice command can only be used with string columns".into()),
+            Vec::new(),
         )
     })?;
 

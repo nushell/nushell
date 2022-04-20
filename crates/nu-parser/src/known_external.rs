@@ -1,4 +1,4 @@
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     engine::Command,
@@ -47,10 +47,7 @@ impl Command for KnownExternal {
 
         let mut extern_call = Call::new(head_span);
 
-        let working_state = StateWorkingSet::new(engine_state);
-        let extern_name = working_state.get_span_contents(call.head);
-        let extern_name = String::from_utf8(extern_name.to_vec())
-            .expect("this was already parsed as a command name");
+        let extern_name = engine_state.get_decl(call.decl_id).name();
 
         let extern_name: Vec<_> = extern_name.split(' ').collect();
 

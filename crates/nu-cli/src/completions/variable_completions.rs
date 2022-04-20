@@ -1,4 +1,4 @@
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::Completer;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span, Value,
@@ -35,7 +35,7 @@ impl Completer for VariableCompletion {
         span: Span,
         offset: usize,
         _: usize,
-    ) -> (Vec<Suggestion>, CompletionOptions) {
+    ) -> Vec<Suggestion> {
         let mut output = vec![];
         let builtins = ["$nu", "$in", "$config", "$env", "$nothing"];
         let var_str = std::str::from_utf8(&self.var_context.0)
@@ -52,15 +52,17 @@ impl Completer for VariableCompletion {
             // Completion for $env.<tab>
             if var_str.as_str() == "$env" {
                 for env_var in self.stack.get_env_vars(&self.engine_state) {
-                    output.push(Suggestion {
-                        value: env_var.0,
-                        description: None,
-                        extra: None,
-                        span: current_span,
-                    });
+                    if env_var.0.as_bytes().starts_with(&prefix) {
+                        output.push(Suggestion {
+                            value: env_var.0,
+                            description: None,
+                            extra: None,
+                            span: current_span,
+                        });
+                    }
                 }
 
-                return (output, CompletionOptions::default());
+                return output;
             }
 
             // Completion other variable types
@@ -96,11 +98,11 @@ impl Completer for VariableCompletion {
                                 });
                             }
 
-                            return (output, CompletionOptions::default());
+                            return output;
                         }
 
                         _ => {
-                            return (output, CompletionOptions::default());
+                            return output;
                         }
                     }
                 }
@@ -149,7 +151,7 @@ impl Completer for VariableCompletion {
 
         output.dedup();
 
-        (output, CompletionOptions::default())
+        output
     }
 }
 

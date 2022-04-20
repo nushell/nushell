@@ -295,7 +295,7 @@ fn to_html(
     let partial = call.has_flag("partial");
     let list = call.has_flag("list");
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
-    let config = stack.get_config().unwrap_or_default();
+    let config = engine_state.get_config();
 
     let vec_of_values = input.into_iter().collect::<Vec<Value>>();
     let headers = merge_descriptors(&vec_of_values);
@@ -325,10 +325,12 @@ fn to_html(
         let color_hm = match color_hm {
             Ok(c) => c,
             _ => {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     "Error finding theme name".to_string(),
                     "Error finding theme name".to_string(),
-                    theme_span,
+                    Some(theme_span),
+                    None,
+                    Vec::new(),
                 ))
             }
         };
@@ -363,15 +365,15 @@ fn to_html(
         let inner_value = match vec_of_values.len() {
             0 => String::default(),
             1 => match headers {
-                Some(headers) => html_table(vec_of_values, headers, &config),
+                Some(headers) => html_table(vec_of_values, headers, config),
                 None => {
                     let value = &vec_of_values[0];
-                    html_value(value.clone(), &config)
+                    html_value(value.clone(), config)
                 }
             },
             _ => match headers {
-                Some(headers) => html_table(vec_of_values, headers, &config),
-                None => html_list(vec_of_values, &config),
+                Some(headers) => html_table(vec_of_values, headers, config),
+                None => html_list(vec_of_values, config),
             },
         };
 

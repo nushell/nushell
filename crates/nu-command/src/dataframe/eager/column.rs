@@ -62,7 +62,13 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let res = df.as_ref().column(&column.item).map_err(|e| {
-        ShellError::SpannedLabeledError("Error selecting column".into(), e.to_string(), column.span)
+        ShellError::GenericError(
+            "Error selecting column".into(),
+            e.to_string(),
+            Some(column.span),
+            None,
+            Vec::new(),
+        )
     })?;
 
     NuDataFrame::try_from_series(vec![res.clone()], call.head)

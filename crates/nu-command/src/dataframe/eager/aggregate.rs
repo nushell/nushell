@@ -43,17 +43,21 @@ impl Operation {
             "last" => Ok(Operation::Last),
             "nunique" => Ok(Operation::Nunique),
             "quantile" => match quantile {
-                None => Err(ShellError::SpannedLabeledError(
+                None => Err(ShellError::GenericError(
                     "Quantile value not fount".into(),
                     "Quantile operation requires quantile value".into(),
-                    name.span,
+                    Some(name.span),
+                    None,
+                    Vec::new(),
                 )),
                 Some(value) => {
                     if (value.item < 0.0) | (value.item > 1.0) {
-                        Err(ShellError::SpannedLabeledError(
+                        Err(ShellError::GenericError(
                             "Inappropriate quantile".into(),
                             "Quantile value should be between 0.0 and 1.0".into(),
-                            value.span,
+                            Some(value.span),
+                            None,
+                            Vec::new(),
                         ))
                     } else {
                         Ok(Operation::Quantile(value.item))
@@ -82,11 +86,12 @@ impl Operation {
 
                 match did_you_mean(&possibilities, selection) {
                     Some(suggestion) => Err(ShellError::DidYouMean(suggestion, name.span)),
-                    None => Err(ShellError::SpannedLabeledErrorHelp(
+                    None => Err(ShellError::GenericError(
                         "Operation not fount".into(),
                         "Operation does not exist".into(),
-                        name.span,
-                        "Perhaps you want: mean, sum, min, max, first, last, nunique, quantile, median, var, std, or count".into(),
+                        Some(name.span),
+                        Some("Perhaps you want: mean, sum, min, max, first, last, nunique, quantile, median, var, std, or count".into()),
+                        Vec::new(),
                     ))
                 }
             }
@@ -239,17 +244,21 @@ fn command(
                         None,
                     ))
                 }
-                _ => Err(ShellError::SpannedLabeledError(
+                _ => Err(ShellError::GenericError(
                     "Incorrect datatype".into(),
                     "no groupby or dataframe found in input stream".into(),
-                    call.head,
+                    Some(call.head),
+                    None,
+                    Vec::new(),
                 )),
             }
         }
-        _ => Err(ShellError::SpannedLabeledError(
+        _ => Err(ShellError::GenericError(
             "Incorrect datatype".into(),
             "no groupby or dataframe found in input stream".into(),
-            call.head,
+            Some(call.head),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -283,7 +292,13 @@ fn perform_groupby_aggregation(
             _ => operation_span,
         };
 
-        ShellError::SpannedLabeledError("Error calculating aggregation".into(), e.to_string(), span)
+        ShellError::GenericError(
+            "Error calculating aggregation".into(),
+            e.to_string(),
+            Some(span),
+            None,
+            Vec::new(),
+        )
     })?;
 
     if !explicit {
@@ -335,10 +350,12 @@ fn perform_dataframe_aggregation(
         Operation::Quantile(quantile) => dataframe
             .quantile(quantile, QuantileInterpolOptions::default())
             .map_err(|e| {
-                ShellError::SpannedLabeledError(
+                ShellError::GenericError(
                     "Error calculating quantile".into(),
                     e.to_string(),
-                    operation_span,
+                    Some(operation_span),
+                    None,
+                    Vec::new(),
                 )
             }),
         Operation::Median => Ok(dataframe.median()),
@@ -358,11 +375,15 @@ fn perform_dataframe_aggregation(
 
             match did_you_mean(&possibilities, operation.to_str()) {
                 Some(suggestion) => Err(ShellError::DidYouMean(suggestion, operation_span)),
-                None => Err(ShellError::SpannedLabeledErrorHelp(
+                None => Err(ShellError::GenericError(
                     "Operation not fount".into(),
                     "Operation does not exist".into(),
-                    operation_span,
-                    "Perhaps you want: mean, sum, min, max, quantile, median, var, or std".into(),
+                    Some(operation_span),
+                    Some(
+                        "Perhaps you want: mean, sum, min, max, quantile, median, var, or std"
+                            .into(),
+                    ),
+                    Vec::new(),
                 )),
             }
         }

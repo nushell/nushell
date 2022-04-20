@@ -50,8 +50,7 @@ where
 }
 
 fn expand_path(path: impl AsRef<Path>) -> PathBuf {
-    let path = expand_tilde(path);
-    let path = expand_ndots(path);
+    let path = expand_to_real_path(path);
     expand_dots(path)
 }
 
@@ -74,12 +73,13 @@ where
     expand_path(path)
 }
 
-/// Resolve similarly to other shells - tilde is expanded, and ndot path components are expanded.
+/// Resolve to a path that is accepted by the system and no further - tilde is expanded, and ndot path components are expanded.
 ///
 /// This function will take a leading tilde path component, and expand it to the user's home directory;
 /// it will also expand any path elements consisting of only dots into the correct number of `..` path elements.
-/// It does not touch the system at all, except for getting the home directory of the current user.
-pub fn expand_path_for_external_programs<P>(path: P) -> PathBuf
+/// It does not do any normalization except to what will be accepted by Path::open,
+/// and it does not touch the system at all, except for getting the home directory of the current user.
+pub fn expand_to_real_path<P>(path: P) -> PathBuf
 where
     P: AsRef<Path>,
 {

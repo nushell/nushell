@@ -22,7 +22,7 @@ use nu_protocol::{
     ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Value, CONFIG_VARIABLE_ID,
+    Spanned, SyntaxShape, Value,
 };
 use std::cell::RefCell;
 use std::{
@@ -196,15 +196,6 @@ fn main() -> Result<()> {
             gather_parent_env_vars(&mut engine_state);
             let mut stack = nu_protocol::engine::Stack::new();
 
-            stack.vars.insert(
-                CONFIG_VARIABLE_ID,
-                Value::Record {
-                    cols: vec![],
-                    vals: vec![],
-                    span: Span::new(0, 0),
-                },
-            );
-
             if let Some(commands) = &binary_args.commands {
                 #[cfg(feature = "plugin")]
                 read_plugin_file(
@@ -317,14 +308,6 @@ fn parse_commandline_args(
     let _ = engine_state.merge_delta(delta, None, init_cwd);
 
     let mut stack = Stack::new();
-    stack.add_var(
-        CONFIG_VARIABLE_ID,
-        Value::Record {
-            cols: vec![],
-            vals: vec![],
-            span: Span::new(0, 0),
-        },
-    );
 
     // We should have a successful parse now
     if let Some(pipeline) = block.pipelines.get(0) {

@@ -148,19 +148,24 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
                 if Path::new(&cwd).is_absolute() {
                     Ok(cwd)
                 } else {
-                    Err(ShellError::SpannedLabeledError(
+                    Err(ShellError::GenericError(
                             "Invalid current directory".to_string(),
                             format!("The 'PWD' environment variable must be set to an absolute path. Found: '{}'", cwd),
-                            pwd.span()?
+                            Some(pwd.span()?),
+                            None,
+                            Vec::new()
                     ))
                 }
             }
             Err(e) => Err(e),
         }
     } else {
-        Err(ShellError::LabeledError(
+        Err(ShellError::GenericError(
                 "Current directory not found".to_string(),
-                "The environment variable 'PWD' was not found. It is required to define the current directory.".to_string(),
+                "".to_string(),
+                None,
+                Some("The environment variable 'PWD' was not found. It is required to define the current directory.".to_string()),
+                Vec::new(),
         ))
     }
 }
@@ -295,10 +300,12 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
             // Must be a list of strings
             if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
                 error = error.or_else(|| {
-                    Some(ShellError::SpannedLabeledError(
+                    Some(ShellError::GenericError(
                         format!("Wrong {} environment variable value", env_path_name),
                         format!("{} must be a list of strings", env_path_name),
-                        *span,
+                        Some(*span),
+                        None,
+                        Vec::new(),
                     ))
                 });
             }
@@ -314,10 +321,12 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
             };
 
             error = error.or_else(|| {
-                Some(ShellError::SpannedLabeledError(
+                Some(ShellError::GenericError(
                     format!("Wrong {} environment variable value", env_path_name),
                     format!("{} must be a list of strings", env_path_name),
-                    span,
+                    Some(span),
+                    None,
+                    Vec::new(),
                 ))
             });
         }

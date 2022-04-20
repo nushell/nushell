@@ -14,33 +14,6 @@ fn proper_shadow() -> TestResult {
 }
 
 #[test]
-fn config_filesize_format_with_metric_true() -> TestResult {
-    // Note: this tests both the config variable and that it is properly captured into a block
-    run_test(
-        r#"let config = {"filesize_metric": true "filesize_format": "kib" }; do { 40kb | into string } "#,
-        "39.1 KiB",
-    )
-}
-
-#[test]
-fn config_filesize_format_with_metric_false_kib() -> TestResult {
-    // Note: this tests both the config variable and that it is properly captured into a block
-    run_test(
-        r#"let config = {"filesize_metric": false "filesize_format": "kib" }; do { 40kb | into string } "#,
-        "39.1 KiB",
-    )
-}
-
-#[test]
-fn config_filesize_format_with_metric_false_kb() -> TestResult {
-    // Note: this tests both the config variable and that it is properly captured into a block
-    run_test(
-        r#"let config = {"filesize_metric": false "filesize_format": "kb" }; do { 40kb | into string } "#,
-        "40.0 KB",
-    )
-}
-
-#[test]
 fn in_variable_1() -> TestResult {
     run_test(r#"[3] | if $in.0 > 4 { "yay!" } else { "boo" }"#, "boo")
 }

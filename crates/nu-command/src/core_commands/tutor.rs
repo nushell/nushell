@@ -178,7 +178,7 @@ The most common form of data in Nushell is the table. Tables contain rows and
 columns of data. In each cell of the table, there is data that you can access
 using Nushell commands.
 
-To get the 3rd row in the table, you can use the `nth` command:
+To get the 3rd row in the table, you can use the `select` command:
 ```
 ls | select 2
 ```

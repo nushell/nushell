@@ -3,7 +3,7 @@ use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value, CONFIG_VARIABLE_ID,
+    PipelineData, Span, Type, Value,
 };
 use reedline::Suggestion;
 use std::sync::Arc;
@@ -11,25 +11,19 @@ use std::sync::Arc;
 pub struct CustomCompletion {
     engine_state: Arc<EngineState>,
     stack: Stack,
-    config: Option<Value>,
     decl_id: usize,
     line: String,
+    sort_by: SortBy,
 }
 
 impl CustomCompletion {
-    pub fn new(
-        engine_state: Arc<EngineState>,
-        stack: Stack,
-        config: Option<Value>,
-        decl_id: usize,
-        line: String,
-    ) -> Self {
+    pub fn new(engine_state: Arc<EngineState>, stack: Stack, decl_id: usize, line: String) -> Self {
         Self {
             engine_state,
             stack,
-            config,
             decl_id,
             line,
+            sort_by: SortBy::None,
         }
     }
 
@@ -63,27 +57,13 @@ impl Completer for CustomCompletion {
     fn fetch(
         &mut self,
         _: &StateWorkingSet,
-        _: Vec<u8>,
+        prefix: Vec<u8>,
         span: Span,
         offset: usize,
         pos: usize,
-    ) -> (Vec<Suggestion>, CompletionOptions) {
+    ) -> Vec<Suggestion> {
         // Line position
         let line_pos = pos - offset;
-
-        // Set up our initial config to start from
-        if let Some(conf) = &self.config {
-            self.stack.vars.insert(CONFIG_VARIABLE_ID, conf.clone());
-        } else {
-            self.stack.vars.insert(
-                CONFIG_VARIABLE_ID,
-                Value::Record {
-                    cols: vec![],
-                    vals: vec![],
-                    span: Span { start: 0, end: 0 },
-                },
-            );
-        }
 
         // Call custom declaration
         let result = eval_call(
@@ -135,6 +115,10 @@ impl Completer for CustomCompletion {
                                 .and_then(|val| val.as_bool().ok())
                                 .unwrap_or(false);
 
+                            if should_sort {
+                                self.sort_by = SortBy::Ascending;
+                            }
+
                             CompletionOptions {
                                 case_sensitive: options
                                     .get_data_by_key("case_sensitive")
@@ -166,6 +150,32 @@ impl Completer for CustomCompletion {
             _ => (vec![], CompletionOptions::default()),
         };
 
-        (suggestions, options)
+        filter(&prefix, suggestions, options)
     }
+
+    fn get_sort_by(&self) -> SortBy {
+        self.sort_by
+    }
+}
+
+fn filter(prefix: &[u8], items: Vec<Suggestion>, options: CompletionOptions) -> Vec<Suggestion> {
+    items
+        .into_iter()
+        .filter(|it| {
+            // Minimise clones for new functionality
+            match (options.case_sensitive, options.positional) {
+                (true, true) => it.value.as_bytes().starts_with(prefix),
+                (true, false) => it.value.contains(std::str::from_utf8(prefix).unwrap_or("")),
+                (false, positional) => {
+                    let value = it.value.to_lowercase();
+                    let prefix = std::str::from_utf8(prefix).unwrap_or("").to_lowercase();
+                    if positional {
+                        value.starts_with(&prefix)
+                    } else {
+                        value.contains(&prefix)
+                    }
+                }
+            }
+        })
+        .collect()
 }

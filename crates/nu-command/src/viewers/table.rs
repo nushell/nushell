@@ -56,8 +56,8 @@ impl Command for Table {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
-        let config = stack.get_config().unwrap_or_default();
-        let color_hm = get_color_config(&config);
+        let config = engine_state.get_config();
+        let color_hm = get_color_config(config);
         let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
         let row_offset = start_num.unwrap_or_default() as usize;
 
@@ -99,7 +99,6 @@ impl Command for Table {
                 ListStream::from_stream(vals.into_iter(), ctrlc.clone()),
                 call,
                 row_offset,
-                config,
                 ctrlc,
                 metadata,
             ),
@@ -109,7 +108,6 @@ impl Command for Table {
                 stream,
                 call,
                 row_offset,
-                config,
                 ctrlc,
                 metadata,
             ),
@@ -123,7 +121,7 @@ impl Command for Table {
                             style: TextStyle::default_field(),
                         },
                         StyledString {
-                            contents: v.into_abbreviated_string(&config),
+                            contents: v.into_abbreviated_string(config),
                             style: TextStyle::default(),
                         },
                     ])
@@ -132,10 +130,10 @@ impl Command for Table {
                 let table = nu_table::Table {
                     headers: vec![],
                     data: output,
-                    theme: load_theme_from_config(&config),
+                    theme: load_theme_from_config(config),
                 };
 
-                let result = nu_table::draw_table(&table, term_width, &color_hm, &config);
+                let result = nu_table::draw_table(&table, term_width, &color_hm, config);
 
                 Ok(Value::String {
                     val: result,
@@ -149,7 +147,7 @@ impl Command for Table {
                 self.run(engine_state, stack, call, base_pipeline)
             }
             PipelineData::Value(x @ Value::Range { .. }, ..) => Ok(Value::String {
-                val: x.into_string("", &config),
+                val: x.into_string("", config),
                 span: call.head,
             }
             .into_pipeline_data()),
@@ -195,7 +193,6 @@ fn handle_row_stream(
     stream: ListStream,
     call: &Call,
     row_offset: usize,
-    config: Config,
     ctrlc: Option<Arc<AtomicBool>>,
     metadata: Option<PipelineMetadata>,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
@@ -203,7 +200,7 @@ fn handle_row_stream(
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
         }) => {
-            let config = config.clone();
+            let config = engine_state.config.clone();
             let ctrlc = ctrlc.clone();
 
             let ls_colors = match stack.get_env_var(engine_state, "LS_COLORS") {
@@ -281,7 +278,7 @@ fn handle_row_stream(
         stdout: Some(RawStream::new(
             Box::new(PagingTableCreator {
                 row_offset,
-                config,
+                config: engine_state.get_config().clone(),
                 ctrlc: ctrlc.clone(),
                 head,
                 stream,
@@ -417,9 +414,12 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
     let val_float = match val.trim().parse::<f64>() {
         Ok(f) => f,
         Err(e) => {
-            return Err(ShellError::LabeledError(
+            return Err(ShellError::GenericError(
                 format!("error converting string [{}] to f64", &val),
-                e.to_string(),
+                "".to_string(),
+                None,
+                Some(e.to_string()),
+                Vec::new(),
             ));
         }
     };

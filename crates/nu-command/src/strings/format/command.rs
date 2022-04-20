@@ -35,14 +35,14 @@ impl Command for Format {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let config = stack.get_config()?;
+        let config = engine_state.get_config();
         let specified_pattern: Result<Value, ShellError> = call.req(engine_state, stack, 0);
         match specified_pattern {
             Err(e) => Err(e),
             Ok(pattern) => {
                 let string_pattern = pattern.as_string()?;
                 let ops = extract_formatting_operations(string_pattern);
-                format(input, &ops, call.head, &config)
+                format(input, &ops, call.head, config)
             }
         }
     }

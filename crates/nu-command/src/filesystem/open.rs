@@ -1,3 +1,4 @@
+use crate::filesystem::util::BufferedReader;
 use nu_engine::{eval_block, get_full_help, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -7,7 +8,7 @@ use nu_protocol::{
 };
 use rusqlite::types::ValueRef;
 use rusqlite::{Connection, Row};
-use std::io::{BufRead, BufReader, Read, Seek};
+use std::io::{BufReader, Read, Seek};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -93,19 +94,23 @@ impl Command for Open {
             );
             #[cfg(not(unix))]
             let error_msg = String::from("Permission denied");
-            Err(ShellError::SpannedLabeledError(
+            Err(ShellError::GenericError(
                 "Permission denied".into(),
                 error_msg,
-                arg_span,
+                Some(arg_span),
+                None,
+                Vec::new(),
             ))
         } else {
             let mut file = match std::fs::File::open(path) {
                 Ok(file) => file,
                 Err(err) => {
-                    return Err(ShellError::SpannedLabeledError(
+                    return Err(ShellError::GenericError(
                         "Permission denied".into(),
                         err.to_string(),
-                        arg_span,
+                        Some(arg_span),
+                        None,
+                        Vec::new(),
                     ));
                 }
             };
@@ -197,16 +202,20 @@ fn open_and_read_sqlite_db(path: &Path, call_span: Span) -> Result<Value, nu_pro
     match Connection::open(path) {
         Ok(conn) => match read_sqlite_db(conn, call_span) {
             Ok(data) => Ok(data),
-            Err(err) => Err(ShellError::SpannedLabeledError(
+            Err(err) => Err(ShellError::GenericError(
                 "Failed to read from SQLite database".into(),
                 err.to_string(),
-                call_span,
+                Some(call_span),
+                None,
+                Vec::new(),
             )),
         },
-        Err(err) => Err(ShellError::SpannedLabeledError(
+        Err(err) => Err(ShellError::GenericError(
             "Failed to open SQLite database".into(),
             err.to_string(),
-            call_span,
+            Some(call_span),
+            None,
+            Vec::new(),
         )),
     }
 }
@@ -296,40 +305,6 @@ fn permission_denied(dir: impl AsRef<Path>) -> bool {
     }
 }
 
-pub struct BufferedReader<R: Read> {
-    input: BufReader<R>,
-}
-
-impl<R: Read> BufferedReader<R> {
-    pub fn new(input: BufReader<R>) -> Self {
-        Self { input }
-    }
-}
-
-impl<R: Read> Iterator for BufferedReader<R> {
-    type Item = Result<Vec<u8>, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let buffer = self.input.fill_buf();
-        match buffer {
-            Ok(s) => {
-                let result = s.to_vec();
-
-                let buffer_len = s.len();
-
-                if buffer_len == 0 {
-                    None
-                } else {
-                    self.input.consume(buffer_len);
-
-                    Some(Ok(result))
-                }
-            }
-            Err(e) => Some(Err(ShellError::IOError(e.to_string()))),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -403,31 +378,22 @@ mod test {
                 vals: vec![
                     Value::Record {
                         cols: vec!["id".to_string(), "name".to_string()],
-                        vals: vec![
-                            Value::Int {
-                                val: 123,
-                                span: span,
-                            },
-                            Value::Nothing { span: span },
-                        ],
-                        span: span,
+                        vals: vec![Value::Int { val: 123, span }, Value::Nothing { span }],
+                        span,
                     },
                     Value::Record {
                         cols: vec!["id".to_string(), "name".to_string()],
                         vals: vec![
-                            Value::Int {
-                                val: 456,
-                                span: span,
-                            },
+                            Value::Int { val: 456, span },
                             Value::String {
                                 val: "foo bar".to_string(),
-                                span: span,
+                                span,
                             },
                         ],
-                        span: span,
+                        span,
                     },
                 ],
-                span: span,
+                span,
             }],
             span,
         };

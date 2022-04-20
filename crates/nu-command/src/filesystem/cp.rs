@@ -61,37 +61,45 @@ impl Command for Cp {
         let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
             Ok(files) => files.collect(),
             Err(e) => {
-                return Err(ShellError::SpannedLabeledError(
+                return Err(ShellError::GenericError(
                     e.to_string(),
                     "invalid pattern".to_string(),
-                    src.span,
+                    Some(src.span),
+                    None,
+                    Vec::new(),
                 ))
             }
         };
 
         if sources.is_empty() {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "No matches found".into(),
                 "no matches found".into(),
-                src.span,
+                Some(src.span),
+                None,
+                Vec::new(),
             ));
         }
 
         if sources.len() > 1 && !destination.is_dir() {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Destination must be a directory when copying multiple files".into(),
                 "is not a directory".into(),
-                dst.span,
+                Some(dst.span),
+                None,
+                Vec::new(),
             ));
         }
 
         let any_source_is_dir = sources.iter().any(|f| matches!(f, Ok(f) if f.is_dir()));
 
         if any_source_is_dir && !recursive {
-            return Err(ShellError::SpannedLabeledError(
+            return Err(ShellError::GenericError(
                 "Directories must be copied using \"--recursive\"".into(),
                 "resolves to a directory (not copied)".into(),
-                src.span,
+                Some(src.span),
+                None,
+                Vec::new(),
             ));
         }
 
@@ -115,7 +123,13 @@ impl Command for Cp {
                 for (src, dst) in sources {
                     if src.is_file() {
                         std::fs::copy(src, dst).map_err(|e| {
-                            ShellError::SpannedLabeledError(e.to_string(), e.to_string(), call.head)
+                            ShellError::GenericError(
+                                e.to_string(),
+                                e.to_string(),
+                                Some(call.head),
+                                None,
+                                Vec::new(),
+                            )
                         })?;
                     }
                 }
@@ -126,17 +140,25 @@ impl Command for Cp {
                     match entry.file_name() {
                         Some(name) => destination.join(name),
                         None => {
-                            return Err(ShellError::SpannedLabeledError(
+                            return Err(ShellError::GenericError(
                                 "Copy aborted. Not a valid path".into(),
                                 "not a valid path".into(),
-                                dst.span,
+                                Some(dst.span),
+                                None,
+                                Vec::new(),
                             ))
                         }
                     }
                 };
 
                 std::fs::create_dir_all(&destination).map_err(|e| {
-                    ShellError::SpannedLabeledError(e.to_string(), e.to_string(), dst.span)
+                    ShellError::GenericError(
+                        e.to_string(),
+                        e.to_string(),
+                        Some(dst.span),
+                        None,
+                        Vec::new(),
+                    )
                 })?;
 
                 let sources = sources.paths_applying_with(|(source_file, depth_level)| {
@@ -161,13 +183,25 @@ impl Command for Cp {
                 for (s, d) in sources {
                     if s.is_dir() && !d.exists() {
                         std::fs::create_dir_all(&d).map_err(|e| {
-                            ShellError::SpannedLabeledError(e.to_string(), e.to_string(), dst.span)
+                            ShellError::GenericError(
+                                e.to_string(),
+                                e.to_string(),
+                                Some(dst.span),
+                                None,
+                                Vec::new(),
+                            )
                         })?;
                     }
 
                     if s.is_file() {
                         std::fs::copy(&s, &d).map_err(|e| {
-                            ShellError::SpannedLabeledError(e.to_string(), e.to_string(), call.head)
+                            ShellError::GenericError(
+                                e.to_string(),
+                                e.to_string(),
+                                Some(call.head),
+                                None,
+                                Vec::new(),
+                            )
                         })?;
                     }
                 }

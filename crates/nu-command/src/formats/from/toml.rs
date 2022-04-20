@@ -67,14 +67,14 @@ b = [1, 2]' | from toml",
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        stack: &mut Stack,
+        engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let config = stack.get_config().unwrap_or_default();
-        let mut string_input = input.collect_string("", &config)?;
+        let config = engine_state.get_config();
+        let mut string_input = input.collect_string("", config)?;
         string_input.push('\n');
         Ok(convert_string_to_value(string_input, span)?.into_pipeline_data())
     }
@@ -124,6 +124,7 @@ pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value
             "structured toml data".into(),
             "string".into(),
             span,
+            None,
         )),
     }
 }
