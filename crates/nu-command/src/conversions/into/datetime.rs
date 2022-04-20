@@ -104,6 +104,10 @@ impl Command for SubCommand {
         "Convert text into a datetime"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "date", "time", "timezone", "UTC"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

@@ -21,6 +21,10 @@ impl Command for Fmt {
         Signature::build("fmt").category(Category::Conversions)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["display", "render", "format"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Get a record containing multiple formats for the number 42",
