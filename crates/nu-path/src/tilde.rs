@@ -86,7 +86,8 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
             let mut name = pre_name.to_string();
             name.remove(0);
             let mut path = user_home_dir(&name);
-            path.push(Path::new(rest_of_path))
+            path.push(Path::new(rest_of_path));
+            path
         }
     }
 }
