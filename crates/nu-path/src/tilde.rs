@@ -59,14 +59,16 @@ fn user_home_dir(username: &str) -> PathBuf {
             let mut expected_path = String::from("C:\\Users\\");
             expected_path.push_str(username);
             let path = Path::new(&expected_path);
-            PathBuf::new().push(path)
+            let home = PathBuf::new().push(path);
+            home
         }
         Some(user) => {
             let mut expected_path = user;
             expected_path.pop();
             expected_path.push(Path::new(username));
             let path = expected_path.as_path();
-            PathBuf::new().push(path)
+            let home = PathBuf::new().push(path);
+            home
         }
     }
 }
