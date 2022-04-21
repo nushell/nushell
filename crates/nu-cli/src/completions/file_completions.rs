@@ -202,8 +202,6 @@ pub fn escape_path_str(path: String) -> String {
 }
 
 mod test {
-    use crate::completions::escape_path_str;
-
     #[test]
     fn escape_path() {
         // Vec of (path, expected escape)
