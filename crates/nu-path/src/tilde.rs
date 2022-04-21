@@ -88,9 +88,11 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
         Some(i) => {
             let (pre_name, rest_of_path) = file.split_at(i);
             let mut name = pre_name.to_string();
+            let mut rest_path = rest_of_path.to_string();
+            rest_path.remove(0);
             name.remove(0);
             let mut path = user_home_dir(&name);
-            path.push(Path::new(rest_of_path));
+            path.push(Path::new(&rest_path));
             path
         }
     }
