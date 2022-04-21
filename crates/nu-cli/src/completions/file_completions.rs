@@ -171,10 +171,7 @@ pub fn escape_path_str(path: String) -> String {
 
     if needs_escape {
         // Worst case, escape everything (+2 double quotes)
-        let mut result = String::with_capacity(path.len() * 2 + 2);
-
-        // Starting quotes
-        result.push('\"');
+        let mut result: Vec<u8> = vec![b'\"'];
 
         // Walk through the path characters
         for b in path.bytes() {
@@ -187,18 +184,18 @@ pub fn escape_path_str(path: String) -> String {
                 }
             }) {
                 for rb in replacements[idx] {
-                    result.push(*rb as char);
+                    result.push(*rb);
                 }
             } else {
-                result.push(b as char);
+                result.push(b);
             }
         }
 
         // Final quote
-        result.push('\"');
+        result.push(b'\"');
 
         // Update path
-        path = result;
+        path = String::from_utf8(result).unwrap_or(path);
     }
 
     path
