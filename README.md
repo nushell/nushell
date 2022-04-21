@@ -8,9 +8,9 @@
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)
 ![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)
 
-## Nushell
+## **Nushell**
 
-A new type of shell.
+A new type of <i>**shell**</i>.
 
 ![Example of nushell](images/nushell-autocomplete6.gif "Example of nushell")
 
@@ -37,7 +37,7 @@ We also have an active [Discord](https://discord.gg/NtAbbGn) and [Twitter](https
 
 You can also find information on more specific topics in our [cookbook](https://www.nushell.sh/cookbook/).
 
-## Installation
+## **Installation**
 
 ### Local
 
@@ -88,7 +88,7 @@ cargo build --workspace --features=extra
 
 [COPR repo](https://copr.fedorainfracloud.org/coprs/atim/nushell/): `sudo dnf copr enable atim/nushell -y && sudo dnf install nushell -y`
 
-## Philosophy
+## **Philosophy**
 
 Nu draws inspiration from projects like PowerShell, functional programming languages, and modern CLI tools.
 Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure.
@@ -227,7 +227,7 @@ These binaries interact with nu via a simple JSON-RPC protocol where the command
 If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout.
 If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
-## Goals
+## **Goals**
 
 Nu adheres closely to a set of goals that make up its design philosophy. As features are added, they are checked against these goals.
 
