@@ -48,7 +48,8 @@ fn user_home_dir(username: &str) -> &Path {
             .expect("error finding passwd linked to username")
             .expect("no passwd linked to username")
             .dir;
-    Path::new(user)
+    let dir = Path::new(user);
+    dir
     // Returns home dir of user.
 }
 
@@ -58,13 +59,15 @@ fn user_home_dir(username: &str) -> &Path {
         None => {
             let mut expected_path = String::from("C:\\Users\\");
             expected_path.push_str(username);
-            Path::new(&expected_path)
+            let path = Path::new(&expected_path);
+            path
         }
         Some(user) => {
             let mut expected_path = user;
             expected_path.pop();
             expected_path.push(Path::new(username));
-            expected_path.as_path()
+            let path = expected_path.as_path();
+            path
         }
     }
 }
