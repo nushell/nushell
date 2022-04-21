@@ -50,12 +50,24 @@ fn user_home_dir(username: &str) -> String {
         .dir
     // Returns home dir of user.
 }
+
 #[cfg(target_os = "windows")]
-fn expand_tilde_with_another_user_home(_path: &Path) -> PathBuf {
-    PathBuf::new()
+fn user_home_dir(username: &str) -> String {
+    match dirs_next::home_dir() {
+        None => {
+            let mut expected_path = String::from("C:\\Users\\");
+            expected_path.push_str(username);
+            expected_path
+        }
+        Some(user) => {
+            let mut expected_path = user;
+            expected_path.pop();
+            expected_path.push(Path::new(username));
+            expected_path
+        }
+    }
 }
 
-#[cfg(not(target_os = "windows"))]
 fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
     let file_path = path
         .to_str()
