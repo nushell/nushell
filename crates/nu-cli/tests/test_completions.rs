@@ -23,12 +23,19 @@ fn file_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.join("nushell")),
-        folder(dir.join("test_a")),
-        folder(dir.join("test_b")),
-        folder(dir.join("another")),
-        file(dir.join(".hidden_file")),
-        folder(dir.join(".hidden_folder")),
+        file(dir.clone().join("nushell")),
+        folder(dir.clone().join("test_a")),
+        folder(dir.clone().join("test_b")),
+        folder(dir.clone().join("another")),
+        format!("\"{}\"", file(dir.clone().join("`\\\'\\\"_file\\\'`"))),
+        format!("\"{}\"", file(dir.clone().join("\\\'needs_escape\\\'"))),
+        format!("\"{}\"", file(dir.clone().join("`needs_escape\\\"\\\""))),
+        format!(
+            "\"{}\"",
+            folder(dir.clone().join("folder_with\\\'\\\\_chars"))
+        ),
+        file(dir.clone().join(".hidden_file")),
+        folder(dir.clone().join(".hidden_folder")),
     ];
 
     // Match the results

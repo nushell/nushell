@@ -156,21 +156,49 @@ pub fn matches(partial: &str, from: &str) -> bool {
 pub fn escape_path_str(path: String) -> String {
     let mut path = path;
 
+    // List of special characters that need to be escaped
+    let special_characters = b"\\\'\"";
+    let replacements = [b"\\\\", b"\\\'", b"\\\""];
+
     // Check if path needs to be escaped
     let needs_escape = path.bytes().fold(false, |acc, x| {
         acc
-        || (x >> 4) == 0b0010
         || x == b'\\' // 0x5c
         || x == b'`' // 0x60
+        || x == b' '
+        || x == b'\''
     });
 
     if needs_escape {
-        // Escape characters
-        path = path.replace('\\', "\\\\");
-        path = path.replace('"', "\\\"");
+        // Worst case, escape everything (+2 double quotes)
+        let mut result = String::with_capacity(path.len() * 2 + 2);
 
-        // Wrap with double quotes
-        path = format!("\"{}\"", path);
+        // Starting quotes
+        result.push('\"');
+
+        // Walk through the path characters
+        for b in path.bytes() {
+            // Basically the equivalent of str.find(), but expanded
+            if let Some(idx) = special_characters.iter().enumerate().fold(None, |idx, c| {
+                if *c.1 == b {
+                    Some(c.0)
+                } else {
+                    idx
+                }
+            }) {
+                for rb in replacements[idx] {
+                    result.push(*rb as char);
+                }
+            } else {
+                result.push(b as char);
+            }
+        }
+
+        // Final quote
+        result.push('\"');
+
+        // Update path
+        path = result;
     }
 
     path
