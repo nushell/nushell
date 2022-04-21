@@ -162,8 +162,8 @@ pub fn escape_path_str(path: String) -> String {
         |acc, x| {
             acc
         || (x >> 4) == 0b0010
-        || x == '\\' as u8 // 0x5c
-        || x == '`' as u8
+        || x == b'\\' // 0x5c
+        || x == b'`'
         }, // 0x60
     );
 
