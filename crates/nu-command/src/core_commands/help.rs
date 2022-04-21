@@ -55,11 +55,6 @@ impl Command for Help {
                 result: None,
             },
             Example {
-                description: "generate documentation",
-                example: "help generate_docs",
-                result: None,
-            },
-            Example {
                 description: "show help for single command",
                 example: "help match",
                 result: None,
