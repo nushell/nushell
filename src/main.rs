@@ -83,13 +83,13 @@ fn main() -> Result<()> {
     for arg in std::env::args().skip(1) {
         if !script_name.is_empty() {
             args_to_script.push(if arg.contains(' ') {
-                format!("'{}'", arg)
+                format!("`{}`", arg)
             } else {
                 arg
             });
         } else if collect_arg_nushell {
             args_to_nushell.push(if arg.contains(' ') {
-                format!("'{}'", arg)
+                format!("`{}`", arg)
             } else {
                 arg
             });
