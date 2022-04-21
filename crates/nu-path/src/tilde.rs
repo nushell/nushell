@@ -42,32 +42,31 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
 }
 
 #[cfg(not(target_os = "windows"))]
-fn user_home_dir(username: &str) -> &Path {
+fn user_home_dir(username: &str) -> PathBuf {
     let passwd = Passwd::from_name(username);
     let user = &passwd
             .expect("error finding passwd linked to username")
             .expect("no passwd linked to username")
             .dir;
-    let dir = Path::new(user);
-    dir
+    PathBuf::from(user)
     // Returns home dir of user.
 }
 
 #[cfg(target_os = "windows")]
-fn user_home_dir(username: &str) -> &Path {
+fn user_home_dir(username: &str) -> PathBuf {
     match dirs_next::home_dir() {
         None => {
             let mut expected_path = String::from("C:\\Users\\");
             expected_path.push_str(username);
             let path = Path::new(&expected_path);
-            path
+            PathBuf::new().push(path)
         }
         Some(user) => {
             let mut expected_path = user;
             expected_path.pop();
             expected_path.push(Path::new(username));
             let path = expected_path.as_path();
-            path
+            PathBuf::new().push(path)
         }
     }
 }
@@ -80,14 +79,14 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
     match file_path.chars().position(|c| c == '/') {
         None => {
             file.remove(0);
-            user_home_dir(&file).to_path_buf()
+            user_home_dir(&file)
         }
         Some(i) => {
             let (pre_name, rest_of_path) = file.split_at(i);
             let mut name = pre_name.to_string();
             name.remove(0);
-            let path = user_home_dir(&name);
-            path.join(Path::new(rest_of_path))
+            let mut path = user_home_dir(&name);
+            path.push(Path::new(rest_of_path))
         }
     }
 }
