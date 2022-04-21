@@ -54,23 +54,25 @@ fn user_home_dir(username: &str) -> PathBuf {
 
 #[cfg(target_os = "windows")]
 fn user_home_dir(username: &str) -> PathBuf {
-    let path: &Path;
     match dirs_next::home_dir() {
         None => {
             let mut expected_path = String::from("C:\\Users\\");
             expected_path.push_str(username);
-            path = Path::new(&expected_path);
+            let path = Path::new(&expected_path);
+            let mut home = PathBuf::new();
+            home.push(path);
+            home
         }
         Some(user) => {
             let mut expected_path = user;
             expected_path.pop();
             expected_path.push(Path::new(username));
-            path = expected_path.as_path();
+            let path = expected_path.as_path();
+            let mut home = PathBuf::new();
+            home.push(path);
+            home
         }
     }
-    let mut home = PathBuf::new();
-    home.push(path);
-    home
 }
 
 fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
