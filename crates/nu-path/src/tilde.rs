@@ -44,12 +44,11 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
 #[cfg(not(target_os = "windows"))]
 fn user_home_dir(username: &str) -> &Path {
     let passwd = Passwd::from_name(username);
-    Path::new(
-        &passwd
+    let user = &passwd
             .expect("error finding passwd linked to username")
             .expect("no passwd linked to username")
-            .dir,
-    )
+            .dir;
+    Path::new(user)
     // Returns home dir of user.
 }
 
@@ -84,7 +83,7 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
             let (pre_name, rest_of_path) = file.split_at(i);
             let mut name = pre_name.to_string();
             name.remove(0);
-            let mut path = user_home_dir(&name);
+            let path = user_home_dir(&name);
             path.join(Path::new(rest_of_path))
         }
     }
