@@ -157,15 +157,12 @@ pub fn escape_path_str(path: String) -> String {
     let mut path = path;
 
     // Check if path needs to be escaped
-    let needs_escape = path.bytes().fold(
-        false,
-        |acc, x| {
-            acc
+    let needs_escape = path.bytes().fold(false, |acc, x| {
+        acc
         || (x >> 4) == 0b0010
         || x == b'\\' // 0x5c
-        || x == b'`'
-        }, // 0x60
-    );
+        || x == b'`' // 0x60
+    });
 
     if needs_escape {
         // Escape characters
