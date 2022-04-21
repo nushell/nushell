@@ -63,7 +63,7 @@ fn user_home_dir(username: &str) -> String {
             let mut expected_path = user;
             expected_path.pop();
             expected_path.push(Path::new(username));
-            expected_path
+            expected_path.into_os_string().into_string()
         }
     }
 }
