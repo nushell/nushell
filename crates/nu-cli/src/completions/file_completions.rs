@@ -155,12 +155,19 @@ pub fn matches(partial: &str, from: &str) -> bool {
 // escape paths that contains some special characters
 pub fn escape_path_str(path: String) -> String {
     let mut path = path;
-    if path.contains(' ')
-        || path.contains('\\')
-        || path.contains('"')
-        || path.contains('\'')
-        || path.contains('`')
-    {
+
+    // Check if path needs to be escaped
+    let needs_escape = path.bytes().fold(
+        false,
+        |acc, x| {
+            acc
+        || (x >> 4) == 0b0010
+        || x == '\\' as u8 // 0x5c
+        || x == '`' as u8
+        }, // 0x60
+    );
+
+    if needs_escape {
         // Escape characters
         path = path.replace('\\', "\\\\");
         path = path.replace('"', "\\\"");
