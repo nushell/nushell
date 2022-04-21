@@ -45,9 +45,9 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
 fn user_home_dir(username: &str) -> PathBuf {
     let passwd = Passwd::from_name(username);
     let user = &passwd
-            .expect("error finding passwd linked to username")
-            .expect("no passwd linked to username")
-            .dir;
+        .expect("error finding passwd linked to username")
+        .expect("no passwd linked to username")
+        .dir;
     PathBuf::from(user)
     // Returns home dir of user.
 }
