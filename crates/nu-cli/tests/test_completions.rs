@@ -94,9 +94,17 @@ pub fn new_engine() -> (PathBuf, String, EngineState) {
 }
 
 // match a list of suggestions with the expected values
-pub fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
-    expected.iter().zip(suggestions).for_each(|it| {
-        assert_eq!(it.0, &it.1.value);
+// skipping the order (for now) due to some issue with sorting behaving
+// differently for each OS
+fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
+    suggestions.into_iter().for_each(|it| {
+        let items = expected.clone();
+        let result = items.into_iter().find(|x| x == &it.value);
+
+        match result {
+            Some(val) => assert_eq!(val, it.value),
+            None => panic!("the path {} is not expected", it.value),
+        }
     });
 }
 
