@@ -27,7 +27,6 @@ fn file_completions() {
         folder(dir.clone().join("test_a")),
         folder(dir.clone().join("test_b")),
         folder(dir.clone().join("another")),
-        format!("\"{}\"", file(dir.clone().join("`\\\'\\\"_file\\\'`"))),
         format!("\"{}\"", file(dir.clone().join("\\\'needs_escape\\\'"))),
         format!("\"{}\"", file(dir.clone().join("`needs_escape\\\"\\\""))),
         format!(
