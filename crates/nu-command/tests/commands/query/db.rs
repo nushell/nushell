@@ -40,8 +40,3 @@ fn invalid_input_fails() {
 
     assert!(actual.err.contains("pipeline_mismatch"));
 }
-
-#[test]
-fn scratch() {
-    assert!(true);
-}

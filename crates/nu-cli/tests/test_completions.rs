@@ -15,7 +15,7 @@ fn file_completions() {
     let stack = Stack::new();
 
     // Instatiate a new completer
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.clone());
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
     let target_dir = format!("cd {}", dir_str);
@@ -23,23 +23,23 @@ fn file_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.clone().join("nushell")),
-        folder(dir.clone().join("test_a")),
-        folder(dir.clone().join("test_b")),
-        folder(dir.clone().join("another")),
-        file(dir.clone().join(".hidden_file")),
-        folder(dir.clone().join(".hidden_folder")),
+        file(dir.join("nushell")),
+        folder(dir.join("test_a")),
+        folder(dir.join("test_b")),
+        folder(dir.join("another")),
+        file(dir.join(".hidden_file")),
+        folder(dir.join(".hidden_folder")),
     ];
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
 
     // Test completions for the completions/another folder
-    let target_dir = format!("cd {}", folder(dir.clone().join("another")));
+    let target_dir = format!("cd {}", folder(dir.join("another")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values
-    let expected_paths: Vec<String> = vec![file(dir.clone().join("another").join("newfile"))];
+    let expected_paths: Vec<String> = vec![file(dir.join("another").join("newfile"))];
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
@@ -53,7 +53,7 @@ fn new_engine() -> (PathBuf, String, EngineState) {
         .clone()
         .into_os_string()
         .into_string()
-        .unwrap_or("".to_string());
+        .unwrap_or_default();
     dir_str.push(SEP);
 
     // Create a default engine
@@ -77,8 +77,5 @@ fn folder(path: PathBuf) -> String {
 
 // convert a given path to string
 fn file(path: PathBuf) -> String {
-    path.clone()
-        .into_os_string()
-        .into_string()
-        .unwrap_or("".to_string())
+    path.into_os_string().into_string().unwrap_or_default()
 }
