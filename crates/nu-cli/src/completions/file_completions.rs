@@ -165,6 +165,7 @@ pub fn escape_path_str(path: String) -> String {
         acc
         || x == b'\\' // 0x5c
         || x == b'`' // 0x60
+        || x == b'"'
         || x == b' '
         || x == b'\''
     });
@@ -198,4 +199,36 @@ pub fn escape_path_str(path: String) -> String {
     }
 
     path
+}
+
+mod test {
+    use crate::completions::escape_path_str;
+
+    #[test]
+    fn escape_path() {
+        // Vec of (path, expected escape)
+        let cases: Vec<(&str, &str)> = vec![
+            ("/home/nushell/filewith`", "\"/home/nushell/filewith`\""),
+            (
+                "/home/nushell/folder with spaces",
+                "\"/home/nushell/folder with spaces\"",
+            ),
+            (
+                "/home/nushell/folder\"withquotes",
+                "\"/home/nushell/folder\\\"withquotes\"",
+            ),
+            (
+                "C:\\windows\\system32\\escape path",
+                "\"C:\\\\windows\\\\system32\\\\escape path\"",
+            ),
+            (
+                "/home/nushell/shouldnt/be/escaped",
+                "/home/nushell/shouldnt/be/escaped",
+            ),
+        ];
+
+        for item in cases.into_iter() {
+            assert_eq!(escape_path_str(item.0.to_string()), item.1.to_string())
+        }
+    }
 }
