@@ -170,7 +170,6 @@ pub fn escape_path_str(path: String) -> String {
     });
 
     if needs_escape {
-        // Worst case, escape everything (+2 double quotes)
         let mut result: Vec<u8> = vec![b'\"'];
 
         // Walk through the path characters
