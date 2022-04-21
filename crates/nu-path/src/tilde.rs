@@ -54,7 +54,7 @@ fn user_home_dir(username: &str) -> PathBuf {
 
 #[cfg(target_os = "windows")]
 fn user_home_dir(username: &str) -> PathBuf {
-    let path:&Path;
+    let path: &Path;
     match dirs_next::home_dir() {
         None => {
             let mut expected_path = String::from("C:\\Users\\");
@@ -71,7 +71,6 @@ fn user_home_dir(username: &str) -> PathBuf {
     let mut home = PathBuf::new();
     home.push(path);
     home
-
 }
 
 fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
