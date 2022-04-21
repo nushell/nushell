@@ -226,7 +226,10 @@ mod test {
         ];
 
         for item in cases.into_iter() {
-            assert_eq!(escape_path_str(item.0.to_string()), item.1.to_string())
+            assert_eq!(
+                crate::completions::escape_path_str(item.0.to_string()),
+                item.1.to_string()
+            )
         }
     }
 }
