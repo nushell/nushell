@@ -3065,6 +3065,7 @@ dependencies = [
  "lazy_static",
  "num 0.4.0",
  "polars-arrow",
+ "polars-utils",
  "rand 0.8.5",
  "rand_distr",
  "rayon",

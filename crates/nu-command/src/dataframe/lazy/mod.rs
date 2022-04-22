@@ -1,4 +1,5 @@
 mod into_expression;
+mod utils;
 
 mod aggregate;
 mod collect;
@@ -16,6 +17,7 @@ mod select;
 mod shift;
 mod sort_by_expr;
 mod to_lazy;
+mod unique;
 mod with_column;
 
 use nu_protocol::engine::StateWorkingSet;
@@ -37,6 +39,7 @@ use crate::dataframe::lazy::select::LazySelect;
 use crate::dataframe::lazy::shift::LazyShift;
 use crate::dataframe::lazy::sort_by_expr::LazySortBy;
 use crate::dataframe::lazy::to_lazy::ToLazyFrame;
+use crate::dataframe::lazy::unique::LazyUnique;
 use crate::dataframe::lazy::with_column::LazyWithColumn;
 
 pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
@@ -73,6 +76,7 @@ pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
         LazySelect,
         LazyShift,
         LazySortBy,
+        LazyUnique,
         LazyWithColumn,
         ToLazyFrame,
         ToLazyGroupBy

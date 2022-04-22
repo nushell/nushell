@@ -4,8 +4,10 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, FromValue, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
+
+use super::utils::extract_strings;
 
 #[derive(Clone)]
 pub struct LazyRename;
@@ -50,10 +52,10 @@ impl Command for LazyRename {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let columns: Value = call.req(engine_state, stack, 0)?;
-        let columns = extract_names(columns)?;
+        let columns = extract_strings(columns)?;
 
         let new_names: Value = call.req(engine_state, stack, 1)?;
-        let new_names = extract_names(new_names)?;
+        let new_names = extract_strings(new_names)?;
 
         if columns.len() != new_names.len() {
             let value: Value = call.req(engine_state, stack, 1)?;
@@ -67,20 +69,6 @@ impl Command for LazyRename {
         let lazy: NuLazyFrame = lazy.rename(&columns, &new_names).into();
 
         Ok(PipelineData::Value(lazy.into_value(call.head), None))
-    }
-}
-
-fn extract_names(value: Value) -> Result<Vec<String>, ShellError> {
-    match (
-        <String as FromValue>::from_value(&value),
-        <Vec<String> as FromValue>::from_value(&value),
-    ) {
-        (Ok(col), Err(_)) => Ok(vec![col]),
-        (Err(_), Ok(cols)) => Ok(cols),
-        _ => Err(ShellError::IncompatibleParametersSingle(
-            "Expected a string or list of strings".into(),
-            value.span()?,
-        )),
     }
 }
 

@@ -46,16 +46,16 @@ impl Command for ToLazyGroupBy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value: Value = call.req(engine_state, stack, 0)?;
-        let value_span = value.span()?;
         let expressions = value.into_expressions()?;
 
         if expressions
             .iter()
             .any(|expr| !matches!(expr, Expr::Column(..)))
         {
+            let value: Value = call.req(engine_state, stack, 0)?;
             return Err(ShellError::IncompatibleParametersSingle(
                 "Expected only Col expressions".into(),
-                value_span,
+                value.span()?,
             ));
         }
 
