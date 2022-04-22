@@ -1216,7 +1216,7 @@ pub fn parse_use(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    if working_set.get_span_contents(spans[0]) != b"use" {
+    if working_set.get_span_contents(spans[0]) != b"use!" {
         return (
             garbage_pipeline(spans),
             Some(ParseError::UnknownState(
@@ -1226,7 +1226,7 @@ pub fn parse_use(
         );
     }
 
-    let (call, call_span, use_decl_id) = match working_set.find_decl(b"use") {
+    let (call, call_span, use_decl_id) = match working_set.find_decl(b"use!") {
         Some(decl_id) => {
             let (call, mut err) = parse_internal_call(
                 working_set,
@@ -1774,8 +1774,8 @@ pub fn parse_source(
     let mut error = None;
     let name = working_set.get_span_contents(spans[0]);
 
-    if name == b"source" {
-        if let Some(decl_id) = working_set.find_decl(b"source") {
+    if name == b"source!" {
+        if let Some(decl_id) = working_set.find_decl(b"source!") {
             let cwd = working_set.get_cwd();
             // Is this the right call to be using here?
             // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
@@ -1894,7 +1894,7 @@ pub fn parse_register(
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
-    if working_set.get_span_contents(spans[0]) != b"register" {
+    if working_set.get_span_contents(spans[0]) != b"register!" {
         return (
             garbage_pipeline(spans),
             Some(ParseError::UnknownState(
@@ -1907,7 +1907,7 @@ pub fn parse_register(
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(b"register") {
+    let (call, call_span) = match working_set.find_decl(b"register!") {
         None => {
             return (
                 garbage_pipeline(spans),

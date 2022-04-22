@@ -86,7 +86,7 @@ impl NuCompleter {
                                     working_set.get_span_contents(previous_expr.0).to_vec();
 
                                 // Completion for .nu files
-                                if prev_expr_str == b"use" || prev_expr_str == b"source" {
+                                if prev_expr_str == b"use!" || prev_expr_str == b"source!" {
                                     let mut completer =
                                         DotNuCompletion::new(self.engine_state.clone());
 

@@ -7,7 +7,7 @@ pub struct Register;
 
 impl Command for Register {
     fn name(&self) -> &str {
-        "register"
+        "register!"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +15,7 @@ impl Command for Register {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("register")
+        Signature::build("register!")
             .required(
                 "plugin",
                 SyntaxShape::Filepath,

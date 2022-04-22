@@ -137,7 +137,7 @@ impl Plugin for SubCommand {
                 "the columns to chart [x-axis y-axis]",
             )
             .named(
-                "use",
+                "use!",
                 SyntaxShape::ColumnPath,
                 "column to use for evaluation",
                 Some('u'),
@@ -168,7 +168,7 @@ impl SubCommand {
         let args = call_info.args;
         let name = call_info.name_tag;
 
-        self.eval = if let Some(path) = args.get("use") {
+        self.eval = if let Some(path) = args.get("use!") {
             Some(evaluator(path.as_column_path()?.item))
         } else {
             None

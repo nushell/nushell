@@ -32,7 +32,7 @@ impl Command for Mv {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
             .required(
-                "source",
+                "source!",
                 SyntaxShape::GlobPattern,
                 "the location to move files/directories from",
             )

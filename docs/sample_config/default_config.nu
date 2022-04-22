@@ -121,7 +121,7 @@ module completions {
 }
 
 # Get just the extern definitions without the custom completion commands
-use completions *
+use! completions *
 
 # for more information on themes see
 # https://www.nushell.sh/book/coloring_and_theming.html

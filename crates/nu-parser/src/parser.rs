@@ -4359,17 +4359,7 @@ pub fn parse_expression(
                     spans[0],
                 )),
             ),
-            b"use" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                )
-                .0,
-                Some(ParseError::BuiltinCommandInPipeline("use".into(), spans[0])),
-            ),
-            b"source" => (
+            b"use!" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -4378,7 +4368,20 @@ pub fn parse_expression(
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
-                    "source".into(),
+                    "use!".into(),
+                    spans[0],
+                )),
+            ),
+            b"source!" => (
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
+                Some(ParseError::BuiltinCommandInPipeline(
+                    "source!".into(),
                     spans[0],
                 )),
             ),
@@ -4406,7 +4409,7 @@ pub fn parse_expression(
                 )),
             ),
             #[cfg(feature = "plugin")]
-            b"register" => (
+            b"register!" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -4522,8 +4525,8 @@ pub fn parse_builtin_commands(
         }
         b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
         b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"use" => parse_use(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"use!" => parse_use(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"source!" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => (
             garbage_pipeline(&lite_command.parts),
             Some(ParseError::UnexpectedKeyword(
@@ -4533,7 +4536,7 @@ pub fn parse_builtin_commands(
         ),
         b"hide" => parse_hide(working_set, &lite_command.parts, expand_aliases_denylist),
         #[cfg(feature = "plugin")]
-        b"register" => parse_register(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"register!" => parse_register(working_set, &lite_command.parts, expand_aliases_denylist),
         _ => {
             let (expr, err) =
                 parse_expression(working_set, &lite_command.parts, expand_aliases_denylist);
@@ -5078,7 +5081,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
 
 // Parses a vector of u8 to create an AST Block. If a file name is given, then
 // the name is stored in the working set. When parsing a source without a file
-// name, the source of bytes is stored as "source"
+// name, the source of bytes is stored as "source!"
 pub fn parse(
     working_set: &mut StateWorkingSet,
     fname: Option<&str>,
@@ -5094,7 +5097,7 @@ pub fn parse(
 
     let name = match fname {
         Some(fname) => fname.to_string(),
-        None => "source".to_string(),
+        None => "source!".to_string(),
     };
 
     working_set.add_file(name, contents);

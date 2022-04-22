@@ -9,11 +9,11 @@ pub struct Source;
 
 impl Command for Source {
     fn name(&self) -> &str {
-        "source"
+        "source!"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("source")
+        Signature::build("source!")
             .required(
                 "filename",
                 SyntaxShape::Filepath,
