@@ -18,7 +18,7 @@ fn file_completions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
-    let target_dir = format!("cd {}", dir_str);
+    let target_dir = format!("cp {}", dir_str);
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values
@@ -45,8 +45,34 @@ fn file_completions() {
     match_suggestions(expected_paths, suggestions);
 }
 
+#[test]
+fn folder_completions() {
+    // Create a new engine
+    let (dir, dir_str, engine) = new_engine();
+
+    let stack = Stack::new();
+
+    // Instatiate a new completer
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Test completions for the current folder
+    let target_dir = format!("cd {}", dir_str);
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(dir.join("test_a")),
+        folder(dir.join("test_b")),
+        folder(dir.join("another")),
+        folder(dir.join(".hidden_folder")),
+    ];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+}
+
 // creates a new engine with the current path into the completions fixtures folder
-fn new_engine() -> (PathBuf, String, EngineState) {
+pub fn new_engine() -> (PathBuf, String, EngineState) {
     // Target folder inside assets
     let dir = fs::fixtures().join("completions");
     let mut dir_str = dir
@@ -61,14 +87,14 @@ fn new_engine() -> (PathBuf, String, EngineState) {
 }
 
 // match a list of suggestions with the expected values
-fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
+pub fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
     expected.iter().zip(suggestions).for_each(|it| {
         assert_eq!(it.0, &it.1.value);
     });
 }
 
 // append the separator to the converted path
-fn folder(path: PathBuf) -> String {
+pub fn folder(path: PathBuf) -> String {
     let mut converted_path = file(path);
     converted_path.push(SEP);
 
@@ -76,6 +102,6 @@ fn folder(path: PathBuf) -> String {
 }
 
 // convert a given path to string
-fn file(path: PathBuf) -> String {
+pub fn file(path: PathBuf) -> String {
     path.into_os_string().into_string().unwrap_or_default()
 }

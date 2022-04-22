@@ -29,6 +29,7 @@ pub fn get_shape_color(shape: String, conf: &Config) -> Style {
             "shape_record" => Style::new().fg(Color::Cyan).bold(),
             "shape_block" => Style::new().fg(Color::Blue).bold(),
             "shape_filepath" => Style::new().fg(Color::Cyan),
+            "shape_directory" => Style::new().fg(Color::Cyan),
             "shape_globpattern" => Style::new().fg(Color::Cyan).bold(),
             "shape_variable" => Style::new().fg(Color::Purple),
             "shape_flag" => Style::new().fg(Color::Blue).bold(),

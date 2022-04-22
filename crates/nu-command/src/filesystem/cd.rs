@@ -17,7 +17,7 @@ impl Command for Cd {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
-            .optional("path", SyntaxShape::Filepath, "the path to change to")
+            .optional("path", SyntaxShape::Directory, "the path to change to")
             .category(Category::FileSystem)
     }
 

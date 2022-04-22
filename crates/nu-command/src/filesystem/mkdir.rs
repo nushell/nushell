@@ -21,7 +21,7 @@ impl Command for Mkdir {
         Signature::build("mkdir")
             .rest(
                 "rest",
-                SyntaxShape::Filepath,
+                SyntaxShape::Directory,
                 "the name(s) of the path(s) to create",
             )
             .switch("show-created-paths", "show the path(s) created.", Some('s'))

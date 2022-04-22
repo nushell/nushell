@@ -162,6 +162,7 @@ impl Expression {
             }
             Expr::ImportPattern(_) => false,
             Expr::Filepath(_) => false,
+            Expr::Directory(_) => false,
             Expr::Float(_) => false,
             Expr::FullCellPath(full_cell_path) => {
                 if full_cell_path.head.has_in_variable(working_set) {
@@ -320,6 +321,7 @@ impl Expression {
                 }
             }
             Expr::Filepath(_) => {}
+            Expr::Directory(_) => {}
             Expr::Float(_) => {}
             Expr::FullCellPath(full_cell_path) => {
                 full_cell_path
@@ -467,6 +469,7 @@ impl Expression {
                 }
             }
             Expr::Filepath(_) => {}
+            Expr::Directory(_) => {}
             Expr::Float(_) => {}
             Expr::FullCellPath(full_cell_path) => {
                 full_cell_path
