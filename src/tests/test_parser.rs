@@ -409,3 +409,8 @@ fn unary_not_6() -> TestResult {
 fn date_literal() -> TestResult {
     run_test(r#"2022-09-10 | date to-record | get day"#, "10")
 }
+
+#[test]
+fn and_and_or() -> TestResult {
+    run_test(r#"true and false or true"#, "true")
+}
