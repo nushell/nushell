@@ -1,3 +1,5 @@
-mod sqlite;
+mod commands;
+mod values;
 
-pub use sqlite::SQLiteDatabase;
+pub use commands::add_database_decls;
+use values::SQLiteDatabase;

@@ -1,5 +1,4 @@
 use crate::filesystem::util::BufferedReader;
-use crate::SQLiteDatabase;
 use nu_engine::{eval_block, get_full_help, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -7,7 +6,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Spanned,
     SyntaxShape, Value,
 };
-use std::io::{BufReader, Read, Seek};
+use std::io::BufReader;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -101,7 +100,7 @@ impl Command for Open {
                 Vec::new(),
             ))
         } else {
-            let mut file = match std::fs::File::open(path) {
+            let file = match std::fs::File::open(path) {
                 Ok(file) => file,
                 Err(err) => {
                     return Err(ShellError::GenericError(
@@ -113,25 +112,6 @@ impl Command for Open {
                     ));
                 }
             };
-
-            // Peek at the file to see if we can detect a SQLite database
-            if !raw {
-                let sqlite_magic_bytes = "SQLite format 3\0".as_bytes();
-                let mut buf: [u8; 16] = [0; 16];
-
-                if file.read_exact(&mut buf).is_ok() && buf == sqlite_magic_bytes {
-                    let custom_val = Value::CustomValue {
-                        val: Box::new(SQLiteDatabase::new(path)),
-                        span: call.head,
-                    };
-
-                    return Ok(custom_val.into_pipeline_data());
-                }
-
-                if file.rewind().is_err() {
-                    return Err(ShellError::IOError("Failed to rewind file".into()));
-                };
-            }
 
             let buf_reader = BufReader::new(file);
 

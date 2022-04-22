@@ -5,24 +5,24 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
-use crate::database::SQLiteDatabase;
+use super::super::SQLiteDatabase;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct QueryDb;
 
-impl Command for SubCommand {
+impl Command for QueryDb {
     fn name(&self) -> &str {
-        "query db"
+        "db query"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("query db")
+        Signature::build(self.name())
             .required(
                 "query",
                 SyntaxShape::String,
                 "SQL to execute against the database",
             )
-            .category(Category::Date) // TODO: change category
+            .category(Category::Custom("database".into()))
     }
 
     fn usage(&self) -> &str {
