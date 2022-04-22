@@ -23,7 +23,6 @@ fn file_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.clone().join("nushell")),
         folder(dir.clone().join("test_a")),
         folder(dir.clone().join("test_b")),
         folder(dir.clone().join("another")),
