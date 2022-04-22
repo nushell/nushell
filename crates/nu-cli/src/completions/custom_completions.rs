@@ -34,10 +34,9 @@ impl CustomCompletion {
         offset: usize,
     ) -> Vec<Suggestion> {
         list.filter_map(move |x| {
-            let s = x.as_string();
-
-            match s {
-                Ok(s) => Some(Suggestion {
+            // Match for string values
+            if let Ok(s) = x.as_string() {
+                return Some(Suggestion {
                     value: s,
                     description: None,
                     extra: None,
@@ -45,9 +44,46 @@ impl CustomCompletion {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
-                }),
-                Err(_) => None,
+                });
             }
+
+            // Match for record values
+            if let Ok((cols, vals)) = x.as_record() {
+                let mut suggestion = Suggestion {
+                    value: String::from(""), // Initialize with empty string
+                    description: None,
+                    extra: None,
+                    span: reedline::Span {
+                        start: span.start - offset,
+                        end: span.end - offset,
+                    },
+                };
+
+                // Iterate the cols looking for `value` and `description`
+                cols.iter().zip(vals).for_each(|it| {
+                    // Match `value` column
+                    if it.0 == "value" {
+                        // Convert the value to string
+                        if let Ok(val_str) = it.1.as_string() {
+                            // Update the suggestion value
+                            suggestion.value = val_str;
+                        }
+                    }
+
+                    // Match `description` column
+                    if it.0 == "description" {
+                        // Convert the value to string
+                        if let Ok(desc_str) = it.1.as_string() {
+                            // Update the suggestion value
+                            suggestion.description = Some(desc_str);
+                        }
+                    }
+                });
+
+                return Some(suggestion);
+            }
+
+            None
         })
         .collect()
     }
