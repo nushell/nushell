@@ -4000,8 +4000,8 @@ pub fn parse_operator(
         b"in" => Operator::In,
         b"not-in" => Operator::NotIn,
         b"mod" => Operator::Modulo,
-        b"&&" => Operator::And,
-        b"||" => Operator::Or,
+        b"&&" | b"and" => Operator::And,
+        b"||" | b"or" => Operator::Or,
         b"**" => Operator::Pow,
         _ => {
             return (
