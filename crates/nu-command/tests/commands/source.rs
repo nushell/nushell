@@ -25,7 +25,7 @@ fn sources_also_files_under_custom_lib_dirs_path() {
         nu.within("lib").with_files(vec![FileWithContent(
             "my_library.nu",
             r#"
-                source my_library/main.nu
+                source! my_library/main.nu
             "#,
         )]);
         nu.within("lib/my_library").with_files(vec![FileWithContent(
@@ -40,7 +40,7 @@ fn sources_also_files_under_custom_lib_dirs_path() {
         let actual = nu!(
             cwd: ".", pipeline(
             r#"
-                source my_library.nu ;
+                source! my_library.nu ;
 
                 hello
         "#
@@ -59,7 +59,7 @@ fn try_source_foo_with_double_quotes_in(testdir: &str, playdir: &str) {
         sandbox.mkdir(&testdir);
         sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
-        let cmd = String::from("source ") + r#"""# + &foo_file + r#"""#;
+        let cmd = String::from("source! ") + r#"""# + &foo_file + r#"""#;
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
@@ -76,7 +76,7 @@ fn try_source_foo_with_single_quotes_in(testdir: &str, playdir: &str) {
         sandbox.mkdir(&testdir);
         sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
-        let cmd = String::from("source ") + r#"'"# + &foo_file + r#"'"#;
+        let cmd = String::from("source! ") + r#"'"# + &foo_file + r#"'"#;
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
@@ -93,7 +93,7 @@ fn try_source_foo_without_quotes_in(testdir: &str, playdir: &str) {
         sandbox.mkdir(&testdir);
         sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
-        let cmd = String::from("source ") + &foo_file;
+        let cmd = String::from("source! ") + &foo_file;
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 

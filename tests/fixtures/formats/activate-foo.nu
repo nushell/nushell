@@ -1,1 +1,1 @@
-alias deactivate-foo = source deactivate-foo.nu
+alias deactivate-foo = source! deactivate-foo.nu

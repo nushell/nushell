@@ -64,12 +64,12 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         vec![
             Example {
                 description: "Register `nu_plugin_query` plugin from ~/.cargo/bin/ dir",
-                example: r#"register -e json ~/.cargo/bin/nu_plugin_query"#,
+                example: r#"register! -e json ~/.cargo/bin/nu_plugin_query"#,
                 result: None,
             },
             Example {
                 description: "Register `nu_plugin_query` plugin from `nu -c`(plugin will be available in that nu session only)",
-                example: r#"let plugin = ((which nu).path.0 | path dirname | path join 'nu_plugin_query'); nu -c $'register -e json ($plugin); version'"#,
+                example: r#"let plugin = ((which nu).path.0 | path dirname | path join 'nu_plugin_query'); nu -c $'register! -e json ($plugin); version'"#,
                 result: None,
             },
         ]

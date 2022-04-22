@@ -1836,7 +1836,7 @@ pub fn parse_source(
                                 let mut call_with_block = call;
 
                                 // Adding this expression to the positional creates a syntax highlighting error
-                                // after writing `source example.nu`
+                                // after writing `source! example.nu`
                                 call_with_block.add_positional(Expression {
                                     expr: Expr::Int(block_id as i64),
                                     span: spans[1],
@@ -1876,7 +1876,7 @@ pub fn parse_source(
     (
         garbage_pipeline(spans),
         Some(ParseError::UnknownState(
-            "internal error: source statement unparseable".into(),
+            "internal error: source! statement unparseable".into(),
             span(spans),
         )),
     )

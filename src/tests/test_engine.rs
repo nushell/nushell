@@ -199,7 +199,7 @@ fn def_env_then_hide() -> TestResult {
 #[test]
 fn export_def_env() -> TestResult {
     run_test(
-        r#"module foo { export def-env bob [] { let-env BAR = "BAZ" } }; use foo bob; bob; $env.BAR"#,
+        r#"module foo { export def-env bob [] { let-env BAR = "BAZ" } }; use! foo bob; bob; $env.BAR"#,
         "BAZ",
     )
 }

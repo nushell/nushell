@@ -6,7 +6,7 @@
 # that decode and encode information that is read and written to stdin and stdout
 #
 # To register the plugin use:
-# 	register <path-to-py-file> -e json
+# 	register! <path-to-py-file> -e json
 #
 # Be carefull with the spans. Miette will crash if a span is outside the
 # size of the contents vector. For this example we are using 0 and 1, which will

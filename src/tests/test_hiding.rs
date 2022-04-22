@@ -251,7 +251,7 @@ fn hides_alias_def_and_env_2() -> TestResult {
 #[test]
 fn hides_def_import_1() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam foo; spam foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use! spam; hide spam foo; spam foo"#,
         "", // we just care if it errors
     )
 }
@@ -259,7 +259,7 @@ fn hides_def_import_1() -> TestResult {
 #[test]
 fn hides_def_import_2() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam; spam foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use! spam; hide spam; spam foo"#,
         "", // we just care if it errors
     )
 }
@@ -267,7 +267,7 @@ fn hides_def_import_2() -> TestResult {
 #[test]
 fn hides_def_import_3() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam [foo]; spam foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use! spam; hide spam [foo]; spam foo"#,
         "", // we just care if it errors
     )
 }
@@ -275,7 +275,7 @@ fn hides_def_import_3() -> TestResult {
 #[test]
 fn hides_def_import_4() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam foo; hide foo; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use! spam foo; hide foo; foo"#,
         "", // we just care if it errors
     )
 }
@@ -283,7 +283,7 @@ fn hides_def_import_4() -> TestResult {
 #[test]
 fn hides_def_import_5() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam *; hide foo; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use! spam *; hide foo; foo"#,
         "", // we just care if it errors
     )
 }
@@ -291,7 +291,7 @@ fn hides_def_import_5() -> TestResult {
 #[test]
 fn hides_def_import_6() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam *; hide spam *; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use! spam *; hide spam *; foo"#,
         "", // we just care if it errors
     )
 }
@@ -299,7 +299,7 @@ fn hides_def_import_6() -> TestResult {
 #[test]
 fn hides_def_import_then_reimports() -> TestResult {
     run_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam foo; hide foo; use spam foo; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use! spam foo; hide foo; use! spam foo; foo"#,
         "foo",
     )
 }
@@ -307,7 +307,7 @@ fn hides_def_import_then_reimports() -> TestResult {
 #[test]
 fn hides_alias_import_1() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam; hide spam foo; spam foo"#,
+        r#"module spam { export alias foo = "foo" }; use! spam; hide spam foo; spam foo"#,
         "", // we just care if it errors
     )
 }
@@ -315,7 +315,7 @@ fn hides_alias_import_1() -> TestResult {
 #[test]
 fn hides_alias_import_2() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam; hide spam; spam foo"#,
+        r#"module spam { export alias foo = "foo" }; use! spam; hide spam; spam foo"#,
         "", // we just care if it errors
     )
 }
@@ -323,7 +323,7 @@ fn hides_alias_import_2() -> TestResult {
 #[test]
 fn hides_alias_import_3() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam; hide spam [foo]; spam foo"#,
+        r#"module spam { export alias foo = "foo" }; use! spam; hide spam [foo]; spam foo"#,
         "", // we just care if it errors
     )
 }
@@ -331,7 +331,7 @@ fn hides_alias_import_3() -> TestResult {
 #[test]
 fn hides_alias_import_4() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam foo; hide foo; foo"#,
+        r#"module spam { export alias foo = "foo" }; use! spam foo; hide foo; foo"#,
         "", // we just care if it errors
     )
 }
@@ -339,7 +339,7 @@ fn hides_alias_import_4() -> TestResult {
 #[test]
 fn hides_alias_import_5() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam *; hide foo; foo"#,
+        r#"module spam { export alias foo = "foo" }; use! spam *; hide foo; foo"#,
         "", // we just care if it errors
     )
 }
@@ -347,7 +347,7 @@ fn hides_alias_import_5() -> TestResult {
 #[test]
 fn hides_alias_import_6() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam *; hide spam *; foo"#,
+        r#"module spam { export alias foo = "foo" }; use! spam *; hide spam *; foo"#,
         "", // we just care if it errors
     )
 }
@@ -355,7 +355,7 @@ fn hides_alias_import_6() -> TestResult {
 #[test]
 fn hides_alias_import_then_reimports() -> TestResult {
     run_test(
-        r#"module spam { export alias foo = "foo" }; use spam foo; hide foo; use spam foo; foo"#,
+        r#"module spam { export alias foo = "foo" }; use! spam foo; hide foo; use! spam foo; foo"#,
         "foo",
     )
 }
@@ -363,7 +363,7 @@ fn hides_alias_import_then_reimports() -> TestResult {
 #[test]
 fn hides_env_import_1() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam; hide spam foo; $env.'spam foo'"#,
+        r#"module spam { export env foo { "foo" } }; use! spam; hide spam foo; $env.'spam foo'"#,
         "did you mean",
     )
 }
@@ -371,7 +371,7 @@ fn hides_env_import_1() -> TestResult {
 #[test]
 fn hides_env_import_2() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam; hide spam; $env.'spam foo'"#,
+        r#"module spam { export env foo { "foo" } }; use! spam; hide spam; $env.'spam foo'"#,
         "did you mean",
     )
 }
@@ -379,7 +379,7 @@ fn hides_env_import_2() -> TestResult {
 #[test]
 fn hides_env_import_3() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam; hide spam [foo]; $env.'spam foo'"#,
+        r#"module spam { export env foo { "foo" } }; use! spam; hide spam [foo]; $env.'spam foo'"#,
         "did you mean",
     )
 }
@@ -387,7 +387,7 @@ fn hides_env_import_3() -> TestResult {
 #[test]
 fn hides_env_import_4() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam foo; hide foo; $env.foo"#,
+        r#"module spam { export env foo { "foo" } }; use! spam foo; hide foo; $env.foo"#,
         "did you mean",
     )
 }
@@ -395,7 +395,7 @@ fn hides_env_import_4() -> TestResult {
 #[test]
 fn hides_env_import_5() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam *; hide foo; $env.foo"#,
+        r#"module spam { export env foo { "foo" } }; use! spam *; hide foo; $env.foo"#,
         "did you mean",
     )
 }
@@ -403,7 +403,7 @@ fn hides_env_import_5() -> TestResult {
 #[test]
 fn hides_env_import_6() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam *; hide spam *; $env.foo"#,
+        r#"module spam { export env foo { "foo" } }; use! spam *; hide spam *; $env.foo"#,
         "did you mean",
     )
 }
@@ -411,7 +411,7 @@ fn hides_env_import_6() -> TestResult {
 #[test]
 fn hides_def_runs_env_import() -> TestResult {
     run_test(
-        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use spam foo; hide foo; $env.foo"#,
+        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use! spam foo; hide foo; $env.foo"#,
         "foo",
     )
 }
@@ -419,7 +419,7 @@ fn hides_def_runs_env_import() -> TestResult {
 #[test]
 fn hides_def_and_env_import_1() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use spam foo; hide foo; hide foo; $env.foo"#,
+        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use! spam foo; hide foo; hide foo; $env.foo"#,
         "did you mean",
     )
 }
@@ -427,7 +427,7 @@ fn hides_def_and_env_import_1() -> TestResult {
 #[test]
 fn hides_def_and_env_import_2() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use spam foo; hide foo; hide foo; foo"#,
+        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use! spam foo; hide foo; hide foo; foo"#,
         "", // we just care if it errors
     )
 }
@@ -435,7 +435,7 @@ fn hides_def_and_env_import_2() -> TestResult {
 #[test]
 fn use_def_import_after_hide() -> TestResult {
     run_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam foo; hide foo; use spam foo; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use! spam foo; hide foo; use! spam foo; foo"#,
         "foo",
     )
 }
@@ -443,7 +443,7 @@ fn use_def_import_after_hide() -> TestResult {
 #[test]
 fn use_env_import_after_hide() -> TestResult {
     run_test(
-        r#"module spam { export env foo { "foo" } }; use spam foo; hide foo; use spam foo; $env.foo"#,
+        r#"module spam { export env foo { "foo" } }; use! spam foo; hide foo; use! spam foo; $env.foo"#,
         "foo",
     )
 }
@@ -451,7 +451,7 @@ fn use_env_import_after_hide() -> TestResult {
 #[test]
 fn hide_shadowed_decl() -> TestResult {
     run_test(
-        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; do { use spam foo; hide foo; foo }"#,
+        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; do { use! spam foo; hide foo; foo }"#,
         "foo",
     )
 }
@@ -459,7 +459,7 @@ fn hide_shadowed_decl() -> TestResult {
 #[test]
 fn hide_shadowed_env() -> TestResult {
     run_test(
-        r#"module spam { export env foo { "bar" } }; let-env foo = "foo"; do { use spam foo; hide foo; $env.foo }"#,
+        r#"module spam { export env foo { "bar" } }; let-env foo = "foo"; do { use! spam foo; hide foo; $env.foo }"#,
         "foo",
     )
 }
@@ -467,7 +467,7 @@ fn hide_shadowed_env() -> TestResult {
 #[test]
 fn hides_all_decls_within_scope() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; use spam foo; hide foo; foo"#,
+        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; use! spam foo; hide foo; foo"#,
         "", // we just care if it errors
     )
 }
@@ -475,7 +475,7 @@ fn hides_all_decls_within_scope() -> TestResult {
 #[test]
 fn hides_all_envs_within_scope() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "bar" } }; let-env foo = "foo"; use spam foo; hide foo; $env.foo"#,
+        r#"module spam { export env foo { "bar" } }; let-env foo = "foo"; use! spam foo; hide foo; $env.foo"#,
         "did you mean",
     )
 }

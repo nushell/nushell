@@ -322,7 +322,7 @@ impl EngineState {
                             // This information will be used when loading the plugin
                             // information when nushell starts
                             format!(
-                                "register {} -e {} {} {}\n\n",
+                                "register! {} -e {} {} {}\n\n",
                                 file_name, encoding, shell_str, signature
                             )
                         })

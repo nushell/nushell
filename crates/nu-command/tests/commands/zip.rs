@@ -28,7 +28,7 @@ fn zips_two_tables() {
             cwd: ".", pipeline(
             &format!(
                 r#"
-                source {} ;
+                source! {} ;
 
                 let contributors = ([
                   [name, commits];

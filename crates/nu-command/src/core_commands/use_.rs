@@ -141,7 +141,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         vec![
             Example {
                 description: "Define a custom command in a module and call it",
-                example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
+                example: r#"module spam { export def foo [] { "foo" } }; use! spam foo; foo"#,
                 result: Some(Value::String {
                     val: "foo".to_string(),
                     span: Span::test_data(),
@@ -149,7 +149,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             },
             Example {
                 description: "Define an environment variable in a module and evaluate it",
-                example: r#"module foo { export env FOO_ENV { "BAZ" } }; use foo FOO_ENV; $env.FOO_ENV"#,
+                example: r#"module foo { export env FOO_ENV { "BAZ" } }; use! foo FOO_ENV; $env.FOO_ENV"#,
                 result: Some(Value::String {
                     val: "BAZ".to_string(),
                     span: Span::test_data(),
@@ -157,7 +157,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             },
             Example {
                 description: "Define a custom command that participates in the environment in a module and call it",
-                example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
+                example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use! foo bar; bar; $env.FOO_BAR"#,
                 result: Some(Value::String {
                     val: "BAZ".to_string(),
                     span: Span::test_data(),

@@ -12,7 +12,7 @@ def e [arg] {echo $arg}
         fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
         let actual = nu!(
             cwd: dirs.root(),
-            "source def_test; help e | to json -r"
+            "source! def_test; help e | to json -r"
         );
 
         assert!(actual.out.contains("My echo\\n\\n"));
