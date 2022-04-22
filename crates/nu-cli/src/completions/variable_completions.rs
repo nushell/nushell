@@ -1,8 +1,10 @@
 use crate::completions::Completer;
+use nu_engine::eval_variable;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span, Value,
 };
+
 use reedline::Suggestion;
 use std::sync::Arc;
 
@@ -63,6 +65,48 @@ impl Completer for VariableCompletion {
                 }
 
                 return output;
+            }
+
+            // Completions for $nu.<tab>
+            if var_str.as_str() == "$nu" {
+                // Eval nu var
+                if let Ok(nuval) = eval_variable(
+                    &self.engine_state,
+                    &self.stack,
+                    nu_protocol::NU_VARIABLE_ID,
+                    nu_protocol::Span {
+                        start: current_span.start,
+                        end: current_span.end,
+                    },
+                ) {
+                    // Find recursively the values for sublevels
+                    // if no sublevels are set it returns the current value
+                    let value = recursive_value(nuval, self.var_context.1.clone());
+
+                    match value {
+                        Value::Record {
+                            cols,
+                            vals: _,
+                            span: _,
+                        } => {
+                            // Add all the columns as completion
+                            for item in cols {
+                                output.push(Suggestion {
+                                    value: item,
+                                    description: None,
+                                    extra: None,
+                                    span: current_span,
+                                });
+                            }
+
+                            return output;
+                        }
+
+                        _ => {
+                            return output;
+                        }
+                    }
+                }
             }
 
             // Completion other variable types
