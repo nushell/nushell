@@ -2377,7 +2377,6 @@ name = "nu-engine"
 version = "0.61.1"
 dependencies = [
  "chrono",
- "itertools",
  "nu-glob",
  "nu-path",
  "nu-protocol",
