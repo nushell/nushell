@@ -6,15 +6,12 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
     let path = path.as_ref();
 
     if !path.starts_with("~") {
+        let string = path.to_string_lossy();
+        let mut path_as_string = string.as_ref().chars();
+        if path_as_string.next().unwrap() == '~' {
+            return expand_tilde_with_another_user_home(path);
+        }
         return path.into();
-    }
-
-    if !(path.starts_with("~/")
-        || path.starts_with("~\\")
-        || path.strip_prefix("~") == Ok(Path::new("")))
-    {
-        return expand_tilde_with_another_user_home(path);
-        // these checks ensure that the path is ~user format.
     }
 
     match home {
