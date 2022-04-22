@@ -45,6 +45,7 @@ pub struct Config {
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
     pub rm_always_trash: bool,
+    pub shell_integration: bool,
 }
 
 impl Default for Config {
@@ -69,6 +70,7 @@ impl Default for Config {
             keybindings: Vec::new(),
             menus: Vec::new(),
             rm_always_trash: false,
+            shell_integration: false,
         }
     }
 }
@@ -236,6 +238,14 @@ impl Value {
                             eprintln!("{:?}", e);
                         }
                     },
+                    "shell_integration" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.shell_integration = b;
+                        } else {
+                            eprintln!("$config.shell_integration is not a bool")
+                        }
+                    }
+
                     x => {
                         eprintln!("$config.{} is an unknown config setting", x)
                     }

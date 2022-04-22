@@ -21,6 +21,9 @@ use reedline::{DefaultHinter, Emacs, Vi};
 use std::path::PathBuf;
 use std::{sync::atomic::Ordering, time::Instant};
 
+const PROMPT_MARKER_BEFORE_CMD: &str = "\x1b]133;C\x1b\\"; // OSC 133;C ST
+const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
+
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -210,10 +213,16 @@ pub fn evaluate_repl(
 
         let input = line_editor.read_line(prompt);
 
-        if config.use_ansi_coloring {
+        if config.shell_integration {
             // Just before running a command/program, send the escape code (see
             // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
-            print!("\x1b]133;C\x1b\\");
+            let mut ansi_escapes = String::from(PROMPT_MARKER_BEFORE_CMD);
+            ansi_escapes.push_str(RESET_APPLICATION_MODE);
+            // if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+            //     let path = cwd.as_string()?;
+            //     ansi_escapes.push_str(&format!("\x1b]2;{}\\a", path));
+            // }
+            print!("{}", ansi_escapes);
         }
 
         match input {
