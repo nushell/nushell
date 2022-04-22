@@ -22,7 +22,7 @@ impl Command for SubCommand {
                 SyntaxShape::String,
                 "SQL to execute against the database",
             )
-            .category(Category::Date) // TODO: change category
+            .category(Category::Query)
     }
 
     fn usage(&self) -> &str {
