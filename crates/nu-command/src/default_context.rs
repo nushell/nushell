@@ -361,9 +361,12 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ViewSource,
         };
 
-        // Database-related
+        // Query
         bind_command! {
-            QueryDb
+            Query,
+            QueryDb,
+            QueryJson,
+            QueryXml,
         };
 
         // Deprecated

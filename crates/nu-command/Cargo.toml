@@ -24,7 +24,10 @@ nu-term-grid = { path = "../nu-term-grid", version = "0.61.1"  }
 nu-test-support = { path = "../nu-test-support", version = "0.61.1"  }
 nu-utils = { path = "../nu-utils", version = "0.61.1" }
 nu-ansi-term = "0.45.1"
+gjson = "0.8.0"
 rusqlite = { version = "0.27.0", features = ["bundled"] }
+sxd-document = "0.3.2"
+sxd-xpath = "0.4.2"
 
 # Potential dependencies for extras
 base64 = "0.13.0"
