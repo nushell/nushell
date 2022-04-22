@@ -25,6 +25,7 @@ pub enum FlatShape {
     Record,
     Block,
     Filepath,
+    Directory,
     DateTime,
     GlobPattern,
     Variable,
@@ -56,6 +57,7 @@ impl Display for FlatShape {
             FlatShape::Record => write!(f, "shape_record"),
             FlatShape::Block => write!(f, "shape_block"),
             FlatShape::Filepath => write!(f, "shape_filepath"),
+            FlatShape::Directory => write!(f, "shape_directory"),
             FlatShape::GlobPattern => write!(f, "shape_globpattern"),
             FlatShape::Variable => write!(f, "shape_variable"),
             FlatShape::Flag => write!(f, "shape_flag"),
@@ -278,6 +280,9 @@ pub fn flatten_expression(
         }
         Expr::Filepath(_) => {
             vec![(expr.span, FlatShape::Filepath)]
+        }
+        Expr::Directory(_) => {
+            vec![(expr.span, FlatShape::Directory)]
         }
         Expr::GlobPattern(_) => {
             vec![(expr.span, FlatShape::GlobPattern)]

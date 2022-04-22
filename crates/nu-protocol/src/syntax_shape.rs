@@ -34,6 +34,9 @@ pub enum SyntaxShape {
     /// A filepath is allowed
     Filepath,
 
+    /// A directory is allowed
+    Directory,
+
     /// A glob pattern is allowed, eg `foo*`
     GlobPattern,
 
@@ -105,6 +108,7 @@ impl SyntaxShape {
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Any,
             SyntaxShape::Filepath => Type::String,
+            SyntaxShape::Directory => Type::String,
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Any,
             SyntaxShape::GlobPattern => Type::String,
@@ -145,6 +149,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Range => write!(f, "range"),
             SyntaxShape::Int => write!(f, "int"),
             SyntaxShape::Filepath => write!(f, "path"),
+            SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
             SyntaxShape::ImportPattern => write!(f, "import"),
             SyntaxShape::Block(_) => write!(f, "block"),
