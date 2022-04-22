@@ -1,7 +1,7 @@
 use super::{Command, Stack};
 use crate::{
-    ast::Block, AliasId, BlockId, Config, DeclId, Example, Overlay, OverlayId, ShellError,
-    Signature, Span, Type, VarId, Variable,
+    ast::Block, AliasId, BlockId, Config, DeclId, Example, Module, ModuleId, ShellError, Signature,
+    Span, Type, VarId, Variable,
 };
 use core::panic;
 use std::{
@@ -24,7 +24,6 @@ static PWD_ENV: &str = "PWD";
 pub struct Visibility {
     decl_ids: HashMap<DeclId, bool>,
     alias_ids: HashMap<AliasId, bool>,
-    overlay_ids: HashMap<OverlayId, bool>
 }
 
 impl Visibility {
@@ -32,7 +31,6 @@ impl Visibility {
         Visibility {
             decl_ids: HashMap::new(),
             alias_ids: HashMap::new(),
-            overlay_ids: HashMap::new(),
         }
     }
 
@@ -44,20 +42,12 @@ impl Visibility {
         *self.alias_ids.get(alias_id).unwrap_or(&true) // by default it's visible
     }
 
-    pub fn is_overlay_id_visible(&self, overlay_id: &OverlayId) -> bool {
-        *self.overlay_ids.get(overlay_id).unwrap_or(&true) // by default it's visible
-    }
-
     fn hide_decl_id(&mut self, decl_id: &DeclId) {
         self.decl_ids.insert(*decl_id, false);
     }
 
     fn hide_alias_id(&mut self, alias_id: &AliasId) {
         self.alias_ids.insert(*alias_id, false);
-    }
-
-    fn hide_overlay_id(&mut self, overlay_id: &OverlayId) {
-        self.overlay_ids.insert(*overlay_id, false);
     }
 
     fn use_decl_id(&mut self, decl_id: &DeclId) {
@@ -68,15 +58,10 @@ impl Visibility {
         self.alias_ids.insert(*alias_id, true);
     }
 
-    fn use_overlay_id(&mut self, overlay_id: &OverlayId) {
-        self.overlay_ids.insert(*overlay_id, true);
-    }
-
     pub fn merge_with(&mut self, other: Visibility) {
         // overwrite own values with the other
         self.decl_ids.extend(other.decl_ids);
         self.alias_ids.extend(other.alias_ids);
-        self.overlay_ids.extend(other.overlay_ids);
         // self.env_var_ids.extend(other.env_var_ids);
     }
 
@@ -109,7 +94,7 @@ pub struct ScopeFrame {
     pub decls: HashMap<Vec<u8>, DeclId>,
     pub aliases: HashMap<Vec<u8>, AliasId>,
     pub env_vars: HashMap<Vec<u8>, BlockId>,
-    pub overlays: HashMap<Vec<u8>, OverlayId>,
+    pub modules: HashMap<Vec<u8>, ModuleId>,
     pub visibility: Visibility,
     overlay_frames: Vec<OverlayFrame>,
 }
@@ -122,7 +107,7 @@ impl ScopeFrame {
             decls: HashMap::new(),
             aliases: HashMap::new(),
             env_vars: HashMap::new(),
-            overlays: HashMap::new(),
+            modules: HashMap::new(),
             visibility: Visibility::new(),
             overlay_frames: vec![],
         }
@@ -147,7 +132,7 @@ pub struct OverlayFrame {
     pub decls: HashMap<Vec<u8>, DeclId>,
     pub aliases: HashMap<Vec<u8>, AliasId>,
     pub env_vars: HashMap<Vec<u8>, BlockId>,
-    pub overlays: HashMap<Vec<u8>, OverlayId>,
+    pub modules: HashMap<Vec<u8>, ModuleId>,
     pub visibility: Visibility,
 }
 
@@ -160,7 +145,7 @@ impl OverlayFrame {
             decls: HashMap::new(),
             aliases: HashMap::new(),
             env_vars: HashMap::new(),
-            overlays: HashMap::new(),
+            modules: HashMap::new(),
             visibility: Visibility::new(),
         }
     }
@@ -216,7 +201,7 @@ pub struct EngineState {
     decls: Vec<Box<dyn Command + 'static>>,
     aliases: Vec<Vec<Span>>,
     blocks: Vec<Block>,
-    overlays: Vec<Overlay>,
+    modules: Vec<Module>,
     pub scope: Vec<ScopeFrame>,
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub env_vars: HashMap<String, Value>,
@@ -245,7 +230,7 @@ impl EngineState {
             decls: vec![],
             aliases: vec![],
             blocks: vec![],
-            overlays: vec![],
+            modules: vec![],
             scope: vec![ScopeFrame::new()],
             ctrlc: None,
             env_vars: HashMap::new(),
@@ -275,7 +260,7 @@ impl EngineState {
         self.aliases.extend(delta.aliases);
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
-        self.overlays.extend(delta.overlays);
+        self.modules.extend(delta.modules);
 
         if let Some(last) = self.scope.last_mut() {
             let first = delta.scope.remove(0);
@@ -288,8 +273,8 @@ impl EngineState {
             for item in first.aliases.into_iter() {
                 last.aliases.insert(item.0, item.1);
             }
-            for item in first.overlays.into_iter() {
-                last.overlays.insert(item.0, item.1);
+            for item in first.modules.into_iter() {
+                last.modules.insert(item.0, item.1);
             }
 
             for item in first.overlay_frames.into_iter() {
@@ -405,8 +390,8 @@ impl EngineState {
         self.blocks.len()
     }
 
-    pub fn num_overlays(&self) -> usize {
-        self.overlays.len()
+    pub fn num_modules(&self) -> usize {
+        self.modules.len()
     }
 
     pub fn print_vars(&self) {
@@ -483,10 +468,10 @@ impl EngineState {
         plugin_decls.into_iter().map(|(_, decl)| decl)
     }
 
-    pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
+    pub fn find_module(&self, name: &[u8]) -> Option<ModuleId> {
         for scope in self.scope.iter().rev() {
-            if let Some(overlay_id) = scope.overlays.get(name) {
-                return Some(*overlay_id);
+            if let Some(module_id) = scope.modules.get(name) {
+                return Some(*module_id);
             }
         }
 
@@ -619,10 +604,10 @@ impl EngineState {
             .expect("internal error: missing block")
     }
 
-    pub fn get_overlay(&self, overlay_id: OverlayId) -> &Overlay {
-        self.overlays
-            .get(overlay_id)
-            .expect("internal error: missing overlay")
+    pub fn get_module(&self, module_id: ModuleId) -> &Module {
+        self.modules
+            .get(module_id)
+            .expect("internal error: missing module")
     }
 
     pub fn next_span_start(&self) -> usize {
@@ -703,7 +688,7 @@ pub struct StateDelta {
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
     aliases: Vec<Vec<Span>>,      // indexed by AliasId
     pub blocks: Vec<Block>,       // indexed by BlockId
-    overlays: Vec<Overlay>,       // indexed by OverlayId
+    modules: Vec<Module>,         // indexed by ModuleId
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
     plugins_changed: bool, // marks whether plugin file should be updated
@@ -724,7 +709,7 @@ impl StateDelta {
             decls: vec![],
             aliases: vec![],
             blocks: vec![],
-            overlays: vec![],
+            modules: vec![],
             scope: vec![ScopeFrame::new()],
             #[cfg(feature = "plugin")]
             plugins_changed: false,
@@ -747,8 +732,8 @@ impl StateDelta {
         self.blocks.len()
     }
 
-    pub fn num_overlays(&self) -> usize {
-        self.overlays.len()
+    pub fn num_modules(&self) -> usize {
+        self.modules.len()
     }
 
     pub fn enter_scope(&mut self) {
@@ -785,8 +770,8 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.num_blocks() + self.permanent_state.num_blocks()
     }
 
-    pub fn num_overlays(&self) -> usize {
-        self.delta.num_overlays() + self.permanent_state.num_overlays()
+    pub fn num_modules(&self) -> usize {
+        self.delta.num_modules() + self.permanent_state.num_modules()
     }
 
     pub fn add_decl(&mut self, decl: Box<dyn Command>) -> DeclId {
@@ -1026,11 +1011,11 @@ impl<'a> StateWorkingSet<'a> {
         block_id
     }
 
-    pub fn add_overlay(&mut self, name: &str, overlay: Overlay) -> OverlayId {
+    pub fn add_module(&mut self, name: &str, module: Module) -> ModuleId {
         let name = name.as_bytes().to_vec();
 
-        self.delta.overlays.push(overlay);
-        let overlay_id = self.num_overlays() - 1;
+        self.delta.modules.push(module);
+        let module_id = self.num_modules() - 1;
 
         let scope_frame = self
             .delta
@@ -1038,9 +1023,9 @@ impl<'a> StateWorkingSet<'a> {
             .last_mut()
             .expect("internal error: missing required scope frame");
 
-        scope_frame.overlays.insert(name, overlay_id);
+        scope_frame.modules.insert(name, module_id);
 
-        overlay_id
+        module_id
     }
 
     pub fn next_span_start(&self) -> usize {
@@ -1224,16 +1209,16 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
+    pub fn find_module(&self, name: &[u8]) -> Option<ModuleId> {
         for scope in self.delta.scope.iter().rev() {
-            if let Some(overlay_id) = scope.overlays.get(name) {
-                return Some(*overlay_id);
+            if let Some(module_id) = scope.modules.get(name) {
+                return Some(*module_id);
             }
         }
 
         for scope in self.permanent_state.scope.iter().rev() {
-            if let Some(overlay_id) = scope.overlays.get(name) {
-                return Some(*overlay_id);
+            if let Some(module_id) = scope.modules.get(name) {
+                return Some(*module_id);
             }
         }
 
@@ -1450,15 +1435,15 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn get_overlay(&self, overlay_id: OverlayId) -> &Overlay {
-        let num_permanent_overlays = self.permanent_state.num_overlays();
-        if overlay_id < num_permanent_overlays {
-            self.permanent_state.get_overlay(overlay_id)
+    pub fn get_module(&self, module_id: ModuleId) -> &Module {
+        let num_permanent_modules = self.permanent_state.num_modules();
+        if module_id < num_permanent_modules {
+            self.permanent_state.get_module(module_id)
         } else {
             self.delta
-                .overlays
-                .get(overlay_id - num_permanent_overlays)
-                .expect("internal error: missing overlay")
+                .modules
+                .get(module_id - num_permanent_modules)
+                .expect("internal error: missing module")
         }
     }
 
@@ -1474,7 +1459,7 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn lay_overlay(
+    pub fn add_overlay(
         &mut self,
         decls: Vec<(Vec<u8>, DeclId)>,
         aliases: Vec<(Vec<u8>, AliasId)>,
@@ -1487,9 +1472,7 @@ impl<'a> StateWorkingSet<'a> {
             .expect("internal error: missing required scope frame");
 
         // TODO: If the same overlay is being added twice, remove the original one
-        scope_frame
-            .overlay_frames
-            .push(OverlayFrame::new(name));
+        scope_frame.overlay_frames.push(OverlayFrame::new(name));
 
         self.use_decls(decls);
         self.use_aliases(aliases);

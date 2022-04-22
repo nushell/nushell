@@ -74,11 +74,11 @@ impl Command for ViewSource {
                             Vec::new(),
                         ))
                     }
-                } else if let Some(overlay_id) = engine_state.find_overlay(val.as_bytes()) {
+                } else if let Some(module_id) = engine_state.find_module(val.as_bytes()) {
                     // arg is a module
-                    let overlay = engine_state.get_overlay(overlay_id);
-                    if let Some(overlay_span) = overlay.span {
-                        let contents = engine_state.get_span_contents(&overlay_span);
+                    let module = engine_state.get_module(module_id);
+                    if let Some(module_span) = module.span {
+                        let contents = engine_state.get_span_contents(&module_span);
                         Ok(Value::string(String::from_utf8_lossy(contents), call.head)
                             .into_pipeline_data())
                     } else {

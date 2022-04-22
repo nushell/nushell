@@ -782,19 +782,19 @@ pub fn create_scope(
     let mut vars = vec![];
     let mut commands = vec![];
     let mut aliases = vec![];
-    let mut overlays = vec![];
+    let mut modules = vec![];
 
     let mut vars_map = HashMap::new();
     let mut commands_map = HashMap::new();
     let mut aliases_map = HashMap::new();
-    let mut overlays_map = HashMap::new();
+    let mut modules_map = HashMap::new();
     let mut visibility = Visibility::new();
 
     for frame in &engine_state.scope {
         vars_map.extend(&frame.vars);
         commands_map.extend(&frame.decls);
         aliases_map.extend(&frame.aliases);
-        overlays_map.extend(&frame.overlays);
+        modules_map.extend(&frame.modules);
 
         visibility.merge_with(frame.visibility.clone());
     }
@@ -822,14 +822,14 @@ pub fn create_scope(
             let mut cols = vec![];
             let mut vals = vec![];
 
-            let mut overlay_commands = vec![];
-            for overlay in &overlays_map {
-                let overlay_name = String::from_utf8_lossy(*overlay.0).to_string();
-                let overlay_id = engine_state.find_overlay(*overlay.0);
-                if let Some(overlay_id) = overlay_id {
-                    let overlay = engine_state.get_overlay(overlay_id);
-                    if overlay.has_decl(command_name) {
-                        overlay_commands.push(overlay_name);
+            let mut module_commands = vec![];
+            for module in &modules_map {
+                let module_name = String::from_utf8_lossy(*module.0).to_string();
+                let module_id = engine_state.find_module(*module.0);
+                if let Some(module_id) = module_id {
+                    let module = engine_state.get_module(module_id);
+                    if module.has_decl(command_name) {
+                        module_commands.push(module_name);
                     }
                 }
             }
@@ -841,7 +841,7 @@ pub fn create_scope(
             });
 
             cols.push("module_name".into());
-            vals.push(Value::string(overlay_commands.join(", "), span));
+            vals.push(Value::string(module_commands.join(", "), span));
 
             let decl = engine_state.get_decl(*decl_id);
             let signature = decl.signature();
@@ -1108,9 +1108,9 @@ pub fn create_scope(
         }
     }
 
-    for overlay in overlays_map {
-        overlays.push(Value::String {
-            val: String::from_utf8_lossy(overlay.0).to_string(),
+    for module in modules_map {
+        modules.push(Value::String {
+            val: String::from_utf8_lossy(module.0).to_string(),
             span,
         });
     }
@@ -1155,10 +1155,10 @@ pub fn create_scope(
         span,
     });
 
-    overlays.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    output_cols.push("overlays".to_string());
+    modules.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    output_cols.push("modules".to_string());
     output_vals.push(Value::List {
-        vals: overlays,
+        vals: modules,
         span,
     });
 

@@ -55,20 +55,20 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             ));
         };
 
-        if let Some(overlay_id) = import_pattern.head.id {
-            let overlay = engine_state.get_overlay(overlay_id);
+        if let Some(module_id) = import_pattern.head.id {
+            let module = engine_state.get_module(module_id);
 
             let env_vars_to_use = if import_pattern.members.is_empty() {
-                overlay.env_vars_with_head(&import_pattern.head.name)
+                module.env_vars_with_head(&import_pattern.head.name)
             } else {
                 match &import_pattern.members[0] {
-                    ImportPatternMember::Glob { .. } => overlay.env_vars(),
+                    ImportPatternMember::Glob { .. } => module.env_vars(),
                     ImportPatternMember::Name { name, span } => {
                         let mut output = vec![];
 
-                        if let Some(id) = overlay.get_env_var_id(name) {
+                        if let Some(id) = module.get_env_var_id(name) {
                             output.push((name.clone(), id));
-                        } else if !overlay.has_decl(name) && !overlay.has_alias(name) {
+                        } else if !module.has_decl(name) && !module.has_alias(name) {
                             return Err(ShellError::EnvVarNotFoundAtRuntime(
                                 String::from_utf8_lossy(name).into(),
                                 *span,
@@ -81,9 +81,9 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
                         let mut output = vec![];
 
                         for (name, span) in names {
-                            if let Some(id) = overlay.get_env_var_id(name) {
+                            if let Some(id) = module.get_env_var_id(name) {
                                 output.push((name.clone(), id));
-                            } else if !overlay.has_decl(name) && !overlay.has_alias(name) {
+                            } else if !module.has_decl(name) && !module.has_alias(name) {
                                 return Err(ShellError::EnvVarNotFoundAtRuntime(
                                     String::from_utf8_lossy(name).into(),
                                     *span,

@@ -1,4 +1,4 @@
-use nu_engine::{CallExt, eval_block};
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, Expr, Expression, ImportPatternMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -6,21 +6,29 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Lay;
+pub struct OverlayAdd;
 
-impl Command for Lay {
+impl Command for OverlayAdd {
     fn name(&self) -> &str {
-        "lay"
+        "overlay add"
     }
 
     fn usage(&self) -> &str {
-        "Lay definitions from a module"
+        "Add definitions from a module as an overlay"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("lay")
-            .required("name", SyntaxShape::String, "Module name to create overlay for")
-            .switch("prefix", "Prepend module name to the imported symbols", Some('p'))
+        Signature::build("overlay add")
+            .required(
+                "name",
+                SyntaxShape::String,
+                "Module name to create overlay for",
+            )
+            .switch(
+                "prefix",
+                "Prepend module name to the imported symbols",
+                Some('p'),
+            )
             .category(Category::Core)
     }
 
@@ -42,7 +50,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
     ) -> Result<PipelineData, ShellError> {
         let name: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-        println!("Laying {}", name.item);
+        println!("Adding {}", name.item);
 
         // if let Some(overlay_id) = import_pattern.head.id {
         //     let overlay = engine_state.get_overlay(overlay_id);
@@ -126,30 +134,42 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
 
     fn examples(&self) -> Vec<Example> {
         vec![
-            Example {
-                description: "Define a custom command in a module and call it",
-                example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
-                result: Some(Value::String {
-                    val: "foo".to_string(),
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Define an environment variable in a module and evaluate it",
-                example: r#"module foo { export env FOO_ENV { "BAZ" } }; use foo FOO_ENV; $env.FOO_ENV"#,
-                result: Some(Value::String {
-                    val: "BAZ".to_string(),
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Define a custom command that participates in the environment in a module and call it",
-                example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
-                result: Some(Value::String {
-                    val: "BAZ".to_string(),
-                    span: Span::test_data(),
-                }),
-            },
+            // Example {
+            //     description: "Define a custom command in a module and call it",
+            //     example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
+            //     result: Some(Value::String {
+            //         val: "foo".to_string(),
+            //         span: Span::test_data(),
+            //     }),
+            // },
+            // Example {
+            //     description: "Define an environment variable in a module and evaluate it",
+            //     example: r#"module foo { export env FOO_ENV { "BAZ" } }; use foo FOO_ENV; $env.FOO_ENV"#,
+            //     result: Some(Value::String {
+            //         val: "BAZ".to_string(),
+            //         span: Span::test_data(),
+            //     }),
+            // },
+            // Example {
+            //     description: "Define a custom command that participates in the environment in a module and call it",
+            //     example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
+            //     result: Some(Value::String {
+            //         val: "BAZ".to_string(),
+            //         span: Span::test_data(),
+            //     }),
+            // },
         ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(OverlayAdd {})
     }
 }

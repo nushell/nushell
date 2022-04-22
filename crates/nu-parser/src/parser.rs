@@ -18,7 +18,8 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_use, parse_lay,
+    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_overlay,
+    parse_use,
 };
 
 use log::trace;
@@ -2642,7 +2643,7 @@ pub fn parse_import_pattern(
         );
     };
 
-    let maybe_overlay_id = working_set.find_overlay(&head);
+    let maybe_module_id = working_set.find_module(&head);
 
     let (import_pattern, err) = if let Some(tail_span) = spans.get(1) {
         // FIXME: expand this to handle deeper imports once we support module imports
@@ -2652,7 +2653,7 @@ pub fn parse_import_pattern(
                 ImportPattern {
                     head: ImportPatternHead {
                         name: head,
-                        id: maybe_overlay_id,
+                        id: maybe_module_id,
                         span: *head_span,
                     },
                     members: vec![ImportPatternMember::Glob { span: *tail_span }],
@@ -2685,7 +2686,7 @@ pub fn parse_import_pattern(
                         ImportPattern {
                             head: ImportPatternHead {
                                 name: head,
-                                id: maybe_overlay_id,
+                                id: maybe_module_id,
                                 span: *head_span,
                             },
                             members: vec![ImportPatternMember::List { names: output }],
@@ -2698,7 +2699,7 @@ pub fn parse_import_pattern(
                     ImportPattern {
                         head: ImportPatternHead {
                             name: head,
-                            id: maybe_overlay_id,
+                            id: maybe_module_id,
                             span: *head_span,
                         },
                         members: vec![],
@@ -2713,7 +2714,7 @@ pub fn parse_import_pattern(
                 ImportPattern {
                     head: ImportPatternHead {
                         name: head,
-                        id: maybe_overlay_id,
+                        id: maybe_module_id,
                         span: *head_span,
                     },
                     members: vec![ImportPatternMember::Name {
@@ -2730,7 +2731,7 @@ pub fn parse_import_pattern(
             ImportPattern {
                 head: ImportPatternHead {
                     name: head,
-                    id: maybe_overlay_id,
+                    id: maybe_module_id,
                     span: *head_span,
                 },
                 members: vec![],
@@ -4340,7 +4341,7 @@ pub fn parse_expression(
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("use".into(), spans[0])),
             ),
-            b"lay" => (
+            b"overlay" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -4348,7 +4349,10 @@ pub fn parse_expression(
                     expand_aliases_denylist,
                 )
                 .0,
-                Some(ParseError::BuiltinCommandInPipeline("lay".into(), spans[0])),
+                Some(ParseError::BuiltinCommandInPipeline(
+                    "overlay".into(),
+                    spans[0],
+                )),
             ),
             b"source" => (
                 parse_call(
@@ -4504,7 +4508,7 @@ pub fn parse_builtin_commands(
         b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
         b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
         b"use" => parse_use(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"lay" => parse_lay(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => (
             garbage_pipeline(&lite_command.parts),
