@@ -104,7 +104,7 @@ fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
 
         match result {
             Some(val) => assert_eq!(val, it.value),
-            None => panic!("the path {} is not expected", it.value),
+            None => panic!("expected path {} but received {}", val, it.value),
         }
     });
 }
