@@ -200,14 +200,6 @@
                                 Source='target\$(var.Profile)\nu_plugin_chart_line.exe'
                                 KeyPath='yes'/>
                         </Component> -->
-                        <Component Id='binary14' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe14'
-                                Name='nu_plugin_query.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_query.exe'
-                                KeyPath='yes'/>
-                        </Component>
                         <!-- <Component Id='binary15' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe15'
@@ -246,14 +238,6 @@
                                 Name='nu_plugin_selector.exe'
                                 DiskId='1'
                                 Source='target\$(var.Profile)\nu_plugin_selector.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary20' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe20'
-                                Name='nu_plugin_query_json.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_query_json.exe'
                                 KeyPath='yes'/>
                         </Component> 
                         <Component Id='binary21' Guid='*' Win64='$(var.Win64)'>

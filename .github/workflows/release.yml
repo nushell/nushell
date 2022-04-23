@@ -59,9 +59,6 @@ jobs:
       # - name: Strip binaries (nu_plugin_from_mp4)
       #   run: strip target/release/nu_plugin_from_mp4
 
-      # - name: Strip binaries (nu_plugin_query_json)
-      #   run: strip target/release/nu_plugin_query_json
-
       # - name: Strip binaries (nu_plugin_s3)
       #   run: strip target/release/nu_plugin_s3
 
@@ -152,9 +149,6 @@ jobs:
 
       # - name: Strip binaries (nu_plugin_from_mp4)
       #   run: strip target/release/nu_plugin_from_mp4
-
-      # - name: Strip binaries (nu_plugin_query_json)
-      #   run: strip target/release/nu_plugin_query_json
 
       # - name: Strip binaries (nu_plugin_s3)
       #   run: strip target/release/nu_plugin_s3
@@ -248,9 +242,6 @@ jobs:
 
       # - name: Strip binaries (nu_plugin_from_mp4.exe)
       #   run: strip target/release/nu_plugin_from_mp4.exe
-
-      # - name: Strip binaries (nu_plugin_query_json.exe)
-      #   run: strip target/release/nu_plugin_query_json.exe
 
       # - name: Strip binaries (nu_plugin_s3.exe)
       #   run: strip target/release/nu_plugin_s3.exe

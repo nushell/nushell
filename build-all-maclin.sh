@@ -9,7 +9,6 @@ NU_PLUGINS=(
     'nu_plugin_example'
     'nu_plugin_gstat'
     'nu_plugin_inc'
-    'nu_plugin_query'
 )
 
 echo "Building nushell"

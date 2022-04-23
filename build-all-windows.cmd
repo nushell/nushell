@@ -23,10 +23,4 @@ echo Building nu_plugin_inc.exe
 cargo build
 @echo.
 
-@cd ..\..\crates\nu_plugin_query
-
-echo Building nu_plugin_query.exe
-cargo build
-@echo.
-
 @cd ..\..
