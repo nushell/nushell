@@ -17,6 +17,10 @@ impl Command for Cd {
         "Change directory."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["cd", "change", "directory", "dir", "folder", "switch"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
             .optional("path", SyntaxShape::Directory, "the path to change to")
