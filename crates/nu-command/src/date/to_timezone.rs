@@ -32,6 +32,10 @@ impl Command for SubCommand {
         "Use 'date list-timezone' to list all supported time zones."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["date", "to", "timezone", "transform", "convert", "UTC", "GMT", "list", "list-timezone"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
