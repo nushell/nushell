@@ -1,4 +1,4 @@
-use crate::completions::{file_path_completion, Completer};
+use crate::completions::{file_path_completion, Completer, CompletionOptions};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -28,6 +28,7 @@ impl Completer for DirectoryCompletion {
         span: Span,
         offset: usize,
         _: usize,
+        options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
             match d.as_string() {
@@ -37,10 +38,10 @@ impl Completer for DirectoryCompletion {
         } else {
             "".to_string()
         };
-        let prefix = String::from_utf8_lossy(&prefix).to_string();
+        let partial = String::from_utf8_lossy(&prefix).to_string();
 
         // Filter only the folders
-        let output: Vec<_> = file_path_completion(span, &prefix, &cwd)
+        let output: Vec<_> = file_path_completion(span, &partial, &cwd, options.match_algorithm)
             .into_iter()
             .filter_map(move |x| {
                 if x.1.ends_with(SEP) {
