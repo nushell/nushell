@@ -243,13 +243,9 @@ pub fn cpu(sys: &mut System, span: Span) -> Option<Value> {
             span,
         });
 
-        let phys_cores = match sys.physical_core_count() {
-            Some(n) => n,
-            None => 0,
-        };
         cols.push("freq".into());
         vals.push(Value::Int {
-            val: phys_cores as i64,
+            val: sys.physical_core_count().unwrap_or(0) as i64,
             span,
         });
 
