@@ -22,6 +22,10 @@ impl Command for SubCommand {
         "Convert the date into a structured table."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["date", "to", "record", "structured", "table"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

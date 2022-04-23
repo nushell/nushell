@@ -32,6 +32,18 @@ impl Command for Mkdir {
         "Make directories, creates intermediary directories as required."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec![
+            "mkdir",
+            "make",
+            "directory",
+            "dir",
+            "folder",
+            "make_dir",
+            "make_dirs",
+        ]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

@@ -31,6 +31,10 @@ impl Command for SubCommand {
         "Format a given date using a format string."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["date", "format", "strftime"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

@@ -25,6 +25,10 @@ impl Command for Open {
         "Load a file into a cell, converting to table if possible (avoid by appending '--raw')."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["open", "load", "read", "load_file", "read_file"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
             .optional("filename", SyntaxShape::Filepath, "the filename to use")
