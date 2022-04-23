@@ -1216,7 +1216,9 @@ pub fn parse_use(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    if working_set.get_span_contents(spans[0]) != b"use!" {
+    if working_set.get_span_contents(spans[0]) != b"use!"
+        && working_set.get_span_contents(spans[0]) != b"use"
+    {
         return (
             garbage_pipeline(spans),
             Some(ParseError::UnknownState(
@@ -1774,7 +1776,7 @@ pub fn parse_source(
     let mut error = None;
     let name = working_set.get_span_contents(spans[0]);
 
-    if name == b"source!" {
+    if name == b"source!" || name == b"source" {
         if let Some(decl_id) = working_set.find_decl(b"source!") {
             let cwd = working_set.get_cwd();
             // Is this the right call to be using here?
@@ -1894,7 +1896,9 @@ pub fn parse_register(
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
-    if working_set.get_span_contents(spans[0]) != b"register!" {
+    if working_set.get_span_contents(spans[0]) != b"register!"
+        && working_set.get_span_contents(spans[0]) != b"register"
+    {
         return (
             garbage_pipeline(spans),
             Some(ParseError::UnknownState(
