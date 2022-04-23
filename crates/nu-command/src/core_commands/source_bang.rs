@@ -5,15 +5,15 @@ use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Syntax
 
 /// Source a file for environment variables.
 #[derive(Clone)]
-pub struct Source;
+pub struct SourceBang;
 
-impl Command for Source {
+impl Command for SourceBang {
     fn name(&self) -> &str {
-        "source"
+        "source!"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("source")
+        Signature::build("source!")
             .required(
                 "filename",
                 SyntaxShape::Filepath,

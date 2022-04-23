@@ -23,8 +23,10 @@ mod let_;
 mod metadata;
 mod module;
 mod source;
+mod source_bang;
 mod tutor;
 mod use_;
+mod use_bang;
 mod version;
 
 pub use alias::Alias;
@@ -52,11 +54,20 @@ pub use let_::Let;
 pub use metadata::Metadata;
 pub use module::Module;
 pub use source::Source;
+pub use source_bang::SourceBang;
 pub use tutor::Tutor;
 pub use use_::Use;
+pub use use_bang::UseBang;
 pub use version::Version;
+
 #[cfg(feature = "plugin")]
 mod register;
 
 #[cfg(feature = "plugin")]
+mod register_bang;
+
+#[cfg(feature = "plugin")]
 pub use register::Register;
+
+#[cfg(feature = "plugin")]
+pub use register_bang::RegisterBang;

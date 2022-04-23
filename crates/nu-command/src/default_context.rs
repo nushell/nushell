@@ -51,8 +51,10 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Metadata,
             Module,
             Source,
+            SourceBang,
             Tutor,
             Use,
+            UseBang,
             Version,
         };
 
@@ -386,6 +388,9 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
 
         #[cfg(feature = "plugin")]
         bind_command!(Register);
+
+        #[cfg(feature = "plugin")]
+        bind_command!(RegisterBang);
 
         working_set.render()
     };

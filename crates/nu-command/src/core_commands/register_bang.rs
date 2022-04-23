@@ -3,11 +3,11 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
-pub struct Register;
+pub struct RegisterBang;
 
-impl Command for Register {
+impl Command for RegisterBang {
     fn name(&self) -> &str {
-        "register"
+        "register!"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +15,7 @@ impl Command for Register {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("register")
+        Signature::build("register!")
             .required(
                 "plugin",
                 SyntaxShape::Filepath,
