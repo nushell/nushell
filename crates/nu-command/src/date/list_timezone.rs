@@ -21,6 +21,10 @@ impl Command for SubCommand {
         "List supported time zones."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["UTC", "GMT", "timezone", "list", "list-timezone"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
