@@ -33,7 +33,15 @@ impl Command for Mkdir {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["mkdir", "make", "directory", "dir", "folder", "make_dir", "make_dirs"]
+        vec![
+            "mkdir",
+            "make",
+            "directory",
+            "dir",
+            "folder",
+            "make_dir",
+            "make_dirs",
+        ]
     }
 
     fn run(

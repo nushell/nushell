@@ -21,7 +21,18 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["date", "humanize", "relative", "now", "today", "tomorrow", "yesterday", "weekday", "weekday_name", "timezone"]
+        vec![
+            "date",
+            "humanize",
+            "relative",
+            "now",
+            "today",
+            "tomorrow",
+            "yesterday",
+            "weekday",
+            "weekday_name",
+            "timezone",
+        ]
     }
 
     fn run(

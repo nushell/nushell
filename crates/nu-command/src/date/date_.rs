@@ -22,7 +22,17 @@ impl Command for Date {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["date", "time", "now", "today", "tomorrow", "yesterday", "weekday", "weekday_name", "timezone"]
+        vec![
+            "date",
+            "time",
+            "now",
+            "today",
+            "tomorrow",
+            "yesterday",
+            "weekday",
+            "weekday_name",
+            "timezone",
+        ]
     }
 
     fn run(
