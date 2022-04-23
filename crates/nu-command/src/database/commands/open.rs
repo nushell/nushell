@@ -47,7 +47,7 @@ impl Command for OpenDb {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let path: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
 
         let mut file = File::open(&path.item).map_err(|e| {
@@ -64,7 +64,7 @@ impl Command for OpenDb {
         file.read_exact(&mut buf)
             .map_err(|e| {
                 ShellError::GenericError(
-                    "Error extracting data".into(),
+                    "Error reading file header".into(),
                     e.to_string(),
                     Some(path.span),
                     None,
@@ -81,7 +81,7 @@ impl Command for OpenDb {
                     Ok(custom_val.into_pipeline_data())
                 } else {
                     Err(ShellError::GenericError(
-                        "Error reading SQLite file".into(),
+                        "Error reading file".into(),
                         "Not a SQLite file".into(),
                         Some(path.span),
                         None,

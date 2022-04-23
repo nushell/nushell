@@ -1,6 +1,5 @@
 mod conversions;
 mod core_commands;
-mod database;
 mod date;
 mod default_context;
 mod deprecated;
@@ -52,5 +51,8 @@ mod dataframe;
 #[cfg(feature = "dataframe")]
 pub use dataframe::*;
 
-// Database commands
+#[cfg(feature = "database")]
+mod database;
+
+#[cfg(feature = "database")]
 pub use database::*;
