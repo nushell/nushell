@@ -50,7 +50,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
     ) -> Result<PipelineData, ShellError> {
         let name: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-        println!("Adding {}", name.item);
+        // println!("Adding {}", name.item);
 
         // if let Some(overlay_id) = import_pattern.head.id {
         //     let overlay = engine_state.get_overlay(overlay_id);
