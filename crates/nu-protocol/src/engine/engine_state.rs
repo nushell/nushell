@@ -96,11 +96,11 @@ pub struct ScopeFrame {
     pub env_vars: HashMap<Vec<u8>, BlockId>,
     pub modules: HashMap<Vec<u8>, ModuleId>,
     pub visibility: Visibility,
-    overlay_frames: Vec<OverlayFrame>,
+    active_overlays: Vec<Vec<u8>>,
 }
 
 impl ScopeFrame {
-    pub fn new() -> Self {
+    pub fn new(active_overlays: Vec<Vec<u8>>) -> Self {
         Self {
             vars: HashMap::new(),
             predecls: HashMap::new(),
@@ -109,7 +109,7 @@ impl ScopeFrame {
             env_vars: HashMap::new(),
             modules: HashMap::new(),
             visibility: Visibility::new(),
-            overlay_frames: vec![],
+            active_overlays,
         }
     }
 
@@ -118,15 +118,8 @@ impl ScopeFrame {
     }
 }
 
-impl Default for ScopeFrame {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct OverlayFrame {
-    pub name: Vec<u8>,
     pub vars: HashMap<Vec<u8>, VarId>,
     predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
     pub decls: HashMap<Vec<u8>, DeclId>,
@@ -137,9 +130,8 @@ pub struct OverlayFrame {
 }
 
 impl OverlayFrame {
-    pub fn new(name: Vec<u8>) -> Self {
+    pub fn new() -> Self {
         Self {
-            name,
             vars: HashMap::new(),
             predecls: HashMap::new(),
             decls: HashMap::new(),
@@ -202,6 +194,8 @@ pub struct EngineState {
     aliases: Vec<Vec<Span>>,
     blocks: Vec<Block>,
     modules: Vec<Module>,
+    overlays: Vec<(Vec<u8>, OverlayFrame)>,
+    active_overlays: Vec<Vec<u8>>, // stack of activated overlays
     pub scope: Vec<ScopeFrame>,
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub env_vars: HashMap<String, Value>,
@@ -231,7 +225,9 @@ impl EngineState {
             aliases: vec![],
             blocks: vec![],
             modules: vec![],
-            scope: vec![ScopeFrame::new()],
+            overlays: vec![],
+            active_overlays: vec![],
+            scope: vec![ScopeFrame::new(vec![])],
             ctrlc: None,
             env_vars: HashMap::new(),
             config: Config::default(),
@@ -262,8 +258,39 @@ impl EngineState {
         self.blocks.extend(delta.blocks);
         self.modules.extend(delta.modules);
 
+        for (delta_name, delta_overlay) in delta.overlays {
+            if let Some((_, existing_overlay)) = self
+                .overlays
+                .iter_mut()
+                .find(|(name, _)| name == &delta_name)
+            {
+                // Upating existing overlay
+                for item in delta_overlay.decls.into_iter() {
+                    existing_overlay.decls.insert(item.0, item.1);
+                }
+                for item in delta_overlay.vars.into_iter() {
+                    existing_overlay.vars.insert(item.0, item.1);
+                }
+                for item in delta_overlay.aliases.into_iter() {
+                    existing_overlay.aliases.insert(item.0, item.1);
+                }
+                for item in delta_overlay.modules.into_iter() {
+                    existing_overlay.modules.insert(item.0, item.1);
+                }
+
+                existing_overlay
+                    .visibility
+                    .merge_with(delta_overlay.visibility);
+            } else {
+                // New overlay was added to the delta
+                self.overlays.push((delta_name, delta_overlay));
+            }
+        }
+
         if let Some(last) = self.scope.last_mut() {
+            // Updating regular scope
             let first = delta.scope.remove(0);
+
             for item in first.decls.into_iter() {
                 last.decls.insert(item.0, item.1);
             }
@@ -277,11 +304,9 @@ impl EngineState {
                 last.modules.insert(item.0, item.1);
             }
 
-            for item in first.overlay_frames.into_iter() {
-                last.overlay_frames.push(item);
-            }
-
             last.visibility.merge_with(first.visibility);
+
+            last.active_overlays = first.active_overlays;
 
             #[cfg(feature = "plugin")]
             if delta.plugins_changed {
@@ -472,6 +497,16 @@ impl EngineState {
         for scope in self.scope.iter().rev() {
             if let Some(module_id) = scope.modules.get(name) {
                 return Some(*module_id);
+            }
+        }
+
+        None
+    }
+
+    pub fn find_overlay(&self, name: &[u8]) -> Option<&OverlayFrame> {
+        for (overlay_name, overlay) in self.overlays.iter() {
+            if name == overlay_name {
+                return Some(overlay);
             }
         }
 
@@ -689,19 +724,14 @@ pub struct StateDelta {
     aliases: Vec<Vec<Span>>,      // indexed by AliasId
     pub blocks: Vec<Block>,       // indexed by BlockId
     modules: Vec<Module>,         // indexed by ModuleId
+    overlays: Vec<(Vec<u8>, OverlayFrame)>,
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
     plugins_changed: bool, // marks whether plugin file should be updated
 }
 
-impl Default for StateDelta {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl StateDelta {
-    pub fn new() -> Self {
+    pub fn new(active_overlays: Vec<Vec<u8>>) -> Self {
         StateDelta {
             files: vec![],
             file_contents: vec![],
@@ -710,7 +740,8 @@ impl StateDelta {
             aliases: vec![],
             blocks: vec![],
             modules: vec![],
-            scope: vec![ScopeFrame::new()],
+            overlays: vec![],
+            scope: vec![ScopeFrame::new(active_overlays)],
             #[cfg(feature = "plugin")]
             plugins_changed: false,
         }
@@ -736,8 +767,28 @@ impl StateDelta {
         self.modules.len()
     }
 
-    pub fn enter_scope(&mut self) {
-        self.scope.push(ScopeFrame::new());
+    pub fn find_overlay(&self, name: &[u8]) -> Option<&OverlayFrame> {
+        for (overlay_name, overlay) in self.overlays.iter() {
+            if name == overlay_name {
+                return Some(overlay);
+            }
+        }
+
+        None
+    }
+
+    pub fn find_overlay_mut(&mut self, name: &[u8]) -> Option<&mut OverlayFrame> {
+        for (overlay_name, overlay) in self.overlays.iter_mut() {
+            if name == overlay_name {
+                return Some(overlay);
+            }
+        }
+
+        None
+    }
+
+    pub fn enter_scope(&mut self, active_overlays: Vec<Vec<u8>>) {
+        self.scope.push(ScopeFrame::new(active_overlays));
     }
 
     pub fn exit_scope(&mut self) {
@@ -748,7 +799,7 @@ impl StateDelta {
 impl<'a> StateWorkingSet<'a> {
     pub fn new(permanent_state: &'a EngineState) -> Self {
         Self {
-            delta: StateDelta::new(),
+            delta: StateDelta::new(vec![]),
             permanent_state,
             external_commands: vec![],
         }
@@ -792,26 +843,44 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn use_decls(&mut self, decls: Vec<(Vec<u8>, DeclId)>) {
-        let scope_frame = self
+        let last_overlay = self
             .delta
             .scope
-            .last_mut()
-            .expect("internal error: missing required scope frame");
+            .last()
+            .expect("internal error: missing required scope frame")
+            .active_overlays
+            .last()
+            .cloned(); // FIXME: Remove this clone
 
-        if scope_frame.overlay_frames.is_empty() {
-            for (name, decl_id) in decls {
-                scope_frame.decls.insert(name, decl_id);
-                scope_frame.visibility.use_decl_id(&decl_id);
-            }
-        } else {
-            let overlay_frame = scope_frame
-                .overlay_frames
-                .last_mut()
-                .expect("internal error: missing required scope frame");
+        if let Some(name) = last_overlay {
+            let overlay_frame = if let Some(overlay_frame) = self.delta.find_overlay_mut(&name) {
+                overlay_frame
+            } else {
+                self.delta
+                    .overlays
+                    .push((name.to_owned(), OverlayFrame::new()));
+
+                &mut self
+                    .delta
+                    .overlays
+                    .last_mut()
+                    .expect("internal error: missing added overlay")
+                    .1
+            };
 
             for (name, decl_id) in decls {
                 overlay_frame.decls.insert(name, decl_id);
                 overlay_frame.visibility.use_decl_id(&decl_id);
+            }
+        } else {
+            let scope_frame = self
+                .delta
+                .scope
+                .last_mut()
+                .expect("internal error: missing required scope frame");
+            for (name, decl_id) in decls {
+                scope_frame.decls.insert(name, decl_id);
+                scope_frame.visibility.use_decl_id(&decl_id);
             }
         }
     }
@@ -1103,7 +1172,13 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn enter_scope(&mut self) {
-        self.delta.enter_scope();
+        let active_overlays = if let Some(last) = self.delta.scope.last() {
+            last.active_overlays.clone()
+        } else {
+            vec![]
+        };
+
+        self.delta.enter_scope(active_overlays);
     }
 
     pub fn exit_scope(&mut self) {
@@ -1123,37 +1198,39 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         let mut visibility: Visibility = Visibility::new();
 
-        for scope in self.delta.scope.iter().rev() {
-            for overlay_scope in scope.overlay_frames.iter().rev() {
-                visibility.append(&overlay_scope.visibility);
+        // active_overlays is copied from parent StackFrame to child so we can look up just the last one
+        if let Some(active_overlays) = self
+            .delta
+            .scope
+            .last()
+            .map(|scope_frame| &scope_frame.active_overlays)
+        {
+            for name in active_overlays.iter().rev() {
+                // check overlay in delta
+                if let Some(overlay_frame) = self.delta.find_overlay(name) {
+                    visibility.append(&overlay_frame.visibility);
 
-                // TODO: Do we need predecls in overlays???
-                // if let Some(decl_id) = scope.predecls.get(name) {
-                //     if visibility.is_decl_id_visible(decl_id) {
-                //         return Some(*decl_id);
-                //     }
-                // }
+                    if let Some(decl_id) = overlay_frame.decls.get(name) {
+                        if visibility.is_decl_id_visible(decl_id) {
+                            return Some(*decl_id);
+                        }
+                    }
+                }
 
-                if let Some(decl_id) = overlay_scope.decls.get(name) {
-                    if visibility.is_decl_id_visible(decl_id) {
-                        return Some(*decl_id);
+                // check overlay in permanent state
+                if let Some(overlay_frame) = self.permanent_state.find_overlay(name) {
+                    visibility.append(&overlay_frame.visibility);
+
+                    if let Some(decl_id) = overlay_frame.decls.get(name) {
+                        if visibility.is_decl_id_visible(decl_id) {
+                            return Some(*decl_id);
+                        }
                     }
                 }
             }
         }
 
-        for scope in self.permanent_state.scope.iter().rev() {
-            for overlay_scope in scope.overlay_frames.iter().rev() {
-                visibility.append(&overlay_scope.visibility);
-
-                if let Some(decl_id) = overlay_scope.decls.get(name) {
-                    if visibility.is_decl_id_visible(decl_id) {
-                        return Some(*decl_id);
-                    }
-                }
-            }
-        }
-
+        // check delta scope
         for scope in self.delta.scope.iter().rev() {
             visibility.append(&scope.visibility);
 
@@ -1170,6 +1247,7 @@ impl<'a> StateWorkingSet<'a> {
             }
         }
 
+        // check perma scope
         for scope in self.permanent_state.scope.iter().rev() {
             visibility.append(&scope.visibility);
 
@@ -1223,6 +1301,14 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         None
+    }
+
+    pub fn find_overlay(&self, name: &[u8]) -> Option<&OverlayFrame> {
+        for (_, overlay) in self.delta.overlays.iter() {
+            return Some(overlay);
+        }
+
+        self.permanent_state.find_overlay(name)
     }
 
     // pub fn update_decl(&mut self, decl_id: usize, block: Option<BlockId>) {
@@ -1465,14 +1551,19 @@ impl<'a> StateWorkingSet<'a> {
         aliases: Vec<(Vec<u8>, AliasId)>,
         name: Vec<u8>,
     ) {
-        let scope_frame = self
+        let pos = self
             .delta
-            .scope
-            .last_mut()
-            .expect("internal error: missing required scope frame");
+            .overlays
+            .iter()
+            .position(|(overlay_name, _)| &name == overlay_name);
 
-        // TODO: If the same overlay is being added twice, remove the original one
-        scope_frame.overlay_frames.push(OverlayFrame::new(name));
+        if let Some(p) = pos {
+            // If the same overlay is being added twice, remove the original one and re-add it
+            let (_, overlay_frame) = self.delta.overlays.remove(p);
+            self.delta.overlays.push((name, overlay_frame));
+        } else {
+            self.delta.overlays.push((name, OverlayFrame::new()));
+        }
 
         self.use_decls(decls);
         self.use_aliases(aliases);
