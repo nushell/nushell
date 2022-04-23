@@ -30,11 +30,7 @@ impl Command for Cp {
 
     fn signature(&self) -> Signature {
         Signature::build("cp")
-            .required(
-                "source!",
-                SyntaxShape::GlobPattern,
-                "the place to copy from",
-            )
+            .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
             .switch(
                 "recursive",

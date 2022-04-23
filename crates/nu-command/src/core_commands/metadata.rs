@@ -78,7 +78,7 @@ impl Command for Metadata {
                         PipelineMetadata {
                             data_source: DataSource::Ls,
                         } => {
-                            cols.push("source!".into());
+                            cols.push("source".into());
                             vals.push(Value::String {
                                 val: "ls".into(),
                                 span: head,
@@ -140,7 +140,7 @@ fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head:
             PipelineMetadata {
                 data_source: DataSource::Ls,
             } => {
-                cols.push("source!".into());
+                cols.push("source".into());
                 vals.push(Value::String {
                     val: "ls".into(),
                     span: head,

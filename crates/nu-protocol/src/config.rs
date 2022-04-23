@@ -348,7 +348,7 @@ pub fn create_menus(value: &Value, config: &Config) -> Result<Vec<ParsedMenu>, S
             let menu_type = extract_value("type", cols, vals, span)?.clone();
 
             // Source is an optional value
-            let source = match extract_value("source!", cols, vals, span) {
+            let source = match extract_value("source", cols, vals, span) {
                 Ok(source) => source.clone(),
                 Err(_) => Value::Nothing { span: *span },
             };
