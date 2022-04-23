@@ -79,7 +79,8 @@ impl Command for Open {
             }
         };
         let arg_span = path.span;
-        let path = Path::new(&path.item);
+        let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
+        let path = Path::new(path_no_whitespace);
 
         if permission_denied(&path) {
             #[cfg(unix)]
