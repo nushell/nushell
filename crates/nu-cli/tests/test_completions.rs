@@ -91,7 +91,16 @@ pub fn new_engine() -> (PathBuf, String, EngineState) {
 fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
     suggestions.into_iter().for_each(|it| {
         let items = expected.clone();
-        let result = items.into_iter().find(|x| x == &it.value);
+        let result = items.into_iter().find(|x| {
+            let mut current_item = x.clone();
+
+            // For windows the expected should also escape "\"
+            if cfg!(windows) {
+                current_item = current_item.replace("\\", "\\\\");
+            }
+
+            &current_item == &it.value
+        });
 
         match result {
             Some(val) => assert_eq!(val, it.value),
