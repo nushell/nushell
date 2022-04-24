@@ -21,7 +21,7 @@ pub struct SQLiteDatabase {
     pub query: Option<Query>,
 }
 
-// Mocked serialization of the LazyFrame object
+// Mocked serialization of the object
 impl Serialize for SQLiteDatabase {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -31,7 +31,7 @@ impl Serialize for SQLiteDatabase {
     }
 }
 
-// Mocked deserialization of the LazyFrame object
+// Mocked deserialization of the object
 impl<'de> Deserialize<'de> for SQLiteDatabase {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where

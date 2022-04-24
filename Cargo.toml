@@ -85,7 +85,7 @@ trash-support = ["nu-command/trash-support"]
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe"]
 
-# Database commands for nusellf
+# Database commands for nushell
 database = ["nu-command/database"]
 
 [profile.release]
