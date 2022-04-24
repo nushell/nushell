@@ -1916,6 +1916,33 @@ pub fn parse_full_cell_path(
     }
 }
 
+pub fn parse_directory(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+    let bytes = trim_quotes(bytes);
+    trace!("parsing: directory");
+
+    if let Ok(token) = String::from_utf8(bytes.into()) {
+        trace!("-- found {}", token);
+        (
+            Expression {
+                expr: Expr::Directory(token),
+                span,
+                ty: Type::String,
+                custom_completion: None,
+            },
+            None,
+        )
+    } else {
+        (
+            garbage(span),
+            Some(ParseError::Expected("directory".into(), span)),
+        )
+    }
+}
+
 pub fn parse_filepath(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -2552,6 +2579,7 @@ pub fn parse_shape_name(
         b"cell-path" => SyntaxShape::CellPath,
         b"duration" => SyntaxShape::Duration,
         b"path" => SyntaxShape::Filepath,
+        b"directory" => SyntaxShape::Directory,
         b"expr" => SyntaxShape::Expression,
         b"filesize" => SyntaxShape::Filesize,
         b"glob" => SyntaxShape::GlobPattern,
@@ -3870,6 +3898,7 @@ pub fn parse_value(
         SyntaxShape::Filesize => parse_filesize(working_set, span),
         SyntaxShape::Range => parse_range(working_set, span, expand_aliases_denylist),
         SyntaxShape::Filepath => parse_filepath(working_set, span),
+        SyntaxShape::Directory => parse_directory(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
@@ -4001,8 +4030,8 @@ pub fn parse_operator(
         b"in" => Operator::In,
         b"not-in" => Operator::NotIn,
         b"mod" => Operator::Modulo,
-        b"&&" => Operator::And,
-        b"||" => Operator::Or,
+        b"&&" | b"and" => Operator::And,
+        b"||" | b"or" => Operator::Or,
         b"**" => Operator::Pow,
         _ => {
             return (
@@ -4895,6 +4924,7 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::Filepath(_) => {}
+        Expr::Directory(_) => {}
         Expr::Float(_) => {}
         Expr::FullCellPath(cell_path) => {
             let result = discover_captures_in_expr(working_set, &cell_path.head, seen, seen_blocks);

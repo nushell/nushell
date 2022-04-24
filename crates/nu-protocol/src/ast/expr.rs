@@ -33,6 +33,7 @@ pub enum Expr {
     ValueWithUnit(Box<Expression>, Spanned<Unit>),
     DateTime(chrono::DateTime<FixedOffset>),
     Filepath(String),
+    Directory(String),
     GlobPattern(String),
     String(String),
     CellPath(CellPath),

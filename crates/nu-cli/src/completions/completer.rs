@@ -1,6 +1,6 @@
 use crate::completions::{
-    CommandCompletion, Completer, CustomCompletion, DotNuCompletion, FileCompletion,
-    FlagCompletion, VariableCompletion,
+    CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
+    DotNuCompletion, FileCompletion, FlagCompletion, VariableCompletion,
 };
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
@@ -35,8 +35,11 @@ impl NuCompleter {
         offset: usize,
         pos: usize,
     ) -> Vec<Suggestion> {
+        let options = CompletionOptions::default();
+
         // Fetch
-        let mut suggestions = completer.fetch(working_set, prefix.clone(), new_span, offset, pos);
+        let mut suggestions =
+            completer.fetch(working_set, prefix.clone(), new_span, offset, pos, &options);
 
         // Sort
         suggestions = completer.sort(suggestions, prefix);
@@ -143,6 +146,19 @@ impl NuCompleter {
                                     *decl_id,
                                     line,
                                 );
+
+                                return self.process_completion(
+                                    &mut completer,
+                                    &working_set,
+                                    prefix,
+                                    new_span,
+                                    offset,
+                                    pos,
+                                );
+                            }
+                            FlatShape::Directory => {
+                                let mut completer =
+                                    DirectoryCompletion::new(self.engine_state.clone());
 
                                 return self.process_completion(
                                     &mut completer,

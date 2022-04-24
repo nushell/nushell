@@ -27,6 +27,10 @@ impl Command for SubCommand {
         "Convert value to boolean"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "boolean", "true", "false", "1", "0"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

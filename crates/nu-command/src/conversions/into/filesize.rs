@@ -27,6 +27,10 @@ impl Command for SubCommand {
         "Convert value to filesize"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "number", "size", "bytes"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

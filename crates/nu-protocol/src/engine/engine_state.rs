@@ -569,12 +569,15 @@ impl EngineState {
         None
     }
 
-    pub fn find_commands_by_prefix(&self, name: &[u8]) -> Vec<(Vec<u8>, Option<String>)> {
+    pub fn find_commands_by_predicate(
+        &self,
+        predicate: impl Fn(&[u8]) -> bool,
+    ) -> Vec<(Vec<u8>, Option<String>)> {
         let mut output = vec![];
 
         for scope in self.scope.iter().rev() {
             for decl in &scope.decls {
-                if decl.0.starts_with(name) {
+                if predicate(decl.0) {
                     let command = self.get_decl(*decl.1);
                     output.push((decl.0.clone(), Some(command.usage().to_string())));
                 }
@@ -584,12 +587,12 @@ impl EngineState {
         output
     }
 
-    pub fn find_aliases_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+    pub fn find_aliases_by_predicate(&self, predicate: impl Fn(&[u8]) -> bool) -> Vec<Vec<u8>> {
         self.scope
             .iter()
             .rev()
             .flat_map(|scope| &scope.aliases)
-            .filter(|decl| decl.0.starts_with(name))
+            .filter(|decl| predicate(decl.0))
             .map(|decl| decl.0.clone())
             .collect()
     }
@@ -1585,34 +1588,40 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn find_commands_by_prefix(&self, name: &[u8]) -> Vec<(Vec<u8>, Option<String>)> {
+    pub fn find_commands_by_predicate(
+        &self,
+        predicate: impl Fn(&[u8]) -> bool,
+    ) -> Vec<(Vec<u8>, Option<String>)> {
         let mut output = vec![];
 
         for scope in self.delta.scope.iter().rev() {
             for decl in &scope.decls {
-                if decl.0.starts_with(name) {
+                if predicate(decl.0) {
                     let command = self.get_decl(*decl.1);
                     output.push((decl.0.clone(), Some(command.usage().to_string())));
                 }
             }
         }
 
-        let mut permanent = self.permanent_state.find_commands_by_prefix(name);
+        let mut permanent = self.permanent_state.find_commands_by_predicate(predicate);
 
         output.append(&mut permanent);
 
         output
     }
 
-    pub fn find_aliases_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+    pub fn find_aliases_by_predicate(
+        &self,
+        predicate: impl Fn(&[u8]) -> bool + Copy,
+    ) -> Vec<Vec<u8>> {
         self.delta
             .scope
             .iter()
             .rev()
             .flat_map(|scope| &scope.aliases)
-            .filter(|decl| decl.0.starts_with(name))
+            .filter(|decl| predicate(decl.0))
             .map(|decl| decl.0.clone())
-            .chain(self.permanent_state.find_aliases_by_prefix(name))
+            .chain(self.permanent_state.find_aliases_by_predicate(predicate))
             .collect()
     }
 

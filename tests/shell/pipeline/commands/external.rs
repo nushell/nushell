@@ -297,6 +297,15 @@ mod nu_commands {
 
         assert_eq!(actual.out, "foo");
     }
+
+    #[test]
+    fn better_arg_quoting() {
+        let actual = nu!(cwd: ".", r#"
+        nu -c "\# '"
+        "#);
+
+        assert_eq!(actual.out, "");
+    }
 }
 
 mod nu_script {

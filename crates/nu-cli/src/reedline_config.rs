@@ -814,6 +814,7 @@ fn event_from_record(
         "none" => ReedlineEvent::None,
         "actionhandler" => ReedlineEvent::ActionHandler,
         "clearscreen" => ReedlineEvent::ClearScreen,
+        "clearscrollback" => ReedlineEvent::ClearScrollback,
         "historyhintcomplete" => ReedlineEvent::HistoryHintComplete,
         "historyhintwordcomplete" => ReedlineEvent::HistoryHintWordComplete,
         "ctrld" => ReedlineEvent::CtrlD,
@@ -881,6 +882,7 @@ fn edit_from_record(
             let value = extract_value("value", cols, vals, span)?;
             EditCommand::InsertString(value.into_string("", config))
         }
+        "insertnewline" => EditCommand::InsertNewline,
         "backspace" => EditCommand::Backspace,
         "delete" => EditCommand::Delete,
         "backspaceword" => EditCommand::BackspaceWord,

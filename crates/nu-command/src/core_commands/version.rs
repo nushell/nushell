@@ -230,10 +230,8 @@ fn features_enabled() -> Vec<String> {
         names.push("which".to_string());
     }
 
-    #[cfg(feature = "zip")]
-    {
-        names.push("zip".to_string());
-    }
+    // always include it?
+    names.push("zip".to_string());
 
     #[cfg(feature = "clipboard-cli")]
     {

@@ -25,6 +25,10 @@ impl Command for SubCommand {
         "Convert text into a decimal"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "number", "floating"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
