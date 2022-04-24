@@ -102,6 +102,10 @@ pub enum ParseError {
     )]
     ModuleNotFound(#[label = "module not found"] Span),
 
+    #[error("Overlay not found.")]
+    #[diagnostic(code(nu::parser::module_not_found), url(docsrs))]
+    OverlayNotFound(#[label = "not an active overlay"] Span),
+
     #[error("Not found.")]
     #[diagnostic(code(nu::parser::not_found), url(docsrs))]
     NotFound(#[label = "did not find anything under this name"] Span),
@@ -268,6 +272,7 @@ impl ParseError {
             ParseError::VariableNotFound(s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
+            ParseError::OverlayNotFound(s) => *s,
             ParseError::NotFound(s) => *s,
             ParseError::DuplicateCommandDef(s) => *s,
             ParseError::UnknownCommand(s) => *s,

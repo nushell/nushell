@@ -1680,6 +1680,9 @@ pub fn parse_overlay(
             b"add" => {
                 return parse_overlay_add(working_set, spans, expand_aliases_denylist);
             }
+            b"remove" => {
+                return parse_overlay_remove(working_set, spans, expand_aliases_denylist);
+            }
             _ => { /* continue parsing overlay */ }
         }
     }
@@ -1810,7 +1813,8 @@ pub fn parse_overlay_add(
         );
     };
 
-    let has_prefix = call.has_flag("prefix");
+    // TODO: Add support for it -- needs to play well with overlay remove
+    let has_prefix = false; //call.has_flag("prefix");
 
     let cwd = working_set.get_cwd();
 
@@ -1895,6 +1899,101 @@ pub fn parse_overlay_add(
             aliases_to_lay,
             module_name.as_bytes().to_owned(),
         );
+    }
+
+    (
+        Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: span(spans),
+            ty: Type::Any,
+            custom_completion: None,
+        }]),
+        error,
+    )
+}
+
+pub fn parse_overlay_remove(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    if spans.len() > 1 && working_set.get_span_contents(span(&spans[0..2])) != b"overlay remove" {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for 'overlay remove' command".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    let (call, call_span) = match working_set.find_decl(b"overlay remove") {
+        Some(decl_id) => {
+            let (call, mut err) = parse_internal_call(
+                working_set,
+                span(&spans[0..2]),
+                &spans[2..],
+                decl_id,
+                expand_aliases_denylist,
+            );
+            let decl = working_set.get_decl(decl_id);
+
+            let call_span = span(spans);
+
+            err = check_call(call_span, &decl.signature(), &call).or(err);
+            if err.is_some() || call.has_flag("help") {
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    err,
+                );
+            }
+
+            (call, call_span)
+        }
+        None => {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: 'overlay remove' declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+    };
+
+    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
+        if let Some(s) = expr.as_string() {
+            (s, expr.span)
+        } else {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: Module name not a string".into(),
+                    expr.span,
+                )),
+            );
+        }
+    } else {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Missing required positional after call parsing".into(),
+                call_span,
+            )),
+        );
+    };
+
+    let mut error = None;
+
+    if let Some(overlay) = working_set.find_overlay(overlay_name.as_bytes()) {
+        working_set.remove_overlay(overlay_name.as_bytes());
+    } else {
+        error = error.or(Some(ParseError::OverlayNotFound(overlay_name_span)))
     }
 
     (

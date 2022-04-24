@@ -24,11 +24,11 @@ impl Command for OverlayAdd {
                 SyntaxShape::String,
                 "Module name to create overlay for",
             )
-            .switch(
-                "prefix",
-                "Prepend module name to the imported symbols",
-                Some('p'),
-            )
+            // .switch(
+            //     "prefix",
+            //     "Prepend module name to the imported symbols",
+            //     Some('p'),
+            // )
             .category(Category::Core)
     }
 

@@ -2475,6 +2475,7 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "indexmap",
+ "log",
  "miette 4.5.0",
  "nu-json",
  "num-format",
