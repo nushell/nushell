@@ -1,3 +1,5 @@
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
+
 #[derive(Copy, Clone)]
 pub enum SortBy {
     LevenshteinDistance,
@@ -13,6 +15,12 @@ pub enum MatchAlgorithm {
     /// Example:
     /// "git switch" is matched by "git sw"
     Prefix,
+
+    /// Only show suggestions which contain the input chars at any place
+    ///
+    /// Example:
+    /// "git checkout" is matched by "gco"
+    Fuzzy,
 }
 
 impl MatchAlgorithm {
@@ -20,6 +28,10 @@ impl MatchAlgorithm {
     pub fn matches_str(&self, haystack: &str, needle: &str) -> bool {
         match *self {
             MatchAlgorithm::Prefix => haystack.starts_with(needle),
+            MatchAlgorithm::Fuzzy => {
+                let matcher = SkimMatcherV2::default();
+                matcher.fuzzy_match(haystack, needle).is_some()
+            },
         }
     }
 
@@ -27,6 +39,13 @@ impl MatchAlgorithm {
     pub fn matches_u8(&self, haystack: &[u8], needle: &[u8]) -> bool {
         match *self {
             MatchAlgorithm::Prefix => haystack.starts_with(needle),
+            MatchAlgorithm::Fuzzy => {
+                let haystack_str = String::from_utf8_lossy(haystack);
+                let needle_str = String::from_utf8_lossy(needle);
+
+                let matcher = SkimMatcherV2::default();
+                matcher.fuzzy_match(&haystack_str, &needle_str).is_some()
+            },
         }
     }
 }
@@ -65,5 +84,22 @@ mod test {
         assert!(algorithm.matches_u8(&[1, 2, 3], &[]));
         assert!(algorithm.matches_u8(&[1, 2, 3], &[1, 2]));
         assert!(!algorithm.matches_u8(&[1, 2, 3], &[2, 3]));
+    }
+
+    #[test]
+    fn match_algorithm_fuzzy() {
+        let algorithm = MatchAlgorithm::Fuzzy;
+
+        assert!(algorithm.matches_str("example text", ""));
+        assert!(algorithm.matches_str("example text", "examp"));
+        assert!(algorithm.matches_str("example text", "ext"));
+        assert!(algorithm.matches_str("example text", "mplxt"));
+        assert!(!algorithm.matches_str("example text", "mpp"));
+
+        assert!(algorithm.matches_u8(&[1, 2, 3], &[]));
+        assert!(algorithm.matches_u8(&[1, 2, 3], &[1, 2]));
+        assert!(algorithm.matches_u8(&[1, 2, 3], &[2, 3]));
+        assert!(algorithm.matches_u8(&[1, 2, 3], &[1, 3]));
+        assert!(!algorithm.matches_u8(&[1, 2, 3], &[2, 2]));
     }
 }
