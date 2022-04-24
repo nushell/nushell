@@ -90,7 +90,6 @@ fn exec(
     let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy().to_string())?;
     command.current_dir(current_dir);
 
-    println!("{:#?}", command);
     let err = command.exec(); // this replaces our process, should not return
 
     Err(ShellError::GenericError(
