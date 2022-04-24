@@ -1,6 +1,6 @@
 on: [pull_request]
 
-name: Continuous integration
+name: continuous-integration
 
 jobs:
   ci:
