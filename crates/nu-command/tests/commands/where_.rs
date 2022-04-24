@@ -41,6 +41,7 @@ fn where_not_in_table() {
     assert_eq!(actual.out, "4");
 }
 
+#[cfg(feature = "database")]
 #[test]
 fn binary_operator_comparisons() {
     let actual = nu!(
@@ -109,6 +110,7 @@ fn binary_operator_comparisons() {
     assert_eq!(actual.out, "42");
 }
 
+#[cfg(feature = "database")]
 #[test]
 fn contains_operator() {
     let actual = nu!(
