@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, PipelineIterator,
-    Range, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, Range, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -70,6 +70,22 @@ impl Command for DropNth {
                 }),
             },
             Example {
+                example: "[0,1,2,3,4,5] | drop nth 1..3",
+                description: "Drop rows 1 2 and 3",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0), Value::test_int(4), Value::test_int(5)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: "[0,1,2,3,4,5] | drop nth 1..",
+                description: "Drop rows from 1 till the end of the list",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "Drop range rows from second to fourth",
                 example: "echo [first second third fourth fifth] | drop nth (1..3)",
                 result: Some(Value::List {
@@ -87,38 +103,53 @@ impl Command for DropNth {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // let mut rows: Vec<usize> = call.rest(engine_state, stack, 0)?;
-        // rows.sort_unstable();
-        // let pipeline_iter: PipelineIterator = input.into_iter();
+        let input_value = input.into_value(call.span());
+        match input_value {
+            Value::List { vals, span: _ } => {
+                let number_or_range = extract_int_or_range(engine_state, stack, call)?;
+                // get a vector of indexes to remove
+                let rows = match number_or_range {
+                    Either::Left(row_number) => {
+                        let and_rows: Vec<Spanned<i64>> = call.rest(engine_state, stack, 1)?;
+                        let mut rows: indexmap::IndexSet<_> =
+                            and_rows.into_iter().map(|x| x.item as usize).collect();
+                        rows.insert(row_number as usize);
+                        rows
+                    }
+                    Either::Right(row_range) => {
+                        let from = row_range.from.as_integer()? as usize;
+                        let to = {
+                            let size = row_range.to.as_integer()? as usize;
+                            // if range does not have an upper bound specified, then to's value is the length of the list
+                            if size > vals.len() {
+                                vals.len() - 1
+                            } else {
+                                size
+                            }
+                        };
 
-        let number_or_range = extract_int_or_range(engine_state, stack, call)?;
-        let rows = match number_or_range {
-            Either::Left(row_number) => {
-                let and_rows: Vec<Spanned<i64>> = call.rest(engine_state, stack, 1)?;
+                        if matches!(row_range.inclusion, RangeInclusion::Inclusive) {
+                            (from..=to).collect::<indexmap::IndexSet<_>>()
+                        } else {
+                            (from..to).collect::<indexmap::IndexSet<_>>()
+                        }
+                    }
+                };
 
-                let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
-                rows.push(row_number as usize);
-                rows.sort_unstable();
-                rows
-            }
-            Either::Right(row_range) => {
-                let from = row_range.from.as_integer()? as usize;
-                let to = row_range.to.as_integer()? as usize;
-
-                if matches!(row_range.inclusion, RangeInclusion::Inclusive) {
-                    (from..=to).collect()
-                } else {
-                    (from..to).collect()
+                let mut new_vals = vec![];
+                for (idx, e) in vals.iter().enumerate() {
+                    // don't "copy" a value whose index is one of the indexes of the values we want to drop
+                    if !rows.contains(&idx) {
+                        new_vals.push(e.clone());
+                    }
                 }
+                Ok(new_vals.into_pipeline_data(engine_state.ctrlc.clone()))
             }
-        };
-
-        Ok(DropNthIterator {
-            input: input.into_iter(),
-            rows,
-            current: 0,
+            _ => Err(ShellError::UnsupportedInput(
+                "Drop nth works only on lists or tables".to_string(),
+                call.head,
+            )),
         }
-        .into_pipeline_data(engine_state.ctrlc.clone()))
     }
 }
 
@@ -140,34 +171,6 @@ fn extract_int_or_range(
             value.span().unwrap_or_else(|_| Span::new(0, 0)),
         )
     })
-}
-
-struct DropNthIterator {
-    input: PipelineIterator,
-    rows: Vec<usize>,
-    current: usize,
-}
-
-impl Iterator for DropNthIterator {
-    type Item = Value;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if let Some(row) = self.rows.get(0) {
-                if self.current == *row {
-                    self.rows.remove(0);
-                    self.current += 1;
-                    let _ = self.input.next();
-                    continue;
-                } else {
-                    self.current += 1;
-                    return self.input.next();
-                }
-            } else {
-                return self.input.next();
-            }
-        }
-    }
 }
 
 #[cfg(test)]
