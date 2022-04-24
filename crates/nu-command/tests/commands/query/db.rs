@@ -37,5 +37,5 @@ fn invalid_input_fails() {
         "#
     ));
 
-    assert!(actual.err.contains("Invalid parameter"));
+    assert!(actual.err.contains("can't convert string"));
 }
