@@ -1,4 +1,3 @@
-use crate::database::SQLiteDatabase;
 use crate::filesystem::util::BufferedReader;
 use nu_engine::{eval_block, get_full_help, CallExt};
 use nu_protocol::ast::Call;
@@ -8,6 +7,9 @@ use nu_protocol::{
     SyntaxShape, Value,
 };
 use std::io::BufReader;
+
+#[cfg(feature = "database")]
+use crate::database::SQLiteDatabase;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
