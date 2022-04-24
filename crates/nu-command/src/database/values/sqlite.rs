@@ -1,35 +1,188 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
-use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value};
+use nu_protocol::{CustomValue, PipelineData, ShellError, Span, Spanned, Value};
 use rusqlite::{types::ValueRef, Connection, Row};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Debug, Serialize, Deserialize)]
+use sqlparser::ast::Query;
+
+const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
+
+#[derive(Debug)]
 pub struct SQLiteDatabase {
     // I considered storing a SQLite connection here, but decided against it because
     // 1) YAGNI, 2) it's not obvious how cloning a connection could work, 3) state
     // management gets tricky quick. Revisit this approach if we find a compelling use case.
     path: PathBuf,
+    pub query: Option<Query>,
+}
+
+// Mocked serialization of the object
+impl Serialize for SQLiteDatabase {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_none()
+    }
+}
+
+// Mocked deserialization of the object
+impl<'de> Deserialize<'de> for SQLiteDatabase {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let path = std::path::Path::new("");
+        Ok(SQLiteDatabase::new(path))
+    }
 }
 
 impl SQLiteDatabase {
-    pub fn new(path: &Path) -> SQLiteDatabase {
-        SQLiteDatabase {
+    pub fn new(path: &Path) -> Self {
+        Self {
             path: PathBuf::from(path),
+            query: None,
         }
+    }
+
+    pub fn try_from_path(path: &Path, span: Span) -> Result<Self, ShellError> {
+        let mut file = File::open(path).map_err(|e| {
+            ShellError::GenericError(
+                "Error opening file".into(),
+                e.to_string(),
+                Some(span),
+                None,
+                Vec::new(),
+            )
+        })?;
+
+        let mut buf: [u8; 16] = [0; 16];
+        file.read_exact(&mut buf)
+            .map_err(|e| {
+                ShellError::GenericError(
+                    "Error reading file header".into(),
+                    e.to_string(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )
+            })
+            .and_then(|_| {
+                if buf == SQLITE_MAGIC_BYTES {
+                    Ok(SQLiteDatabase::new(path))
+                } else {
+                    Err(ShellError::GenericError(
+                        "Error reading file".into(),
+                        "Not a SQLite file".into(),
+                        Some(span),
+                        None,
+                        Vec::new(),
+                    ))
+                }
+            })
     }
 
     pub fn query(&self, sql: &Spanned<String>, call_span: Span) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, call_span)?;
-        to_shell_error(
-            run_sql_query(db, sql),
-            "Failed to query SQLite database",
-            sql.span,
-        )
+        run_sql_query(db, sql).map_err(|e| {
+            ShellError::GenericError(
+                "Failed to query SQLite database".into(),
+                e.to_string(),
+                Some(sql.span),
+                None,
+                Vec::new(),
+            )
+        })
     }
 
-    pub fn describe(&self) -> String {
-        format!("A SQLite database at {:?}", self.path)
+    pub fn collect(&self, call_span: Span) -> Result<Value, ShellError> {
+        let sql = match &self.query {
+            Some(query) => Ok(format!("{}", query)),
+            None => Err(ShellError::GenericError(
+                "Error collecting from db".into(),
+                "No query found in connection".into(),
+                Some(call_span),
+                None,
+                Vec::new(),
+            )),
+        }?;
+
+        let sql = Spanned {
+            item: sql,
+            span: call_span,
+        };
+
+        let db = open_sqlite_db(&self.path, call_span)?;
+        run_sql_query(db, &sql).map_err(|e| {
+            ShellError::GenericError(
+                "Failed to query SQLite database".into(),
+                e.to_string(),
+                Some(sql.span),
+                None,
+                Vec::new(),
+            )
+        })
+    }
+
+    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+        match value {
+            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+                Some(db) => Ok(Self {
+                    path: db.path.clone(),
+                    query: db.query.clone(),
+                }),
+                None => Err(ShellError::CantConvert(
+                    "database".into(),
+                    "non-database".into(),
+                    span,
+                    None,
+                )),
+            },
+            x => Err(ShellError::CantConvert(
+                "database".into(),
+                x.get_type().to_string(),
+                x.span()?,
+                None,
+            )),
+        }
+    }
+
+    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+        let value = input.into_value(span);
+        Self::try_from_value(value)
+    }
+
+    pub fn into_value(self, span: Span) -> Value {
+        Value::CustomValue {
+            val: Box::new(self),
+            span,
+        }
+    }
+
+    pub fn describe(&self, span: Span) -> Value {
+        let cols = vec!["connection".to_string(), "query".to_string()];
+        let connection = Value::String {
+            val: self.path.to_str().unwrap_or("").to_string(),
+            span,
+        };
+
+        let query = match &self.query {
+            Some(query) => format!("{query}"),
+            None => "".into(),
+        };
+
+        let query = Value::String { val: query, span };
+
+        Value::Record {
+            cols,
+            vals: vec![connection, query],
+            span,
+        }
     }
 }
 
@@ -37,6 +190,7 @@ impl CustomValue for SQLiteDatabase {
     fn clone_value(&self, span: Span) -> Value {
         let cloned = SQLiteDatabase {
             path: self.path.clone(),
+            query: self.query.clone(),
         };
 
         Value::CustomValue {
@@ -51,11 +205,15 @@ impl CustomValue for SQLiteDatabase {
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, span)?;
-        to_shell_error(
-            read_entire_sqlite_db(db, span),
-            "Failed to read from SQLite database",
-            span,
-        )
+        read_entire_sqlite_db(db, span).map_err(|e| {
+            ShellError::GenericError(
+                "Failed to read from SQLite database".into(),
+                e.to_string(),
+                Some(span),
+                None,
+                Vec::new(),
+            )
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -70,11 +228,15 @@ impl CustomValue for SQLiteDatabase {
     fn follow_path_string(&self, _column_name: String, span: Span) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, span)?;
 
-        to_shell_error(
-            read_single_table(db, _column_name, span),
-            "Failed to read from SQLite database",
-            span,
-        )
+        read_single_table(db, _column_name, span).map_err(|e| {
+            ShellError::GenericError(
+                "Failed to read from SQLite database".into(),
+                e.to_string(),
+                Some(span),
+                None,
+                Vec::new(),
+            )
+        })
     }
 
     fn typetag_name(&self) -> &'static str {
@@ -86,31 +248,52 @@ impl CustomValue for SQLiteDatabase {
     }
 }
 
-// TODO: is there a more elegant way to map rusqlite errors to ShellErrors?
-fn to_shell_error<T>(
-    result: Result<T, rusqlite::Error>,
-    message: &str,
-    span: Span,
-) -> Result<T, nu_protocol::ShellError> {
-    match result {
-        Ok(val) => Ok(val),
-        Err(err) => Err(ShellError::GenericError(
-            message.to_string(),
-            err.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )),
-    }
-}
-
 fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, nu_protocol::ShellError> {
     let path = path.to_string_lossy().to_string();
-    to_shell_error(
-        Connection::open(path),
-        "Failed to open SQLite database",
-        call_span,
-    )
+
+    Connection::open(path).map_err(|e| {
+        ShellError::GenericError(
+            "Failed to open SQLite database".into(),
+            e.to_string(),
+            Some(call_span),
+            None,
+            Vec::new(),
+        )
+    })
+}
+
+fn run_sql_query(conn: Connection, sql: &Spanned<String>) -> Result<Value, rusqlite::Error> {
+    let mut stmt = conn.prepare(&sql.item)?;
+    let results = stmt.query([])?;
+
+    let nu_records = results
+        .mapped(|row| Result::Ok(convert_sqlite_row_to_nu_value(row, sql.span)))
+        .into_iter()
+        .collect::<Result<Vec<Value>, rusqlite::Error>>()?;
+
+    Ok(Value::List {
+        vals: nu_records,
+        span: sql.span,
+    })
+}
+
+fn read_single_table(
+    conn: Connection,
+    table_name: String,
+    call_span: Span,
+) -> Result<Value, rusqlite::Error> {
+    let mut stmt = conn.prepare(&format!("SELECT * FROM {}", table_name))?;
+    let results = stmt.query([])?;
+
+    let nu_records = results
+        .mapped(|row| Result::Ok(convert_sqlite_row_to_nu_value(row, call_span)))
+        .into_iter()
+        .collect::<Result<Vec<Value>, rusqlite::Error>>()?;
+
+    Ok(Value::List {
+        vals: nu_records,
+        span: call_span,
+    })
 }
 
 fn read_entire_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rusqlite::Error> {
@@ -146,41 +329,6 @@ fn read_entire_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rus
         span: call_span,
     })
 }
-
-fn run_sql_query(conn: Connection, sql: &Spanned<String>) -> Result<Value, rusqlite::Error> {
-    let mut stmt = conn.prepare(&sql.item)?;
-    let mut results = stmt.query([])?;
-    let mut nu_records = Vec::new();
-
-    while let Some(table_row) = results.next()? {
-        nu_records.push(convert_sqlite_row_to_nu_value(table_row, sql.span))
-    }
-
-    Ok(Value::List {
-        vals: nu_records,
-        span: sql.span,
-    })
-}
-
-fn read_single_table(
-    conn: Connection,
-    table_name: String,
-    call_span: Span,
-) -> Result<Value, rusqlite::Error> {
-    let mut stmt = conn.prepare(&format!("SELECT * FROM {}", table_name))?;
-    let mut results = stmt.query([])?;
-    let mut nu_records = Vec::new();
-
-    while let Some(table_row) = results.next()? {
-        nu_records.push(convert_sqlite_row_to_nu_value(table_row, call_span))
-    }
-
-    Ok(Value::List {
-        vals: nu_records,
-        span: call_span,
-    })
-}
-
 fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
     let mut vals = Vec::new();
     let colnamestr = row.as_ref().column_names().to_vec();

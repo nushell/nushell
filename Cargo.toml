@@ -85,6 +85,9 @@ trash-support = ["nu-command/trash-support"]
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe"]
 
+# Database commands for nushell
+database = ["nu-command/database"]
+
 [profile.release]
 opt-level = "s" # Optimize for size
 strip = "debuginfo"

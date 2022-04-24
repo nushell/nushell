@@ -23,6 +23,11 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
         #[cfg(feature = "dataframe")]
         add_dataframe_decls(&mut working_set);
 
+        // Database-related
+        // Adds all related commands to query databases
+        #[cfg(feature = "database")]
+        add_database_decls(&mut working_set);
+
         // Core
         bind_command! {
             Alias,
@@ -359,11 +364,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
         // Experimental
         bind_command! {
             ViewSource,
-        };
-
-        // Database-related
-        bind_command! {
-            QueryDb
         };
 
         // Deprecated

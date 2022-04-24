@@ -2357,6 +2357,7 @@ dependencies = [
  "serde_yaml",
  "sha2 0.10.2",
  "shadow-rs",
+ "sqlparser",
  "strip-ansi-escapes",
  "sysinfo",
  "terminal_size",
@@ -4049,6 +4050,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "511254be0c5bcf062b019a6c89c01a664aa359ded62f78aa72c6fc137c0590e5"
 dependencies = [
  "lock_api",
+]
+
+[[package]]
+name = "sqlparser"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e9a527b68048eb95495a1508f6c8395c8defcff5ecdbe8ad4106d08a2ef2a3c"
+dependencies = [
+ "log",
 ]
 
 [[package]]
