@@ -63,7 +63,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all ${{ matrix.flags }}
+          args: --all-features --all ${{ matrix.flags }}
 
 
   python-virtualenv:

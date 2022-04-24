@@ -1,5 +1,6 @@
 mod collect;
 mod command;
+mod describe;
 mod from;
 mod open;
 mod query;
@@ -8,6 +9,7 @@ mod utils;
 
 use collect::CollectDb;
 use command::Database;
+use describe::DescribeDb;
 use from::FromDb;
 use nu_protocol::engine::StateWorkingSet;
 use open::OpenDb;
@@ -25,5 +27,5 @@ pub fn add_database_decls(working_set: &mut StateWorkingSet) {
         }
 
     // Series commands
-    bind_command!(CollectDb, Database, FromDb, QueryDb, SelectDb, OpenDb);
+    bind_command!(CollectDb, Database, DescribeDb, FromDb, QueryDb, SelectDb, OpenDb);
 }

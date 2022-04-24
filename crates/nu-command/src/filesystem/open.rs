@@ -1,3 +1,4 @@
+use crate::database::SQLiteDatabase;
 use crate::filesystem::util::BufferedReader;
 use nu_engine::{eval_block, get_full_help, CallExt};
 use nu_protocol::ast::Call;
@@ -39,10 +40,8 @@ impl Command for Open {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let raw = call.has_flag("raw");
-
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
-
         let path = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
         let path = if let Some(path) = path {
@@ -100,6 +99,16 @@ impl Command for Open {
                 Vec::new(),
             ))
         } else {
+            #[cfg(feature = "database")]
+            if !raw {
+                let res = SQLiteDatabase::try_from_path(path, arg_span)
+                    .map(|db| db.into_value(call.head).into_pipeline_data());
+
+                if res.is_ok() {
+                    return res;
+                }
+            }
+
             let file = match std::fs::File::open(path) {
                 Ok(file) => file,
                 Err(err) => {

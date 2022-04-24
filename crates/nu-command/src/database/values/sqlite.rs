@@ -1,10 +1,16 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 use nu_protocol::{CustomValue, PipelineData, ShellError, Span, Spanned, Value};
 use rusqlite::{types::ValueRef, Connection, Row};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use sqlparser::ast::Query;
+
+const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
 
 #[derive(Debug)]
 pub struct SQLiteDatabase {
@@ -37,11 +43,48 @@ impl<'de> Deserialize<'de> for SQLiteDatabase {
 }
 
 impl SQLiteDatabase {
-    pub fn new(path: &Path) -> SQLiteDatabase {
-        SQLiteDatabase {
+    pub fn new(path: &Path) -> Self {
+        Self {
             path: PathBuf::from(path),
             query: None,
         }
+    }
+
+    pub fn try_from_path(path: &Path, span: Span) -> Result<Self, ShellError> {
+        let mut file = File::open(path).map_err(|e| {
+            ShellError::GenericError(
+                "Error opening file".into(),
+                e.to_string(),
+                Some(span),
+                None,
+                Vec::new(),
+            )
+        })?;
+
+        let mut buf: [u8; 16] = [0; 16];
+        file.read_exact(&mut buf)
+            .map_err(|e| {
+                ShellError::GenericError(
+                    "Error reading file header".into(),
+                    e.to_string(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )
+            })
+            .and_then(|_| {
+                if buf == SQLITE_MAGIC_BYTES {
+                    Ok(SQLiteDatabase::new(path))
+                } else {
+                    Err(ShellError::GenericError(
+                        "Error reading file".into(),
+                        "Not a SQLite file".into(),
+                        Some(span),
+                        None,
+                        Vec::new(),
+                    ))
+                }
+            })
     }
 
     pub fn query(&self, sql: &Spanned<String>, call_span: Span) -> Result<Value, ShellError> {
@@ -120,6 +163,27 @@ impl SQLiteDatabase {
             span,
         }
     }
+
+    pub fn describe(&self, span: Span) -> Value {
+        let cols = vec!["connection".to_string(), "query".to_string()];
+        let connection = Value::String {
+            val: self.path.to_str().unwrap_or("").to_string(),
+            span,
+        };
+
+        let query = match &self.query {
+            Some(query) => format!("{query}"),
+            None => "".into(),
+        };
+
+        let query = Value::String { val: query, span };
+
+        Value::Record {
+            cols,
+            vals: vec![connection, query],
+            span,
+        }
+    }
 }
 
 impl CustomValue for SQLiteDatabase {
@@ -140,23 +204,15 @@ impl CustomValue for SQLiteDatabase {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let cols = vec!["connection".to_string(), "query".to_string()];
-        let connection = Value::String {
-            val: self.path.to_str().unwrap_or("").to_string(),
-            span,
-        };
-
-        let query = match &self.query {
-            Some(query) => format!("{query}"),
-            None => "".into(),
-        };
-
-        let query = Value::String { val: query, span };
-
-        Ok(Value::Record {
-            cols,
-            vals: vec![connection, query],
-            span,
+        let db = open_sqlite_db(&self.path, span)?;
+        read_entire_sqlite_db(db, span).map_err(|e| {
+            ShellError::GenericError(
+                "Failed to read from SQLite database".into(),
+                e.to_string(),
+                Some(span),
+                None,
+                Vec::new(),
+            )
         })
     }
 
@@ -240,6 +296,39 @@ fn read_single_table(
     })
 }
 
+fn read_entire_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rusqlite::Error> {
+    let mut table_names: Vec<String> = Vec::new();
+    let mut tables: Vec<Value> = Vec::new();
+
+    let mut get_table_names =
+        conn.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")?;
+    let rows = get_table_names.query_map([], |row| row.get(0))?;
+
+    for row in rows {
+        let table_name: String = row?;
+        table_names.push(table_name.clone());
+
+        let mut rows = Vec::new();
+        let mut table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
+        let mut table_rows = table_stmt.query([])?;
+        while let Some(table_row) = table_rows.next()? {
+            rows.push(convert_sqlite_row_to_nu_value(table_row, call_span))
+        }
+
+        let table_record = Value::List {
+            vals: rows,
+            span: call_span,
+        };
+
+        tables.push(table_record);
+    }
+
+    Ok(Value::Record {
+        cols: table_names,
+        vals: tables,
+        span: call_span,
+    })
+}
 fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
     let mut vals = Vec::new();
     let colnamestr = row.as_ref().column_names().to_vec();
@@ -287,40 +376,6 @@ fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    fn read_entire_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rusqlite::Error> {
-        let mut table_names: Vec<String> = Vec::new();
-        let mut tables: Vec<Value> = Vec::new();
-
-        let mut get_table_names =
-            conn.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")?;
-        let rows = get_table_names.query_map([], |row| row.get(0))?;
-
-        for row in rows {
-            let table_name: String = row?;
-            table_names.push(table_name.clone());
-
-            let mut rows = Vec::new();
-            let mut table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
-            let mut table_rows = table_stmt.query([])?;
-            while let Some(table_row) = table_rows.next()? {
-                rows.push(convert_sqlite_row_to_nu_value(table_row, call_span))
-            }
-
-            let table_record = Value::List {
-                vals: rows,
-                span: call_span,
-            };
-
-            tables.push(table_record);
-        }
-
-        Ok(Value::Record {
-            cols: table_names,
-            vals: tables,
-            span: call_span,
-        })
-    }
 
     #[test]
     fn can_read_empty_db() {
