@@ -49,6 +49,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Ignore,
             Overlay,
             OverlayAdd,
+            OverlayList,
             OverlayRemove,
             Let,
             Metadata,

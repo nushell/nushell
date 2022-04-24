@@ -72,3 +72,17 @@ fn remove_overlay_scoped() {
 
     assert_eq!(actual.out, "foo");
 }
+
+#[test]
+fn list_last_overlay() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            module spam { export def foo [] { "foo" } };
+            overlay add spam;
+            overlay list | last
+        "#,
+    ));
+
+    assert_eq!(actual.out, "spam");
+}

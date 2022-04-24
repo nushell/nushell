@@ -1680,6 +1680,57 @@ pub fn parse_overlay(
             b"add" => {
                 return parse_overlay_add(working_set, spans, expand_aliases_denylist);
             }
+            b"list" => {
+                // TODO: Abstract this code blob, it's repeated all over the place:
+                let call = match working_set.find_decl(b"overlay list") {
+                    Some(decl_id) => {
+                        let (call, mut err) = parse_internal_call(
+                            working_set,
+                            span(&spans[..2]),
+                            if spans.len() > 2 { &spans[2..] } else { &[] },
+                            decl_id,
+                            expand_aliases_denylist,
+                        );
+                        let decl = working_set.get_decl(decl_id);
+
+                        let call_span = span(spans);
+
+                        err = check_call(call_span, &decl.signature(), &call).or(err);
+                        if err.is_some() || call.has_flag("help") {
+                            return (
+                                Pipeline::from_vec(vec![Expression {
+                                    expr: Expr::Call(call),
+                                    span: call_span,
+                                    ty: Type::Any,
+                                    custom_completion: None,
+                                }]),
+                                err,
+                            );
+                        }
+
+                        call
+                    }
+                    None => {
+                        return (
+                            garbage_pipeline(spans),
+                            Some(ParseError::UnknownState(
+                                "internal error: 'overlay' declaration not found".into(),
+                                span(spans),
+                            )),
+                        )
+                    }
+                };
+
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: span(spans),
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    None,
+                );
+            }
             b"remove" => {
                 return parse_overlay_remove(working_set, spans, expand_aliases_denylist);
             }
