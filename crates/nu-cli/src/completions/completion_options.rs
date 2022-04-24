@@ -1,4 +1,6 @@
-use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
+use std::fmt::Display;
+
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 
 #[derive(Copy, Clone)]
 pub enum SortBy {
@@ -8,7 +10,7 @@ pub enum SortBy {
 }
 
 /// Describes how suggestions should be matched.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum MatchAlgorithm {
     /// Only show suggestions which begin with the given input
     ///
@@ -31,7 +33,7 @@ impl MatchAlgorithm {
             MatchAlgorithm::Fuzzy => {
                 let matcher = SkimMatcherV2::default();
                 matcher.fuzzy_match(haystack, needle).is_some()
-            },
+            }
         }
     }
 
@@ -45,10 +47,37 @@ impl MatchAlgorithm {
 
                 let matcher = SkimMatcherV2::default();
                 matcher.fuzzy_match(&haystack_str, &needle_str).is_some()
-            },
+            }
         }
     }
 }
+
+impl TryFrom<String> for MatchAlgorithm {
+    type Error = InvalidMatchAlgorithm;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "prefix" => Ok(Self::Prefix),
+            "fuzzy" => Ok(Self::Fuzzy),
+            _ => Err(InvalidMatchAlgorithm::Unknown),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum InvalidMatchAlgorithm {
+    Unknown,
+}
+
+impl Display for InvalidMatchAlgorithm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            InvalidMatchAlgorithm::Unknown => write!(f, "unknown match algorithm"),
+        }
+    }
+}
+
+impl std::error::Error for InvalidMatchAlgorithm {}
 
 #[derive(Clone)]
 pub struct CompletionOptions {
