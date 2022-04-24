@@ -33,7 +33,7 @@ fn invalid_input_fails() {
     let actual = nu!(
     cwd: "tests/fixtures/formats", pipeline(
         r#"
-            "foo" | query db "select * from asdf"
+            "foo" | db query "select * from asdf"
         "#
     ));
 
