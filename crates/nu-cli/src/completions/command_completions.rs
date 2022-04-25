@@ -1,4 +1,6 @@
-use crate::completions::{file_completions::file_path_completion, Completer, SortBy};
+use crate::completions::{
+    file_completions::file_path_completion, Completer, CompletionOptions, MatchAlgorithm, SortBy,
+};
 use nu_parser::{trim_quotes, FlatShape};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
@@ -30,7 +32,11 @@ impl CommandCompletion {
         }
     }
 
-    fn external_command_completion(&self, prefix: &str) -> Vec<String> {
+    fn external_command_completion(
+        &self,
+        prefix: &str,
+        match_algorithm: MatchAlgorithm,
+    ) -> Vec<String> {
         let mut executables = vec![];
 
         let paths = self.engine_state.env_vars.get("PATH");
@@ -51,7 +57,8 @@ impl CommandCompletion {
                             ) && matches!(
                                 item.path()
                                     .file_name()
-                                    .map(|x| x.to_string_lossy().starts_with(prefix)),
+                                    .map(|x| match_algorithm
+                                        .matches_str(&x.to_string_lossy(), prefix)),
                                 Some(true)
                             ) && is_executable::is_executable(&item.path())
                             {
@@ -74,11 +81,14 @@ impl CommandCompletion {
         span: Span,
         offset: usize,
         find_externals: bool,
+        match_algorithm: MatchAlgorithm,
     ) -> Vec<Suggestion> {
-        let prefix = working_set.get_span_contents(span);
+        let partial = working_set.get_span_contents(span);
+
+        let filter_predicate = |command: &[u8]| match_algorithm.matches_u8(command, partial);
 
         let results = working_set
-            .find_commands_by_prefix(prefix)
+            .find_commands_by_predicate(filter_predicate)
             .into_iter()
             .map(move |x| Suggestion {
                 value: String::from_utf8_lossy(&x.0).to_string(),
@@ -90,12 +100,29 @@ impl CommandCompletion {
                 },
             });
 
-        let results_aliases =
-            working_set
-                .find_aliases_by_prefix(prefix)
+        let results_aliases = working_set
+            .find_aliases_by_predicate(filter_predicate)
+            .into_iter()
+            .map(move |x| Suggestion {
+                value: String::from_utf8_lossy(&x).to_string(),
+                description: None,
+                extra: None,
+                span: reedline::Span {
+                    start: span.start - offset,
+                    end: span.end - offset,
+                },
+            });
+
+        let mut results = results.chain(results_aliases).collect::<Vec<_>>();
+
+        let partial = working_set.get_span_contents(span);
+        let partial = String::from_utf8_lossy(partial).to_string();
+        let results = if find_externals {
+            let results_external = self
+                .external_command_completion(&partial, match_algorithm)
                 .into_iter()
                 .map(move |x| Suggestion {
-                    value: String::from_utf8_lossy(&x).to_string(),
+                    value: x,
                     description: None,
                     extra: None,
                     span: reedline::Span {
@@ -103,24 +130,6 @@ impl CommandCompletion {
                         end: span.end - offset,
                     },
                 });
-
-        let mut results = results.chain(results_aliases).collect::<Vec<_>>();
-
-        let prefix = working_set.get_span_contents(span);
-        let prefix = String::from_utf8_lossy(prefix).to_string();
-        let results = if find_externals {
-            let results_external =
-                self.external_command_completion(&prefix)
-                    .into_iter()
-                    .map(move |x| Suggestion {
-                        value: x,
-                        description: None,
-                        extra: None,
-                        span: reedline::Span {
-                            start: span.start - offset,
-                            end: span.end - offset,
-                        },
-                    });
 
             for external in results_external {
                 if results.contains(&external) {
@@ -152,6 +161,7 @@ impl Completer for CommandCompletion {
         span: Span,
         offset: usize,
         pos: usize,
+        options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let last = self
             .flattened
@@ -180,6 +190,7 @@ impl Completer for CommandCompletion {
                 },
                 offset,
                 false,
+                options.match_algorithm,
             )
         } else {
             vec![]
@@ -194,7 +205,7 @@ impl Completer for CommandCompletion {
             || ((span.end - span.start) == 0)
         {
             // we're in a gap or at a command
-            self.complete_commands(working_set, span, offset, true)
+            self.complete_commands(working_set, span, offset, true, options.match_algorithm)
         } else {
             vec![]
         };
@@ -221,7 +232,7 @@ impl Completer for CommandCompletion {
         // let prefix = working_set.get_span_contents(flat.0);
         let prefix = String::from_utf8_lossy(&prefix).to_string();
 
-        file_path_completion(span, &prefix, &cwd)
+        file_path_completion(span, &prefix, &cwd, options.match_algorithm)
             .into_iter()
             .map(move |x| {
                 if self.flat_idx == 0 {

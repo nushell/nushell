@@ -50,3 +50,9 @@ mod dataframe;
 
 #[cfg(feature = "dataframe")]
 pub use dataframe::*;
+
+#[cfg(feature = "database")]
+mod database;
+
+#[cfg(feature = "database")]
+pub use database::*;

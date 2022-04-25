@@ -1,4 +1,6 @@
-use crate::completions::{file_path_completion, partial_from, Completer, SortBy};
+use crate::completions::{
+    file_path_completion, partial_from, Completer, CompletionOptions, SortBy,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
@@ -26,6 +28,7 @@ impl Completer for DotNuCompletion {
         span: Span,
         offset: usize,
         _: usize,
+        options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).to_string();
         let mut search_dirs: Vec<String> = vec![];
@@ -88,7 +91,7 @@ impl Completer for DotNuCompletion {
         let output: Vec<Suggestion> = search_dirs
             .into_iter()
             .flat_map(|it| {
-                file_path_completion(span, &partial, &it)
+                file_path_completion(span, &partial, &it, options.match_algorithm)
                     .into_iter()
                     .filter(|it| {
                         // Different base dir, so we list the .nu files or folders

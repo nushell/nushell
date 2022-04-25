@@ -39,6 +39,8 @@ mod open;
 mod parse;
 mod path;
 mod prepend;
+#[cfg(feature = "database")]
+mod query;
 mod random;
 mod range;
 mod reduce;

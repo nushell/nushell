@@ -18,8 +18,12 @@ use nu_protocol::{
     ShellError, Span, Value,
 };
 use reedline::{DefaultHinter, Emacs, Vi};
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::{sync::atomic::Ordering, time::Instant};
+
+const PROMPT_MARKER_BEFORE_CMD: &str = "\x1b]133;C\x1b\\"; // OSC 133;C ST
+const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
@@ -209,12 +213,7 @@ pub fn evaluate_repl(
         }
 
         let input = line_editor.read_line(prompt);
-
-        if config.use_ansi_coloring {
-            // Just before running a command/program, send the escape code (see
-            // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
-            print!("\x1b]133;C\x1b\\");
-        }
+        let use_shell_integration = config.shell_integration;
 
         match input {
             Ok(Signal::Success(s)) => {
@@ -305,6 +304,22 @@ pub fn evaluate_repl(
                     let _ = std::env::set_current_dir(path);
                     engine_state.env_vars.insert("PWD".into(), cwd);
                 }
+
+                if use_shell_integration {
+                    // Just before running a command/program, send the escape code (see
+                    // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
+                    let mut ansi_escapes = String::from(PROMPT_MARKER_BEFORE_CMD);
+                    ansi_escapes.push_str(RESET_APPLICATION_MODE);
+                    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+                        let path = cwd.as_string()?;
+                        ansi_escapes.push_str(&format!("\x1b]2;{}\x07", path));
+                    }
+                    // print!("{}", ansi_escapes);
+                    match io::stdout().write_all(ansi_escapes.as_bytes()) {
+                        Ok(it) => it,
+                        Err(err) => print!("error: {}", err),
+                    };
+                }
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
@@ -313,9 +328,6 @@ pub fn evaluate_repl(
                 // When exiting clear to a new line
                 println!();
                 break;
-            }
-            Ok(Signal::CtrlL) => {
-                line_editor.clear_screen().into_diagnostic()?;
             }
             Err(err) => {
                 let message = err.to_string();

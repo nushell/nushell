@@ -21,6 +21,20 @@ impl Command for Date {
         "Date-related commands"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec![
+            "date",
+            "time",
+            "now",
+            "today",
+            "tomorrow",
+            "yesterday",
+            "weekday",
+            "weekday_name",
+            "timezone",
+        ]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

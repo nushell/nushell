@@ -24,6 +24,10 @@ impl Command for Touch {
         "touch"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["touch"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("touch")
             .required(

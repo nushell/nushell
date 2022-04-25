@@ -7,6 +7,9 @@ use {
     std::borrow::Cow,
 };
 
+const PROMPT_MARKER_BEFORE_PS1: &str = "\x1b]133;A\x1b\\"; // OSC 133;A ST
+const PROMPT_MARKER_BEFORE_PS2: &str = "\x1b]133;A;k=s\x1b\\"; // OSC 133;A;k=s ST
+
 /// Nushell prompt definition
 #[derive(Clone)]
 pub struct NushellPrompt {
@@ -95,7 +98,7 @@ impl Prompt for NushellPrompt {
         // Just before starting to draw the PS1 prompt send the escape code (see
         // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
         let mut prompt = if self.shell_integration {
-            String::from("\x1b]133;A\x1b\\")
+            String::from(PROMPT_MARKER_BEFORE_PS1)
         } else {
             String::new()
         };
@@ -155,7 +158,7 @@ impl Prompt for NushellPrompt {
         // Just before starting to draw the PS1 prompt send the escape code (see
         // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
         let mut prompt = if self.shell_integration {
-            String::from("\x1b]133;A;k=s\x1b\\")
+            String::from(PROMPT_MARKER_BEFORE_PS2)
         } else {
             String::new()
         };

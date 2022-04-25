@@ -83,13 +83,13 @@ fn main() -> Result<()> {
     for arg in std::env::args().skip(1) {
         if !script_name.is_empty() {
             args_to_script.push(if arg.contains(' ') {
-                format!("'{}'", arg)
+                format!("`{}`", arg)
             } else {
                 arg
             });
         } else if collect_arg_nushell {
             args_to_nushell.push(if arg.contains(' ') {
-                format!("'{}'", arg)
+                format!("`{}`", arg)
             } else {
                 arg
             });
@@ -277,6 +277,14 @@ fn setup_config(
 
     config_files::read_config_file(engine_state, stack, env_file, is_perf_true(), true);
     config_files::read_config_file(engine_state, stack, config_file, is_perf_true(), false);
+
+    // Give a warning if we see `$config` for a few releases
+    {
+        let working_set = StateWorkingSet::new(engine_state);
+        if working_set.find_variable(b"$config").is_some() {
+            println!("warning: use `let-env config = ...` instead of `let config = ...`");
+        }
+    }
 }
 
 fn parse_commandline_args(

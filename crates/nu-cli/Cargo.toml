@@ -6,6 +6,10 @@ license = "MIT"
 name = "nu-cli"
 version = "0.61.1"
 
+[dev-dependencies]
+nu-test-support = { path="../nu-test-support", version = "0.61.1"  }
+nu-command = { path = "../nu-command", version = "0.61.1" }
+
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.61.1"  }
 nu-path = { path = "../nu-path", version = "0.61.1"  }
@@ -14,11 +18,11 @@ nu-protocol = { path = "../nu-protocol", version = "0.61.1"  }
 nu-utils = { path = "../nu-utils", version = "0.61.1"  }
 nu-ansi-term = "0.45.1"
 nu-color-config = { path = "../nu-color-config", version = "0.61.1"  }
-
+reedline = { git = "https://github.com/nushell/reedline", branch = "main", features = ["bashisms"]}
 crossterm = "0.23.0"
 miette = { version = "4.5.0", features = ["fancy"] }
 thiserror = "1.0.29"
-reedline = { version = "0.4.0", features = ["bashisms"]}
+fuzzy-matcher = "0.3.7"
 
 log = "0.4"
 is_executable = "1.0.1"

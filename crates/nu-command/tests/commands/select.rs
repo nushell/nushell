@@ -66,10 +66,8 @@ fn complex_nested_columns() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
-fn allows_if_given_unknown_column_name_is_missing() {
+fn fails_if_given_unknown_column_name() {
     let actual = nu!(cwd: ".", pipeline(
         r#"
             echo [
@@ -84,7 +82,7 @@ fn allows_if_given_unknown_column_name_is_missing() {
         "#
     ));
 
-    assert_eq!(actual.out, "3");
+    assert!(actual.err.contains("nu::shell::name_not_found"));
 }
 
 #[test]

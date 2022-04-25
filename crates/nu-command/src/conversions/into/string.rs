@@ -37,6 +37,10 @@ impl Command for SubCommand {
         "Convert value to string"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "str", "text"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

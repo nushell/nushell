@@ -20,6 +20,21 @@ impl Command for SubCommand {
         "Print a 'humanized' format for the date, relative to now."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec![
+            "date",
+            "humanize",
+            "relative",
+            "now",
+            "today",
+            "tomorrow",
+            "yesterday",
+            "weekday",
+            "weekday_name",
+            "timezone",
+        ]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

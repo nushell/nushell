@@ -20,6 +20,10 @@ impl Command for Save {
         "Save a file."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["save", "write", "write_file"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("save")
             .required("filename", SyntaxShape::Filepath, "the filename to use")

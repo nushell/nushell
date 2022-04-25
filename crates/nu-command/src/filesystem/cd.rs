@@ -1,7 +1,9 @@
 use nu_engine::{current_dir, CallExt};
-use nu_protocol::ast::{Call, Expr, Expression};
+use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Cd;
@@ -15,9 +17,13 @@ impl Command for Cd {
         "Change directory."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["cd", "change", "directory", "dir", "folder", "switch"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
-            .optional("path", SyntaxShape::Filepath, "the path to change to")
+            .optional("path", SyntaxShape::Directory, "the path to change to")
             .category(Category::FileSystem)
     }
 
@@ -28,17 +34,12 @@ impl Command for Cd {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let raw_path = call.positional_nth(0);
-        let path_val: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
 
-        let (path, span) = match raw_path {
-            Some(v) => match &v {
-                Expression {
-                    expr: Expr::Filepath(val),
-                    span,
-                    ..
-                } if val == "-" => {
+        let (path, span) = match path_val {
+            Some(v) => {
+                if v.item == "-" {
                     let oldpwd = stack.get_env_var(engine_state, "OLDPWD");
 
                     if let Some(oldpwd) = oldpwd {
@@ -47,42 +48,37 @@ impl Command for Cd {
                             Ok(p) => p,
                             Err(e) => {
                                 return Err(ShellError::DirectoryNotFound(
-                                    *span,
+                                    v.span,
                                     Some(format!("IO Error: {:?}", e)),
                                 ))
                             }
                         };
-                        (path.to_string_lossy().to_string(), *span)
+                        (path.to_string_lossy().to_string(), v.span)
                     } else {
-                        (cwd.to_string_lossy().to_string(), *span)
+                        (cwd.to_string_lossy().to_string(), v.span)
                     }
-                }
-                _ => match path_val {
-                    Some(v) => {
-                        let path = v.as_path()?;
-                        let path = match nu_path::canonicalize_with(path, &cwd) {
-                            Ok(p) => {
-                                if !p.is_dir() {
-                                    return Err(ShellError::NotADirectory(v.span()?));
-                                }
-                                p
-                            }
+                } else {
+                    let path_no_whitespace =
+                        &v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-                            Err(e) => {
-                                return Err(ShellError::DirectoryNotFound(
-                                    v.span()?,
-                                    Some(format!("IO Error: {:?}", e)),
-                                ))
+                    let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
+                        Ok(p) => {
+                            if !p.is_dir() {
+                                return Err(ShellError::NotADirectory(v.span));
                             }
-                        };
-                        (path.to_string_lossy().to_string(), v.span()?)
-                    }
-                    None => {
-                        let path = nu_path::expand_tilde("~");
-                        (path.to_string_lossy().to_string(), call.head)
-                    }
-                },
-            },
+                            p
+                        }
+
+                        Err(e) => {
+                            return Err(ShellError::DirectoryNotFound(
+                                v.span,
+                                Some(format!("IO Error: {:?}", e)),
+                            ))
+                        }
+                    };
+                    (path.to_string_lossy().to_string(), v.span)
+                }
+            }
             None => {
                 let path = nu_path::expand_tilde("~");
                 (path.to_string_lossy().to_string(), call.head)

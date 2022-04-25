@@ -11,8 +11,8 @@ nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.61.
 nu-path = { path = "../nu-path", version = "0.61.1"  }
 nu-glob = { path = "../nu-glob", version = "0.61.1" }
 
-itertools = "0.10.1"
 chrono = { version="0.4.19", features=["serde"] }
+sysinfo = "0.23.10"
 
 [features]
 plugin = []

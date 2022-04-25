@@ -1,4 +1,4 @@
-use crate::completions::SortBy;
+use crate::completions::{CompletionOptions, SortBy};
 use nu_protocol::{engine::StateWorkingSet, levenshtein_distance, Span};
 use reedline::Suggestion;
 
@@ -12,6 +12,7 @@ pub trait Completer {
         span: Span,
         offset: usize,
         pos: usize,
+        options: &CompletionOptions,
     ) -> Vec<Suggestion>;
 
     fn get_sort_by(&self) -> SortBy {

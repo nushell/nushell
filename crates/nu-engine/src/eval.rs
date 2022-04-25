@@ -1,7 +1,4 @@
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::io::Write;
-
+use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator};
 use nu_protocol::engine::{EngineState, Stack, Visibility};
@@ -9,8 +6,10 @@ use nu_protocol::{
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
     Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-
-use crate::{current_dir_str, get_full_help};
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::io::Write;
+use sysinfo::SystemExt;
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -529,6 +528,22 @@ pub fn eval_expression(
                 val: path.to_string_lossy().to_string(),
                 span: expr.span,
             })
+        }
+        Expr::Directory(s) => {
+            if s == "-" {
+                Ok(Value::String {
+                    val: "-".to_string(),
+                    span: expr.span,
+                })
+            } else {
+                let cwd = current_dir_str(engine_state, stack)?;
+                let path = expand_path_with(s, cwd);
+
+                Ok(Value::String {
+                    val: path.to_string_lossy().to_string(),
+                    span: expr.span,
+                })
+            }
         }
         Expr::GlobPattern(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
@@ -1249,12 +1264,24 @@ pub fn eval_variable(
             output_cols.push("pid".into());
             output_vals.push(Value::int(pid as i64, span));
 
+            let sys = sysinfo::System::new();
+            let ver = match sys.kernel_version() {
+                Some(v) => v,
+                None => "unknown".into(),
+            };
+
             let os_record = Value::Record {
-                cols: vec!["os".into(), "arch".into(), "family".into()],
+                cols: vec![
+                    "name".into(),
+                    "arch".into(),
+                    "family".into(),
+                    "kernel_version".into(),
+                ],
                 vals: vec![
                     Value::string(std::env::consts::OS, span),
                     Value::string(std::env::consts::ARCH, span),
                     Value::string(std::env::consts::FAMILY, span),
+                    Value::string(ver, span),
                 ],
                 span,
             };

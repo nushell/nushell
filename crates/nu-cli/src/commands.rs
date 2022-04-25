@@ -22,7 +22,10 @@ pub fn evaluate_commands(
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let (input, _) = if commands.item.starts_with('\'') || commands.item.starts_with('"') {
+        let (input, _) = if commands.item.starts_with('\'')
+            || commands.item.starts_with('"')
+            || commands.item.starts_with('`')
+        {
             (
                 trim_quotes(commands.item.as_bytes()),
                 commands.span.start + 1,
