@@ -41,7 +41,7 @@ pub fn parse_def_predecl(
     };
 
     if (name == b"def" || name == b"def-env") && spans.len() >= 4 {
-        let (name_expr, ..) = parse_string(working_set, spans[1]);
+        let (name_expr, ..) = parse_string(working_set, spans[1], expand_aliases_denylist);
         let name = name_expr.as_string();
 
         working_set.enter_scope();
@@ -64,7 +64,7 @@ pub fn parse_def_predecl(
             }
         }
     } else if name == b"extern" && spans.len() == 3 {
-        let (name_expr, ..) = parse_string(working_set, spans[1]);
+        let (name_expr, ..) = parse_string(working_set, spans[1], expand_aliases_denylist);
         let name = name_expr.as_string();
 
         working_set.enter_scope();
@@ -892,7 +892,8 @@ pub fn parse_export(
                 call.head = span(&spans[0..=1]);
 
                 if let Some(name_span) = spans.get(2) {
-                    let (name_expr, err) = parse_string(working_set, *name_span);
+                    let (name_expr, err) =
+                        parse_string(working_set, *name_span, expand_aliases_denylist);
                     error = error.or(err);
                     call.add_positional(name_expr);
 
@@ -1132,7 +1133,7 @@ pub fn parse_module(
     let bytes = working_set.get_span_contents(spans[0]);
 
     if bytes == b"module" && spans.len() >= 3 {
-        let (module_name_expr, err) = parse_string(working_set, spans[1]);
+        let (module_name_expr, err) = parse_string(working_set, spans[1], expand_aliases_denylist);
         error = error.or(err);
 
         let module_name = module_name_expr
@@ -1524,7 +1525,7 @@ pub fn parse_hide(
 
     if bytes == b"hide" && spans.len() >= 2 {
         for span in spans[1..].iter() {
-            let (_, err) = parse_string(working_set, *span);
+            let (_, err) = parse_string(working_set, *span, expand_aliases_denylist);
             error = error.or(err);
         }
 

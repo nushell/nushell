@@ -1726,6 +1726,7 @@ pub fn parse_cell_path(
     working_set: &mut StateWorkingSet,
     tokens: impl Iterator<Item = Token>,
     mut expect_dot: bool,
+    expand_aliases_denylist: &[usize],
     span: Span,
 ) -> (Vec<PathMember>, Option<ParseError>) {
     let mut error = None;
@@ -1755,7 +1756,8 @@ pub fn parse_cell_path(
                     span,
                 }),
                 _ => {
-                    let (result, err) = parse_string(working_set, path_element.span);
+                    let (result, err) =
+                        parse_string(working_set, path_element.span, expand_aliases_denylist);
                     error = error.or(err);
                     match result {
                         Expression {
@@ -1885,7 +1887,13 @@ pub fn parse_full_cell_path(
             );
         };
 
-        let (tail, err) = parse_cell_path(working_set, tokens, expect_dot, span);
+        let (tail, err) = parse_cell_path(
+            working_set,
+            tokens,
+            expect_dot,
+            expand_aliases_denylist,
+            span,
+        );
         error = error.or(err);
 
         if !tail.is_empty() {
@@ -2475,10 +2483,16 @@ pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<Pars
 pub fn parse_string(
     working_set: &mut StateWorkingSet,
     span: Span,
+    expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: string");
 
     let bytes = working_set.get_span_contents(span);
+
+    // Check for bare word interpolation
+    if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' && bytes.contains(&b'(') {
+        return parse_string_interpolation(working_set, span, expand_aliases_denylist);
+    }
 
     let (s, err) = unescape_unquote_string(bytes, span);
 
@@ -3899,7 +3913,7 @@ pub fn parse_value(
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::Directory => parse_directory(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
-        SyntaxShape::String => parse_string(working_set, span),
+        SyntaxShape::String => parse_string(working_set, span, expand_aliases_denylist),
         SyntaxShape::Binary => parse_binary(working_set, span),
         SyntaxShape::Signature => {
             if bytes.starts_with(b"[") {
@@ -3940,7 +3954,8 @@ pub fn parse_value(
 
             let tokens = tokens.into_iter().peekable();
 
-            let (cell_path, err) = parse_cell_path(working_set, tokens, false, span);
+            let (cell_path, err) =
+                parse_cell_path(working_set, tokens, false, expand_aliases_denylist, span);
             error = error.or(err);
 
             (

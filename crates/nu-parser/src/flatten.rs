@@ -326,23 +326,33 @@ pub fn flatten_expression(
             output
         }
         Expr::StringInterpolation(exprs) => {
-            let mut output = vec![(
-                Span {
-                    start: expr.span.start,
-                    end: expr.span.start + 2,
-                },
-                FlatShape::StringInterpolation,
-            )];
+            let mut output = vec![];
             for expr in exprs {
                 output.extend(flatten_expression(working_set, expr));
             }
-            output.push((
-                Span {
-                    start: expr.span.end - 1,
-                    end: expr.span.end,
-                },
-                FlatShape::StringInterpolation,
-            ));
+
+            if let Some(first) = output.first() {
+                if first.0.start != expr.span.start {
+                    // If we aren't a bare word interpolation, also highlight the outer quotes
+                    output.insert(
+                        0,
+                        (
+                            Span {
+                                start: expr.span.start,
+                                end: expr.span.start + 2,
+                            },
+                            FlatShape::StringInterpolation,
+                        ),
+                    );
+                    output.push((
+                        Span {
+                            start: expr.span.end - 1,
+                            end: expr.span.end,
+                        },
+                        FlatShape::StringInterpolation,
+                    ));
+                }
+            }
             output
         }
         Expr::Record(list) => {
