@@ -22,6 +22,7 @@ reedline = { git = "https://github.com/nushell/reedline", branch = "main", featu
 crossterm = "0.23.0"
 miette = { version = "4.5.0", features = ["fancy"] }
 thiserror = "1.0.29"
+fuzzy-matcher = "0.3.7"
 
 log = "0.4"
 is_executable = "1.0.1"

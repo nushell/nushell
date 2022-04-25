@@ -97,7 +97,7 @@ impl Completer for CustomCompletion {
         span: Span,
         offset: usize,
         pos: usize,
-        _options: &CompletionOptions,
+        completion_options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         // Line position
         let line_pos = pos - offset;
@@ -129,8 +129,10 @@ impl Completer for CustomCompletion {
             PipelineData::new(span),
         );
 
+        let mut custom_completion_options = None;
+
         // Parse result
-        let (suggestions, options) = match result {
+        let suggestions = match result {
             Ok(pd) => {
                 let value = pd.into_value(span);
                 match &value {
@@ -145,7 +147,7 @@ impl Completer for CustomCompletion {
                             .unwrap_or_default();
                         let options = value.get_data_by_key("options");
 
-                        let options = if let Some(Value::Record { .. }) = &options {
+                        if let Some(Value::Record { .. }) = &options {
                             let options = options.unwrap_or_default();
                             let should_sort = options
                                 .get_data_by_key("sort")
@@ -156,7 +158,7 @@ impl Completer for CustomCompletion {
                                 self.sort_by = SortBy::Ascending;
                             }
 
-                            CompletionOptions {
+                            custom_completion_options = Some(CompletionOptions {
                                 case_sensitive: options
                                     .get_data_by_key("case_sensitive")
                                     .and_then(|val| val.as_bool().ok())
@@ -170,25 +172,33 @@ impl Completer for CustomCompletion {
                                 } else {
                                     SortBy::None
                                 },
-                                match_algorithm: MatchAlgorithm::Prefix,
-                            }
-                        } else {
-                            CompletionOptions::default()
-                        };
+                                match_algorithm: match options
+                                    .get_data_by_key("completion_algorithm")
+                                {
+                                    Some(option) => option
+                                        .as_string()
+                                        .ok()
+                                        .and_then(|option| option.try_into().ok())
+                                        .unwrap_or(MatchAlgorithm::Prefix),
+                                    None => completion_options.match_algorithm,
+                                },
+                            });
+                        }
 
-                        (completions, options)
+                        completions
                     }
-                    Value::List { vals, .. } => {
-                        let completions = self.map_completions(vals.iter(), span, offset);
-                        (completions, CompletionOptions::default())
-                    }
-                    _ => (vec![], CompletionOptions::default()),
+                    Value::List { vals, .. } => self.map_completions(vals.iter(), span, offset),
+                    _ => vec![],
                 }
             }
-            _ => (vec![], CompletionOptions::default()),
+            _ => vec![],
         };
 
-        filter(&prefix, suggestions, options)
+        if let Some(custom_completion_options) = custom_completion_options {
+            filter(&prefix, suggestions, &custom_completion_options)
+        } else {
+            filter(&prefix, suggestions, completion_options)
+        }
     }
 
     fn get_sort_by(&self) -> SortBy {
@@ -196,12 +206,11 @@ impl Completer for CustomCompletion {
     }
 }
 
-fn filter(prefix: &[u8], items: Vec<Suggestion>, options: CompletionOptions) -> Vec<Suggestion> {
+fn filter(prefix: &[u8], items: Vec<Suggestion>, options: &CompletionOptions) -> Vec<Suggestion> {
     items
         .into_iter()
-        .filter(|it| {
-            // Minimise clones for new functionality
-            match (options.case_sensitive, options.positional) {
+        .filter(|it| match options.match_algorithm {
+            MatchAlgorithm::Prefix => match (options.case_sensitive, options.positional) {
                 (true, true) => it.value.as_bytes().starts_with(prefix),
                 (true, false) => it.value.contains(std::str::from_utf8(prefix).unwrap_or("")),
                 (false, positional) => {
@@ -213,7 +222,10 @@ fn filter(prefix: &[u8], items: Vec<Suggestion>, options: CompletionOptions) -> 
                         value.contains(&prefix)
                     }
                 }
-            }
+            },
+            MatchAlgorithm::Fuzzy => options
+                .match_algorithm
+                .matches_u8(it.value.as_bytes(), prefix),
         })
         .collect()
 }
