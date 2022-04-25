@@ -18,7 +18,7 @@ where
         // more ugly - so we don't do anything, which should result in an equal
         // path on all supported systems.
         relative_to.into()
-    } else if path.to_string_lossy().as_ref().chars().next() == Some('~') {
+    } else if path.to_string_lossy().as_ref().starts_with('~') {
         // do not end up with "/some/path/~" or "/some/path/~user"
         path.into()
     } else {
