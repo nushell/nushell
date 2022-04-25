@@ -1,15 +1,17 @@
-use csv::ReaderBuilder;
+use csv::{ReaderBuilder, Trim};
 use nu_protocol::{Config, IntoPipelineData, PipelineData, ShellError, Span, Value};
 
 fn from_delimited_string_to_value(
     s: String,
     noheaders: bool,
     separator: char,
+    trim: Trim,
     span: Span,
 ) -> Result<Value, csv::Error> {
     let mut reader = ReaderBuilder::new()
         .has_headers(!noheaders)
         .delimiter(separator as u8)
+        .trim(trim)
         .from_reader(s.as_bytes());
 
     let headers = if noheaders {
@@ -48,6 +50,7 @@ fn from_delimited_string_to_value(
 pub fn from_delimited_data(
     noheaders: bool,
     sep: char,
+    trim: Trim,
     input: PipelineData,
     name: Span,
     config: &Config,
@@ -55,8 +58,25 @@ pub fn from_delimited_data(
     let concat_string = input.collect_string("", config)?;
 
     Ok(
-        from_delimited_string_to_value(concat_string, noheaders, sep, name)
+        from_delimited_string_to_value(concat_string, noheaders, sep, trim, name)
             .map_err(|x| ShellError::DelimiterError(x.to_string(), name))?
             .into_pipeline_data(),
     )
+}
+
+pub fn trim_from_str(trim: Option<Value>) -> Result<Trim, ShellError> {
+    match trim {
+        Some(Value::String { val: item, span }) => match item.as_str() {
+            "all" => Ok(Trim::All),
+            "headers" => Ok(Trim::Headers),
+            "fields" => Ok(Trim::Fields),
+            "none" => Ok(Trim::None),
+            _ => Err(ShellError::UnsupportedInput(
+                "the only possible values for trim are 'all', 'headers', 'fields' and 'none'"
+                    .into(),
+                span,
+            )),
+        },
+        _ => Ok(Trim::None),
+    }
 }
