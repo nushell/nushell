@@ -34,7 +34,7 @@ impl Command for Print {
         let head = call.head;
 
         for arg in args {
-            crate::util::print_pipeline_data(arg.into_pipeline_data(), engine_state, stack)?;
+            arg.into_pipeline_data().print(engine_state, stack)?;
         }
 
         Ok(PipelineData::new(head))
