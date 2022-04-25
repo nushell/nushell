@@ -1,14 +1,16 @@
+use crate::database::values::{
+    db::Db, db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
+    db_index::DbIndex, db_table::DbTable,
+};
+use nu_protocol::{CustomValue, PipelineData, ShellError, Span, Spanned, Value};
+use rusqlite::{types::ValueRef, Connection, Row};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sqlparser::ast::Query;
 use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
 };
-
-use nu_protocol::{CustomValue, PipelineData, ShellError, Span, Spanned, Value};
-use rusqlite::{types::ValueRef, Connection, Row};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use sqlparser::ast::Query;
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
 
@@ -329,7 +331,7 @@ fn read_entire_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rus
         span: call_span,
     })
 }
-fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
+pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
     let mut vals = Vec::new();
     let colnamestr = row.as_ref().column_names().to_vec();
     let colnames = colnamestr.iter().map(|s| s.to_string()).collect();
@@ -347,7 +349,7 @@ fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
     }
 }
 
-fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
+pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
     match value {
         ValueRef::Null => Value::Nothing { span },
         ValueRef::Integer(i) => Value::Int { val: i, span },
@@ -468,4 +470,385 @@ mod test {
 
         assert_eq!(converted_db, expected);
     }
+}
+
+//----------------------------------------------------
+pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
+    let db = match Connection::open_in_memory() {
+        Ok(conn) => conn,
+        Err(err) => {
+            return Err(ShellError::GenericError(
+                "Failed to open SQLite connection in memory".into(),
+                err.to_string(),
+                Some(Span::test_data()),
+                None,
+                Vec::new(),
+            ))
+        }
+    };
+
+    Ok(db)
+}
+
+// pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
+//     match value {
+//         ValueRef::Null => Value::Nothing { span },
+//         ValueRef::Integer(i) => Value::Int { val: i, span },
+//         ValueRef::Real(f) => Value::Float { val: f, span },
+//         ValueRef::Text(buf) => {
+//             let s = match std::str::from_utf8(buf) {
+//                 Ok(v) => v,
+//                 Err(_) => {
+//                     return Value::Error {
+//                         error: ShellError::NonUtf8(span),
+//                     }
+//                 }
+//             };
+//             Value::String {
+//                 val: s.to_string(),
+//                 span,
+//             }
+//         }
+//         ValueRef::Blob(u) => Value::Binary {
+//             val: u.to_vec(),
+//             span,
+//         },
+//     }
+// }
+
+pub fn open_and_read_sqlite_db(
+    path: &Path,
+    call_span: Span,
+) -> Result<Value, nu_protocol::ShellError> {
+    let path = path.to_string_lossy().to_string();
+
+    match Connection::open(path) {
+        Ok(conn) => match read_sqlite_db(conn, call_span) {
+            Ok(data) => Ok(data),
+            Err(err) => Err(ShellError::GenericError(
+                "Failed to read from SQLite database".into(),
+                err.to_string(),
+                Some(call_span),
+                None,
+                Vec::new(),
+            )),
+        },
+        Err(err) => Err(ShellError::GenericError(
+            "Failed to open SQLite database".into(),
+            err.to_string(),
+            Some(call_span),
+            None,
+            Vec::new(),
+        )),
+    }
+}
+
+pub fn read_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rusqlite::Error> {
+    let mut table_names: Vec<String> = Vec::new();
+    let mut tables: Vec<Value> = Vec::new();
+
+    let mut get_table_names =
+        conn.prepare("SELECT name from sqlite_master where type = 'table'")?;
+    let rows = get_table_names.query_map([], |row| row.get(0))?;
+
+    for row in rows {
+        let table_name: String = row?;
+        table_names.push(table_name.clone());
+
+        let mut rows = Vec::new();
+        let mut table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
+        let mut table_rows = table_stmt.query([])?;
+        while let Some(table_row) = table_rows.next()? {
+            rows.push(convert_sqlite_row_to_nu_value(table_row, call_span))
+        }
+
+        let table_record = Value::List {
+            vals: rows,
+            span: call_span,
+        };
+
+        tables.push(table_record);
+    }
+
+    Ok(Value::Record {
+        cols: table_names,
+        vals: tables,
+        span: call_span,
+    })
+}
+
+// pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
+//     let mut vals = Vec::new();
+//     let colnamestr = row.as_ref().column_names().to_vec();
+//     let colnames = colnamestr.iter().map(|s| s.to_string()).collect();
+
+//     for (i, c) in row.as_ref().column_names().iter().enumerate() {
+//         let _column = c.to_string();
+//         let val = convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), span);
+//         vals.push(val);
+//     }
+
+//     Value::Record {
+//         cols: colnames,
+//         vals,
+//         span,
+//     }
+// }
+//------------------------------------
+//https://github.com/TaKO8Ki/gobang/blob/main/src/database/sqlite.rs
+#[macro_export]
+macro_rules! get_or_null {
+    ($value:expr) => {
+        $value.map_or("NULL".to_string(), |v| v.to_string())
+    };
+}
+
+pub enum ExecuteResult {
+    Read {
+        headers: Vec<String>,
+        rows: Vec<Vec<String>>,
+        database: Db,
+        table: DbTable,
+    },
+    Write {
+        updated_rows: u64,
+    },
+}
+
+//------------------------------------
+
+pub fn open_connection(path: String) -> Result<Connection, rusqlite::Error> {
+    // let path = path.to_string_lossy().to_string();
+
+    match Connection::open(path) {
+        Ok(conn) => Ok(conn),
+        Err(err) => return Err(err),
+        // Err(err) => Err(ShellError::SpannedLabeledError(
+        //     "Failed to open SQLite database".into(),
+        //     err.to_string(),
+        //     Span::test_data(),
+        // )),
+    }
+}
+
+pub fn get_databases_and_tables(conn: &Connection) -> Result<Vec<Db>, rusqlite::Error> {
+    // let conn = open_connection(path)?;
+    let mut db_query = conn.prepare("SELECT name FROM pragma_database_list")?;
+
+    let databases = db_query.query_map([], |row| {
+        let name: String = row.get(0)?;
+        Ok(Db::new(name.clone(), get_tables(&conn, name)?))
+    })?;
+
+    let mut db_list = vec![];
+    for db in databases {
+        db_list.push(db?);
+    }
+
+    Ok(db_list)
+}
+
+pub fn get_databases(path: String) -> Result<Vec<String>, rusqlite::Error> {
+    let conn = open_connection(path)?;
+    let mut db_query = conn.prepare("SELECT name FROM pragma_database_list")?;
+
+    let mut db_list = vec![];
+    let _ = db_query.query_map([], |row| {
+        let name: String = row.get(0)?;
+        Ok(db_list.push(name.clone()))
+    })?;
+
+    Ok(db_list)
+}
+
+pub fn get_tables(conn: &Connection, _database: String) -> Result<Vec<DbTable>, rusqlite::Error> {
+    let mut table_names = conn.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")?;
+    let rows = table_names.query_map([], |row| row.get(0))?;
+    let mut tables = Vec::new();
+
+    for row in rows {
+        let table_name: String = row?;
+        tables.push(DbTable {
+            name: table_name,
+            create_time: None,
+            update_time: None,
+            engine: None,
+            schema: None,
+        })
+    }
+
+    Ok(tables.into_iter().map(|table| table.into()).collect())
+}
+
+// pub fn get_records(
+//     &self,
+//     _database: &Database,
+//     table: &Table,
+//     page: u16,
+//     filter: Option<String>,
+// ) -> anyhow::Result<(Vec<String>, Vec<Vec<String>>)> {
+//     let query = if let Some(filter) = filter {
+//         format!(
+//             "SELECT * FROM `{table}` WHERE {filter} LIMIT {page}, {limit}",
+//             table = table.name,
+//             filter = filter,
+//             page = page,
+//             limit = RECORDS_LIMIT_PER_PAGE
+//         )
+//     } else {
+//         format!(
+//             "SELECT * FROM `{}` LIMIT {page}, {limit}",
+//             table.name,
+//             page = page,
+//             limit = RECORDS_LIMIT_PER_PAGE
+//         )
+//     };
+//     let mut rows = sqlx::query(query.as_str()).fetch(&self.pool);
+//     let mut headers = vec![];
+//     let mut records = vec![];
+//     while let Some(row) = rows.try_next().await? {
+//         headers = row
+//             .columns()
+//             .iter()
+//             .map(|column| column.name().to_string())
+//             .collect();
+//         let mut new_row = vec![];
+//         for column in row.columns() {
+//             new_row.push(convert_column_value_to_string(&row, column)?)
+//         }
+//         records.push(new_row)
+//     }
+//     Ok((headers, records))
+// }
+
+fn get_column_info(row: &Row) -> Result<DbColumn, rusqlite::Error> {
+    let dbc = DbColumn {
+        cid: row.get("cid")?,
+        name: row.get("name")?,
+        r#type: row.get("type")?,
+        notnull: row.get("notnull")?,
+        default: row.get("dflt_value")?,
+        pk: row.get("pk")?,
+    };
+    Ok(dbc)
+}
+
+pub fn get_columns(conn: &Connection, table: &DbTable) -> Result<Vec<DbColumn>, rusqlite::Error> {
+    let mut column_names = conn.prepare(&format!(
+        "SELECT * FROM pragma_table_info('{}');",
+        table.name
+    ))?;
+
+    let mut columns: Vec<DbColumn> = Vec::new();
+    let rows = column_names.query_and_then([], |row| get_column_info(row))?;
+
+    for row in rows {
+        columns.push(row?);
+    }
+
+    Ok(columns)
+}
+
+fn get_constraint_info(row: &Row) -> Result<DbConstraint, rusqlite::Error> {
+    let dbc = DbConstraint {
+        name: row.get("index_name")?,
+        column_name: row.get("column_name")?,
+        origin: row.get("origin")?,
+    };
+    Ok(dbc)
+}
+
+pub fn get_constraints(
+    conn: &Connection,
+    table: &DbTable,
+) -> Result<Vec<DbConstraint>, rusqlite::Error> {
+    let mut column_names = conn.prepare(&format!(
+        "
+        SELECT
+            p.origin,
+            s.name AS index_name,
+            i.name AS column_name
+        FROM
+            sqlite_master s
+            JOIN pragma_index_list(s.tbl_name) p ON s.name = p.name,
+            pragma_index_info(s.name) i
+        WHERE
+            s.type = 'index'
+            AND tbl_name = '{}'
+            AND NOT p.origin = 'c'
+        ",
+        &table.name
+    ))?;
+
+    let mut constraints: Vec<DbConstraint> = Vec::new();
+    let rows = column_names.query_and_then([], |row| get_constraint_info(row))?;
+
+    for row in rows {
+        constraints.push(row?);
+    }
+
+    Ok(constraints)
+}
+
+fn get_foreign_keys_info(row: &Row) -> Result<DbForeignKey, rusqlite::Error> {
+    let dbc = DbForeignKey {
+        column_name: row.get("from")?,
+        ref_table: row.get("table")?,
+        ref_column: row.get("to")?,
+    };
+    Ok(dbc)
+}
+
+pub fn get_foreign_keys(
+    conn: &Connection,
+    table: &DbTable,
+) -> Result<Vec<DbForeignKey>, rusqlite::Error> {
+    let mut column_names = conn.prepare(&format!(
+        "SELECT p.`from`, p.`to`, p.`table` FROM pragma_foreign_key_list('{}') p",
+        &table.name
+    ))?;
+
+    let mut foreign_keys: Vec<DbForeignKey> = Vec::new();
+    let rows = column_names.query_and_then([], |row| get_foreign_keys_info(row))?;
+
+    for row in rows {
+        foreign_keys.push(row?);
+    }
+
+    Ok(foreign_keys)
+}
+
+fn get_index_info(row: &Row) -> Result<DbIndex, rusqlite::Error> {
+    let dbc = DbIndex {
+        name: row.get("index_name")?,
+        column_name: row.get("name")?,
+        seqno: row.get("seqno")?,
+    };
+    Ok(dbc)
+}
+
+pub fn get_indexes(conn: &Connection, table: &DbTable) -> Result<Vec<DbIndex>, rusqlite::Error> {
+    let mut column_names = conn.prepare(&format!(
+        "
+        SELECT
+            m.name AS index_name,
+            p.*
+        FROM
+            sqlite_master m,
+            pragma_index_info(m.name) p
+        WHERE
+            m.type = 'index'
+            AND m.tbl_name = '{}'
+        ",
+        &table.name,
+    ))?;
+
+    let mut indexes: Vec<DbIndex> = Vec::new();
+    let rows = column_names.query_and_then([], |row| get_index_info(row))?;
+
+    for row in rows {
+        indexes.push(row?);
+    }
+
+    Ok(indexes)
 }
