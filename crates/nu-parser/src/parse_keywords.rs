@@ -2041,11 +2041,11 @@ pub fn parse_overlay_remove(
 
     let mut error = None;
 
-    if let Some(overlay) = working_set.find_overlay(overlay_name.as_bytes()) {
+    // if let Some(overlay) = working_set.find_overlay(overlay_name.as_bytes()) {
         working_set.remove_overlay(overlay_name.as_bytes());
-    } else {
-        error = error.or(Some(ParseError::OverlayNotFound(overlay_name_span)))
-    }
+    // } else {
+    //     error = error.or(Some(ParseError::OverlayNotFound(overlay_name_span)))
+    // }
 
     (
         Pipeline::from_vec(vec![Expression {

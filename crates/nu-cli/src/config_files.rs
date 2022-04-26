@@ -70,7 +70,7 @@ pub fn eval_config_contents(
             match nu_engine::env::current_dir(engine_state, stack) {
                 Ok(cwd) => {
                     if let Err(e) = engine_state.merge_delta(
-                        StateDelta::new(engine_state.active_overlays().to_vec()),
+                        StateDelta::new(),
                         Some(stack),
                         cwd,
                     ) {

@@ -32,7 +32,7 @@ impl Command for OverlayList {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let active_overlays = engine_state
-            .active_overlays()
+            .active_overlay_names()
             .iter()
             .map(|s| Value::string(String::from_utf8_lossy(s), call.head))
             .collect();

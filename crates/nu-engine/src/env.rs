@@ -66,22 +66,17 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
         }
     }
 
-    if let Some(last_overlay) = engine_state.active_overlays().last().cloned() {
-        // TODO: Remove the clone
-        if let Some(env_vars) = engine_state
-            .env_vars
-            .get_mut(String::from_utf8_lossy(&last_overlay).as_ref())
-        {
-            for (k, v) in new_scope {
-                env_vars.insert(k, v);
-            }
-        } else {
-            error = error.or(Some(ShellError::NushellFailed(
-                "Last active overlay not found.".into(),
-            )));
+    // TODO: Remove the clone
+    let last_overlay_name = String::from_utf8_lossy(engine_state.last_overlay_name()).to_string();
+
+    if let Some(env_vars) = engine_state.env_vars.get_mut(&last_overlay_name) {
+        for (k, v) in new_scope {
+            env_vars.insert(k, v);
         }
     } else {
-        error = error.or(Some(ShellError::NushellFailed("No active overlay.".into())));
+        error = error.or(Some(ShellError::NushellFailed(
+            "Last active overlay not found.".into(),
+        )));
     }
 
     error

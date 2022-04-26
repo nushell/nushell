@@ -187,8 +187,8 @@ impl Completer for VariableCompletion {
         }
 
         // Permanent state vars
-        for scope in &self.engine_state.scope {
-            for v in &scope.vars {
+        // for scope in &self.engine_state.scope {
+            for v in &self.engine_state.scope.vars {
                 if options.match_algorithm.matches_u8(v.0, &prefix) {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(v.0).to_string(),
@@ -198,7 +198,7 @@ impl Completer for VariableCompletion {
                     });
                 }
             }
-        }
+        // }
 
         output.dedup();
 

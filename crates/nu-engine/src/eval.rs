@@ -797,20 +797,20 @@ pub fn create_scope(
     let mut aliases = vec![];
     let mut modules = vec![];
 
-    let mut vars_map = HashMap::new();
-    let mut commands_map = HashMap::new();
-    let mut aliases_map = HashMap::new();
-    let mut modules_map = HashMap::new();
-    let mut visibility = Visibility::new();
+    // let mut vars_map = HashMap::new();
+    // let mut commands_map = HashMap::new();
+    // let mut aliases_map = HashMap::new();
+    // let mut modules_map = HashMap::new();
+    // let mut visibility = Visibility::new();
 
-    for frame in &engine_state.scope {
-        vars_map.extend(&frame.vars);
-        commands_map.extend(&frame.decls);
-        aliases_map.extend(&frame.aliases);
-        modules_map.extend(&frame.modules);
+    // for frame in &engine_state.scope {
+    let vars_map = &engine_state.scope.vars;
+    let commands_map = &engine_state.scope.decls;
+    let aliases_map = &engine_state.scope.aliases;
+    let modules_map = &engine_state.scope.modules;
 
-        visibility.merge_with(frame.visibility.clone());
-    }
+    let visibility = &engine_state.scope.visibility;
+    // }
 
     for var in vars_map {
         let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
@@ -836,9 +836,9 @@ pub fn create_scope(
             let mut vals = vec![];
 
             let mut module_commands = vec![];
-            for module in &modules_map {
-                let module_name = String::from_utf8_lossy(*module.0).to_string();
-                let module_id = engine_state.find_module(*module.0);
+            for module in modules_map {
+                let module_name = String::from_utf8_lossy(module.0).to_string();
+                let module_id = engine_state.find_module(module.0);
                 if let Some(module_id) = module_id {
                     let module = engine_state.get_module(module_id);
                     if module.has_decl(command_name) {

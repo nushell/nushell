@@ -38,8 +38,7 @@ impl Command for ListDF {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let vals = engine_state
-            .scope
+        let vals = &[&engine_state.scope] // TODO: Fix this properly
             .iter()
             .flat_map(|frame| {
                 frame
@@ -93,7 +92,7 @@ impl Command for ListDF {
             .collect::<Vec<Value>>();
 
         let list = Value::List {
-            vals,
+            vals: vals.to_vec(),
             span: call.head,
         };
 
