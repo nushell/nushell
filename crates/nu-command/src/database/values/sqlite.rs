@@ -202,7 +202,7 @@ impl SQLiteDatabase {
 
         let databases = db_query.query_map([], |row| {
             let name: String = row.get(0)?;
-            Ok(Db::new(name.clone(), self.get_tables(&conn)?))
+            Ok(Db::new(name, self.get_tables(conn)?))
         })?;
 
         let mut db_list = vec![];
@@ -219,7 +219,8 @@ impl SQLiteDatabase {
         let mut db_list = vec![];
         let _ = db_query.query_map([], |row| {
             let name: String = row.get(0)?;
-            Ok(db_list.push(name.clone()))
+            db_list.push(name);
+            Ok(())
         })?;
 
         Ok(db_list)
@@ -242,7 +243,7 @@ impl SQLiteDatabase {
             })
         }
 
-        Ok(tables.into_iter().map(|table| table.into()).collect())
+        Ok(tables.into_iter().collect())
     }
 
     fn get_column_info(&self, row: &Row) -> Result<DbColumn, rusqlite::Error> {
