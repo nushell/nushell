@@ -1,13 +1,12 @@
-use crate::database::values::{
-    db_row::DbRow, get_columns, get_constraints, get_databases_and_tables, get_foreign_keys,
-    get_indexes, open_connection, SQLiteDatabase,
-};
+use super::super::SQLiteDatabase;
+use crate::database::values::db_row::DbRow;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
 };
+use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct InfoDb;
@@ -44,23 +43,15 @@ impl Command for InfoDb {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // let sql: Spanned<String> = call.req(engine_state, stack, 0)?;
-
-        // let db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
-        // db.query(&sql, call.head)
-        //     .map(IntoPipelineData::into_pipeline_data)
-
-        // SQLiteDatabase::try_from_path(path.item.as_path(), path.span)
-        // .map(|db| db.into_value(call.head).into_pipeline_data())
-
-        let db_file: Value = call.req(engine_state, stack, 0)?;
-        let span = db_file.span()?;
+        let db_file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
+        let span = db_file.span;
         let mut cols = vec![];
         let mut vals = vec![];
 
-        let conn = open_connection(db_file.as_string()?).map_err(|e| {
+        let sqlite_db = SQLiteDatabase::try_from_path(db_file.item.as_path(), db_file.span)?;
+        let conn = sqlite_db.open_connection().map_err(|e| {
             ShellError::GenericError(
                 "Error opening file".into(),
                 e.to_string(),
@@ -69,26 +60,30 @@ impl Command for InfoDb {
                 Vec::new(),
             )
         })?;
-        let dbs = get_databases_and_tables(&conn);
 
-        cols.push("db_filename".into());
-        vals.push(db_file);
-
-        for db in dbs.map_err(|e| {
+        let dbs = sqlite_db.get_databases_and_tables(&conn).map_err(|e| {
             ShellError::GenericError(
-                "Error accesing DB".into(),
+                "Error getting databases and tables".into(),
                 e.to_string(),
                 Some(span),
                 None,
                 Vec::new(),
             )
-        })? {
+        })?;
+
+        cols.push("db_filename".into());
+        vals.push(Value::String {
+            val: db_file.item.to_string_lossy().to_string(),
+            span,
+        });
+
+        for db in dbs {
             let tables = db.tables();
             let mut table_list: Vec<Value> = vec![];
             let mut table_names = vec![];
             let mut table_values = vec![];
             for table in tables {
-                let columns = get_columns(&conn, &table).map_err(|e| {
+                let columns = sqlite_db.get_columns(&conn, &table).map_err(|e| {
                     ShellError::GenericError(
                         "Error getting database columns".into(),
                         e.to_string(),
@@ -115,7 +110,7 @@ impl Command for InfoDb {
                     });
                 }
 
-                let constraints = get_constraints(&conn, &table).map_err(|e| {
+                let constraints = sqlite_db.get_constraints(&conn, &table).map_err(|e| {
                     ShellError::GenericError(
                         "Error getting DB constraints".into(),
                         e.to_string(),
@@ -141,7 +136,7 @@ impl Command for InfoDb {
                     });
                 }
 
-                let foreign_keys = get_foreign_keys(&conn, &table).map_err(|e| {
+                let foreign_keys = sqlite_db.get_foreign_keys(&conn, &table).map_err(|e| {
                     ShellError::GenericError(
                         "Error getting DB Foreign Keys".into(),
                         e.to_string(),
@@ -167,7 +162,7 @@ impl Command for InfoDb {
                     });
                 }
 
-                let indexes = get_indexes(&conn, &table).map_err(|e| {
+                let indexes = sqlite_db.get_indexes(&conn, &table).map_err(|e| {
                     ShellError::GenericError(
                         "Error getting DB Indexes".into(),
                         e.to_string(),

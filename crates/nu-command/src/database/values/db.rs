@@ -1,7 +1,8 @@
 use crate::database::values::db_table::DbTable;
 
-//------------------------------------
+// Thank you gobang
 // https://github.com/TaKO8Ki/gobang/blob/main/database-tree/src/lib.rs
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct Db {
     pub name: String,
