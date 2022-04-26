@@ -2,4 +2,7 @@ mod commands;
 mod values;
 
 pub use commands::add_database_decls;
-pub(crate) use values::SQLiteDatabase;
+pub use values::{
+    convert_sqlite_row_to_nu_value, convert_sqlite_value_to_nu_value, open_and_read_sqlite_db,
+    open_connection_in_memory, read_sqlite_db, SQLiteDatabase,
+};
