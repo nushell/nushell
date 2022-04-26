@@ -529,6 +529,18 @@ pub fn parse_alias(
                 expand_aliases_denylist,
             );
 
+            if call.has_flag("help") {
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: span(spans),
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    None,
+                );
+            }
+
             if spans.len() >= 4 {
                 let alias_name = working_set.get_span_contents(spans[1]);
 
