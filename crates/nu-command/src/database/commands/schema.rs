@@ -9,11 +9,11 @@ use nu_protocol::{
 use std::path::PathBuf;
 
 #[derive(Clone)]
-pub struct InfoDb;
+pub struct SchemaDb;
 
-impl Command for InfoDb {
+impl Command for SchemaDb {
     fn name(&self) -> &str {
-        "db info"
+        "db schema"
     }
 
     fn signature(&self) -> Signature {
