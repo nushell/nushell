@@ -1,6 +1,6 @@
 use nu_engine::CallExt;
 
-use nu_protocol::ast::Call;
+use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
@@ -69,7 +69,11 @@ impl Command for Range {
         let rows: nu_protocol::Range = call.req(engine_state, stack, 0)?;
 
         let rows_from = get_range_val(rows.from);
-        let rows_to = get_range_val(rows.to);
+        let rows_to = if rows.inclusion == RangeInclusion::RightExclusive {
+            get_range_val(rows.to) - 1
+        } else {
+            get_range_val(rows.to)
+        };
 
         // only collect the input if we have any negative indices
         if rows_from < 0 || rows_to < 0 {
