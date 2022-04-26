@@ -4539,13 +4539,44 @@ pub fn parse_builtin_commands(
         b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
         b"use" => parse_use(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"export" => (
-            garbage_pipeline(&lite_command.parts),
-            Some(ParseError::UnexpectedKeyword(
-                "export".into(),
-                lite_command.parts[0],
-            )),
-        ),
+        b"export" => {
+            if let Some(decl_id) = working_set.find_decl(b"alias") {
+                let (call, _) = parse_internal_call(
+                    working_set,
+                    lite_command.parts[0],
+                    &lite_command.parts[1..],
+                    decl_id,
+                    expand_aliases_denylist,
+                );
+                if call.has_flag("help") {
+                    (
+                        Pipeline::from_vec(vec![Expression {
+                            expr: Expr::Call(call),
+                            span: span(&lite_command.parts),
+                            ty: Type::Any,
+                            custom_completion: None,
+                        }]),
+                        None,
+                    )
+                } else {
+                    (
+                        garbage_pipeline(&lite_command.parts),
+                        Some(ParseError::UnexpectedKeyword(
+                            "export".into(),
+                            lite_command.parts[0],
+                        )),
+                    )
+                }
+            } else {
+                (
+                    garbage_pipeline(&lite_command.parts),
+                    Some(ParseError::UnexpectedKeyword(
+                        "export".into(),
+                        lite_command.parts[0],
+                    )),
+                )
+            }
+        }
         b"hide" => parse_hide(working_set, &lite_command.parts, expand_aliases_denylist),
         #[cfg(feature = "plugin")]
         b"register" => parse_register(working_set, &lite_command.parts, expand_aliases_denylist),
