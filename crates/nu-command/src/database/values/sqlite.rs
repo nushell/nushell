@@ -19,7 +19,7 @@ pub struct SQLiteDatabase {
     // I considered storing a SQLite connection here, but decided against it because
     // 1) YAGNI, 2) it's not obvious how cloning a connection could work, 3) state
     // management gets tricky quick. Revisit this approach if we find a compelling use case.
-    path: PathBuf,
+    pub path: PathBuf,
     pub query: Option<Query>,
 }
 
