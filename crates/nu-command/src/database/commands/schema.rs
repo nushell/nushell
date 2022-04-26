@@ -1,56 +1,51 @@
 use super::super::SQLiteDatabase;
 use crate::database::values::db_row::DbRow;
-use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Value,
 };
-use std::path::PathBuf;
 
 #[derive(Clone)]
-pub struct InfoDb;
+pub struct SchemaDb;
 
-impl Command for InfoDb {
+impl Command for SchemaDb {
     fn name(&self) -> &str {
-        "db info"
+        "db schema"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name())
-            .required("db", SyntaxShape::Filepath, "sqlite database file name")
-            .category(Category::Custom("database".into()))
+        Signature::build(self.name()).category(Category::Custom("database".into()))
     }
 
     fn usage(&self) -> &str {
-        "Show database information."
+        "Show database information, including its schema."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Show information of a SQLite database",
-            example: r#"db info foo.db"#,
+            description: "Show the schema of a SQLite database",
+            example: r#"open foo.db | db schema"#,
             result: None,
         }]
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "info", "SQLite"]
+        vec!["database", "info", "SQLite", "schema"]
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let db_file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
-        let span = db_file.span;
         let mut cols = vec![];
         let mut vals = vec![];
+        let span = call.head;
 
-        let sqlite_db = SQLiteDatabase::try_from_path(db_file.item.as_path(), db_file.span)?;
+        let sqlite_db = SQLiteDatabase::try_from_pipeline(input, span)?;
         let conn = sqlite_db.open_connection().map_err(|e| {
             ShellError::GenericError(
                 "Error opening file".into(),
@@ -73,7 +68,7 @@ impl Command for InfoDb {
 
         cols.push("db_filename".into());
         vals.push(Value::String {
-            val: db_file.item.to_string_lossy().to_string(),
+            val: sqlite_db.path.to_string_lossy().to_string(),
             span,
         });
 
