@@ -30,7 +30,7 @@ impl Completer for DirectoryCompletion {
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
+        let cwd = if let Some(d) = self.engine_state.get_env_var("PWD") {
             match d.as_string() {
                 Ok(s) => s,
                 Err(_) => "".to_string(),

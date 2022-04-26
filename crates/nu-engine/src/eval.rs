@@ -164,10 +164,8 @@ pub fn eval_call(
             }
 
             // add new env vars from callee to caller
-            for env_vars in callee_stack.env_vars {
-                for (var, value) in env_vars {
-                    caller_stack.add_env_var(var, value);
-                }
+            for (var, value) in callee_stack.get_stack_env_vars() {
+                caller_stack.add_env_var(var, value);
             }
         }
 

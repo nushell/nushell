@@ -2504,7 +2504,7 @@ fn find_in_dirs(
         let path = Path::new(filename);
 
         if path.is_relative() {
-            if let Some(lib_dirs) = working_set.get_env(dirs_env) {
+            if let Some(lib_dirs) = working_set.get_env_var(dirs_env) {
                 if let Ok(dirs) = lib_dirs.as_list() {
                     for lib_dir in dirs {
                         if let Ok(dir) = lib_dir.as_path() {

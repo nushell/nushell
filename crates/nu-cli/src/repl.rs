@@ -302,7 +302,7 @@ pub fn evaluate_repl(
                 if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
                     let path = cwd.as_string()?;
                     let _ = std::env::set_current_dir(path);
-                    engine_state.env_vars.insert("PWD".into(), cwd);
+                    engine_state.add_env_var("PWD".into(), cwd);
                 }
 
                 if use_shell_integration {

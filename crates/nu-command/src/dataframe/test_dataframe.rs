@@ -61,7 +61,7 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
 
         let _ = engine_state.merge_delta(delta, None, &cwd);
 
-        let mut stack = Stack::new();
+        let mut stack = Stack::new(&engine_state);
 
         match eval_block(
             &engine_state,

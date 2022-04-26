@@ -34,7 +34,9 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
 
     let mut new_scope = HashMap::new();
 
-    for (name, val) in &engine_state.env_vars {
+    let env_vars = engine_state.render_env_vars();
+
+    for (name, val) in env_vars {
         match get_converted_value(engine_state, stack, name, val, "from_string") {
             ConversionResult::Ok(v) => {
                 let _ = new_scope.insert(name.to_string(), v);
@@ -64,8 +66,22 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
         }
     }
 
-    for (k, v) in new_scope {
-        engine_state.env_vars.insert(k, v);
+    if let Some(last_overlay) = engine_state.active_overlays().last().cloned() {
+        // TODO: Remove the clone
+        if let Some(env_vars) = engine_state
+            .env_vars
+            .get_mut(String::from_utf8_lossy(&last_overlay).as_ref())
+        {
+            for (k, v) in new_scope {
+                env_vars.insert(k, v);
+            }
+        } else {
+            error = error.or(Some(ShellError::NushellFailed(
+                "Last active overlay not found.".into(),
+            )));
+        }
+    } else {
+        error = error.or(Some(ShellError::NushellFailed("No active overlay.".into())));
     }
 
     error

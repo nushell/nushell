@@ -1,4 +1,4 @@
-use super::{Command, Stack};
+use super::{Command, EnvVars, Stack};
 use crate::{
     ast::Block, AliasId, BlockId, Config, DeclId, Example, Module, ModuleId, ShellError, Signature,
     Span, Type, VarId, Variable,
@@ -97,6 +97,8 @@ pub struct ScopeFrame {
     pub env_vars: HashMap<Vec<u8>, BlockId>,
     pub modules: HashMap<Vec<u8>, ModuleId>,
     pub visibility: Visibility,
+    // TODO: Instead of having a copy of all active overlays in each scope frame, could we come up
+    // with a composable delta format instead?
     active_overlays: Vec<Vec<u8>>,
 }
 
@@ -198,7 +200,7 @@ pub struct EngineState {
     overlays: Vec<(Vec<u8>, OverlayFrame)>,
     pub scope: Vec<ScopeFrame>,
     pub ctrlc: Option<Arc<AtomicBool>>,
-    pub env_vars: HashMap<String, Value>,
+    pub env_vars: EnvVars,
     pub config: Config,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
@@ -226,9 +228,9 @@ impl EngineState {
             blocks: vec![],
             modules: vec![],
             overlays: vec![],
-            scope: vec![ScopeFrame::new(vec![])],
+            scope: vec![ScopeFrame::new(vec![b"zero".to_vec()])],
             ctrlc: None,
-            env_vars: HashMap::new(),
+            env_vars: EnvVars::new(),
             config: Config::default(),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
@@ -334,13 +336,21 @@ impl EngineState {
         }
 
         if let Some(stack) = stack {
-            for mut env_scope in stack.env_vars.drain(..) {
-                for (k, v) in env_scope.drain() {
-                    if k == "config" {
-                        self.config = v.clone().into_config().unwrap_or_default();
-                    }
+            for mut scope in stack.env_vars.drain(..) {
+                for (overlay_name, mut env) in scope.drain() {
+                    if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
+                        // Updating existing overlay
+                        for (k, v) in env.drain() {
+                            if k == "config" {
+                                self.config = v.clone().into_config().unwrap_or_default();
+                            }
 
-                    self.env_vars.insert(k, v);
+                            env_vars.insert(k, v);
+                        }
+                    } else {
+                        // Pushing a new overlay
+                        self.env_vars.insert(overlay_name, env);
+                    }
                 }
             }
         }
@@ -359,6 +369,57 @@ impl EngineState {
             .expect("internal error: missing required scope frame");
 
         &scope_frame.active_overlays
+    }
+
+    pub fn render_env_vars(&self) -> HashMap<&String, &Value> {
+        let mut result = HashMap::new();
+
+        for active_overlay in self.active_overlays() {
+            if let Some(env_vars) = self
+                .env_vars
+                .get(String::from_utf8_lossy(active_overlay).as_ref())
+            {
+                result.extend(env_vars);
+            }
+        }
+
+        result
+    }
+
+    pub fn add_env_var(&mut self, name: String, val: Value) {
+        let last_overlay = String::from_utf8_lossy(
+            self.active_overlays()
+                .last()
+                .expect("internal error: no active overlay"),
+        )
+        .to_string();
+
+        if let Some(env_vars) = self.env_vars.get_mut(&last_overlay) {
+            env_vars.insert(name, val);
+        } else {
+            self.env_vars
+                .insert(last_overlay, HashMap::from([(name, val)]));
+        }
+    }
+
+    pub fn get_env_var(&self, name: &str) -> Option<&Value> {
+        let scope_frame = self
+            .scope
+            .last()
+            .expect("internal error: missing required scope frame");
+
+        for active_overlay in scope_frame.active_overlays.iter().rev() {
+            if let Some(env_vars) = self
+                .env_vars
+                .get(String::from_utf8_lossy(active_overlay).as_ref())
+            {
+                if let Some(val) = env_vars.get(name) {
+                    return Some(val);
+                }
+            }
+        }
+
+        None
     }
 
     #[cfg(feature = "plugin")]
@@ -1327,7 +1388,10 @@ impl<'a> StateWorkingSet<'a> {
                 // check overlay in permanent state
                 if let Some(overlay_frame) = self.permanent_state.find_overlay(overlay_name) {
                     if do_trace {
-                        trace!("  overlay found in perma; overlay decls: {:?}", overlay_frame.decls);
+                        trace!(
+                            "  overlay found in perma; overlay decls: {:?}",
+                            overlay_frame.decls
+                        );
                     }
                     visibility.append(&overlay_frame.visibility);
 
@@ -1504,15 +1568,31 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn get_cwd(&self) -> String {
         let pwd = self
-            .permanent_state
-            .env_vars
-            .get(PWD_ENV)
+            .get_env_var(PWD_ENV)
             .expect("internal error: can't find PWD");
         pwd.as_string().expect("internal error: PWD not a string")
     }
 
-    pub fn get_env(&self, name: &str) -> Option<&Value> {
-        self.permanent_state.env_vars.get(name)
+    pub fn get_env_var(&self, name: &str) -> Option<&Value> {
+        let scope_frame = self
+            .delta
+            .scope
+            .last()
+            .expect("internal error: missing required scope frame");
+
+        for active_overlay in scope_frame.active_overlays.iter().rev() {
+            if let Some(env_vars) = self
+                .permanent_state
+                .env_vars
+                .get(String::from_utf8_lossy(active_overlay).as_ref())
+            {
+                if let Some(val) = env_vars.get(name) {
+                    return Some(val);
+                }
+            }
+        }
+
+        None
     }
 
     pub fn get_config(&self) -> &Config {

@@ -24,7 +24,7 @@ const DEFAULT_COMPLETION_MENU: &str = r#"
   type: {
       layout: columnar
       columns: 4
-      col_width: 20   
+      col_width: 20
       col_padding: 2
   }
   style: {
@@ -58,7 +58,7 @@ const DEFAULT_HELP_MENU: &str = r#"
   type: {
       layout: description
       columns: 4
-      col_width: 20   
+      col_width: 20
       col_padding: 2
       selection_rows: 4
       description_rows: 10
@@ -109,7 +109,7 @@ pub(crate) fn add_menus(
                 (output, working_set.render())
             };
 
-            let mut temp_stack = Stack::new();
+            let mut temp_stack = Stack::new(&engine_state);
             let input = Value::nothing(Span::test_data()).into_pipeline_data();
             let res = eval_block(&engine_state, &mut temp_stack, &block, input, false, false)?;
 

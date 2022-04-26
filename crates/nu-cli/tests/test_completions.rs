@@ -12,7 +12,7 @@ fn file_completions() {
     // Create a new engine
     let (dir, dir_str, engine) = new_engine();
 
-    let stack = Stack::new();
+    let stack = Stack::new(&engine);
 
     // Instatiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
@@ -50,7 +50,7 @@ fn folder_completions() {
     // Create a new engine
     let (dir, dir_str, engine) = new_engine();
 
-    let stack = Stack::new();
+    let stack = Stack::new(&engine);
 
     // Instatiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
