@@ -1,4 +1,4 @@
-use super::delimited::from_delimited_data;
+use super::delimited::{from_delimited_data, trim_from_str};
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -25,6 +25,12 @@ impl Command for FromCsv {
                 "noheaders",
                 "don't treat the first row as column names",
                 Some('n'),
+            )
+            .named(
+                "trim",
+                SyntaxShape::String,
+                "drop leading and trailing whitespaces around headers names and/or field values",
+                Some('t'),
             )
             .category(Category::Formats)
     }
@@ -65,6 +71,21 @@ impl Command for FromCsv {
                 example: "open data.txt | from csv --separator ';'",
                 result: None,
             },
+            Example {
+                description: "Convert semicolon-separated data to a table, dropping all possible whitespaces around header names and field values",
+                example: "open data.txt | from csv --trim all",
+                result: None,
+            },
+            Example {
+                description: "Convert semicolon-separated data to a table, dropping all possible whitespaces around header names",
+                example: "open data.txt | from csv --trim headers",
+                result: None,
+            },
+            Example {
+                description: "Convert semicolon-separated data to a table, dropping all possible whitespaces around field values",
+                example: "open data.txt | from csv --trim fields",
+                result: None,
+            },
         ]
     }
 }
@@ -79,6 +100,7 @@ fn from_csv(
 
     let noheaders = call.has_flag("noheaders");
     let separator: Option<Value> = call.get_flag(engine_state, stack, "separator")?;
+    let trim: Option<Value> = call.get_flag(engine_state, stack, "trim")?;
     let config = engine_state.get_config();
 
     let sep = match separator {
@@ -99,7 +121,9 @@ fn from_csv(
         _ => ',',
     };
 
-    from_delimited_data(noheaders, sep, input, name, config)
+    let trim = trim_from_str(trim)?;
+
+    from_delimited_data(noheaders, sep, trim, input, name, config)
 }
 
 #[cfg(test)]

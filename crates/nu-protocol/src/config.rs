@@ -38,6 +38,7 @@ pub struct Config {
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
     pub partial_completions: bool,
+    pub completion_algorithm: String,
     pub edit_mode: String,
     pub max_history_size: i64,
     pub sync_history_on_enter: bool,
@@ -63,6 +64,7 @@ impl Default for Config {
             use_ansi_coloring: true,
             quick_completions: true,
             partial_completions: true,
+            completion_algorithm: "prefix".into(),
             edit_mode: "emacs".into(),
             max_history_size: 1000,
             sync_history_on_enter: true,
@@ -180,6 +182,13 @@ impl Value {
                             config.partial_completions = b;
                         } else {
                             eprintln!("$config.partial_completions is not a bool")
+                        }
+                    }
+                    "completion_algorithm" => {
+                        if let Ok(v) = value.as_string() {
+                            config.completion_algorithm = v.to_lowercase();
+                        } else {
+                            eprintln!("$config.completion_algorithm is not a string")
                         }
                     }
                     "rm_always_trash" => {

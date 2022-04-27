@@ -4,6 +4,7 @@ mod describe;
 mod from;
 mod open;
 mod query;
+mod schema;
 mod select;
 mod utils;
 
@@ -19,6 +20,7 @@ use describe::DescribeDb;
 use from::FromDb;
 use open::OpenDb;
 use query::QueryDb;
+use schema::SchemaDb;
 use select::SelectDb;
 
 pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
@@ -32,5 +34,5 @@ pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
         }
 
     // Series commands
-    bind_command!(CollectDb, Database, DescribeDb, FromDb, QueryDb, SelectDb, OpenDb, TestingDb);
+    bind_command!(CollectDb, Database, DescribeDb, FromDb, QueryDb, SelectDb, OpenDb, SchemaDb, TestingDb);
 }

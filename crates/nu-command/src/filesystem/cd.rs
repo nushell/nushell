@@ -58,7 +58,10 @@ impl Command for Cd {
                         (cwd.to_string_lossy().to_string(), v.span)
                     }
                 } else {
-                    let path = match nu_path::canonicalize_with(&v.item, &cwd) {
+                    let path_no_whitespace =
+                        &v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
+
+                    let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                         Ok(p) => {
                             if !p.is_dir() {
                                 return Err(ShellError::NotADirectory(v.span));
