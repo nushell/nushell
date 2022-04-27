@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use sqlparser::ast::SelectItem;
+use sqlparser::ast::{SelectItem, Ident, ObjectName};
 
 #[derive(Clone)]
 pub struct ColExpr;
@@ -48,6 +48,14 @@ impl Command for ColExpr {
 
         let select = match name {
             Value::String { val, .. } if val == "*" => SelectItem::Wildcard,
+            Value::String { val, .. } if val.contains('.') => {
+                let values = val.split('.').map(|part| Ident {
+                    value: part.to_string(),
+                    quote_style: None
+                }).collect::<Vec<Ident>>();
+                
+                SelectItem::QualifiedWildcard(ObjectName(values))
+            }
             _ => {
                 let expr = ExprDb::try_from_value(name)?;
                 SelectItem::UnnamedExpr(expr.into_native())
