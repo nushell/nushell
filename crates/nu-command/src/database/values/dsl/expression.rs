@@ -109,7 +109,7 @@ impl ExprDb {
             Expr::Identifier(ident) => {
                 let cols = vec!["value".into(), "quoted_style".into()];
                 let val = Value::String {
-                    val: format!("{}", ident.value),
+                    val: ident.value.to_string(),
                     span,
                 };
                 let style = Value::String {

@@ -1,16 +1,16 @@
+use crate::database::values::definitions::{
+    db::Db, db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
+    db_index::DbIndex, db_table::DbTable,
+};
 use nu_protocol::{CustomValue, PipelineData, ShellError, Span, Spanned, Value};
 use rusqlite::{types::ValueRef, Connection, Row};
 use serde::{Deserialize, Serialize};
+use sqlparser::ast::Query;
 use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
 };
-use crate::database::values::{
-    db::Db, db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
-    db_index::DbIndex, db_table::DbTable,
-};
-use sqlparser::ast::Query;
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
 

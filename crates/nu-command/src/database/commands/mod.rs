@@ -6,7 +6,6 @@ mod open;
 mod query;
 mod schema;
 mod select;
-mod utils;
 
 // Temporal module to create Query objects
 mod testing;
@@ -21,7 +20,7 @@ use from::FromDb;
 use open::OpenDb;
 use query::QueryDb;
 use schema::SchemaDb;
-use select::SelectDb;
+use select::ProjectionDb;
 
 pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {
@@ -34,5 +33,15 @@ pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
         }
 
     // Series commands
-    bind_command!(CollectDb, Database, DescribeDb, FromDb, QueryDb, SelectDb, OpenDb, SchemaDb, TestingDb);
+    bind_command!(
+        CollectDb,
+        Database,
+        DescribeDb,
+        FromDb,
+        QueryDb,
+        ProjectionDb,
+        OpenDb,
+        SchemaDb,
+        TestingDb
+    );
 }

@@ -5,8 +5,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
 };
 use sqlparser::ast::{Ident, SelectItem};
-
-use crate::database::values::SelectDb;
+use crate::database::values::dsl::SelectDb;
 
 #[derive(Clone)]
 pub struct AliasExpr;

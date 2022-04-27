@@ -1,5 +1,5 @@
-mod col;
 mod alias;
+mod col;
 
 use nu_protocol::engine::StateWorkingSet;
 

@@ -82,8 +82,16 @@ impl SelectDb {
                     None,
                 )),
             },
+            Value::String { val, .. } => {
+                let expr = Expr::Identifier(Ident {
+                    value: val,
+                    quote_style: None,
+                });
+
+                Ok(SelectItem::UnnamedExpr(expr).into())
+            }
             x => Err(ShellError::CantConvert(
-                "database".into(),
+                "selection".into(),
                 x.get_type().to_string(),
                 x.span()?,
                 None,
@@ -120,7 +128,7 @@ impl SelectDb {
                 let expr = ExprDb::expr_to_value(expr, span);
 
                 let val = Value::String {
-                    val: format!("{}", alias.value),
+                    val: alias.value.to_string(),
                     span,
                 };
                 let style = Value::String {
@@ -163,7 +171,7 @@ impl SelectDb {
     
     // Convenient function to extrac multiple SelectItem that could be inside a 
     // nushell Value
-    pub fn into_selects(value: Value) -> Result<Vec<SelectItem>, ShellError> {
+    pub fn extract_selects(value: Value) -> Result<Vec<SelectItem>, ShellError> {
         ExtractedSelect::extract_selects(value).map(ExtractedSelect::into_selects)
     }
 }

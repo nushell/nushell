@@ -62,10 +62,13 @@ impl Command for TestingDb {
                 Vec::new(),
             )
         })?;
-        
+
         let value = match ast.get(0) {
             None => Value::nothing(call.head),
-            Some(statement) => Value::String { val: format!("{:#?}", statement), span: call.head }
+            Some(statement) => Value::String {
+                val: format!("{:#?}", statement),
+                span: call.head,
+            },
         };
 
         Ok(value.into_pipeline_data())

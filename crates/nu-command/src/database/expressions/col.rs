@@ -1,4 +1,4 @@
-use crate::database::values::{ExprDb, SelectDb};
+use crate::database::values::dsl::{ExprDb, SelectDb};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,

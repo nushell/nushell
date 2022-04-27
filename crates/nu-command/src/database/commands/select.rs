@@ -1,16 +1,16 @@
-use super::{super::SQLiteDatabase, utils::extract_strings};
+use super::{super::SQLiteDatabase, super::values::dsl::SelectDb};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr};
+use sqlparser::ast::{Query, Select, SelectItem, SetExpr};
 
 #[derive(Clone)]
-pub struct SelectDb;
+pub struct ProjectionDb;
 
-impl Command for SelectDb {
+impl Command for ProjectionDb {
     fn name(&self) -> &str {
         "db select"
     }
@@ -21,7 +21,7 @@ impl Command for SelectDb {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .rest(
                 "select",
                 SyntaxShape::Any,
                 "Select expression(s) on the table",
@@ -42,7 +42,7 @@ impl Command for SelectDb {
             },
             Example {
                 description: "selects columns from a database",
-                example: "db open db.mysql | db select [a, b, c]",
+                example: "db open db.mysql | db select a b c",
                 result: None,
             },
         ]
@@ -55,20 +55,21 @@ impl Command for SelectDb {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value: Value = call.req(engine_state, stack, 0)?;
-        let expressions = extract_strings(value)?;
+        let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        let value = Value::List { vals, span: call.head };
+        let projection = SelectDb::extract_selects(value)?;
 
         let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
         db.query = match db.query {
-            None => Some(create_query(expressions)),
-            Some(query) => Some(modify_query(query, expressions)),
+            None => Some(create_query(projection)),
+            Some(query) => Some(modify_query(query, projection)),
         };
 
         Ok(db.into_value(call.head).into_pipeline_data())
     }
 }
 
-fn create_query(expressions: Vec<String>) -> Query {
+fn create_query(expressions: Vec<SelectItem>) -> Query {
     Query {
         with: None,
         body: SetExpr::Select(Box::new(create_select(expressions))),
@@ -80,7 +81,7 @@ fn create_query(expressions: Vec<String>) -> Query {
     }
 }
 
-fn modify_query(mut query: Query, expressions: Vec<String>) -> Query {
+fn modify_query(mut query: Query, expressions: Vec<SelectItem>) -> Query {
     query.body = match query.body {
         SetExpr::Select(select) => SetExpr::Select(Box::new(modify_select(select, expressions))),
         _ => SetExpr::Select(Box::new(create_select(expressions))),
@@ -89,18 +90,18 @@ fn modify_query(mut query: Query, expressions: Vec<String>) -> Query {
     query
 }
 
-fn modify_select(select: Box<Select>, expressions: Vec<String>) -> Select {
+fn modify_select(select: Box<Select>, projection: Vec<SelectItem>) -> Select {
     Select {
-        projection: create_projection(expressions),
+        projection,
         ..select.as_ref().clone()
     }
 }
 
-fn create_select(expressions: Vec<String>) -> Select {
+fn create_select(projection: Vec<SelectItem>) -> Select {
     Select {
         distinct: false,
         top: None,
-        projection: create_projection(expressions),
+        projection,
         into: None,
         from: Vec::new(),
         lateral_views: Vec::new(),
@@ -113,19 +114,3 @@ fn create_select(expressions: Vec<String>) -> Select {
     }
 }
 
-// This function needs more work
-// It needs to define alias and functions in the columns
-// I assume we will need to define expressions for the columns instead of strings
-fn create_projection(expressions: Vec<String>) -> Vec<SelectItem> {
-    expressions
-        .into_iter()
-        .map(|expression| {
-            let expr = Expr::Identifier(Ident {
-                value: expression,
-                quote_style: None,
-            });
-
-            SelectItem::UnnamedExpr(expr)
-        })
-        .collect()
-}
