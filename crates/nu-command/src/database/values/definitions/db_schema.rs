@@ -1,4 +1,4 @@
-use crate::database::values::db_table::DbTable;
+use super::db_table::DbTable;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct DbSchema {

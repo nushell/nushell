@@ -1,4 +1,4 @@
-use crate::database::values::db_table::DbTable;
+use super::db_table::DbTable;
 
 // Thank you gobang
 // https://github.com/TaKO8Ki/gobang/blob/main/database-tree/src/lib.rs

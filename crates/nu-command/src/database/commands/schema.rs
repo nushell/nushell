@@ -1,5 +1,5 @@
 use super::super::SQLiteDatabase;
-use crate::database::values::db_row::DbRow;
+use crate::database::values::definitions::db_row::DbRow;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},

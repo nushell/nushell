@@ -1,10 +1,10 @@
-use crate::database::values::{
+use crate::database::values::definitions::{
     db::Db, db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
     db_index::DbIndex, db_table::DbTable,
 };
 use nu_protocol::{CustomValue, PipelineData, ShellError, Span, Spanned, Value};
 use rusqlite::{types::ValueRef, Connection, Row};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use sqlparser::ast::Query;
 use std::{
     fs::File,
@@ -14,34 +14,13 @@ use std::{
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SQLiteDatabase {
     // I considered storing a SQLite connection here, but decided against it because
     // 1) YAGNI, 2) it's not obvious how cloning a connection could work, 3) state
     // management gets tricky quick. Revisit this approach if we find a compelling use case.
     pub path: PathBuf,
     pub query: Option<Query>,
-}
-
-// Mocked serialization of the object
-impl Serialize for SQLiteDatabase {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_none()
-    }
-}
-
-// Mocked deserialization of the object
-impl<'de> Deserialize<'de> for SQLiteDatabase {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let path = std::path::Path::new("");
-        Ok(SQLiteDatabase::new(path))
-    }
 }
 
 impl SQLiteDatabase {
@@ -53,40 +32,54 @@ impl SQLiteDatabase {
     }
 
     pub fn try_from_path(path: &Path, span: Span) -> Result<Self, ShellError> {
-        let mut file = File::open(path).map_err(|e| {
-            ShellError::GenericError(
-                "Error opening file".into(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
-        })?;
+        let mut file =
+            File::open(path).map_err(|e| ShellError::ReadingFile(e.to_string(), span))?;
 
         let mut buf: [u8; 16] = [0; 16];
         file.read_exact(&mut buf)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error reading file header".into(),
-                    e.to_string(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
-            })
+            .map_err(|e| ShellError::ReadingFile(e.to_string(), span))
             .and_then(|_| {
                 if buf == SQLITE_MAGIC_BYTES {
                     Ok(SQLiteDatabase::new(path))
                 } else {
-                    Err(ShellError::GenericError(
-                        "Error reading file".into(),
-                        "Not a SQLite file".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ))
+                    Err(ShellError::ReadingFile("Not a SQLite file".into(), span))
                 }
             })
+    }
+
+    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+        match value {
+            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+                Some(db) => Ok(Self {
+                    path: db.path.clone(),
+                    query: db.query.clone(),
+                }),
+                None => Err(ShellError::CantConvert(
+                    "database".into(),
+                    "non-database".into(),
+                    span,
+                    None,
+                )),
+            },
+            x => Err(ShellError::CantConvert(
+                "database".into(),
+                x.get_type().to_string(),
+                x.span()?,
+                None,
+            )),
+        }
+    }
+
+    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+        let value = input.into_value(span);
+        Self::try_from_value(value)
+    }
+
+    pub fn into_value(self, span: Span) -> Value {
+        Value::CustomValue {
+            val: Box::new(self),
+            span,
+        }
     }
 
     pub fn query(&self, sql: &Spanned<String>, call_span: Span) -> Result<Value, ShellError> {
@@ -129,41 +122,6 @@ impl SQLiteDatabase {
                 Vec::new(),
             )
         })
-    }
-
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
-        match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
-                Some(db) => Ok(Self {
-                    path: db.path.clone(),
-                    query: db.query.clone(),
-                }),
-                None => Err(ShellError::CantConvert(
-                    "database".into(),
-                    "non-database".into(),
-                    span,
-                    None,
-                )),
-            },
-            x => Err(ShellError::CantConvert(
-                "database".into(),
-                x.get_type().to_string(),
-                x.span()?,
-                None,
-            )),
-        }
-    }
-
-    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
-        Self::try_from_value(value)
-    }
-
-    pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
-        }
     }
 
     pub fn describe(&self, span: Span) -> Value {
@@ -532,6 +490,7 @@ fn read_entire_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rus
         span: call_span,
     })
 }
+
 pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
     let mut vals = Vec::new();
     let colnamestr = row.as_ref().column_names().to_vec();
