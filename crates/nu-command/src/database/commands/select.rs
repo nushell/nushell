@@ -1,4 +1,4 @@
-use super::{super::SQLiteDatabase, super::values::dsl::SelectDb};
+use super::{super::values::dsl::SelectDb, super::SQLiteDatabase};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -56,7 +56,10 @@ impl Command for ProjectionDb {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List { vals, span: call.head };
+        let value = Value::List {
+            vals,
+            span: call.head,
+        };
         let projection = SelectDb::extract_selects(value)?;
 
         let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
@@ -113,4 +116,3 @@ fn create_select(projection: Vec<SelectItem>) -> Select {
         having: None,
     }
 }
-

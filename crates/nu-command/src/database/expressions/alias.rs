@@ -1,3 +1,4 @@
+use crate::database::values::dsl::SelectDb;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -5,7 +6,6 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
 };
 use sqlparser::ast::{Ident, SelectItem};
-use crate::database::values::dsl::SelectDb;
 
 #[derive(Clone)]
 pub struct AliasExpr;

@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use sqlparser::ast::{SelectItem, Ident, ObjectName};
+use sqlparser::ast::{Ident, ObjectName, SelectItem};
 
 #[derive(Clone)]
 pub struct ColExpr;
@@ -49,11 +49,14 @@ impl Command for ColExpr {
         let select = match name {
             Value::String { val, .. } if val == "*" => SelectItem::Wildcard,
             Value::String { val, .. } if val.contains('.') => {
-                let values = val.split('.').map(|part| Ident {
-                    value: part.to_string(),
-                    quote_style: None
-                }).collect::<Vec<Ident>>();
-                
+                let values = val
+                    .split('.')
+                    .map(|part| Ident {
+                        value: part.to_string(),
+                        quote_style: None,
+                    })
+                    .collect::<Vec<Ident>>();
+
                 SelectItem::QualifiedWildcard(ObjectName(values))
             }
             _ => {
@@ -62,7 +65,7 @@ impl Command for ColExpr {
             }
         };
 
-        let selection: SelectDb = select.into(); 
+        let selection: SelectDb = select.into();
         Ok(selection.into_value(call.head).into_pipeline_data())
     }
 }

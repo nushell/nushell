@@ -168,8 +168,8 @@ impl SelectDb {
             },
         }
     }
-    
-    // Convenient function to extrac multiple SelectItem that could be inside a 
+
+    // Convenient function to extrac multiple SelectItem that could be inside a
     // nushell Value
     pub fn extract_selects(value: Value) -> Result<Vec<SelectItem>, ShellError> {
         ExtractedSelect::extract_selects(value).map(ExtractedSelect::into_selects)
