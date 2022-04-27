@@ -1564,6 +1564,12 @@ impl<'a> StateWorkingSet<'a> {
 
                 visibility.append(&overlay_frame.visibility);
 
+                if let Some(decl_id) = overlay_frame.predecls.get(name) {
+                    if visibility.is_decl_id_visible(decl_id) {
+                        return Some(*decl_id);
+                    }
+                }
+
                 if let Some(decl_id) = overlay_frame.decls.get(name) {
                     if visibility.is_decl_id_visible(decl_id) {
                         return Some(*decl_id);
