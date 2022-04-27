@@ -38,24 +38,38 @@ impl Command for ListDF {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let vals = &[&engine_state.scope] // TODO: Fix this properly
-            .iter()
-            .flat_map(|frame| {
-                frame
-                    .vars
-                    .iter()
-                    .filter_map(|var| {
-                        let value = stack.get_var(*var.1, call.head);
-                        match value {
-                            Ok(value) => {
-                                let name = String::from_utf8_lossy(var.0).to_string();
-                                Some((name, value))
-                            }
-                            Err(_) => None,
-                        }
-                    })
-                    .collect::<Vec<(String, Value)>>()
-            })
+        // let vals = &[engine_state.scope] // TODO: Fix this properly
+        //     .iter()
+        //     .flat_map(|frame| {
+        //         frame
+        //             .vars
+        //             .iter()
+        //             .filter_map(|var| {
+        //                 let value = stack.get_var(*var.1, call.head);
+        //                 match value {
+        //                     Ok(value) => {
+        //                         let name = String::from_utf8_lossy(var.0).to_string();
+        //                         Some((name, value))
+        //                     }
+        //                     Err(_) => None,
+        //                 }
+        //             })
+        //             .collect::<Vec<(String, Value)>>()
+        //     })
+
+        let mut vals: Vec<(String, Value)> = vec![];
+
+        for overlay_id in engine_state.active_overlays() {
+            for var in &engine_state.get_overlay(*overlay_id).vars {
+                if let Ok(value) = stack.get_var(*var.1, call.head) {
+                    let name = String::from_utf8_lossy(var.0).to_string();
+                    vals.push((name, value));
+                }
+            }
+        }
+
+
+        let vals = vals.into_iter()
             .filter_map(|(name, value)| match NuDataFrame::try_from_value(value) {
                 Ok(df) => Some((name, df)),
                 Err(_) => None,
@@ -92,7 +106,7 @@ impl Command for ListDF {
             .collect::<Vec<Value>>();
 
         let list = Value::List {
-            vals: vals.to_vec(),
+            vals,
             span: call.head,
         };
 

@@ -797,20 +797,22 @@ pub fn create_scope(
     let mut aliases = vec![];
     let mut modules = vec![];
 
-    // let mut vars_map = HashMap::new();
-    // let mut commands_map = HashMap::new();
-    // let mut aliases_map = HashMap::new();
-    // let mut modules_map = HashMap::new();
-    // let mut visibility = Visibility::new();
+    let mut vars_map = HashMap::new();
+    let mut commands_map = HashMap::new();
+    let mut aliases_map = HashMap::new();
+    let mut modules_map = HashMap::new();
+    let mut visibility = Visibility::new();
 
-    // for frame in &engine_state.scope {
-    let vars_map = &engine_state.scope.vars;
-    let commands_map = &engine_state.scope.decls;
-    let aliases_map = &engine_state.scope.aliases;
-    let modules_map = &engine_state.scope.modules;
+    for overlay_id in engine_state.active_overlays().iter().rev() {
+        let overlay_frame = engine_state.get_overlay(*overlay_id);
 
-    let visibility = &engine_state.scope.visibility;
-    // }
+        vars_map.extend(&overlay_frame.vars);
+        commands_map.extend(&overlay_frame.decls);
+        aliases_map.extend(&overlay_frame.aliases);
+        modules_map.extend(&overlay_frame.modules);
+
+        visibility.merge_with(overlay_frame.visibility.clone());
+    }
 
     for var in vars_map {
         let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
@@ -836,7 +838,7 @@ pub fn create_scope(
             let mut vals = vec![];
 
             let mut module_commands = vec![];
-            for module in modules_map {
+            for module in &modules_map {
                 let module_name = String::from_utf8_lossy(module.0).to_string();
                 let module_id = engine_state.find_module(module.0);
                 if let Some(module_id) = module_id {
