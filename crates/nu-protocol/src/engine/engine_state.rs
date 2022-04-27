@@ -298,9 +298,8 @@ impl EngineState {
         self.modules.extend(delta.modules);
 
         let first = delta.scope.remove(0);
-        let mut activated_ids = self.translate_overlay_ids(&first);
 
-        for (delta_name, delta_overlay) in first.overlays {
+        for (delta_name, delta_overlay) in first.clone().overlays {
             trace!("  overlay: {:?}", delta_name);
 
             if let Some((_, existing_overlay)) = self
@@ -335,6 +334,8 @@ impl EngineState {
                 self.scope.overlays.push((delta_name, delta_overlay));
             }
         }
+
+        let mut activated_ids = self.translate_overlay_ids(&first);
 
         // if let Some(last) = self.scope.last_mut() {
         // Updating regular scope
@@ -655,9 +656,9 @@ impl EngineState {
             let overlay_frame = self.get_overlay(*overlay_id);
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.decls.get(name) {
-                if visibility.is_decl_id_visible(decl_id) {
-                    return Some(*decl_id);
+            if let Some(alias_id) = overlay_frame.aliases.get(name) {
+                if visibility.is_alias_id_visible(alias_id) {
+                    return Some(*alias_id);
                 }
             }
         }
