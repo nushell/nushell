@@ -9,6 +9,7 @@ mod rm;
 mod save;
 mod touch;
 mod util;
+mod watch;
 
 pub use cd::Cd;
 pub use cp::Cp;
@@ -21,3 +22,4 @@ pub use rm::Rm;
 pub use save::Save;
 pub use touch::Touch;
 pub use util::BufferedReader;
+pub use watch::Watch;
