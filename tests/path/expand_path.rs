@@ -1,3 +1,5 @@
+#[cfg(windows)]
+use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
 use nu_test_support::playground::Playground;
@@ -52,16 +54,22 @@ fn expand_unicode_path_no_change() {
     });
 }
 
+#[cfg(windows)]
 #[test]
 fn expand_non_utf8_path() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let mut spam = dirs.test().clone();
-        spam.push("𝗳õ.txt");
+        let v: &[u16; 9] = &[
+            0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0xDD1E, 0x0069, 0x0063, 0xD834,
+        ];
+        let non_utf8_string = OsString::from_wide(&v[..]);
+        let non_utf8_path = PathBuf::from(non_utf8_string);
+        spam.push(&non_utf8_path);
 
         let cwd = std::env::current_dir().expect("Could not get current directory");
         let actual = expand_path_with(spam, cwd);
         let mut expected = dirs.test().clone();
-        expected.push("𝗳õ.txt");
+        expected.push(&non_utf8_path);
 
         assert_eq!(actual, expected);
     });
@@ -92,15 +100,29 @@ fn expand_unicode_path_relative_to_unicode_path_with_spaces() {
     });
 }
 
+#[cfg(windows)]
 #[test]
 fn expand_non_utf8_path_relative_to_non_utf8_path_with_spaces() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let mut relative_to = dirs.test().clone();
-        relative_to.push("𝝉һ𝚒𝖘 ịꜱ 𝓉ḧȩ ᵭɪɾ");
+        let starting_filepath: &[u16; 10] = &[
+            0xD834, 0xDD1E, 0x006d, 0x0075, 0x0020, 0x0073, 0xDD1E, 0x0069, 0x0063, 0xD834,
+        ];
+        // 0x2215 is '/'
+        let file: &[u16; 6] = &[0xDD1E, 0x0020, 0x002E, 0x0074, 0x0078, 0x0074];
+        let full_filepath: &[u16; 17] = &[
+            0xD834, 0xDD1E, 0x006d, 0x0075, 0x0020, 0x0073, 0xDD1E, 0x0069, 0x0063, 0xD834, 0x2215,
+            0xDD1E, 0x0020, 0x002E, 0x0074, 0x0078, 0x0074,
+        ];
 
-        let actual = expand_path_with("ʈ𝙭ҭ.txt", relative_to);
+        let non_utf8_string_1 = OsString::from_wide(&starting_filepath[..]);
+        let non_utf8_string_2 = OsString::from_wide(&file[..]);
+        let non_utf8_string_3 = OsString::from_wide(&full_filepath[..]);
+        relative_to.push(PathBuf::from(non_utf8_string_1));
+
+        let actual = expand_path_with(PathBuf::from(non_utf8_string_2).as_path(), relative_to);
         let mut expected = dirs.test().clone();
-        expected.push("𝝉һ𝚒𝖘 ịꜱ 𝓉ḧȩ ᵭɪɾ/ʈ𝙭ҭ.txt");
+        expected.push(PathBuf::from(non_utf8_string_3));
 
         assert_eq!(actual, expected);
     });
