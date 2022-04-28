@@ -198,32 +198,7 @@ pub fn version(
 fn features_enabled() -> Vec<String> {
     let mut names = vec!["default".to_string()];
 
-    // NOTE: There should be another way to know
-    // features on.
-    #[cfg(feature = "ctrlc")]
-    {
-        names.push("ctrlc".to_string());
-    }
-
-    // #[cfg(feature = "rich-benchmark")]
-    // {
-    //     names.push("rich-benchmark".to_string());
-    // }
-
-    #[cfg(feature = "rustyline-support")]
-    {
-        names.push("rustyline".to_string());
-    }
-
-    #[cfg(feature = "term")]
-    {
-        names.push("term".to_string());
-    }
-
-    #[cfg(feature = "uuid_crate")]
-    {
-        names.push("uuid".to_string());
-    }
+    // NOTE: There should be another way to know features on.
 
     #[cfg(feature = "which-support")]
     {
@@ -233,14 +208,14 @@ fn features_enabled() -> Vec<String> {
     // always include it?
     names.push("zip".to_string());
 
-    #[cfg(feature = "clipboard-cli")]
-    {
-        names.push("clipboard-cli".to_string());
-    }
-
     #[cfg(feature = "trash-support")]
     {
         names.push("trash".to_string());
+    }
+
+    #[cfg(feature = "database")]
+    {
+        names.push("database".to_string());
     }
 
     #[cfg(feature = "dataframe")]
@@ -248,65 +223,10 @@ fn features_enabled() -> Vec<String> {
         names.push("dataframe".to_string());
     }
 
-    #[cfg(feature = "table-pager")]
+    #[cfg(feature = "extra")]
     {
-        names.push("table-pager".to_string());
+        names.push("extra".to_string());
     }
-
-    // #[cfg(feature = "binaryview")]
-    // {
-    //     names.push("binaryview".to_string());
-    // }
-
-    // #[cfg(feature = "start")]
-    // {
-    //     names.push("start".to_string());
-    // }
-
-    // #[cfg(feature = "bson")]
-    // {
-    //     names.push("bson".to_string());
-    // }
-
-    // #[cfg(feature = "s3")]
-    // {
-    //     names.push("s3".to_string());
-    // }
-
-    // #[cfg(feature = "chart")]
-    // {
-    //     names.push("chart".to_string());
-    // }
-
-    // #[cfg(feature = "xpath")]
-    // {
-    //     names.push("xpath".to_string());
-    // }
-
-    // #[cfg(feature = "selector")]
-    // {
-    //     names.push("selector".to_string());
-    // }
-
-    // #[cfg(feature = "extra")]
-    // {
-    //     names.push("extra".to_string());
-    // }
-
-    // #[cfg(feature = "preserve_order")]
-    // {
-    //     names.push("preserve_order".to_string());
-    // }
-
-    // #[cfg(feature = "wee_alloc")]
-    // {
-    //     names.push("wee_alloc".to_string());
-    // }
-
-    // #[cfg(feature = "console_error_panic_hook")]
-    // {
-    //     names.push("console_error_panic_hook".to_string());
-    // }
 
     names.sort();
 
