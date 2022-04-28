@@ -223,6 +223,11 @@ fn features_enabled() -> Vec<String> {
         names.push("dataframe".to_string());
     }
 
+    #[cfg(feature = "static-link-openssl")]
+    {
+        names.push("static-link-openssl".to_string());
+    }
+
     #[cfg(feature = "extra")]
     {
         names.push("extra".to_string());
