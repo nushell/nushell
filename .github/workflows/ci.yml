@@ -85,7 +85,6 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v1
         with:
