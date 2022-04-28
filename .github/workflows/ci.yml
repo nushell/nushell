@@ -1,4 +1,8 @@
-on: [pull_request]
+on:
+  pull_request:
+  push: # Run CI on the main branch after every merge. This is important to fill the GitHub Actions cache in a way that pull requests can see it
+    branches:
+      - main
 
 name: continuous-integration
 
@@ -85,6 +89,10 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+            key: "1" # increment this to bust the cache if needed
 
       - name: Install Nushell
         uses: actions-rs/cargo@v1
