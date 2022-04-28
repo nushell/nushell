@@ -8,7 +8,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        style: [all, default, minimal]
+        style: [all, default]
         rust:
           - stable
         include:
@@ -16,17 +16,11 @@ jobs:
             flags: '--all-features'
           - style: default
             flags: ''
-          - style: minimal
-            flags: '--no-default-features'
         exclude:
           - platform: windows-latest
             style: default
-          - platform: windows-latest
-            style: minimal
           - platform: macos-latest
             style: default
-          - platform: macos-latest
-            style: minimal
 
     runs-on: ${{ matrix.platform }}
 
