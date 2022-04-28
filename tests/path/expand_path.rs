@@ -1,4 +1,6 @@
 #[cfg(windows)]
+use std::ffi::OsString;
+#[cfg(windows)]
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
