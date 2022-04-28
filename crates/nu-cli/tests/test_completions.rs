@@ -8,6 +8,7 @@ use reedline::{Completer, Suggestion};
 const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[test]
+#[cfg(not(target_os = "windows"))]
 fn file_completions() {
     // Create a new engine
     let (dir, dir_str, engine) = new_engine();
@@ -45,6 +46,7 @@ fn file_completions() {
 }
 
 #[test]
+#[cfg(not(target_os = "windows"))]
 fn folder_completions() {
     // Create a new engine
     let (dir, dir_str, engine) = new_engine();
@@ -104,7 +106,7 @@ fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
 
         match result {
             Some(val) => assert_eq!(val, it.value),
-            None => panic!("expected path {} but received {}", val, it.value),
+            None => panic!("the path {} is not expected", it.value),
         }
     });
 }
