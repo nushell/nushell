@@ -38,6 +38,7 @@ thread_local! { static IS_PERF: RefCell<bool> = RefCell::new(false) }
 
 fn main() -> Result<()> {
     // miette::set_panic_hook();
+    // TEST COMMENT JUST TO TRIGGER CI
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
