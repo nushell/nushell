@@ -27,7 +27,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all --features=extra
+          args: --release --all --features=extra,static-link-openssl
 
       # - name: Strip binaries (nu)
       #   run: strip target/release/nu
@@ -93,10 +93,6 @@ jobs:
           cp LICENSE output/LICENSE
           rm output/*.d
 
-      # Note: If OpenSSL changes, this path will need to be updated
-      - name: Copy OpenSSL to output
-        run: cp /usr/lib/x86_64-linux-gnu/libssl.so.1.1 output/
-
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
@@ -121,7 +117,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all --features=extra
+          args: --release --all --features=extra,static-link-openssl
 
       # - name: Strip binaries (nu)
       #   run: strip target/release/nu
@@ -217,7 +213,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all --features=extra
+          args: --release --all --features=extra,static-link-openssl
 
       # - name: Strip binaries (nu.exe)
       #   run: strip target/release/nu.exe
