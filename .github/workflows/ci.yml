@@ -1,4 +1,8 @@
-on: [pull_request]
+on:
+  pull_request:
+  push: # Run CI on the main branch after every merge. This is important to fill the GitHub Actions cache in a way that pull requests can see it
+    branches:
+      - main
 
 name: continuous-integration
 
