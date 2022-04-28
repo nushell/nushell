@@ -52,10 +52,19 @@ fn expand_unicode_path_no_change() {
     });
 }
 
-#[ignore]
 #[test]
 fn expand_non_utf8_path() {
-    // TODO
+    Playground::setup("nu_path_test_1", |dirs, _| {
+        let mut spam = dirs.test().clone();
+        spam.push("𝗳õ.txt");
+
+        let cwd = std::env::current_dir().expect("Could not get current directory");
+        let actual = expand_path_with(spam, cwd);
+        let mut expected = dirs.test().clone();
+        expected.push("𝗳õ.txt");
+
+        assert_eq!(actual, expected);
+    });
 }
 
 #[test]
@@ -83,10 +92,18 @@ fn expand_unicode_path_relative_to_unicode_path_with_spaces() {
     });
 }
 
-#[ignore]
 #[test]
 fn expand_non_utf8_path_relative_to_non_utf8_path_with_spaces() {
-    // TODO
+    Playground::setup("nu_path_test_1", |dirs, _| {
+        let mut relative_to = dirs.test().clone();
+        relative_to.push("𝝉һ𝚒𝖘 ịꜱ 𝓉ḧȩ ᵭɪɾ");
+
+        let actual = expand_path_with("ʈ𝙭ҭ.txt", relative_to);
+        let mut expected = dirs.test().clone();
+        expected.push("𝝉һ𝚒𝖘 ịꜱ 𝓉ḧȩ ᵭɪɾ/ʈ𝙭ҭ.txt");
+
+        assert_eq!(actual, expected);
+    });
 }
 
 #[test]
