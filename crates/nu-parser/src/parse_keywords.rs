@@ -1886,10 +1886,10 @@ pub fn parse_overlay_add(
 
     // TODO: Add checking for importing too long import patterns, e.g.:
     // > use spam foo non existent names here do not throw error
-    let (module, module_id) = if let Some(module_id) =
+    let (module_name, module) = if let Some(module_id) =
         working_set.find_module(module_name.as_bytes())
     {
-        (working_set.get_module(module_id).clone(), Some(module_id))
+        (Some(module_name), working_set.get_module(module_id).clone())
     } else {
         // TODO: Do not close over when loading module from file?
         // It could be a file
@@ -1925,9 +1925,9 @@ pub fn parse_overlay_add(
                     error = error.or(err);
 
                     let _ = working_set.add_block(block);
-                    let module_id = working_set.add_module(&module_name, module.clone());
+                    let _ = working_set.add_module(&module_name, module.clone());
 
-                    (module, Some(module_id))
+                    (Some(module_name), module)
                 } else {
                     return (
                         Pipeline::from_vec(vec![Expression {
@@ -1941,27 +1941,27 @@ pub fn parse_overlay_add(
                 }
             } else {
                 error = error.or(Some(ParseError::ModuleNotFound(module_name_span)));
-                (Module::new(), None)
+                (None, Module::new())
             }
         } else {
             return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
         }
     };
 
-    if let Some(id) = module_id {
+    if let Some(name) = module_name {
         let (decls_to_lay, aliases_to_lay) = if has_prefix {
             (
-                module.decls_with_head(module_name.as_bytes()),
-                module.aliases_with_head(module_name.as_bytes()),
+                module.decls_with_head(name.as_bytes()),
+                module.aliases_with_head(name.as_bytes()),
             )
         } else {
             (module.decls(), module.aliases())
         };
 
         working_set.add_overlay(
+            name.as_bytes().to_vec(),
             decls_to_lay,
             aliases_to_lay,
-            module_name.as_bytes().to_owned(),
         );
     }
 
@@ -2030,9 +2030,9 @@ pub fn parse_overlay_remove(
         }
     };
 
-    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
+    let overlay_name = if let Some(expr) = call.positional_nth(0) {
         if let Some(s) = expr.as_string() {
-            (s, expr.span)
+            s
         } else {
             return (
                 garbage_pipeline(spans),
@@ -2052,13 +2052,7 @@ pub fn parse_overlay_remove(
         );
     };
 
-    let mut error = None;
-
-    // if let Some(overlay) = working_set.find_overlay(overlay_name.as_bytes()) {
-        working_set.remove_overlay(overlay_name.as_bytes());
-    // } else {
-    //     error = error.or(Some(ParseError::OverlayNotFound(overlay_name_span)))
-    // }
+    working_set.remove_overlay(overlay_name.as_bytes());
 
     (
         Pipeline::from_vec(vec![Expression {
@@ -2067,7 +2061,7 @@ pub fn parse_overlay_remove(
             ty: Type::Any,
             custom_completion: None,
         }]),
-        error,
+        None,
     )
 }
 

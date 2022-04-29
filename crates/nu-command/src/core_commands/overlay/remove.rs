@@ -1,9 +1,7 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, Expr, Expression, ImportPatternMember};
+use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, Signature, Spanned, SyntaxShape};
 
 #[derive(Clone)]
 pub struct OverlayRemove;

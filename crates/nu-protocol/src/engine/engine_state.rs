@@ -1966,9 +1966,9 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn add_overlay(
         &mut self,
+        name: Vec<u8>,
         decls: Vec<(Vec<u8>, DeclId)>,
         aliases: Vec<(Vec<u8>, AliasId)>,
-        name: Vec<u8>,
     ) {
         trace!("Adding overlay: {:?}", name);
 

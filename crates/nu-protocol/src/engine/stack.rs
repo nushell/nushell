@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::engine::EngineState;
-use crate::{ShellError, Span, Spanned, Value, VarId};
+use crate::{ShellError, Span, Value, VarId};
 
 use log::trace;
 

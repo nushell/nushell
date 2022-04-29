@@ -1,9 +1,7 @@
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::{Call, Expr, Expression, ImportPatternMember};
+use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
 
 use std::path::Path;
 
@@ -54,33 +52,34 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
 
         // TODO: This logic is duplicated in the parser. Add a function to get module's name from a
         // path.
-        let module = if let Some(module_id) = engine_state.find_module(name_arg.item.as_bytes()) {
-            engine_state.get_module(module_id)
-        } else {
-            if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
-                let name = if let Some(s) = os_str.to_str() {
-                    s
-                } else {
-                    return Err(ShellError::NonUtf8(name_arg.span));
-                };
+        let (module_name, module) =
+            if let Some(module_id) = engine_state.find_module(name_arg.item.as_bytes()) {
+                (name_arg.item, engine_state.get_module(module_id))
+            } else {
+                if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
+                    let name = if let Some(s) = os_str.to_str() {
+                        s.to_string()
+                    } else {
+                        return Err(ShellError::NonUtf8(name_arg.span));
+                    };
 
-                if let Some(module_id) = engine_state.find_module(name.as_bytes()) {
-                    engine_state.get_module(module_id)
+                    if let Some(module_id) = engine_state.find_module(name.as_bytes()) {
+                        (name, engine_state.get_module(module_id))
+                    } else {
+                        return Err(ShellError::ModuleNotFoundAtRuntime(
+                            name_arg.item,
+                            name_arg.span,
+                        ));
+                    }
                 } else {
                     return Err(ShellError::ModuleNotFoundAtRuntime(
                         name_arg.item,
                         name_arg.span,
                     ));
                 }
-            } else {
-                return Err(ShellError::ModuleNotFoundAtRuntime(
-                    name_arg.item,
-                    name_arg.span,
-                ));
-            }
-        };
+            };
 
-        stack.add_overlay(name_arg.item);
+        stack.add_overlay(module_name);
 
         for (name, block_id) in module.env_vars() {
             let name = if let Ok(s) = String::from_utf8(name.clone()) {
