@@ -64,7 +64,7 @@ fn add_overlay_scoped() {
         "#
     ));
 
-    assert!(actual.err.contains("External command"));
+    assert!(!actual.err.is_empty())
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn remove_overlay() {
         "#
     ));
 
-    assert!(actual.err.contains("External command"));
+    assert!(!actual.err.is_empty());
 }
 
 #[test]
