@@ -100,12 +100,6 @@ jobs:
 
       - uses: taiki-e/install-action@nextest
 
-      - name: Rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
