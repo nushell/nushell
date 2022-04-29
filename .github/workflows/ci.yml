@@ -41,7 +41,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-            key: "1" # increment this to bust the cache if needed
+            key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
 
       - name: Rustfmt
         uses: actions-rs/cargo@v1
@@ -96,7 +96,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-            key: "1" # increment this to bust the cache if needed
+            key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
 
       - name: Rustfmt
         uses: actions-rs/cargo@v1
