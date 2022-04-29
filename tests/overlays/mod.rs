@@ -138,7 +138,7 @@ fn list_last_overlay() {
         r#"
             module spam { export def foo [] { "foo" } };
             overlay add spam;
-            overlay list | drop 1 | last
+            overlay list | last
         "#,
     ));
 
