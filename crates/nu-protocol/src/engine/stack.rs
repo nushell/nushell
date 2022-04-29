@@ -3,6 +3,8 @@ use std::collections::{HashMap, HashSet};
 use crate::engine::EngineState;
 use crate::{ShellError, Span, Value, VarId};
 
+use log::trace;
+
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
 
@@ -230,6 +232,9 @@ impl Stack {
     }
 
     pub fn get_env_var(&self, engine_state: &EngineState, name: &str) -> Option<Value> {
+        trace!("Getting var: {}", name);
+        trace!("Active overlays: {:?}", self.active_overlays);
+
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay) {
@@ -242,7 +247,7 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                !env_hidden.contains(name)
+                env_hidden.contains(name)
             } else {
                 false
             };
@@ -256,6 +261,7 @@ impl Stack {
             }
         }
 
+        trace!("  no luck");
         None
     }
 
@@ -272,7 +278,7 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                !env_hidden.contains(name)
+                env_hidden.contains(name)
             } else {
                 false
             };
@@ -294,6 +300,7 @@ impl Stack {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get_mut(active_overlay) {
                     if let Some(v) = env_vars.remove(name) {
+                        trace!("Removing env var: {}", name);
                         return Some(v);
                     }
                 }
@@ -304,8 +311,10 @@ impl Stack {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
                 if let Some(val) = env_vars.get(name) {
                     if let Some(env_hidden) = self.env_hidden.get_mut(active_overlay) {
+                        trace!("Hiding env var: {}", name);
                         env_hidden.insert(name.into());
                     } else {
+                        trace!("Hiding env var (new): {}", name);
                         self.env_hidden
                             .insert(active_overlay.into(), HashSet::from([name.into()]));
                     }
