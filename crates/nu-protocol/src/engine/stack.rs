@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::engine::EngineState;
-use crate::{ShellError, Span, Value, VarId};
+use crate::{ShellError, Span, Spanned, Value, VarId};
 
 use log::trace;
 
@@ -325,6 +325,23 @@ impl Stack {
         }
 
         None
+    }
+
+    pub fn add_overlay(&mut self, name: String) {
+        self.env_hidden.remove(&name);
+
+        self.active_overlays.retain(|o| o != &name);
+        self.active_overlays.push(name);
+    }
+
+    pub fn remove_overlay(&mut self, name: &String, span: &Span) -> Result<(), ShellError> {
+        if !self.active_overlays.contains(name) {
+            return Err(ShellError::OverlayNotFoundAtRuntime(name.into(), span.clone()));
+        }
+
+        self.active_overlays.retain(|o| o != name);
+
+        Ok(())
     }
 
     // pub fn get_config(&self) -> Result<Config, ShellError> {

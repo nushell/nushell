@@ -199,6 +199,24 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::env_variable_not_found), url(docsrs))]
     EnvVarNotFoundAtRuntime(String, #[label = "environment variable not found"] Span),
 
+    /// A referenced module was not found at runtime.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the module name. Did you typo it? Did you forget to declare it? Is the casing right?
+    #[error("Module '{0}' not found")]
+    #[diagnostic(code(nu::shell::module_not_found), url(docsrs))]
+    ModuleNotFoundAtRuntime(String, #[label = "module not found"] Span),
+
+    /// A referenced overlay was not found at runtime.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the overlay name. Did you typo it? Did you forget to declare it? Is the casing right?
+    #[error("Overlay '{0}' not found")]
+    #[diagnostic(code(nu::shell::overlay_not_found), url(docsrs))]
+    OverlayNotFoundAtRuntime(String, #[label = "overlay not found"] Span),
+
     /// The given item was not found. This is a fairly generic error that depends on context.
     ///
     /// ## Resolution

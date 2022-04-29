@@ -39,80 +39,9 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let module_name: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-        // let head_name_str = if let Ok(s) = String::from_utf8(import_pattern.head.name.clone()) {
-        //     s
-        // } else {
-        //     return Err(ShellError::NonUtf8(import_pattern.head.span));
-        // };
-
-        // if let Some(module_id) = engine_state.find_module(&import_pattern.head.name) {
-        //     // The first word is a module
-        //     let module = engine_state.get_module(module_id);
-
-        //     let env_vars_to_hide = if import_pattern.members.is_empty() {
-        //         module.env_vars_with_head(&import_pattern.head.name)
-        //     } else {
-        //         match &import_pattern.members[0] {
-        //             ImportPatternMember::Glob { .. } => module.env_vars(),
-        //             ImportPatternMember::Name { name, span } => {
-        //                 let mut output = vec![];
-
-        //                 if let Some((name, id)) =
-        //                     module.env_var_with_head(name, &import_pattern.head.name)
-        //                 {
-        //                     output.push((name, id));
-        //                 } else if !(module.has_alias(name) || module.has_decl(name)) {
-        //                     return Err(ShellError::EnvVarNotFoundAtRuntime(
-        //                         String::from_utf8_lossy(name).into(),
-        //                         *span,
-        //                     ));
-        //                 }
-
-        //                 output
-        //             }
-        //             ImportPatternMember::List { names } => {
-        //                 let mut output = vec![];
-
-        //                 for (name, span) in names {
-        //                     if let Some((name, id)) =
-        //                         module.env_var_with_head(name, &import_pattern.head.name)
-        //                     {
-        //                         output.push((name, id));
-        //                     } else if !(module.has_alias(name) || module.has_decl(name)) {
-        //                         return Err(ShellError::EnvVarNotFoundAtRuntime(
-        //                             String::from_utf8_lossy(name).into(),
-        //                             *span,
-        //                         ));
-        //                     }
-        //                 }
-
-        //                 output
-        //             }
-        //         }
-        //     };
-
-        //     for (name, _) in env_vars_to_hide {
-        //         let name = if let Ok(s) = String::from_utf8(name.clone()) {
-        //             s
-        //         } else {
-        //             return Err(ShellError::NonUtf8(import_pattern.span()));
-        //         };
-
-        //         if stack.remove_env_var(engine_state, &name).is_none() {
-        //             return Err(ShellError::NotFound(
-        //                 call.positional_nth(0)
-        //                     .expect("already checked for present positional")
-        //                     .span,
-        //             ));
-        //         }
-        //     }
-        // } else if !import_pattern.hidden.contains(&import_pattern.head.name)
-        //     && stack.remove_env_var(engine_state, &head_name_str).is_none()
-        // {
-        //     // TODO: we may want to error in the future
-        // }
+        stack.remove_overlay(&module_name.item, &module_name.span)?;
 
         Ok(PipelineData::new(call.head))
     }

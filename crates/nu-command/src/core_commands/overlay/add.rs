@@ -48,86 +48,40 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let module_name: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-        // println!("Adding {}", name.item);
+        if let Some(module_id) = engine_state.find_module(module_name.item.as_bytes()) {
+            let module = engine_state.get_module(module_id);
 
-        // if let Some(overlay_id) = import_pattern.head.id {
-        //     let overlay = engine_state.get_overlay(overlay_id);
+            stack.add_overlay(module_name.item);
 
-        //     let env_vars_to_use = if import_pattern.members.is_empty() {
-        //         overlay.env_vars_with_head(&import_pattern.head.name)
-        //     } else {
-        //         match &import_pattern.members[0] {
-        //             ImportPatternMember::Glob { .. } => overlay.env_vars(),
-        //             ImportPatternMember::Name { name, span } => {
-        //                 let mut output = vec![];
+            for (name, block_id) in module.env_vars() {
+                let name = if let Ok(s) = String::from_utf8(name.clone()) {
+                    s
+                } else {
+                    return Err(ShellError::NonUtf8(module_name.span));
+                };
 
-        //                 if let Some(id) = overlay.get_env_var_id(name) {
-        //                     output.push((name.clone(), id));
-        //                 } else if !overlay.has_decl(name) && !overlay.has_alias(name) {
-        //                     return Err(ShellError::EnvVarNotFoundAtRuntime(
-        //                         String::from_utf8_lossy(name).into(),
-        //                         *span,
-        //                     ));
-        //                 }
+                let block = engine_state.get_block(block_id);
 
-        //                 output
-        //             }
-        //             ImportPatternMember::List { names } => {
-        //                 let mut output = vec![];
+                let val = eval_block(
+                    engine_state,
+                    stack,
+                    block,
+                    PipelineData::new(call.head),
+                    false,
+                    true,
+                )?
+                .into_value(call.head);
 
-        //                 for (name, span) in names {
-        //                     if let Some(id) = overlay.get_env_var_id(name) {
-        //                         output.push((name.clone(), id));
-        //                     } else if !overlay.has_decl(name) && !overlay.has_alias(name) {
-        //                         return Err(ShellError::EnvVarNotFoundAtRuntime(
-        //                             String::from_utf8_lossy(name).into(),
-        //                             *span,
-        //                         ));
-        //                     }
-        //                 }
-
-        //                 output
-        //             }
-        //         }
-        //     };
-
-        //     for (name, block_id) in env_vars_to_use {
-        //         let name = if let Ok(s) = String::from_utf8(name.clone()) {
-        //             s
-        //         } else {
-        //             return Err(ShellError::NonUtf8(import_pattern.head.span));
-        //         };
-
-        //         let block = engine_state.get_block(block_id);
-
-        //         // TODO: Add string conversions (e.g. int to string)
-        //         // TODO: Later expand env to take all Values
-        //         let val = eval_block(
-        //             engine_state,
-        //             stack,
-        //             block,
-        //             PipelineData::new(call.head),
-        //             false,
-        //             true,
-        //         )?
-        //         .into_value(call.head);
-
-        //         stack.add_env_var(name, val);
-        //     }
-        // } else {
-        //     // TODO: This is a workaround since call.positional[0].span points at 0 for some reason
-        //     // when this error is triggered
-        //     return Err(ShellError::SpannedLabeledError(
-        //         format!(
-        //             "Could not import from '{}'",
-        //             String::from_utf8_lossy(&import_pattern.head.name)
-        //         ),
-        //         "module does not exist".to_string(),
-        //         import_pattern.head.span,
-        //     ));
-        // }
+                stack.add_env_var(name, val);
+            }
+        } else {
+            return Err(ShellError::ModuleNotFoundAtRuntime(
+                module_name.item,
+                module_name.span,
+            ));
+        }
 
         Ok(PipelineData::new(call.head))
     }
