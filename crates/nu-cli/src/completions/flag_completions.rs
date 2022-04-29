@@ -51,6 +51,7 @@ impl Completer for FlagCompletion {
                                 start: span.start - offset,
                                 end: span.end - offset,
                             },
+                            append_whitespace: true,
                         });
                     }
                 }
@@ -72,6 +73,7 @@ impl Completer for FlagCompletion {
                             start: span.start - offset,
                             end: span.end - offset,
                         },
+                        append_whitespace: true,
                     });
                 }
             }

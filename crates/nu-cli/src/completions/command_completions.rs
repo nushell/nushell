@@ -98,6 +98,7 @@ impl CommandCompletion {
                     start: span.start - offset,
                     end: span.end - offset,
                 },
+                append_whitespace: true,
             });
 
         let results_aliases = working_set
@@ -111,6 +112,7 @@ impl CommandCompletion {
                     start: span.start - offset,
                     end: span.end - offset,
                 },
+                append_whitespace: true,
             });
 
         let mut results = results.chain(results_aliases).collect::<Vec<_>>();
@@ -129,6 +131,7 @@ impl CommandCompletion {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
+                    append_whitespace: true,
                 });
 
             for external in results_external {
@@ -138,6 +141,7 @@ impl CommandCompletion {
                         description: None,
                         extra: None,
                         span: external.span,
+                        append_whitespace: true,
                     })
                 } else {
                     results.push(external)
@@ -266,6 +270,7 @@ impl Completer for CommandCompletion {
                     start: x.0.start - offset,
                     end: x.0.end - offset,
                 },
+                append_whitespace: true,
             })
             .chain(subcommands.into_iter())
             .chain(commands.into_iter())
