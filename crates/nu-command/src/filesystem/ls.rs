@@ -1,6 +1,6 @@
 use crate::DirBuilder;
 use crate::DirInfo;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_path::expand_to_real_path;
@@ -15,6 +15,7 @@ use pathdiff::diff_paths;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone)]
 pub struct Ls;
@@ -489,37 +490,46 @@ pub(crate) fn dir_entry_dict(
     if let Some(md) = metadata {
         if long {
             cols.push("created".to_string());
-            if let Ok(c) = md.created() {
-                let utc: DateTime<Local> = c.into();
-                vals.push(Value::Date {
-                    val: utc.with_timezone(utc.offset()),
-                    span,
-                });
-            } else {
-                vals.push(Value::nothing(span));
+            {
+                let mut val = Value::nothing(span);
+                if let Ok(c) = md.created() {
+                    if let Some(local) = try_convert_to_local_date_time(c) {
+                        val = Value::Date {
+                            val: local.with_timezone(local.offset()),
+                            span,
+                        };
+                    }
+                }
+                vals.push(val);
             }
 
             cols.push("accessed".to_string());
-            if let Ok(a) = md.accessed() {
-                let utc: DateTime<Local> = a.into();
-                vals.push(Value::Date {
-                    val: utc.with_timezone(utc.offset()),
-                    span,
-                });
-            } else {
-                vals.push(Value::nothing(span));
+            {
+                let mut val = Value::nothing(span);
+                if let Ok(a) = md.accessed() {
+                    if let Some(local) = try_convert_to_local_date_time(a) {
+                        val = Value::Date {
+                            val: local.with_timezone(local.offset()),
+                            span,
+                        };
+                    }
+                }
+                vals.push(val);
             }
         }
 
         cols.push("modified".to_string());
-        if let Ok(m) = md.modified() {
-            let utc: DateTime<Local> = m.into();
-            vals.push(Value::Date {
-                val: utc.with_timezone(utc.offset()),
-                span,
-            });
-        } else {
-            vals.push(Value::nothing(span));
+        {
+            let mut val = Value::nothing(span);
+            if let Ok(m) = md.modified() {
+                if let Some(local) = try_convert_to_local_date_time(m) {
+                    val = Value::Date {
+                        val: local.with_timezone(local.offset()),
+                        span,
+                    };
+                }
+            }
+            vals.push(val);
         }
     } else {
         if long {
@@ -535,4 +545,26 @@ pub(crate) fn dir_entry_dict(
     }
 
     Ok(Value::Record { cols, vals, span })
+}
+
+fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
+    // Adapted from https://github.com/chronotope/chrono/blob/v0.4.19/src/datetime.rs#L755-L767.
+    let (sec, nsec) = match t.duration_since(UNIX_EPOCH) {
+        Ok(dur) => (dur.as_secs() as i64, dur.subsec_nanos()),
+        Err(e) => {
+            // unlikely but should be handled
+            let dur = e.duration();
+            let (sec, nsec) = (dur.as_secs() as i64, dur.subsec_nanos());
+            if nsec == 0 {
+                (-sec, 0)
+            } else {
+                (-sec - 1, 1_000_000_000 - nsec)
+            }
+        }
+    };
+
+    match Utc.timestamp_opt(sec, nsec) {
+        LocalResult::Single(t) => Some(t.with_timezone(&Local)),
+        _ => None,
+    }
 }
