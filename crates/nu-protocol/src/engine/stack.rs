@@ -37,12 +37,6 @@ pub struct Stack {
     pub active_overlays: Vec<String>,
 }
 
-// impl Default for Stack {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
-
 impl Stack {
     pub fn new(engine_state: &EngineState) -> Stack {
         Stack {
@@ -106,7 +100,6 @@ impl Stack {
                     scope.insert(last_overlay.into(), HashMap::from([(var, value)]));
                 }
             } else {
-                // self.env_vars.push(HashMap::from([(var, value)]));
                 self.env_vars.push(HashMap::from([(
                     last_overlay.into(),
                     HashMap::from([(var, value)]),
@@ -343,39 +336,4 @@ impl Stack {
 
         Ok(())
     }
-
-    // pub fn get_config(&self) -> Result<Config, ShellError> {
-    //     let config = self.get_var(CONFIG_VARIABLE_ID, Span::new(0, 0));
-
-    //     match config {
-    //         Ok(config) => config.into_config(),
-    //         Err(e) => Err(e),
-    //     }
-    // }
-
-    // pub fn update_config(&mut self, name: &str, value: Value) {
-    //     if let Some(Value::Record { cols, vals, .. }) = self.vars.get_mut(&CONFIG_VARIABLE_ID) {
-    //         for col_val in cols.iter().zip(vals.iter_mut()) {
-    //             if col_val.0 == name {
-    //                 *col_val.1 = value;
-    //                 return;
-    //             }
-    //         }
-    //         cols.push(name.to_string());
-    //         vals.push(value);
-    //     }
-    // }
-
-    // pub fn print_stack(&self) {
-    //     println!("vars:");
-    //     for (var, val) in &self.vars {
-    //         println!("  {}: {:?}", var, val);
-    //     }
-    //     for (i, scope) in self.env_vars.iter().rev().enumerate() {
-    //         println!("env vars, scope {} (from the last);", i);
-    //         for (var, val) in scope {
-    //             println!("  {}: {:?}", var, val.clone().debug_value());
-    //         }
-    //     }
-    // }
 }
