@@ -68,8 +68,8 @@ impl Command for ListDF {
             }
         }
 
-
-        let vals = vals.into_iter()
+        let vals = vals
+            .into_iter()
             .filter_map(|(name, value)| match NuDataFrame::try_from_value(value) {
                 Ok(df) => Some((name, df)),
                 Err(_) => None,

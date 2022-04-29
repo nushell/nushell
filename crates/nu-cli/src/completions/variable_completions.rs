@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct VariableCompletion {
-    engine_state: Arc<EngineState>,  // TODO: Is engine state necessary? It's already a part of working set in fetch()
+    engine_state: Arc<EngineState>, // TODO: Is engine state necessary? It's already a part of working set in fetch()
     stack: Stack,
     var_context: (Vec<u8>, Vec<Vec<u8>>), // tuple with $var and the sublevels (.b.c.d)
 }

@@ -1958,11 +1958,7 @@ pub fn parse_overlay_add(
             (module.decls(), module.aliases())
         };
 
-        working_set.add_overlay(
-            name.as_bytes().to_vec(),
-            decls_to_lay,
-            aliases_to_lay,
-        );
+        working_set.add_overlay(name.as_bytes().to_vec(), decls_to_lay, aliases_to_lay);
     }
 
     (
