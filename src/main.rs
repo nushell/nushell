@@ -315,7 +315,7 @@ fn parse_commandline_args(
 
     let _ = engine_state.merge_delta(delta, None, init_cwd);
 
-    let mut stack = Stack::new(&engine_state);
+    let mut stack = Stack::new(engine_state);
 
     // We should have a successful parse now
     if let Some(pipeline) = block.pipelines.get(0) {

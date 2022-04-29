@@ -74,9 +74,11 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
             env_vars.insert(k, v);
         }
     } else {
-        error = error.or(Some(ShellError::NushellFailed(
-            "Last active overlay not found.".into(),
-        )));
+        error = error.or_else(|| {
+            Some(ShellError::NushellFailed(
+                "Last active overlay not found.".into(),
+            ))
+        });
     }
 
     error

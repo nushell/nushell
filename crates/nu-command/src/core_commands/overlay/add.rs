@@ -55,28 +55,26 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         let (module_name, module) =
             if let Some(module_id) = engine_state.find_module(name_arg.item.as_bytes()) {
                 (name_arg.item, engine_state.get_module(module_id))
-            } else {
-                if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
-                    let name = if let Some(s) = os_str.to_str() {
-                        s.to_string()
-                    } else {
-                        return Err(ShellError::NonUtf8(name_arg.span));
-                    };
+            } else if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
+                let name = if let Some(s) = os_str.to_str() {
+                    s.to_string()
+                } else {
+                    return Err(ShellError::NonUtf8(name_arg.span));
+                };
 
-                    if let Some(module_id) = engine_state.find_module(name.as_bytes()) {
-                        (name, engine_state.get_module(module_id))
-                    } else {
-                        return Err(ShellError::ModuleNotFoundAtRuntime(
-                            name_arg.item,
-                            name_arg.span,
-                        ));
-                    }
+                if let Some(module_id) = engine_state.find_module(name.as_bytes()) {
+                    (name, engine_state.get_module(module_id))
                 } else {
                     return Err(ShellError::ModuleNotFoundAtRuntime(
                         name_arg.item,
                         name_arg.span,
                     ));
                 }
+            } else {
+                return Err(ShellError::ModuleNotFoundAtRuntime(
+                    name_arg.item,
+                    name_arg.span,
+                ));
             };
 
         stack.add_overlay(module_name);

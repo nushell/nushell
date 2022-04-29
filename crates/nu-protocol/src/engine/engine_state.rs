@@ -82,12 +82,6 @@ impl Visibility {
     }
 }
 
-impl Default for Visibility {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct ScopeFrame {
     // pub vars: HashMap<Vec<u8>, VarId>,
@@ -439,7 +433,7 @@ impl EngineState {
 
         other_names
             .map(|other_name| {
-                self.find_overlay(&other_name)
+                self.find_overlay(other_name)
                     .expect("internal error: missing overlay")
             })
             .collect()
@@ -936,12 +930,6 @@ impl EngineState {
     }
 }
 
-impl Default for EngineState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// A temporary extension to the global state. This handles bridging between the global state and the
 /// additional declarations and scope changes that are not yet part of the global scope.
 ///
@@ -1106,10 +1094,7 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn use_decls(&mut self, decls: Vec<(Vec<u8>, DeclId)>) {
-        let do_trace = decls
-            .iter()
-            .find(|(name, _)| name == "foo".as_bytes())
-            .is_some();
+        let do_trace = decls.iter().any(|(name, _)| name == "foo".as_bytes());
 
         if do_trace {
             trace!("Using decls with foo");
@@ -2022,13 +2007,13 @@ impl<'a> StateWorkingSet<'a> {
 
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
-        if let Some(overlay_id) = last_scope_frame.find_overlay(&name) {
+        if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
             last_scope_frame
                 .active_overlays
                 .retain(|id| id != &overlay_id);
         }
 
-        if let Some(permanent_overlay_id) = self.permanent_state.find_overlay(&name) {
+        if let Some(permanent_overlay_id) = self.permanent_state.find_overlay(name) {
             last_scope_frame.removed_overlays.push(permanent_overlay_id);
         }
 
@@ -2056,6 +2041,36 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn render(self) -> StateDelta {
         self.delta
+    }
+}
+
+impl Default for Visibility {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for ScopeFrame {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for OverlayFrame {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for EngineState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for StateDelta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -336,7 +336,7 @@ impl Stack {
 
     pub fn remove_overlay(&mut self, name: &String, span: &Span) -> Result<(), ShellError> {
         if !self.active_overlays.contains(name) {
-            return Err(ShellError::OverlayNotFoundAtRuntime(name.into(), span.clone()));
+            return Err(ShellError::OverlayNotFoundAtRuntime(name.into(), *span));
         }
 
         self.active_overlays.retain(|o| o != name);
