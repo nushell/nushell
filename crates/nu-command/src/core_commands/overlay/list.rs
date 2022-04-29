@@ -17,7 +17,14 @@ impl Command for OverlayList {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("overlay list").category(Category::Core)
+        Signature::build("overlay list")
+            .category(Category::Core)
+            // TODO: This flag is mostly for debugging
+            .switch(
+                "parser",
+                "List the overlays as seen by the parser.",
+                Some('p'),
+            )
     }
 
     fn extra_usage(&self) -> &str {
@@ -27,15 +34,23 @@ impl Command for OverlayList {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let active_overlays = engine_state
-            .active_overlay_names()
-            .iter()
-            .map(|s| Value::string(String::from_utf8_lossy(s), call.head))
-            .collect();
+        let active_overlays = if call.has_flag("parser") {
+            engine_state
+                .active_overlay_names()
+                .iter()
+                .map(|s| Value::string(String::from_utf8_lossy(s), call.head))
+                .collect()
+        } else {
+            stack
+                .active_overlays
+                .iter()
+                .map(|s| Value::string(s, call.head))
+                .collect()
+        };
 
         Ok(Value::List {
             vals: active_overlays,
