@@ -105,8 +105,6 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
 
                 let block = engine_state.get_block(block_id);
 
-                // TODO: Add string conversions (e.g. int to string)
-                // TODO: Later expand env to take all Values
                 let val = eval_block(
                     engine_state,
                     stack,
