@@ -61,12 +61,54 @@ jobs:
           command: clippy
           args: --workspace ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-latest, macos-latest, ubuntu-latest]
+        style: [all, default]
+        rust:
+          - stable
+        include:
+          - style: all
+            flags: '--all-features'
+          - style: default
+            flags: ''
+        exclude:
+          - platform: windows-latest
+            style: default
+          - platform: macos-latest
+            style: default
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+            key: "1" # increment this to bust the cache if needed
+
+      - name: Rustfmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --workspace ${{ matrix.flags }}
-
 
   python-virtualenv:
     strategy:
