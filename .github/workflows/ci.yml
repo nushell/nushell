@@ -98,6 +98,8 @@ jobs:
         with:
             key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
 
+      - uses: taiki-e/install-action@nextest
+
       - name: Rustfmt
         uses: actions-rs/cargo@v1
         with:
@@ -107,8 +109,8 @@ jobs:
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --workspace ${{ matrix.flags }}
+          command: nextest
+          args: run --all ${{ matrix.flags }}
 
   python-virtualenv:
     strategy:
