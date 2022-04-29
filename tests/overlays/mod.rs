@@ -15,7 +15,7 @@ fn add_overlay() {
 }
 
 #[test]
-fn add_overlay_from_file() {
+fn add_overlay_from_file1() {
     let actual = nu!(
         cwd: "tests/overlays", pipeline(
         r#"
@@ -25,6 +25,32 @@ fn add_overlay_from_file() {
     ));
 
     assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn add_overlay_from_file2() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            overlay add samples/spam.nu;
+            bar
+        "#
+    ));
+
+    assert_eq!(actual.out, "bar");
+}
+
+#[test]
+fn add_overlay_from_file3() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            overlay add samples/spam.nu;
+            $env.BAZ
+        "#
+    ));
+
+    assert_eq!(actual.out, "baz");
 }
 
 #[test]
@@ -67,6 +93,38 @@ fn remove_overlay_scoped() {
                 overlay remove spam
             };
             foo
+        "#
+    ));
+
+    assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn remove_overlay_env() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            module spam { export env FOO { "foo" } };
+            overlay add spam;
+            overlay remove spam;
+            $env.FOO
+        "#
+    ));
+
+    assert!(actual.err.contains("did you mean"));
+}
+
+#[test]
+fn remove_overlay_scoped_env() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            module spam { export env FOO { "foo" } };
+            overlay add spam;
+            do {
+                overlay remove spam
+            };
+            $env.FOO
         "#
     ));
 

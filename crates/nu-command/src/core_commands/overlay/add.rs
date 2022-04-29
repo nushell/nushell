@@ -5,6 +5,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
+use std::path::Path;
+
 #[derive(Clone)]
 pub struct OverlayAdd;
 
@@ -48,39 +50,58 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let module_name: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let name_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-        if let Some(module_id) = engine_state.find_module(module_name.item.as_bytes()) {
-            let module = engine_state.get_module(module_id);
-
-            stack.add_overlay(module_name.item);
-
-            for (name, block_id) in module.env_vars() {
-                let name = if let Ok(s) = String::from_utf8(name.clone()) {
+        // TODO: This logic is duplicated in the parser. Add a function to get module's name from a
+        // path.
+        let module = if let Some(module_id) = engine_state.find_module(name_arg.item.as_bytes()) {
+            engine_state.get_module(module_id)
+        } else {
+            if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
+                let name = if let Some(s) = os_str.to_str() {
                     s
                 } else {
-                    return Err(ShellError::NonUtf8(module_name.span));
+                    return Err(ShellError::NonUtf8(name_arg.span));
                 };
 
-                let block = engine_state.get_block(block_id);
-
-                let val = eval_block(
-                    engine_state,
-                    stack,
-                    block,
-                    PipelineData::new(call.head),
-                    false,
-                    true,
-                )?
-                .into_value(call.head);
-
-                stack.add_env_var(name, val);
+                if let Some(module_id) = engine_state.find_module(name.as_bytes()) {
+                    engine_state.get_module(module_id)
+                } else {
+                    return Err(ShellError::ModuleNotFoundAtRuntime(
+                        name_arg.item,
+                        name_arg.span,
+                    ));
+                }
+            } else {
+                return Err(ShellError::ModuleNotFoundAtRuntime(
+                    name_arg.item,
+                    name_arg.span,
+                ));
             }
-        } else {
-            return Err(ShellError::ModuleNotFoundAtRuntime(
-                module_name.item,
-                module_name.span,
-            ));
+        };
+
+        stack.add_overlay(name_arg.item);
+
+        for (name, block_id) in module.env_vars() {
+            let name = if let Ok(s) = String::from_utf8(name.clone()) {
+                s
+            } else {
+                return Err(ShellError::NonUtf8(name_arg.span));
+            };
+
+            let block = engine_state.get_block(block_id);
+
+            let val = eval_block(
+                engine_state,
+                stack,
+                block,
+                PipelineData::new(call.head),
+                false,
+                true,
+            )?
+            .into_value(call.head);
+
+            stack.add_env_var(name, val);
         }
 
         Ok(PipelineData::new(call.head))
