@@ -25,7 +25,6 @@ pub use print::Print;
 pub use prompt::NushellPrompt;
 pub use repl::evaluate_repl;
 pub use syntax_highlight::NuHighlighter;
-pub use util::print_pipeline_data;
 pub use util::{eval_source, gather_parent_env_vars, get_init_cwd, report_error};
 pub use validation::NuValidator;
 

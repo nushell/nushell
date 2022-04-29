@@ -26,7 +26,7 @@ impl Command for Sort {
     }
 
     fn usage(&self) -> &str {
-        "Sort by the given columns, in increasing order."
+        "Sort in increasing order."
     }
 
     fn examples(&self) -> Vec<Example> {

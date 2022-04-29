@@ -14,12 +14,15 @@ impl WebTable {
     /// Finds the first table in `html`.
     pub fn find_first(html: &str) -> Option<WebTable> {
         let html = Html::parse_fragment(html);
-        html.select(&css("table")).next().map(WebTable::new)
+        html.select(&css("table", false)).next().map(WebTable::new)
     }
 
     pub fn find_all_tables(html: &str) -> Option<Vec<WebTable>> {
         let html = Html::parse_fragment(html);
-        let iter: Vec<WebTable> = html.select(&css("table")).map(WebTable::new).collect();
+        let iter: Vec<WebTable> = html
+            .select(&css("table", false))
+            .map(WebTable::new)
+            .collect();
         if iter.is_empty() {
             return None;
         }
@@ -51,9 +54,9 @@ impl WebTable {
             return WebTable::find_all_tables(html);
         }
 
-        let sel_table = css("table");
-        let sel_tr = css("tr");
-        let sel_th = css("th");
+        let sel_table = css("table", false);
+        let sel_tr = css("tr", false);
+        let sel_th = css("th", false);
 
         let html = Html::parse_fragment(html);
         let mut tables = html
@@ -98,9 +101,9 @@ impl WebTable {
     }
 
     // fn new(element: ElementRef) -> Table {
-    //     let sel_tr = css("tr");
-    //     let sel_th = css("th");
-    //     let sel_td = css("td");
+    //     let sel_tr = css("tr", false);
+    //     let sel_th = css("th", false);
+    //     let sel_td = css("td", false);
 
     //     let mut headers = HashMap::new();
     //     let mut rows = element.select(&sel_tr).peekable();
@@ -117,9 +120,9 @@ impl WebTable {
     // }
 
     fn new(element: ElementRef) -> WebTable {
-        let sel_tr = css("tr");
-        let sel_th = css("th");
-        let sel_td = css("td");
+        let sel_tr = css("tr", false);
+        let sel_th = css("th", false);
+        let sel_td = css("td", false);
 
         let mut headers = HashMap::new();
         let mut rows = element.select(&sel_tr).peekable();

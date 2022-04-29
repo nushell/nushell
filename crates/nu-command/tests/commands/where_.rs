@@ -1,4 +1,5 @@
 use nu_test_support::nu;
+#[allow(unused)]
 use nu_test_support::pipeline;
 
 #[test]

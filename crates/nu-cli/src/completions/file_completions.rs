@@ -134,14 +134,8 @@ pub fn file_path_completion(
                             file_name.push(SEP);
                         }
 
-                        if path.contains(' ') {
-                            path = format!("\'{}\'", path);
-                        }
-
-                        // Fix files or folders with quotes
-                        if path.contains('\'') || path.contains('"') {
-                            path = format!("`{}`", path);
-                        }
+                        // Escape path string if necessary
+                        path = escape_path_str(path);
 
                         Some((span, path))
                     } else {
@@ -157,4 +151,86 @@ pub fn file_path_completion(
 
 pub fn matches(partial: &str, from: &str, match_algorithm: MatchAlgorithm) -> bool {
     match_algorithm.matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase())
+}
+
+// escape paths that contains some special characters
+pub fn escape_path_str(path: String) -> String {
+    let mut path = path;
+
+    // List of special characters that need to be escaped
+    let special_characters = b"\\\'\"";
+    let replacements = [b"\\\\", b"\\\'", b"\\\""];
+
+    // Check if path needs to be escaped
+    let needs_escape = path.bytes().fold(false, |acc, x| {
+        acc
+        || x == b'\\' // 0x5c
+        || x == b'`' // 0x60
+        || x == b'"'
+        || x == b' '
+        || x == b'\''
+    });
+
+    if needs_escape {
+        let mut result: Vec<u8> = vec![b'\"'];
+
+        // Walk through the path characters
+        for b in path.bytes() {
+            // Basically the equivalent of str.find(), but expanded
+            if let Some(idx) = special_characters.iter().enumerate().fold(None, |idx, c| {
+                if *c.1 == b {
+                    Some(c.0)
+                } else {
+                    idx
+                }
+            }) {
+                for rb in replacements[idx] {
+                    result.push(*rb);
+                }
+            } else {
+                result.push(b);
+            }
+        }
+
+        // Final quote
+        result.push(b'\"');
+
+        // Update path
+        path = String::from_utf8(result).unwrap_or(path);
+    }
+
+    path
+}
+
+mod test {
+    #[test]
+    fn escape_path() {
+        // Vec of (path, expected escape)
+        let cases: Vec<(&str, &str)> = vec![
+            ("/home/nushell/filewith`", "\"/home/nushell/filewith`\""),
+            (
+                "/home/nushell/folder with spaces",
+                "\"/home/nushell/folder with spaces\"",
+            ),
+            (
+                "/home/nushell/folder\"withquotes",
+                "\"/home/nushell/folder\\\"withquotes\"",
+            ),
+            (
+                "C:\\windows\\system32\\escape path",
+                "\"C:\\\\windows\\\\system32\\\\escape path\"",
+            ),
+            (
+                "/home/nushell/shouldnt/be/escaped",
+                "/home/nushell/shouldnt/be/escaped",
+            ),
+        ];
+
+        for item in cases.into_iter() {
+            assert_eq!(
+                crate::completions::escape_path_str(item.0.to_string()),
+                item.1.to_string()
+            )
+        }
+    }
 }
