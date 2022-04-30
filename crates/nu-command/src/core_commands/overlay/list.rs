@@ -4,6 +4,8 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
 };
 
+use log::trace;
+
 #[derive(Clone)]
 pub struct OverlayList;
 
@@ -44,23 +46,20 @@ impl Command for OverlayList {
             .collect();
 
         // Check if the overlays in the engine match the overlays in the parser
-        if active_overlays_parser.len() != active_overlays_engine.len() {
-            return Err(ShellError::NushellFailedSpanned(
-                "Overlay mismatch".into(),
-                "Active overlays do not match between the engine and the parser".into(),
-                call.head,
-            ));
-        }
-
-        if active_overlays_parser
-            .iter()
-            .zip(active_overlays_engine.iter())
-            .any(|(op, oe)| op != oe)
+        if (active_overlays_parser.len() != active_overlays_engine.len())
+            || active_overlays_parser
+                .iter()
+                .zip(active_overlays_engine.iter())
+                .any(|(op, oe)| op != oe)
         {
-            return Err(ShellError::NushellFailedSpanned(
+            trace!("parser overlays: {:?}", active_overlays_parser);
+            trace!("engine overlays: {:?}", active_overlays_engine);
+
+            return Err(ShellError::NushellFailedSpannedHelp(
                 "Overlay mismatch".into(),
-                "Active overlays do not match between the engine and the parser".into(),
+                "Active overlays do not match between the engine and the parser.".into(),
                 call.head,
+                "Run Nushell with --log-level=trace to see what went wrong.".into(),
             ));
         }
 

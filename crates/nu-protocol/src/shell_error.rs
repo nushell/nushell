@@ -181,6 +181,11 @@ pub enum ShellError {
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailedSpanned(String, String, #[label = "{1}"] Span),
 
+    #[error("Nushell failed: {0}.")]
+    #[diagnostic(code(nu::shell::nushell_failed), url(docsrs))]
+    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
+    NushellFailedSpannedHelp(String, String, #[label = "{1}"] Span, #[help] String),
+
     /// A referenced variable was not found at runtime.
     ///
     /// ## Resolution

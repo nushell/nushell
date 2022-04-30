@@ -106,6 +106,14 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::module_not_found), url(docsrs))]
     OverlayNotFound(#[label = "not an active overlay"] Span),
 
+    #[error("Cannot remove the last overlay.")]
+    #[diagnostic(
+        code(nu::parser::cant_remove_last_overlay),
+        url(docsrs),
+        help("At least one overlay must always be active.")
+    )]
+    CantRemoveLastOverlay(#[label = "this is the last overlay, can't remove it"] Span),
+
     #[error("Not found.")]
     #[diagnostic(code(nu::parser::not_found), url(docsrs))]
     NotFound(#[label = "did not find anything under this name"] Span),
@@ -273,6 +281,7 @@ impl ParseError {
             ParseError::VariableNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
             ParseError::OverlayNotFound(s) => *s,
+            ParseError::CantRemoveLastOverlay(s) => *s,
             ParseError::NotFound(s) => *s,
             ParseError::DuplicateCommandDef(s) => *s,
             ParseError::UnknownCommand(s) => *s,

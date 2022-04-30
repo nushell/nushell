@@ -19,7 +19,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 static PWD_ENV: &str = "PWD";
-static DEFAULT_OVERLAY_NAME: &str = "zero";
+pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 
 /// Tells whether a decl or alias is visible or not
 #[derive(Debug, Clone)]
@@ -150,10 +150,25 @@ impl ScopeFrame {
             .1
     }
 
-    pub fn find_overlay(&mut self, name: &[u8]) -> Option<OverlayId> {
+    pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
         self.overlays.iter().position(|(n, _)| n == name)
     }
+
+    pub fn find_active_overlay(&self, name: &[u8]) -> Option<OverlayId> {
+        self.overlays
+            .iter()
+            .position(|(n, _)| n == name)
+            .and_then(|id| {
+                if self.active_overlays.contains(&id) {
+                    Some(id)
+                } else {
+                    None
+                }
+            })
+    }
 }
+
+type OverlayDiff = (Vec<(Vec<u8>, DeclId)>, Vec<(Vec<u8>, AliasId)>);
 
 #[derive(Debug, Clone)]
 pub struct OverlayFrame {
@@ -175,6 +190,48 @@ impl OverlayFrame {
             modules: HashMap::new(),
             visibility: Visibility::new(),
         }
+    }
+
+    /// Find out which definitions are custom compared to the original module
+    ///
+    /// If you apply the diff to the original, you should end up with overlay identical to this
+    /// one.
+    pub fn diff(&self, original: &Module) -> OverlayDiff {
+        let decls = self
+            .decls
+            .iter()
+            .filter(|(name, decl_id)| {
+                if self.visibility.is_decl_id_visible(decl_id) {
+                    if let Some(original_id) = original.get_decl_id(name) {
+                        &original_id != *decl_id
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            })
+            .map(|(name, decl_id)| (name.to_owned(), *decl_id))
+            .collect();
+
+        let aliases = self
+            .aliases
+            .iter()
+            .filter(|(name, alias_id)| {
+                if self.visibility.is_alias_id_visible(alias_id) {
+                    if let Some(original_id) = original.get_alias_id(name) {
+                        &original_id != *alias_id
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            })
+            .map(|(name, alias_id)| (name.to_owned(), *alias_id))
+            .collect();
+
+        (decls, aliases)
     }
 }
 
@@ -429,6 +486,12 @@ impl EngineState {
             .expect("internal error: no active overlays")
     }
 
+    pub fn last_overlay(&self) -> Option<&OverlayFrame> {
+        self.active_overlays()
+            .last()
+            .map(|id| self.get_overlay(*id))
+    }
+
     pub fn get_overlay_name(&self, overlay_id: OverlayId) -> &Vec<u8> {
         &self
             .scope
@@ -666,7 +729,11 @@ impl EngineState {
     }
 
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
-        self.scope.overlays.iter().position(|(n, _)| n == name)
+        self.scope.find_overlay(name)
+    }
+
+    pub fn find_active_overlay(&self, name: &[u8]) -> Option<OverlayId> {
+        self.scope.find_active_overlay(name)
     }
 
     pub fn find_commands_by_predicate(
@@ -934,6 +1001,12 @@ impl StateDelta {
             .expect("internal error: missing required scope frame")
     }
 
+    pub fn last_scope_frame(&self) -> &ScopeFrame {
+        self.scope
+            .last()
+            .expect("internal error: missing required scope frame")
+    }
+
     pub fn last_overlay_mut(&mut self) -> Option<&mut OverlayFrame> {
         let last_scope = self
             .scope
@@ -945,6 +1018,25 @@ impl StateDelta {
                 &mut last_scope
                     .overlays
                     .get_mut(*last_overlay_id)
+                    .expect("internal error: missing required overlay")
+                    .1,
+            )
+        } else {
+            None
+        }
+    }
+
+    pub fn last_overlay(&self) -> Option<&OverlayFrame> {
+        let last_scope = self
+            .scope
+            .last()
+            .expect("internal error: missing required scope frame");
+
+        if let Some(last_overlay_id) = last_scope.active_overlays.last() {
+            Some(
+                &last_scope
+                    .overlays
+                    .get(*last_overlay_id)
                     .expect("internal error: missing required overlay")
                     .1,
             )
@@ -996,10 +1088,30 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.num_modules() + self.permanent_state.num_modules()
     }
 
+    pub fn num_overlays(&self) -> usize {
+        let scope_frame = self.delta.last_scope_frame();
+
+        let mut overlay_ids: Vec<&usize> = self
+            .permanent_state
+            .scope
+            .active_overlays
+            .iter()
+            .filter(|perma_id| !scope_frame.removed_overlays.contains(perma_id))
+            .chain(scope_frame.active_overlays.iter())
+            .collect();
+
+        overlay_ids.sort();
+        overlay_ids.dedup();
+
+        overlay_ids.len()
+    }
+
     pub fn last_overlay_mut(&mut self) -> &mut OverlayFrame {
         if self.delta.last_scope_frame_mut().active_overlays.is_empty() {
             // Make sure there is an active overlay
             let last_overlay_name = self.permanent_state.last_overlay_name();
+            // TODO: Remove this implicit add: too error-prone (perma state can still have unmerged
+            // removed delta overlay)
             self.add_overlay(last_overlay_name.to_vec(), vec![], vec![]);
         }
 
@@ -1658,6 +1770,22 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn is_active_overlay(&self, name: &[u8]) -> bool {
+        // TODO: Search all scopes (see remove_overlay())
+        self.delta
+            .last_scope_frame()
+            .find_overlay(name)
+            .or_else(|| self.permanent_state.find_overlay(name))
+            .is_some()
+    }
+
+    pub fn last_overlay(&self) -> Option<&OverlayFrame> {
+        // TODO: Search all scopes (see remove_overlay())
+        self.delta
+            .last_overlay()
+            .or_else(|| self.permanent_state.last_overlay())
+    }
+
     pub fn add_overlay(
         &mut self,
         name: Vec<u8>,
@@ -1690,19 +1818,50 @@ impl<'a> StateWorkingSet<'a> {
         self.use_aliases(aliases);
     }
 
-    pub fn remove_overlay(&mut self, name: &[u8]) {
+    pub fn remove_overlay(&mut self, name: &[u8], original_module: Option<Module>) {
+        // TODO: This removes only from a) permanent state, b) last scope frame in delta => it is
+        // impossible to do scoped overlay remove now.
         trace!("Remove overlay: {:?}", name);
 
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
-        if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
+        let removed_overlay = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
             last_scope_frame
                 .active_overlays
                 .retain(|id| id != &overlay_id);
-        }
+
+            Some(last_scope_frame.get_overlay(overlay_id).clone())
+        } else {
+            self.permanent_state
+                .find_overlay(name)
+                .map(|id| self.permanent_state.get_overlay(id).clone())
+        };
 
         if let Some(permanent_overlay_id) = self.permanent_state.find_overlay(name) {
             last_scope_frame.removed_overlays.push(permanent_overlay_id);
+        }
+
+        if let Some(module) = original_module {
+            // Find the last overlay that does not have the removed overlay name
+            // TODO: Remove clone of the frame
+            if let Some(overlay_name) = self
+                .permanent_state
+                .scope
+                .overlays
+                .iter()
+                .chain(self.delta.last_scope_frame().overlays.iter())
+                .rev()
+                .find(|(n, _)| n != name)
+                .map(|(n, _)| n.to_vec())
+            {
+                if let Some(overlay) = removed_overlay {
+                    // Apply changes from the removed overlay to the next one
+                    let (diff_decls, diff_aliases) = overlay.diff(&module);
+                    trace!("  adding diff decls: {:?}", diff_decls);
+                    trace!("  adding diff aliases: {:?}", diff_aliases);
+                    self.add_overlay(overlay_name, diff_decls, diff_aliases);
+                }
+            }
         }
     }
 

@@ -18,6 +18,7 @@ impl Command for OverlayRemove {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay remove")
             .required("name", SyntaxShape::String, "Overlay to remove")
+            .switch("discard", "discard changes made to this overlay", Some('d'))
             .category(Category::Core)
     }
 
@@ -39,6 +40,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let module_name: Spanned<String> = call.req(engine_state, stack, 0)?;
 
+        // TODO: Discard env changes
         stack.remove_overlay(&module_name.item, &module_name.span)?;
 
         Ok(PipelineData::new(call.head))

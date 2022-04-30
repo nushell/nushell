@@ -2026,9 +2026,9 @@ pub fn parse_overlay_remove(
         }
     };
 
-    let overlay_name = if let Some(expr) = call.positional_nth(0) {
+    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         if let Some(s) = expr.as_string() {
-            s
+            (s, expr.span)
         } else {
             return (
                 garbage_pipeline(spans),
@@ -2048,7 +2048,30 @@ pub fn parse_overlay_remove(
         );
     };
 
-    working_set.remove_overlay(overlay_name.as_bytes());
+    if !working_set.is_active_overlay(overlay_name.as_bytes()) {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::OverlayNotFound(overlay_name_span)),
+        );
+    }
+
+    if working_set.num_overlays() < 2 {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::CantRemoveLastOverlay(overlay_name_span)),
+        );
+    }
+
+    let original_module = if call.has_flag("discard") {
+        None
+    } else if let Some(module_id) = working_set.find_module(overlay_name.as_bytes()) {
+        // TODO: Remove clone
+        Some(working_set.get_module(module_id).clone())
+    } else {
+        Some(Module::new())
+    };
+
+    working_set.remove_overlay(overlay_name.as_bytes(), original_module);
 
     (
         Pipeline::from_vec(vec![Expression {
