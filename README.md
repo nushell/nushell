@@ -1,7 +1,7 @@
 # README
 
 [![Crates.io](https://img.shields.io/crates/v/nu.svg)](https://crates.io/crates/nu)
-[![Build Status](https://github.com/nushell/nushell/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nushell/nushell/actions)
+![Build Status](https://img.shields.io/github/workflow/status/nushell/nushell/continuous-integration)
 [![Discord](https://img.shields.io/discord/601130461678272522.svg?logo=discord)](https://discord.gg/NtAbbGn)
 [![The Changelog #363](https://img.shields.io/badge/The%20Changelog-%23363-61c192.svg)](https://changelog.com/podcast/363)
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
@@ -286,7 +286,7 @@ See [Contributing](CONTRIBUTING.md) for details.
 Thanks to all the people who already contributed!
 
 <a href="https://github.com/nushell/nushell/graphs/contributors">
-  <img src="https://contributors-img.web.app/image?repo=nushell/nushell" />
+  <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=500" />
 </a>
 
 ## License

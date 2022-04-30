@@ -1,8 +1,11 @@
+use chrono::prelude::DateTime;
+use chrono::Local;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
 };
+use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{ComponentExt, DiskExt, NetworkExt, ProcessorExt, System, SystemExt, UserExt};
 
 #[derive(Clone)]
@@ -135,6 +138,18 @@ pub fn disks(sys: &mut System, span: Span) -> Option<Value> {
             span,
         });
 
+        cols.push("removable".into());
+        vals.push(Value::Bool {
+            val: disk.is_removable(),
+            span,
+        });
+
+        cols.push("removable".into());
+        vals.push(Value::String {
+            val: format!("{:?}", disk.type_()),
+            span,
+        });
+
         output.push(Value::Record { cols, vals, span });
     }
     if !output.is_empty() {
@@ -206,8 +221,37 @@ pub fn cpu(sys: &mut System, span: Span) -> Option<Value> {
             span,
         });
 
+        cols.push("cpu_usage".into());
+        vals.push(Value::Float {
+            val: cpu.cpu_usage() as f64,
+            span,
+        });
+
+        let load_avg = sys.load_average();
+        cols.push("load_average".into());
+        vals.push(Value::String {
+            val: trim_cstyle_null(format!(
+                "{:.2}, {:.2}, {:.2}",
+                load_avg.one, load_avg.five, load_avg.fifteen
+            )),
+            span,
+        });
+
+        cols.push("vendor_id".into());
+        vals.push(Value::String {
+            val: trim_cstyle_null(cpu.vendor_id().to_string()),
+            span,
+        });
+
+        cols.push("freq".into());
+        vals.push(Value::Int {
+            val: sys.physical_core_count().unwrap_or(0) as i64,
+            span,
+        });
+
         output.push(Value::Record { cols, vals, span });
     }
+
     if !output.is_empty() {
         Some(Value::List { vals: output, span })
     } else {
@@ -223,8 +267,12 @@ pub fn mem(sys: &mut System, span: Span) -> Option<Value> {
 
     let total_mem = sys.total_memory();
     let free_mem = sys.free_memory();
+    let used_mem = sys.used_memory();
+    let avail_mem = sys.available_memory();
+
     let total_swap = sys.total_swap();
     let free_swap = sys.free_swap();
+    let used_swap = sys.used_swap();
 
     cols.push("total".into());
     vals.push(Value::Filesize {
@@ -238,6 +286,18 @@ pub fn mem(sys: &mut System, span: Span) -> Option<Value> {
         span,
     });
 
+    cols.push("used".into());
+    vals.push(Value::Filesize {
+        val: used_mem as i64 * 1000,
+        span,
+    });
+
+    cols.push("available".into());
+    vals.push(Value::Filesize {
+        val: avail_mem as i64 * 1000,
+        span,
+    });
+
     cols.push("swap total".into());
     vals.push(Value::Filesize {
         val: total_swap as i64 * 1000,
@@ -247,6 +307,12 @@ pub fn mem(sys: &mut System, span: Span) -> Option<Value> {
     cols.push("swap free".into());
     vals.push(Value::Filesize {
         val: free_swap as i64 * 1000,
+        span,
+    });
+
+    cols.push("swap used".into());
+    vals.push(Value::Filesize {
+        val: used_swap as i64 * 1000,
         span,
     });
 
@@ -267,14 +333,23 @@ pub fn host(sys: &mut System, span: Span) -> Option<Value> {
         });
     }
     if let Some(version) = sys.os_version() {
-        cols.push("os version".into());
+        cols.push("os_version".into());
         vals.push(Value::String {
             val: trim_cstyle_null(version),
             span,
         });
     }
+
+    if let Some(long_version) = sys.long_os_version() {
+        cols.push("long_os_version".into());
+        vals.push(Value::String {
+            val: trim_cstyle_null(long_version),
+            span,
+        });
+    }
+
     if let Some(version) = sys.kernel_version() {
-        cols.push("kernel version".into());
+        cols.push("kernel_version".into());
         vals.push(Value::String {
             val: trim_cstyle_null(version),
             span,
@@ -287,9 +362,23 @@ pub fn host(sys: &mut System, span: Span) -> Option<Value> {
             span,
         });
     }
+
     cols.push("uptime".into());
     vals.push(Value::Duration {
         val: 1000000000 * sys.uptime() as i64,
+        span,
+    });
+
+    // Creates a new SystemTime from the specified number of whole seconds
+    let d = UNIX_EPOCH + Duration::from_secs(sys.boot_time());
+    // Create DateTime from SystemTime
+    let datetime = DateTime::<Local>::from(d);
+    // Convert to local time and then rfc3339
+    let timestamp_str = datetime.with_timezone(datetime.offset()).to_rfc3339();
+
+    cols.push("boot_time".into());
+    vals.push(Value::String {
+        val: timestamp_str,
         span,
     });
 
@@ -317,6 +406,7 @@ pub fn host(sys: &mut System, span: Span) -> Option<Value> {
 
         users.push(Value::Record { cols, vals, span });
     }
+
     if !users.is_empty() {
         cols.push("sessions".into());
         vals.push(Value::List { vals: users, span });
@@ -362,6 +452,7 @@ pub fn temp(sys: &mut System, span: Span) -> Option<Value> {
         }
         output.push(Value::Record { cols, vals, span });
     }
+
     if !output.is_empty() {
         Some(Value::List { vals: output, span })
     } else {

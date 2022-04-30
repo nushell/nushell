@@ -545,6 +545,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("No file to be copied")]
     NoFileToBeCopied(),
 
+    /// Error while trying to read a file
+    ///
+    /// ## Resolution
+    ///
+    /// The error will show the result from a file operation
+    #[error("Error trying to read file")]
+    #[diagnostic(code(nu::shell::error_reading_file), url(docsrs))]
+    ReadingFile(String, #[label("{0}")] Span),
+
     /// A name was not found. Did you mean a different name?
     ///
     /// ## Resolution

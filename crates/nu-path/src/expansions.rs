@@ -18,8 +18,8 @@ where
         // more ugly - so we don't do anything, which should result in an equal
         // path on all supported systems.
         relative_to.into()
-    } else if path.starts_with("~") {
-        // do not end up with "/some/path/~"
+    } else if path.to_string_lossy().as_ref().starts_with('~') {
+        // do not end up with "/some/path/~" or "/some/path/~user"
         path.into()
     } else {
         relative_to.join(path)

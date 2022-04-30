@@ -1,6 +1,6 @@
 use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, FileCompletion, FlagCompletion, VariableCompletion,
+    DotNuCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, VariableCompletion,
 };
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
@@ -35,7 +35,13 @@ impl NuCompleter {
         offset: usize,
         pos: usize,
     ) -> Vec<Suggestion> {
-        let options = CompletionOptions::default();
+        let config = self.engine_state.get_config();
+
+        let mut options = CompletionOptions::default();
+
+        if config.completion_algorithm == "fuzzy" {
+            options.match_algorithm = MatchAlgorithm::Fuzzy;
+        }
 
         // Fetch
         let mut suggestions =
@@ -169,7 +175,9 @@ impl NuCompleter {
                                     pos,
                                 );
                             }
-                            FlatShape::Filepath | FlatShape::GlobPattern => {
+                            FlatShape::Filepath
+                            | FlatShape::GlobPattern
+                            | FlatShape::ExternalArg => {
                                 let mut completer = FileCompletion::new(self.engine_state.clone());
 
                                 return self.process_completion(

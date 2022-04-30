@@ -87,12 +87,14 @@ fn begin_selector_query(input_html: String, selector: Selector, span: Span) -> V
                 input_html.as_str(),
                 selector.query.as_str(),
                 selector.as_html,
+                selector.inspect,
                 span,
             ),
             false => execute_selector_query_with_attribute(
                 input_html.as_str(),
                 selector.query.as_str(),
                 selector.attribute.as_str(),
+                selector.inspect,
                 span,
             ),
         }
@@ -132,10 +134,7 @@ pub fn retrieve_tables(
 
     if tables.len() == 1 {
         return retrieve_table(
-            tables
-                .into_iter()
-                .next()
-                .expect("This should never trigger"),
+            tables.into_iter().next().expect("Error retrieving table"),
             columns,
             span,
         );
@@ -227,12 +226,13 @@ fn execute_selector_query_with_attribute(
     input_string: &str,
     query_string: &str,
     attribute: &str,
+    inspect: bool,
     span: Span,
 ) -> Value {
     let doc = Html::parse_fragment(input_string);
 
     let vals: Vec<Value> = doc
-        .select(&css(query_string))
+        .select(&css(query_string, inspect))
         .map(|selection| {
             Value::string(
                 selection.value().attr(attribute).unwrap_or("").to_string(),
@@ -247,17 +247,18 @@ fn execute_selector_query(
     input_string: &str,
     query_string: &str,
     as_html: bool,
+    inspect: bool,
     span: Span,
 ) -> Value {
     let doc = Html::parse_fragment(input_string);
 
     let vals: Vec<Value> = match as_html {
         true => doc
-            .select(&css(query_string))
+            .select(&css(query_string, inspect))
             .map(|selection| Value::string(selection.html(), span))
             .collect(),
         false => doc
-            .select(&css(query_string))
+            .select(&css(query_string, inspect))
             .map(|selection| {
                 Value::string(
                     selection
@@ -272,8 +273,12 @@ fn execute_selector_query(
     Value::List { vals, span }
 }
 
-pub fn css(selector: &str) -> ScraperSelector {
-    ScraperSelector::parse(selector).expect("this should never trigger")
+pub fn css(selector: &str, inspect: bool) -> ScraperSelector {
+    if inspect {
+        ScraperSelector::parse("html").expect("Error unwrapping the default scraperselector")
+    } else {
+        ScraperSelector::parse(selector).expect("Error unwrapping scraperselector::parse")
+    }
 }
 
 #[cfg(test)]
@@ -290,15 +295,25 @@ mod tests {
 
     #[test]
     fn test_first_child_is_not_empty() {
-        assert!(
-            !execute_selector_query(SIMPLE_LIST, "li:first-child", false, Span::test_data())
-                .is_empty()
+        assert!(!execute_selector_query(
+            SIMPLE_LIST,
+            "li:first-child",
+            false,
+            false,
+            Span::test_data()
         )
+        .is_empty())
     }
 
     #[test]
     fn test_first_child() {
-        let item = execute_selector_query(SIMPLE_LIST, "li:first-child", false, Span::test_data());
+        let item = execute_selector_query(
+            SIMPLE_LIST,
+            "li:first-child",
+            false,
+            false,
+            Span::test_data(),
+        );
         let config = nu_protocol::Config::default();
         let out = item.into_string("\n", &config);
         assert_eq!("[Coffee]".to_string(), out)

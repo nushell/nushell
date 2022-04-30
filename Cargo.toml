@@ -51,6 +51,7 @@ nu-protocol = { path = "./crates/nu-protocol", version = "0.61.1"  }
 nu-system = { path = "./crates/nu-system", version = "0.61.1" }
 nu-table = { path = "./crates/nu-table", version = "0.61.1"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.61.1"  }
+openssl = { version = "0.10.38", features = ["vendored"], optional = true }
 pretty_env_logger = "0.4.0"
 rayon = "1.5.1"
 reedline = { git = "https://github.com/nushell/reedline", branch = "main", features = ["bashisms"]}
@@ -73,8 +74,10 @@ embed-resource = "1"
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
 default = ["plugin", "which-support", "trash-support"]
 stable = ["default"]
-extra = ["default", "dataframe"]
+extra = ["default", "dataframe", "database"]
 wasi = []
+# Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
+static-link-openssl = ["dep:openssl"]
 
 # Stable (Default)
 which-support = ["nu-command/which-support"]
@@ -84,6 +87,9 @@ trash-support = ["nu-command/trash-support"]
 
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe"]
+
+# Database commands for nushell
+database = ["nu-command/database"]
 
 [profile.release]
 opt-level = "s" # Optimize for size

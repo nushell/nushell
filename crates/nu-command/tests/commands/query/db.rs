@@ -1,13 +1,12 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-
 fn can_query_single_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample.db
-            | query db "select * from strings"
+            | db query "select * from strings"
             | where x =~ ell
             | length
         "#
@@ -22,7 +21,7 @@ fn invalid_sql_fails() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample.db
-            | query db "select *asdfasdf"
+            | db query "select *asdfasdf"
         "#
     ));
 
@@ -32,11 +31,11 @@ fn invalid_sql_fails() {
 #[test]
 fn invalid_input_fails() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    cwd: "tests/fixtures/formats", pipeline(
         r#"
-            "foo" | query db "select * from asdf"
+            "foo" | db query "select * from asdf"
         "#
     ));
 
-    assert!(actual.err.contains("pipeline_mismatch"));
+    assert!(actual.err.contains("can't convert string"));
 }

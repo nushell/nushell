@@ -44,6 +44,14 @@ fn in_variable_6() -> TestResult {
 }
 
 #[test]
+fn in_and_if_else() -> TestResult {
+    run_test(
+        r#"[1, 2, 3] | if false {} else if true { $in | length }"#,
+        "3",
+    )
+}
+
+#[test]
 fn help_works_with_missing_requirements() -> TestResult {
     run_test(r#"each --help | lines | length"#, "29")
 }
@@ -346,4 +354,9 @@ fn better_operator_spans() -> TestResult {
         r#"metadata ({foo: 10} | (20 - $in.foo)) | get span | $in.start < $in.end"#,
         "true",
     )
+}
+
+#[test]
+fn range_right_exclusive() -> TestResult {
+    run_test(r#"[1, 4, 5, 8, 9] | range 1..<3 | math sum"#, "9")
 }

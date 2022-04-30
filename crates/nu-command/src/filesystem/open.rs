@@ -1,5 +1,4 @@
 use crate::filesystem::util::BufferedReader;
-use crate::SQLiteDatabase;
 use nu_engine::{eval_block, get_full_help, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -7,7 +6,10 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Spanned,
     SyntaxShape, Value,
 };
-use std::io::{BufReader, Read, Seek};
+use std::io::BufReader;
+
+#[cfg(feature = "database")]
+use crate::database::SQLiteDatabase;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -44,10 +46,8 @@ impl Command for Open {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let raw = call.has_flag("raw");
-
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
-
         let path = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
         let path = if let Some(path) = path {
@@ -83,7 +83,8 @@ impl Command for Open {
             }
         };
         let arg_span = path.span;
-        let path = Path::new(&path.item);
+        let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
+        let path = Path::new(path_no_whitespace);
 
         if permission_denied(&path) {
             #[cfg(unix)]
@@ -105,7 +106,17 @@ impl Command for Open {
                 Vec::new(),
             ))
         } else {
-            let mut file = match std::fs::File::open(path) {
+            #[cfg(feature = "database")]
+            if !raw {
+                let res = SQLiteDatabase::try_from_path(path, arg_span)
+                    .map(|db| db.into_value(call.head).into_pipeline_data());
+
+                if res.is_ok() {
+                    return res;
+                }
+            }
+
+            let file = match std::fs::File::open(path) {
                 Ok(file) => file,
                 Err(err) => {
                     return Err(ShellError::GenericError(
@@ -117,25 +128,6 @@ impl Command for Open {
                     ));
                 }
             };
-
-            // Peek at the file to see if we can detect a SQLite database
-            if !raw {
-                let sqlite_magic_bytes = "SQLite format 3\0".as_bytes();
-                let mut buf: [u8; 16] = [0; 16];
-
-                if file.read_exact(&mut buf).is_ok() && buf == sqlite_magic_bytes {
-                    let custom_val = Value::CustomValue {
-                        val: Box::new(SQLiteDatabase::new(path)),
-                        span: call.head,
-                    };
-
-                    return Ok(custom_val.into_pipeline_data());
-                }
-
-                if file.rewind().is_err() {
-                    return Err(ShellError::IOError("Failed to rewind file".into()));
-                };
-            }
 
             let buf_reader = BufReader::new(file);
 
