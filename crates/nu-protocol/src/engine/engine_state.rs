@@ -19,6 +19,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 static PWD_ENV: &str = "PWD";
+static DEFAULT_OVERLAY_NAME: &str = "default";
 
 /// Tells whether a decl or alias is visible or not
 #[derive(Debug, Clone)]
@@ -102,7 +103,15 @@ pub struct ScopeFrame {
 impl ScopeFrame {
     pub fn new() -> Self {
         Self {
-            overlays: vec![(b"zero".to_vec(), OverlayFrame::new())],
+            overlays: vec![],
+            active_overlays: vec![],
+            removed_overlays: vec![],
+        }
+    }
+
+    pub fn with_empty_overlay(name: Vec<u8>) -> Self {
+        Self {
+            overlays: vec![(name, OverlayFrame::new())],
             active_overlays: vec![0],
             removed_overlays: vec![],
         }
@@ -249,9 +258,10 @@ impl EngineState {
             aliases: vec![],
             blocks: vec![],
             modules: vec![],
-            scope: ScopeFrame::new(),
+            // make sure we have some default overlay:
+            scope: ScopeFrame::with_empty_overlay(DEFAULT_OVERLAY_NAME.as_bytes().to_vec()),
             ctrlc: None,
-            env_vars: EnvVars::new(),
+            env_vars: EnvVars::from([(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]),
             config: Config::default(),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
@@ -924,22 +934,23 @@ impl StateDelta {
             .expect("internal error: missing required scope frame")
     }
 
-    pub fn last_overlay_mut(&mut self) -> &mut OverlayFrame {
+    pub fn last_overlay_mut(&mut self) -> Option<&mut OverlayFrame> {
         let last_scope = self
             .scope
             .last_mut()
             .expect("internal error: missing required scope frame");
 
-        let last_overlay_id = last_scope
-            .active_overlays
-            .last()
-            .expect("internal error: missing required overlay id");
-
-        &mut last_scope
-            .overlays
-            .get_mut(*last_overlay_id)
-            .expect("internal error: missing required overlay")
-            .1
+        if let Some(last_overlay_id) = last_scope.active_overlays.last() {
+            Some(
+                &mut last_scope
+                    .overlays
+                    .get_mut(*last_overlay_id)
+                    .expect("internal error: missing required overlay")
+                    .1,
+            )
+        } else {
+            None
+        }
     }
 
     pub fn enter_scope(&mut self) {
@@ -985,13 +996,25 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.num_modules() + self.permanent_state.num_modules()
     }
 
+    pub fn last_overlay_mut(&mut self) -> &mut OverlayFrame {
+        if self.delta.last_scope_frame_mut().active_overlays.is_empty() {
+            // Make sure there is an active overlay
+            let last_overlay_name = self.permanent_state.last_overlay_name();
+            self.add_overlay(last_overlay_name.to_vec(), vec![], vec![]);
+        }
+
+        self.delta
+            .last_overlay_mut()
+            .expect("internal error: missing added overlay")
+    }
+
     pub fn add_decl(&mut self, decl: Box<dyn Command>) -> DeclId {
         let name = decl.name().as_bytes().to_vec();
 
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
 
-        self.delta.last_overlay_mut().decls.insert(name, decl_id);
+        self.last_overlay_mut().decls.insert(name, decl_id);
 
         decl_id
     }
@@ -1003,7 +1026,7 @@ impl<'a> StateWorkingSet<'a> {
             trace!("Using decls with foo");
         }
 
-        let overlay_frame = self.delta.last_overlay_mut();
+        let overlay_frame = self.last_overlay_mut();
 
         for (name, decl_id) in decls {
             overlay_frame.decls.insert(name, decl_id);
@@ -1012,7 +1035,7 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn use_aliases(&mut self, aliases: Vec<(Vec<u8>, AliasId)>) {
-        let overlay_frame = self.delta.last_overlay_mut();
+        let overlay_frame = self.last_overlay_mut();
 
         for (name, alias_id) in aliases {
             overlay_frame.aliases.insert(name, alias_id);
@@ -1026,7 +1049,7 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
 
-        self.delta.last_overlay_mut().predecls.insert(name, decl_id)
+        self.last_overlay_mut().predecls.insert(name, decl_id)
     }
 
     #[cfg(feature = "plugin")]
@@ -1035,7 +1058,7 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
-        let overlay_frame = self.delta.last_overlay_mut();
+        let overlay_frame = self.last_overlay_mut();
 
         if let Some(decl_id) = overlay_frame.predecls.remove(name) {
             overlay_frame.decls.insert(name.into(), decl_id);
@@ -1076,10 +1099,7 @@ impl<'a> StateWorkingSet<'a> {
             if let Some(decl_id) = overlay_frame.decls.get(name) {
                 if visibility.is_decl_id_visible(decl_id) {
                     // Hide decl only if it's not already hidden
-                    self.delta
-                        .last_overlay_mut()
-                        .visibility
-                        .hide_decl_id(decl_id);
+                    self.last_overlay_mut().visibility.hide_decl_id(decl_id);
                     return Some(*decl_id);
                 }
             }
@@ -1116,10 +1136,7 @@ impl<'a> StateWorkingSet<'a> {
 
             if !visibility.is_alias_id_visible(alias_id) {
                 // Hide alias only if it's not already hidden
-                self.delta
-                    .last_overlay_mut()
-                    .visibility
-                    .use_alias_id(alias_id);
+                self.last_overlay_mut().visibility.use_alias_id(alias_id);
 
                 return;
             }
@@ -1156,10 +1173,7 @@ impl<'a> StateWorkingSet<'a> {
             if let Some(alias_id) = overlay_frame.aliases.get(name) {
                 if visibility.is_alias_id_visible(alias_id) {
                     // Hide alias only if it's not already hidden
-                    self.delta
-                        .last_overlay_mut()
-                        .visibility
-                        .hide_alias_id(alias_id);
+                    self.last_overlay_mut().visibility.hide_alias_id(alias_id);
 
                     return Some(*alias_id);
                 }
@@ -1193,10 +1207,7 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.modules.push(module);
         let module_id = self.num_modules() - 1;
 
-        self.delta
-            .last_overlay_mut()
-            .modules
-            .insert(name, module_id);
+        self.last_overlay_mut().modules.insert(name, module_id);
 
         module_id
     }
@@ -1458,7 +1469,7 @@ impl<'a> StateWorkingSet<'a> {
             name.insert(0, b'$');
         }
 
-        self.delta.last_overlay_mut().vars.insert(name, next_id);
+        self.last_overlay_mut().vars.insert(name, next_id);
 
         self.delta.vars.push(Variable::new(span, ty));
 
@@ -1469,7 +1480,7 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.aliases.push(replacement);
         let alias_id = self.num_aliases() - 1;
 
-        let last = self.delta.last_overlay_mut();
+        let last = self.last_overlay_mut();
 
         last.aliases.insert(name, alias_id);
         last.visibility.use_alias_id(&alias_id);
