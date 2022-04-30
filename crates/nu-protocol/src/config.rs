@@ -48,6 +48,7 @@ pub struct Config {
     pub rm_always_trash: bool,
     pub shell_integration: bool,
     pub buffer_editor: String,
+    pub disable_table_indexes: bool,
 }
 
 impl Default for Config {
@@ -75,6 +76,7 @@ impl Default for Config {
             rm_always_trash: false,
             shell_integration: false,
             buffer_editor: String::new(),
+            disable_table_indexes: false,
         }
     }
 }
@@ -264,6 +266,13 @@ impl Value {
                         }
                     }
 
+                    "disable_table_indexes" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.disable_table_indexes = b;
+                        } else {
+                            eprintln!("$config.disable_table_indexes is not a bool")
+                        }
+                    }
                     x => {
                         eprintln!("$config.{} is an unknown config setting", x)
                     }
