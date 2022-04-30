@@ -160,6 +160,8 @@ pub fn evaluate_repl(
                 Reedline::create()
             }
         };
+        
+        line_editor = line_editor.with_buffer_editor(config.buffer_editor.clone(), "nu".into());
 
         if config.sync_history_on_enter {
             if is_perf_true {
