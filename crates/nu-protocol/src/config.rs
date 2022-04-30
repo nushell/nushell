@@ -47,6 +47,7 @@ pub struct Config {
     pub menus: Vec<ParsedMenu>,
     pub rm_always_trash: bool,
     pub shell_integration: bool,
+    pub buffer_editor: String,
     pub disable_table_indexes: bool,
 }
 
@@ -74,6 +75,7 @@ impl Default for Config {
             menus: Vec::new(),
             rm_always_trash: false,
             shell_integration: false,
+            buffer_editor: String::new(),
             disable_table_indexes: false,
         }
     }
@@ -256,6 +258,14 @@ impl Value {
                             eprintln!("$config.shell_integration is not a bool")
                         }
                     }
+                    "buffer_editor" => {
+                        if let Ok(v) = value.as_string() {
+                            config.buffer_editor = v.to_lowercase();
+                        } else {
+                            eprintln!("$config.buffer_editor is not a string")
+                        }
+                    }
+
                     "disable_table_indexes" => {
                         if let Ok(b) = value.as_bool() {
                             config.disable_table_indexes = b;
