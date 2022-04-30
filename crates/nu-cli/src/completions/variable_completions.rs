@@ -174,11 +174,14 @@ impl Completer for VariableCompletion {
 
         // TODO: The following can be refactored (see find_commands_by_predicate() used in
         // command_completions).
+        let mut removed_overlays = vec![];
         // Working set scope vars
         for scope_frame in working_set.delta.scope.iter().rev() {
-            for overlay_id in scope_frame.active_overlays.iter().rev() {
-                let overlay_frame = scope_frame.get_overlay(*overlay_id);
-
+            for overlay_frame in scope_frame
+                .active_overlays(&mut removed_overlays)
+                .iter()
+                .rev()
+            {
                 for v in &overlay_frame.vars {
                     if options.match_algorithm.matches_u8(v.0, &prefix) {
                         output.push(Suggestion {
@@ -194,9 +197,12 @@ impl Completer for VariableCompletion {
 
         // Permanent state vars
         // for scope in &self.engine_state.scope {
-        for overlay_id in self.engine_state.active_overlays().iter().rev() {
-            let overlay_frame = self.engine_state.get_overlay(*overlay_id);
-
+        for overlay_frame in self
+            .engine_state
+            .active_overlays(&removed_overlays)
+            .iter()
+            .rev()
+        {
             for v in &overlay_frame.vars {
                 if options.match_algorithm.matches_u8(v.0, &prefix) {
                     output.push(Suggestion {

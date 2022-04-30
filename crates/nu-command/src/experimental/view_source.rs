@@ -47,7 +47,7 @@ impl Command for ViewSource {
                 }
             }
             Value::String { val, .. } => {
-                if let Some(decl_id) = engine_state.find_decl(val.as_bytes()) {
+                if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);
                     if let Some(block_id) = decl.get_block_id() {
@@ -74,7 +74,7 @@ impl Command for ViewSource {
                             Vec::new(),
                         ))
                     }
-                } else if let Some(module_id) = engine_state.find_module(val.as_bytes()) {
+                } else if let Some(module_id) = engine_state.find_module(val.as_bytes(), &[]) {
                     // arg is a module
                     let module = engine_state.get_module(module_id);
                     if let Some(module_span) = module.span {

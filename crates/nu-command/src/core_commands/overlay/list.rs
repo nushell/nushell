@@ -34,7 +34,7 @@ impl Command for OverlayList {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let active_overlays_parser: Vec<Value> = engine_state
-            .active_overlay_names()
+            .active_overlay_names(&[])
             .iter()
             .map(|s| Value::string(String::from_utf8_lossy(s), call.head))
             .collect();

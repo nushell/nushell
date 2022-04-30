@@ -44,7 +44,7 @@ impl Stack {
             env_vars: vec![],
             env_hidden: HashMap::new(),
             active_overlays: engine_state
-                .active_overlay_names()
+                .active_overlay_names(&[])
                 .iter()
                 .map(|name_bytes| String::from_utf8_lossy(name_bytes).to_string())
                 .collect(),

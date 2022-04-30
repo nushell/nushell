@@ -2048,7 +2048,10 @@ pub fn parse_overlay_remove(
         );
     };
 
-    if !working_set.is_active_overlay(overlay_name.as_bytes()) {
+    if !working_set
+        .unique_overlay_names()
+        .contains(&overlay_name.as_bytes().to_vec())
+    {
         return (
             garbage_pipeline(spans),
             Some(ParseError::OverlayNotFound(overlay_name_span)),

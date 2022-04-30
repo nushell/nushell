@@ -82,7 +82,6 @@ fn remove_overlay() {
     assert!(!actual.err.is_empty());
 }
 
-#[ignore]
 #[test]
 fn remove_overlay_scoped() {
     let actual = nu!(
@@ -115,7 +114,6 @@ fn remove_overlay_env() {
     assert!(actual.err.contains("did you mean"));
 }
 
-#[ignore]
 #[test]
 fn remove_overlay_scoped_env() {
     let actual = nu!(

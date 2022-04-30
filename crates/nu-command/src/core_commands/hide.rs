@@ -63,7 +63,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             return Err(ShellError::NonUtf8(import_pattern.head.span));
         };
 
-        if let Some(module_id) = engine_state.find_module(&import_pattern.head.name) {
+        if let Some(module_id) = engine_state.find_module(&import_pattern.head.name, &[]) {
             // The first word is a module
             let module = engine_state.get_module(module_id);
 

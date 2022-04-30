@@ -53,7 +53,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         // TODO: This logic is duplicated in the parser. Add a function to get module's name from a
         // path.
         let (module_name, module) =
-            if let Some(module_id) = engine_state.find_module(name_arg.item.as_bytes()) {
+            if let Some(module_id) = engine_state.find_module(name_arg.item.as_bytes(), &[]) {
                 (name_arg.item, engine_state.get_module(module_id))
             } else if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
                 let name = if let Some(s) = os_str.to_str() {
@@ -62,7 +62,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
                     return Err(ShellError::NonUtf8(name_arg.span));
                 };
 
-                if let Some(module_id) = engine_state.find_module(name.as_bytes()) {
+                if let Some(module_id) = engine_state.find_module(name.as_bytes(), &[]) {
                     (name, engine_state.get_module(module_id))
                 } else {
                     return Err(ShellError::ModuleNotFoundAtRuntime(

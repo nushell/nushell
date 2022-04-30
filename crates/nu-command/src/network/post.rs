@@ -351,7 +351,7 @@ fn helper(
                     return Ok(output);
                 }
                 if let Some(ext) = ext {
-                    match engine_state.find_decl(format!("from {}", ext).as_bytes()) {
+                    match engine_state.find_decl(format!("from {}", ext).as_bytes(), &[]) {
                         Some(converter_id) => engine_state.get_decl(converter_id).run(
                             engine_state,
                             stack,

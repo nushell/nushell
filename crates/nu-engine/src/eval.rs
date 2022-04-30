@@ -188,7 +188,7 @@ fn eval_external(
     redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
-        .find_decl("run-external".as_bytes())
+        .find_decl("run-external".as_bytes(), &[])
         .ok_or(ShellError::ExternalNotSupported(head.span))?;
 
     let command = engine_state.get_decl(decl_id);
@@ -649,7 +649,7 @@ pub fn eval_block(
                     // Drain the input to the screen via tabular output
                     let config = engine_state.get_config();
 
-                    match engine_state.find_decl("table".as_bytes()) {
+                    match engine_state.find_decl("table".as_bytes(), &[]) {
                         Some(decl_id) => {
                             let table = engine_state.get_decl(decl_id).run(
                                 engine_state,
@@ -705,7 +705,7 @@ pub fn eval_block(
                     // Drain the input to the screen via tabular output
                     let config = engine_state.get_config();
 
-                    match engine_state.find_decl("table".as_bytes()) {
+                    match engine_state.find_decl("table".as_bytes(), &[]) {
                         Some(decl_id) => {
                             let table = engine_state.get_decl(decl_id).run(
                                 engine_state,
@@ -803,9 +803,7 @@ pub fn create_scope(
     let mut modules_map = HashMap::new();
     let mut visibility = Visibility::new();
 
-    for overlay_id in engine_state.active_overlays().iter().rev() {
-        let overlay_frame = engine_state.get_overlay(*overlay_id);
-
+    for overlay_frame in engine_state.active_overlays(&[]).iter().rev() {
         vars_map.extend(&overlay_frame.vars);
         commands_map.extend(&overlay_frame.decls);
         aliases_map.extend(&overlay_frame.aliases);
@@ -840,7 +838,7 @@ pub fn create_scope(
             let mut module_commands = vec![];
             for module in &modules_map {
                 let module_name = String::from_utf8_lossy(module.0).to_string();
-                let module_id = engine_state.find_module(module.0);
+                let module_id = engine_state.find_module(module.0, &[]);
                 if let Some(module_id) = module_id {
                     let module = engine_state.get_module(module_id);
                     if module.has_decl(command_name) {
