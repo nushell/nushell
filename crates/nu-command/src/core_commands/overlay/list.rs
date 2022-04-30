@@ -17,14 +17,7 @@ impl Command for OverlayList {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("overlay list")
-            .category(Category::Core)
-            // TODO: This flag is mostly for debugging
-            .switch(
-                "parser",
-                "List the overlays as seen by the parser.",
-                Some('p'),
-            )
+        Signature::build("overlay list").category(Category::Core)
     }
 
     fn extra_usage(&self) -> &str {
@@ -38,22 +31,41 @@ impl Command for OverlayList {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let active_overlays = if call.has_flag("parser") {
-            engine_state
-                .active_overlay_names()
-                .iter()
-                .map(|s| Value::string(String::from_utf8_lossy(s), call.head))
-                .collect()
-        } else {
-            stack
-                .active_overlays
-                .iter()
-                .map(|s| Value::string(s, call.head))
-                .collect()
-        };
+        let active_overlays_parser: Vec<Value> = engine_state
+            .active_overlay_names()
+            .iter()
+            .map(|s| Value::string(String::from_utf8_lossy(s), call.head))
+            .collect();
+
+        let active_overlays_engine: Vec<Value> = stack
+            .active_overlays
+            .iter()
+            .map(|s| Value::string(s, call.head))
+            .collect();
+
+        // Check if the overlays in the engine match the overlays in the parser
+        if active_overlays_parser.len() != active_overlays_engine.len() {
+            return Err(ShellError::NushellFailedSpanned(
+                "Overlay mismatch".into(),
+                "Active overlays do not match between the engine and the parser".into(),
+                call.head,
+            ));
+        }
+
+        if active_overlays_parser
+            .iter()
+            .zip(active_overlays_engine.iter())
+            .any(|(op, oe)| op != oe)
+        {
+            return Err(ShellError::NushellFailedSpanned(
+                "Overlay mismatch".into(),
+                "Active overlays do not match between the engine and the parser".into(),
+                call.head,
+            ));
+        }
 
         Ok(Value::List {
-            vals: active_overlays,
+            vals: active_overlays_engine,
             span: call.head,
         }
         .into_pipeline_data())

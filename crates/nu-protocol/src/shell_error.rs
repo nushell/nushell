@@ -168,7 +168,7 @@ pub enum ShellError {
     /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
     #[error("Nushell failed: {0}.")]
     #[diagnostic(code(nu::shell::nushell_failed), url(docsrs))]
-    // Only use this one if we Nushell completely falls over and hits a state that isn't possible or isn't recoverable
+    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailed(String),
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
@@ -178,7 +178,7 @@ pub enum ShellError {
     /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
     #[error("Nushell failed: {0}.")]
     #[diagnostic(code(nu::shell::nushell_failed), url(docsrs))]
-    // Only use this one if we Nushell completely falls over and hits a state that isn't possible or isn't recoverable
+    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailedSpanned(String, String, #[label = "{1}"] Span),
 
     /// A referenced variable was not found at runtime.

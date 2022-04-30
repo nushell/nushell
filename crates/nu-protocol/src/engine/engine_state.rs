@@ -19,7 +19,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 static PWD_ENV: &str = "PWD";
-static DEFAULT_OVERLAY_NAME: &str = "default";
+static DEFAULT_OVERLAY_NAME: &str = "zero";
 
 /// Tells whether a decl or alias is visible or not
 #[derive(Debug, Clone)]
