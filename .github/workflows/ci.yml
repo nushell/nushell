@@ -1,14 +1,18 @@
-on: [pull_request]
+on:
+  pull_request:
+  push: # Run CI on the main branch after every merge. This is important to fill the GitHub Actions cache in a way that pull requests can see it
+    branches:
+      - main
 
 name: continuous-integration
 
 jobs:
-  ci:
+  build-clippy:
     strategy:
       fail-fast: false
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        style: [all, default, minimal]
+        style: [all, default]
         rust:
           - stable
         include:
@@ -16,17 +20,11 @@ jobs:
             flags: '--all-features'
           - style: default
             flags: ''
-          - style: minimal
-            flags: '--no-default-features'
         exclude:
           - platform: windows-latest
             style: default
-          - platform: windows-latest
-            style: minimal
           - platform: macos-latest
             style: default
-          - platform: macos-latest
-            style: minimal
 
     runs-on: ${{ matrix.platform }}
 
@@ -41,30 +39,72 @@ jobs:
           override: true
           components: rustfmt, clippy
 
+      - uses: Swatinem/rust-cache@v1
+        with:
+            key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
+
       - name: Rustfmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
 
-      - name: Clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
-
       - name: Build Nushell
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: ${{ matrix.flags }}
+          args: --workspace ${{ matrix.flags }}
+
+      - name: Clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --workspace ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-latest, macos-latest, ubuntu-latest]
+        style: [all, default]
+        rust:
+          - stable
+        include:
+          - style: all
+            flags: '--all-features'
+          - style: default
+            flags: ''
+        exclude:
+          - platform: windows-latest
+            style: default
+          - platform: macos-latest
+            style: default
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+            key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
+
+      - uses: taiki-e/install-action@nextest
 
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --all ${{ matrix.flags }}
-
+          command: nextest
+          args: run --all ${{ matrix.flags }}
 
   python-virtualenv:
     strategy:
@@ -87,7 +127,10 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+            key: "1" # increment this to bust the cache if needed
 
       - name: Install Nushell
         uses: actions-rs/cargo@v1

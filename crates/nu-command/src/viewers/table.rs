@@ -304,9 +304,10 @@ fn convert_to_table(
     let mut input = input.iter().peekable();
     let color_hm = get_color_config(config);
     let float_precision = config.float_precision as usize;
+    let disable_index = config.disable_table_indexes;
 
     if input.peek().is_some() {
-        if !headers.is_empty() {
+        if !headers.is_empty() && !disable_index {
             headers.insert(0, "#".into());
         }
 
@@ -323,16 +324,19 @@ fn convert_to_table(
                 return Err(error.clone());
             }
             // String1 = datatype, String2 = value as string
-            let mut row: Vec<(String, String)> =
-                vec![("string".to_string(), (row_num + row_offset).to_string())];
+            let mut row: Vec<(String, String)> = vec![];
+            if !disable_index {
+                row = vec![("string".to_string(), (row_num + row_offset).to_string())];
+            }
 
             if headers.is_empty() {
                 row.push((
                     item.get_type().to_string(),
                     item.into_abbreviated_string(config),
-                ))
+                ));
             } else {
-                for header in headers.iter().skip(1) {
+                let skip_num = if !disable_index { 1 } else { 0 };
+                for header in headers.iter().skip(skip_num) {
                     let result = match item {
                         Value::Record { .. } => {
                             item.clone().follow_cell_path(&[PathMember::String {
@@ -373,7 +377,7 @@ fn convert_to_table(
                     x.into_iter()
                         .enumerate()
                         .map(|(col, y)| {
-                            if col == 0 {
+                            if col == 0 && !disable_index {
                                 StyledString {
                                     contents: y.1,
                                     style: TextStyle {
