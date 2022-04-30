@@ -67,7 +67,8 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
     }
 
     // TODO: Remove the clones
-    let last_overlay_name = String::from_utf8_lossy(engine_state.last_overlay_name(&[])).to_string();
+    let last_overlay_name =
+        String::from_utf8_lossy(engine_state.last_overlay_name(&[])).to_string();
 
     if !engine_state.env_vars.contains_key(&last_overlay_name) {
         engine_state
