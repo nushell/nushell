@@ -128,7 +128,11 @@ pub fn file_path_completion(
                 entry.ok().and_then(|entry| {
                     let mut file_name = entry.file_name().to_string_lossy().into_owned();
                     if matches(&partial, &file_name, match_algorithm) {
-                        let mut path = format!("{}{}", base_dir_name, file_name);
+                        let mut path = if is_current_dir(&base_dir_name) {
+                            file_name.to_string()
+                        } else {
+                            format!("{}{}", base_dir_name, file_name)
+                        };
                         if entry.path().is_dir() {
                             path.push(SEP);
                             file_name.push(SEP);
@@ -157,4 +161,8 @@ pub fn file_path_completion(
 
 pub fn matches(partial: &str, from: &str, match_algorithm: MatchAlgorithm) -> bool {
     match_algorithm.matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase())
+}
+
+fn is_current_dir(base_dir: &str) -> bool {
+    base_dir == format!(".{}", SEP)
 }
