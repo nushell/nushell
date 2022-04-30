@@ -86,9 +86,12 @@ fn main() -> Result<()> {
         } else if arg.starts_with('-') {
             // Cool, it's a flag
             let flag_value = match arg.as_ref() {
-                "--commands" | "-c" | "--config" | "--env-config" => {
-                    args.next().map(|a| escape_quote_string(&a))
+                "--commands" | "-c" => {
+                    // FIXME: Use proper quoting. `escape_quote_string()` can't be used for now due to https://github.com/nushell/nushell/issues/5383.
+
+                    args.next().map(|a| format!("`{}`", a))
                 }
+                "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
                 "--log-level" | "--testbin" | "--threads" | "-t" => args.next(),
                 _ => None,
             };
