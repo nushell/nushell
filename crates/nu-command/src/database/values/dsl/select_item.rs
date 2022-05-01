@@ -1,5 +1,5 @@
 use super::ExprDb;
-use nu_protocol::{ast::PathMember, CustomValue, PipelineData, ShellError, Span, Value};
+use nu_protocol::{ast::PathMember, CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::{Expr, Ident, SelectItem};
 
@@ -99,10 +99,10 @@ impl SelectDb {
         }
     }
 
-    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
-        Self::try_from_value(value)
-    }
+    // pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+    //     let value = input.into_value(span);
+    //     Self::try_from_value(value)
+    // }
 
     pub fn into_value(self, span: Span) -> Value {
         Value::CustomValue {

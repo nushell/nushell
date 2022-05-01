@@ -74,18 +74,16 @@ fn create_query(table: String) -> Query {
 
 fn modify_query(mut query: Query, table: String) -> Query {
     query.body = match query.body {
-        SetExpr::Select(select) => SetExpr::Select(Box::new(modify_select(select, table))),
+        SetExpr::Select(select) => SetExpr::Select(modify_select(select, table)),
         _ => SetExpr::Select(Box::new(create_select(table))),
     };
 
     query
 }
 
-fn modify_select(select: Box<Select>, table: String) -> Select {
-    Select {
-        from: create_from(table),
-        ..select.as_ref().clone()
-    }
+fn modify_select(mut select: Box<Select>, table: String) -> Box<Select> {
+    select.as_mut().from = create_from(table);
+    select
 }
 
 fn create_select(table: String) -> Select {
