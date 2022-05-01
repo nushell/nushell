@@ -1,5 +1,6 @@
 use core::fmt::Write;
 use nu_engine::get_columns;
+use nu_parser::escape_quote_string;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -137,13 +138,8 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             }
             Ok(format!("{{{}}}", collection.join(", ")))
         }
-        Value::String { val, .. } => Ok(format!("\"{}\"", escape(val))),
+        Value::String { val, .. } => Ok(escape_quote_string(val)),
     }
-}
-
-fn escape(input: &str) -> String {
-    let output = input.replace('\\', "\\\\");
-    output.replace('"', "\\\"")
 }
 
 fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {

@@ -31,6 +31,10 @@ impl Span {
         Span { start, end }
     }
 
+    pub fn unknown() -> Self {
+        Self::new(0, 0)
+    }
+
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_data() -> Span {

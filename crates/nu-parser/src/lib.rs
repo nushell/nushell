@@ -1,3 +1,4 @@
+mod deparse;
 mod errors;
 mod flatten;
 mod known_external;
@@ -7,6 +8,7 @@ mod parse_keywords;
 mod parser;
 mod type_check;
 
+pub use deparse::escape_quote_string;
 pub use errors::ParseError;
 pub use flatten::{flatten_block, flatten_expression, flatten_pipeline, FlatShape};
 pub use known_external::KnownExternal;
