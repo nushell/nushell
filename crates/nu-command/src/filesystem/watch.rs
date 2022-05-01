@@ -6,10 +6,10 @@ use std::time::Duration;
 use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
 use nu_engine::{current_dir, eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
-    Value,
+    format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
+    Spanned, SyntaxShape, Value,
 };
 
 // durations chosen mostly arbitrarily
@@ -219,9 +219,8 @@ impl Command for Watch {
                             val.print(engine_state, stack)?;
                         }
                         Err(err) => {
-                            // TODO: this isn't as nice as the Miette errors. Find a way to print those.
-                            // Unfortunately can't just wrap err in PipelineData, PipelineData.print() doesn't work that way
-                            eprintln!("{err:?}");
+                            let working_set = StateWorkingSet::new(engine_state);
+                            eprintln!("{}", format_error(&working_set, &err));
                         }
                     }
                 }
