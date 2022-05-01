@@ -264,8 +264,11 @@ pub fn parse_external_call(
         error = error.or(err);
         Box::new(arg)
     } else {
+        let (contents, err) = unescape_unquote_string(&head_contents, head_span);
+        error = error.or(err);
+
         Box::new(Expression {
-            expr: Expr::String(String::from_utf8_lossy(&head_contents).to_string()),
+            expr: Expr::String(contents),
             span: head_span,
             ty: Type::String,
             custom_completion: None,
@@ -285,8 +288,11 @@ pub fn parse_external_call(
             error = error.or(err);
             args.push(arg);
         } else {
+            let (contents, err) = unescape_unquote_string(contents, *span);
+            error = error.or(err);
+
             args.push(Expression {
-                expr: Expr::String(String::from_utf8_lossy(contents).to_string()),
+                expr: Expr::String(contents),
                 span: *span,
                 ty: Type::String,
                 custom_completion: None,
