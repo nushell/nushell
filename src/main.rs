@@ -88,10 +88,12 @@ fn main() -> Result<()> {
             let flag_value = match arg.as_ref() {
                 "--commands" | "-c" => {
                     // FIXME: Use proper quoting. `escape_quote_string()` can't be used for now due to https://github.com/nushell/nushell/issues/5383.
-
                     args.next().map(|a| format!("`{}`", a))
                 }
-                "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
+                "--config" | "--env-config" => {
+                    // FIXME: Use proper quoting. `escape_quote_string()` can't be used because, as Windows path, foo\bar.nu and "foo\\bar.nu" are not equal.
+                    args.next().map(|a| format!("`{}`", a))
+                }
                 "--log-level" | "--testbin" | "--threads" | "-t" => args.next(),
                 _ => None,
             };
