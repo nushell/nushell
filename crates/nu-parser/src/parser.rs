@@ -4049,6 +4049,7 @@ pub fn parse_operator(
         b"not-in" => Operator::NotIn,
         b"mod" => Operator::Modulo,
         b"starts-with" => Operator::StartsWith,
+        b"ends-with" => Operator::EndsWith,
         b"&&" | b"and" => Operator::And,
         b"||" | b"or" => Operator::Or,
         b"**" => Operator::Pow,

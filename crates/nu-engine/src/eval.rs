@@ -427,6 +427,10 @@ pub fn eval_expression(
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.starts_with(op_span, &rhs, expr.span)
                 }
+                Operator::EndsWith => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.ends_with(op_span, &rhs, expr.span)
+                }
             }
         }
         Expr::Subexpression(block_id) => {
