@@ -455,11 +455,6 @@ impl PipelineData {
 
                 for item in table {
                     let stdout = std::io::stdout();
-
-                    if let Value::Error { error } = item {
-                        return Err(error);
-                    }
-
                     let mut out = item.into_string("\n", config);
                     out.push('\n');
 
@@ -472,11 +467,6 @@ impl PipelineData {
             None => {
                 for item in self {
                     let stdout = std::io::stdout();
-
-                    if let Value::Error { error } = item {
-                        return Err(error);
-                    }
-
                     let mut out = item.into_string("\n", config);
                     out.push('\n');
 
