@@ -1,8 +1,8 @@
-use crate::CliError;
 use log::trace;
 use nu_engine::eval_block;
-use nu_parser::{lex, parse, unescape_unquote_string, Token, TokenContents};
+use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::CliError;
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, ShellError, Span, Value,
@@ -36,20 +36,9 @@ fn gather_env_vars(vars: impl Iterator<Item = (String, String)>, engine_state: &
     }
 
     fn put_env_to_fake_file(name: &str, val: &str, fake_env_file: &mut String) {
-        fn push_string_literal(s: &str, fake_env_file: &mut String) {
-            fake_env_file.push('"');
-            for c in s.chars() {
-                if c == '\\' || c == '"' {
-                    fake_env_file.push('\\');
-                }
-                fake_env_file.push(c);
-            }
-            fake_env_file.push('"');
-        }
-
-        push_string_literal(name, fake_env_file);
+        fake_env_file.push_str(&escape_quote_string(name));
         fake_env_file.push('=');
-        push_string_literal(val, fake_env_file);
+        fake_env_file.push_str(&escape_quote_string(val));
         fake_env_file.push('\n');
     }
 
