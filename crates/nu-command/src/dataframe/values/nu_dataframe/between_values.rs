@@ -273,7 +273,7 @@ pub(super) fn compute_series_single_value(
                 compare_series_decimal(&lhs, *val, ChunkedArray::equal, lhs_span)
             }
             Value::String { val, .. } => {
-                let equal_pattern = format!("^{}$", val);
+                let equal_pattern = format!("^{}$", regex::escape(val));
                 contains_series_pat(&lhs, &equal_pattern, lhs_span)
             }
             Value::Date { val, .. } => {
@@ -385,7 +385,7 @@ pub(super) fn compute_series_single_value(
         },
         Operator::StartsWith => match &right {
             Value::String { val, .. } => {
-                let starts_with_pattern = format!("^{}", val);
+                let starts_with_pattern = format!("^{}", regex::escape(val));
                 contains_series_pat(&lhs, &starts_with_pattern, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -398,7 +398,7 @@ pub(super) fn compute_series_single_value(
         },
         Operator::EndsWith => match &right {
             Value::String { val, .. } => {
-                let ends_with_pattern = format!("{}$", val);
+                let ends_with_pattern = format!("{}$", regex::escape(val));
                 contains_series_pat(&lhs, &ends_with_pattern, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
