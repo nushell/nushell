@@ -21,6 +21,21 @@ macro_rules! nu {
         pub use std::process::{Command, Stdio};
         pub use $crate::NATIVE_PATH_ENV_VAR;
 
+        pub fn escape_quote_string(input: String) -> String {
+            let mut output = String::with_capacity(input.len() + 2);
+            output.push('"');
+
+            for c in input.chars() {
+                if c == '"' || c == '\\' {
+                    output.push('\\');
+                }
+                output.push(c);
+            }
+
+            output.push('"');
+            output
+        }
+
         // let commands = &*format!(
         //     "
         //                     {}
@@ -58,7 +73,7 @@ macro_rules! nu {
             // .arg("--no-history")
             // .arg("--config-file")
             // .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
-            .arg(format!("-c '{}'", $crate::fs::DisplayPath::display_path(&path)))
+            .arg(format!("-c {}", escape_quote_string($crate::fs::DisplayPath::display_path(&path))))
             .stdout(Stdio::piped())
             // .stdin(Stdio::piped())
             .stderr(Stdio::piped())
