@@ -86,11 +86,7 @@ fn main() -> Result<()> {
         } else if arg.starts_with('-') {
             // Cool, it's a flag
             let flag_value = match arg.as_ref() {
-                "--commands" | "-c" => {
-                    // FIXME: Use proper quoting. `escape_quote_string()` can't be used for now due to https://github.com/nushell/nushell/issues/5383.
-
-                    args.next().map(|a| format!("`{}`", a))
-                }
+                "--commands" | "-c" => args.next().map(|a| escape_quote_string(&a)),
                 "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
                 "--log-level" | "--testbin" | "--threads" | "-t" => args.next(),
                 _ => None,
@@ -329,23 +325,27 @@ fn parse_commandline_args(
 
             fn extract_contents(
                 expression: Option<Expression>,
-                engine_state: &mut EngineState,
-            ) -> Option<Spanned<String>> {
-                expression.map(|expr| {
-                    let contents = engine_state.get_span_contents(&expr.span);
-
-                    Spanned {
-                        item: String::from_utf8_lossy(contents).to_string(),
-                        span: expr.span,
+            ) -> Result<Option<Spanned<String>>, ShellError> {
+                if let Some(expr) = expression {
+                    let str = expr.as_string();
+                    if let Some(str) = str {
+                        Ok(Some(Spanned {
+                            item: str,
+                            span: expr.span,
+                        }))
+                    } else {
+                        Err(ShellError::TypeMismatch("string".into(), expr.span))
                     }
-                })
+                } else {
+                    Ok(None)
+                }
             }
 
-            let commands = extract_contents(commands, engine_state);
-            let testbin = extract_contents(testbin, engine_state);
-            let config_file = extract_contents(config_file, engine_state);
-            let env_file = extract_contents(env_file, engine_state);
-            let log_level = extract_contents(log_level, engine_state);
+            let commands = extract_contents(commands)?;
+            let testbin = extract_contents(testbin)?;
+            let config_file = extract_contents(config_file)?;
+            let env_file = extract_contents(env_file)?;
+            let log_level = extract_contents(log_level)?;
 
             let help = call.has_flag("help");
 
