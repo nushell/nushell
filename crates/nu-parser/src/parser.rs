@@ -1928,10 +1928,10 @@ pub fn parse_directory(
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
-    let bytes = trim_quotes(bytes);
+    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: directory");
 
-    if let Ok(token) = String::from_utf8(bytes.into()) {
+    if err.is_none() {
         trace!("-- found {}", token);
         (
             Expression {
@@ -1955,10 +1955,10 @@ pub fn parse_filepath(
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
-    let bytes = trim_quotes(bytes);
+    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: filepath");
 
-    if let Ok(token) = String::from_utf8(bytes.into()) {
+    if err.is_none() {
         trace!("-- found {}", token);
         (
             Expression {
@@ -2267,12 +2267,11 @@ pub fn parse_glob_pattern(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: glob pattern");
 
-    let bytes = working_set.get_span_contents(span);
-    let bytes = trim_quotes(bytes);
-
-    if let Ok(token) = String::from_utf8(bytes.into()) {
+    if err.is_none() {
         trace!("-- found {}", token);
         (
             Expression {

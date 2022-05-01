@@ -1,7 +1,7 @@
 use crate::completions::{
     file_completions::file_path_completion, Completer, CompletionOptions, MatchAlgorithm, SortBy,
 };
-use nu_parser::{trim_quotes, FlatShape};
+use nu_parser::{unescape_unquote_string, FlatShape};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
@@ -237,9 +237,10 @@ impl Completer for CommandCompletion {
             .map(move |x| {
                 if self.flat_idx == 0 {
                     // We're in the command position
-                    if x.1.starts_with('"') && !matches!(preceding_byte.get(0), Some(b'^')) {
-                        let trimmed = trim_quotes(x.1.as_bytes());
-                        let trimmed = String::from_utf8_lossy(trimmed).to_string();
+                    if (x.1.starts_with('"') || x.1.starts_with('\'') || x.1.starts_with('`'))
+                        && !matches!(preceding_byte.get(0), Some(b'^'))
+                    {
+                        let (trimmed, _) = unescape_unquote_string(x.1.as_bytes(), span);
                         let expanded = nu_path::canonicalize_with(trimmed, &cwd);
 
                         if let Ok(expanded) = expanded {
