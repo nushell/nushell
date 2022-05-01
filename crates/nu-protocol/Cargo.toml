@@ -10,7 +10,7 @@ version = "0.61.1"
 
 [dependencies]
 thiserror = "1.0.29"
-miette = "4.5.0"
+miette = { version = "4.5.0", features = ["fancy"] }
 serde = {version = "1.0.130", features = ["derive"]}
 chrono = { version="0.4.19", features=["serde"] }
 indexmap = { version="1.7", features=["serde-1"] }
