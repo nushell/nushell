@@ -56,6 +56,7 @@ impl Command for Empty {
                 }),
             },
             Example {
+                // TODO: revisit empty cell path semantics for a record.
                 description: "Check if more than one column are empty",
                 example: "[[meal size]; [arepa small] [taco '']] | empty? meal size",
                 result: Some(Value::Bool {
@@ -125,27 +126,12 @@ fn empty(
                 span: head,
             }
             .into_pipeline_data()),
-            PipelineData::Value(value, ..) => {
-                let answer = is_empty(value);
-
-                Ok(Value::Bool {
-                    val: answer,
-                    span: head,
-                }
-                .into_pipeline_data())
+            PipelineData::Value(value, ..) => Ok(Value::Bool {
+                val: value.is_empty(),
+                span: head,
             }
+            .into_pipeline_data()),
         }
-    }
-}
-
-pub fn is_empty(value: Value) -> bool {
-    match value {
-        Value::List { vals, .. } => vals.is_empty(),
-        Value::String { val, .. } => val.is_empty(),
-        Value::Binary { val, .. } => val.is_empty(),
-        Value::Nothing { .. } => true,
-        Value::Record { cols, .. } => cols.is_empty(),
-        _ => false,
     }
 }
 
