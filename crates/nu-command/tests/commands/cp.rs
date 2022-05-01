@@ -8,7 +8,7 @@ fn copies_a_file() {
     Playground::setup("cp_test_1", |dirs, _| {
         nu!(
             cwd: dirs.root(),
-            "cp \"{}\" cp_test_1/sample.ini",
+            "cp `{}` cp_test_1/sample.ini",
             dirs.formats().join("sample.ini")
         );
 
@@ -171,13 +171,13 @@ fn copies_same_file_twice() {
     Playground::setup("cp_test_8", |dirs, _| {
         nu!(
             cwd: dirs.root(),
-            "cp \"{}\" cp_test_8/sample.ini",
+            "cp `{}` cp_test_8/sample.ini",
             dirs.formats().join("sample.ini")
         );
 
         nu!(
             cwd: dirs.root(),
-            "cp \"{}\" cp_test_8/sample.ini",
+            "cp `{}` cp_test_8/sample.ini",
             dirs.formats().join("sample.ini")
         );
 
