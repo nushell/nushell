@@ -2,8 +2,8 @@ use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, SyntaxShape,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, Signature, Span,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -88,46 +88,47 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         let redirect_stderr = call.redirect_stderr;
 
         match values {
-            Value::List { vals, .. } => Ok(vals
-                .into_iter()
-                .enumerate()
-                .map(move |(idx, x)| {
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+            Value::List { vals, .. } => {
+                Ok(ListStream::from_stream(vals.into_iter(), ctrlc.clone())
+                    .enumerate()
+                    .map(move |(idx, x)| {
+                        stack.with_env(&orig_env_vars, &orig_env_hidden);
 
-                    stack.add_var(
-                        var_id,
-                        if numbered {
-                            Value::Record {
-                                cols: vec!["index".into(), "item".into()],
-                                vals: vec![
-                                    Value::Int {
-                                        val: idx as i64,
-                                        span: head,
-                                    },
-                                    x,
-                                ],
-                                span: head,
-                            }
-                        } else {
-                            x
-                        },
-                    );
+                        stack.add_var(
+                            var_id,
+                            if numbered {
+                                Value::Record {
+                                    cols: vec!["index".into(), "item".into()],
+                                    vals: vec![
+                                        Value::Int {
+                                            val: idx as i64,
+                                            span: head,
+                                        },
+                                        x,
+                                    ],
+                                    span: head,
+                                }
+                            } else {
+                                x
+                            },
+                        );
 
-                    //let block = engine_state.get_block(block_id);
-                    match eval_block(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        PipelineData::new(head),
-                        redirect_stdout,
-                        redirect_stderr,
-                    ) {
-                        Ok(pipeline_data) => pipeline_data.into_value(head),
-                        Err(error) => Value::Error { error },
-                    }
-                })
-                .filter(|x| !x.is_nothing())
-                .into_pipeline_data(ctrlc)),
+                        //let block = engine_state.get_block(block_id);
+                        match eval_block(
+                            &engine_state,
+                            &mut stack,
+                            &block,
+                            PipelineData::new(head),
+                            redirect_stdout,
+                            redirect_stderr,
+                        ) {
+                            Ok(pipeline_data) => pipeline_data.into_value(head),
+                            Err(error) => Value::Error { error },
+                        }
+                    })
+                    .filter(|x| !x.is_nothing())
+                    .into_pipeline_data(ctrlc))
+            }
             Value::Range { val, .. } => Ok(val
                 .into_range_iter(ctrlc.clone())?
                 .enumerate()
