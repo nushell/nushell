@@ -44,6 +44,7 @@ impl CustomCompletion {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
+                    append_whitespace: false,
                 });
             }
 
@@ -57,6 +58,7 @@ impl CustomCompletion {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
+                    append_whitespace: false,
                 };
 
                 // Iterate the cols looking for `value` and `description`

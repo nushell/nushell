@@ -337,6 +337,24 @@ pub fn math_result_type(
                     )
                 }
             },
+            Operator::EndsWith => match (&lhs.ty, &rhs.ty) {
+                (Type::String, Type::String) => (Type::Bool, None),
+                (Type::Any, _) => (Type::Bool, None),
+                (_, Type::Any) => (Type::Bool, None),
+                _ => {
+                    *op = Expression::garbage(op.span);
+                    (
+                        Type::Any,
+                        Some(ParseError::UnsupportedOperation(
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
+                    )
+                }
+            },
             Operator::In => match (&lhs.ty, &rhs.ty) {
                 (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
                 (Type::Int | Type::Float, Type::Range) => (Type::Bool, None),

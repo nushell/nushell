@@ -37,12 +37,12 @@ impl Command for ProjectionDb {
         vec![
             Example {
                 description: "selects a column from a database",
-                example: "db open db.mysql | db select a",
+                example: "db open db.mysql | db select a | db describe",
                 result: None,
             },
             Example {
                 description: "selects columns from a database",
-                example: "db open db.mysql | db select a b c",
+                example: "db open db.mysql | db select a b c | db describe",
                 result: None,
             },
         ]
@@ -86,18 +86,16 @@ fn create_query(expressions: Vec<SelectItem>) -> Query {
 
 fn modify_query(mut query: Query, expressions: Vec<SelectItem>) -> Query {
     query.body = match query.body {
-        SetExpr::Select(select) => SetExpr::Select(Box::new(modify_select(select, expressions))),
+        SetExpr::Select(select) => SetExpr::Select(modify_select(select, expressions)),
         _ => SetExpr::Select(Box::new(create_select(expressions))),
     };
 
     query
 }
 
-fn modify_select(select: Box<Select>, projection: Vec<SelectItem>) -> Select {
-    Select {
-        projection,
-        ..select.as_ref().clone()
-    }
+fn modify_select(mut select: Box<Select>, projection: Vec<SelectItem>) -> Box<Select> {
+    select.as_mut().projection = projection;
+    select
 }
 
 fn create_select(projection: Vec<SelectItem>) -> Select {

@@ -29,6 +29,11 @@ pub fn eval_call(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    if let Some(ctrlc) = &engine_state.ctrlc {
+        if ctrlc.load(core::sync::atomic::Ordering::SeqCst) {
+            return Ok(Value::Nothing { span: call.head }.into_pipeline_data());
+        }
+    }
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
@@ -424,6 +429,10 @@ pub fn eval_expression(
                 Operator::StartsWith => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.starts_with(op_span, &rhs, expr.span)
+                }
+                Operator::EndsWith => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.ends_with(op_span, &rhs, expr.span)
                 }
             }
         }

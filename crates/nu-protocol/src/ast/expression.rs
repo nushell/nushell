@@ -35,6 +35,7 @@ impl Expression {
                     Operator::NotRegexMatch
                     | Operator::RegexMatch
                     | Operator::StartsWith
+                    | Operator::EndsWith
                     | Operator::LessThan
                     | Operator::LessThanOrEqual
                     | Operator::GreaterThan
