@@ -80,12 +80,13 @@ impl CustomValue for ExprDb {
         right: &Value,
     ) -> Result<Value, ShellError> {
         let right_expr = match right {
+            Value::CustomValue { .. } => ExprDb::try_from_value(right).map(ExprDb::into_native),
             Value::String { val, .. } => Ok(Expr::Value(
                 sqlparser::ast::Value::SingleQuotedString(val.clone()),
             )),
             Value::Int { val, .. } => Ok(Expr::Value(sqlparser::ast::Value::Number(
                 format!("{}", val),
-                true,
+                false,
             ))),
             Value::Bool { val, .. } => Ok(Expr::Value(sqlparser::ast::Value::Boolean(*val))),
             _ => Err(ShellError::OperatorMismatch {
@@ -131,22 +132,25 @@ impl CustomValue for ExprDb {
 }
 
 impl ExprDb {
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+    pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
         match value {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(Self(expr.0.clone())),
                 None => Err(ShellError::CantConvert(
                     "db expression".into(),
                     "non-expression".into(),
-                    span,
+                    *span,
                     None,
                 )),
             },
             Value::String { val, .. } => Ok(Expr::Identifier(Ident {
-                value: val,
+                value: val.clone(),
                 quote_style: None,
             })
             .into()),
+            Value::Int { val, .. } => {
+                Ok(Expr::Value(sqlparser::ast::Value::Number(format!("{}", val), false)).into())
+            }
             x => Err(ShellError::CantConvert(
                 "database".into(),
                 x.get_type().to_string(),
@@ -155,11 +159,6 @@ impl ExprDb {
             )),
         }
     }
-
-    // pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-    //     let value = input.into_value(span);
-    //     Self::try_from_value(value)
-    // }
 
     pub fn into_value(self, span: Span) -> Value {
         Value::CustomValue {
@@ -174,6 +173,66 @@ impl ExprDb {
 
     pub fn to_value(&self, span: Span) -> Value {
         ExprDb::expr_to_value(self.as_ref(), span)
+    }
+
+    // Convenient function to extrac multiple Expr that could be inside a nushell Value
+    pub fn extract_exprs(value: Value) -> Result<Vec<Expr>, ShellError> {
+        ExtractedExpr::extract_exprs(value).map(ExtractedExpr::into_exprs)
+    }
+}
+
+enum ExtractedExpr {
+    Single(Expr),
+    List(Vec<ExtractedExpr>),
+}
+
+impl ExtractedExpr {
+    fn into_exprs(self) -> Vec<Expr> {
+        match self {
+            Self::Single(expr) => vec![expr],
+            Self::List(exprs) => exprs
+                .into_iter()
+                .flat_map(ExtractedExpr::into_exprs)
+                .collect(),
+        }
+    }
+
+    fn extract_exprs(value: Value) -> Result<ExtractedExpr, ShellError> {
+        match value {
+            Value::String { val, .. } => {
+                let expr = Expr::Identifier(Ident {
+                    value: val,
+                    quote_style: None,
+                });
+
+                Ok(ExtractedExpr::Single(expr))
+            }
+            Value::Int { val, .. } => {
+                let expr = Expr::Value(sqlparser::ast::Value::Number(format!("{}", val), false));
+
+                Ok(ExtractedExpr::Single(expr))
+            }
+            Value::Bool { val, .. } => {
+                let expr = Expr::Value(sqlparser::ast::Value::Boolean(val));
+
+                Ok(ExtractedExpr::Single(expr))
+            }
+            Value::CustomValue { .. } => {
+                let expr = ExprDb::try_from_value(&value)?.into_native();
+                Ok(ExtractedExpr::Single(expr))
+            }
+            Value::List { vals, .. } => vals
+                .into_iter()
+                .map(Self::extract_exprs)
+                .collect::<Result<Vec<ExtractedExpr>, ShellError>>()
+                .map(ExtractedExpr::List),
+            x => Err(ShellError::CantConvert(
+                "selection".into(),
+                x.get_type().to_string(),
+                x.span()?,
+                None,
+            )),
+        }
     }
 }
 

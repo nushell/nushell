@@ -64,10 +64,10 @@ impl Command for AndDb {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value: Value = call.req(engine_state, stack, 0)?;
-        let expr = ExprDb::try_from_value(value)?.into_native();
+        let expr = ExprDb::try_from_value(&value)?.into_native();
 
         let value = input.into_value(call.head);
-        if let Ok(expression) = ExprDb::try_from_value(value.clone()) {
+        if let Ok(expression) = ExprDb::try_from_value(&value) {
             let expression = Expr::BinaryOp {
                 left: Box::new(expression.into_native()),
                 op: BinaryOperator::And,

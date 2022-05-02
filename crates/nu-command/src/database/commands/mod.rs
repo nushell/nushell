@@ -3,8 +3,10 @@ mod collect;
 mod command;
 mod describe;
 mod from;
+mod limit;
 mod open;
 mod or;
+mod order_by;
 mod query;
 mod schema;
 mod select;
@@ -21,8 +23,10 @@ use collect::CollectDb;
 use command::Database;
 use describe::DescribeDb;
 use from::FromDb;
+use limit::LimitDb;
 use open::OpenDb;
 use or::OrDb;
+use order_by::OrderByDb;
 use query::QueryDb;
 use schema::SchemaDb;
 use select::ProjectionDb;
@@ -46,8 +50,10 @@ pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
         DescribeDb,
         FromDb,
         QueryDb,
+        LimitDb,
         ProjectionDb,
         OpenDb,
+        OrderByDb,
         OrDb,
         SchemaDb,
         TestingDb,

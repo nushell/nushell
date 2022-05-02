@@ -43,8 +43,8 @@ impl Command for ColExpr {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name: Value = call.req(engine_state, stack, 0)?;
-        let expression = ExprDb::try_from_value(name)?;
+        let value: Value = call.req(engine_state, stack, 0)?;
+        let expression = ExprDb::try_from_value(&value)?;
 
         Ok(expression.into_value(call.head).into_pipeline_data())
     }

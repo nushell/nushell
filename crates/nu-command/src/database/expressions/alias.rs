@@ -1,4 +1,7 @@
-use crate::{database::values::dsl::SelectDb, SQLiteDatabase};
+use crate::{
+    database::values::dsl::{ExprDb, SelectDb},
+    SQLiteDatabase,
+};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -58,8 +61,10 @@ impl Command for AliasExpr {
         let alias: String = call.req(engine_state, stack, 0)?;
         let value = input.into_value(call.head);
 
-        if let Ok(select) = SelectDb::try_from_value(value.clone()) {
-            alias_expression(select, alias, call)
+        if let Ok(expr) = ExprDb::try_from_value(&value) {
+            alias_selection(expr.into_native().into(), alias, call)
+        } else if let Ok(select) = SelectDb::try_from_value(&value) {
+            alias_selection(select, alias, call)
         } else if let Ok(db) = SQLiteDatabase::try_from_value(value.clone()) {
             alias_db(db, alias, call)
         } else {
@@ -73,7 +78,7 @@ impl Command for AliasExpr {
     }
 }
 
-fn alias_expression(
+fn alias_selection(
     select: SelectDb,
     alias: String,
     call: &Call,

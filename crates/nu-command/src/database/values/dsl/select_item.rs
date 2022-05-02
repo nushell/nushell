@@ -20,8 +20,14 @@ impl AsMut<SelectItem> for SelectDb {
 }
 
 impl From<SelectItem> for SelectDb {
-    fn from(expr: SelectItem) -> Self {
-        Self(expr)
+    fn from(selection: SelectItem) -> Self {
+        Self(selection)
+    }
+}
+
+impl From<Expr> for SelectDb {
+    fn from(expr: Expr) -> Self {
+        SelectItem::UnnamedExpr(expr).into()
     }
 }
 
@@ -71,21 +77,33 @@ impl CustomValue for SelectDb {
 }
 
 impl SelectDb {
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+    pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
         match value {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(Self(expr.0.clone())),
                 None => Err(ShellError::CantConvert(
                     "db selection".into(),
                     "non-expression".into(),
-                    span,
+                    *span,
                     None,
                 )),
             },
             Value::String { val, .. } => match val.as_str() {
                 "*" => Ok(SelectItem::Wildcard.into()),
+                name if (name.contains('.') && name.contains('*')) => {
+                    let parts: Vec<Ident> = name
+                        .split('.')
+                        .filter(|part| part != &"*")
+                        .map(|part| Ident {
+                            value: part.to_string(),
+                            quote_style: None,
+                        })
+                        .collect();
+
+                    Ok(SelectItem::QualifiedWildcard(ObjectName(parts)).into())
+                }
                 name if name.contains('.') => {
-                    let values: Vec<Ident> = name
+                    let parts: Vec<Ident> = name
                         .split('.')
                         .map(|part| Ident {
                             value: part.to_string(),
@@ -93,11 +111,12 @@ impl SelectDb {
                         })
                         .collect();
 
-                    Ok(SelectItem::QualifiedWildcard(ObjectName(values)).into())
+                    let expr = Expr::CompoundIdentifier(parts);
+                    Ok(SelectItem::UnnamedExpr(expr).into())
                 }
                 _ => {
                     let expr = Expr::Identifier(Ident {
-                        value: val,
+                        value: val.clone(),
                         quote_style: None,
                     });
 
@@ -112,11 +131,6 @@ impl SelectDb {
             )),
         }
     }
-
-    // pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-    //     let value = input.into_value(span);
-    //     Self::try_from_value(value)
-    // }
 
     pub fn into_value(self, span: Span) -> Value {
         Value::CustomValue {
@@ -217,16 +231,29 @@ impl ExtractedSelect {
 
                 Ok(ExtractedSelect::Single(SelectItem::UnnamedExpr(expr)))
             }
-            Value::CustomValue { .. } => SelectDb::try_from_value(value)
-                .map(SelectDb::into_native)
-                .map(ExtractedSelect::Single),
+            Value::CustomValue { .. } => {
+                if let Ok(expr) = ExprDb::try_from_value(&value) {
+                    Ok(ExtractedSelect::Single(SelectItem::UnnamedExpr(
+                        expr.into_native(),
+                    )))
+                } else if let Ok(select) = SelectDb::try_from_value(&value) {
+                    Ok(ExtractedSelect::Single(select.into_native()))
+                } else {
+                    Err(ShellError::CantConvert(
+                        "selection".into(),
+                        value.get_type().to_string(),
+                        value.span()?,
+                        None,
+                    ))
+                }
+            }
             Value::List { vals, .. } => vals
                 .into_iter()
                 .map(Self::extract_selects)
                 .collect::<Result<Vec<ExtractedSelect>, ShellError>>()
                 .map(ExtractedSelect::List),
             x => Err(ShellError::CantConvert(
-                "expression".into(),
+                "selection".into(),
                 x.get_type().to_string(),
                 x.span()?,
                 None,
