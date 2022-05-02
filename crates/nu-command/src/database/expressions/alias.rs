@@ -34,8 +34,11 @@ impl Command for AliasExpr {
             },
             Example {
                 description: "Creates an alias for a table",
-                example:
-                    "db open name | db select a | db from table_a | db as table_a_new | db describe",
+                example: r#"db open name 
+    | db select a 
+    | db from table_a 
+    | db as table_a_new 
+    | db describe"#,
                 result: None,
             },
         ]

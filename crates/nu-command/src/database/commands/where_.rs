@@ -7,7 +7,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use sqlparser::ast::{Query, Select, SetExpr, Expr};
+use sqlparser::ast::{Expr, Query, Select, SetExpr};
 
 #[derive(Clone)]
 pub struct WhereDb;
@@ -34,8 +34,11 @@ impl Command for WhereDb {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "selects a column from a database with a where clause",
-            example:
-                "db open db.mysql | db select a | db from table_1 | db where ((db col a) > 1) | db describe",
+            example: r#"db open db.mysql 
+    | db select a 
+    | db from table_1 
+    | db where ((db col a) > 1) 
+    | db describe"#,
             result: None,
         }]
     }
@@ -52,23 +55,19 @@ impl Command for WhereDb {
 
         let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
         db.query = match db.query {
-            None => Some(create_query(expr)),
             Some(query) => Some(modify_query(query, expr)),
+            None => {
+                return Err(ShellError::GenericError(
+                    "Connection without query".into(),
+                    "The connection needs a query defined".into(),
+                    Some(call.head),
+                    None,
+                    Vec::new(),
+                ))
+            }
         };
 
         Ok(db.into_value(call.head).into_pipeline_data())
-    }
-}
-
-fn create_query(expression: Expr) -> Query {
-    Query {
-        with: None,
-        body: SetExpr::Select(Box::new(create_select(expression))),
-        order_by: Vec::new(),
-        limit: None,
-        offset: None,
-        fetch: None,
-        lock: None,
     }
 }
 

@@ -1,7 +1,7 @@
 use super::ExprDb;
 use nu_protocol::{ast::PathMember, CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::{Expr, Ident, SelectItem, ObjectName};
+use sqlparser::ast::{Expr, Ident, ObjectName, SelectItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SelectDb(SelectItem);

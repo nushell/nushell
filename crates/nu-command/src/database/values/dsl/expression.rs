@@ -214,6 +214,7 @@ impl ExprDb {
 
                 Value::Record { cols, vals, span }
             }
+            Expr::Nested(expr) => ExprDb::expr_to_value(expr, span),
             Expr::CompoundIdentifier(_) => todo!(),
             Expr::IsNull(_) => todo!(),
             Expr::IsNotNull(_) => todo!(),
@@ -230,7 +231,6 @@ impl ExprDb {
             Expr::Substring { .. } => todo!(),
             Expr::Trim { .. } => todo!(),
             Expr::Collate { .. } => todo!(),
-            Expr::Nested(_) => todo!(),
             Expr::TypedString { .. } => todo!(),
             Expr::MapAccess { .. } => todo!(),
             Expr::Function(_) => todo!(),
