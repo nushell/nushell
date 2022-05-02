@@ -1817,6 +1817,7 @@ pub fn parse_overlay_add(
         );
     }
 
+    // TODO: Allow full import pattern as argument
     let (call, call_span) = match working_set.find_decl(b"overlay add") {
         Some(decl_id) => {
             let (call, mut err) = parse_internal_call(
@@ -1856,7 +1857,7 @@ pub fn parse_overlay_add(
         }
     };
 
-    let (module_name, module_name_span) = if let Some(expr) = call.positional_nth(0) {
+    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         if let Some(s) = expr.as_string() {
             (s, expr.span)
         } else {
@@ -1885,81 +1886,89 @@ pub fn parse_overlay_add(
 
     let mut error = None;
 
-    // TODO: Add checking for importing too long import patterns, e.g.:
-    // > use spam foo non existent names here do not throw error
-    let (module_name, module) = if let Some(module_id) =
-        working_set.find_module(module_name.as_bytes())
-    {
-        (Some(module_name), working_set.get_module(module_id).clone())
+    if working_set.has_overlay(overlay_name.as_bytes()) {
+        // Activate existing overlay
+        working_set.add_overlay(overlay_name.as_bytes().to_vec(), vec![], vec![]);
     } else {
-        // TODO: Do not close over when loading module from file?
-        // It could be a file
-        if let Ok(module_filename) = String::from_utf8(trim_quotes(module_name.as_bytes()).to_vec())
+        // Create a new overlay from a module
+        let (overlay_name, module) = if let Some(module_id) =
+            // the name is a module
+            working_set.find_module(overlay_name.as_bytes())
         {
-            if let Some(module_path) =
-                find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
-            {
-                let module_name = if let Some(stem) = module_path.file_stem() {
-                    stem.to_string_lossy().to_string()
-                } else {
-                    return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: call_span,
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]),
-                        Some(ParseError::ModuleNotFound(spans[1])),
-                    );
-                };
-
-                if let Ok(contents) = std::fs::read(module_path) {
-                    let span_start = working_set.next_span_start();
-                    working_set.add_file(module_filename, &contents);
-                    let span_end = working_set.next_span_start();
-
-                    let (block, module, err) = parse_module_block(
-                        working_set,
-                        Span::new(span_start, span_end),
-                        expand_aliases_denylist,
-                    );
-                    error = error.or(err);
-
-                    let _ = working_set.add_block(block);
-                    let _ = working_set.add_module(&module_name, module.clone());
-
-                    (Some(module_name), module)
-                } else {
-                    return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: call_span,
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]),
-                        Some(ParseError::ModuleNotFound(spans[1])),
-                    );
-                }
-            } else {
-                error = error.or(Some(ParseError::ModuleNotFound(module_name_span)));
-                (None, Module::new())
-            }
-        } else {
-            return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
-        }
-    };
-
-    if let Some(name) = module_name {
-        let (decls_to_lay, aliases_to_lay) = if has_prefix {
             (
-                module.decls_with_head(name.as_bytes()),
-                module.aliases_with_head(name.as_bytes()),
+                Some(overlay_name),
+                working_set.get_module(module_id).clone(),
             )
         } else {
-            (module.decls(), module.aliases())
+            // try if the name is a file
+            if let Ok(module_filename) =
+                String::from_utf8(trim_quotes(overlay_name.as_bytes()).to_vec())
+            {
+                if let Some(module_path) =
+                    find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
+                {
+                    let overlay_name = if let Some(stem) = module_path.file_stem() {
+                        stem.to_string_lossy().to_string()
+                    } else {
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            Some(ParseError::ModuleOrOverlayNotFound(spans[1])),
+                        );
+                    };
+
+                    if let Ok(contents) = std::fs::read(module_path) {
+                        let span_start = working_set.next_span_start();
+                        working_set.add_file(module_filename, &contents);
+                        let span_end = working_set.next_span_start();
+
+                        let (block, module, err) = parse_module_block(
+                            working_set,
+                            Span::new(span_start, span_end),
+                            expand_aliases_denylist,
+                        );
+                        error = error.or(err);
+
+                        let _ = working_set.add_block(block);
+                        let _ = working_set.add_module(&overlay_name, module.clone());
+
+                        (Some(overlay_name), module)
+                    } else {
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            Some(ParseError::ModuleOrOverlayNotFound(spans[1])),
+                        );
+                    }
+                } else {
+                    error = error.or(Some(ParseError::ModuleOrOverlayNotFound(overlay_name_span)));
+                    (None, Module::new())
+                }
+            } else {
+                return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
+            }
         };
 
-        working_set.add_overlay(name.as_bytes().to_vec(), decls_to_lay, aliases_to_lay);
+        if let Some(name) = overlay_name {
+            let (decls_to_lay, aliases_to_lay) = if has_prefix {
+                (
+                    module.decls_with_head(name.as_bytes()),
+                    module.aliases_with_head(name.as_bytes()),
+                )
+            } else {
+                (module.decls(), module.aliases())
+            };
+
+            working_set.add_overlay(name.as_bytes().to_vec(), decls_to_lay, aliases_to_lay);
+        }
     }
 
     (
@@ -2055,7 +2064,7 @@ pub fn parse_overlay_remove(
     {
         return (
             garbage_pipeline(spans),
-            Some(ParseError::OverlayNotFound(overlay_name_span)),
+            Some(ParseError::ActiveOverlayNotFound(overlay_name_span)),
         );
     }
 
@@ -2066,16 +2075,16 @@ pub fn parse_overlay_remove(
         );
     }
 
-    let original_module = if call.has_flag("discard") {
-        None
-    } else if let Some(module_id) = working_set.find_module(overlay_name.as_bytes()) {
-        // TODO: Remove clone
-        Some(working_set.get_module(module_id).clone())
-    } else {
-        Some(Module::new())
-    };
+    // let original_module = if call.has_flag("discard") {
+    //     None
+    // } else if let Some(module_id) = working_set.find_module(overlay_name.as_bytes()) {
+    //     // TODO: Remove clone
+    //     Some(working_set.get_module(module_id).clone())
+    // } else {
+    //     Some(Module::new())
+    // };
 
-    working_set.remove_overlay(overlay_name.as_bytes(), original_module);
+    working_set.remove_overlay(overlay_name.as_bytes());
 
     (
         Pipeline::from_vec(vec![Expression {

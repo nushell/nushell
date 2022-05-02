@@ -18,10 +18,6 @@ impl Command for OverlayRemove {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay remove")
             .required("name", SyntaxShape::String, "Overlay to remove")
-            .switch(
-                "discard",
-                "discard custom commands and aliases added to this overlay (environment is always discarded)",
-                Some('d'))
             .category(Category::Core)
     }
 

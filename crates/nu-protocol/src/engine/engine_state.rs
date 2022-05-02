@@ -1149,6 +1149,7 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn last_overlay_mut(&mut self) -> &mut OverlayFrame {
         if self.delta.last_overlay_mut().is_none() {
+            // If there is no overlay, automatically activate the last one
             let last_overlay_name = self.last_overlay_name().to_vec();
             self.add_overlay(last_overlay_name, vec![], vec![]);
         }
@@ -1880,6 +1881,26 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn has_overlay(&self, name: &[u8]) -> bool {
+        // search also removed overlays
+
+        for scope_frame in self.delta.scope.iter().rev() {
+            if scope_frame
+                .overlays
+                .iter()
+                .any(|(overlay_name, _)| name == overlay_name)
+            {
+                return true;
+            }
+        }
+
+        self.permanent_state
+            .scope
+            .overlays
+            .iter()
+            .any(|(overlay_name, _)| name == overlay_name)
+    }
+
     pub fn last_overlay_name(&self) -> &Vec<u8> {
         let mut removed_overlays = vec![];
 
@@ -1929,7 +1950,7 @@ impl<'a> StateWorkingSet<'a> {
         self.use_aliases(aliases);
     }
 
-    pub fn remove_overlay(&mut self, name: &[u8], original_module: Option<Module>) {
+    pub fn remove_overlay(&mut self, name: &[u8]) {
         trace!("Remove overlay: {:?}", name);
 
         let last_scope_frame = self.delta.last_scope_frame_mut();
@@ -1951,15 +1972,15 @@ impl<'a> StateWorkingSet<'a> {
             last_scope_frame.removed_overlays.push(name.to_owned());
         }
 
-        if let Some(module) = original_module {
-            trace!("  merging diff");
-            let last_overlay_name = self.last_overlay_name().to_owned();
+        // if let Some(module) = original_module {
+        //     trace!("  merging diff");
+        //     let last_overlay_name = self.last_overlay_name().to_owned();
 
-            if let Some(overlay) = removed_overlay {
-                let (diff_decls, diff_aliases) = overlay.diff(&module);
-                self.add_overlay(last_overlay_name, diff_decls, diff_aliases);
-            }
-        }
+        //     if let Some(overlay) = removed_overlay {
+        //         let (diff_decls, diff_aliases) = overlay.diff(&module);
+        //         self.add_overlay(last_overlay_name, diff_decls, diff_aliases);
+        //     }
+        // }
     }
 
     pub fn render(self) -> StateDelta {
