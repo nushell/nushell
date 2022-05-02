@@ -1,7 +1,7 @@
 use super::ExprDb;
 use nu_protocol::{ast::PathMember, CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::{Expr, Ident, SelectItem};
+use sqlparser::ast::{Expr, Ident, SelectItem, ObjectName};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SelectDb(SelectItem);
@@ -76,20 +76,34 @@ impl SelectDb {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(Self(expr.0.clone())),
                 None => Err(ShellError::CantConvert(
-                    "db expression".into(),
+                    "db selection".into(),
                     "non-expression".into(),
                     span,
                     None,
                 )),
             },
-            Value::String { val, .. } => {
-                let expr = Expr::Identifier(Ident {
-                    value: val,
-                    quote_style: None,
-                });
+            Value::String { val, .. } => match val.as_str() {
+                "*" => Ok(SelectItem::Wildcard.into()),
+                name if name.contains('.') => {
+                    let values: Vec<Ident> = name
+                        .split('.')
+                        .map(|part| Ident {
+                            value: part.to_string(),
+                            quote_style: None,
+                        })
+                        .collect();
 
-                Ok(SelectItem::UnnamedExpr(expr).into())
-            }
+                    Ok(SelectItem::QualifiedWildcard(ObjectName(values)).into())
+                }
+                _ => {
+                    let expr = Expr::Identifier(Ident {
+                        value: val,
+                        quote_style: None,
+                    });
+
+                    Ok(SelectItem::UnnamedExpr(expr).into())
+                }
+            },
             x => Err(ShellError::CantConvert(
                 "selection".into(),
                 x.get_type().to_string(),

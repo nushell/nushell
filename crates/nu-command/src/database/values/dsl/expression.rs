@@ -1,4 +1,4 @@
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, PipelineData, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
 use sqlparser::ast::{Expr, Ident};
@@ -54,6 +54,16 @@ impl CustomValue for ExprDb {
     fn typetag_deserialize(&self) {
         unimplemented!("typetag_deserialize")
     }
+    
+    fn operation(
+        &self,
+        _lhs_span: Span,
+        operator: Operator,
+        op: Span,
+        _right: &Value,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::UnsupportedOperator(operator, op))
+    }
 }
 
 impl ExprDb {
@@ -82,17 +92,17 @@ impl ExprDb {
         }
     }
 
-    // pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-    //     let value = input.into_value(span);
-    //     Self::try_from_value(value)
-    // }
+    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+        let value = input.into_value(span);
+        Self::try_from_value(value)
+    }
 
-    // pub fn into_value(self, span: Span) -> Value {
-    //     Value::CustomValue {
-    //         val: Box::new(self),
-    //         span,
-    //     }
-    // }
+    pub fn into_value(self, span: Span) -> Value {
+        Value::CustomValue {
+            val: Box::new(self),
+            span,
+        }
+    }
 
     pub fn into_native(self) -> Expr {
         self.0

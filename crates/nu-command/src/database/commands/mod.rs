@@ -6,6 +6,7 @@ mod open;
 mod query;
 mod schema;
 mod select;
+mod where_;
 
 // Temporal module to create Query objects
 mod testing;
@@ -21,6 +22,7 @@ use open::OpenDb;
 use query::QueryDb;
 use schema::SchemaDb;
 use select::ProjectionDb;
+use where_::WhereDb;
 
 pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {
@@ -42,6 +44,7 @@ pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
         ProjectionDb,
         OpenDb,
         SchemaDb,
-        TestingDb
+        TestingDb,
+        WhereDb
     );
 }

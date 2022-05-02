@@ -1,11 +1,10 @@
-use crate::database::values::dsl::{ExprDb, SelectDb};
+use crate::database::values::dsl::ExprDb;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use sqlparser::ast::{Ident, ObjectName, SelectItem};
 
 #[derive(Clone)]
 pub struct ColExpr;
@@ -45,27 +44,8 @@ impl Command for ColExpr {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let name: Value = call.req(engine_state, stack, 0)?;
+        let expression = ExprDb::try_from_value(name)?;
 
-        let select = match name {
-            Value::String { val, .. } if val == "*" => SelectItem::Wildcard,
-            Value::String { val, .. } if val.contains('.') => {
-                let values = val
-                    .split('.')
-                    .map(|part| Ident {
-                        value: part.to_string(),
-                        quote_style: None,
-                    })
-                    .collect::<Vec<Ident>>();
-
-                SelectItem::QualifiedWildcard(ObjectName(values))
-            }
-            _ => {
-                let expr = ExprDb::try_from_value(name)?;
-                SelectItem::UnnamedExpr(expr.into_native())
-            }
-        };
-
-        let selection: SelectDb = select.into();
-        Ok(selection.into_value(call.head).into_pipeline_data())
+        Ok(expression.into_value(call.head).into_pipeline_data())
     }
 }
