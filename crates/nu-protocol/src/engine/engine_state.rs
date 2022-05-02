@@ -497,6 +497,13 @@ impl EngineState {
         Ok(())
     }
 
+    pub fn has_overlay(&self, name: &[u8]) -> bool {
+        self.scope
+            .overlays
+            .iter()
+            .any(|(overlay_name, _)| name == overlay_name)
+    }
+
     pub fn active_overlay_ids(&self, removed_overlays: &[Vec<u8>]) -> Vec<OverlayId> {
         self.scope
             .active_overlays
@@ -1882,8 +1889,6 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn has_overlay(&self, name: &[u8]) -> bool {
-        // search also removed overlays
-
         for scope_frame in self.delta.scope.iter().rev() {
             if scope_frame
                 .overlays
@@ -1894,11 +1899,7 @@ impl<'a> StateWorkingSet<'a> {
             }
         }
 
-        self.permanent_state
-            .scope
-            .overlays
-            .iter()
-            .any(|(overlay_name, _)| name == overlay_name)
+        self.permanent_state.has_overlay(name)
     }
 
     pub fn last_overlay_name(&self) -> &Vec<u8> {
