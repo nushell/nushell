@@ -383,12 +383,5 @@ let-env config = {
       mode: [emacs, vi_normal, vi_insert]
       event: { send: menu name: commands_with_description }
     }
-    {
-      name: clear_backbuffer
-      modifier: control
-      keycode: char_l
-      mode: emacs
-      event: { send: ClearScrollback }
-    }
   ]
 }
