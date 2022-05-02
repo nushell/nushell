@@ -270,7 +270,7 @@ impl Completer for CommandCompletion {
                     start: x.0.start - offset,
                     end: x.0.end - offset,
                 },
-                append_whitespace: true,
+                append_whitespace: false,
             })
             .chain(subcommands.into_iter())
             .chain(commands.into_iter())
