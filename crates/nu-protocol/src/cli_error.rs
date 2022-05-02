@@ -1,5 +1,5 @@
+use crate::engine::StateWorkingSet;
 use miette::{LabeledSpan, MietteHandler, ReportHandler, Severity, SourceCode};
-use nu_protocol::engine::StateWorkingSet;
 use thiserror::Error;
 
 /// This error exists so that we can defer SourceCode handling. It simply
@@ -10,6 +10,13 @@ pub struct CliError<'src>(
     pub &'src (dyn miette::Diagnostic + Send + Sync + 'static),
     pub &'src StateWorkingSet<'src>,
 );
+
+pub fn format_error(
+    working_set: &StateWorkingSet,
+    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
+) -> String {
+    return format!("Error: {:?}", CliError(error, working_set));
+}
 
 impl std::fmt::Debug for CliError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

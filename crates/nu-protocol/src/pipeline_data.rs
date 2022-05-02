@@ -5,8 +5,8 @@ use std::{
 
 use crate::{
     ast::{Call, PathMember},
-    engine::{EngineState, Stack},
-    Config, ListStream, RawStream, ShellError, Span, Value,
+    engine::{EngineState, Stack, StateWorkingSet},
+    format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
 
 /// The foundational abstraction for input and output to commands
@@ -456,11 +456,14 @@ impl PipelineData {
                 for item in table {
                     let stdout = std::io::stdout();
 
-                    if let Value::Error { error } = item {
-                        return Err(error);
-                    }
+                    let mut out = if let Value::Error { error } = item {
+                        let working_set = StateWorkingSet::new(engine_state);
 
-                    let mut out = item.into_string("\n", config);
+                        format_error(&working_set, &error)
+                    } else {
+                        item.into_string("\n", config)
+                    };
+
                     out.push('\n');
 
                     match stdout.lock().write_all(out.as_bytes()) {
@@ -472,12 +475,13 @@ impl PipelineData {
             None => {
                 for item in self {
                     let stdout = std::io::stdout();
+                    let mut out = if let Value::Error { error } = item {
+                        let working_set = StateWorkingSet::new(engine_state);
 
-                    if let Value::Error { error } = item {
-                        return Err(error);
-                    }
-
-                    let mut out = item.into_string("\n", config);
+                        format_error(&working_set, &error)
+                    } else {
+                        item.into_string("\n", config)
+                    };
                     out.push('\n');
 
                     match stdout.lock().write_all(out.as_bytes()) {
