@@ -136,7 +136,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --path=. --no-default-features
+          args: --path=. --no-default-features --debug
 
       - name: Setup Python
         uses: actions/setup-python@v2
@@ -155,3 +155,50 @@ jobs:
       - name: Test Nushell in virtualenv
         run: cd virtualenv && tox -e ${{ matrix.py }} -- -k nushell
         shell: bash
+
+  plugins:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-latest, macos-latest, ubuntu-latest]
+        rust:
+          - stable
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      # This job does not use rust-cache because 1) we have limited cache space, 2) even 
+      # without caching, it's not the slowest job. Revisit if those facts change.
+
+      - name: Build nu_plugin_example
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --package nu_plugin_example
+
+      - name: Build nu_plugin_gstat
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --package nu_plugin_gstat
+
+      - name: Build nu_plugin_inc
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --package nu_plugin_inc
+
+      - name: Build nu_plugin_query
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --package nu_plugin_query
