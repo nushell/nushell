@@ -321,7 +321,7 @@ fn capture_row_condition() -> TestResult {
 #[test]
 fn starts_with_operator_succeeds() -> TestResult {
     run_test(
-        r#"[Moe Larry Curly] | where $it =^ L | str collect"#,
+        r#"[Moe Larry Curly] | where $it starts-with L | str collect"#,
         "Larry",
     )
 }
