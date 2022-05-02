@@ -264,8 +264,11 @@ pub fn parse_external_call(
         error = error.or(err);
         Box::new(arg)
     } else {
+        let (contents, err) = unescape_unquote_string(&head_contents, head_span);
+        error = error.or(err);
+
         Box::new(Expression {
-            expr: Expr::String(String::from_utf8_lossy(&head_contents).to_string()),
+            expr: Expr::String(contents),
             span: head_span,
             ty: Type::String,
             custom_completion: None,
@@ -285,8 +288,11 @@ pub fn parse_external_call(
             error = error.or(err);
             args.push(arg);
         } else {
+            let (contents, err) = unescape_unquote_string(contents, *span);
+            error = error.or(err);
+
             args.push(Expression {
-                expr: Expr::String(String::from_utf8_lossy(contents).to_string()),
+                expr: Expr::String(contents),
                 span: *span,
                 ty: Type::String,
                 custom_completion: None,
@@ -1928,10 +1934,10 @@ pub fn parse_directory(
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
-    let bytes = trim_quotes(bytes);
+    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: directory");
 
-    if let Ok(token) = String::from_utf8(bytes.into()) {
+    if err.is_none() {
         trace!("-- found {}", token);
         (
             Expression {
@@ -1955,10 +1961,10 @@ pub fn parse_filepath(
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
-    let bytes = trim_quotes(bytes);
+    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: filepath");
 
-    if let Ok(token) = String::from_utf8(bytes.into()) {
+    if err.is_none() {
         trace!("-- found {}", token);
         (
             Expression {
@@ -2267,12 +2273,11 @@ pub fn parse_glob_pattern(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: glob pattern");
 
-    let bytes = working_set.get_span_contents(span);
-    let bytes = trim_quotes(bytes);
-
-    if let Ok(token) = String::from_utf8(bytes.into()) {
+    if err.is_none() {
         trace!("-- found {}", token);
         (
             Expression {
@@ -4035,7 +4040,6 @@ pub fn parse_operator(
         b">" => Operator::GreaterThan,
         b">=" => Operator::GreaterThanOrEqual,
         b"=~" => Operator::RegexMatch,
-        b"=^" => Operator::StartsWith,
         b"!~" => Operator::NotRegexMatch,
         b"+" => Operator::Plus,
         b"-" => Operator::Minus,
@@ -4044,6 +4048,8 @@ pub fn parse_operator(
         b"in" => Operator::In,
         b"not-in" => Operator::NotIn,
         b"mod" => Operator::Modulo,
+        b"starts-with" => Operator::StartsWith,
+        b"ends-with" => Operator::EndsWith,
         b"&&" | b"and" => Operator::And,
         b"||" | b"or" => Operator::Or,
         b"**" => Operator::Pow,
