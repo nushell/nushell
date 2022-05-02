@@ -49,6 +49,7 @@ impl Completer for FileCompletion {
                     start: x.0.start - offset,
                     end: x.0.end - offset,
                 },
+                append_whitespace: false,
             })
             .collect();
 

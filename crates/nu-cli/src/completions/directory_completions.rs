@@ -53,6 +53,7 @@ impl Completer for DirectoryCompletion {
                             start: x.0.start - offset,
                             end: x.0.end - offset,
                         },
+                        append_whitespace: false,
                     });
                 }
 
