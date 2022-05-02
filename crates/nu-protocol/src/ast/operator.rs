@@ -24,6 +24,7 @@ pub enum Operator {
     Or,
     Pow,
     StartsWith,
+    EndsWith,
 }
 
 impl Display for Operator {
@@ -48,6 +49,7 @@ impl Display for Operator {
             Operator::LessThanOrEqual => write!(f, "<="),
             Operator::GreaterThanOrEqual => write!(f, ">="),
             Operator::StartsWith => write!(f, "starts-with"),
+            Operator::EndsWith => write!(f, "ends-with"),
         }
     }
 }

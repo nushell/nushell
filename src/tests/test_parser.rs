@@ -327,6 +327,14 @@ fn starts_with_operator_succeeds() -> TestResult {
 }
 
 #[test]
+fn ends_with_operator_succeeds() -> TestResult {
+    run_test(
+        r#"[Moe Larry Curly] | where $it ends-with ly | str collect"#,
+        "Curly",
+    )
+}
+
+#[test]
 fn proper_missing_param() -> TestResult {
     fail_test(r#"def foo [x y z w] { }; foo a b c"#, "missing w")
 }
