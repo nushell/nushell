@@ -17,9 +17,9 @@ jobs:
           - stable
         include:
           - style: all
-            flags: '--all-features'
+            flags: "--all-features"
           - style: default
-            flags: ''
+            flags: ""
         exclude:
           - platform: windows-latest
             style: default
@@ -41,7 +41,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-            key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
+          key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
 
       - name: Rustfmt
         uses: actions-rs/cargo@v1
@@ -61,7 +61,6 @@ jobs:
           command: clippy
           args: --workspace ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
-
   test:
     strategy:
       fail-fast: false
@@ -72,9 +71,9 @@ jobs:
           - stable
         include:
           - style: all
-            flags: '--all-features'
+            flags: "--all-features"
           - style: default
-            flags: ''
+            flags: ""
         exclude:
           - platform: windows-latest
             style: default
@@ -96,7 +95,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-            key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
+          key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
 
       - uses: taiki-e/install-action@nextest
 
@@ -105,6 +104,12 @@ jobs:
         with:
           command: nextest
           args: run --all ${{ matrix.flags }}
+
+      - name: Doctests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --workspace --doc ${{ matrix.flags }}
 
   python-virtualenv:
     strategy:
@@ -130,7 +135,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-            key: "1" # increment this to bust the cache if needed
+          key: "1" # increment this to bust the cache if needed
 
       - name: Install Nushell
         uses: actions-rs/cargo@v1
@@ -176,7 +181,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
 
-      # This job does not use rust-cache because 1) we have limited cache space, 2) even 
+      # This job does not use rust-cache because 1) we have limited cache space, 2) even
       # without caching, it's not the slowest job. Revisit if those facts change.
 
       - name: Build nu_plugin_example
