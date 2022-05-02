@@ -6,6 +6,7 @@ use nu_protocol::{
 };
 
 use reedline::Suggestion;
+use std::str;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -49,27 +50,47 @@ impl Completer for VariableCompletion {
             start: span.start - offset,
             end: span.end - offset,
         };
+        let sublevels_count = self.var_context.1.len();
 
         // Completions for the given variable
         if !var_str.is_empty() {
             // Completion for $env.<tab>
             if var_str.as_str() == "$env" {
-                for env_var in self.stack.get_env_vars(&self.engine_state) {
-                    if options
-                        .match_algorithm
-                        .matches_u8(env_var.0.as_bytes(), &prefix)
-                    {
-                        output.push(Suggestion {
-                            value: env_var.0,
-                            description: None,
-                            extra: None,
-                            span: current_span,
-                            append_whitespace: false,
-                        });
-                    }
-                }
+                let env_vars = self.stack.get_env_vars(&self.engine_state);
 
-                return output;
+                // Return nested values
+                if sublevels_count > 0 {
+                    // Extract the target var ($env.<target-var>)
+                    let target_var = self.var_context.1[0].clone();
+                    let target_var_str =
+                        str::from_utf8(&target_var).unwrap_or_default().to_string();
+
+                    // Everything after the target var is the nested level ($env.<target-var>.<nested_levels>...)
+                    let nested_levels: Vec<Vec<u8>> =
+                        self.var_context.1.clone().into_iter().skip(1).collect();
+
+                    if let Some(val) = env_vars.get(&target_var_str) {
+                        return nested_suggestions(val.clone(), nested_levels, current_span);
+                    }
+                } else {
+                    // No nesting provided, return all env vars
+                    for env_var in env_vars {
+                        if options
+                            .match_algorithm
+                            .matches_u8(env_var.0.as_bytes(), &prefix)
+                        {
+                            output.push(Suggestion {
+                                value: env_var.0,
+                                description: None,
+                                extra: None,
+                                span: current_span,
+                                append_whitespace: false,
+                            });
+                        }
+                    }
+
+                    return output;
+                }
             }
 
             // Completions for $nu.<tab>
@@ -84,34 +105,7 @@ impl Completer for VariableCompletion {
                         end: current_span.end,
                     },
                 ) {
-                    // Find recursively the values for sublevels
-                    // if no sublevels are set it returns the current value
-                    let value = recursive_value(nuval, self.var_context.1.clone());
-
-                    match value {
-                        Value::Record {
-                            cols,
-                            vals: _,
-                            span: _,
-                        } => {
-                            // Add all the columns as completion
-                            for item in cols {
-                                output.push(Suggestion {
-                                    value: item,
-                                    description: None,
-                                    extra: None,
-                                    span: current_span,
-                                    append_whitespace: false,
-                                });
-                            }
-
-                            return output;
-                        }
-
-                        _ => {
-                            return output;
-                        }
-                    }
+                    return nested_suggestions(nuval, self.var_context.1.clone(), current_span);
                 }
             }
 
@@ -127,35 +121,8 @@ impl Completer for VariableCompletion {
                 );
 
                 // If the value exists and it's of type Record
-                if let Ok(mut value) = var {
-                    // Find recursively the values for sublevels
-                    // if no sublevels are set it returns the current value
-                    value = recursive_value(value, self.var_context.1.clone());
-
-                    match value {
-                        Value::Record {
-                            cols,
-                            vals: _,
-                            span: _,
-                        } => {
-                            // Add all the columns as completion
-                            for item in cols {
-                                output.push(Suggestion {
-                                    value: item,
-                                    description: None,
-                                    extra: None,
-                                    span: current_span,
-                                    append_whitespace: false,
-                                });
-                            }
-
-                            return output;
-                        }
-
-                        _ => {
-                            return output;
-                        }
-                    }
+                if let Ok(value) = var {
+                    return nested_suggestions(value, self.var_context.1.clone(), current_span);
                 }
             }
         }
@@ -212,6 +179,41 @@ impl Completer for VariableCompletion {
     }
 }
 
+// Find recursively the values for sublevels
+// if no sublevels are set it returns the current value
+fn nested_suggestions(
+    val: Value,
+    sublevels: Vec<Vec<u8>>,
+    current_span: reedline::Span,
+) -> Vec<Suggestion> {
+    let mut output: Vec<Suggestion> = vec![];
+    let value = recursive_value(val, sublevels);
+
+    match value {
+        Value::Record {
+            cols,
+            vals: _,
+            span: _,
+        } => {
+            // Add all the columns as completion
+            for item in cols {
+                output.push(Suggestion {
+                    value: item,
+                    description: None,
+                    extra: None,
+                    span: current_span,
+                    append_whitespace: false,
+                });
+            }
+
+            output
+        }
+
+        _ => output,
+    }
+}
+
+// Extracts the recursive value (e.g: $var.a.b.c)
 fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
     // Go to next sublevel
     if let Some(next_sublevel) = sublevels.clone().into_iter().next() {

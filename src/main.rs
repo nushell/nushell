@@ -17,7 +17,7 @@ use nu_cli::{
 };
 use nu_command::{create_default_context, BufferedReader};
 use nu_engine::{get_full_help, CallExt};
-use nu_parser::parse;
+use nu_parser::{escape_quote_string, parse};
 use nu_protocol::{
     ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
@@ -79,36 +79,28 @@ fn main() -> Result<()> {
     // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
     // then it'll be the script name
     // then the args to the script
-    let mut collect_arg_nushell = false;
-    for arg in std::env::args().skip(1) {
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
         if !script_name.is_empty() {
-            args_to_script.push(if arg.contains(' ') {
-                format!("`{}`", arg)
-            } else {
-                arg
-            });
-        } else if collect_arg_nushell {
-            args_to_nushell.push(if arg.contains(' ') {
-                format!("`{}`", arg)
-            } else {
-                arg
-            });
-            collect_arg_nushell = false;
+            args_to_script.push(escape_quote_string(&arg));
         } else if arg.starts_with('-') {
             // Cool, it's a flag
-            if arg == "-c"
-                || arg == "--commands"
-                || arg == "--testbin"
-                || arg == "--log-level"
-                || arg == "--config"
-                || arg == "--env-config"
-                || arg == "--threads"
-                || arg == "-t"
-            {
-                collect_arg_nushell = true;
-            }
+            let flag_value = match arg.as_ref() {
+                "--commands" | "-c" => {
+                    // FIXME: Use proper quoting. `escape_quote_string()` can't be used for now due to https://github.com/nushell/nushell/issues/5383.
+
+                    args.next().map(|a| format!("`{}`", a))
+                }
+                "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
+                "--log-level" | "--testbin" | "--threads" | "-t" => args.next(),
+                _ => None,
+            };
 
             args_to_nushell.push(arg);
+
+            if let Some(flag_value) = flag_value {
+                args_to_nushell.push(flag_value);
+            }
         } else {
             // Our script file
             script_name = arg;

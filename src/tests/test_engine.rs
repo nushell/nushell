@@ -44,6 +44,14 @@ fn in_variable_6() -> TestResult {
 }
 
 #[test]
+fn in_and_if_else() -> TestResult {
+    run_test(
+        r#"[1, 2, 3] | if false {} else if true { $in | length }"#,
+        "3",
+    )
+}
+
+#[test]
 fn help_works_with_missing_requirements() -> TestResult {
     run_test(r#"each --help | lines | length"#, "29")
 }
