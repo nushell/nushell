@@ -114,6 +114,7 @@ pub fn file_path_completion(
     cwd: &str,
     match_algorithm: MatchAlgorithm,
 ) -> Vec<(nu_protocol::Span, String)> {
+    let original_input = partial;
     let (base_dir_name, partial) = partial_from(partial);
 
     let base_dir = nu_path::expand_path_with(&base_dir_name, cwd);
@@ -129,11 +130,12 @@ pub fn file_path_completion(
                 entry.ok().and_then(|entry| {
                     let mut file_name = entry.file_name().to_string_lossy().into_owned();
                     if matches(&partial, &file_name, match_algorithm) {
-                        let mut path = if is_current_dir(&base_dir_name) {
-                            file_name.to_string()
-                        } else {
+                        let mut path = if prepend_base_dir(original_input, &base_dir_name) {
                             format!("{}{}", base_dir_name, file_name)
+                        } else {
+                            file_name.to_string()
                         };
+
                         if entry.path().is_dir() {
                             path.push(SEP);
                             file_name.push(SEP);
@@ -164,6 +166,22 @@ pub fn matches(partial: &str, from: &str, match_algorithm: MatchAlgorithm) -> bo
     match_algorithm.matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase())
 }
 
-fn is_current_dir(base_dir: &str) -> bool {
-    base_dir == format!(".{}", SEP)
+/// Returns whether the base_dir should be prepended to the file path
+fn prepend_base_dir(input: &str, base_dir: &str) -> bool {
+    if base_dir == format!(".{}", SEP) {
+        // if the current base_dir path is the local folder we only add a "./" prefix if the user
+        // input already includes a local folder prefix.
+        let manually_entered = {
+            let mut chars = input.chars();
+            let first_char = chars.next();
+            let second_char = chars.next();
+
+            first_char == Some('.') && second_char.map(is_separator).unwrap_or(false)
+        };
+
+        manually_entered
+    } else {
+        // always prepend the base dir if it is a subfolder
+        true
+    }
 }
