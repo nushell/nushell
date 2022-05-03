@@ -1,5 +1,5 @@
 use crate::table::TextStyle;
-use ansi_cut::AnsiCut;
+use ansi_str::AnsiStr;
 use nu_ansi_term::Style;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -159,7 +159,7 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
             end_index = c.0;
             if current_width + width > cell_width {
                 output.push(Subline {
-                    subline: word.cut(start_index..end_index),
+                    subline: word.ansi_cut(start_index..end_index),
                     width: current_width,
                 });
 
@@ -173,7 +173,7 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
 
     if start_index != word_no_ansi.len() {
         output.push(Subline {
-            subline: word.cut(start_index..),
+            subline: word.ansi_cut(start_index..),
             width: current_width,
         });
     }
