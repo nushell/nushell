@@ -357,7 +357,6 @@ jobs:
       - name: Restore Linux File Modes
         run: |
           chmod 755 ${{ steps.info.outputs.linuxdir }}/${{ steps.info.outputs.innerdir }}/nu*
-          chmod 755 ${{ steps.info.outputs.linuxdir }}/${{ steps.info.outputs.innerdir }}/libssl*
 
       - name: Create Linux tarball
         run: tar -zcvf ${{ steps.info.outputs.linuxdir }}.tar.gz ${{ steps.info.outputs.linuxdir }}
