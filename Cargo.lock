@@ -63,15 +63,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ansi-cut"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffe8d2994390ae20a3eb52a909f9518a89f8fd7e6990f3d25d38e51021b2c8ce"
-dependencies = [
- "ansi-parser",
-]
-
-[[package]]
 name = "ansi-parser"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -79,6 +70,15 @@ checksum = "bcb2392079bf27198570d6af79ecbd9ec7d8f16d3ec6b60933922fdb66287127"
 dependencies = [
  "heapless 0.5.6",
  "nom 4.2.3",
+]
+
+[[package]]
+name = "ansi-str"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90cb0ceb8c444d026166795e474e9dfe54b443bdc07cc21bd6c5073f5e637482"
+dependencies = [
+ "ansi-parser",
 ]
 
 [[package]]
@@ -2678,7 +2678,7 @@ dependencies = [
 name = "nu-table"
 version = "0.62.0"
 dependencies = [
- "ansi-cut",
+ "ansi-str",
  "atty",
  "nu-ansi-term",
  "nu-protocol",
@@ -3715,8 +3715,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.4.0"
-source = "git+https://github.com/nushell/reedline?branch=main#29f30a8f7926ad5cded3be564b6c26679c10e1c5"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d96c36021d0668f3b4f8c054fce3a9b9b0aa83fc60aa6c59df0e2165f9980763"
 dependencies = [
  "chrono",
  "crossterm",
