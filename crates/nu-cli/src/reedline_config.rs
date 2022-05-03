@@ -837,6 +837,7 @@ fn event_from_record(
         "menuprevious" => ReedlineEvent::MenuPrevious,
         "menupagenext" => ReedlineEvent::MenuPageNext,
         "menupageprevious" => ReedlineEvent::MenuPagePrevious,
+        "openeditor" => ReedlineEvent::OpenEditor,
         "menu" => {
             let menu = extract_value("name", cols, vals, span)?;
             ReedlineEvent::Menu(menu.into_string("", config))
