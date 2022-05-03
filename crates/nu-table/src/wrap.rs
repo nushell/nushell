@@ -92,9 +92,9 @@ fn strip_ansi(string: &str) -> Cow<str> {
 
 pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
     input
-        .split_terminator('\n')
+        .ansi_split("\n")
         .map(|line| {
-            line.split_terminator(' ')
+            line.ansi_split(" ")
                 .map(|x| Subline {
                     subline: x.to_string(),
                     width: {
@@ -109,7 +109,7 @@ pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
                         // let c = strip_ansi(x).chars().count();
                         // let u = special_width(x);
                         // std::cmp::max(c, u)
-                        let stripped = strip_ansi(x);
+                        let stripped = strip_ansi(&x);
 
                         let c = stripped.chars().count();
                         let u = stripped.width();
