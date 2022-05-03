@@ -18,7 +18,7 @@ pub use parse_keywords::*;
 
 pub use parser::{
     is_math_expression_like, parse, parse_block, parse_duration_bytes, parse_external_call,
-    trim_quotes, unescape_unquote_string, Import,
+    trim_quotes, trim_quotes_str, unescape_unquote_string, Import,
 };
 
 #[cfg(feature = "plugin")]

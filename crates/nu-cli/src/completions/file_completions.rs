@@ -95,7 +95,7 @@ impl Completer for FileCompletion {
 }
 
 pub fn partial_from(input: &str) -> (String, String) {
-    let partial = input.replace('\'', "");
+    let partial = input.replace('`', "");
 
     // If partial is only a word we want to search in the current dir
     let (base, rest) = partial.rsplit_once(is_separator).unwrap_or((".", &partial));
@@ -141,12 +141,8 @@ pub fn file_path_completion(
                             file_name.push(SEP);
                         }
 
-                        if path.contains(' ') {
-                            path = format!("\'{}\'", path);
-                        }
-
                         // Fix files or folders with quotes
-                        if path.contains('\'') || path.contains('"') {
+                        if path.contains('\'') || path.contains('"') || path.contains(' ') {
                             path = format!("`{}`", path);
                         }
 
@@ -167,7 +163,7 @@ pub fn matches(partial: &str, from: &str, match_algorithm: MatchAlgorithm) -> bo
 }
 
 /// Returns whether the base_dir should be prepended to the file path
-fn prepend_base_dir(input: &str, base_dir: &str) -> bool {
+pub fn prepend_base_dir(input: &str, base_dir: &str) -> bool {
     if base_dir == format!(".{}", SEP) {
         // if the current base_dir path is the local folder we only add a "./" prefix if the user
         // input already includes a local folder prefix.
