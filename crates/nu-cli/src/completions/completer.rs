@@ -180,7 +180,7 @@ impl NuCompleter {
                                     self.engine_state.clone(),
                                     &working_set,
                                     flattened.clone(),
-                                    flat_idx,
+                                    // flat_idx,
                                     flat_shape.clone(),
                                 );
 
