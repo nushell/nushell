@@ -47,7 +47,7 @@ impl Command for ViewSource {
                 }
             }
             Value::String { val, .. } => {
-                if let Some(decl_id) = engine_state.find_decl(&val.as_bytes()) {
+                if let Some(decl_id) = engine_state.find_decl(val.as_bytes()) {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);
                     let sig = decl.signature();
