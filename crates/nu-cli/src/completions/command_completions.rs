@@ -1,6 +1,4 @@
-use crate::completions::{
-    Completer, CompletionOptions, MatchAlgorithm, SortBy,
-};
+use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
 // use nu_parser::{unescape_unquote_string, FlatShape};
 use nu_parser::FlatShape;
 use nu_protocol::{
@@ -278,7 +276,8 @@ impl Completer for CommandCompletion {
         //     .chain(commands.into_iter())
         //     .collect::<Vec<_>>()
 
-        subcommands.into_iter()
+        subcommands
+            .into_iter()
             .chain(commands.into_iter())
             .collect::<Vec<_>>()
     }
