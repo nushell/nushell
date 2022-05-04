@@ -10,7 +10,7 @@ license = "MIT"
 name = "nu"
 readme = "README.md"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.59"
+rust-version = "1.60"
 version = "0.62.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
