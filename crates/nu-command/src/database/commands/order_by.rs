@@ -7,7 +7,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use sqlparser::ast::OrderByExpr;
+use sqlparser::ast::{OrderByExpr, Statement};
 
 #[derive(Clone)]
 pub struct OrderByDb;
@@ -67,24 +67,34 @@ impl Command for OrderByDb {
         let expressions = ExprDb::extract_exprs(value)?;
 
         let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
-        db.query = match db.query {
-            Some(mut query) => {
-                let mut order_expr: Vec<OrderByExpr> = expressions
-                    .into_iter()
-                    .map(|expr| OrderByExpr {
-                        expr,
-                        asc: if asc { Some(asc) } else { None },
-                        nulls_first: if nulls_first { Some(nulls_first) } else { None },
-                    })
-                    .collect();
+        match db.statement {
+            Some(ref mut statement) => match statement {
+                Statement::Query(ref mut query) => {
+                    let mut order_expr: Vec<OrderByExpr> = expressions
+                        .into_iter()
+                        .map(|expr| OrderByExpr {
+                            expr,
+                            asc: if asc { Some(asc) } else { None },
+                            nulls_first: if nulls_first { Some(nulls_first) } else { None },
+                        })
+                        .collect();
 
-                query.order_by.append(&mut order_expr);
-                Some(query)
-            }
+                    query.order_by.append(&mut order_expr);
+                }
+                s => {
+                    return Err(ShellError::GenericError(
+                        "Connection doesnt define a query".into(),
+                        format!("Expected a connection with query. Got {}", s),
+                        Some(call.head),
+                        None,
+                        Vec::new(),
+                    ))
+                }
+            },
             None => {
                 return Err(ShellError::GenericError(
-                    "Connection without query".into(),
-                    "The connection needs a query defined".into(),
+                    "Connection without statement".into(),
+                    "The connection needs a statement defined".into(),
                     Some(call.head),
                     None,
                     Vec::new(),

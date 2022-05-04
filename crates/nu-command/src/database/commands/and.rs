@@ -8,7 +8,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
     Value,
 };
-use sqlparser::ast::{BinaryOperator, Expr, Query, Select, SetExpr};
+use sqlparser::ast::{BinaryOperator, Expr, Query, Select, SetExpr, Statement};
 
 #[derive(Clone)]
 pub struct AndDb;
@@ -78,12 +78,23 @@ impl Command for AndDb {
 
             Ok(expression.into_value(call.head).into_pipeline_data())
         } else if let Ok(mut db) = SQLiteDatabase::try_from_value(value.clone()) {
-            db.query = match db.query {
-                Some(query) => Some(modify_query(query, expr, call.head)?),
+            match db.statement {
+                Some(ref mut statement) => match statement {
+                    Statement::Query(query) => modify_query(query, expr, call.head)?,
+                    s => {
+                        return Err(ShellError::GenericError(
+                            "Connection doesnt define a query".into(),
+                            format!("Expected a connection with query. Got {}", s),
+                            Some(call.head),
+                            None,
+                            Vec::new(),
+                        ))
+                    }
+                },
                 None => {
                     return Err(ShellError::GenericError(
-                        "Connection without query".into(),
-                        "Missing query in the connection".into(),
+                        "Connection without statement".into(),
+                        "The connection needs a statement defined".into(),
                         Some(call.head),
                         None,
                         Vec::new(),
@@ -103,26 +114,24 @@ impl Command for AndDb {
     }
 }
 
-fn modify_query(mut query: Query, expression: Expr, span: Span) -> Result<Query, ShellError> {
-    query.body = match query.body {
-        SetExpr::Select(select) => Ok(SetExpr::Select(modify_select(select, expression, span)?)),
-        _ => Err(ShellError::GenericError(
-            "Query without a select".into(),
-            "Missing a WHERE clause before an AND clause".into(),
-            Some(span),
-            None,
-            Vec::new(),
-        )),
-    }?;
+fn modify_query(query: &mut Box<Query>, expression: Expr, span: Span) -> Result<(), ShellError> {
+    match query.body {
+        SetExpr::Select(ref mut select) => modify_select(select, expression, span)?,
+        _ => {
+            return Err(ShellError::GenericError(
+                "Query without a select".into(),
+                "Missing a WHERE clause before an AND clause".into(),
+                Some(span),
+                None,
+                Vec::new(),
+            ))
+        }
+    };
 
-    Ok(query)
+    Ok(())
 }
 
-fn modify_select(
-    mut select: Box<Select>,
-    expression: Expr,
-    span: Span,
-) -> Result<Box<Select>, ShellError> {
+fn modify_select(select: &mut Box<Select>, expression: Expr, span: Span) -> Result<(), ShellError> {
     let new_expression = match &select.selection {
         Some(expr) => Ok(Expr::BinaryOp {
             left: Box::new(expr.clone()),
@@ -139,5 +148,5 @@ fn modify_select(
     }?;
 
     select.as_mut().selection = Some(new_expression);
-    Ok(select)
+    Ok(())
 }
