@@ -213,6 +213,15 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::module_not_found), url(docsrs))]
     ModuleNotFoundAtRuntime(String, #[label = "module not found"] Span),
 
+    /// A referenced module or overlay was not found at runtime.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the module name. Did you typo it? Did you forget to declare it? Is the casing right?
+    #[error("Module or overlay'{0}' not found")]
+    #[diagnostic(code(nu::shell::module_not_found), url(docsrs))]
+    ModuleOrOverlayNotFoundAtRuntime(String, #[label = "not a module or overlay"] Span),
+
     /// A referenced overlay was not found at runtime.
     ///
     /// ## Resolution

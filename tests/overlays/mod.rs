@@ -15,7 +15,7 @@ fn add_overlay() {
 }
 
 #[test]
-fn add_overlay_from_file1() {
+fn add_overlay_from_file_decl() {
     let actual = nu!(
         cwd: "tests/overlays", pipeline(
         r#"
@@ -28,7 +28,7 @@ fn add_overlay_from_file1() {
 }
 
 #[test]
-fn add_overlay_from_file2() {
+fn add_overlay_from_file_alias() {
     let actual = nu!(
         cwd: "tests/overlays", pipeline(
         r#"
@@ -41,7 +41,7 @@ fn add_overlay_from_file2() {
 }
 
 #[test]
-fn add_overlay_from_file3() {
+fn add_overlay_from_file_env() {
     let actual = nu!(
         cwd: "tests/overlays", pipeline(
         r#"
@@ -146,59 +146,13 @@ fn list_last_overlay() {
 }
 
 #[test]
-fn remove_overlay_merge_decl() {
-    let actual = nu!(
-        cwd: "tests/overlays", pipeline(
-        r#"
-            overlay add samples/spam.nu;
-            def bagr [] { "bagr" };
-            overlay remove spam;
-            bagr
-        "#
-    ));
-
-    assert_eq!(actual.out, "bagr");
-}
-
-#[test]
-fn remove_overlay_merge_alias() {
-    let actual = nu!(
-        cwd: "tests/overlays", pipeline(
-        r#"
-            overlay add samples/spam.nu;
-            alias bagr = "bagr";
-            overlay remove spam;
-            bagr
-        "#
-    ));
-
-    assert_eq!(actual.out, "bagr");
-}
-
-#[ignore]
-#[test]
-fn remove_overlay_merge_env() {
-    let actual = nu!(
-        cwd: "tests/overlays", pipeline(
-        r#"
-            overlay add samples/spam.nu;
-            let-env bagr = "bagr";
-            overlay remove spam;
-            $env.bagr
-        "#
-    ));
-
-    assert_eq!(actual.out, "bagr");
-}
-
-#[test]
 fn remove_overlay_discard_decl() {
     let actual = nu!(
         cwd: "tests/overlays", pipeline(
         r#"
             overlay add samples/spam.nu;
             def bagr [] { "bagr" };
-            overlay remove -d spam;
+            overlay remove spam;
             bagr
         "#
     ));
@@ -213,7 +167,7 @@ fn remove_overlay_discard_alias() {
         r#"
             overlay add samples/spam.nu;
             alias bagr = "bagr";
-            overlay remove -d spam;
+            overlay remove spam;
             bagr
         "#
     ));
@@ -228,10 +182,42 @@ fn remove_overlay_discard_env() {
         r#"
             overlay add samples/spam.nu;
             let-env BAGR = "bagr";
-            overlay remove -d spam;
+            overlay remove spam;
             $env.bagr
         "#
     ));
 
     assert!(actual.err.contains("did you mean"));
+}
+
+#[test]
+fn preserve_overrides() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            overlay add samples/spam.nu;
+            def foo [] { "new-foo" };
+            overlay remove spam;
+            overlay add spam;
+            foo
+        "#
+    ));
+
+    assert_eq!(actual.out, "new-foo");
+}
+
+#[test]
+fn reset_overrides() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            overlay add samples/spam.nu;
+            def foo [] { "new-foo" };
+            overlay remove spam;
+            overlay add samples/spam.nu;
+            foo
+        "#
+    ));
+
+    assert_eq!(actual.out, "foo");
 }
