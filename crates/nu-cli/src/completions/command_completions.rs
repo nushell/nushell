@@ -236,23 +236,26 @@ impl Completer for CommandCompletion {
         // let prefix = working_set.get_span_contents(flat.0);
         let prefix = String::from_utf8_lossy(&prefix).to_string();
 
-        file_path_completion(span, &prefix, &cwd, options.match_algorithm)
-            .into_iter()
-            .map(move |x| {
-                if self.flat_idx == 0 {
-                    // We're in the command position
-                    if (x.1.starts_with('"') || x.1.starts_with('\'') || x.1.starts_with('`'))
-                        && !matches!(preceding_byte.get(0), Some(b'^'))
-                    {
-                        let (trimmed, _) = unescape_unquote_string(x.1.as_bytes(), span);
-                        let expanded = nu_path::canonicalize_with(trimmed, &cwd);
+        file_path_completion(
+            span,
+            &prefix,
+            &cwd,
+            options.match_algorithm,
+            options.case_sensitive,
+        )
+        .into_iter()
+        .map(move |x| {
+            if self.flat_idx == 0 {
+                // We're in the command position
+                if (x.1.starts_with('"') || x.1.starts_with('\'') || x.1.starts_with('`'))
+                    && !matches!(preceding_byte.get(0), Some(b'^'))
+                {
+                    let (trimmed, _) = unescape_unquote_string(x.1.as_bytes(), span);
+                    let expanded = nu_path::canonicalize_with(trimmed, &cwd);
 
-                        if let Ok(expanded) = expanded {
-                            if is_executable::is_executable(expanded) {
-                                (x.0, format!("^{}", x.1))
-                            } else {
-                                (x.0, x.1)
-                            }
+                    if let Ok(expanded) = expanded {
+                        if is_executable::is_executable(expanded) {
+                            (x.0, format!("^{}", x.1))
                         } else {
                             (x.0, x.1)
                         }
@@ -262,20 +265,23 @@ impl Completer for CommandCompletion {
                 } else {
                     (x.0, x.1)
                 }
-            })
-            .map(move |x| Suggestion {
-                value: x.1,
-                description: None,
-                extra: None,
-                span: reedline::Span {
-                    start: x.0.start - offset,
-                    end: x.0.end - offset,
-                },
-                append_whitespace: false,
-            })
-            .chain(subcommands.into_iter())
-            .chain(commands.into_iter())
-            .collect::<Vec<_>>()
+            } else {
+                (x.0, x.1)
+            }
+        })
+        .map(move |x| Suggestion {
+            value: x.1,
+            description: None,
+            extra: None,
+            span: reedline::Span {
+                start: x.0.start - offset,
+                end: x.0.end - offset,
+            },
+            append_whitespace: false,
+        })
+        .chain(subcommands.into_iter())
+        .chain(commands.into_iter())
+        .collect::<Vec<_>>()
     }
 
     fn get_sort_by(&self) -> SortBy {

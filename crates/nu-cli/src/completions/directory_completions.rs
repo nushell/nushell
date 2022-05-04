@@ -43,19 +43,25 @@ impl Completer for DirectoryCompletion {
         let partial = String::from_utf8_lossy(&prefix).to_string();
 
         // Filter only the folders
-        let output: Vec<_> = directory_completion(span, &partial, &cwd, options.match_algorithm)
-            .into_iter()
-            .map(move |x| Suggestion {
-                value: x.1,
-                description: None,
-                extra: None,
-                span: reedline::Span {
-                    start: x.0.start - offset,
-                    end: x.0.end - offset,
-                },
-                append_whitespace: false,
-            })
-            .collect();
+        let output: Vec<_> = directory_completion(
+            span,
+            &partial,
+            &cwd,
+            options.match_algorithm,
+            options.case_sensitive,
+        )
+        .into_iter()
+        .map(move |x| Suggestion {
+            value: x.1,
+            description: None,
+            extra: None,
+            span: reedline::Span {
+                start: x.0.start - offset,
+                end: x.0.end - offset,
+            },
+            append_whitespace: false,
+        })
+        .collect();
 
         output
     }
@@ -103,6 +109,7 @@ pub fn directory_completion(
     partial: &str,
     cwd: &str,
     match_algorithm: MatchAlgorithm,
+    case_sensitive: bool,
 ) -> Vec<(nu_protocol::Span, String)> {
     let original_input = partial;
 
@@ -123,7 +130,7 @@ pub fn directory_completion(
                     if let Ok(metadata) = entry.metadata() {
                         if metadata.is_dir() {
                             let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                            if matches(&partial, &file_name, match_algorithm) {
+                            if matches(&partial, &file_name, match_algorithm, case_sensitive) {
                                 let mut path = if prepend_base_dir(original_input, &base_dir_name) {
                                     format!("{}{}", base_dir_name, file_name)
                                 } else {

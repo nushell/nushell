@@ -91,27 +91,33 @@ impl Completer for DotNuCompletion {
         let output: Vec<Suggestion> = search_dirs
             .into_iter()
             .flat_map(|it| {
-                file_path_completion(span, &partial, &it, options.match_algorithm)
-                    .into_iter()
-                    .filter(|it| {
-                        // Different base dir, so we list the .nu files or folders
-                        if !is_current_folder {
-                            it.1.ends_with(".nu") || it.1.ends_with(SEP)
-                        } else {
-                            // Lib dirs, so we filter only the .nu files
-                            it.1.ends_with(".nu")
-                        }
-                    })
-                    .map(move |x| Suggestion {
-                        value: x.1,
-                        description: None,
-                        extra: None,
-                        span: reedline::Span {
-                            start: x.0.start - offset,
-                            end: x.0.end - offset,
-                        },
-                        append_whitespace: true,
-                    })
+                file_path_completion(
+                    span,
+                    &partial,
+                    &it,
+                    options.match_algorithm,
+                    options.case_sensitive,
+                )
+                .into_iter()
+                .filter(|it| {
+                    // Different base dir, so we list the .nu files or folders
+                    if !is_current_folder {
+                        it.1.ends_with(".nu") || it.1.ends_with(SEP)
+                    } else {
+                        // Lib dirs, so we filter only the .nu files
+                        it.1.ends_with(".nu")
+                    }
+                })
+                .map(move |x| Suggestion {
+                    value: x.1,
+                    description: None,
+                    extra: None,
+                    span: reedline::Span {
+                        start: x.0.start - offset,
+                        end: x.0.end - offset,
+                    },
+                    append_whitespace: true,
+                })
             })
             .collect();
 

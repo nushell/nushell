@@ -39,19 +39,25 @@ impl Completer for FileCompletion {
             "".to_string()
         };
         let prefix = String::from_utf8_lossy(&prefix).to_string();
-        let output: Vec<_> = file_path_completion(span, &prefix, &cwd, options.match_algorithm)
-            .into_iter()
-            .map(move |x| Suggestion {
-                value: x.1,
-                description: None,
-                extra: None,
-                span: reedline::Span {
-                    start: x.0.start - offset,
-                    end: x.0.end - offset,
-                },
-                append_whitespace: false,
-            })
-            .collect();
+        let output: Vec<_> = file_path_completion(
+            span,
+            &prefix,
+            &cwd,
+            options.match_algorithm,
+            options.case_sensitive,
+        )
+        .into_iter()
+        .map(move |x| Suggestion {
+            value: x.1,
+            description: None,
+            extra: None,
+            span: reedline::Span {
+                start: x.0.start - offset,
+                end: x.0.end - offset,
+            },
+            append_whitespace: false,
+        })
+        .collect();
 
         output
     }
@@ -113,6 +119,7 @@ pub fn file_path_completion(
     partial: &str,
     cwd: &str,
     match_algorithm: MatchAlgorithm,
+    case_sensitive: bool,
 ) -> Vec<(nu_protocol::Span, String)> {
     let original_input = partial;
     let (base_dir_name, partial) = partial_from(partial);
@@ -129,7 +136,7 @@ pub fn file_path_completion(
             .filter_map(|entry| {
                 entry.ok().and_then(|entry| {
                     let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                    if matches(&partial, &file_name, match_algorithm) {
+                    if matches(&partial, &file_name, match_algorithm, case_sensitive) {
                         let mut path = if prepend_base_dir(original_input, &base_dir_name) {
                             format!("{}{}", base_dir_name, file_name)
                         } else {
@@ -158,8 +165,17 @@ pub fn file_path_completion(
     Vec::new()
 }
 
-pub fn matches(partial: &str, from: &str, match_algorithm: MatchAlgorithm) -> bool {
-    match_algorithm.matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase())
+pub fn matches(
+    partial: &str,
+    from: &str,
+    match_algorithm: MatchAlgorithm,
+    case_sensitive: bool,
+) -> bool {
+    if case_sensitive {
+        match_algorithm.matches_str(from, partial)
+    } else {
+        match_algorithm.matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase())
+    }
 }
 
 /// Returns whether the base_dir should be prepended to the file path

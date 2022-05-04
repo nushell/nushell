@@ -42,9 +42,15 @@ impl Completer for VariableCompletion {
     ) -> Vec<Suggestion> {
         let mut output = vec![];
         let builtins = ["$nu", "$in", "$config", "$env", "$nothing"];
-        let var_str = std::str::from_utf8(&self.var_context.0)
-            .unwrap_or("")
-            .to_lowercase();
+        let var_str = if options.case_sensitive {
+            std::str::from_utf8(&self.var_context.0)
+                .unwrap_or("")
+                .to_string()
+        } else {
+            std::str::from_utf8(&self.var_context.0)
+                .unwrap_or("")
+                .to_lowercase()
+        };
         let var_id = working_set.find_variable(&self.var_context.0);
         let current_span = reedline::Span {
             start: span.start - offset,
