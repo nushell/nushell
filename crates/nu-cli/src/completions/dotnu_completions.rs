@@ -110,6 +110,7 @@ impl Completer for DotNuCompletion {
                             start: x.0.start - offset,
                             end: x.0.end - offset,
                         },
+                        append_whitespace: true,
                     })
             })
             .collect();

@@ -1,5 +1,5 @@
 use crate::table::TextStyle;
-use ansi_cut::AnsiCut;
+use ansi_str::AnsiStr;
 use nu_ansi_term::Style;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -92,9 +92,9 @@ fn strip_ansi(string: &str) -> Cow<str> {
 
 pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
     input
-        .split_terminator('\n')
+        .ansi_split("\n")
         .map(|line| {
-            line.split_terminator(' ')
+            line.ansi_split(" ")
                 .map(|x| Subline {
                     subline: x.to_string(),
                     width: {
@@ -109,7 +109,7 @@ pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
                         // let c = strip_ansi(x).chars().count();
                         // let u = special_width(x);
                         // std::cmp::max(c, u)
-                        let stripped = strip_ansi(x);
+                        let stripped = strip_ansi(&x);
 
                         let c = stripped.chars().count();
                         let u = stripped.width();
@@ -159,7 +159,7 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
             end_index = c.0;
             if current_width + width > cell_width {
                 output.push(Subline {
-                    subline: word.cut(start_index..end_index),
+                    subline: word.ansi_cut(start_index..end_index),
                     width: current_width,
                 });
 
@@ -173,7 +173,7 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
 
     if start_index != word_no_ansi.len() {
         output.push(Subline {
-            subline: word.cut(start_index..),
+            subline: word.ansi_cut(start_index..),
             width: current_width,
         });
     }

@@ -4,21 +4,21 @@ description = "CLI-related functionality for Nushell"
 edition = "2021"
 license = "MIT"
 name = "nu-cli"
-version = "0.61.1"
+version = "0.62.0"
 
 [dev-dependencies]
-nu-test-support = { path="../nu-test-support", version = "0.61.1"  }
-nu-command = { path = "../nu-command", version = "0.61.1" }
+nu-test-support = { path="../nu-test-support", version = "0.62.0"  }
+nu-command = { path = "../nu-command", version = "0.62.0" }
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.61.1"  }
-nu-path = { path = "../nu-path", version = "0.61.1"  }
-nu-parser = { path = "../nu-parser", version = "0.61.1"  }
-nu-protocol = { path = "../nu-protocol", version = "0.61.1"  }
-nu-utils = { path = "../nu-utils", version = "0.61.1"  }
+nu-engine = { path = "../nu-engine", version = "0.62.0"  }
+nu-path = { path = "../nu-path", version = "0.62.0"  }
+nu-parser = { path = "../nu-parser", version = "0.62.0"  }
+nu-protocol = { path = "../nu-protocol", version = "0.62.0"  }
+nu-utils = { path = "../nu-utils", version = "0.62.0"  }
 nu-ansi-term = "0.45.1"
-nu-color-config = { path = "../nu-color-config", version = "0.61.1"  }
-reedline = { git = "https://github.com/nushell/reedline", branch = "main", features = ["bashisms"]}
+nu-color-config = { path = "../nu-color-config", version = "0.62.0"  }
+reedline = { version = "0.5.0", features = ["bashisms"]}
 crossterm = "0.23.0"
 miette = { version = "4.5.0", features = ["fancy"] }
 thiserror = "1.0.29"

@@ -127,6 +127,17 @@ pub fn trim_quotes(bytes: &[u8]) -> &[u8] {
     }
 }
 
+pub fn trim_quotes_str(s: &str) -> &str {
+    if (s.starts_with('"') && s.ends_with('"') && s.len() > 1)
+        || (s.starts_with('\'') && s.ends_with('\'') && s.len() > 1)
+        || (s.starts_with('`') && s.ends_with('`') && s.len() > 1)
+    {
+        &s[1..(s.len() - 1)]
+    } else {
+        s
+    }
+}
+
 pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError> {
     // Allow the call to pass if they pass in the help flag
     if call.named_iter().any(|(n, _, _)| n.item == "help") {
@@ -4041,7 +4052,6 @@ pub fn parse_operator(
         b">" => Operator::GreaterThan,
         b">=" => Operator::GreaterThanOrEqual,
         b"=~" => Operator::RegexMatch,
-        b"=^" => Operator::StartsWith,
         b"!~" => Operator::NotRegexMatch,
         b"+" => Operator::Plus,
         b"-" => Operator::Minus,
@@ -4050,6 +4060,8 @@ pub fn parse_operator(
         b"in" => Operator::In,
         b"not-in" => Operator::NotIn,
         b"mod" => Operator::Modulo,
+        b"starts-with" => Operator::StartsWith,
+        b"ends-with" => Operator::EndsWith,
         b"&&" | b"and" => Operator::And,
         b"||" | b"or" => Operator::Or,
         b"**" => Operator::Pow,
