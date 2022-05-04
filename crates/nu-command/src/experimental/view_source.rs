@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value
+    Value,
 };
 
 #[derive(Clone)]
@@ -70,8 +70,7 @@ impl Command for ViewSource {
                             }
                             final_contents.push_str("] ");
                             final_contents.push_str(&String::from_utf8_lossy(contents));
-                            Ok(Value::string(final_contents, call.head)
-                                .into_pipeline_data())
+                            Ok(Value::string(final_contents, call.head).into_pipeline_data())
                         } else {
                             Err(ShellError::GenericError(
                                 "Cannot view value".to_string(),
