@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Value
 };
 
 #[derive(Clone)]
@@ -47,14 +47,30 @@ impl Command for ViewSource {
                 }
             }
             Value::String { val, .. } => {
-                if let Some(decl_id) = engine_state.find_decl(val.as_bytes()) {
+                if let Some(decl_id) = engine_state.find_decl(&val.as_bytes()) {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);
+                    let sig = decl.signature();
+                    let vec_of_required = &sig.required_positional;
+                    // gets vector of positionals.
                     if let Some(block_id) = decl.get_block_id() {
                         let block = engine_state.get_block(block_id);
                         if let Some(block_span) = block.span {
                             let contents = engine_state.get_span_contents(&block_span);
-                            Ok(Value::string(String::from_utf8_lossy(contents), call.head)
+                            let mut final_contents = String::from("def ");
+                            final_contents.push_str(&val);
+                            // The name of the function...
+                            final_contents.push_str(" [ ");
+                            for n in vec_of_required {
+                                final_contents.push_str(&n.name);
+                                // name of positional arg
+                                final_contents.push(':');
+                                final_contents.push_str(&n.shape.to_string());
+                                final_contents.push(' ');
+                            }
+                            final_contents.push_str("] ");
+                            final_contents.push_str(&String::from_utf8_lossy(contents));
+                            Ok(Value::string(final_contents, call.head)
                                 .into_pipeline_data())
                         } else {
                             Err(ShellError::GenericError(
