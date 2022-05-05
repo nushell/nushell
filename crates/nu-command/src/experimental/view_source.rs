@@ -71,11 +71,6 @@ impl Command for ViewSource {
                                 final_contents.push(' ');
                             }
                             for n in vec_of_optional {
-                                if vec_of_required.contains(n) {
-                                    break;
-                                    // this check is necessary because optional returns mandatory
-                                    // args as well.
-                                }
                                 final_contents.push_str(&n.name);
                                 // name of positional arg
                                 final_contents.push_str("?:");
