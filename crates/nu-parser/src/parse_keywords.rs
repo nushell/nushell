@@ -1109,8 +1109,8 @@ pub fn parse_module_block(
                     }
                     _ => (
                         garbage_pipeline(&pipeline.commands[0].parts),
-                        Some(ParseError::UnexpectedKeyword(
-                            "expected def or export keyword".into(),
+                        Some(ParseError::ExpectedKeyword(
+                            "def or export keyword".into(),
                             pipeline.commands[0].parts[0],
                         )),
                     ),
