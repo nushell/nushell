@@ -1,3 +1,4 @@
+use crate::filesystem::cd_query::query;
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -44,14 +45,17 @@ impl Command for Cd {
 
                     if let Some(oldpwd) = oldpwd {
                         let path = oldpwd.as_path()?;
-                        let path = match nu_path::canonicalize_with(path, &cwd) {
+                        let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
-                            Err(e) => {
-                                return Err(ShellError::DirectoryNotFound(
-                                    v.span,
-                                    Some(format!("IO Error: {:?}", e)),
-                                ))
-                            }
+                            Err(_) => match query(&path, None, v.span) {
+                                Ok(p) => p,
+                                Err(e) => {
+                                    return Err(ShellError::DirectoryNotFound(
+                                        v.span,
+                                        Some(format!("IO Error: {:?}", e)),
+                                    ))
+                                }
+                            },
                         };
                         (path.to_string_lossy().to_string(), v.span)
                     } else {
@@ -64,17 +68,30 @@ impl Command for Cd {
                     let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                         Ok(p) => {
                             if !p.is_dir() {
-                                return Err(ShellError::NotADirectory(v.span));
-                            }
+                                // if it's not a dir, let's check to see if it's something abbreviated
+                                match query(&p, None, v.span) {
+                                    Ok(path) => path,
+                                    Err(e) => {
+                                        return Err(ShellError::DirectoryNotFound(
+                                            v.span,
+                                            Some(format!("IO Error: {:?}", e)),
+                                        ))
+                                    }
+                                };
+                            };
                             p
                         }
 
-                        Err(e) => {
-                            return Err(ShellError::DirectoryNotFound(
-                                v.span,
-                                Some(format!("IO Error: {:?}", e)),
-                            ))
-                        }
+                        // if canonicalize failed, let's check to see if it's abbreviated
+                        Err(_) => match query(&path_no_whitespace, None, v.span) {
+                            Ok(path) => path,
+                            Err(e) => {
+                                return Err(ShellError::DirectoryNotFound(
+                                    v.span,
+                                    Some(format!("IO Error: {:?}", e)),
+                                ))
+                            }
+                        },
                     };
                     (path.to_string_lossy().to_string(), v.span)
                 }
