@@ -88,7 +88,9 @@ impl Command for ViewSource {
                                 }
                                 if n.arg.is_some() {
                                     final_contents.push_str(": ");
-                                    final_contents.push_str(&n.arg.as_ref().expect("this cannot trigger.").to_string());
+                                    final_contents.push_str(
+                                        &n.arg.as_ref().expect("this cannot trigger.").to_string(),
+                                    );
                                 }
                                 final_contents.push(' ');
                             }
