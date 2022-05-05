@@ -83,12 +83,12 @@ impl Command for ViewSource {
                                 final_contents.push(' ');
                                 if n.short.is_some() {
                                     final_contents.push_str("(-");
-                                    final_contents.push(n.short.unwrap());
+                                    final_contents.push(n.short.expect("this cannot trigger."));
                                     final_contents.push(')');
                                 }
                                 if n.arg.is_some() {
                                     final_contents.push_str(": ");
-                                    final_contents.push_str(&n.arg.as_ref().unwrap().to_string());
+                                    final_contents.push_str(&n.arg.as_ref().expect("this cannot trigger.").to_string());
                                 }
                                 final_contents.push(' ');
                             }
