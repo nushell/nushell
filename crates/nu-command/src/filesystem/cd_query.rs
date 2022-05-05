@@ -100,10 +100,9 @@ where
             let mut next_level = vec![];
 
             for abbr in abbrs {
-                let children = current_level
-                    .iter()
-                    .map(|parent| get_matching_children(&parent.path, abbr, &parent.congruence))
-                    .flatten();
+                let children = current_level.iter().flat_map(|parent| {
+                    get_matching_children(&parent.path, abbr, &parent.congruence)
+                });
 
                 next_level.clear();
                 next_level.extend(children);
@@ -251,18 +250,69 @@ where
 mod test {
     use super::*;
 
-    use crate::utils::as_path;
+    //     // #[cfg(any(test, doc))]
+    //     // #[macro_export]
+    //     // macro_rules! assert_variant {
+    //     //     ($expression_in:expr , $( pat )|+ $( if $guard: expr )? $( => $expression_out:expr )? ) => {
+    //     //         match $expression_in {
+    //     //             $( $pattern )|+ $( if $guard )? => { $( $expression_out )? },
+    //     //             variant => panic!("{:?}", variant),
+    //     //         }
+    //     //     };
 
-    #[test]
-    fn test_parse_dots() {
-        assert_variant!(parse_dots(""), None);
-        assert_variant!(parse_dots("."), None);
-        assert_variant!(parse_dots(".."), Some(1));
-        assert_variant!(parse_dots("..."), Some(2));
-        assert_variant!(parse_dots("...."), Some(3));
-        assert_variant!(parse_dots("xyz"), None);
-        assert_variant!(parse_dots("...dot"), None);
-    }
+    //     //     ($expression_in:expr , $( pat )|+ $( if $guard: expr )? $( => $expression_out:expr)? , $panic:expr) => {
+    //     //         match $expression_in {
+    //     //             $( $pattern )|+ $( if $guard )? => { $( $expression_out )? },
+    //     //             _ => panic!($panic),
+    //     //         }
+    //     //     };
+    //     // }
+
+    //     /// Asserts that the expression matches the variant. Optionally returns a value.
+    //     ///
+    //     /// Inspired by [`std::matches`](https://doc.rust-lang.org/stable/std/macro.matches.html).
+    //     ///
+    //     /// # Examples
+    //     ///
+    //     /// ```
+    //     /// # fn main() -> Option<()> {
+    //     /// use kn::Congruence::*;
+    //     ///
+    //     /// let abbr = Abbr::new_sanitized("abcjkl");
+    //     /// let coeff_1 = assert_variant!(abbr.compare("abc_jkl"), Some(Subsequence(coeff)) => coeff);
+    //     /// let coeff_2 = assert_variant!(abbr.compare("ab_cj_kl"), Some(Subsequence(coeff)) => coeff);
+    //     /// assert!(coeff_1 < coeff_2);
+    //     /// # Ok(())
+    //     /// # }
+    //     /// ```
+    //     #[cfg(any(test, doc))]
+    //     #[macro_export]
+    //     macro_rules! assert_variant {
+    //     ($expression_in:expr , $( $pattern:pat )+ $( if $guard: expr )? $( => $expression_out:expr )? ) => {
+    //         match $expression_in {
+    //             $( $pattern )|+ $( if $guard )? => { $( $expression_out )? },
+    //             variant => panic!("{:?}", variant),
+    //         }
+    //     };
+
+    //     ($expression_in:expr , $( $pattern:pat )+ $( if $guard: expr )? $( => $expression_out:expr)? , $panic:expr) => {
+    //         match $expression_in {
+    //             $( $pattern )|+ $( if $guard )? => { $( $expression_out )? },
+    //             _ => panic!($panic),
+    //         }
+    //     };
+    // }
+
+    //     #[test]
+    //     fn test_parse_dots() {
+    //         assert_variant!(parse_dots(""), None);
+    //         assert_variant!(parse_dots("."), None);
+    //         assert_variant!(parse_dots(".."), Some(1));
+    //         assert_variant!(parse_dots("..."), Some(2));
+    //         assert_variant!(parse_dots("...."), Some(3));
+    //         assert_variant!(parse_dots("xyz"), None);
+    //         assert_variant!(parse_dots("...dot"), None);
+    //     }
 
     #[test]
     fn test_extract_prefix() {
@@ -311,47 +361,70 @@ mod test {
 
             let source = [0x0066, 0x006f, 0xd800, 0x006f];
             let os_string = OsString::from_wide(&source[..]);
-            let result = parse_arg(&non_unicode_input);
+            let result = parse_arg(&os_string);
 
             assert!(result.is_err());
         }
     }
-}
 
-/// Asserts that the expression matches the variant. Optionally returns a value.
-///
-/// Inspired by [`std::matches`](https://doc.rust-lang.org/stable/std/macro.matches.html).
-///
-/// # Examples
-///
-/// ```
-/// # fn main() -> Option<()> {
-/// use kn::Congruence::*;
-///
-/// let abbr = Abbr::new_sanitized("abcjkl");
-/// let coeff_1 = assert_variant!(abbr.compare("abc_jkl"), Some(Subsequence(coeff)) => coeff);
-/// let coeff_2 = assert_variant!(abbr.compare("ab_cj_kl"), Some(Subsequence(coeff)) => coeff);
-/// assert!(coeff_1 < coeff_2);
-/// # Ok(())
-/// # }
-/// ```
-#[cfg(any(test, doc))]
-#[macro_export]
-macro_rules! assert_variant {
-    ($expression_in:expr , $( $pattern:pat )|+ $( if $guard: expr )? $( => $expression_out:expr )? ) => {
-        match $expression_in {
-            $( $pattern )|+ $( if $guard )? => { $( $expression_out )? },
-            variant => panic!("{:?}", variant),
+    #[test]
+    fn test_congruence_ordering() {
+        assert!(Complete < Prefix);
+        assert!(Complete < Subsequence(1));
+        assert!(Prefix < Subsequence(1));
+        assert!(Subsequence(1) < Subsequence(1000));
+    }
+
+    //     #[test]
+    //     fn test_compare_abbr() {
+    //         let abbr = Abbr::new_sanitized("abcjkl");
+
+    //         assert_variant!(abbr.compare("abcjkl"), Some(Complete));
+    //         assert_variant!(abbr.compare("abcjkl_"), Some(Prefix));
+    //         assert_variant!(abbr.compare("_abcjkl"), Some(Subsequence(0)));
+    //         assert_variant!(abbr.compare("abc_jkl"), Some(Subsequence(1)));
+
+    //         assert_variant!(abbr.compare("xyz"), None);
+    //         assert_variant!(abbr.compare(""), None);
+    //     }
+
+    //     #[test]
+    //     fn test_compare_abbr_different_cases() {
+    //         let abbr = Abbr::new_sanitized("AbCjKl");
+
+    //         assert_variant!(abbr.compare("aBcJkL"), Some(Complete));
+    //         assert_variant!(abbr.compare("AbcJkl_"), Some(Prefix));
+    //         assert_variant!(abbr.compare("_aBcjKl"), Some(Subsequence(0)));
+    //         assert_variant!(abbr.compare("abC_jkL"), Some(Subsequence(1)));
+    //     }
+
+    //     #[test]
+    //     fn test_empty_abbr_empty_component() {
+    //         let empty = "";
+
+    //         let abbr = Abbr::new_sanitized(empty);
+    //         assert_variant!(abbr.compare("non empty component"), None);
+
+    //         let abbr = Abbr::new_sanitized("non empty abbr");
+    //         assert_variant!(abbr.compare(empty), None);
+    //     }
+
+    #[test]
+    fn test_order_paths() {
+        fn sort<'a>(paths: &'a Vec<&'a str>, abbr: &str) -> Vec<&'a str> {
+            let abbr = Abbr::new_sanitized(abbr);
+            let mut paths = paths.clone();
+            paths.sort_by_key(|path| abbr.compare(path).unwrap());
+
+            paths
         }
-    };
 
+        let paths = vec!["playground", "plotka"];
+        assert_eq!(paths, sort(&paths, "pla"));
 
-    ($expression_in:expr , $( $pattern:pat )|+ $( if $guard: expr )? $( => $expression_out:expr)? , $panic:expr) => {
-        match $expression_in {
-            $( $pattern )|+ $( if $guard )? => { $( $expression_out )? },
-            _ => panic!($panic),
-        }
-    };
+        let paths = vec!["veccentric", "vehiccles"];
+        assert_eq!(paths, sort(&paths, "vecc"));
+    }
 }
 
 /// Shorthand for `AsRef<Path>::as_ref(&x)`.
@@ -472,69 +545,5 @@ impl Ord for Congruence {
             (Subsequence(_), Prefix) => Greater,
             (Subsequence(dist_a), Subsequence(dist_b)) => dist_a.cmp(dist_b),
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_congruence_ordering() {
-        assert!(Complete < Prefix);
-        assert!(Complete < Subsequence(1));
-        assert!(Prefix < Subsequence(1));
-        assert!(Subsequence(1) < Subsequence(1000));
-    }
-
-    #[test]
-    fn test_compare_abbr() {
-        let abbr = Abbr::new_sanitized("abcjkl");
-
-        assert_variant!(abbr.compare("abcjkl"), Some(Complete));
-        assert_variant!(abbr.compare("abcjkl_"), Some(Prefix));
-        assert_variant!(abbr.compare("_abcjkl"), Some(Subsequence(0)));
-        assert_variant!(abbr.compare("abc_jkl"), Some(Subsequence(1)));
-
-        assert_variant!(abbr.compare("xyz"), None);
-        assert_variant!(abbr.compare(""), None);
-    }
-
-    #[test]
-    fn test_compare_abbr_different_cases() {
-        let abbr = Abbr::new_sanitized("AbCjKl");
-
-        assert_variant!(abbr.compare("aBcJkL"), Some(Complete));
-        assert_variant!(abbr.compare("AbcJkl_"), Some(Prefix));
-        assert_variant!(abbr.compare("_aBcjKl"), Some(Subsequence(0)));
-        assert_variant!(abbr.compare("abC_jkL"), Some(Subsequence(1)));
-    }
-
-    #[test]
-    fn test_empty_abbr_empty_component() {
-        let empty = "";
-
-        let abbr = Abbr::new_sanitized(empty);
-        assert_variant!(abbr.compare("non empty component"), None);
-
-        let abbr = Abbr::new_sanitized("non empty abbr");
-        assert_variant!(abbr.compare(empty), None);
-    }
-
-    #[test]
-    fn test_order_paths() {
-        fn sort<'a>(paths: &'a Vec<&'a str>, abbr: &str) -> Vec<&'a str> {
-            let abbr = Abbr::new_sanitized(abbr);
-            let mut paths = paths.clone();
-            paths.sort_by_key(|path| abbr.compare(path).unwrap());
-
-            paths
-        }
-
-        let paths = vec!["playground", "plotka"];
-        assert_eq!(paths, sort(&paths, "pla"));
-
-        let paths = vec!["veccentric", "vehiccles"];
-        assert_eq!(paths, sort(&paths, "vecc"));
     }
 }
