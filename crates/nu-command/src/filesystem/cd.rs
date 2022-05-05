@@ -153,10 +153,17 @@ impl Command for Cd {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Change to your home directory",
-            example: r#"cd ~"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Change to your home directory",
+                example: r#"cd ~"#,
+                result: None,
+            },
+            Example {
+                description: "Change to a directory via abbreviations",
+                example: r#"cd d/s/9"#,
+                result: None,
+            },
+        ]
     }
 }
