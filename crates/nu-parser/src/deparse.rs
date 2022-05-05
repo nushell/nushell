@@ -17,5 +17,6 @@ pub fn escape_quote_string(input: &str) -> String {
     if is_flag {
         output.push('"');
     }
+    output.push('"');
     output
 }
