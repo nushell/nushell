@@ -1,21 +1,18 @@
-use crate::reedline_config::add_menus;
-use crate::{completions::NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
-use crate::{prompt_update, reedline_config};
 use crate::{
-    reedline_config::KeybindingsMode,
+    completions::NuCompleter,
+    prompt_update,
+    reedline_config::{add_menus, create_keybindings, KeybindingsMode},
     util::{eval_source, report_error},
+    NuHighlighter, NuValidator, NushellPrompt,
 };
-use log::info;
-use log::trace;
+use log::{info, trace};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::get_color_config;
 use nu_engine::convert_env_values;
 use nu_parser::lex;
-use nu_protocol::engine::Stack;
-use nu_protocol::PipelineData;
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
-    ShellError, Span, Value,
+    engine::{EngineState, Stack, StateWorkingSet},
+    PipelineData, ShellError, Span, Value,
 };
 use reedline::{DefaultHinter, Emacs, Vi};
 use std::io::{self, Write};
@@ -175,7 +172,7 @@ pub fn evaluate_repl(
         }
 
         // Changing the line editor based on the found keybindings
-        line_editor = match reedline_config::create_keybindings(config) {
+        line_editor = match create_keybindings(config) {
             Ok(keybindings) => match keybindings {
                 KeybindingsMode::Emacs(keybindings) => {
                     let edit_mode = Box::new(Emacs::new(keybindings));
@@ -244,7 +241,6 @@ pub fn evaluate_repl(
                                 &ShellError::DirectoryNotFound(tokens.0[0].span, None),
                             );
                         }
-
                         let path = nu_path::canonicalize_with(path, &cwd)
                             .expect("internal error: cannot canonicalize known path");
                         (path.to_string_lossy().to_string(), tokens.0[0].span)
@@ -290,15 +286,16 @@ pub fn evaluate_repl(
                         &format!("entry #{}", entry_num),
                         PipelineData::new(Span::new(0, 0)),
                     );
-
-                    stack.add_env_var(
-                        "CMD_DURATION_MS".into(),
-                        Value::String {
-                            val: format!("{}", start_time.elapsed().as_millis()),
-                            span: Span { start: 0, end: 0 },
-                        },
-                    );
                 }
+
+                stack.add_env_var(
+                    "CMD_DURATION_MS".into(),
+                    Value::String {
+                        val: format!("{}", start_time.elapsed().as_millis()),
+                        span: Span { start: 0, end: 0 },
+                    },
+                );
+
                 // FIXME: permanent state changes like this hopefully in time can be removed
                 // and be replaced by just passing the cwd in where needed
                 if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
@@ -310,17 +307,30 @@ pub fn evaluate_repl(
                 if use_shell_integration {
                     // Just before running a command/program, send the escape code (see
                     // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
-                    let mut ansi_escapes = String::from(PROMPT_MARKER_BEFORE_CMD);
-                    ansi_escapes.push_str(RESET_APPLICATION_MODE);
+                    let mut ansi_escapes = String::from(RESET_APPLICATION_MODE);
+                    ansi_escapes.push_str(PROMPT_MARKER_BEFORE_CMD);
                     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
                         let path = cwd.as_string()?;
-                        ansi_escapes.push_str(&format!("\x1b]2;{}\x07", path));
+                        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                            path.replace(&p.as_path().display().to_string(), "~")
+                        } else {
+                            path
+                        };
+                        ansi_escapes.push_str(&format!("\x1b]1;{}\x07", maybe_abbrev_path));
                     }
-                    // print!("{}", ansi_escapes);
                     match io::stdout().write_all(ansi_escapes.as_bytes()) {
                         Ok(it) => it,
-                        Err(err) => print!("error: {}", err),
+                        Err(err) => println!("error: {}", err),
                     };
+                    let _ = io::stdout().flush().map_err(|e| {
+                        ShellError::GenericError(
+                            "Error flushing stdio".into(),
+                            e.to_string(),
+                            Some(Span { start: 0, end: 0 }),
+                            None,
+                            Vec::new(),
+                        )
+                    });
                 }
             }
             Ok(Signal::CtrlC) => {
