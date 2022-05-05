@@ -52,6 +52,8 @@ impl Command for ViewSource {
                     let decl = engine_state.get_decl(decl_id);
                     let sig = decl.signature();
                     let vec_of_required = &sig.required_positional;
+                    let vec_of_optional = &sig.optional_positional;
+                    let vec_of_flags = &sig.named;
                     // gets vector of positionals.
                     if let Some(block_id) = decl.get_block_id() {
                         let block = engine_state.get_block(block_id);
@@ -66,6 +68,30 @@ impl Command for ViewSource {
                                 // name of positional arg
                                 final_contents.push(':');
                                 final_contents.push_str(&n.shape.to_string());
+                                final_contents.push(' ');
+                            }
+                            for n in vec_of_optional {
+                                final_contents.push_str(&n.name);
+                                // name of positional arg
+                                final_contents.push_str("?:");
+                                final_contents.push_str(&n.shape.to_string());
+                                final_contents.push(' ');
+                            }
+                            for n in vec_of_flags {
+                                final_contents.push_str("--");
+                                final_contents.push_str(&n.long);
+                                final_contents.push(' ');
+                                if n.short.is_some() {
+                                    final_contents.push_str("(-");
+                                    final_contents.push(n.short.expect("this cannot trigger."));
+                                    final_contents.push(')');
+                                }
+                                if n.arg.is_some() {
+                                    final_contents.push_str(": ");
+                                    final_contents.push_str(
+                                        &n.arg.as_ref().expect("this cannot trigger.").to_string(),
+                                    );
+                                }
                                 final_contents.push(' ');
                             }
                             final_contents.push_str("] ");
