@@ -198,6 +198,7 @@ let-env config = {
   sync_history_on_enter: true # Enable to share the history between multiple sessions, else you have to close the session to persist history to file
   shell_integration: true # enables terminal markers and a workaround to arrow keys stop working issue
   disable_table_indexes: false # set to true to remove the index column from tables
+  cd_with_abbreviations: false # set to true to allow you to do things like cd s/o/f and nushell expand it to cd some/other/folder
   menus: [
       # Configuration for default nushell menus
       # Note the lack of souce parameter

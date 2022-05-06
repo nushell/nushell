@@ -63,6 +63,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "alphanumeric-sort"
+version = "1.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77e9c9abb82613923ec78d7a461595d52491ba7240f3c64c0bbe0e6d98e0fce0"
+
+[[package]]
 name = "ansi-parser"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2486,6 +2492,7 @@ name = "nu-command"
 version = "0.62.0"
 dependencies = [
  "Inflector",
+ "alphanumeric-sort",
  "base64",
  "bytesize",
  "calamine",
@@ -2532,6 +2539,7 @@ dependencies = [
  "num 0.4.0",
  "pathdiff",
  "polars",
+ "powierza-coefficient",
  "quick-xml 0.22.0",
  "quickcheck",
  "quickcheck_macros",
@@ -3359,6 +3367,12 @@ checksum = "a4a63d338dec139f56dacc692ca63ad35a6be6a797442479b55acd611d79e906"
 dependencies = [
  "nom 7.1.1",
 ]
+
+[[package]]
+name = "powierza-coefficient"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9caa43783252cf8c4c66dd1cc381a5929cc95f6530da7abd1f9cdb97e2065842"
 
 [[package]]
 name = "ppv-lite86"

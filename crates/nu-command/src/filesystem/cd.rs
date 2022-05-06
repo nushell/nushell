@@ -1,3 +1,4 @@
+use crate::filesystem::cd_query::query;
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -36,6 +37,8 @@ impl Command for Cd {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
+        let config = engine_state.get_config();
+        let use_abbrev = config.cd_with_abbreviations;
 
         let (path, span) = match path_val {
             Some(v) => {
@@ -44,13 +47,25 @@ impl Command for Cd {
 
                     if let Some(oldpwd) = oldpwd {
                         let path = oldpwd.as_path()?;
-                        let path = match nu_path::canonicalize_with(path, &cwd) {
+                        let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
-                            Err(e) => {
-                                return Err(ShellError::DirectoryNotFound(
-                                    v.span,
-                                    Some(format!("IO Error: {:?}", e)),
-                                ))
+                            Err(e1) => {
+                                if use_abbrev {
+                                    match query(&path, None, v.span) {
+                                        Ok(p) => p,
+                                        Err(e) => {
+                                            return Err(ShellError::DirectoryNotFound(
+                                                v.span,
+                                                Some(format!("IO Error: {:?}", e)),
+                                            ))
+                                        }
+                                    }
+                                } else {
+                                    return Err(ShellError::DirectoryNotFound(
+                                        v.span,
+                                        Some(format!("IO Error: {:?}", e1)),
+                                    ));
+                                }
                             }
                         };
                         (path.to_string_lossy().to_string(), v.span)
@@ -64,16 +79,42 @@ impl Command for Cd {
                     let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                         Ok(p) => {
                             if !p.is_dir() {
-                                return Err(ShellError::NotADirectory(v.span));
-                            }
+                                if use_abbrev {
+                                    // if it's not a dir, let's check to see if it's something abbreviated
+                                    match query(&p, None, v.span) {
+                                        Ok(path) => path,
+                                        Err(e) => {
+                                            return Err(ShellError::DirectoryNotFound(
+                                                v.span,
+                                                Some(format!("IO Error: {:?}", e)),
+                                            ))
+                                        }
+                                    };
+                                } else {
+                                    return Err(ShellError::NotADirectory(v.span));
+                                }
+                            };
                             p
                         }
 
-                        Err(e) => {
-                            return Err(ShellError::DirectoryNotFound(
-                                v.span,
-                                Some(format!("IO Error: {:?}", e)),
-                            ))
+                        // if canonicalize failed, let's check to see if it's abbreviated
+                        Err(e1) => {
+                            if use_abbrev {
+                                match query(&path_no_whitespace, None, v.span) {
+                                    Ok(path) => path,
+                                    Err(e) => {
+                                        return Err(ShellError::DirectoryNotFound(
+                                            v.span,
+                                            Some(format!("IO Error: {:?}", e)),
+                                        ))
+                                    }
+                                }
+                            } else {
+                                return Err(ShellError::DirectoryNotFound(
+                                    v.span,
+                                    Some(format!("IO Error: {:?}", e1)),
+                                ));
+                            }
                         }
                     };
                     (path.to_string_lossy().to_string(), v.span)
@@ -136,10 +177,17 @@ impl Command for Cd {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Change to your home directory",
-            example: r#"cd ~"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Change to your home directory",
+                example: r#"cd ~"#,
+                result: None,
+            },
+            Example {
+                description: "Change to a directory via abbreviations",
+                example: r#"cd d/s/9"#,
+                result: None,
+            },
+        ]
     }
 }

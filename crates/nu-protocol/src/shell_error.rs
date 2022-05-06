@@ -636,6 +636,27 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
         String,
         #[label = "'{0}' is deprecated. Please use '{1}' instead."] Span,
     ),
+
+    /// Non-Unicode input received.
+    ///
+    /// ## Resolution
+    ///
+    /// Check that your path is UTF-8 compatible.
+    #[error("Non-Unicode input received.")]
+    #[diagnostic(code(nu::shell::non_unicode_input), url(docsrs))]
+    NonUnicodeInput,
+
+    // /// Path not found.
+    // #[error("Path not found.")]
+    // PathNotFound,
+    /// Unexpected abbr component.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the path abbreviation to ensure that it is valid.
+    #[error("Unexpected abbr component `{0}`.")]
+    #[diagnostic(code(nu::shell::unexpected_path_abbreviateion), url(docsrs))]
+    UnexpectedAbbrComponent(String),
 }
 
 impl From<std::io::Error> for ShellError {
