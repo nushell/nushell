@@ -2,10 +2,50 @@ use std::path::PathBuf;
 
 use nu_cli::NuCompleter;
 use nu_command::create_default_context;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::{
+    engine::{EngineState, Stack, StateDelta},
+    Value,
+};
 use nu_test_support::fs;
 use reedline::{Completer, Suggestion};
 const SEP: char = std::path::MAIN_SEPARATOR;
+
+#[test]
+fn dotnu_completions() {
+    // Create a new engine
+    let (_, dir_str, engine) = new_engine();
+
+    let mut stack = Stack::new();
+
+    // Add pwd as env var
+    stack.add_env_var(
+        "PWD".to_string(),
+        Value::String {
+            val: dir_str.clone(),
+            span: nu_protocol::Span {
+                start: 0,
+                end: dir_str.len(),
+            },
+        },
+    );
+
+    // Instatiate a new completer
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Test source completion
+    let completion_str = "source ".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    assert_eq!(1, suggestions.len());
+    assert_eq!("test_dotnu.nu", suggestions.get(0).unwrap().value);
+
+    // Test use completion
+    let completion_str = "use ".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    assert_eq!(1, suggestions.len());
+    assert_eq!("test_dotnu.nu", suggestions.get(0).unwrap().value);
+}
 
 #[test]
 fn file_completions() {
@@ -27,6 +67,7 @@ fn file_completions() {
         folder(dir.join("test_a")),
         folder(dir.join("test_b")),
         folder(dir.join("another")),
+        file(dir.join("test_dotnu.nu")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
     ];
@@ -82,8 +123,28 @@ pub fn new_engine() -> (PathBuf, String, EngineState) {
         .unwrap_or_default();
     dir_str.push(SEP);
 
-    // Create a default engine
-    (dir.clone(), dir_str, create_default_context(dir))
+    // Create a new engine with default context
+    let mut engine_state = create_default_context(&dir);
+
+    // New stack
+    let mut stack = Stack::new();
+
+    // Add pwd as env var
+    stack.add_env_var(
+        "PWD".to_string(),
+        Value::String {
+            val: dir_str.clone(),
+            span: nu_protocol::Span {
+                start: 0,
+                end: dir_str.len(),
+            },
+        },
+    );
+
+    // Merge delta
+    let _ = engine_state.merge_delta(StateDelta::new(), Some(&mut stack), &dir);
+
+    (dir.clone(), dir_str, engine_state)
 }
 
 // match a list of suggestions with the expected values

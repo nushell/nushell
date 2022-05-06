@@ -58,7 +58,7 @@ impl Completer for DotNuCompletion {
             };
 
         // Check if the base_dir is a folder
-        if base_dir != "./" {
+        if base_dir != format!(".{}", SEP) {
             // Add the base dir into the directories to be searched
             search_dirs.push(base_dir.clone());
 
