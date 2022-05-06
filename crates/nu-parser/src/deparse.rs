@@ -11,9 +11,9 @@ fn looks_like_flag(input: &str) -> bool {
             // while it start with '-', it is not of the form '-x=y' or '-x y'
         } else {
             input.len() >= 2
-        } 
+        }
     } else {
-        input.len() > 2 
+        input.len() > 2
         // it is either a flag --x or a '--'
     }
 }
