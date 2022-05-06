@@ -26,6 +26,7 @@ nu-utils = { path = "../nu-utils", version = "0.62.0" }
 nu-ansi-term = "0.45.1"
 
 # Potential dependencies for extras
+alphanumeric-sort = "1.4.4"
 base64 = "0.13.0"
 bytesize = "1.1.0"
 calamine = "0.18.0"
@@ -56,6 +57,7 @@ mime = "0.3.16"
 notify = "4.0.17"
 num = { version = "0.4.0", optional = true }
 pathdiff = "0.2.1"
+powierza-coefficient = "1.0"
 quick-xml = "0.22"
 rand = "0.8"
 rayon = "1.5.1"

@@ -49,6 +49,7 @@ pub struct Config {
     pub shell_integration: bool,
     pub buffer_editor: String,
     pub disable_table_indexes: bool,
+    pub cd_with_abbreviations: bool,
 }
 
 impl Default for Config {
@@ -77,6 +78,7 @@ impl Default for Config {
             shell_integration: false,
             buffer_editor: String::new(),
             disable_table_indexes: false,
+            cd_with_abbreviations: false,
         }
     }
 }
@@ -265,10 +267,16 @@ impl Value {
                             eprintln!("$config.buffer_editor is not a string")
                         }
                     }
-
                     "disable_table_indexes" => {
                         if let Ok(b) = value.as_bool() {
                             config.disable_table_indexes = b;
+                        } else {
+                            eprintln!("$config.disable_table_indexes is not a bool")
+                        }
+                    }
+                    "cd_with_abbreviations" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.cd_with_abbreviations = b;
                         } else {
                             eprintln!("$config.disable_table_indexes is not a bool")
                         }
