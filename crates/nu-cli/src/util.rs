@@ -1,8 +1,8 @@
-use crate::CliError;
 use log::trace;
 use nu_engine::eval_block;
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::CliError;
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, ShellError, Span, Value,
@@ -237,7 +237,7 @@ pub fn eval_source(
                 set_last_exit_code(stack, 0);
             }
 
-            if let Err(err) = pipeline_data.print(engine_state, stack) {
+            if let Err(err) = pipeline_data.print(engine_state, stack, false) {
                 let working_set = StateWorkingSet::new(engine_state);
 
                 report_error(&working_set, &err);

@@ -541,7 +541,7 @@ mod test {
 
     #[test]
     fn can_read_empty_db() {
-        let db = Connection::open_in_memory().unwrap();
+        let db = open_connection_in_memory().unwrap();
         let converted_db = read_entire_sqlite_db(db, Span::test_data()).unwrap();
 
         let expected = Value::Record {
@@ -555,7 +555,7 @@ mod test {
 
     #[test]
     fn can_read_empty_table() {
-        let db = Connection::open_in_memory().unwrap();
+        let db = open_connection_in_memory().unwrap();
 
         db.execute(
             "CREATE TABLE person (
@@ -583,7 +583,7 @@ mod test {
     #[test]
     fn can_read_null_and_non_null_data() {
         let span = Span::test_data();
-        let db = Connection::open_in_memory().unwrap();
+        let db = open_connection_in_memory().unwrap();
 
         db.execute(
             "CREATE TABLE item (
@@ -632,7 +632,6 @@ mod test {
     }
 }
 
-//----------------------------------------------------
 pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
     let db = match Connection::open_in_memory() {
         Ok(conn) => conn,
@@ -648,65 +647,4 @@ pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
     };
 
     Ok(db)
-}
-
-pub fn open_and_read_sqlite_db(
-    path: &Path,
-    call_span: Span,
-) -> Result<Value, nu_protocol::ShellError> {
-    let path = path.to_string_lossy().to_string();
-
-    match Connection::open(path) {
-        Ok(conn) => match read_sqlite_db(conn, call_span) {
-            Ok(data) => Ok(data),
-            Err(err) => Err(ShellError::GenericError(
-                "Failed to read from SQLite database".into(),
-                err.to_string(),
-                Some(call_span),
-                None,
-                Vec::new(),
-            )),
-        },
-        Err(err) => Err(ShellError::GenericError(
-            "Failed to open SQLite database".into(),
-            err.to_string(),
-            Some(call_span),
-            None,
-            Vec::new(),
-        )),
-    }
-}
-
-pub fn read_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rusqlite::Error> {
-    let mut table_names: Vec<String> = Vec::new();
-    let mut tables: Vec<Value> = Vec::new();
-
-    let mut get_table_names =
-        conn.prepare("SELECT name from sqlite_master where type = 'table'")?;
-    let rows = get_table_names.query_map([], |row| row.get(0))?;
-
-    for row in rows {
-        let table_name: String = row?;
-        table_names.push(table_name.clone());
-
-        let mut rows = Vec::new();
-        let mut table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
-        let mut table_rows = table_stmt.query([])?;
-        while let Some(table_row) = table_rows.next()? {
-            rows.push(convert_sqlite_row_to_nu_value(table_row, call_span))
-        }
-
-        let table_record = Value::List {
-            vals: rows,
-            span: call_span,
-        };
-
-        tables.push(table_record);
-    }
-
-    Ok(Value::Record {
-        cols: table_names,
-        vals: tables,
-        span: call_span,
-    })
 }

@@ -92,6 +92,7 @@ impl NuHelpCompleter {
                         start: pos,
                         end: pos + line.len(),
                     },
+                    append_whitespace: false,
                 }
             })
             .collect()

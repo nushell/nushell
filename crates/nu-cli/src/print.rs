@@ -16,6 +16,11 @@ impl Command for Print {
     fn signature(&self) -> Signature {
         Signature::build("print")
             .rest("rest", SyntaxShape::Any, "the values to print")
+            .switch(
+                "no_newline",
+                "print without inserting a newline for the line ending",
+                Some('n'),
+            )
             .category(Category::Strings)
     }
 
@@ -31,10 +36,13 @@ impl Command for Print {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        let no_newline = call.has_flag("no_newline");
+
         let head = call.head;
 
         for arg in args {
-            arg.into_pipeline_data().print(engine_state, stack)?;
+            arg.into_pipeline_data()
+                .print(engine_state, stack, no_newline)?;
         }
 
         Ok(PipelineData::new(head))

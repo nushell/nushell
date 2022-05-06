@@ -5,8 +5,8 @@ use std::{
 
 use crate::{
     ast::{Call, PathMember},
-    engine::{EngineState, Stack},
-    Config, ListStream, RawStream, ShellError, Span, Value,
+    engine::{EngineState, Stack, StateWorkingSet},
+    format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
 
 /// The foundational abstraction for input and output to commands
@@ -416,12 +416,16 @@ impl PipelineData {
         }
     }
 
-    pub fn print(self, engine_state: &EngineState, stack: &mut Stack) -> Result<(), ShellError> {
+    pub fn print(
+        self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        no_newline: bool,
+    ) -> Result<(), ShellError> {
         // If the table function is in the declarations, then we can use it
         // to create the table value that will be printed in the terminal
 
         let config = engine_state.get_config();
-
         let stdout = std::io::stdout();
 
         if let PipelineData::ExternalStream {
@@ -456,12 +460,19 @@ impl PipelineData {
                 for item in table {
                     let stdout = std::io::stdout();
 
-                    if let Value::Error { error } = item {
-                        return Err(error);
-                    }
+                    let mut out = if let Value::Error { error } = item {
+                        let working_set = StateWorkingSet::new(engine_state);
 
-                    let mut out = item.into_string("\n", config);
-                    out.push('\n');
+                        format_error(&working_set, &error)
+                    } else if no_newline {
+                        item.into_string("", config)
+                    } else {
+                        item.into_string("\n", config)
+                    };
+
+                    if !no_newline {
+                        out.push('\n');
+                    }
 
                     match stdout.lock().write_all(out.as_bytes()) {
                         Ok(_) => (),
@@ -472,13 +483,19 @@ impl PipelineData {
             None => {
                 for item in self {
                     let stdout = std::io::stdout();
+                    let mut out = if let Value::Error { error } = item {
+                        let working_set = StateWorkingSet::new(engine_state);
 
-                    if let Value::Error { error } = item {
-                        return Err(error);
+                        format_error(&working_set, &error)
+                    } else if no_newline {
+                        item.into_string("", config)
+                    } else {
+                        item.into_string("\n", config)
+                    };
+
+                    if !no_newline {
+                        out.push('\n');
                     }
-
-                    let mut out = item.into_string("\n", config);
-                    out.push('\n');
 
                     match stdout.lock().write_all(out.as_bytes()) {
                         Ok(_) => (),

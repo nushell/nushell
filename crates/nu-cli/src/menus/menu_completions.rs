@@ -155,6 +155,7 @@ fn convert_to_suggestions(
                 description,
                 extra,
                 span,
+                append_whitespace: false,
             }]
         }
         Value::List { vals, .. } => vals
@@ -169,6 +170,7 @@ fn convert_to_suggestions(
                 start: 0,
                 end: line.len(),
             },
+            append_whitespace: false,
         }],
     }
 }

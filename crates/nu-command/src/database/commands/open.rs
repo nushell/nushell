@@ -31,8 +31,8 @@ impl Command for OpenDb {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "",
-            example: r#"""#,
+            description: "Open a sqlite file",
+            example: r#"db open file.sqlite"#,
             result: None,
         }]
     }

@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use nu_parser::trim_quotes_str;
 
 #[derive(Copy, Clone)]
 pub enum SortBy {
@@ -28,6 +29,8 @@ pub enum MatchAlgorithm {
 impl MatchAlgorithm {
     /// Returns whether the `needle` search text matches the given `haystack`.
     pub fn matches_str(&self, haystack: &str, needle: &str) -> bool {
+        let haystack = trim_quotes_str(haystack);
+        let needle = trim_quotes_str(needle);
         match *self {
             MatchAlgorithm::Prefix => haystack.starts_with(needle),
             MatchAlgorithm::Fuzzy => {

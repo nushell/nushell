@@ -1,11 +1,14 @@
-use crate::completions::{file_path_completion, Completer, CompletionOptions};
+use crate::completions::{matches, Completer, CompletionOptions};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
 };
 use reedline::Suggestion;
+use std::fs;
 use std::path::Path;
 use std::sync::Arc;
+
+use super::{partial_from, prepend_base_dir, MatchAlgorithm};
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
@@ -41,22 +44,17 @@ impl Completer for DirectoryCompletion {
         let partial = String::from_utf8_lossy(&prefix).to_string();
 
         // Filter only the folders
-        let output: Vec<_> = file_path_completion(span, &partial, &cwd, options.match_algorithm)
+        let output: Vec<_> = directory_completion(span, &partial, &cwd, options.match_algorithm)
             .into_iter()
-            .filter_map(move |x| {
-                if x.1.ends_with(SEP) {
-                    return Some(Suggestion {
-                        value: x.1,
-                        description: None,
-                        extra: None,
-                        span: reedline::Span {
-                            start: x.0.start - offset,
-                            end: x.0.end - offset,
-                        },
-                    });
-                }
-
-                None
+            .map(move |x| Suggestion {
+                value: x.1,
+                description: None,
+                extra: None,
+                span: reedline::Span {
+                    start: x.0.start - offset,
+                    end: x.0.end - offset,
+                },
+                append_whitespace: false,
             })
             .collect();
 
@@ -99,4 +97,64 @@ impl Completer for DirectoryCompletion {
 
         non_hidden
     }
+}
+
+pub fn directory_completion(
+    span: nu_protocol::Span,
+    partial: &str,
+    cwd: &str,
+    match_algorithm: MatchAlgorithm,
+) -> Vec<(nu_protocol::Span, String)> {
+    let original_input = partial;
+
+    let (base_dir_name, partial) = partial_from(partial);
+
+    let base_dir = nu_path::expand_path_with(&base_dir_name, cwd);
+
+    // This check is here as base_dir.read_dir() with base_dir == "" will open the current dir
+    // which we don't want in this case (if we did, base_dir would already be ".")
+    if base_dir == Path::new("") {
+        return Vec::new();
+    }
+
+    if let Ok(result) = base_dir.read_dir() {
+        return result
+            .filter_map(|entry| {
+                entry.ok().and_then(|entry| {
+                    if let Ok(metadata) = fs::metadata(entry.path()) {
+                        if metadata.is_dir() {
+                            let mut file_name = entry.file_name().to_string_lossy().into_owned();
+                            if matches(&partial, &file_name, match_algorithm) {
+                                let mut path = if prepend_base_dir(original_input, &base_dir_name) {
+                                    format!("{}{}", base_dir_name, file_name)
+                                } else {
+                                    file_name.to_string()
+                                };
+
+                                if entry.path().is_dir() {
+                                    path.push(SEP);
+                                    file_name.push(SEP);
+                                }
+
+                                // Fix files or folders with quotes
+                                if path.contains('\'') || path.contains('"') || path.contains(' ') {
+                                    path = format!("`{}`", path);
+                                }
+
+                                Some((span, path))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect();
+    }
+
+    Vec::new()
 }

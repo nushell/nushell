@@ -586,12 +586,9 @@ impl Value {
     pub fn is_empty(&self) -> bool {
         match self {
             Value::String { val, .. } => val.is_empty(),
-            Value::List { vals, .. } => {
-                vals.is_empty() && vals.iter().all(|v| v.clone().is_empty())
-            }
-            Value::Record { cols, vals, .. } => {
-                cols.iter().all(|v| v.is_empty()) && vals.iter().all(|v| v.clone().is_empty())
-            }
+            Value::List { vals, .. } => vals.is_empty(),
+            Value::Record { cols, .. } => cols.is_empty(),
+            Value::Binary { val, .. } => val.is_empty(),
             Value::Nothing { .. } => true,
             _ => false,
         }
@@ -2083,6 +2080,25 @@ impl Value {
         }
     }
 
+    pub fn ends_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs.ends_with(rhs),
+                span,
+            }),
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::EndsWith, op, rhs)
+            }
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
     pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2420,4 +2436,64 @@ fn get_config_filesize_format(config: &Config) -> (ByteUnit, &str) {
     };
 
     filesize_format
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::{Span, Value};
+
+    mod is_empty {
+        use super::*;
+
+        #[test]
+        fn test_string() {
+            let value = Value::string("", Span::unknown());
+            assert!(value.is_empty());
+        }
+
+        #[test]
+        fn test_list() {
+            let list_with_no_values = Value::List {
+                vals: vec![],
+                span: Span::unknown(),
+            };
+            let list_with_one_empty_string = Value::List {
+                vals: vec![Value::string("", Span::unknown())],
+                span: Span::unknown(),
+            };
+
+            assert!(list_with_no_values.is_empty());
+            assert!(!list_with_one_empty_string.is_empty());
+        }
+
+        #[test]
+        fn test_record() {
+            let no_columns_nor_cell_values = Value::Record {
+                cols: vec![],
+                vals: vec![],
+                span: Span::unknown(),
+            };
+            let one_column_and_one_cell_value_with_empty_strings = Value::Record {
+                cols: vec![String::from("")],
+                vals: vec![Value::string("", Span::unknown())],
+                span: Span::unknown(),
+            };
+            let one_column_with_a_string_and_one_cell_value_with_empty_string = Value::Record {
+                cols: vec![String::from("column")],
+                vals: vec![Value::string("", Span::unknown())],
+                span: Span::unknown(),
+            };
+            let one_column_with_empty_string_and_one_value_with_a_string = Value::Record {
+                cols: vec![String::from("")],
+                vals: vec![Value::string("text", Span::unknown())],
+                span: Span::unknown(),
+            };
+
+            assert!(no_columns_nor_cell_values.is_empty());
+            assert!(!one_column_and_one_cell_value_with_empty_strings.is_empty());
+            assert!(!one_column_with_a_string_and_one_cell_value_with_empty_string.is_empty());
+            assert!(!one_column_with_empty_string_and_one_value_with_a_string.is_empty());
+        }
+    }
 }

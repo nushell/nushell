@@ -23,7 +23,7 @@ use crate::{
         parse_internal_call, parse_multispan_value, parse_signature, parse_string,
         parse_var_with_opt_type, trim_quotes,
     },
-    ParseError,
+    unescape_unquote_string, ParseError,
 };
 
 pub fn parse_def_predecl(
@@ -1109,8 +1109,8 @@ pub fn parse_module_block(
                     }
                     _ => (
                         garbage_pipeline(&pipeline.commands[0].parts),
-                        Some(ParseError::UnexpectedKeyword(
-                            "expected def or export keyword".into(),
+                        Some(ParseError::ExpectedKeyword(
+                            "def or export keyword".into(),
                             pipeline.commands[0].parts[0],
                         )),
                     ),
@@ -1312,9 +1312,10 @@ pub fn parse_use(
         } else {
             // TODO: Do not close over when loading module from file
             // It could be a file
-            if let Ok(module_filename) =
-                String::from_utf8(trim_quotes(&import_pattern.head.name).to_vec())
-            {
+
+            let (module_filename, err) =
+                unescape_unquote_string(&import_pattern.head.name, import_pattern.head.span);
+            if err.is_none() {
                 if let Some(module_path) =
                     find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
                 {
@@ -1816,8 +1817,8 @@ pub fn parse_source(
             // Command and one file name
             if spans.len() >= 2 {
                 let name_expr = working_set.get_span_contents(spans[1]);
-                let name_expr = trim_quotes(name_expr);
-                if let Ok(filename) = String::from_utf8(name_expr.to_vec()) {
+                let (filename, err) = unescape_unquote_string(name_expr, spans[1]);
+                if err.is_none() {
                     if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_ENV) {
                         if let Ok(contents) = std::fs::read(&path) {
                             // This will load the defs from the file into the
@@ -1967,26 +1968,27 @@ pub fn parse_register(
         .map(|expr| {
             let name_expr = working_set.get_span_contents(expr.span);
 
-            let name_expr = trim_quotes(name_expr);
-            String::from_utf8(name_expr.to_vec())
-                .map_err(|_| ParseError::NonUtf8(expr.span))
-                .and_then(|name| {
-                    if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_ENV) {
-                        Ok(p)
-                    } else {
-                        Err(ParseError::RegisteredFileNotFound(name, expr.span))
-                    }
-                })
-                .and_then(|path| {
-                    if path.exists() & path.is_file() {
-                        Ok(path)
-                    } else {
-                        Err(ParseError::RegisteredFileNotFound(
-                            format!("{:?}", path),
-                            expr.span,
-                        ))
-                    }
-                })
+            let (name, err) = unescape_unquote_string(name_expr, expr.span);
+
+            if let Some(err) = err {
+                Err(err)
+            } else {
+                let path = if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_ENV)
+                {
+                    p
+                } else {
+                    return Err(ParseError::RegisteredFileNotFound(name, expr.span));
+                };
+
+                if path.exists() & path.is_file() {
+                    Ok(path)
+                } else {
+                    Err(ParseError::RegisteredFileNotFound(
+                        format!("{:?}", path),
+                        expr.span,
+                    ))
+                }
+            }
         })
         .expect("required positional has being checked")
         .and_then(|path| {

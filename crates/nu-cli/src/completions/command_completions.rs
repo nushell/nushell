@@ -1,7 +1,7 @@
 use crate::completions::{
     file_completions::file_path_completion, Completer, CompletionOptions, MatchAlgorithm, SortBy,
 };
-use nu_parser::{trim_quotes, FlatShape};
+use nu_parser::{unescape_unquote_string, FlatShape};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
@@ -98,6 +98,7 @@ impl CommandCompletion {
                     start: span.start - offset,
                     end: span.end - offset,
                 },
+                append_whitespace: true,
             });
 
         let results_aliases = working_set
@@ -111,6 +112,7 @@ impl CommandCompletion {
                     start: span.start - offset,
                     end: span.end - offset,
                 },
+                append_whitespace: true,
             });
 
         let mut results = results.chain(results_aliases).collect::<Vec<_>>();
@@ -129,6 +131,7 @@ impl CommandCompletion {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
+                    append_whitespace: true,
                 });
 
             for external in results_external {
@@ -138,6 +141,7 @@ impl CommandCompletion {
                         description: None,
                         extra: None,
                         span: external.span,
+                        append_whitespace: true,
                     })
                 } else {
                     results.push(external)
@@ -237,9 +241,10 @@ impl Completer for CommandCompletion {
             .map(move |x| {
                 if self.flat_idx == 0 {
                     // We're in the command position
-                    if x.1.starts_with('"') && !matches!(preceding_byte.get(0), Some(b'^')) {
-                        let trimmed = trim_quotes(x.1.as_bytes());
-                        let trimmed = String::from_utf8_lossy(trimmed).to_string();
+                    if (x.1.starts_with('"') || x.1.starts_with('\'') || x.1.starts_with('`'))
+                        && !matches!(preceding_byte.get(0), Some(b'^'))
+                    {
+                        let (trimmed, _) = unescape_unquote_string(x.1.as_bytes(), span);
                         let expanded = nu_path::canonicalize_with(trimmed, &cwd);
 
                         if let Ok(expanded) = expanded {
@@ -266,6 +271,7 @@ impl Completer for CommandCompletion {
                     start: x.0.start - offset,
                     end: x.0.end - offset,
                 },
+                append_whitespace: false,
             })
             .chain(subcommands.into_iter())
             .chain(commands.into_iter())

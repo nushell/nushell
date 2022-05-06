@@ -20,6 +20,12 @@ impl Command for SubCommand {
                 SyntaxShape::String,
                 "the character that denotes what separates rows",
             )
+            .named(
+                "number",
+                SyntaxShape::Int,
+                "Split into maximum number of items",
+                Some('n'),
+            )
             .category(Category::Strings)
     }
 
@@ -75,26 +81,44 @@ fn split_row(
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let name_span = call.head;
     let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
-
+    let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;
     input.flat_map(
-        move |x| split_row_helper(&x, &separator, name_span),
+        move |x| split_row_helper(&x, &separator, max_split, name_span),
         engine_state.ctrlc.clone(),
     )
 }
 
-fn split_row_helper(v: &Value, separator: &Spanned<String>, name: Span) -> Vec<Value> {
+fn split_row_helper(
+    v: &Value,
+    separator: &Spanned<String>,
+    max_split: Option<usize>,
+    name: Span,
+) -> Vec<Value> {
     match v.span() {
         Ok(v_span) => {
             if let Ok(s) = v.as_string() {
-                s.split(&separator.item)
-                    .filter_map(|s| {
-                        if s.trim() != "" {
-                            Some(Value::string(s, v_span))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
+                match max_split {
+                    Some(max_split) => s
+                        .splitn(max_split, &separator.item)
+                        .filter_map(|s| {
+                            if s.trim() != "" {
+                                Some(Value::string(s, v_span))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect(),
+                    None => s
+                        .split(&separator.item)
+                        .filter_map(|s| {
+                            if s.trim() != "" {
+                                Some(Value::string(s, v_span))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect(),
+                }
             } else {
                 vec![Value::Error {
                     error: ShellError::PipelineMismatch("string".into(), name, v_span),

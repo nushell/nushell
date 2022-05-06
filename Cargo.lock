@@ -63,13 +63,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "ansi-cut"
-version = "0.2.0"
+name = "alphanumeric-sort"
+version = "1.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffe8d2994390ae20a3eb52a909f9518a89f8fd7e6990f3d25d38e51021b2c8ce"
-dependencies = [
- "ansi-parser",
-]
+checksum = "77e9c9abb82613923ec78d7a461595d52491ba7240f3c64c0bbe0e6d98e0fce0"
 
 [[package]]
 name = "ansi-parser"
@@ -79,6 +76,15 @@ checksum = "bcb2392079bf27198570d6af79ecbd9ec7d8f16d3ec6b60933922fdb66287127"
 dependencies = [
  "heapless 0.5.6",
  "nom 4.2.3",
+]
+
+[[package]]
+name = "ansi-str"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90cb0ceb8c444d026166795e474e9dfe54b443bdc07cc21bd6c5073f5e637482"
+dependencies = [
+ "ansi-parser",
 ]
 
 [[package]]
@@ -2401,7 +2407,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "assert_cmd",
  "chrono",
@@ -2450,7 +2456,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "crossterm",
  "fuzzy-matcher",
@@ -2472,7 +2478,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "nu-ansi-term",
  "nu-json",
@@ -2483,9 +2489,10 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "Inflector",
+ "alphanumeric-sort",
  "base64",
  "bytesize",
  "calamine",
@@ -2532,6 +2539,7 @@ dependencies = [
  "num 0.4.0",
  "pathdiff",
  "polars",
+ "powierza-coefficient",
  "quick-xml 0.22.0",
  "quickcheck",
  "quickcheck_macros",
@@ -2568,7 +2576,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "chrono",
  "nu-glob",
@@ -2579,7 +2587,7 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "doc-comment",
  "tempdir",
@@ -2587,7 +2595,7 @@ dependencies = [
 
 [[package]]
 name = "nu-json"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "lazy_static",
  "linked-hash-map",
@@ -2600,7 +2608,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "chrono",
  "log",
@@ -2614,7 +2622,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "dirs-next",
  "dunce",
@@ -2623,7 +2631,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "capnp",
  "nu-engine",
@@ -2634,7 +2642,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "heapless 0.7.10",
  "nu-ansi-term",
@@ -2643,7 +2651,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "byte-unit",
  "chrono",
@@ -2662,7 +2670,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "chrono",
  "errno",
@@ -2676,9 +2684,9 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
- "ansi-cut",
+ "ansi-str",
  "atty",
  "nu-ansi-term",
  "nu-protocol",
@@ -2689,7 +2697,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "strip-ansi-escapes",
  "unicode-width",
@@ -2697,7 +2705,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "getset",
  "hamcrest2",
@@ -2709,14 +2717,14 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "crossterm_winapi",
 ]
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -2724,7 +2732,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "git2",
  "nu-engine",
@@ -2734,7 +2742,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -2743,7 +2751,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.61.1"
+version = "0.62.0"
 dependencies = [
  "gjson",
  "nu-engine",
@@ -3361,6 +3369,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "powierza-coefficient"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9caa43783252cf8c4c66dd1cc381a5929cc95f6530da7abd1f9cdb97e2065842"
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3715,8 +3729,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.4.0"
-source = "git+https://github.com/nushell/reedline?branch=main#39c70136bb95b50104a57767fbfdde50d7654421"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d96c36021d0668f3b4f8c054fce3a9b9b0aa83fc60aa6c59df0e2165f9980763"
 dependencies = [
  "chrono",
  "crossterm",
