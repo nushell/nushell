@@ -15,6 +15,20 @@ fn add_overlay() {
 }
 
 #[test]
+fn add_overlay_env() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            module spam { export env FOO { "foo" } };
+            overlay add spam;
+            $env.FOO
+        "#
+    ));
+
+    assert_eq!(actual.out, "foo");
+}
+
+#[test]
 fn add_overlay_from_file_decl() {
     let actual = nu!(
         cwd: "tests/overlays", pipeline(
@@ -140,6 +154,20 @@ fn list_last_overlay() {
             overlay add spam;
             overlay list | last
         "#,
+    ));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn list_overlay_scoped() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            module spam { export def foo [] { "foo" } };
+            overlay add spam;
+            do { overlay list | last }
+        "#
     ));
 
     assert_eq!(actual.out, "spam");
