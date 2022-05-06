@@ -37,6 +37,8 @@ impl Command for Cd {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
+        let config = engine_state.get_config();
+        let use_abbrev = config.cd_with_abbreviations;
 
         let (path, span) = match path_val {
             Some(v) => {
@@ -47,15 +49,24 @@ impl Command for Cd {
                         let path = oldpwd.as_path()?;
                         let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
-                            Err(_) => match query(&path, None, v.span) {
-                                Ok(p) => p,
-                                Err(e) => {
+                            Err(e1) => {
+                                if use_abbrev {
+                                    match query(&path, None, v.span) {
+                                        Ok(p) => p,
+                                        Err(e) => {
+                                            return Err(ShellError::DirectoryNotFound(
+                                                v.span,
+                                                Some(format!("IO Error: {:?}", e)),
+                                            ))
+                                        }
+                                    }
+                                } else {
                                     return Err(ShellError::DirectoryNotFound(
                                         v.span,
-                                        Some(format!("IO Error: {:?}", e)),
-                                    ))
+                                        Some(format!("IO Error: {:?}", e1)),
+                                    ));
                                 }
-                            },
+                            }
                         };
                         (path.to_string_lossy().to_string(), v.span)
                     } else {
@@ -68,8 +79,28 @@ impl Command for Cd {
                     let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                         Ok(p) => {
                             if !p.is_dir() {
-                                // if it's not a dir, let's check to see if it's something abbreviated
-                                match query(&p, None, v.span) {
+                                if use_abbrev {
+                                    // if it's not a dir, let's check to see if it's something abbreviated
+                                    match query(&p, None, v.span) {
+                                        Ok(path) => path,
+                                        Err(e) => {
+                                            return Err(ShellError::DirectoryNotFound(
+                                                v.span,
+                                                Some(format!("IO Error: {:?}", e)),
+                                            ))
+                                        }
+                                    };
+                                } else {
+                                    return Err(ShellError::NotADirectory(v.span));
+                                }
+                            };
+                            p
+                        }
+
+                        // if canonicalize failed, let's check to see if it's abbreviated
+                        Err(e1) => {
+                            if use_abbrev {
+                                match query(&path_no_whitespace, None, v.span) {
                                     Ok(path) => path,
                                     Err(e) => {
                                         return Err(ShellError::DirectoryNotFound(
@@ -77,21 +108,14 @@ impl Command for Cd {
                                             Some(format!("IO Error: {:?}", e)),
                                         ))
                                     }
-                                };
-                            };
-                            p
-                        }
-
-                        // if canonicalize failed, let's check to see if it's abbreviated
-                        Err(_) => match query(&path_no_whitespace, None, v.span) {
-                            Ok(path) => path,
-                            Err(e) => {
+                                }
+                            } else {
                                 return Err(ShellError::DirectoryNotFound(
                                     v.span,
-                                    Some(format!("IO Error: {:?}", e)),
-                                ))
+                                    Some(format!("IO Error: {:?}", e1)),
+                                ));
                             }
-                        },
+                        }
                     };
                     (path.to_string_lossy().to_string(), v.span)
                 }
