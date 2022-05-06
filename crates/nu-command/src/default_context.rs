@@ -353,6 +353,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Cal,
             Seq,
             SeqDate,
+            SeqChar,
         };
 
         // Hash
