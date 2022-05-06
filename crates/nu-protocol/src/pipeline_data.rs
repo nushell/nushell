@@ -416,12 +416,16 @@ impl PipelineData {
         }
     }
 
-    pub fn print(self, engine_state: &EngineState, stack: &mut Stack) -> Result<(), ShellError> {
+    pub fn print(
+        self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        no_newline: bool,
+    ) -> Result<(), ShellError> {
         // If the table function is in the declarations, then we can use it
         // to create the table value that will be printed in the terminal
 
         let config = engine_state.get_config();
-
         let stdout = std::io::stdout();
 
         if let PipelineData::ExternalStream {
@@ -460,11 +464,15 @@ impl PipelineData {
                         let working_set = StateWorkingSet::new(engine_state);
 
                         format_error(&working_set, &error)
+                    } else if no_newline {
+                        item.into_string("", config)
                     } else {
                         item.into_string("\n", config)
                     };
 
-                    out.push('\n');
+                    if !no_newline {
+                        out.push('\n');
+                    }
 
                     match stdout.lock().write_all(out.as_bytes()) {
                         Ok(_) => (),
@@ -479,10 +487,15 @@ impl PipelineData {
                         let working_set = StateWorkingSet::new(engine_state);
 
                         format_error(&working_set, &error)
+                    } else if no_newline {
+                        item.into_string("", config)
                     } else {
                         item.into_string("\n", config)
                     };
-                    out.push('\n');
+
+                    if !no_newline {
+                        out.push('\n');
+                    }
 
                     match stdout.lock().write_all(out.as_bytes()) {
                         Ok(_) => (),
