@@ -138,6 +138,7 @@ impl Completer for VariableCompletion {
                     description: None,
                     extra: None,
                     span: current_span,
+                    append_whitespace: false,
                 });
             }
         }
