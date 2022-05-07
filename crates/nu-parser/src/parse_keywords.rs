@@ -1817,7 +1817,7 @@ pub fn parse_overlay_add(
         );
     }
 
-    // TODO: Allow full import pattern as argument
+    // TODO: Allow full import pattern as argument (requires custom naming of module/overlay)
     let (call, call_span) = match working_set.find_decl(b"overlay add") {
         Some(decl_id) => {
             let (call, mut err) = parse_internal_call(
