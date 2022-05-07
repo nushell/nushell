@@ -110,7 +110,7 @@ fn alias_db(
     new_alias: String,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    match db.statement {
+    match db.statement.as_mut() {
         None => Err(ShellError::GenericError(
             "Error creating alias".into(),
             "there is no statement defined yet".into(),
@@ -118,9 +118,9 @@ fn alias_db(
             None,
             Vec::new(),
         )),
-        Some(ref mut statement) => match statement {
-            Statement::Query(query) => match query.body {
-                SetExpr::Select(ref mut select) => {
+        Some(statement) => match statement {
+            Statement::Query(query) => match &mut query.body {
+                SetExpr::Select(select) => {
                     select.as_mut().from.iter_mut().for_each(|table| {
                         let new_alias = Some(TableAlias {
                             name: Ident {

@@ -78,8 +78,8 @@ impl Command for AndDb {
 
             Ok(expression.into_value(call.head).into_pipeline_data())
         } else if let Ok(mut db) = SQLiteDatabase::try_from_value(value.clone()) {
-            match db.statement {
-                Some(ref mut statement) => match statement {
+            match db.statement.as_mut() {
+                Some(statement) => match statement {
                     Statement::Query(query) => modify_query(query, expr, call.head)?,
                     s => {
                         return Err(ShellError::GenericError(

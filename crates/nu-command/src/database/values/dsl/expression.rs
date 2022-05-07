@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::{Operator, PathMember},
-    CustomValue, ShellError, Span, Type, Value,
+    CustomValue, ShellError, Span, Type, Value, PipelineData,
 };
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::{BinaryOperator, Expr, Ident};
@@ -159,6 +159,11 @@ impl ExprDb {
             )),
         }
     }
+    
+    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+        let value = input.into_value(span);
+        Self::try_from_value(&value)
+    }
 
     pub fn into_value(self, span: Span) -> Value {
         Value::CustomValue {
@@ -273,6 +278,41 @@ impl ExprDb {
 
                 Value::Record { cols, vals, span }
             }
+            Expr::Function(function) => {
+                let cols = vec![
+                    "name".into(),
+                    "args".into(),
+                    "over".into(),
+                    "distinct".into(),
+                ];
+                let name = Value::String {
+                    val: function.name.to_string(),
+                    span,
+                };
+
+                let args: Vec<Value> = function
+                    .args
+                    .iter()
+                    .map(|arg| Value::String {
+                        val: arg.to_string(),
+                        span,
+                    })
+                    .collect();
+                let args = Value::List { vals: args, span };
+
+                let over = Value::String {
+                    val: format!("{:?}", function.over),
+                    span,
+                };
+
+                let distinct = Value::Bool {
+                    val: function.distinct,
+                    span,
+                };
+
+                let vals = vec![name, args, over, distinct];
+                Value::Record { cols, vals, span }
+            }
             Expr::Nested(expr) => ExprDb::expr_to_value(expr, span),
             Expr::CompoundIdentifier(_) => todo!(),
             Expr::IsNull(_) => todo!(),
@@ -292,7 +332,6 @@ impl ExprDb {
             Expr::Collate { .. } => todo!(),
             Expr::TypedString { .. } => todo!(),
             Expr::MapAccess { .. } => todo!(),
-            Expr::Function(_) => todo!(),
             Expr::Case { .. } => todo!(),
             Expr::Exists(_) => todo!(),
             Expr::Subquery(_) => todo!(),

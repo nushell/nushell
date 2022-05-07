@@ -7,7 +7,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use sqlparser::ast::{OrderByExpr, Statement};
+use sqlparser::ast::{Expr, OrderByExpr, Statement};
 
 #[derive(Clone)]
 pub struct OrderByDb;
@@ -58,50 +58,100 @@ impl Command for OrderByDb {
     ) -> Result<PipelineData, ShellError> {
         let asc = call.has_flag("ascending");
         let nulls_first = call.has_flag("nulls_first");
-
-        let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List {
-            vals,
+        let expressions: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        let expressions = Value::List {
+            vals: expressions,
             span: call.head,
         };
-        let expressions = ExprDb::extract_exprs(value)?;
+        let expressions = ExprDb::extract_exprs(expressions)?;
+        let expressions: Vec<OrderByExpr> = expressions
+            .into_iter()
+            .map(|expr| OrderByExpr {
+                expr,
+                asc: if asc { Some(asc) } else { None },
+                nulls_first: if nulls_first { Some(nulls_first) } else { None },
+            })
+            .collect();
 
-        let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
-        match db.statement {
-            Some(ref mut statement) => match statement {
-                Statement::Query(ref mut query) => {
-                    let mut order_expr: Vec<OrderByExpr> = expressions
-                        .into_iter()
-                        .map(|expr| OrderByExpr {
-                            expr,
-                            asc: if asc { Some(asc) } else { None },
-                            nulls_first: if nulls_first { Some(nulls_first) } else { None },
-                        })
-                        .collect();
+        let value = input.into_value(call.head);
 
-                    query.order_by.append(&mut order_expr);
-                }
-                s => {
-                    return Err(ShellError::GenericError(
-                        "Connection doesnt define a query".into(),
-                        format!("Expected a connection with query. Got {}", s),
-                        Some(call.head),
-                        None,
-                        Vec::new(),
-                    ))
-                }
-            },
+        if let Ok(expr) = ExprDb::try_from_value(&value) {
+            update_expressions(expr, expressions, call)
+        } else if let Ok(db) = SQLiteDatabase::try_from_value(value.clone()) {
+            update_connection(db, expressions, call)
+        } else {
+            Err(ShellError::CantConvert(
+                "expression or query".into(),
+                value.get_type().to_string(),
+                value.span()?,
+                None,
+            ))
+        }
+    }
+}
+
+fn update_expressions(
+    mut expr: ExprDb,
+    mut expressions: Vec<OrderByExpr>,
+    call: &Call,
+) -> Result<PipelineData, ShellError> {
+    match expr.as_mut() {
+        Expr::Function(function) => match &mut function.over {
+            Some(over) => over.order_by.append(&mut expressions),
             None => {
                 return Err(ShellError::GenericError(
-                    "Connection without statement".into(),
-                    "The connection needs a statement defined".into(),
+                    "Expression doesnt define a partition to order".into(),
+                    "Expected an expression with partition".into(),
                     Some(call.head),
                     None,
                     Vec::new(),
                 ))
             }
-        };
+        },
+        s => {
+            return Err(ShellError::GenericError(
+                "Expression doesnt define a function".into(),
+                format!("Expected an expression with a function. Got {}", s),
+                Some(call.head),
+                None,
+                Vec::new(),
+            ))
+        }
+    };
 
-        Ok(db.into_value(call.head).into_pipeline_data())
-    }
+    Ok(expr.into_value(call.head).into_pipeline_data())
+}
+
+fn update_connection(
+    mut db: SQLiteDatabase,
+    mut expressions: Vec<OrderByExpr>,
+    call: &Call,
+) -> Result<PipelineData, ShellError> {
+    match db.statement.as_mut() {
+        Some(statement) => match statement {
+            Statement::Query(query) => {
+                query.order_by.append(&mut expressions);
+            }
+            s => {
+                return Err(ShellError::GenericError(
+                    "Connection doesnt define a query".into(),
+                    format!("Expected a connection with query. Got {}", s),
+                    Some(call.head),
+                    None,
+                    Vec::new(),
+                ))
+            }
+        },
+        None => {
+            return Err(ShellError::GenericError(
+                "Connection without statement".into(),
+                "The connection needs a statement defined".into(),
+                Some(call.head),
+                None,
+                Vec::new(),
+            ))
+        }
+    };
+
+    Ok(db.into_value(call.head).into_pipeline_data())
 }
