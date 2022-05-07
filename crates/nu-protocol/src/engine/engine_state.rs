@@ -4,7 +4,6 @@ use crate::{
     Signature, Span, Type, VarId, Variable,
 };
 use core::panic;
-use log::trace;
 use std::{
     collections::HashMap,
     sync::{atomic::AtomicBool, Arc},
@@ -384,8 +383,6 @@ impl EngineState {
         stack: Option<&mut Stack>,
         cwd: impl AsRef<Path>,
     ) -> Result<(), ShellError> {
-        trace!("Merge delta");
-
         // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
@@ -398,16 +395,12 @@ impl EngineState {
         let first = delta.scope.remove(0);
 
         for (delta_name, delta_overlay) in first.clone().overlays {
-            trace!("  delta overlay: {:?}", delta_name);
-
             if let Some((_, existing_overlay)) = self
                 .scope
                 .overlays
                 .iter_mut()
                 .find(|(name, _)| name == &delta_name)
             {
-                trace!("    merging");
-
                 // Upating existing overlay
                 for item in delta_overlay.decls.into_iter() {
                     existing_overlay.decls.insert(item.0, item.1);
@@ -426,8 +419,6 @@ impl EngineState {
                     .visibility
                     .merge_with(delta_overlay.visibility);
             } else {
-                trace!("    new");
-
                 // New overlay was added to the delta
                 self.scope.overlays.push((delta_name, delta_overlay));
             }
@@ -454,8 +445,6 @@ impl EngineState {
             .retain(|id| !activated_ids.contains(id));
         self.scope.active_overlays.append(&mut activated_ids);
 
-        trace!("  perma active overlays: {:?}", self.scope.active_overlays);
-
         #[cfg(feature = "plugin")]
         if delta.plugins_changed {
             let result = self.update_plugin_file();
@@ -468,11 +457,9 @@ impl EngineState {
         }
 
         if let Some(stack) = stack {
-            trace!("  stack update");
             for mut scope in stack.env_vars.drain(..) {
                 for (overlay_name, mut env) in scope.drain() {
                     if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
-                        trace!("  updating env overlay {}", overlay_name);
                         // Updating existing overlay
                         for (k, v) in env.drain() {
                             if k == "config" {
@@ -483,7 +470,6 @@ impl EngineState {
                         }
                     } else {
                         // Pushing a new overlay
-                        trace!("  new env overlay {}", overlay_name);
                         self.env_vars.insert(overlay_name, env);
                     }
                 }
@@ -1959,8 +1945,6 @@ impl<'a> StateWorkingSet<'a> {
         decls: Vec<(Vec<u8>, DeclId)>,
         aliases: Vec<(Vec<u8>, AliasId)>,
     ) {
-        trace!("Adding overlay: {:?}", name);
-
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
         last_scope_frame
@@ -1988,8 +1972,6 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn remove_overlay(&mut self, name: &[u8]) {
-        trace!("Remove overlay: {:?}", name);
-
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
         let removed_overlay = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
@@ -2005,12 +1987,10 @@ impl<'a> StateWorkingSet<'a> {
         };
 
         if removed_overlay.is_some() {
-            trace!("  overlay '{:?}' removed", name);
             last_scope_frame.removed_overlays.push(name.to_owned());
         }
 
         // if let Some(module) = original_module {
-        //     trace!("  merging diff");
         //     let last_overlay_name = self.last_overlay_name().to_owned();
 
         //     if let Some(overlay) = removed_overlay {
