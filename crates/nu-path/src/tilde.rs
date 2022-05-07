@@ -23,11 +23,7 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
             if h == Path::new("/") {
                 // Corner case: `h` is a root directory;
                 // don't prepend extra `/`, just drop the tilde.
-                let mut p: PathBuf = path.strip_prefix("~").unwrap_or(path).into();
-                if need_trailing_slash {
-                    p.push("/");
-                }
-                p
+                path.strip_prefix("~").unwrap_or(path).into()
             } else {
                 if let Ok(p) = path.strip_prefix("~/") {
                     // Corner case: `p` is empty;
