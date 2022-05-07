@@ -4,7 +4,7 @@ use nu_protocol::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline,
     },
-    engine::StateWorkingSet,
+    engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     span, Exportable, Module, PositionalArg, Span, SyntaxShape, Type,
 };
 use std::collections::HashSet;
@@ -2064,6 +2064,23 @@ pub fn parse_overlay_remove(
         );
     };
 
+    let pipeline = Pipeline::from_vec(vec![Expression {
+        expr: Expr::Call(call),
+        span: span(spans),
+        ty: Type::Any,
+        custom_completion: None,
+    }]);
+
+    if overlay_name == DEFAULT_OVERLAY_NAME {
+        return (
+            pipeline,
+            Some(ParseError::CantRemoveDefaultOverlay(
+                overlay_name,
+                overlay_name_span,
+            )),
+        );
+    }
+
     if !working_set
         .unique_overlay_names()
         .contains(&overlay_name.as_bytes().to_vec())
@@ -2092,15 +2109,7 @@ pub fn parse_overlay_remove(
 
     working_set.remove_overlay(overlay_name.as_bytes());
 
-    (
-        Pipeline::from_vec(vec![Expression {
-            expr: Expr::Call(call),
-            span: span(spans),
-            ty: Type::Any,
-            custom_completion: None,
-        }]),
-        None,
-    )
+    (pipeline, None)
 }
 
 pub fn parse_let(
