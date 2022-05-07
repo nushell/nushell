@@ -1879,6 +1879,13 @@ pub fn parse_overlay_add(
         );
     };
 
+    let pipeline = Pipeline::from_vec(vec![Expression {
+        expr: Expr::Call(call),
+        span: span(spans),
+        ty: Type::Any,
+        custom_completion: None,
+    }]);
+
     // TODO: Add support for it -- needs to play well with overlay remove
     let has_prefix = false; //call.has_flag("prefix");
 
@@ -1912,12 +1919,7 @@ pub fn parse_overlay_add(
                         stem.to_string_lossy().to_string()
                     } else {
                         return (
-                            Pipeline::from_vec(vec![Expression {
-                                expr: Expr::Call(call),
-                                span: call_span,
-                                ty: Type::Any,
-                                custom_completion: None,
-                            }]),
+                            pipeline,
                             Some(ParseError::ModuleOrOverlayNotFound(spans[1])),
                         );
                     };
@@ -1940,12 +1942,7 @@ pub fn parse_overlay_add(
                         Some((overlay_name, module, module_id))
                     } else {
                         return (
-                            Pipeline::from_vec(vec![Expression {
-                                expr: Expr::Call(call),
-                                span: call_span,
-                                ty: Type::Any,
-                                custom_completion: None,
-                            }]),
+                            pipeline,
                             Some(ParseError::ModuleOrOverlayNotFound(spans[1])),
                         );
                     }
@@ -1977,15 +1974,7 @@ pub fn parse_overlay_add(
         }
     }
 
-    (
-        Pipeline::from_vec(vec![Expression {
-            expr: Expr::Call(call),
-            span: span(spans),
-            ty: Type::Any,
-            custom_completion: None,
-        }]),
-        error,
-    )
+    (pipeline, error)
 }
 
 pub fn parse_overlay_remove(
@@ -2086,14 +2075,14 @@ pub fn parse_overlay_remove(
         .contains(&overlay_name.as_bytes().to_vec())
     {
         return (
-            garbage_pipeline(spans),
+            pipeline,
             Some(ParseError::ActiveOverlayNotFound(overlay_name_span)),
         );
     }
 
     if working_set.num_overlays() < 2 {
         return (
-            garbage_pipeline(spans),
+            pipeline,
             Some(ParseError::CantRemoveLastOverlay(overlay_name_span)),
         );
     }
