@@ -8,6 +8,40 @@ use reedline::{Completer, Suggestion};
 const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[test]
+fn flag_completions() {
+    // Create a new engine
+    let (_, _, engine) = new_engine();
+
+    let stack = Stack::new();
+
+    // Instatiate a new completer
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Test completions for the 'ls' flags
+    let suggestions = completer.complete("ls -".into(), 4);
+
+    assert_eq!(12, suggestions.len());
+
+    let expected: Vec<String> = vec![
+        "--all".into(),
+        "--du".into(),
+        "--full-paths".into(),
+        "--help".into(),
+        "--long".into(),
+        "--short-names".into(),
+        "-a".into(),
+        "-d".into(),
+        "-f".into(),
+        "-h".into(),
+        "-l".into(),
+        "-s".into(),
+    ];
+
+    // Match results
+    match_suggestions(expected, suggestions);
+}
+
+#[test]
 fn file_completions() {
     // Create a new engine
     let (dir, dir_str, engine) = new_engine();
