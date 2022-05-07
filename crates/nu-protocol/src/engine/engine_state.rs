@@ -398,7 +398,7 @@ impl EngineState {
         let first = delta.scope.remove(0);
 
         for (delta_name, delta_overlay) in first.clone().overlays {
-            trace!("  overlay: {:?}", delta_name);
+            trace!("  delta overlay: {:?}", delta_name);
 
             if let Some((_, existing_overlay)) = self
                 .scope
@@ -406,7 +406,7 @@ impl EngineState {
                 .iter_mut()
                 .find(|(name, _)| name == &delta_name)
             {
-                trace!("  merging");
+                trace!("    merging");
 
                 // Upating existing overlay
                 for item in delta_overlay.decls.into_iter() {
@@ -426,7 +426,7 @@ impl EngineState {
                     .visibility
                     .merge_with(delta_overlay.visibility);
             } else {
-                trace!("  new");
+                trace!("    new");
 
                 // New overlay was added to the delta
                 self.scope.overlays.push((delta_name, delta_overlay));
@@ -434,12 +434,6 @@ impl EngineState {
         }
 
         let mut activated_ids = self.translate_overlay_ids(&first);
-
-        trace!(
-            "  merging active overlays {:?} -> {:?}",
-            self.scope.active_overlays,
-            first.active_overlays
-        );
 
         let mut removed_ids = vec![];
 
@@ -460,6 +454,8 @@ impl EngineState {
             .retain(|id| !activated_ids.contains(id));
         self.scope.active_overlays.append(&mut activated_ids);
 
+        trace!("  perma active overlays: {:?}", self.scope.active_overlays);
+
         #[cfg(feature = "plugin")]
         if delta.plugins_changed {
             let result = self.update_plugin_file();
@@ -472,9 +468,11 @@ impl EngineState {
         }
 
         if let Some(stack) = stack {
+            trace!("  stack update");
             for mut scope in stack.env_vars.drain(..) {
                 for (overlay_name, mut env) in scope.drain() {
                     if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
+                        trace!("  updating env overlay {}", overlay_name);
                         // Updating existing overlay
                         for (k, v) in env.drain() {
                             if k == "config" {
@@ -485,6 +483,7 @@ impl EngineState {
                         }
                     } else {
                         // Pushing a new overlay
+                        trace!("  new env overlay {}", overlay_name);
                         self.env_vars.insert(overlay_name, env);
                     }
                 }

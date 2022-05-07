@@ -66,24 +66,24 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
         }
     }
 
-    // TODO: Remove the clones
-    let last_overlay_name =
-        String::from_utf8_lossy(engine_state.last_overlay_name(&[])).to_string();
-
-    if !engine_state.env_vars.contains_key(&last_overlay_name) {
-        engine_state
-            .env_vars
-            .insert(last_overlay_name.clone(), HashMap::new());
-    }
-
-    if let Some(env_vars) = engine_state.env_vars.get_mut(&last_overlay_name) {
-        for (k, v) in new_scope {
-            env_vars.insert(k, v);
+    if let Ok(last_overlay_name) = &stack.last_overlay_name() {
+        if let Some(env_vars) = engine_state.env_vars.get_mut(last_overlay_name) {
+            for (k, v) in new_scope {
+                env_vars.insert(k, v);
+            }
+        } else {
+            error = error.or_else(|| {
+                Some(ShellError::NushellFailedHelp(
+                    "Last active overlay not found in permanent state.".into(),
+                    "This error happened during the conversion of environment variables from strings to Nushell values.".into(),
+                ))
+            });
         }
     } else {
         error = error.or_else(|| {
-            Some(ShellError::NushellFailed(
-                "Last active overlay not found.".into(),
+            Some(ShellError::NushellFailedHelp(
+                "Last active overlay not found in stack.".into(),
+                "This error happened during the conversion of environment variables from strings to Nushell values.".into(),
             ))
         });
     }

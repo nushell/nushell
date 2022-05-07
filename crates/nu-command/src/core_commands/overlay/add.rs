@@ -5,6 +5,8 @@ use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanne
 
 use std::path::Path;
 
+use log::trace;
+
 #[derive(Clone)]
 pub struct OverlayAdd;
 
@@ -49,9 +51,21 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let name_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
+        trace!("Adding overlay {}", name_arg.item);
+        for scope in stack.env_vars.iter() {
+            trace!(
+                "  env overlays (stack): {:?}",
+                scope.keys().collect::<Vec<&String>>()
+            );
+        }
+        trace!(
+            "  env overlays (engine state): {:?}",
+            engine_state.env_vars.keys().collect::<Vec<&String>>()
+        );
 
         // TODO: This logic is duplicated in the parser.
-        if engine_state.has_overlay(name_arg.item.as_bytes()) {
+        if stack.has_env_overlay(&name_arg.item, engine_state) {
+            trace!("  has overlay");
             stack.add_overlay(name_arg.item);
         } else {
             let (overlay_name, module) =
@@ -79,6 +93,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
                     ));
                 };
 
+            trace!("  new overlay");
             stack.add_overlay(overlay_name);
 
             for (name, block_id) in module.env_vars() {

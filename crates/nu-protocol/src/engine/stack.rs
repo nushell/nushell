@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::engine::EngineState;
+use crate::engine::{EngineState, DEFAULT_OVERLAY_NAME};
 use crate::{ShellError, Span, Value, VarId};
 
 use log::trace;
@@ -43,11 +43,12 @@ impl Stack {
             vars: HashMap::new(),
             env_vars: vec![],
             env_hidden: HashMap::new(),
-            active_overlays: engine_state
-                .active_overlay_names(&[])
-                .iter()
-                .map(|name_bytes| String::from_utf8_lossy(name_bytes).to_string())
-                .collect(),
+            active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
+            // engine_state
+            // .active_overlay_names(&[])
+            // .iter()
+            // .map(|name_bytes| String::from_utf8_lossy(name_bytes).to_string())
+            // .collect(),
         }
     }
 
@@ -106,8 +107,16 @@ impl Stack {
                 )]));
             }
         } else {
+            // TODO: Remove panic
             panic!("internal error: no active overlay");
         }
+    }
+
+    pub fn last_overlay_name(&self) -> Result<String, ShellError> {
+        self.active_overlays
+            .last()
+            .cloned()
+            .ok_or_else(|| ShellError::NushellFailed("No active overlay".into()))
     }
 
     pub fn captures_to_stack(&self, captures: &HashMap<VarId, Value>) -> Stack {
@@ -225,9 +234,6 @@ impl Stack {
     }
 
     pub fn get_env_var(&self, engine_state: &EngineState, name: &str) -> Option<Value> {
-        trace!("Getting var: {}", name);
-        trace!("Active overlays: {:?}", self.active_overlays);
-
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay) {
@@ -254,7 +260,6 @@ impl Stack {
             }
         }
 
-        trace!("  no luck");
         None
     }
 
@@ -318,6 +323,16 @@ impl Stack {
         }
 
         None
+    }
+
+    pub fn has_env_overlay(&self, name: &str, engine_state: &EngineState) -> bool {
+        for scope in self.env_vars.iter().rev() {
+            if scope.contains_key(name) {
+                return true;
+            }
+        }
+
+        engine_state.env_vars.contains_key(name)
     }
 
     pub fn add_overlay(&mut self, name: String) {
