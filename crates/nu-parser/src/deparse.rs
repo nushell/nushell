@@ -59,7 +59,7 @@ pub fn escape_quote_string_advanced(input: &str, file: &str) -> String {
             for line in lines {
                 let mut flag_start = false;
                 let mut word = String::new();
-                let line_or = line.unwrap_or(String::from(" "));
+                let line_or = line.unwrap_or_else(|_| String::from(" "));
                 if line_or.contains('-') {
                     for n in line_or.chars() {
                         if n == '-' {
@@ -73,16 +73,16 @@ pub fn escape_quote_string_advanced(input: &str, file: &str) -> String {
                         }
                     }
                 }
-                if &word == input {
-                    return word;              
+                if word == input {
+                    return word;
                 }
             }
             let mut final_word = String::new();
             final_word.push('"');
             final_word.push_str(input);
             final_word.push('"');
-            return final_word;
-        },
-        _ => return String::from(input), 
+            final_word
+        }
+        _ => String::from(input),
     }
 }
