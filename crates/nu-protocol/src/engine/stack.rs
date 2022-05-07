@@ -38,17 +38,12 @@ pub struct Stack {
 }
 
 impl Stack {
-    pub fn new(engine_state: &EngineState) -> Stack {
+    pub fn new() -> Stack {
         Stack {
             vars: HashMap::new(),
             env_vars: vec![],
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
-            // engine_state
-            // .active_overlay_names(&[])
-            // .iter()
-            // .map(|name_bytes| String::from_utf8_lossy(name_bytes).to_string())
-            // .collect(),
         }
     }
 
@@ -350,5 +345,11 @@ impl Stack {
         self.active_overlays.retain(|o| o != name);
 
         Ok(())
+    }
+}
+
+impl Default for Stack {
+    fn default() -> Self {
+        Self::new()
     }
 }

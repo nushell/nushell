@@ -66,7 +66,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         }
         let start = std::time::Instant::now();
 
-        let mut stack = Stack::new(&engine_state);
+        let mut stack = Stack::new();
 
         // Set up PWD
         stack.add_env_var(
@@ -101,7 +101,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
 
         let _ = engine_state.merge_delta(delta, None, &cwd);
 
-        let mut stack = Stack::new(&engine_state);
+        let mut stack = Stack::new();
 
         // Set up PWD
         stack.add_env_var(

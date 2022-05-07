@@ -109,7 +109,7 @@ pub(crate) fn add_menus(
                 (output, working_set.render())
             };
 
-            let mut temp_stack = Stack::new(&engine_state);
+            let mut temp_stack = Stack::new();
             let input = Value::nothing(Span::test_data()).into_pipeline_data();
             let res = eval_block(&engine_state, &mut temp_stack, &block, input, false, false)?;
 

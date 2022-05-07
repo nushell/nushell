@@ -146,6 +146,18 @@ fn remove_overlay_scoped_env() {
 }
 
 #[test]
+fn list_default_overlay() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            overlay list | last
+        "#,
+    ));
+
+    assert_eq!(actual.out, "zero");
+}
+
+#[test]
 fn list_last_overlay() {
     let actual = nu!(
         cwd: "tests/overlays", pipeline(

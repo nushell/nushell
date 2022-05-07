@@ -182,7 +182,7 @@ fn main() -> Result<()> {
 
             // First, set up env vars as strings only
             gather_parent_env_vars(&mut engine_state);
-            let mut stack = nu_protocol::engine::Stack::new(&engine_state);
+            let mut stack = nu_protocol::engine::Stack::new();
 
             if let Some(commands) = &binary_args.commands {
                 #[cfg(feature = "plugin")]
@@ -303,7 +303,7 @@ fn parse_commandline_args(
 
     let _ = engine_state.merge_delta(delta, None, init_cwd);
 
-    let mut stack = Stack::new(engine_state);
+    let mut stack = Stack::new();
 
     // We should have a successful parse now
     if let Some(pipeline) = block.pipelines.get(0) {
