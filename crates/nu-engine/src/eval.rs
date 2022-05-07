@@ -812,7 +812,7 @@ pub fn create_scope(
     let mut modules_map = HashMap::new();
     let mut visibility = Visibility::new();
 
-    for overlay_frame in engine_state.active_overlays(&[]).iter().rev() {
+    for overlay_frame in engine_state.active_overlays(&[]) {
         vars_map.extend(&overlay_frame.vars);
         commands_map.extend(&overlay_frame.decls);
         aliases_map.extend(&overlay_frame.aliases);
