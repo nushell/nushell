@@ -26,8 +26,6 @@ fn base64_encode_characterset_binhex() {
     assert_eq!(actual.out, "F@0NEPjJD97kE\'&bEhFZEP3");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn error_when_invalid_character_set_given() {
     let actual = nu!(
@@ -43,8 +41,6 @@ fn error_when_invalid_character_set_given() {
         .contains("this is invalid is not a valid character-set"));
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn base64_decode_characterset_binhex() {
     let actual = nu!(
