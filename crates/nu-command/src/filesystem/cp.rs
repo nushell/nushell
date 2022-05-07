@@ -65,7 +65,10 @@ impl Command for Cp {
         let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
         let is_directory = path_last_char == Some('/') || path_last_char == Some('\\');
         if is_directory && !destination.exists() {
-            return Err(ShellError::DirectoryNotFound(dst.span, Some("destination directory does not exist".to_string())));
+            return Err(ShellError::DirectoryNotFound(
+                dst.span,
+                Some("destination directory does not exist".to_string()),
+            ));
         }
 
         let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
