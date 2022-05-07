@@ -7,16 +7,16 @@ use indexmap::IndexMap;
 
 /// Collection of definitions that can be exported from a module
 #[derive(Debug, Clone)]
-pub struct Overlay {
+pub struct Module {
     pub decls: IndexMap<Vec<u8>, DeclId>,
     pub aliases: IndexMap<Vec<u8>, AliasId>,
     pub env_vars: IndexMap<Vec<u8>, BlockId>,
     pub span: Option<Span>,
 }
 
-impl Overlay {
+impl Module {
     pub fn new() -> Self {
-        Overlay {
+        Module {
             decls: IndexMap::new(),
             aliases: IndexMap::new(),
             env_vars: IndexMap::new(),
@@ -25,7 +25,7 @@ impl Overlay {
     }
 
     pub fn from_span(span: Span) -> Self {
-        Overlay {
+        Module {
             decls: IndexMap::new(),
             aliases: IndexMap::new(),
             env_vars: IndexMap::new(),
@@ -45,7 +45,7 @@ impl Overlay {
         self.env_vars.insert(name.to_vec(), block_id)
     }
 
-    pub fn extend(&mut self, other: &Overlay) {
+    pub fn extend(&mut self, other: &Module) {
         self.decls.extend(other.decls.clone());
         self.env_vars.extend(other.env_vars.clone());
     }
@@ -201,7 +201,7 @@ impl Overlay {
     }
 }
 
-impl Default for Overlay {
+impl Default for Module {
     fn default() -> Self {
         Self::new()
     }

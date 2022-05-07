@@ -34,7 +34,9 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
 
     let mut new_scope = HashMap::new();
 
-    for (name, val) in &engine_state.env_vars {
+    let env_vars = engine_state.render_env_vars();
+
+    for (name, val) in env_vars {
         match get_converted_value(engine_state, stack, name, val, "from_string") {
             ConversionResult::Ok(v) => {
                 let _ = new_scope.insert(name.to_string(), v);
@@ -64,8 +66,26 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
         }
     }
 
-    for (k, v) in new_scope {
-        engine_state.env_vars.insert(k, v);
+    if let Ok(last_overlay_name) = &stack.last_overlay_name() {
+        if let Some(env_vars) = engine_state.env_vars.get_mut(last_overlay_name) {
+            for (k, v) in new_scope {
+                env_vars.insert(k, v);
+            }
+        } else {
+            error = error.or_else(|| {
+                Some(ShellError::NushellFailedHelp(
+                    "Last active overlay not found in permanent state.".into(),
+                    "This error happened during the conversion of environment variables from strings to Nushell values.".into(),
+                ))
+            });
+        }
+    } else {
+        error = error.or_else(|| {
+            Some(ShellError::NushellFailedHelp(
+                "Last active overlay not found in stack.".into(),
+                "This error happened during the conversion of environment variables from strings to Nushell values.".into(),
+            ))
+        });
     }
 
     error

@@ -179,7 +179,7 @@ fn gather_env_vars(vars: impl Iterator<Item = (String, String)>, engine_state: &
             };
 
             // stack.add_env_var(name, value);
-            engine_state.env_vars.insert(name, value);
+            engine_state.add_env_var(name, value);
         }
     }
 }
@@ -319,12 +319,18 @@ mod test {
             &mut engine_state,
         );
 
-        let env = engine_state.env_vars;
+        let env = engine_state.render_env_vars();
 
-        assert!(matches!(env.get("FOO"), Some(Value::String { val, .. }) if val == "foo"));
-        assert!(matches!(env.get("SYMBOLS"), Some(Value::String { val, .. }) if val == symbols));
-        assert!(matches!(env.get(symbols), Some(Value::String { val, .. }) if val == "symbols"));
-        assert!(env.get("PWD").is_some());
+        assert!(
+            matches!(env.get(&"FOO".to_string()), Some(&Value::String { val, .. }) if val == "foo")
+        );
+        assert!(
+            matches!(env.get(&"SYMBOLS".to_string()), Some(&Value::String { val, .. }) if val == symbols)
+        );
+        assert!(
+            matches!(env.get(&symbols.to_string()), Some(&Value::String { val, .. }) if val == "symbols")
+        );
+        assert!(env.get(&"PWD".to_string()).is_some());
         assert_eq!(env.len(), 4);
     }
 }
