@@ -17,7 +17,7 @@ use nu_cli::{
 };
 use nu_command::{create_default_context, BufferedReader};
 use nu_engine::{get_full_help, CallExt};
-use nu_parser::{escape_quote_string, parse};
+use nu_parser::{escape_quote_string_advanced, escape_quote_string, parse};
 use nu_protocol::{
     ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
@@ -82,7 +82,7 @@ fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         if !script_name.is_empty() {
-            args_to_script.push(escape_quote_string(&arg));
+            args_to_script.push(escape_quote_string_advanced(&arg, &script_name));
         } else if arg.starts_with('-') {
             // Cool, it's a flag
             let flag_value = match arg.as_ref() {

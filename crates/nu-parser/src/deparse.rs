@@ -1,3 +1,6 @@
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+
 fn looks_like_flag(input: &str) -> bool {
     if !input.starts_with('-') {
         false
@@ -45,5 +48,41 @@ pub fn escape_quote_string(input: &str) -> String {
     } else {
         // this is a normal flag, aka "--x"
         String::from(input)
+    }
+}
+
+pub fn escape_quote_string_advanced(input: &str, file: &str) -> String {
+    let file = File::open(file);
+    match file {
+        Ok(f) => {
+            let lines = BufReader::new(f).lines();
+            for line in lines {
+                let mut flag_start = false;
+                let mut word = String::new();
+                let line_or = line.unwrap_or(String::from(" "));
+                if line_or.contains('-') {
+                    for n in line_or.chars() {
+                        if n == '-' {
+                            flag_start = true;
+                        }
+                        if n == ' ' || n == ':' || n == ')' {
+                            flag_start = false;
+                        }
+                        if flag_start {
+                            word.push(n);
+                        }
+                    }
+                }
+                if &word == input {
+                    return word;              
+                }
+            }
+            let mut final_word = String::new();
+            final_word.push('"');
+            final_word.push_str(input);
+            final_word.push('"');
+            return final_word;
+        },
+        _ => return String::from(input), 
     }
 }
