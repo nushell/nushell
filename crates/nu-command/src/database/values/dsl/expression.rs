@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::{Operator, PathMember},
-    CustomValue, ShellError, Span, Type, Value, PipelineData,
+    CustomValue, PipelineData, ShellError, Span, Type, Value,
 };
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::{BinaryOperator, Expr, Ident};
@@ -159,7 +159,7 @@ impl ExprDb {
             )),
         }
     }
-    
+
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(&value)

@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use sqlparser::ast::{Function, FunctionArg, FunctionArgExpr, Ident, ObjectName, Expr};
+use sqlparser::ast::{Expr, Function, FunctionArg, FunctionArgExpr, Ident, ObjectName};
 
 #[derive(Clone)]
 pub struct FunctionExpr;
@@ -77,8 +77,9 @@ impl Command for FunctionExpr {
             args,
             over: None,
             distinct: call.has_flag("distinct"),
-        }).into();
-        
+        })
+        .into();
+
         Ok(expression.into_value(call.head).into_pipeline_data())
     }
 }

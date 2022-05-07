@@ -54,7 +54,7 @@ impl Command for OverExpr {
             span: call.head,
         };
         let partitions = ExprDb::extract_exprs(value)?;
-        
+
         let mut expression = ExprDb::try_from_pipeline(input, call.head)?;
         match expression.as_mut() {
             Expr::Function(function) => {
