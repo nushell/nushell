@@ -62,14 +62,14 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             },
             Example {
                 description: "Remove an overlay created from a file",
-                example: r#"echo 'export def foo [] { "foo" }' | save spam.nu
+                example: r#"echo 'export alias f = "foo"' | save spam.nu
     overlay add spam.nu
     overlay remove spam"#,
                 result: None,
             },
             Example {
                 description: "Remove the last activated overlay",
-                example: r#"module spam { export def foo [] { "foo" } }
+                example: r#"module spam { export env FOO { "foo" } }
     overlay add spam
     overlay remove"#,
                 result: None,

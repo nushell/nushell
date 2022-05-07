@@ -118,7 +118,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             },
             Example {
                 description: "Create an overlay from a file",
-                example: r#"echo 'export def foo [] { "foo" }' | save spam.nu
+                example: r#"echo 'export env FOO { "foo" }' | save spam.nu
     overlay add spam.nu"#,
                 result: None,
             },
