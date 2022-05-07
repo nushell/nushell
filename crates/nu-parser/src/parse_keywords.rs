@@ -1886,19 +1886,20 @@ pub fn parse_overlay_add(
 
     let mut error = None;
 
-    if working_set.has_overlay(overlay_name.as_bytes()) {
+    if let Some(module_id) = working_set.find_overlay_origin(overlay_name.as_bytes()) {
         // Activate existing overlay
-        working_set.add_overlay(overlay_name.as_bytes().to_vec(), vec![], vec![]);
+        working_set.add_overlay(overlay_name.as_bytes().to_vec(), module_id, vec![], vec![]);
     } else {
         // Create a new overlay from a module
-        let (overlay_name, module) = if let Some(module_id) =
+        let result = if let Some(module_id) =
             // the name is a module
             working_set.find_module(overlay_name.as_bytes())
         {
-            (
-                Some(overlay_name),
+            Some((
+                overlay_name,
                 working_set.get_module(module_id).clone(),
-            )
+                module_id,
+            ))
         } else {
             // try if the name is a file
             if let Ok(module_filename) =
@@ -1934,9 +1935,9 @@ pub fn parse_overlay_add(
                         error = error.or(err);
 
                         let _ = working_set.add_block(block);
-                        let _ = working_set.add_module(&overlay_name, module.clone());
+                        let module_id = working_set.add_module(&overlay_name, module.clone());
 
-                        (Some(overlay_name), module)
+                        Some((overlay_name, module, module_id))
                     } else {
                         return (
                             Pipeline::from_vec(vec![Expression {
@@ -1950,14 +1951,14 @@ pub fn parse_overlay_add(
                     }
                 } else {
                     error = error.or(Some(ParseError::ModuleOrOverlayNotFound(overlay_name_span)));
-                    (None, Module::new())
+                    None
                 }
             } else {
                 return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
             }
         };
 
-        if let Some(name) = overlay_name {
+        if let Some((name, module, module_id)) = result {
             let (decls_to_lay, aliases_to_lay) = if has_prefix {
                 (
                     module.decls_with_head(name.as_bytes()),
@@ -1967,7 +1968,12 @@ pub fn parse_overlay_add(
                 (module.decls(), module.aliases())
             };
 
-            working_set.add_overlay(name.as_bytes().to_vec(), decls_to_lay, aliases_to_lay);
+            working_set.add_overlay(
+                name.as_bytes().to_vec(),
+                module_id,
+                decls_to_lay,
+                aliases_to_lay,
+            );
         }
     }
 

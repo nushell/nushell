@@ -117,9 +117,9 @@ impl ScopeFrame {
         }
     }
 
-    pub fn with_empty_overlay(name: Vec<u8>) -> Self {
+    pub fn with_empty_overlay(name: Vec<u8>, origin: ModuleId) -> Self {
         Self {
-            overlays: vec![(name, OverlayFrame::new())],
+            overlays: vec![(name, OverlayFrame::from(origin))],
             active_overlays: vec![0],
             removed_overlays: vec![],
             predecls: HashMap::new(),
@@ -213,7 +213,7 @@ impl ScopeFrame {
     }
 }
 
-type OverlayDiff = (Vec<(Vec<u8>, DeclId)>, Vec<(Vec<u8>, AliasId)>);
+// type OverlayDiff = (Vec<(Vec<u8>, DeclId)>, Vec<(Vec<u8>, AliasId)>);
 
 #[derive(Debug, Clone)]
 pub struct OverlayFrame {
@@ -223,10 +223,11 @@ pub struct OverlayFrame {
     pub aliases: HashMap<Vec<u8>, AliasId>,
     pub modules: HashMap<Vec<u8>, ModuleId>,
     pub visibility: Visibility,
+    pub origin: ModuleId, // The original module the overlay was created from
 }
 
 impl OverlayFrame {
-    pub fn new() -> Self {
+    pub fn from(origin: ModuleId) -> Self {
         Self {
             vars: HashMap::new(),
             predecls: HashMap::new(),
@@ -234,50 +235,50 @@ impl OverlayFrame {
             aliases: HashMap::new(),
             modules: HashMap::new(),
             visibility: Visibility::new(),
+            origin,
         }
     }
 
-    /// Find out which definitions are custom compared to the original module
-    ///
-    /// If you apply the diff to the original, you should end up with overlay identical to this
-    /// one.
-    pub fn diff(&self, original: &Module) -> OverlayDiff {
-        let decls = self
-            .decls
-            .iter()
-            .filter(|(name, decl_id)| {
-                if self.visibility.is_decl_id_visible(decl_id) {
-                    if let Some(original_id) = original.get_decl_id(name) {
-                        &original_id != *decl_id
-                    } else {
-                        true
-                    }
-                } else {
-                    false
-                }
-            })
-            .map(|(name, decl_id)| (name.to_owned(), *decl_id))
-            .collect();
+    // Find out which definitions are custom compared to the origin module
+    // pub fn diff(&self, engine_state: &EngineState) -> OverlayDiff {
+    //     let module = engine_state.get_module(self.origin);
 
-        let aliases = self
-            .aliases
-            .iter()
-            .filter(|(name, alias_id)| {
-                if self.visibility.is_alias_id_visible(alias_id) {
-                    if let Some(original_id) = original.get_alias_id(name) {
-                        &original_id != *alias_id
-                    } else {
-                        true
-                    }
-                } else {
-                    false
-                }
-            })
-            .map(|(name, alias_id)| (name.to_owned(), *alias_id))
-            .collect();
+    //     let decls = self
+    //         .decls
+    //         .iter()
+    //         .filter(|(name, decl_id)| {
+    //             if self.visibility.is_decl_id_visible(decl_id) {
+    //                 if let Some(original_id) = module.get_decl_id(name) {
+    //                     &original_id != *decl_id
+    //                 } else {
+    //                     true
+    //                 }
+    //             } else {
+    //                 false
+    //             }
+    //         })
+    //         .map(|(name, decl_id)| (name.to_owned(), *decl_id))
+    //         .collect();
 
-        (decls, aliases)
-    }
+    //     let aliases = self
+    //         .aliases
+    //         .iter()
+    //         .filter(|(name, alias_id)| {
+    //             if self.visibility.is_alias_id_visible(alias_id) {
+    //                 if let Some(original_id) = module.get_alias_id(name) {
+    //                     &original_id != *alias_id
+    //                 } else {
+    //                     true
+    //                 }
+    //             } else {
+    //                 false
+    //             }
+    //         })
+    //         .map(|(name, alias_id)| (name.to_owned(), *alias_id))
+    //         .collect();
+
+    //     (decls, aliases)
+    // }
 }
 
 /// The core global engine state. This includes all global definitions as well as any global state that
@@ -359,9 +360,9 @@ impl EngineState {
             decls: vec![],
             aliases: vec![],
             blocks: vec![],
-            modules: vec![],
+            modules: vec![Module::new()],
             // make sure we have some default overlay:
-            scope: ScopeFrame::with_empty_overlay(DEFAULT_OVERLAY_NAME.as_bytes().to_vec()),
+            scope: ScopeFrame::with_empty_overlay(DEFAULT_OVERLAY_NAME.as_bytes().to_vec(), 0),
             ctrlc: None,
             env_vars: EnvVars::from([(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]),
             config: Config::default(),
@@ -551,10 +552,11 @@ impl EngineState {
             .expect("internal error: no active overlays")
     }
 
-    pub fn last_overlay(&self, removed_overlays: &[Vec<u8>]) -> Option<&OverlayFrame> {
+    pub fn last_overlay(&self, removed_overlays: &[Vec<u8>]) -> &OverlayFrame {
         self.active_overlay_ids(removed_overlays)
             .last()
             .map(|id| self.get_overlay(*id))
+            .expect("internal error: no active overlays")
     }
 
     pub fn get_overlay_name(&self, overlay_id: OverlayId) -> &Vec<u8> {
@@ -1003,8 +1005,10 @@ pub struct StateDelta {
 
 impl StateDelta {
     pub fn new(engine_state: &EngineState) -> Self {
-        let scope_frame =
-            ScopeFrame::with_empty_overlay(engine_state.last_overlay_name(&[]).to_owned());
+        let scope_frame = ScopeFrame::with_empty_overlay(
+            engine_state.last_overlay_name(&[]).to_owned(),
+            engine_state.last_overlay(&[]).origin,
+        );
 
         StateDelta {
             files: vec![],
@@ -1152,18 +1156,6 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn num_overlays(&self) -> usize {
         self.unique_overlay_names().len()
-    }
-
-    pub fn last_overlay_mut(&mut self) -> &mut OverlayFrame {
-        if self.delta.last_overlay_mut().is_none() {
-            // If there is no overlay, automatically activate the last one
-            let last_overlay_name = self.last_overlay_name().to_vec();
-            self.add_overlay(last_overlay_name, vec![], vec![]);
-        }
-
-        self.delta
-            .last_overlay_mut()
-            .expect("internal error: missing added overlay")
     }
 
     pub fn add_decl(&mut self, decl: Box<dyn Command>) -> DeclId {
@@ -1902,6 +1894,18 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.has_overlay(name)
     }
 
+    pub fn find_overlay_origin(&self, name: &[u8]) -> Option<ModuleId> {
+        for scope_frame in self.delta.scope.iter().rev() {
+            if let Some(overlay_id) = scope_frame.find_overlay(name) {
+                return Some(scope_frame.get_overlay(overlay_id).origin);
+            }
+        }
+
+        self.permanent_state
+            .find_overlay(name)
+            .map(|id| self.permanent_state.get_overlay(id).origin)
+    }
+
     pub fn last_overlay_name(&self) -> &Vec<u8> {
         let mut removed_overlays = vec![];
 
@@ -1919,9 +1923,40 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.last_overlay_name(&removed_overlays)
     }
 
+    pub fn last_overlay(&self) -> &OverlayFrame {
+        let mut removed_overlays = vec![];
+
+        for scope_frame in self.delta.scope.iter().rev() {
+            if let Some(last_overlay) = scope_frame
+                .active_overlays(&mut removed_overlays)
+                .iter()
+                .rev()
+                .last()
+            {
+                return last_overlay;
+            }
+        }
+
+        self.permanent_state.last_overlay(&removed_overlays)
+    }
+
+    pub fn last_overlay_mut(&mut self) -> &mut OverlayFrame {
+        if self.delta.last_overlay_mut().is_none() {
+            // If there is no overlay, automatically activate the last one
+            let name = self.last_overlay_name().to_vec();
+            let origin = self.last_overlay().origin;
+            self.add_overlay(name, origin, vec![], vec![]);
+        }
+
+        self.delta
+            .last_overlay_mut()
+            .expect("internal error: missing added overlay")
+    }
+
     pub fn add_overlay(
         &mut self,
         name: Vec<u8>,
+        origin: ModuleId,
         decls: Vec<(Vec<u8>, DeclId)>,
         aliases: Vec<(Vec<u8>, AliasId)>,
     ) {
@@ -1936,7 +1971,9 @@ impl<'a> StateWorkingSet<'a> {
         let overlay_id = if let Some(overlay_id) = last_scope_frame.find_overlay(&name) {
             overlay_id
         } else {
-            last_scope_frame.overlays.push((name, OverlayFrame::new()));
+            last_scope_frame
+                .overlays
+                .push((name, OverlayFrame::from(origin)));
             last_scope_frame.overlays.len() - 1
         };
 
@@ -2001,11 +2038,11 @@ impl Default for ScopeFrame {
     }
 }
 
-impl Default for OverlayFrame {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// impl Default for OverlayFrame {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
 impl Default for EngineState {
     fn default() -> Self {
