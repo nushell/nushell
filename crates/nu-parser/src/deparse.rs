@@ -1,6 +1,21 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
+pub fn escape_quote_string(input: &str) -> String {
+    let mut output = String::with_capacity(input.len() + 2);
+    output.push('"');
+
+    for c in input.chars() {
+        if c == '"' || c == '\\' {
+            output.push('\\');
+        }
+        output.push(c);
+    }
+
+    output.push('"');
+    output
+}
+
 fn looks_like_flag(input: &str) -> bool {
     if !input.starts_with('-') {
         false
@@ -21,7 +36,7 @@ fn looks_like_flag(input: &str) -> bool {
     }
 }
 
-pub fn escape_quote_string(input: &str) -> String {
+fn escape_quote_string_new(input: &str) -> String {
     let mut output = String::new();
     if !looks_like_flag(input) {
         output.push('"');
@@ -37,6 +52,9 @@ pub fn escape_quote_string(input: &str) -> String {
         // this is a flag that requires delicate handling
         let mut flag_tripped = false;
         for c in input.chars() {
+            if c == '"' || c == '\\' {
+                output.push('\\');
+            }
             output.push(c);
             if (c == ' ' || c == '=') && !flag_tripped {
                 flag_tripped = true;
@@ -83,6 +101,6 @@ pub fn escape_quote_string_advanced(input: &str, file: &str) -> String {
             final_word.push('"');
             final_word
         }
-        _ => String::from(input),
+        _ => escape_quote_string_new(input),
     }
 }
