@@ -24,6 +24,7 @@ impl Command for OverlayAdd {
                 SyntaxShape::String,
                 "Module name to create overlay for",
             )
+            // TODO:
             // .switch(
             //     "prefix",
             //     "Prepend module name to the imported symbols",
@@ -109,30 +110,18 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
 
     fn examples(&self) -> Vec<Example> {
         vec![
-            // Example {
-            //     description: "Define a custom command in a module and call it",
-            //     example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
-            //     result: Some(Value::String {
-            //         val: "foo".to_string(),
-            //         span: Span::test_data(),
-            //     }),
-            // },
-            // Example {
-            //     description: "Define an environment variable in a module and evaluate it",
-            //     example: r#"module foo { export env FOO_ENV { "BAZ" } }; use foo FOO_ENV; $env.FOO_ENV"#,
-            //     result: Some(Value::String {
-            //         val: "BAZ".to_string(),
-            //         span: Span::test_data(),
-            //     }),
-            // },
-            // Example {
-            //     description: "Define a custom command that participates in the environment in a module and call it",
-            //     example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
-            //     result: Some(Value::String {
-            //         val: "BAZ".to_string(),
-            //         span: Span::test_data(),
-            //     }),
-            // },
+            Example {
+                description: "Create an overlay from a module",
+                example: r#"module spam { export def foo [] { "foo" } }
+    overlay add spam"#,
+                result: None,
+            },
+            Example {
+                description: "Create an overlay from a file",
+                example: r#"echo 'export def foo [] { "foo" }' | save spam.nu
+    overlay add spam.nu"#,
+                result: None,
+            },
         ]
     }
 }

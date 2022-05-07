@@ -47,33 +47,20 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
 
     fn examples(&self) -> Vec<Example> {
         vec![
-            // Example {
-            //     description: "Hide the alias just defined",
-            //     example: r#"alias lll = ls -l; hide lll"#,
-            //     result: None,
-            // },
-            // Example {
-            //     description: "Hide a custom command",
-            //     example: r#"def say-hi [] { echo 'Hi!' }; hide say-hi"#,
-            //     result: None,
-            // },
-            // Example {
-            //     description: "Hide an environment variable",
-            //     example: r#"let-env HZ_ENV_ABC = 1; hide HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
-            //     result: Some(Value::boolean(false, Span::test_data())),
-            // },
+            Example {
+                description: "Remove an overlay created from a module",
+                example: r#"module spam { export def foo [] { "foo" } }
+    overlay add spam
+    overlay remove spam"#,
+                result: None,
+            },
+            Example {
+                description: "Remove an overlay created from a file",
+                example: r#"echo 'export def foo [] { "foo" }' | save spam.nu
+    overlay add spam.nu
+    overlay remove spam"#,
+                result: None,
+            },
         ]
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(OverlayRemove {})
     }
 }
