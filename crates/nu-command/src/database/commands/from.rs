@@ -3,9 +3,11 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
 };
-use sqlparser::ast::{Ident, ObjectName, Query, Select, SetExpr, TableFactor, TableWithJoins};
+use sqlparser::ast::{
+    Ident, ObjectName, Query, Select, SetExpr, Statement, TableFactor, TableWithJoins,
+};
 
 #[derive(Clone)]
 pub struct FromDb;
@@ -51,17 +53,17 @@ impl Command for FromDb {
         let table: String = call.req(engine_state, stack, 0)?;
 
         let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
-        db.query = match db.query {
-            None => Some(create_query(table)),
-            Some(query) => Some(modify_query(query, table)),
+        db.statement = match db.statement {
+            None => Some(create_statement(table)),
+            Some(statement) => Some(modify_statement(statement, table, call.head)?),
         };
 
         Ok(db.into_value(call.head).into_pipeline_data())
     }
 }
 
-fn create_query(table: String) -> Query {
-    Query {
+fn create_statement(table: String) -> Statement {
+    let query = Query {
         with: None,
         body: SetExpr::Select(Box::new(create_select(table))),
         order_by: Vec::new(),
@@ -69,21 +71,35 @@ fn create_query(table: String) -> Query {
         offset: None,
         fetch: None,
         lock: None,
-    }
-}
-
-fn modify_query(mut query: Query, table: String) -> Query {
-    query.body = match query.body {
-        SetExpr::Select(select) => SetExpr::Select(modify_select(select, table)),
-        _ => SetExpr::Select(Box::new(create_select(table))),
     };
 
-    query
+    Statement::Query(Box::new(query))
 }
 
-fn modify_select(mut select: Box<Select>, table: String) -> Box<Select> {
-    select.as_mut().from = create_from(table);
-    select
+fn modify_statement(
+    mut statement: Statement,
+    table: String,
+    span: Span,
+) -> Result<Statement, ShellError> {
+    match statement {
+        Statement::Query(ref mut query) => {
+            match query.body {
+                SetExpr::Select(ref mut select) => select.as_mut().from = create_from(table),
+                _ => {
+                    query.as_mut().body = SetExpr::Select(Box::new(create_select(table)));
+                }
+            };
+
+            Ok(statement)
+        }
+        s => Err(ShellError::GenericError(
+            "Connection doesnt define a statement".into(),
+            format!("Expected a connection with query. Got {}", s),
+            Some(span),
+            None,
+            Vec::new(),
+        )),
+    }
 }
 
 fn create_select(table: String) -> Select {

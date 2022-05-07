@@ -5,7 +5,7 @@ use crate::database::values::definitions::{
 use nu_protocol::{CustomValue, PipelineData, ShellError, Span, Spanned, Value};
 use rusqlite::{types::ValueRef, Connection, Row};
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Query;
+use sqlparser::ast::Statement;
 use std::{
     fs::File,
     io::Read,
@@ -20,14 +20,14 @@ pub struct SQLiteDatabase {
     // 1) YAGNI, 2) it's not obvious how cloning a connection could work, 3) state
     // management gets tricky quick. Revisit this approach if we find a compelling use case.
     pub path: PathBuf,
-    pub query: Option<Query>,
+    pub statement: Option<Statement>,
 }
 
 impl SQLiteDatabase {
     pub fn new(path: &Path) -> Self {
         Self {
             path: PathBuf::from(path),
-            query: None,
+            statement: None,
         }
     }
 
@@ -52,7 +52,7 @@ impl SQLiteDatabase {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(db) => Ok(Self {
                     path: db.path.clone(),
-                    query: db.query.clone(),
+                    statement: db.statement.clone(),
                 }),
                 None => Err(ShellError::CantConvert(
                     "database".into(),
@@ -96,8 +96,8 @@ impl SQLiteDatabase {
     }
 
     pub fn collect(&self, call_span: Span) -> Result<Value, ShellError> {
-        let sql = match &self.query {
-            Some(query) => Ok(format!("{}", query)),
+        let sql = match &self.statement {
+            Some(statement) => Ok(format!("{}", statement)),
             None => Err(ShellError::GenericError(
                 "Error collecting from db".into(),
                 "No query found in connection".into(),
@@ -131,8 +131,8 @@ impl SQLiteDatabase {
             span,
         };
 
-        let query = match &self.query {
-            Some(query) => format!("{query}"),
+        let query = match &self.statement {
+            Some(statement) => format!("{statement}"),
             None => "".into(),
         };
 
@@ -351,7 +351,7 @@ impl CustomValue for SQLiteDatabase {
     fn clone_value(&self, span: Span) -> Value {
         let cloned = SQLiteDatabase {
             path: self.path.clone(),
-            query: self.query.clone(),
+            statement: self.statement.clone(),
         };
 
         Value::CustomValue {
