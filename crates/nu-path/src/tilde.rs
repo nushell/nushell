@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
     let path = path.as_ref();
-
+    
     if !path.starts_with("~") {
         let string = path.to_string_lossy();
         let mut path_as_string = string.as_ref().chars();
@@ -13,14 +13,21 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
             _ => path.into(),
         };
     }
-
+    
+    let path_last_char = path.as_os_str().to_string_lossy().chars().last();
+    let need_trailing_slash = path_last_char == Some('/') || path_last_char == Some('\\');
+    
     match home {
         None => path.into(),
         Some(mut h) => {
             if h == Path::new("/") {
                 // Corner case: `h` is a root directory;
                 // don't prepend extra `/`, just drop the tilde.
-                path.strip_prefix("~").unwrap_or(path).into()
+                let mut p: PathBuf = path.strip_prefix("~").unwrap_or(path).into();
+                if need_trailing_slash {
+                    p.push("/");
+                }
+                p
             } else {
                 if let Ok(p) = path.strip_prefix("~/") {
                     // Corner case: `p` is empty;
@@ -30,6 +37,10 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
                     // even if it's empty
                     if p != Path::new("") {
                         h.push(p)
+                    }
+
+                    if need_trailing_slash {
+                        h.push("");
                     }
                 }
                 h
