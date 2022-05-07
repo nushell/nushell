@@ -39,7 +39,7 @@ impl CommandCompletion {
     ) -> Vec<String> {
         let mut executables = vec![];
 
-        let paths = self.engine_state.env_vars.get("PATH");
+        let paths = self.engine_state.get_env_var("PATH");
 
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {
@@ -214,7 +214,7 @@ impl Completer for CommandCompletion {
             vec![]
         };
 
-        let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
+        let cwd = if let Some(d) = self.engine_state.get_env_var("PWD") {
             match d.as_string() {
                 Ok(s) => s,
                 Err(_) => "".to_string(),

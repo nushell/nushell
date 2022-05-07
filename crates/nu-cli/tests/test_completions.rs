@@ -48,6 +48,39 @@ fn dotnu_completions() {
 }
 
 #[test]
+fn flag_completions() {
+    // Create a new engine
+    let (_, _, engine) = new_engine();
+
+    let stack = Stack::new();
+
+    // Instatiate a new completer
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    // Test completions for the 'ls' flags
+    let suggestions = completer.complete("ls -".into(), 4);
+
+    assert_eq!(12, suggestions.len());
+
+    let expected: Vec<String> = vec![
+        "--all".into(),
+        "--du".into(),
+        "--full-paths".into(),
+        "--help".into(),
+        "--long".into(),
+        "--short-names".into(),
+        "-a".into(),
+        "-d".into(),
+        "-f".into(),
+        "-h".into(),
+        "-l".into(),
+        "-s".into(),
+    ];
+
+    // Match results
+    match_suggestions(expected, suggestions);
+}
+
+#[test]
 fn file_completions() {
     // Create a new engine
     let (dir, dir_str, engine) = new_engine();
@@ -129,6 +162,9 @@ pub fn new_engine() -> (PathBuf, String, EngineState) {
     // New stack
     let mut stack = Stack::new();
 
+    // New delta
+    let delta = StateDelta::new(&engine_state);
+
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
@@ -142,7 +178,7 @@ pub fn new_engine() -> (PathBuf, String, EngineState) {
     );
 
     // Merge delta
-    let _ = engine_state.merge_delta(StateDelta::new(), Some(&mut stack), &dir);
+    let _ = engine_state.merge_delta(delta, Some(&mut stack), &dir);
 
     (dir.clone(), dir_str, engine_state)
 }

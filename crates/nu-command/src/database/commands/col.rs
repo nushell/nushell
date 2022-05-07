@@ -27,7 +27,7 @@ impl Command for ColExpr {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a named column expression",
-            example: "col name_1",
+            example: "db col name_1",
             result: None,
         }]
     }

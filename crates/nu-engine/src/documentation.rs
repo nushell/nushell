@@ -115,7 +115,7 @@ fn get_documentation(
 
         if config.no_color {
             long_desc.push_str(&format!("\n  > {}\n", example.example));
-        } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight") {
+        } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
             let decl = engine_state.get_decl(highlighter);
 
             match decl.run(

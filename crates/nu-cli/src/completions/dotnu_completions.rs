@@ -37,7 +37,7 @@ impl Completer for DotNuCompletion {
 
         // Fetch the lib dirs
         let lib_dirs: Vec<String> =
-            if let Some(lib_dirs) = self.engine_state.env_vars.get("NU_LIB_DIRS") {
+            if let Some(lib_dirs) = self.engine_state.get_env_var("NU_LIB_DIRS") {
                 lib_dirs
                     .as_list()
                     .into_iter()
@@ -70,7 +70,7 @@ impl Completer for DotNuCompletion {
             partial = base_dir_partial;
         } else {
             // Fetch the current folder
-            let current_folder = if let Some(d) = self.engine_state.env_vars.get("PWD") {
+            let current_folder = if let Some(d) = self.engine_state.get_env_var("PWD") {
                 match d.as_string() {
                     Ok(s) => s,
                     Err(_) => "".to_string(),
