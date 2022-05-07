@@ -4287,13 +4287,16 @@ pub fn parse_expression(
                 },
             );
             let rhs = if spans[pos].start + point < spans[pos].end {
-                parse_string_strict(
-                    working_set,
-                    Span {
-                        start: spans[pos].start + point,
-                        end: spans[pos].end,
-                    },
-                )
+                let rhs_span = Span {
+                    start: spans[pos].start + point,
+                    end: spans[pos].end,
+                };
+
+                if working_set.get_span_contents(rhs_span).starts_with(b"$") {
+                    parse_dollar_expr(working_set, rhs_span, expand_aliases_denylist)
+                } else {
+                    parse_string_strict(working_set, rhs_span)
+                }
             } else {
                 (
                     Expression {
