@@ -123,8 +123,6 @@ fn sources_unicode_file_in_unicode_dir_without_spaces_2() {
     try_source_foo_without_quotes_in(":fire_engine:", "source_test_9");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn sources_unicode_file_in_unicode_dir_with_spaces_1() {
     // this one fails
@@ -133,8 +131,6 @@ fn sources_unicode_file_in_unicode_dir_with_spaces_1() {
     try_source_foo_with_double_quotes_in("e-$ èрт🚒♞中片-j", "source_test_9");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[cfg(not(windows))] // ':' is not allowed in Windows paths
 #[test]
 fn sources_unicode_file_in_unicode_dir_with_spaces_2() {
