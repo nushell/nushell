@@ -42,7 +42,10 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         let module_name: Spanned<String> = if let Some(name) = call.opt(engine_state, stack, 0)? {
             name
         } else {
-            Spanned { item: stack.last_overlay_name()?, span: call.head }
+            Spanned {
+                item: stack.last_overlay_name()?,
+                span: call.head,
+            }
         };
 
         // TODO: Add env merging

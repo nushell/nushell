@@ -82,6 +82,38 @@ fn add_overlay_scoped() {
 }
 
 #[test]
+fn update_overlay_from_module() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            module spam { export def foo [] { "foo" } };
+            overlay add spam;
+            module spam { export def foo [] { "bar" } };
+            overlay add spam;
+            foo
+        "#
+    ));
+
+    assert_eq!(actual.out, "bar");
+}
+
+#[test]
+fn update_overlay_from_module_env() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            module spam { export env FOO { "foo" } };
+            overlay add spam;
+            module spam { export env FOO { "bar" } };
+            overlay add spam;
+            $env.FOO
+        "#
+    ));
+
+    assert_eq!(actual.out, "bar");
+}
+
+#[test]
 fn remove_overlay() {
     let actual = nu!(
         cwd: "tests/overlays", pipeline(

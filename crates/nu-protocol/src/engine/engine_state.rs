@@ -1952,6 +1952,8 @@ impl<'a> StateWorkingSet<'a> {
             .retain(|removed_name| removed_name != &name);
 
         let overlay_id = if let Some(overlay_id) = last_scope_frame.find_overlay(&name) {
+            last_scope_frame.get_overlay_mut(overlay_id).origin = origin;
+
             overlay_id
         } else {
             last_scope_frame
