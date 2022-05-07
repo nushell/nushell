@@ -17,7 +17,7 @@ impl Command for OverlayRemove {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay remove")
-            .required("name", SyntaxShape::String, "Overlay to remove")
+            .optional("name", SyntaxShape::String, "Overlay to remove")
             .category(Category::Core)
     }
 
@@ -37,7 +37,13 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let module_name: Spanned<String> = call.req(engine_state, stack, 0)?;
+        // let module_name: Spanned<String> = call.req(engine_state, stack, 0)?;
+
+        let module_name: Spanned<String> = if let Some(name) = call.opt(engine_state, stack, 0)? {
+            name
+        } else {
+            Spanned { item: stack.last_overlay_name()?, span: call.head }
+        };
 
         // TODO: Add env merging
         stack.remove_overlay(&module_name.item, &module_name.span)?;
@@ -59,6 +65,13 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
                 example: r#"echo 'export def foo [] { "foo" }' | save spam.nu
     overlay add spam.nu
     overlay remove spam"#,
+                result: None,
+            },
+            Example {
+                description: "Remove the last activated overlay",
+                example: r#"module spam { export def foo [] { "foo" } }
+    overlay add spam
+    overlay remove"#,
                 result: None,
             },
         ]

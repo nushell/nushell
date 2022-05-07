@@ -97,6 +97,21 @@ fn remove_overlay() {
 }
 
 #[test]
+fn remove_last_overlay() {
+    let actual = nu!(
+        cwd: "tests/overlays", pipeline(
+        r#"
+            module spam { export def foo [] { "foo" } };
+            overlay add spam;
+            overlay remove;
+            foo
+        "#
+    ));
+
+    assert!(!actual.err.is_empty());
+}
+
+#[test]
 fn remove_overlay_scoped() {
     let actual = nu!(
         cwd: "tests/overlays", pipeline(

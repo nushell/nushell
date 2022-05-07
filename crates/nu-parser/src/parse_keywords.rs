@@ -1992,7 +1992,7 @@ pub fn parse_overlay_remove(
         );
     }
 
-    let (call, call_span) = match working_set.find_decl(b"overlay remove") {
+    let call = match working_set.find_decl(b"overlay remove") {
         Some(decl_id) => {
             let (call, mut err) = parse_internal_call(
                 working_set,
@@ -2018,7 +2018,7 @@ pub fn parse_overlay_remove(
                 );
             }
 
-            (call, call_span)
+            call
         }
         None => {
             return (
@@ -2044,13 +2044,7 @@ pub fn parse_overlay_remove(
             );
         }
     } else {
-        return (
-            garbage_pipeline(spans),
-            Some(ParseError::UnknownState(
-                "internal error: Missing required positional after call parsing".into(),
-                call_span,
-            )),
-        );
+        (String::from_utf8_lossy(working_set.last_overlay_name()).to_string(), call.head)
     };
 
     let pipeline = Pipeline::from_vec(vec![Expression {
