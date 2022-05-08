@@ -8,7 +8,7 @@ use crate::{
 use log::{info, trace};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::get_color_config;
-use nu_engine::convert_env_values;
+use nu_engine::{convert_env_values, eval_block};
 use nu_parser::lex;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -211,11 +211,29 @@ pub fn evaluate_repl(
             );
         }
 
+        // Right before we start our prompt and take input from the user,
+        // fire the "pre_prompt" hook
+        if let Some(hook) = &config.hooks.pre_prompt {
+            if let Err(err) = run_hook(engine_state, stack, &hook) {
+                let working_set = StateWorkingSet::new(&engine_state);
+                report_error(&working_set, &err);
+            }
+        }
+
         let input = line_editor.read_line(prompt);
         let use_shell_integration = config.shell_integration;
 
         match input {
             Ok(Signal::Success(s)) => {
+                // Right before we start running the code the user gave us,
+                // fire the "pre_execution" hook
+                if let Some(hook) = &config.hooks.pre_execution {
+                    if let Err(err) = run_hook(engine_state, stack, &hook) {
+                        let working_set = StateWorkingSet::new(&engine_state);
+                        report_error(&working_set, &err);
+                    }
+                }
+
                 let start_time = Instant::now();
                 let tokens = lex(s.as_bytes(), 0, &[], &[], false);
                 // Check if this is a single call to a directory, if so auto-cd
@@ -358,4 +376,39 @@ pub fn evaluate_repl(
     }
 
     Ok(())
+}
+
+pub fn run_hook(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    value: &Value,
+) -> Result<(), ShellError> {
+    match value {
+        Value::Block {
+            val: block_id,
+            span,
+            ..
+        } => {
+            let block = engine_state.get_block(*block_id);
+            let input = PipelineData::new(*span);
+
+            match eval_block(engine_state, stack, block, input, false, false) {
+                Ok(pipeline_data) => match pipeline_data.into_value(*span) {
+                    Value::Error { error } => Err(error),
+                    _ => Ok(()),
+                },
+                Err(err) => Err(err),
+            }
+        }
+        x => match x.span() {
+            Ok(span) => Err(ShellError::MissingConfigValue(
+                "block for hook in config".into(),
+                span,
+            )),
+            _ => Err(ShellError::MissingConfigValue(
+                "block for hook in config".into(),
+                Span { start: 0, end: 0 },
+            )),
+        },
+    }
 }
