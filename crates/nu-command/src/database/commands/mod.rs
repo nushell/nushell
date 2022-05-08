@@ -1,3 +1,6 @@
+// Conversions between value and sqlparser objects
+pub mod conversions;
+
 mod alias;
 mod and;
 mod col;
@@ -7,6 +10,7 @@ mod describe;
 mod from;
 mod function;
 mod group_by;
+mod join;
 mod limit;
 mod open;
 mod or;
@@ -32,6 +36,7 @@ use describe::DescribeDb;
 use from::FromDb;
 use function::FunctionExpr;
 use group_by::GroupByDb;
+use join::JoinDb;
 use limit::LimitDb;
 use open::OpenDb;
 use or::OrDb;
@@ -56,20 +61,21 @@ pub fn add_database_decls(working_set: &mut StateWorkingSet) {
     bind_command!(
         AliasExpr,
         AndDb,
-        CollectDb,
         ColExpr,
+        CollectDb,
         Database,
         DescribeDb,
         FromDb,
         FunctionExpr,
         GroupByDb,
-        QueryDb,
+        JoinDb,
         LimitDb,
-        ProjectionDb,
         OpenDb,
         OrderByDb,
         OrDb,
         OverExpr,
+        QueryDb,
+        ProjectionDb,
         SchemaDb,
         TestingDb,
         WhereDb

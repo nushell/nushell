@@ -29,26 +29,15 @@ impl Command for AliasExpr {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Creates an alias for a column selection",
-                example: "db col name_a | db as new_a",
-                result: None,
-            },
-            Example {
-                description: "Creates an alias for a table",
-                example: r#"db open name 
-    | db select a 
-    | db from table_a 
-    | db as table_a_new 
-    | db describe"#,
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Creates an alias for a column selection",
+            example: "db col name_a | db as new_a",
+            result: None,
+        }]
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "column", "expression"]
+        vec!["database", "alias", "column"]
     }
 
     fn run(

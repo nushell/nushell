@@ -1,3 +1,4 @@
+use super::definitions::ConnectionDb;
 use crate::database::values::definitions::{
     db::Db, db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
     db_index::DbIndex, db_table::DbTable,
@@ -19,14 +20,14 @@ pub struct SQLiteDatabase {
     // I considered storing a SQLite connection here, but decided against it because
     // 1) YAGNI, 2) it's not obvious how cloning a connection could work, 3) state
     // management gets tricky quick. Revisit this approach if we find a compelling use case.
-    pub path: PathBuf,
+    pub connection: ConnectionDb,
     pub statement: Option<Statement>,
 }
 
 impl SQLiteDatabase {
     pub fn new(path: &Path) -> Self {
         Self {
-            path: PathBuf::from(path),
+            connection: ConnectionDb::Path(PathBuf::from(path)),
             statement: None,
         }
     }
@@ -51,7 +52,7 @@ impl SQLiteDatabase {
         match value {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(db) => Ok(Self {
-                    path: db.path.clone(),
+                    connection: db.connection.clone(),
                     statement: db.statement.clone(),
                 }),
                 None => Err(ShellError::CantConvert(
@@ -83,7 +84,7 @@ impl SQLiteDatabase {
     }
 
     pub fn query(&self, sql: &Spanned<String>, call_span: Span) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(&self.path, call_span)?;
+        let db = open_sqlite_db(self.connection.as_path(call_span)?, call_span)?;
         run_sql_query(db, sql).map_err(|e| {
             ShellError::GenericError(
                 "Failed to query SQLite database".into(),
@@ -112,7 +113,7 @@ impl SQLiteDatabase {
             span: call_span,
         };
 
-        let db = open_sqlite_db(&self.path, call_span)?;
+        let db = open_sqlite_db(self.connection.as_path(call_span)?, call_span)?;
         run_sql_query(db, &sql).map_err(|e| {
             ShellError::GenericError(
                 "Failed to query SQLite database".into(),
@@ -127,7 +128,7 @@ impl SQLiteDatabase {
     pub fn describe(&self, span: Span) -> Value {
         let cols = vec!["connection".to_string(), "query".to_string()];
         let connection = Value::String {
-            val: self.path.to_str().unwrap_or("").to_string(),
+            val: self.connection.to_string(),
             span,
         };
 
@@ -146,7 +147,7 @@ impl SQLiteDatabase {
     }
 
     pub fn open_connection(&self) -> Result<Connection, rusqlite::Error> {
-        let conn = match Connection::open(self.path.to_string_lossy().to_string()) {
+        let conn = match Connection::open(self.connection.to_string()) {
             Ok(conn) => conn,
             Err(err) => return Err(err),
         };
@@ -350,7 +351,7 @@ impl SQLiteDatabase {
 impl CustomValue for SQLiteDatabase {
     fn clone_value(&self, span: Span) -> Value {
         let cloned = SQLiteDatabase {
-            path: self.path.clone(),
+            connection: self.connection.clone(),
             statement: self.statement.clone(),
         };
 
@@ -365,7 +366,7 @@ impl CustomValue for SQLiteDatabase {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(&self.path, span)?;
+        let db = open_sqlite_db(self.connection.as_path(span)?, span)?;
         read_entire_sqlite_db(db, span).map_err(|e| {
             ShellError::GenericError(
                 "Failed to read from SQLite database".into(),
@@ -387,7 +388,7 @@ impl CustomValue for SQLiteDatabase {
     }
 
     fn follow_path_string(&self, _column_name: String, span: Span) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(&self.path, span)?;
+        let db = open_sqlite_db(self.connection.as_path(span)?, span)?;
 
         read_single_table(db, _column_name, span).map_err(|e| {
             ShellError::GenericError(
