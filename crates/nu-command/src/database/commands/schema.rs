@@ -68,7 +68,7 @@ impl Command for SchemaDb {
 
         cols.push("db_filename".into());
         vals.push(Value::String {
-            val: sqlite_db.path.to_string_lossy().to_string(),
+            val: sqlite_db.connection.to_string(),
             span,
         });
 
