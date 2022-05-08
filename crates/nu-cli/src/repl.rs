@@ -214,8 +214,8 @@ pub fn evaluate_repl(
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
         if let Some(hook) = &config.hooks.pre_prompt {
-            if let Err(err) = run_hook(engine_state, stack, &hook) {
-                let working_set = StateWorkingSet::new(&engine_state);
+            if let Err(err) = run_hook(engine_state, stack, hook) {
+                let working_set = StateWorkingSet::new(engine_state);
                 report_error(&working_set, &err);
             }
         }
@@ -228,8 +228,8 @@ pub fn evaluate_repl(
                 // Right before we start running the code the user gave us,
                 // fire the "pre_execution" hook
                 if let Some(hook) = &config.hooks.pre_execution {
-                    if let Err(err) = run_hook(engine_state, stack, &hook) {
-                        let working_set = StateWorkingSet::new(&engine_state);
+                    if let Err(err) = run_hook(engine_state, stack, hook) {
+                        let working_set = StateWorkingSet::new(engine_state);
                         report_error(&working_set, &err);
                     }
                 }
