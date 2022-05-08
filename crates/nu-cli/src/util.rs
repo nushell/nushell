@@ -211,8 +211,8 @@ pub fn eval_source(
         (output, working_set.render())
     };
 
-    let cwd = match nu_engine::env::current_dir_str(engine_state, stack) {
-        Ok(p) => PathBuf::from(p),
+    let cwd = match nu_engine::env::current_dir(engine_state, stack) {
+        Ok(p) => p,
         Err(e) => {
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &e);

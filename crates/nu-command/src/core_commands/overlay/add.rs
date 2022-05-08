@@ -53,8 +53,46 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
 
         // TODO: This logic is duplicated in the parser.
         if stack.has_env_overlay(&name_arg.item, engine_state) {
-            stack.add_overlay(name_arg.item);
+            // Activate existing overlay
+            stack.add_overlay(name_arg.item.clone());
+
+            if let Some(module_id) = engine_state
+                .find_overlay(name_arg.item.as_bytes())
+                .map(|id| engine_state.get_overlay(id).origin)
+            {
+                if let Some(new_module_id) = engine_state.find_module(name_arg.item.as_bytes(), &[])
+                {
+                    if module_id != new_module_id {
+                        // The origin module of an overlay changed => update it
+                        let module = engine_state.get_module(new_module_id);
+
+                        for (name, block_id) in module.env_vars() {
+                            let name = if let Ok(s) = String::from_utf8(name.clone()) {
+                                s
+                            } else {
+                                return Err(ShellError::NonUtf8(name_arg.span));
+                            };
+
+                            let block = engine_state.get_block(block_id);
+
+                            let val = eval_block(
+                                engine_state,
+                                stack,
+                                block,
+                                PipelineData::new(call.head),
+                                false,
+                                true,
+                            )?
+                            .into_value(call.head);
+
+                            stack.add_env_var(name, val);
+                        }
+                    }
+                }
+            } else {
+            }
         } else {
+            // Create a new overlay from a module
             let (overlay_name, module) =
                 if let Some(module_id) = engine_state.find_module(name_arg.item.as_bytes(), &[]) {
                     (name_arg.item, engine_state.get_module(module_id))
