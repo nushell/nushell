@@ -86,6 +86,9 @@ fn add_overlay_scoped() {
     let actual_repl = nu_repl("tests/overlays", inp);
 
     assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert!(actual_repl.out != "foo");
+    #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
 
@@ -136,6 +139,9 @@ fn remove_overlay() {
     let actual_repl = nu_repl("tests/overlays", inp);
 
     assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert!(actual_repl.out != "foo");
+    #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
 
@@ -152,6 +158,9 @@ fn remove_last_overlay() {
     let actual_repl = nu_repl("tests/overlays", inp);
 
     assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert!(actual_repl.out != "foo");
+    #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
 
@@ -257,6 +266,9 @@ fn remove_overlay_discard_decl() {
     let actual_repl = nu_repl("tests/overlays", inp);
 
     assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert!(actual_repl.out != "bagr");
+    #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
 
@@ -273,6 +285,9 @@ fn remove_overlay_discard_alias() {
     let actual_repl = nu_repl("tests/overlays", inp);
 
     assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert!(actual_repl.out != "bagr");
+    #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
 
