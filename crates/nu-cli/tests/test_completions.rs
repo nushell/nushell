@@ -18,7 +18,7 @@ fn flag_completions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the 'ls' flags
-    let suggestions = completer.complete("ls -".into(), 4);
+    let suggestions = completer.complete("ls -", 4);
 
     assert_eq!(12, suggestions.len());
 
