@@ -40,6 +40,12 @@ impl Hooks {
     }
 }
 
+impl Default for Hooks {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub filesize_metric: bool,
