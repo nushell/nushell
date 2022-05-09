@@ -131,30 +131,6 @@ impl Prompt for NushellPrompt {
     }
 
     fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<str> {
-        match edit_mode {
-            PromptEditMode::Default => match &self.default_prompt_indicator {
-                Some(indicator) => indicator.as_str().into(),
-                None => "〉".into(),
-            },
-            PromptEditMode::Emacs => match &self.default_prompt_indicator {
-                Some(indicator) => indicator.as_str().into(),
-                None => "〉".into(),
-            },
-            PromptEditMode::Vi(vi_mode) => match vi_mode {
-                PromptViMode::Normal => match &self.default_vi_normal_prompt_indicator {
-                    Some(indicator) => indicator.as_str().into(),
-                    None => ": ".into(),
-                },
-                PromptViMode::Insert => match &self.default_vi_insert_prompt_indicator {
-                    Some(indicator) => indicator.as_str().into(),
-                    None => "〉".into(),
-                },
-            },
-            PromptEditMode::Custom(str) => self.default_wrapped_custom_string(str).into(),
-        }
-    }
-
-    fn render_prompt_multiline_indicator(&self) -> Cow<str> {
         // Just before starting to draw the PS1 prompt send the escape code (see
         // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
         let mut prompt = if self.shell_integration {
@@ -163,13 +139,45 @@ impl Prompt for NushellPrompt {
             String::new()
         };
 
-        prompt.push_str(
-            self.default_multiline_indicator
-                .as_ref()
-                .unwrap_or(&String::from("::: ")),
-        );
+        match edit_mode {
+            PromptEditMode::Default | PromptEditMode::Emacs => {
+                prompt.push_str(
+                    self.default_prompt_indicator
+                        .as_ref()
+                        .unwrap_or(&String::from("〉")),
+                );
+                prompt.into()
+            }
+            PromptEditMode::Vi(vi_mode) => match vi_mode {
+                PromptViMode::Normal => {
+                    prompt.push_str(
+                        self.default_vi_normal_prompt_indicator
+                            .as_ref()
+                            .unwrap_or(&String::from(": ")),
+                    );
+                    prompt.into()
+                }
+                PromptViMode::Insert => {
+                    prompt.push_str(
+                        self.default_vi_insert_prompt_indicator
+                            .as_ref()
+                            .unwrap_or(&String::from("〉")),
+                    );
+                    prompt.into()
+                }
+            },
+            PromptEditMode::Custom(str) => {
+                prompt.push_str(&self.default_wrapped_custom_string(str));
+                prompt.into()
+            }
+        }
+    }
 
-        prompt.into()
+    fn render_prompt_multiline_indicator(&self) -> Cow<str> {
+        match &self.default_multiline_indicator {
+            Some(indicator) => indicator.as_str().into(),
+            None => "::: ".into(),
+        }
     }
 
     fn render_prompt_history_search_indicator(

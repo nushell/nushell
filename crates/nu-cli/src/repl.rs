@@ -234,6 +234,42 @@ pub fn evaluate_repl(
                     }
                 }
 
+                if use_shell_integration {
+                    // Just before running a command/program, send the escape code (see
+                    // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
+                    let mut ansi_escapes = String::from(RESET_APPLICATION_MODE);
+                    ansi_escapes.push_str(PROMPT_MARKER_BEFORE_CMD);
+                    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+                        let path = cwd.as_string()?;
+                        // Try to abbreviate string for windows title
+                        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                            path.replace(&p.as_path().display().to_string(), "~")
+                        } else {
+                            path
+                        };
+
+                        // Set window title too
+                        // https://tldp.org/HOWTO/Xterm-Title-3.html
+                        // ESC]0;stringBEL -- Set icon name and window title to string
+                        // ESC]1;stringBEL -- Set icon name to string
+                        // ESC]2;stringBEL -- Set window title to string
+                        ansi_escapes.push_str(&format!("\x1b]2;{}\x07", maybe_abbrev_path));
+                    }
+                    match io::stdout().write_all(ansi_escapes.as_bytes()) {
+                        Ok(it) => it,
+                        Err(err) => println!("error: {}", err),
+                    };
+                    let _ = io::stdout().flush().map_err(|e| {
+                        ShellError::GenericError(
+                            "Error flushing stdio".into(),
+                            e.to_string(),
+                            Some(Span { start: 0, end: 0 }),
+                            None,
+                            Vec::new(),
+                        )
+                    });
+                }
+
                 let start_time = Instant::now();
                 let tokens = lex(s.as_bytes(), 0, &[], &[], false);
                 // Check if this is a single call to a directory, if so auto-cd
@@ -322,41 +358,41 @@ pub fn evaluate_repl(
                     engine_state.add_env_var("PWD".into(), cwd);
                 }
 
-                if use_shell_integration {
-                    // Just before running a command/program, send the escape code (see
-                    // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
-                    let mut ansi_escapes = String::from(RESET_APPLICATION_MODE);
-                    ansi_escapes.push_str(PROMPT_MARKER_BEFORE_CMD);
-                    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-                        let path = cwd.as_string()?;
-                        // Try to abbreviate string for windows title
-                        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-                            path.replace(&p.as_path().display().to_string(), "~")
-                        } else {
-                            path
-                        };
+                // if use_shell_integration {
+                //     // Just before running a command/program, send the escape code (see
+                //     // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
+                //     let mut ansi_escapes = String::from(RESET_APPLICATION_MODE);
+                //     ansi_escapes.push_str(PROMPT_MARKER_BEFORE_CMD);
+                //     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+                //         let path = cwd.as_string()?;
+                //         // Try to abbreviate string for windows title
+                //         let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                //             path.replace(&p.as_path().display().to_string(), "~")
+                //         } else {
+                //             path
+                //         };
 
-                        // Set window title too
-                        // https://tldp.org/HOWTO/Xterm-Title-3.html
-                        // ESC]0;stringBEL -- Set icon name and window title to string
-                        // ESC]1;stringBEL -- Set icon name to string
-                        // ESC]2;stringBEL -- Set window title to string
-                        ansi_escapes.push_str(&format!("\x1b]2;{}\x07", maybe_abbrev_path));
-                    }
-                    match io::stdout().write_all(ansi_escapes.as_bytes()) {
-                        Ok(it) => it,
-                        Err(err) => println!("error: {}", err),
-                    };
-                    let _ = io::stdout().flush().map_err(|e| {
-                        ShellError::GenericError(
-                            "Error flushing stdio".into(),
-                            e.to_string(),
-                            Some(Span { start: 0, end: 0 }),
-                            None,
-                            Vec::new(),
-                        )
-                    });
-                }
+                //         // Set window title too
+                //         // https://tldp.org/HOWTO/Xterm-Title-3.html
+                //         // ESC]0;stringBEL -- Set icon name and window title to string
+                //         // ESC]1;stringBEL -- Set icon name to string
+                //         // ESC]2;stringBEL -- Set window title to string
+                //         ansi_escapes.push_str(&format!("\x1b]2;{}\x07", maybe_abbrev_path));
+                //     }
+                //     match io::stdout().write_all(ansi_escapes.as_bytes()) {
+                //         Ok(it) => it,
+                //         Err(err) => println!("error: {}", err),
+                //     };
+                //     let _ = io::stdout().flush().map_err(|e| {
+                //         ShellError::GenericError(
+                //             "Error flushing stdio".into(),
+                //             e.to_string(),
+                //             Some(Span { start: 0, end: 0 }),
+                //             None,
+                //             Vec::new(),
+                //         )
+                //     });
+                // }
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
