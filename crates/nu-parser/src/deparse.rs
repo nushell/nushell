@@ -73,6 +73,9 @@ fn escape_quote_string_when_flags_are_unclear(input: &str) -> String {
 
 pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
     // use when you want to cross-compare to a file to ensure flags are checked properly
+    if !input.contains(' ') && !input.contains('=') && !input.contains('"') && !input.contains("\\") {
+        return input.to_string();
+    }
     let file = File::open(file);
     match file {
         Ok(f) => {
