@@ -209,69 +209,74 @@ fn action(
     dateformat: &Option<DatetimeFormat>,
     head: Span,
 ) -> Value {
-    // if timezone is specified, first check if the input is a timestamp.
-    if let Some(tz) = timezone {
+    // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
+    let timestamp = match input {
+        Value::Int { val, .. } => Ok(*val),
+        Value::String { val, .. } => val.parse::<i64>(),
+        other => {
+            return Value::Error {
+                error: ShellError::UnsupportedInput(
+                    format!("Expected string or int, got {} instead", other.get_type()),
+                    head,
+                ),
+            };
+        }
+    };
+
+    if let Ok(ts) = timestamp {
         const TIMESTAMP_BOUND: i64 = 8.2e+12 as i64;
+        const HOUR: i32 = 3600;
 
-        let ts = match input {
-            Value::Int { val, .. } => Ok(*val),
-            Value::String { val, .. } => val.parse::<i64>(),
-            other => {
-                return Value::Error {
-                    error: ShellError::UnsupportedInput(
-                        format!("Expected string or int, got {} instead", other.get_type()),
-                        head,
-                    ),
-                };
-            }
-        };
+        if ts.abs() > TIMESTAMP_BOUND {
+            return Value::Error {
+                error: ShellError::UnsupportedInput(
+                    "Given timestamp is out of range, it should between -8e+12 and 8e+12"
+                        .to_string(),
+                    head,
+                ),
+            };
+        }
 
-        if let Ok(t) = ts {
-            if t.abs() > TIMESTAMP_BOUND {
-                return Value::Error {
-                    error: ShellError::UnsupportedInput(
-                        "Given timestamp is out of range, it should between -8e+12 and 8e+12"
-                            .to_string(),
-                        head,
-                    ),
-                };
-            }
-            const HOUR: i32 = 3600;
-            let stampout = match tz.item {
+        return match timezone {
+            // default to UTC
+            None => Value::Date {
+                val: Utc.timestamp(ts, 0).into(),
+                span: head,
+            },
+            Some(Spanned { item, span }) => match item {
                 Zone::Utc => Value::Date {
-                    val: Utc.timestamp(t, 0).into(),
+                    val: Utc.timestamp(ts, 0).into(),
                     span: head,
                 },
                 Zone::Local => Value::Date {
-                    val: Local.timestamp(t, 0).into(),
+                    val: Local.timestamp(ts, 0).into(),
                     span: head,
                 },
                 Zone::East(i) => {
-                    let eastoffset = FixedOffset::east((i as i32) * HOUR);
+                    let eastoffset = FixedOffset::east((*i as i32) * HOUR);
                     Value::Date {
-                        val: eastoffset.timestamp(t, 0),
+                        val: eastoffset.timestamp(ts, 0),
                         span: head,
                     }
                 }
                 Zone::West(i) => {
-                    let westoffset = FixedOffset::west((i as i32) * HOUR);
+                    let westoffset = FixedOffset::west((*i as i32) * HOUR);
                     Value::Date {
-                        val: westoffset.timestamp(t, 0),
+                        val: westoffset.timestamp(ts, 0),
                         span: head,
                     }
                 }
                 Zone::Error => Value::Error {
                     error: ShellError::UnsupportedInput(
                         "Cannot convert given timezone or offset to timestamp".to_string(),
-                        tz.span,
+                        *span,
                     ),
                 },
-            };
-            return stampout;
-        }
-    };
+            },
+        };
+    }
 
-    // if it's not, continue and default to the system's local timezone.
+    // If input is not a timestamp, try parsing it as a string
     match input {
         Value::String { val, span } => {
             match dateformat {
@@ -397,6 +402,20 @@ mod tests {
         let actual = action(&date_str, &timezone_option, &None, Span::test_data());
         let expected = Value::Date {
             val: Local.timestamp(1614434140, 0).into(),
+            span: Span::test_data(),
+        };
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn takes_timestamp_without_timezone() {
+        let date_str = Value::test_string("1614434140");
+        let timezone_option = None;
+        let actual = action(&date_str, &timezone_option, &None, Span::test_data());
+
+        let expected = Value::Date {
+            val: Utc.timestamp(1614434140, 0).into(),
             span: Span::test_data(),
         };
 
