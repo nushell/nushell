@@ -5,7 +5,10 @@ use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
+use nu_protocol::{
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
+    SyntaxShape, Value,
+};
 
 use crate::filesystem::util::FileStructure;
 
@@ -62,6 +65,8 @@ impl Command for Cp {
         let source = path.join(src.item.as_str());
         let destination = path.join(dst.item.as_str());
 
+        let ctrlc = engine_state.ctrlc.clone();
+
         let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
             Ok(files) => files.collect(),
             Err(e) => {
@@ -107,6 +112,8 @@ impl Command for Cp {
             ));
         }
 
+        let mut result = Vec::new();
+
         for entry in sources.into_iter().flatten() {
             let mut sources = FileStructure::new();
             sources.walk_decorate(&entry, engine_state, stack)?;
@@ -126,15 +133,28 @@ impl Command for Cp {
 
                 for (src, dst) in sources {
                     if src.is_file() {
-                        std::fs::copy(src, dst).map_err(|e| {
-                            ShellError::GenericError(
-                                e.to_string(),
-                                e.to_string(),
-                                Some(call.head),
-                                None,
-                                Vec::new(),
-                            )
-                        })?;
+                        match std::fs::copy(&src, &dst) {
+                            Ok(_) => {
+                                let msg =
+                                    format!("copied {:} to {:}", src.display(), dst.display());
+                                result.push(Value::String {
+                                    val: msg,
+                                    span: call.head,
+                                });
+                            }
+                            Err(e) => {
+                                let error = Value::Error {
+                                    error: ShellError::GenericError(
+                                        e.to_string(),
+                                        e.to_string(),
+                                        Some(call.head),
+                                        None,
+                                        Vec::new(),
+                                    ),
+                                };
+                                result.push(error);
+                            }
+                        }
                     }
                 }
             } else if entry.is_dir() {
@@ -198,21 +218,34 @@ impl Command for Cp {
                     }
 
                     if s.is_file() {
-                        std::fs::copy(&s, &d).map_err(|e| {
-                            ShellError::GenericError(
-                                e.to_string(),
-                                e.to_string(),
-                                Some(call.head),
-                                None,
-                                Vec::new(),
-                            )
-                        })?;
+                        match std::fs::copy(&s, &d) {
+                            Ok(_) => {
+                                let msg = format!("copied {:} to {:}", &s.display(), &d.display());
+                                result.push(Value::String {
+                                    val: msg,
+                                    span: call.head,
+                                });
+                            }
+                            Err(e) => {
+                                let msg = "Can not copy source".to_string();
+                                let error = Value::Error {
+                                    error: ShellError::GenericError(
+                                        msg,
+                                        e.to_string(),
+                                        Some(call.head),
+                                        None,
+                                        Vec::new(),
+                                    ),
+                                };
+                                result.push(error);
+                            }
+                        }
                     }
                 }
             }
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(result.into_iter().into_pipeline_data(ctrlc))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -225,6 +258,11 @@ impl Command for Cp {
             Example {
                 description: "Recursively copy dir_a to dir_b",
                 example: "cp -r dir_a dir_b",
+                result: None,
+            },
+            Example {
+                description: "Move many files into a directory",
+                example: "cp *.txt dir_a",
                 result: None,
             },
         ]
