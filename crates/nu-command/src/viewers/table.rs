@@ -153,11 +153,15 @@ impl Command for Table {
                 let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
                 self.run(engine_state, stack, call, base_pipeline)
             }
-            PipelineData::Value(x @ Value::Range { .. }, ..) => Ok(Value::String {
-                val: x.into_string("", config),
-                span: call.head,
-            }
-            .into_pipeline_data()),
+            PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(
+                engine_state,
+                stack,
+                ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc.clone()),
+                call,
+                row_offset,
+                ctrlc,
+                metadata,
+            ),
             x => Ok(x),
         }
     }
