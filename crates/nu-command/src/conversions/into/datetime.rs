@@ -59,29 +59,29 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into datetime")
-            .switch(
-                "list",
-                "lists strftime cheatsheet",
-                Some('l'),
-                )
             .named(
                 "timezone",
                 SyntaxShape::String,
-                "Specify timezone if the input is timestamp, like 'UTC/u' or 'LOCAL/l'",
+                "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' ('u') or 'LOCAL' ('l')",
                 Some('z'),
             )
             .named(
                 "offset",
                 SyntaxShape::Int,
-                "Specify timezone by offset if the input is timestamp, like '+8', '-4', prior than timezone",
+                "Specify timezone by offset from UTC if the input is a Unix timestamp, like '+8', '-4'",
                 Some('o'),
             )
             .named(
                 "format",
                 SyntaxShape::String,
-                "Specify date and time formatting",
+                "Specify an expected format for parsing strings to datetimes. Use --list to see all possible options",
                 Some('f'),
             )
+            .switch(
+                "list",
+                "Show all possible variables for use with the --format flag",
+                Some('l'),
+                )
             .rest(
             "rest",
                 SyntaxShape::CellPath,
@@ -112,28 +112,40 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert to datetime",
-                example: "'16.11.1984 8:00 am +0000' | into datetime",
-                result: None,
+                example: "'27.02.2021 1:55 pm +0000' | into datetime",
+                result: Some(Value::Date {
+                    val: Utc.timestamp(1614434100, 0).into(),
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Convert to datetime",
-                example: "'2020-08-04T16:39:18+00:00' | into datetime",
-                result: None,
+                example: "'2021-02-27T13:55:40+00:00' | into datetime",
+                result: Some(Value::Date {
+                    val: Utc.timestamp(1614434140, 0).into(),
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Convert to datetime using a custom format",
-                example: "'20200904_163918+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
-                result: None,
+                example: "'20210227_135540+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
+                result: Some(Value::Date {
+                    val: Utc.timestamp(1614434140, 0).into(),
+                    span: Span::test_data(),
+                }),
             },
             Example {
-                description: "Convert timestamp (no larger than 8e+12) to datetime using a specified timezone",
-                example: "'1614434140' | into datetime -z 'UTC'",
-                result: None,
+                description: "Convert timestamp (no larger than 8e+12) to a UTC datetime",
+                example: "1614434140 | into datetime",
+                result: Some(Value::Date {
+                    val: Utc.timestamp(1614434140, 0).into(),
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description:
                     "Convert timestamp (no larger than 8e+12) to datetime using a specified timezone offset (between -12 and 12)",
-                example: "'1614434140' | into datetime -o +9",
+                example: "1614434140 | into datetime -o +9",
                 result: None,
             },
         ]
@@ -305,15 +317,9 @@ fn action(
                 },
             }
         }
-        Value::Int { .. } => Value::Error {
-            error: ShellError::UnsupportedInput(
-                "Received integer input but timezone not specified. Did you forget to specify a timezone?".to_string(),
-                head,
-            ),
-        },
         other => Value::Error {
             error: ShellError::UnsupportedInput(
-                format!("Expected string or int, got {} instead", other.get_type()),
+                format!("Expected string, got {} instead", other.get_type()),
                 head,
             ),
         },
