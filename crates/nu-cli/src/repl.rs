@@ -12,7 +12,7 @@ use nu_engine::{convert_env_values, eval_block};
 use nu_parser::lex;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Span, Value,
+    BlockId, PipelineData, ShellError, Span, Value,
 };
 use reedline::{DefaultHinter, Emacs, Vi};
 use std::io::{self, Write};
@@ -197,6 +197,15 @@ pub fn evaluate_repl(
             info!("prompt_update {}:{}:{}", file!(), line!(), column!());
         }
 
+        // Right before we start our prompt and take input from the user,
+        // fire the "pre_prompt" hook
+        if let Some(hook) = &config.hooks.pre_prompt {
+            if let Err(err) = run_hook(engine_state, stack, hook) {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(&working_set, &err);
+            }
+        }
+
         let prompt =
             prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt, is_perf_true);
 
@@ -209,15 +218,6 @@ pub fn evaluate_repl(
                 line!(),
                 column!()
             );
-        }
-
-        // Right before we start our prompt and take input from the user,
-        // fire the "pre_prompt" hook
-        if let Some(hook) = &config.hooks.pre_prompt {
-            if let Err(err) = run_hook(engine_state, stack, hook) {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &err);
-            }
         }
 
         let input = line_editor.read_line(prompt);
@@ -384,22 +384,17 @@ pub fn run_hook(
     value: &Value,
 ) -> Result<(), ShellError> {
     match value {
+        Value::List { vals, .. } => {
+            for val in vals {
+                run_hook(engine_state, stack, val)?
+            }
+            Ok(())
+        }
         Value::Block {
             val: block_id,
             span,
             ..
-        } => {
-            let block = engine_state.get_block(*block_id);
-            let input = PipelineData::new(*span);
-
-            match eval_block(engine_state, stack, block, input, false, false) {
-                Ok(pipeline_data) => match pipeline_data.into_value(*span) {
-                    Value::Error { error } => Err(error),
-                    _ => Ok(()),
-                },
-                Err(err) => Err(err),
-            }
-        }
+        } => run_hook_block(engine_state, stack, *block_id, *span),
         x => match x.span() {
             Ok(span) => Err(ShellError::MissingConfigValue(
                 "block for hook in config".into(),
@@ -410,5 +405,23 @@ pub fn run_hook(
                 Span { start: 0, end: 0 },
             )),
         },
+    }
+}
+
+pub fn run_hook_block(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block_id: BlockId,
+    span: Span,
+) -> Result<(), ShellError> {
+    let block = engine_state.get_block(block_id);
+    let input = PipelineData::new(span);
+
+    match eval_block(engine_state, stack, block, input, false, false) {
+        Ok(pipeline_data) => match pipeline_data.into_value(span) {
+            Value::Error { error } => Err(error),
+            _ => Ok(()),
+        },
+        Err(err) => Err(err),
     }
 }
