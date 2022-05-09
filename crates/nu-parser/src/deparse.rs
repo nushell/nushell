@@ -73,9 +73,6 @@ fn escape_quote_string_when_flags_are_unclear(input: &str) -> String {
 
 pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
     // use when you want to cross-compare to a file to ensure flags are checked properly
-    if !input.contains(' ') && !input.contains('=') && !input.contains('"') && !input.contains("\\") {
-        return input.to_string();
-    }
     let file = File::open(file);
     match file {
         Ok(f) => {
@@ -101,9 +98,24 @@ pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
                     return word;
                 }
             }
+
+            if input.parse::<i32>().is_ok()
+                || (!input.contains(' ')
+                    && !input.contains('=')
+                    && !input.contains('"')
+                    && !input.contains('\\')
+                    && !input.contains('-'))
+            {
+                return input.to_string();
+            }
             let mut final_word = String::new();
             final_word.push('"');
-            final_word.push_str(input);
+            for c in input.chars() {
+                if c == '"' || c == '\\' {
+                    final_word.push('\\');
+                }
+                final_word.push(c);
+            }
             final_word.push('"');
             final_word
         }
