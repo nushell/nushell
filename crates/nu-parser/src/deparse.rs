@@ -36,7 +36,9 @@ fn looks_like_flag(input: &str) -> bool {
     }
 }
 
-fn escape_quote_string_new(input: &str) -> String {
+fn escape_quote_string_when_flags_are_unclear(input: &str) -> String {
+    // internal use only. When reading the file for flags goes wrong, revert back to a manual check
+    // for flags.
     let mut output = String::new();
     if !looks_like_flag(input) {
         output.push('"');
@@ -69,7 +71,8 @@ fn escape_quote_string_new(input: &str) -> String {
     }
 }
 
-pub fn escape_quote_string_advanced(input: &str, file: &str) -> String {
+pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
+    // use when you want to cross-compare to a file to ensure flags are checked properly
     let file = File::open(file);
     match file {
         Ok(f) => {
@@ -101,6 +104,6 @@ pub fn escape_quote_string_advanced(input: &str, file: &str) -> String {
             final_word.push('"');
             final_word
         }
-        _ => escape_quote_string_new(input),
+        _ => escape_quote_string_when_flags_are_unclear(input),
     }
 }
