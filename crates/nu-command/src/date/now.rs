@@ -18,6 +18,10 @@ impl Command for SubCommand {
         "Get the current date."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["date", "now", "present", "current-time"]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,

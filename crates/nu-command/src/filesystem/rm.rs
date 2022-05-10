@@ -38,6 +38,10 @@ impl Command for Rm {
         "Remove file(s)."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["rm", "remove"]
+    }
+
     fn signature(&self) -> Signature {
         let sig = Signature::build("rm");
         #[cfg(all(

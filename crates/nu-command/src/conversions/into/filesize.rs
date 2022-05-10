@@ -133,6 +133,10 @@ pub fn action(input: &Value, span: Span) -> Value {
                 },
                 Err(error) => Value::Error { error },
             },
+            Value::Nothing { .. } => Value::Filesize {
+                val: 0,
+                span: value_span,
+            },
             _ => Value::Error {
                 error: ShellError::UnsupportedInput(
                     "'into filesize' for unsupported type".into(),

@@ -1,4 +1,6 @@
-use crate::completions::{file_path_completion, partial_from, Completer, SortBy};
+use crate::completions::{
+    file_path_completion, partial_from, Completer, CompletionOptions, SortBy,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
@@ -26,6 +28,7 @@ impl Completer for DotNuCompletion {
         span: Span,
         offset: usize,
         _: usize,
+        options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).to_string();
         let mut search_dirs: Vec<String> = vec![];
@@ -34,7 +37,7 @@ impl Completer for DotNuCompletion {
 
         // Fetch the lib dirs
         let lib_dirs: Vec<String> =
-            if let Some(lib_dirs) = self.engine_state.env_vars.get("NU_LIB_DIRS") {
+            if let Some(lib_dirs) = self.engine_state.get_env_var("NU_LIB_DIRS") {
                 lib_dirs
                     .as_list()
                     .into_iter()
@@ -67,7 +70,7 @@ impl Completer for DotNuCompletion {
             partial = base_dir_partial;
         } else {
             // Fetch the current folder
-            let current_folder = if let Some(d) = self.engine_state.env_vars.get("PWD") {
+            let current_folder = if let Some(d) = self.engine_state.get_env_var("PWD") {
                 match d.as_string() {
                     Ok(s) => s,
                     Err(_) => "".to_string(),
@@ -88,7 +91,7 @@ impl Completer for DotNuCompletion {
         let output: Vec<Suggestion> = search_dirs
             .into_iter()
             .flat_map(|it| {
-                file_path_completion(span, &partial, &it)
+                file_path_completion(span, &partial, &it, options.match_algorithm)
                     .into_iter()
                     .filter(|it| {
                         // Different base dir, so we list the .nu files or folders
@@ -107,6 +110,7 @@ impl Completer for DotNuCompletion {
                             start: x.0.start - offset,
                             end: x.0.end - offset,
                         },
+                        append_whitespace: true,
                     })
             })
             .collect();

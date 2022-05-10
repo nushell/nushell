@@ -8,7 +8,7 @@
 //!
 //! ## Example of `simple_hex()`
 //! ```
-//! use pretty_hex::*;
+//! use nu_pretty_hex::*;
 //!
 //! let v = vec![222, 173, 190, 239, 202, 254, 32, 24];
 //! # #[cfg(feature = "alloc")]
@@ -23,7 +23,7 @@
 //! ```
 //! ## Example of `pretty_hex()`
 //! ```
-//! use pretty_hex::*;
+//! use nu_pretty_hex::*;
 //!
 //! let v = &include_bytes!("../tests/data");
 //! # #[cfg(feature = "alloc")]
@@ -40,7 +40,7 @@
 //! ```
 //! ## Example of `config_hex()`
 //! ```
-//! use pretty_hex::*;
+//! use nu_pretty_hex::*;
 //!
 //! let cfg = HexConfig {title: false, width: 8, group: 0, ..HexConfig::default() };
 //!

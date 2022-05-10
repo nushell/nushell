@@ -27,7 +27,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all --features=extra
+          args: --release --all --features=extra,static-link-openssl
 
       # - name: Strip binaries (nu)
       #   run: strip target/release/nu
@@ -89,13 +89,9 @@ jobs:
       - name: Copy files to output
         run: |
           cp target/release/nu target/release/nu_plugin_* output/
-          cp README.build.txt output/README.txt
+          cp README.release.txt output/README.txt
           cp LICENSE output/LICENSE
           rm output/*.d
-
-      # Note: If OpenSSL changes, this path will need to be updated
-      - name: Copy OpenSSL to output
-        run: cp /usr/lib/x86_64-linux-gnu/libssl.so.1.1 output/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
@@ -121,7 +117,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all --features=extra
+          args: --release --all --features=extra,static-link-openssl
 
       # - name: Strip binaries (nu)
       #   run: strip target/release/nu
@@ -183,7 +179,7 @@ jobs:
       - name: Copy files to output
         run: |
           cp target/release/nu target/release/nu_plugin_* output/
-          cp README.build.txt output/README.txt
+          cp README.release.txt output/README.txt
           cp LICENSE output/LICENSE
           rm output/*.d
 
@@ -217,7 +213,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all --features=extra
+          args: --release --all --features=extra,static-link-openssl
 
       # - name: Strip binaries (nu.exe)
       #   run: strip target/release/nu.exe
@@ -288,7 +284,7 @@ jobs:
           cp LICENSE output\
           cp target\release\LICENSE-for-less.txt output\
           cp target\release\nu_plugin_*.exe output\
-          cp README.build.txt output\README.txt
+          cp README.release.txt output\README.txt
           cp target\release\less.exe output\
       # Note: If the version of `less.exe` needs to be changed, update this URL
       # Similarly, if `less.exe` is checked into the repo, copy from the local path here
@@ -361,7 +357,6 @@ jobs:
       - name: Restore Linux File Modes
         run: |
           chmod 755 ${{ steps.info.outputs.linuxdir }}/${{ steps.info.outputs.innerdir }}/nu*
-          chmod 755 ${{ steps.info.outputs.linuxdir }}/${{ steps.info.outputs.innerdir }}/libssl*
 
       - name: Create Linux tarball
         run: tar -zcvf ${{ steps.info.outputs.linuxdir }}.tar.gz ${{ steps.info.outputs.linuxdir }}

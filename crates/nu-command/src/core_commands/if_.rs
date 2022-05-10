@@ -1,9 +1,8 @@
-use nu_engine::{eval_block, eval_expression, CallExt};
+use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoPipelineData, PipelineData, ShellError, Signature,
-    SyntaxShape, Value,
+    Category, Example, FromValue, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -85,12 +84,24 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
                                 call.redirect_stderr,
                             )
                         } else {
-                            eval_expression(engine_state, stack, else_expr)
-                                .map(|x| x.into_pipeline_data())
+                            eval_expression_with_input(
+                                engine_state,
+                                stack,
+                                else_expr,
+                                input,
+                                call.redirect_stdout,
+                                call.redirect_stderr,
+                            )
                         }
                     } else {
-                        eval_expression(engine_state, stack, else_case)
-                            .map(|x| x.into_pipeline_data())
+                        eval_expression_with_input(
+                            engine_state,
+                            stack,
+                            else_case,
+                            input,
+                            call.redirect_stdout,
+                            call.redirect_stderr,
+                        )
                     }
                 } else {
                     Ok(PipelineData::new(call.head))

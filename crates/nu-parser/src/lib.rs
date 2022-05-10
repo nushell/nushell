@@ -1,3 +1,4 @@
+mod deparse;
 mod errors;
 mod flatten;
 mod known_external;
@@ -7,6 +8,7 @@ mod parse_keywords;
 mod parser;
 mod type_check;
 
+pub use deparse::{escape_quote_string, escape_quote_string_with_file};
 pub use errors::ParseError;
 pub use flatten::{flatten_block, flatten_expression, flatten_pipeline, FlatShape};
 pub use known_external::KnownExternal;
@@ -16,7 +18,7 @@ pub use parse_keywords::*;
 
 pub use parser::{
     is_math_expression_like, parse, parse_block, parse_duration_bytes, parse_external_call,
-    trim_quotes, unescape_unquote_string, Import,
+    trim_quotes, trim_quotes_str, unescape_unquote_string, Import,
 };
 
 #[cfg(feature = "plugin")]

@@ -1,4 +1,4 @@
-use crate::completions::Completer;
+use crate::completions::{Completer, CompletionOptions, MatchAlgorithm};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -28,8 +28,9 @@ impl Completer for FileCompletion {
         span: Span,
         offset: usize,
         _: usize,
+        options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
+        let cwd = if let Some(d) = self.engine_state.get_env_var("PWD") {
             match d.as_string() {
                 Ok(s) => s,
                 Err(_) => "".to_string(),
@@ -38,7 +39,7 @@ impl Completer for FileCompletion {
             "".to_string()
         };
         let prefix = String::from_utf8_lossy(&prefix).to_string();
-        let output: Vec<_> = file_path_completion(span, &prefix, &cwd)
+        let output: Vec<_> = file_path_completion(span, &prefix, &cwd, options.match_algorithm)
             .into_iter()
             .map(move |x| Suggestion {
                 value: x.1,
@@ -48,6 +49,7 @@ impl Completer for FileCompletion {
                     start: x.0.start - offset,
                     end: x.0.end - offset,
                 },
+                append_whitespace: false,
             })
             .collect();
 
@@ -93,7 +95,7 @@ impl Completer for FileCompletion {
 }
 
 pub fn partial_from(input: &str) -> (String, String) {
-    let partial = input.replace('\'', "");
+    let partial = input.replace('`', "");
 
     // If partial is only a word we want to search in the current dir
     let (base, rest) = partial.rsplit_once(is_separator).unwrap_or((".", &partial));
@@ -110,7 +112,9 @@ pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
     cwd: &str,
+    match_algorithm: MatchAlgorithm,
 ) -> Vec<(nu_protocol::Span, String)> {
+    let original_input = partial;
     let (base_dir_name, partial) = partial_from(partial);
 
     let base_dir = nu_path::expand_path_with(&base_dir_name, cwd);
@@ -125,19 +129,20 @@ pub fn file_path_completion(
             .filter_map(|entry| {
                 entry.ok().and_then(|entry| {
                     let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                    if matches(&partial, &file_name) {
-                        let mut path = format!("{}{}", base_dir_name, file_name);
+                    if matches(&partial, &file_name, match_algorithm) {
+                        let mut path = if prepend_base_dir(original_input, &base_dir_name) {
+                            format!("{}{}", base_dir_name, file_name)
+                        } else {
+                            file_name.to_string()
+                        };
+
                         if entry.path().is_dir() {
                             path.push(SEP);
                             file_name.push(SEP);
                         }
 
-                        if path.contains(' ') {
-                            path = format!("\'{}\'", path);
-                        }
-
                         // Fix files or folders with quotes
-                        if path.contains('\'') || path.contains('"') {
+                        if path.contains('\'') || path.contains('"') || path.contains(' ') {
                             path = format!("`{}`", path);
                         }
 
@@ -153,7 +158,26 @@ pub fn file_path_completion(
     Vec::new()
 }
 
-pub fn matches(partial: &str, from: &str) -> bool {
-    from.to_ascii_lowercase()
-        .starts_with(&partial.to_ascii_lowercase())
+pub fn matches(partial: &str, from: &str, match_algorithm: MatchAlgorithm) -> bool {
+    match_algorithm.matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase())
+}
+
+/// Returns whether the base_dir should be prepended to the file path
+pub fn prepend_base_dir(input: &str, base_dir: &str) -> bool {
+    if base_dir == format!(".{}", SEP) {
+        // if the current base_dir path is the local folder we only add a "./" prefix if the user
+        // input already includes a local folder prefix.
+        let manually_entered = {
+            let mut chars = input.chars();
+            let first_char = chars.next();
+            let second_char = chars.next();
+
+            first_char == Some('.') && second_char.map(is_separator).unwrap_or(false)
+        };
+
+        manually_entered
+    } else {
+        // always prepend the base dir if it is a subfolder
+        true
+    }
 }

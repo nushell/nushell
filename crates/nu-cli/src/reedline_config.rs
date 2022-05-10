@@ -24,7 +24,7 @@ const DEFAULT_COMPLETION_MENU: &str = r#"
   type: {
       layout: columnar
       columns: 4
-      col_width: 20   
+      col_width: 20
       col_padding: 2
   }
   style: {
@@ -58,7 +58,7 @@ const DEFAULT_HELP_MENU: &str = r#"
   type: {
       layout: description
       columns: 4
-      col_width: 20   
+      col_width: 20
       col_padding: 2
       selection_rows: 4
       description_rows: 10
@@ -837,6 +837,7 @@ fn event_from_record(
         "menuprevious" => ReedlineEvent::MenuPrevious,
         "menupagenext" => ReedlineEvent::MenuPageNext,
         "menupageprevious" => ReedlineEvent::MenuPagePrevious,
+        "openeditor" => ReedlineEvent::OpenEditor,
         "menu" => {
             let menu = extract_value("name", cols, vals, span)?;
             ReedlineEvent::Menu(menu.into_string("", config))

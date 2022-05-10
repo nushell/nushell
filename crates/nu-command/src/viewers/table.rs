@@ -3,10 +3,10 @@ use nu_color_config::{get_color_config, style_primitive};
 use nu_engine::column::get_columns;
 use nu_engine::{env_to_string, CallExt};
 use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
-    PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
+    format_error, Category, Config, DataSource, Example, IntoPipelineData, ListStream,
+    PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use nu_table::{StyledString, TextStyle, Theme};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -141,16 +141,27 @@ impl Command for Table {
                 }
                 .into_pipeline_data())
             }
-            PipelineData::Value(Value::Error { error }, ..) => Err(error),
+            PipelineData::Value(Value::Error { error }, ..) => {
+                let working_set = StateWorkingSet::new(engine_state);
+                Ok(Value::String {
+                    val: format_error(&working_set, &error),
+                    span: call.head,
+                }
+                .into_pipeline_data())
+            }
             PipelineData::Value(Value::CustomValue { val, span }, ..) => {
                 let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
                 self.run(engine_state, stack, call, base_pipeline)
             }
-            PipelineData::Value(x @ Value::Range { .. }, ..) => Ok(Value::String {
-                val: x.into_string("", config),
-                span: call.head,
-            }
-            .into_pipeline_data()),
+            PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(
+                engine_state,
+                stack,
+                ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc.clone()),
+                call,
+                row_offset,
+                ctrlc,
+                metadata,
+            ),
             x => Ok(x),
         }
     }
@@ -304,9 +315,10 @@ fn convert_to_table(
     let mut input = input.iter().peekable();
     let color_hm = get_color_config(config);
     let float_precision = config.float_precision as usize;
+    let disable_index = config.disable_table_indexes;
 
     if input.peek().is_some() {
-        if !headers.is_empty() {
+        if !headers.is_empty() && !disable_index {
             headers.insert(0, "#".into());
         }
 
@@ -323,16 +335,19 @@ fn convert_to_table(
                 return Err(error.clone());
             }
             // String1 = datatype, String2 = value as string
-            let mut row: Vec<(String, String)> =
-                vec![("string".to_string(), (row_num + row_offset).to_string())];
+            let mut row: Vec<(String, String)> = vec![];
+            if !disable_index {
+                row = vec![("string".to_string(), (row_num + row_offset).to_string())];
+            }
 
             if headers.is_empty() {
                 row.push((
                     item.get_type().to_string(),
                     item.into_abbreviated_string(config),
-                ))
+                ));
             } else {
-                for header in headers.iter().skip(1) {
+                let skip_num = if !disable_index { 1 } else { 0 };
+                for header in headers.iter().skip(skip_num) {
                     let result = match item {
                         Value::Record { .. } => {
                             item.clone().follow_cell_path(&[PathMember::String {
@@ -373,7 +388,7 @@ fn convert_to_table(
                     x.into_iter()
                         .enumerate()
                         .map(|(col, y)| {
-                            if col == 0 {
+                            if col == 0 && !disable_index {
                                 StyledString {
                                     contents: y.1,
                                     style: TextStyle {

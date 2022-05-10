@@ -1,10 +1,11 @@
 pub mod ast;
+mod cli_error;
 mod config;
 pub mod engine;
 mod example;
 mod exportable;
 mod id;
-mod overlay;
+mod module;
 mod pipeline_data;
 mod shell_error;
 mod signature;
@@ -14,12 +15,13 @@ mod ty;
 mod value;
 mod variable;
 
+pub use cli_error::*;
 pub use config::*;
 pub use engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};
 pub use example::*;
 pub use exportable::*;
 pub use id::*;
-pub use overlay::*;
+pub use module::*;
 pub use pipeline_data::*;
 pub use shell_error::*;
 pub use signature::*;

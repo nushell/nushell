@@ -1,7 +1,10 @@
+use crate::filesystem::cd_query::query;
 use nu_engine::{current_dir, CallExt};
-use nu_protocol::ast::{Call, Expr, Expression};
+use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Cd;
@@ -15,9 +18,13 @@ impl Command for Cd {
         "Change directory."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["cd", "change", "directory", "dir", "folder", "switch"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
-            .optional("path", SyntaxShape::Filepath, "the path to change to")
+            .optional("path", SyntaxShape::Directory, "the path to change to")
             .category(Category::FileSystem)
     }
 
@@ -28,61 +35,91 @@ impl Command for Cd {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let raw_path = call.positional_nth(0);
-        let path_val: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
+        let config = engine_state.get_config();
+        let use_abbrev = config.cd_with_abbreviations;
 
-        let (path, span) = match raw_path {
-            Some(v) => match &v {
-                Expression {
-                    expr: Expr::Filepath(val),
-                    span,
-                    ..
-                } if val == "-" => {
+        let (path, span) = match path_val {
+            Some(v) => {
+                if v.item == "-" {
                     let oldpwd = stack.get_env_var(engine_state, "OLDPWD");
 
                     if let Some(oldpwd) = oldpwd {
                         let path = oldpwd.as_path()?;
-                        let path = match nu_path::canonicalize_with(path, &cwd) {
+                        let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
-                            Err(e) => {
-                                return Err(ShellError::DirectoryNotFound(
-                                    *span,
-                                    Some(format!("IO Error: {:?}", e)),
-                                ))
-                            }
-                        };
-                        (path.to_string_lossy().to_string(), *span)
-                    } else {
-                        (cwd.to_string_lossy().to_string(), *span)
-                    }
-                }
-                _ => match path_val {
-                    Some(v) => {
-                        let path = v.as_path()?;
-                        let path = match nu_path::canonicalize_with(path, &cwd) {
-                            Ok(p) => {
-                                if !p.is_dir() {
-                                    return Err(ShellError::NotADirectory(v.span()?));
+                            Err(e1) => {
+                                if use_abbrev {
+                                    match query(&path, None, v.span) {
+                                        Ok(p) => p,
+                                        Err(e) => {
+                                            return Err(ShellError::DirectoryNotFound(
+                                                v.span,
+                                                Some(format!("IO Error: {:?}", e)),
+                                            ))
+                                        }
+                                    }
+                                } else {
+                                    return Err(ShellError::DirectoryNotFound(
+                                        v.span,
+                                        Some(format!("IO Error: {:?}", e1)),
+                                    ));
                                 }
-                                p
-                            }
-
-                            Err(e) => {
-                                return Err(ShellError::DirectoryNotFound(
-                                    v.span()?,
-                                    Some(format!("IO Error: {:?}", e)),
-                                ))
                             }
                         };
-                        (path.to_string_lossy().to_string(), v.span()?)
+                        (path.to_string_lossy().to_string(), v.span)
+                    } else {
+                        (cwd.to_string_lossy().to_string(), v.span)
                     }
-                    None => {
-                        let path = nu_path::expand_tilde("~");
-                        (path.to_string_lossy().to_string(), call.head)
-                    }
-                },
-            },
+                } else {
+                    let path_no_whitespace =
+                        &v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
+
+                    let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
+                        Ok(p) => {
+                            if !p.is_dir() {
+                                if use_abbrev {
+                                    // if it's not a dir, let's check to see if it's something abbreviated
+                                    match query(&p, None, v.span) {
+                                        Ok(path) => path,
+                                        Err(e) => {
+                                            return Err(ShellError::DirectoryNotFound(
+                                                v.span,
+                                                Some(format!("IO Error: {:?}", e)),
+                                            ))
+                                        }
+                                    };
+                                } else {
+                                    return Err(ShellError::NotADirectory(v.span));
+                                }
+                            };
+                            p
+                        }
+
+                        // if canonicalize failed, let's check to see if it's abbreviated
+                        Err(e1) => {
+                            if use_abbrev {
+                                match query(&path_no_whitespace, None, v.span) {
+                                    Ok(path) => path,
+                                    Err(e) => {
+                                        return Err(ShellError::DirectoryNotFound(
+                                            v.span,
+                                            Some(format!("IO Error: {:?}", e)),
+                                        ))
+                                    }
+                                }
+                            } else {
+                                return Err(ShellError::DirectoryNotFound(
+                                    v.span,
+                                    Some(format!("IO Error: {:?}", e1)),
+                                ));
+                            }
+                        }
+                    };
+                    (path.to_string_lossy().to_string(), v.span)
+                }
+            }
             None => {
                 let path = nu_path::expand_tilde("~");
                 (path.to_string_lossy().to_string(), call.head)
@@ -140,10 +177,17 @@ impl Command for Cd {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Change to your home directory",
-            example: r#"cd ~"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Change to your home directory",
+                example: r#"cd ~"#,
+                result: None,
+            },
+            Example {
+                description: "Change to a directory via abbreviations",
+                example: r#"cd d/s/9"#,
+                result: None,
+            },
+        ]
     }
 }

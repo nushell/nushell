@@ -108,8 +108,8 @@ fn parses_more_bson_complexity() {
 // │ 4 │      │
 // ╰───┴──────╯
 
+#[cfg(feature = "database")]
 #[test]
-
 fn parses_sqlite() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -123,6 +123,7 @@ fn parses_sqlite() {
     assert_eq!(actual.out, "3");
 }
 
+#[cfg(feature = "database")]
 #[test]
 fn parses_sqlite_get_column_name() {
     let actual = nu!(

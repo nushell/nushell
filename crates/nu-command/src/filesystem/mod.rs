@@ -1,4 +1,5 @@
 mod cd;
+mod cd_query;
 mod cp;
 mod glob;
 mod ls;
@@ -9,8 +10,10 @@ mod rm;
 mod save;
 mod touch;
 mod util;
+mod watch;
 
 pub use cd::Cd;
+pub use cd_query::query;
 pub use cp::Cp;
 pub use glob::Glob;
 pub use ls::Ls;
@@ -21,3 +24,4 @@ pub use rm::Rm;
 pub use save::Save;
 pub use touch::Touch;
 pub use util::BufferedReader;
+pub use watch::Watch;

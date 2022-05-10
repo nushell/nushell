@@ -1,7 +1,4 @@
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::io::Write;
-
+use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator};
 use nu_protocol::engine::{EngineState, Stack, Visibility};
@@ -9,8 +6,10 @@ use nu_protocol::{
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
     Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-
-use crate::{current_dir_str, get_full_help};
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::io::Write;
+use sysinfo::SystemExt;
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -30,6 +29,11 @@ pub fn eval_call(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    if let Some(ctrlc) = &engine_state.ctrlc {
+        if ctrlc.load(core::sync::atomic::Ordering::SeqCst) {
+            return Ok(Value::Nothing { span: call.head }.into_pipeline_data());
+        }
+    }
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
@@ -165,10 +169,8 @@ pub fn eval_call(
             }
 
             // add new env vars from callee to caller
-            for env_vars in callee_stack.env_vars {
-                for (var, value) in env_vars {
-                    caller_stack.add_env_var(var, value);
-                }
+            for (var, value) in callee_stack.get_stack_env_vars() {
+                caller_stack.add_env_var(var, value);
             }
         }
 
@@ -191,7 +193,7 @@ fn eval_external(
     redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
-        .find_decl("run-external".as_bytes())
+        .find_decl("run-external".as_bytes(), &[])
         .ok_or(ShellError::ExternalNotSupported(head.span))?;
 
     let command = engine_state.get_decl(decl_id);
@@ -428,6 +430,10 @@ pub fn eval_expression(
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.starts_with(op_span, &rhs, expr.span)
                 }
+                Operator::EndsWith => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.ends_with(op_span, &rhs, expr.span)
+                }
             }
         }
         Expr::Subexpression(block_id) => {
@@ -529,6 +535,22 @@ pub fn eval_expression(
                 val: path.to_string_lossy().to_string(),
                 span: expr.span,
             })
+        }
+        Expr::Directory(s) => {
+            if s == "-" {
+                Ok(Value::String {
+                    val: "-".to_string(),
+                    span: expr.span,
+                })
+            } else {
+                let cwd = current_dir_str(engine_state, stack)?;
+                let path = expand_path_with(s, cwd);
+
+                Ok(Value::String {
+                    val: path.to_string_lossy().to_string(),
+                    span: expr.span,
+                })
+            }
         }
         Expr::GlobPattern(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
@@ -636,7 +658,7 @@ pub fn eval_block(
                     // Drain the input to the screen via tabular output
                     let config = engine_state.get_config();
 
-                    match engine_state.find_decl("table".as_bytes()) {
+                    match engine_state.find_decl("table".as_bytes(), &[]) {
                         Some(decl_id) => {
                             let table = engine_state.get_decl(decl_id).run(
                                 engine_state,
@@ -692,7 +714,7 @@ pub fn eval_block(
                     // Drain the input to the screen via tabular output
                     let config = engine_state.get_config();
 
-                    match engine_state.find_decl("table".as_bytes()) {
+                    match engine_state.find_decl("table".as_bytes(), &[]) {
                         Some(decl_id) => {
                             let table = engine_state.get_decl(decl_id).run(
                                 engine_state,
@@ -782,21 +804,21 @@ pub fn create_scope(
     let mut vars = vec![];
     let mut commands = vec![];
     let mut aliases = vec![];
-    let mut overlays = vec![];
+    let mut modules = vec![];
 
     let mut vars_map = HashMap::new();
     let mut commands_map = HashMap::new();
     let mut aliases_map = HashMap::new();
-    let mut overlays_map = HashMap::new();
+    let mut modules_map = HashMap::new();
     let mut visibility = Visibility::new();
 
-    for frame in &engine_state.scope {
-        vars_map.extend(&frame.vars);
-        commands_map.extend(&frame.decls);
-        aliases_map.extend(&frame.aliases);
-        overlays_map.extend(&frame.overlays);
+    for overlay_frame in engine_state.active_overlays(&[]) {
+        vars_map.extend(&overlay_frame.vars);
+        commands_map.extend(&overlay_frame.decls);
+        aliases_map.extend(&overlay_frame.aliases);
+        modules_map.extend(&overlay_frame.modules);
 
-        visibility.merge_with(frame.visibility.clone());
+        visibility.merge_with(overlay_frame.visibility.clone());
     }
 
     for var in vars_map {
@@ -822,14 +844,14 @@ pub fn create_scope(
             let mut cols = vec![];
             let mut vals = vec![];
 
-            let mut overlay_commands = vec![];
-            for overlay in &overlays_map {
-                let overlay_name = String::from_utf8_lossy(*overlay.0).to_string();
-                let overlay_id = engine_state.find_overlay(*overlay.0);
-                if let Some(overlay_id) = overlay_id {
-                    let overlay = engine_state.get_overlay(overlay_id);
-                    if overlay.has_decl(command_name) {
-                        overlay_commands.push(overlay_name);
+            let mut module_commands = vec![];
+            for module in &modules_map {
+                let module_name = String::from_utf8_lossy(module.0).to_string();
+                let module_id = engine_state.find_module(module.0, &[]);
+                if let Some(module_id) = module_id {
+                    let module = engine_state.get_module(module_id);
+                    if module.has_decl(command_name) {
+                        module_commands.push(module_name);
                     }
                 }
             }
@@ -841,7 +863,7 @@ pub fn create_scope(
             });
 
             cols.push("module_name".into());
-            vals.push(Value::string(overlay_commands.join(", "), span));
+            vals.push(Value::string(module_commands.join(", "), span));
 
             let decl = engine_state.get_decl(*decl_id);
             let signature = decl.signature();
@@ -1108,9 +1130,9 @@ pub fn create_scope(
         }
     }
 
-    for overlay in overlays_map {
-        overlays.push(Value::String {
-            val: String::from_utf8_lossy(overlay.0).to_string(),
+    for module in modules_map {
+        modules.push(Value::String {
+            val: String::from_utf8_lossy(module.0).to_string(),
             span,
         });
     }
@@ -1155,10 +1177,10 @@ pub fn create_scope(
         span,
     });
 
-    overlays.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    output_cols.push("overlays".to_string());
+    modules.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    output_cols.push("modules".to_string());
     output_vals.push(Value::List {
-        vals: overlays,
+        vals: modules,
         span,
     });
 
@@ -1249,12 +1271,24 @@ pub fn eval_variable(
             output_cols.push("pid".into());
             output_vals.push(Value::int(pid as i64, span));
 
+            let sys = sysinfo::System::new();
+            let ver = match sys.kernel_version() {
+                Some(v) => v,
+                None => "unknown".into(),
+            };
+
             let os_record = Value::Record {
-                cols: vec!["name".into(), "arch".into(), "family".into()],
+                cols: vec![
+                    "name".into(),
+                    "arch".into(),
+                    "family".into(),
+                    "kernel_version".into(),
+                ],
                 vals: vec![
                     Value::string(std::env::consts::OS, span),
                     Value::string(std::env::consts::ARCH, span),
                     Value::string(std::env::consts::FAMILY, span),
+                    Value::string(ver, span),
                 ],
                 span,
             };

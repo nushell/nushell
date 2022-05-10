@@ -28,6 +28,10 @@ impl Command for Cp {
         "Copy files."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["cp", "copy", "file", "files"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("cp")
             .required("source", SyntaxShape::GlobPattern, "the place to copy from")

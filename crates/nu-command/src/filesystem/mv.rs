@@ -29,6 +29,10 @@ impl Command for Mv {
         "Move files or directories."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["mv", "move"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
             .required(

@@ -38,25 +38,19 @@ impl Command for ListDF {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let vals = engine_state
-            .scope
-            .iter()
-            .flat_map(|frame| {
-                frame
-                    .vars
-                    .iter()
-                    .filter_map(|var| {
-                        let value = stack.get_var(*var.1, call.head);
-                        match value {
-                            Ok(value) => {
-                                let name = String::from_utf8_lossy(var.0).to_string();
-                                Some((name, value))
-                            }
-                            Err(_) => None,
-                        }
-                    })
-                    .collect::<Vec<(String, Value)>>()
-            })
+        let mut vals: Vec<(String, Value)> = vec![];
+
+        for overlay_frame in engine_state.active_overlays(&[]) {
+            for var in &overlay_frame.vars {
+                if let Ok(value) = stack.get_var(*var.1, call.head) {
+                    let name = String::from_utf8_lossy(var.0).to_string();
+                    vals.push((name, value));
+                }
+            }
+        }
+
+        let vals = vals
+            .into_iter()
             .filter_map(|(name, value)| match NuDataFrame::try_from_value(value) {
                 Ok(df) => Some((name, df)),
                 Err(_) => None,

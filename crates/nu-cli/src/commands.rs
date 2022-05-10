@@ -2,7 +2,7 @@ use crate::util::report_error;
 use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
-use nu_parser::{parse, trim_quotes};
+use nu_parser::parse;
 use nu_protocol::engine::Stack;
 use nu_protocol::{
     engine::{EngineState, StateDelta, StateWorkingSet},
@@ -22,19 +22,7 @@ pub fn evaluate_commands(
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let (input, _) = if commands.item.starts_with('\'')
-            || commands.item.starts_with('"')
-            || commands.item.starts_with('`')
-        {
-            (
-                trim_quotes(commands.item.as_bytes()),
-                commands.span.start + 1,
-            )
-        } else {
-            (commands.item.as_bytes(), commands.span.start)
-        };
-
-        let (output, err) = parse(&mut working_set, None, input, false, &[]);
+        let (output, err) = parse(&mut working_set, None, commands.item.as_bytes(), false, &[]);
         if let Some(err) = err {
             report_error(&working_set, &err);
 
@@ -54,7 +42,9 @@ pub fn evaluate_commands(
     // Merge the delta in case env vars changed in the config
     match nu_engine::env::current_dir(engine_state, stack) {
         Ok(cwd) => {
-            if let Err(e) = engine_state.merge_delta(StateDelta::new(), Some(stack), cwd) {
+            if let Err(e) =
+                engine_state.merge_delta(StateDelta::new(engine_state), Some(stack), cwd)
+            {
                 let working_set = StateWorkingSet::new(engine_state);
                 report_error(&working_set, &e);
                 std::process::exit(1);

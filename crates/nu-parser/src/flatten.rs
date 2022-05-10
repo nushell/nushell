@@ -25,6 +25,7 @@ pub enum FlatShape {
     Record,
     Block,
     Filepath,
+    Directory,
     DateTime,
     GlobPattern,
     Variable,
@@ -56,6 +57,7 @@ impl Display for FlatShape {
             FlatShape::Record => write!(f, "shape_record"),
             FlatShape::Block => write!(f, "shape_block"),
             FlatShape::Filepath => write!(f, "shape_filepath"),
+            FlatShape::Directory => write!(f, "shape_directory"),
             FlatShape::GlobPattern => write!(f, "shape_globpattern"),
             FlatShape::Variable => write!(f, "shape_variable"),
             FlatShape::Flag => write!(f, "shape_flag"),
@@ -279,6 +281,9 @@ pub fn flatten_expression(
         Expr::Filepath(_) => {
             vec![(expr.span, FlatShape::Filepath)]
         }
+        Expr::Directory(_) => {
+            vec![(expr.span, FlatShape::Directory)]
+        }
         Expr::GlobPattern(_) => {
             vec![(expr.span, FlatShape::GlobPattern)]
         }
@@ -321,23 +326,33 @@ pub fn flatten_expression(
             output
         }
         Expr::StringInterpolation(exprs) => {
-            let mut output = vec![(
-                Span {
-                    start: expr.span.start,
-                    end: expr.span.start + 2,
-                },
-                FlatShape::StringInterpolation,
-            )];
+            let mut output = vec![];
             for expr in exprs {
                 output.extend(flatten_expression(working_set, expr));
             }
-            output.push((
-                Span {
-                    start: expr.span.end - 1,
-                    end: expr.span.end,
-                },
-                FlatShape::StringInterpolation,
-            ));
+
+            if let Some(first) = output.first() {
+                if first.0.start != expr.span.start {
+                    // If we aren't a bare word interpolation, also highlight the outer quotes
+                    output.insert(
+                        0,
+                        (
+                            Span {
+                                start: expr.span.start,
+                                end: expr.span.start + 2,
+                            },
+                            FlatShape::StringInterpolation,
+                        ),
+                    );
+                    output.push((
+                        Span {
+                            start: expr.span.end - 1,
+                            end: expr.span.end,
+                        },
+                        FlatShape::StringInterpolation,
+                    ));
+                }
+            }
             output
         }
         Expr::Record(list) => {

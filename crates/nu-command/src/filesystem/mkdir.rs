@@ -21,7 +21,7 @@ impl Command for Mkdir {
         Signature::build("mkdir")
             .rest(
                 "rest",
-                SyntaxShape::Filepath,
+                SyntaxShape::Directory,
                 "the name(s) of the path(s) to create",
             )
             .switch("show-created-paths", "show the path(s) created.", Some('s'))
@@ -30,6 +30,18 @@ impl Command for Mkdir {
 
     fn usage(&self) -> &str {
         "Make directories, creates intermediary directories as required."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec![
+            "mkdir",
+            "make",
+            "directory",
+            "dir",
+            "folder",
+            "make_dir",
+            "make_dirs",
+        ]
     }
 
     fn run(

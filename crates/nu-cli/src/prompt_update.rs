@@ -147,7 +147,7 @@ pub(crate) fn update_prompt<'prompt>(
         (prompt_vi_insert_string, prompt_vi_normal_string),
     );
 
-    if config.use_ansi_coloring {
+    if config.shell_integration {
         nu_prompt.enable_shell_integration();
     }
 

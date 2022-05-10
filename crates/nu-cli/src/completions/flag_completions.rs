@@ -1,4 +1,4 @@
-use crate::completions::Completer;
+use crate::completions::{Completer, CompletionOptions};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
@@ -26,6 +26,7 @@ impl Completer for FlagCompletion {
         span: Span,
         offset: usize,
         _: usize,
+        options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         // Check if it's a flag
         if let Expr::Call(call) = &self.expression.expr {
@@ -40,7 +41,8 @@ impl Completer for FlagCompletion {
                     let mut named = vec![0; short.len_utf8()];
                     short.encode_utf8(&mut named);
                     named.insert(0, b'-');
-                    if named.starts_with(&prefix) {
+
+                    if options.match_algorithm.matches_u8(&named, &prefix) {
                         output.push(Suggestion {
                             value: String::from_utf8_lossy(&named).to_string(),
                             description: Some(flag_desc.to_string()),
@@ -49,6 +51,7 @@ impl Completer for FlagCompletion {
                                 start: span.start - offset,
                                 end: span.end - offset,
                             },
+                            append_whitespace: true,
                         });
                     }
                 }
@@ -60,7 +63,8 @@ impl Completer for FlagCompletion {
                 let mut named = named.long.as_bytes().to_vec();
                 named.insert(0, b'-');
                 named.insert(0, b'-');
-                if named.starts_with(&prefix) {
+
+                if options.match_algorithm.matches_u8(&named, &prefix) {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(&named).to_string(),
                         description: Some(flag_desc.to_string()),
@@ -69,6 +73,7 @@ impl Completer for FlagCompletion {
                             start: span.start - offset,
                             end: span.end - offset,
                         },
+                        append_whitespace: true,
                     });
                 }
             }

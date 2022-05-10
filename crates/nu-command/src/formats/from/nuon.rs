@@ -237,6 +237,7 @@ fn convert_to_value(
             expr.span,
         )),
         Expr::Filepath(val) => Ok(Value::String { val, span }),
+        Expr::Directory(val) => Ok(Value::String { val, span }),
         Expr::Float(val) => Ok(Value::Float { val, span }),
         Expr::FullCellPath(full_cell_path) => {
             if !full_cell_path.tail.is_empty() {

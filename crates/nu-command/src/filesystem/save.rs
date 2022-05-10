@@ -20,6 +20,10 @@ impl Command for Save {
         "Save a file."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["save", "write", "write_file"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("save")
             .required("filename", SyntaxShape::Filepath, "the filename to use")
@@ -78,7 +82,7 @@ impl Command for Save {
         };
 
         if let Some(ext) = ext {
-            let output = match engine_state.find_decl(format!("to {}", ext).as_bytes()) {
+            let output = match engine_state.find_decl(format!("to {}", ext).as_bytes(), &[]) {
                 Some(converter_id) => {
                     let output = engine_state.get_decl(converter_id).run(
                         engine_state,

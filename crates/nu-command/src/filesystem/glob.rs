@@ -32,6 +32,10 @@ impl Command for Glob {
         "Creates a list of files and/or folders based on the glob pattern provided."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["glob", "files", "folders", "list", "ls"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

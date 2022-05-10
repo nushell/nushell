@@ -321,8 +321,16 @@ fn capture_row_condition() -> TestResult {
 #[test]
 fn starts_with_operator_succeeds() -> TestResult {
     run_test(
-        r#"[Moe Larry Curly] | where $it =^ L | str collect"#,
+        r#"[Moe Larry Curly] | where $it starts-with L | str collect"#,
         "Larry",
+    )
+}
+
+#[test]
+fn ends_with_operator_succeeds() -> TestResult {
+    run_test(
+        r#"[Moe Larry Curly] | where $it ends-with ly | str collect"#,
+        "Curly",
     )
 }
 
@@ -408,4 +416,9 @@ fn unary_not_6() -> TestResult {
 #[test]
 fn date_literal() -> TestResult {
     run_test(r#"2022-09-10 | date to-record | get day"#, "10")
+}
+
+#[test]
+fn and_and_or() -> TestResult {
+    run_test(r#"true and false or true"#, "true")
 }
