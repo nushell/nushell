@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    format_filesize, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
-    Span, SyntaxShape, Value,
+    format_filesize, Category, Example, IntoPipelineData, PipelineData, PipelineMetadata,
+    ShellError, Signature, Span, SyntaxShape, Value,
 };
 use std::iter;
 
@@ -47,13 +47,16 @@ impl Command for FileSize {
             .as_string()?
             .to_ascii_lowercase();
         let span = call.head;
+        let input_metadata = input.metadata();
         let data_as_value = input.into_value(span);
 
         // Something need to consider:
         // 1. what if input data type is not table?  For now just output nothing.
         // 2. what if value is not a FileSize type?  For now just return nothing too for the value.
         match data_as_value {
-            Value::List { vals, span } => format_impl(vals, field, format_value, span),
+            Value::List { vals, span } => {
+                format_impl(vals, field, format_value, span, input_metadata)
+            }
             _ => Ok(Value::Nothing { span }.into_pipeline_data()),
         }
     }
@@ -79,6 +82,7 @@ fn format_impl(
     field: String,
     format_value: String,
     input_span: Span,
+    input_metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
     let records: Vec<Value> = vals
         .into_iter()
@@ -113,11 +117,12 @@ fn format_impl(
         })
         .collect();
 
-    Ok(Value::List {
+    let result = Value::List {
         vals: records,
         span: input_span,
     }
-    .into_pipeline_data())
+    .into_pipeline_data();
+    Ok(result.set_metadata(input_metadata))
 }
 
 fn format_value_impl(val: Value, format_value: &str, span: Span) -> Value {
