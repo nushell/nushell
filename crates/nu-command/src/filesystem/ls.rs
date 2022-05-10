@@ -353,6 +353,7 @@ pub(crate) fn dir_entry_dict(
 ) -> Result<Value, ShellError> {
     let mut cols = vec![];
     let mut vals = vec![];
+    let mut file_type = "unknown";
 
     cols.push("name".into());
     vals.push(Value::String {
@@ -361,9 +362,10 @@ pub(crate) fn dir_entry_dict(
     });
 
     if let Some(md) = metadata {
+        file_type = get_file_type(md);
         cols.push("type".into());
         vals.push(Value::String {
-            val: get_file_type(md).to_string(),
+            val: file_type.to_string(),
             span,
         });
     } else {
@@ -449,10 +451,8 @@ pub(crate) fn dir_entry_dict(
 
     cols.push("size".to_string());
     if let Some(md) = metadata {
-        #[cfg(unix)]
-        let zero_sized = md.file_type().is_socket()
-            || md.file_type().is_char_device()
-            || md.file_type().is_block_device();
+        let zero_sized =
+            file_type == "socket" || file_type == "block device" || file_type == "char device";
 
         if md.is_dir() {
             if du {
@@ -486,9 +486,6 @@ pub(crate) fn dir_entry_dict(
                 vals.push(Value::nothing(span));
             }
         } else {
-            #[cfg(not(unix))]
-            let value = Value::nothing(span);
-            #[cfg(unix)]
             let value = if zero_sized {
                 Value::Filesize { val: 0, span }
             } else {
