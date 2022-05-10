@@ -62,7 +62,11 @@ impl Command for Rm {
             );
         sig.switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
-            .switch("quiet", "suppress output showing files deleted", Some('q'))
+            .switch(
+                "verbose",
+                "make rm to be verbose, showing files been deleted",
+                Some('v'),
+            )
             // .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",
@@ -129,7 +133,7 @@ fn rm(
     let permanent = call.has_flag("permanent");
     let recursive = call.has_flag("recursive");
     let force = call.has_flag("force");
-    let quiet = call.has_flag("quiet");
+    let verbose = call.has_flag("verbose");
     // let interactive = call.has_flag("interactive");
 
     let ctrlc = engine_state.ctrlc.clone();
@@ -327,11 +331,11 @@ fn rm(
                                 Vec::new(),
                             ),
                         }
-                    } else if quiet {
-                        Value::Nothing { span }
-                    } else {
+                    } else if verbose {
                         let val = format!("deleted {:}", f.to_string_lossy());
                         Value::String { val, span }
+                    } else {
+                        Value::Nothing { span }
                     }
                 } else {
                     let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
