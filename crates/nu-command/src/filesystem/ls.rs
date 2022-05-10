@@ -449,6 +449,11 @@ pub(crate) fn dir_entry_dict(
 
     cols.push("size".to_string());
     if let Some(md) = metadata {
+        #[cfg(unix)]
+        let zero_sized = md.file_type().is_socket()
+            || md.file_type().is_char_device()
+            || md.file_type().is_block_device();
+
         if md.is_dir() {
             if du {
                 let params = DirBuilder::new(Span { start: 0, end: 2 }, None, false, None, false);
@@ -481,7 +486,15 @@ pub(crate) fn dir_entry_dict(
                 vals.push(Value::nothing(span));
             }
         } else {
-            vals.push(Value::nothing(span));
+            #[cfg(not(unix))]
+            let value = Value::nothing(span);
+            #[cfg(unix)]
+            let value = if zero_sized {
+                Value::Filesize { val: 0, span }
+            } else {
+                Value::nothing(span)
+            };
+            vals.push(value);
         }
     } else {
         vals.push(Value::nothing(span));
