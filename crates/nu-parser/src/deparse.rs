@@ -94,8 +94,8 @@ pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
                         }
                     }
                 }
-                if word == input {
-                    return word;
+                if word.contains(input) {
+                    return input.to_string();
                 }
             }
             let mut final_word = String::new();
