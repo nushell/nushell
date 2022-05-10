@@ -124,6 +124,7 @@ fn format_impl(
 fn format_value_impl(val: Value, format_value: &str, span: Span) -> Value {
     match val {
         Value::Filesize { val, span } => Value::String {
+            // don't need to concern about metric, we just format units by what user input.
             val: format_filesize(val, format_value, false),
             span,
         },
