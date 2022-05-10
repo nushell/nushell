@@ -7,9 +7,6 @@ use {
     std::borrow::Cow,
 };
 
-const PROMPT_MARKER_BEFORE_PS1: &str = "\x1b]133;A\x1b\\"; // OSC 133;A ST
-const PROMPT_MARKER_BEFORE_PS2: &str = "\x1b]133;A;k=s\x1b\\"; // OSC 133;A;k=s ST
-
 /// Nushell prompt definition
 #[derive(Clone)]
 pub struct NushellPrompt {
@@ -19,7 +16,6 @@ pub struct NushellPrompt {
     default_vi_insert_prompt_indicator: Option<String>,
     default_vi_normal_prompt_indicator: Option<String>,
     default_multiline_indicator: Option<String>,
-    shell_integration: bool,
 }
 
 impl Default for NushellPrompt {
@@ -37,7 +33,6 @@ impl NushellPrompt {
             default_vi_insert_prompt_indicator: None,
             default_vi_normal_prompt_indicator: None,
             default_multiline_indicator: None,
-            shell_integration: false,
         }
     }
 
@@ -87,34 +82,20 @@ impl NushellPrompt {
     fn default_wrapped_custom_string(&self, str: String) -> String {
         format!("({})", str)
     }
-
-    pub(crate) fn enable_shell_integration(&mut self) {
-        self.shell_integration = true
-    }
 }
 
 impl Prompt for NushellPrompt {
     fn render_prompt_left(&self) -> Cow<str> {
-        // Just before starting to draw the PS1 prompt send the escape code (see
-        // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
-        let mut prompt = if self.shell_integration {
-            String::from(PROMPT_MARKER_BEFORE_PS1)
+        if let Some(prompt_string) = &self.left_prompt_string {
+            prompt_string.replace('\n', "\r\n").into()
         } else {
-            String::new()
-        };
-
-        prompt.push_str(&match &self.left_prompt_string {
-            Some(prompt_string) => prompt_string.replace('\n', "\r\n"),
-            None => {
-                let default = DefaultPrompt::new();
-                default
-                    .render_prompt_left()
-                    .to_string()
-                    .replace('\n', "\r\n")
-            }
-        });
-
-        prompt.into()
+            let default = DefaultPrompt::new();
+            default
+                .render_prompt_left()
+                .to_string()
+                .replace('\n', "\r\n")
+                .into()
+        }
     }
 
     fn render_prompt_right(&self) -> Cow<str> {
@@ -131,45 +112,26 @@ impl Prompt for NushellPrompt {
     }
 
     fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<str> {
-        // Just before starting to draw the PS1 prompt send the escape code (see
-        // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
-        let mut prompt = if self.shell_integration {
-            String::from(PROMPT_MARKER_BEFORE_PS2)
-        } else {
-            String::new()
-        };
-
         match edit_mode {
-            PromptEditMode::Default | PromptEditMode::Emacs => {
-                prompt.push_str(
-                    self.default_prompt_indicator
-                        .as_ref()
-                        .unwrap_or(&String::from("〉")),
-                );
-                prompt.into()
-            }
-            PromptEditMode::Vi(vi_mode) => match vi_mode {
-                PromptViMode::Normal => {
-                    prompt.push_str(
-                        self.default_vi_normal_prompt_indicator
-                            .as_ref()
-                            .unwrap_or(&String::from(": ")),
-                    );
-                    prompt.into()
-                }
-                PromptViMode::Insert => {
-                    prompt.push_str(
-                        self.default_vi_insert_prompt_indicator
-                            .as_ref()
-                            .unwrap_or(&String::from("〉")),
-                    );
-                    prompt.into()
-                }
+            PromptEditMode::Default => match &self.default_prompt_indicator {
+                Some(indicator) => indicator.as_str().into(),
+                None => "〉".into(),
             },
-            PromptEditMode::Custom(str) => {
-                prompt.push_str(&self.default_wrapped_custom_string(str));
-                prompt.into()
-            }
+            PromptEditMode::Emacs => match &self.default_prompt_indicator {
+                Some(indicator) => indicator.as_str().into(),
+                None => "〉".into(),
+            },
+            PromptEditMode::Vi(vi_mode) => match vi_mode {
+                PromptViMode::Normal => match &self.default_vi_normal_prompt_indicator {
+                    Some(indicator) => indicator.as_str().into(),
+                    None => ": ".into(),
+                },
+                PromptViMode::Insert => match &self.default_vi_insert_prompt_indicator {
+                    Some(indicator) => indicator.as_str().into(),
+                    None => "〉".into(),
+                },
+            },
+            PromptEditMode::Custom(str) => self.default_wrapped_custom_string(str).into(),
         }
     }
 

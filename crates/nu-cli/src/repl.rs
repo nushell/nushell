@@ -19,7 +19,8 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::{sync::atomic::Ordering, time::Instant};
 
-const PROMPT_MARKER_BEFORE_CMD: &str = "\x1b]133;C\x1b\\"; // OSC 133;C ST
+const PRE_EXECUTE_MARKER: &str = "\x1b]133;A\x1b\\";
+const PRE_PROMPT_MARKER: &str = "\x1b]133;C\x1b\\";
 const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 pub fn evaluate_repl(
@@ -206,6 +207,10 @@ pub fn evaluate_repl(
             }
         }
 
+        if config.shell_integration {
+            run_ansi_sequence(PRE_EXECUTE_MARKER)?;
+        }
+
         let prompt =
             prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt, is_perf_true);
 
@@ -221,7 +226,6 @@ pub fn evaluate_repl(
         }
 
         let input = line_editor.read_line(prompt);
-        let use_shell_integration = config.shell_integration;
 
         match input {
             Ok(Signal::Success(s)) => {
@@ -234,11 +238,9 @@ pub fn evaluate_repl(
                     }
                 }
 
-                if use_shell_integration {
-                    // Just before running a command/program, send the escape code (see
-                    // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
-                    let mut ansi_escapes = String::from(RESET_APPLICATION_MODE);
-                    ansi_escapes.push_str(PROMPT_MARKER_BEFORE_CMD);
+                if config.shell_integration {
+                    run_ansi_sequence(RESET_APPLICATION_MODE)?;
+                    run_ansi_sequence(PRE_PROMPT_MARKER)?;
                     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
                         let path = cwd.as_string()?;
                         // Try to abbreviate string for windows title
@@ -253,21 +255,8 @@ pub fn evaluate_repl(
                         // ESC]0;stringBEL -- Set icon name and window title to string
                         // ESC]1;stringBEL -- Set icon name to string
                         // ESC]2;stringBEL -- Set window title to string
-                        ansi_escapes.push_str(&format!("\x1b]2;{}\x07", maybe_abbrev_path));
+                        run_ansi_sequence(&format!("\x1b]2;{}\x07", maybe_abbrev_path))?;
                     }
-                    match io::stdout().write_all(ansi_escapes.as_bytes()) {
-                        Ok(it) => it,
-                        Err(err) => println!("error: {}", err),
-                    };
-                    let _ = io::stdout().flush().map_err(|e| {
-                        ShellError::GenericError(
-                            "Error flushing stdio".into(),
-                            e.to_string(),
-                            Some(Span { start: 0, end: 0 }),
-                            None,
-                            Vec::new(),
-                        )
-                    });
                 }
 
                 let start_time = Instant::now();
@@ -357,42 +346,6 @@ pub fn evaluate_repl(
                     let _ = std::env::set_current_dir(path);
                     engine_state.add_env_var("PWD".into(), cwd);
                 }
-
-                // if use_shell_integration {
-                //     // Just before running a command/program, send the escape code (see
-                //     // https://sw.kovidgoyal.net/kitty/shell-integration/#notes-for-shell-developers)
-                //     let mut ansi_escapes = String::from(RESET_APPLICATION_MODE);
-                //     ansi_escapes.push_str(PROMPT_MARKER_BEFORE_CMD);
-                //     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-                //         let path = cwd.as_string()?;
-                //         // Try to abbreviate string for windows title
-                //         let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-                //             path.replace(&p.as_path().display().to_string(), "~")
-                //         } else {
-                //             path
-                //         };
-
-                //         // Set window title too
-                //         // https://tldp.org/HOWTO/Xterm-Title-3.html
-                //         // ESC]0;stringBEL -- Set icon name and window title to string
-                //         // ESC]1;stringBEL -- Set icon name to string
-                //         // ESC]2;stringBEL -- Set window title to string
-                //         ansi_escapes.push_str(&format!("\x1b]2;{}\x07", maybe_abbrev_path));
-                //     }
-                //     match io::stdout().write_all(ansi_escapes.as_bytes()) {
-                //         Ok(it) => it,
-                //         Err(err) => println!("error: {}", err),
-                //     };
-                //     let _ = io::stdout().flush().map_err(|e| {
-                //         ShellError::GenericError(
-                //             "Error flushing stdio".into(),
-                //             e.to_string(),
-                //             Some(Span { start: 0, end: 0 }),
-                //             None,
-                //             Vec::new(),
-                //         )
-                //     });
-                // }
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
@@ -412,6 +365,30 @@ pub fn evaluate_repl(
     }
 
     Ok(())
+}
+
+fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
+    match io::stdout().write_all(seq.as_bytes()) {
+        Ok(it) => it,
+        Err(err) => {
+            return Err(ShellError::GenericError(
+                "Error writing ansi sequence".into(),
+                err.to_string(),
+                Some(Span { start: 0, end: 0 }),
+                None,
+                Vec::new(),
+            ));
+        }
+    };
+    io::stdout().flush().map_err(|e| {
+        ShellError::GenericError(
+            "Error flushing stdio".into(),
+            e.to_string(),
+            Some(Span { start: 0, end: 0 }),
+            None,
+            Vec::new(),
+        )
+    })
 }
 
 pub fn run_hook(
