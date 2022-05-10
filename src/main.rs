@@ -80,9 +80,11 @@ fn main() -> Result<()> {
     // then it'll be the script name
     // then the args to the script
     let mut args = std::env::args().skip(1);
+    let mut count = 0;
     while let Some(arg) = args.next() {
         if !script_name.is_empty() {
-            args_to_script.push(escape_quote_string_with_file(&arg, &script_name));
+            args_to_script.push(escape_quote_string_with_file(&arg, &script_name, count));
+            count += 1;
         } else if arg.starts_with('-') {
             // Cool, it's a flag
             let flag_value = match arg.as_ref() {

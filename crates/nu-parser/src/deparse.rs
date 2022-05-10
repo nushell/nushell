@@ -71,16 +71,45 @@ fn escape_quote_string_when_flags_are_unclear(input: &str) -> String {
     }
 }
 
-pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
+pub fn escape_quote_string_with_file(input: &str, file: &str, count: usize) -> String {
     // use when you want to cross-compare to a file to ensure flags are checked properly
     let file = File::open(file);
     match file {
         Ok(f) => {
             let lines = BufReader::new(f).lines();
+            let mut list_of_types = Vec::new();
+            let mut list_of_optional_types = Vec::new();
             for line in lines {
                 let mut flag_start = false;
                 let mut word = String::new();
                 let line_or = line.unwrap_or_else(|_| String::from(" "));
+                if line_or.contains(':') {
+                    let mut type_tripped = 0;
+                    let mut word = String::new();
+                    for n in line_or.chars() {
+                        if n == '?' {
+                            type_tripped = 3;
+                        }
+                        if n == ':' {
+                            if type_tripped == 3 {
+                                type_tripped = 2;
+                            } else {
+                                type_tripped = 1;
+                            }
+                        }
+                        if n == ' ' || n == ',' || n == ']' {
+                            if type_tripped == 1 {
+                                list_of_types.push(word.clone());
+                            } else {
+                                list_of_optional_types.push(word.clone());
+                            }
+                            type_tripped = 0;
+                        }
+                        if type_tripped != 0 {
+                            word.push(n);
+                        }
+                    }
+                }
                 if line_or.contains('-') {
                     for n in line_or.chars() {
                         if n == '-' {
@@ -94,8 +123,8 @@ pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
                         }
                     }
                 }
-                if word == input {
-                    return word;
+                if word.contains(input) {
+                    return input.to_string();
                 }
             }
 
@@ -106,6 +135,22 @@ pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
                 && !input.contains('-')
             {
                 return input.to_string();
+            }
+            if input.contains('-')
+                && ((count < list_of_types.len()
+                    && (list_of_types[count] == "int"
+                        || list_of_types[count] == "number"
+                        || list_of_types[count] == "math"))
+                    || (count >= list_of_types.len()
+                        && (list_of_optional_types[count - list_of_types.len()] == "int"
+                            || list_of_optional_types[count - list_of_types.len()] == "math"
+                            || list_of_optional_types[count - list_of_types.len()] == "number")))
+            {
+                // if the input is a negative number
+                let mut number_quoted = String::from('"');
+                number_quoted.push_str(input);
+                number_quoted.push('"');
+                return number_quoted;
             }
             let mut final_word = String::new();
             final_word.push('"');
