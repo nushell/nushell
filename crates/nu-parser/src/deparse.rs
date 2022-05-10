@@ -142,9 +142,9 @@ pub fn escape_quote_string_with_file(input: &str, file: &str, count: usize) -> S
                         || list_of_types[count] == "number"
                         || list_of_types[count] == "math"))
                     || (count >= list_of_types.len()
-                        && (list_of_optional_types[count - list_of_types.len()] == "int"
-                            || list_of_optional_types[count - list_of_types.len()] == "math"
-                            || list_of_optional_types[count - list_of_types.len()] == "number")))
+                        && (list_of_optional_types.contains(&String::from("int"))
+                            || list_of_optional_types.contains(&String::from("math"))
+                            || list_of_optional_types.contains(&String::from("number")))))
             {
                 // if the input is a negative number
                 let mut number_quoted = String::from('"');
