@@ -207,7 +207,7 @@ impl Completer for CommandCompletion {
             self.complete_commands(working_set, span, offset, true, options.match_algorithm)
         } else {
             vec![]
-        }
+        };
 
         subcommands
             .into_iter()
