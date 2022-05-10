@@ -489,7 +489,11 @@ pub(crate) fn dir_entry_dict(
             #[cfg(not(unix))]
             let value = Value::nothing(span);
             #[cfg(unix)]
-            let value = if zero_sized { Value::Filesize { val: 0, span } } else { Value::nothing(span) };
+            let value = if zero_sized {
+                Value::Filesize { val: 0, span }
+            } else {
+                Value::nothing(span)
+            };
             vals.push(value);
         }
     } else {
