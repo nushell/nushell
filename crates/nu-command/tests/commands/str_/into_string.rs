@@ -157,3 +157,15 @@ fn from_table() {
     assert!(actual.out.contains("32.38"));
     assert!(actual.out.contains("15.20"));
 }
+
+#[test]
+fn from_nothing() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        $nothing | into string
+        "#
+    ));
+
+    assert_eq!(actual.out, "");
+}
