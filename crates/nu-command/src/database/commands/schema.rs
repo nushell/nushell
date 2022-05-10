@@ -142,7 +142,7 @@ fn get_databases_and_tables(
     conn: &Connection,
     span: Span,
 ) -> Result<Vec<Db>, ShellError> {
-    db.get_databases_and_tables(&conn).map_err(|e| {
+    db.get_databases_and_tables(conn).map_err(|e| {
         ShellError::GenericError(
             "Error getting databases and tables".into(),
             e.to_string(),
@@ -163,7 +163,7 @@ fn get_table_columns(
     table: &DbTable,
     span: Span,
 ) -> Result<Vec<Value>, ShellError> {
-    let columns = db.get_columns(&conn, &table).map_err(|e| {
+    let columns = db.get_columns(conn, table).map_err(|e| {
         ShellError::GenericError(
             "Error getting database columns".into(),
             e.to_string(),
@@ -200,7 +200,7 @@ fn get_table_constraints(
     table: &DbTable,
     span: Span,
 ) -> Result<Vec<Value>, ShellError> {
-    let constraints = db.get_constraints(&conn, &table).map_err(|e| {
+    let constraints = db.get_constraints(conn, table).map_err(|e| {
         ShellError::GenericError(
             "Error getting DB constraints".into(),
             e.to_string(),
@@ -235,7 +235,7 @@ fn get_table_foreign_keys(
     table: &DbTable,
     span: Span,
 ) -> Result<Vec<Value>, ShellError> {
-    let foreign_keys = db.get_foreign_keys(&conn, &table).map_err(|e| {
+    let foreign_keys = db.get_foreign_keys(conn, table).map_err(|e| {
         ShellError::GenericError(
             "Error getting DB Foreign Keys".into(),
             e.to_string(),
@@ -270,7 +270,7 @@ fn get_table_indexes(
     table: &DbTable,
     span: Span,
 ) -> Result<Vec<Value>, ShellError> {
-    let indexes = db.get_indexes(&conn, &table).map_err(|e| {
+    let indexes = db.get_indexes(conn, table).map_err(|e| {
         ShellError::GenericError(
             "Error getting DB Indexes".into(),
             e.to_string(),
