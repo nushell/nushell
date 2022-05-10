@@ -49,7 +49,6 @@ impl Command for FileSize {
         let span = call.head;
         let data_as_value = input.into_value(span);
 
-        // must accept a table to make format, or else we should return nothing.
         // Something need to consider:
         // 1. what if input data type is not table?  For now just output nothing.
         // 2. what if value is not a FileSize type?  For now just return nothing too for the value.
