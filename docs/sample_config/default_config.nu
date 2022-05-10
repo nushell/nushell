@@ -190,7 +190,7 @@ let-env config = {
   completion_algorithm: "prefix"  # prefix, fuzzy
   animate_prompt: false # redraw the prompt every second
   float_precision: 2
-  buffer_editor: "emacs" # command that will be used to edit the current line buffer with ctr+e
+  buffer_editor: "emacs" # command that will be used to edit the current line buffer with ctrl+o
   use_ansi_coloring: true
   filesize_format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
   edit_mode: emacs # emacs, vi
