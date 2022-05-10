@@ -1,12 +1,13 @@
-use nu_test_support::playground::{Dirs, Playground};
+use nu_test_support::playground::{Playground};
 use nu_test_support::{nu, pipeline};
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 
 #[test]
 fn from_range() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1..5 | into string | to json
+        echo 1..5 | into string | to json -r
         "#
         )
     );
@@ -79,7 +80,7 @@ fn from_filename() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "ls sample.toml | get name | into string"
+            "ls sample.toml | get name | into string | get 0"
         );
 
         assert_eq!(actual.out, "sample.toml");
@@ -99,7 +100,7 @@ fn from_filesize() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "ls sample.toml | get size | into string"
+            "ls sample.toml | get size | into string | get 0"
         );
 
         assert_eq!(actual.out, "25 B");
@@ -111,7 +112,7 @@ fn from_decimal_correct_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        = 1.23000 | into string -d 3
+        1.23000 | into string -d 3
         "#
     ));
 
@@ -123,7 +124,7 @@ fn from_int_decimal_correct_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        = 1.00000 | into string -d 3
+        1.00000 | into string -d 3
         "#
     ));
 
@@ -135,7 +136,7 @@ fn from_int_decimal_trim_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        = 1.00000 | into string | format "{$it} flat"
+        1.00000 | into string | $"($in) flat"
         "#
     ));
 
