@@ -103,7 +103,9 @@ fn from_filesize() {
             "ls sample.toml | get size | into string | get 0"
         );
 
-        assert_eq!(actual.out, "25 B");
+        let expected = if cfg!(windows) { "27 B" } else { "25 B" };
+
+        assert_eq!(actual.out, expected);
     })
 }
 
