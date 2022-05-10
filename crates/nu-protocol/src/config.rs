@@ -24,6 +24,28 @@ pub struct ParsedMenu {
     pub source: Value,
 }
 
+/// Definition of a parsed menu from the config object
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Hooks {
+    pub pre_prompt: Option<Value>,
+    pub pre_execution: Option<Value>,
+}
+
+impl Hooks {
+    pub fn new() -> Self {
+        Self {
+            pre_prompt: None,
+            pre_execution: None,
+        }
+    }
+}
+
+impl Default for Hooks {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub filesize_metric: bool,
@@ -45,10 +67,12 @@ pub struct Config {
     pub log_level: String,
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
+    pub hooks: Hooks,
     pub rm_always_trash: bool,
     pub shell_integration: bool,
     pub buffer_editor: String,
     pub disable_table_indexes: bool,
+    pub cd_with_abbreviations: bool,
 }
 
 impl Default for Config {
@@ -73,10 +97,12 @@ impl Default for Config {
             log_level: String::new(),
             keybindings: Vec::new(),
             menus: Vec::new(),
+            hooks: Hooks::new(),
             rm_always_trash: false,
             shell_integration: false,
             buffer_editor: String::new(),
             disable_table_indexes: false,
+            cd_with_abbreviations: false,
         }
     }
 }
@@ -251,6 +277,13 @@ impl Value {
                             eprintln!("{:?}", e);
                         }
                     },
+                    "hooks" => match create_hooks(value) {
+                        Ok(hooks) => config.hooks = hooks,
+                        Err(e) => {
+                            eprintln!("$config.hooks is not a valid hooks list");
+                            eprintln!("{:?}", e);
+                        }
+                    },
                     "shell_integration" => {
                         if let Ok(b) = value.as_bool() {
                             config.shell_integration = b;
@@ -265,10 +298,16 @@ impl Value {
                             eprintln!("$config.buffer_editor is not a string")
                         }
                     }
-
                     "disable_table_indexes" => {
                         if let Ok(b) = value.as_bool() {
                             config.disable_table_indexes = b;
+                        } else {
+                            eprintln!("$config.disable_table_indexes is not a bool")
+                        }
+                    }
+                    "cd_with_abbreviations" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.cd_with_abbreviations = b;
                         } else {
                             eprintln!("$config.disable_table_indexes is not a bool")
                         }
@@ -332,6 +371,43 @@ pub fn color_value_string(
     Value::String {
         val: format!("{{{}}}", val),
         span: *span,
+    }
+}
+
+// Parse the hooks to find the blocks to run when the hooks fire
+fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
+    match value {
+        Value::Record { cols, vals, span } => {
+            let mut hooks = Hooks::new();
+
+            for idx in 0..cols.len() {
+                match cols[idx].as_str() {
+                    "pre_prompt" => hooks.pre_prompt = Some(vals[idx].clone()),
+                    "pre_execution" => hooks.pre_execution = Some(vals[idx].clone()),
+                    x => {
+                        return Err(ShellError::UnsupportedConfigValue(
+                            "'pre_prompt' or 'pre_execution'".to_string(),
+                            x.to_string(),
+                            *span,
+                        ));
+                    }
+                }
+            }
+
+            Ok(hooks)
+        }
+        v => match v.span() {
+            Ok(span) => Err(ShellError::UnsupportedConfigValue(
+                "record for 'hooks' config".into(),
+                "non-record value".into(),
+                span,
+            )),
+            _ => Err(ShellError::UnsupportedConfigValue(
+                "record for 'hooks' config".into(),
+                "non-record value".into(),
+                Span { start: 0, end: 0 },
+            )),
+        },
     }
 }
 

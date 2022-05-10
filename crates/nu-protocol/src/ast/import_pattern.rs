@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{span, OverlayId, Span};
+use crate::{span, ModuleId, Span};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -13,7 +13,7 @@ pub enum ImportPatternMember {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ImportPatternHead {
     pub name: Vec<u8>,
-    pub id: Option<OverlayId>,
+    pub id: Option<ModuleId>,
     pub span: Span,
 }
 

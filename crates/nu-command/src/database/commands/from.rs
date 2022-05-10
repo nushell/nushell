@@ -1,11 +1,13 @@
-use super::super::SQLiteDatabase;
+use crate::database::values::definitions::ConnectionDb;
+
+use super::{super::SQLiteDatabase, conversions::value_into_table_factor};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use sqlparser::ast::{Ident, ObjectName, Query, Select, SetExpr, TableFactor, TableWithJoins};
+use sqlparser::ast::{Ident, Query, Select, SetExpr, Statement, TableAlias, TableWithJoins};
 
 #[derive(Clone)]
 pub struct FromDb;
@@ -23,8 +25,14 @@ impl Command for FromDb {
         Signature::build(self.name())
             .required(
                 "select",
+                SyntaxShape::Any,
+                "table of derived table to select from",
+            )
+            .named(
+                "as",
                 SyntaxShape::String,
-                "Name of table to select from",
+                "Alias for the selected table",
+                Some('a'),
             )
             .category(Category::Custom("database".into()))
     }
@@ -48,51 +56,94 @@ impl Command for FromDb {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let table: String = call.req(engine_state, stack, 0)?;
-
         let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
-        db.query = match db.query {
-            None => Some(create_query(table)),
-            Some(query) => Some(modify_query(query, table)),
+        db.statement = match db.statement {
+            None => Some(create_statement(&db.connection, engine_state, stack, call)?),
+            Some(statement) => Some(modify_statement(
+                &db.connection,
+                statement,
+                engine_state,
+                stack,
+                call,
+            )?),
         };
 
         Ok(db.into_value(call.head).into_pipeline_data())
     }
 }
 
-fn create_query(table: String) -> Query {
-    Query {
+fn create_statement(
+    connection: &ConnectionDb,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<Statement, ShellError> {
+    let query = Query {
         with: None,
-        body: SetExpr::Select(Box::new(create_select(table))),
+        body: SetExpr::Select(Box::new(create_select(
+            connection,
+            engine_state,
+            stack,
+            call,
+        )?)),
         order_by: Vec::new(),
         limit: None,
         offset: None,
         fetch: None,
         lock: None,
+    };
+
+    Ok(Statement::Query(Box::new(query)))
+}
+
+fn modify_statement(
+    connection: &ConnectionDb,
+    mut statement: Statement,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<Statement, ShellError> {
+    match statement {
+        Statement::Query(ref mut query) => {
+            match query.body {
+                SetExpr::Select(ref mut select) => {
+                    let table = create_table(connection, engine_state, stack, call)?;
+                    select.from.push(table);
+                }
+                _ => {
+                    query.as_mut().body = SetExpr::Select(Box::new(create_select(
+                        connection,
+                        engine_state,
+                        stack,
+                        call,
+                    )?));
+                }
+            };
+
+            Ok(statement)
+        }
+        s => Err(ShellError::GenericError(
+            "Connection doesnt define a query".into(),
+            format!("Expected a connection with query. Got {}", s),
+            Some(call.head),
+            None,
+            Vec::new(),
+        )),
     }
 }
 
-fn modify_query(mut query: Query, table: String) -> Query {
-    query.body = match query.body {
-        SetExpr::Select(select) => SetExpr::Select(modify_select(select, table)),
-        _ => SetExpr::Select(Box::new(create_select(table))),
-    };
-
-    query
-}
-
-fn modify_select(mut select: Box<Select>, table: String) -> Box<Select> {
-    select.as_mut().from = create_from(table);
-    select
-}
-
-fn create_select(table: String) -> Select {
-    Select {
+fn create_select(
+    connection: &ConnectionDb,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<Select, ShellError> {
+    Ok(Select {
         distinct: false,
         top: None,
         projection: Vec::new(),
         into: None,
-        from: create_from(table),
+        from: vec![create_table(connection, engine_state, stack, call)?],
         lateral_views: Vec::new(),
         selection: None,
         group_by: Vec::new(),
@@ -100,29 +151,32 @@ fn create_select(table: String) -> Select {
         distribute_by: Vec::new(),
         sort_by: Vec::new(),
         having: None,
-    }
+    })
 }
 
-// This function needs more work
-// It needs to define multi tables and joins
-// I assume we will need to define expressions for the columns instead of strings
-fn create_from(table: String) -> Vec<TableWithJoins> {
-    let ident = Ident {
-        value: table,
-        quote_style: None,
-    };
+fn create_table(
+    connection: &ConnectionDb,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<TableWithJoins, ShellError> {
+    let alias = call
+        .get_flag::<String>(engine_state, stack, "as")?
+        .map(|alias| TableAlias {
+            name: Ident {
+                value: alias,
+                quote_style: None,
+            },
+            columns: Vec::new(),
+        });
 
-    let table_factor = TableFactor::Table {
-        name: ObjectName(vec![ident]),
-        alias: None,
-        args: Vec::new(),
-        with_hints: Vec::new(),
-    };
+    let select_table: Value = call.req(engine_state, stack, 0)?;
+    let table_factor = value_into_table_factor(select_table, connection, alias)?;
 
     let table = TableWithJoins {
         relation: table_factor,
         joins: Vec::new(),
     };
 
-    vec![table]
+    Ok(table)
 }

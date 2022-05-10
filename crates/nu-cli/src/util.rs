@@ -179,7 +179,7 @@ fn gather_env_vars(vars: impl Iterator<Item = (String, String)>, engine_state: &
             };
 
             // stack.add_env_var(name, value);
-            engine_state.env_vars.insert(name, value);
+            engine_state.add_env_var(name, value);
         }
     }
 }
@@ -211,8 +211,8 @@ pub fn eval_source(
         (output, working_set.render())
     };
 
-    let cwd = match nu_engine::env::current_dir_str(engine_state, stack) {
-        Ok(p) => PathBuf::from(p),
+    let cwd = match nu_engine::env::current_dir(engine_state, stack) {
+        Ok(p) => p,
         Err(e) => {
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &e);
@@ -237,7 +237,7 @@ pub fn eval_source(
                 set_last_exit_code(stack, 0);
             }
 
-            if let Err(err) = pipeline_data.print(engine_state, stack) {
+            if let Err(err) = pipeline_data.print(engine_state, stack, false) {
                 let working_set = StateWorkingSet::new(engine_state);
 
                 report_error(&working_set, &err);
@@ -319,12 +319,18 @@ mod test {
             &mut engine_state,
         );
 
-        let env = engine_state.env_vars;
+        let env = engine_state.render_env_vars();
 
-        assert!(matches!(env.get("FOO"), Some(Value::String { val, .. }) if val == "foo"));
-        assert!(matches!(env.get("SYMBOLS"), Some(Value::String { val, .. }) if val == symbols));
-        assert!(matches!(env.get(symbols), Some(Value::String { val, .. }) if val == "symbols"));
-        assert!(env.get("PWD").is_some());
+        assert!(
+            matches!(env.get(&"FOO".to_string()), Some(&Value::String { val, .. }) if val == "foo")
+        );
+        assert!(
+            matches!(env.get(&"SYMBOLS".to_string()), Some(&Value::String { val, .. }) if val == symbols)
+        );
+        assert!(
+            matches!(env.get(&symbols.to_string()), Some(&Value::String { val, .. }) if val == "symbols")
+        );
+        assert!(env.get(&"PWD".to_string()).is_some());
         assert_eq!(env.len(), 4);
     }
 }

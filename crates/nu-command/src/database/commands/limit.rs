@@ -6,6 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
+use sqlparser::ast::Statement;
 
 #[derive(Clone)]
 pub struct LimitDb;
@@ -56,11 +57,19 @@ impl Command for LimitDb {
         let expr = ExprDb::try_from_value(&limit)?.into_native();
 
         let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
-        db.query = match db.query {
-            Some(mut query) => {
-                query.limit = Some(expr);
-                Some(query)
-            }
+        match db.statement {
+            Some(ref mut statement) => match statement {
+                Statement::Query(query) => query.as_mut().limit = Some(expr),
+                s => {
+                    return Err(ShellError::GenericError(
+                        "Connection doesnt define a statement".into(),
+                        format!("Expected a connection with query. Got {}", s),
+                        Some(call.head),
+                        None,
+                        Vec::new(),
+                    ))
+                }
+            },
             None => {
                 return Err(ShellError::GenericError(
                     "Connection without query".into(),

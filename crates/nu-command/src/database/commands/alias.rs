@@ -8,7 +8,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
 };
-use sqlparser::ast::{Ident, SelectItem, SetExpr, TableAlias, TableFactor};
+use sqlparser::ast::{Ident, SelectItem, SetExpr, Statement, TableAlias, TableFactor};
 
 #[derive(Clone)]
 pub struct AliasExpr;
@@ -29,26 +29,15 @@ impl Command for AliasExpr {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Creates an alias for a column selection",
-                example: "db col name_a | db as new_a",
-                result: None,
-            },
-            Example {
-                description: "Creates an alias for a table",
-                example: r#"db open name 
-    | db select a 
-    | db from table_a 
-    | db as table_a_new 
-    | db describe"#,
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Creates an alias for a column selection",
+            example: "db col name_a | db as new_a",
+            result: None,
+        }]
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "column", "expression"]
+        vec!["database", "alias", "column"]
     }
 
     fn run(
@@ -110,44 +99,56 @@ fn alias_db(
     new_alias: String,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    match db.query {
+    match db.statement.as_mut() {
         None => Err(ShellError::GenericError(
             "Error creating alias".into(),
-            "there is no query defined yet".into(),
+            "there is no statement defined yet".into(),
             Some(call.head),
             None,
             Vec::new(),
         )),
-        Some(ref mut query) => match &mut query.body {
-            SetExpr::Select(ref mut select) => {
-                select.as_mut().from.iter_mut().for_each(|table| {
-                    let new_alias = Some(TableAlias {
-                        name: Ident {
-                            value: new_alias.clone(),
-                            quote_style: None,
-                        },
-                        columns: Vec::new(),
+        Some(statement) => match statement {
+            Statement::Query(query) => match &mut query.body {
+                SetExpr::Select(select) => {
+                    select.as_mut().from.iter_mut().for_each(|table| {
+                        let new_alias = Some(TableAlias {
+                            name: Ident {
+                                value: new_alias.clone(),
+                                quote_style: None,
+                            },
+                            columns: Vec::new(),
+                        });
+
+                        if let TableFactor::Table { ref mut alias, .. } = table.relation {
+                            *alias = new_alias;
+                        } else if let TableFactor::Derived { ref mut alias, .. } = table.relation {
+                            *alias = new_alias;
+                        } else if let TableFactor::TableFunction { ref mut alias, .. } =
+                            table.relation
+                        {
+                            *alias = new_alias;
+                        }
                     });
 
-                    if let TableFactor::Table { ref mut alias, .. } = table.relation {
-                        *alias = new_alias;
-                    } else if let TableFactor::Derived { ref mut alias, .. } = table.relation {
-                        *alias = new_alias;
-                    } else if let TableFactor::TableFunction { ref mut alias, .. } = table.relation
-                    {
-                        *alias = new_alias;
-                    }
-                });
-
-                Ok(db.into_value(call.head).into_pipeline_data())
+                    Ok(db.into_value(call.head).into_pipeline_data())
+                }
+                _ => Err(ShellError::GenericError(
+                    "Error creating alias".into(),
+                    "Query has no select from defined".into(),
+                    Some(call.head),
+                    None,
+                    Vec::new(),
+                )),
+            },
+            s => {
+                return Err(ShellError::GenericError(
+                    "Connection doesnt define a query".into(),
+                    format!("Expected a connection with query. Got {}", s),
+                    Some(call.head),
+                    None,
+                    Vec::new(),
+                ))
             }
-            _ => Err(ShellError::GenericError(
-                "Error creating alias".into(),
-                "Query has no select from defined".into(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )),
         },
     }
 }

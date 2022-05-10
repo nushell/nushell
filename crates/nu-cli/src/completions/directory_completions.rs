@@ -4,6 +4,7 @@ use nu_protocol::{
     levenshtein_distance, Span,
 };
 use reedline::Suggestion;
+use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -32,7 +33,7 @@ impl Completer for DirectoryCompletion {
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
+        let cwd = if let Some(d) = self.engine_state.get_env_var("PWD") {
             match d.as_string() {
                 Ok(s) => s,
                 Err(_) => "".to_string(),
@@ -120,7 +121,7 @@ pub fn directory_completion(
         return result
             .filter_map(|entry| {
                 entry.ok().and_then(|entry| {
-                    if let Ok(metadata) = entry.metadata() {
+                    if let Ok(metadata) = fs::metadata(entry.path()) {
                         if metadata.is_dir() {
                             let mut file_name = entry.file_name().to_string_lossy().into_owned();
                             if matches(&partial, &file_name, match_algorithm) {

@@ -151,7 +151,7 @@ impl Command for Open {
             };
 
             if let Some(ext) = ext {
-                match engine_state.find_decl(format!("from {}", ext).as_bytes()) {
+                match engine_state.find_decl(format!("from {}", ext).as_bytes(), &[]) {
                     Some(converter_id) => {
                         let decl = engine_state.get_decl(converter_id);
                         if let Some(block_id) = decl.get_block_id() {

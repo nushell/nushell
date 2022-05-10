@@ -168,7 +168,7 @@ pub enum ShellError {
     /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
     #[error("Nushell failed: {0}.")]
     #[diagnostic(code(nu::shell::nushell_failed), url(docsrs))]
-    // Only use this one if we Nushell completely falls over and hits a state that isn't possible or isn't recoverable
+    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailed(String),
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
@@ -177,9 +177,29 @@ pub enum ShellError {
     ///
     /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
     #[error("Nushell failed: {0}.")]
-    #[diagnostic(code(nu::shell::nushell_failed), url(docsrs))]
-    // Only use this one if we Nushell completely falls over and hits a state that isn't possible or isn't recoverable
+    #[diagnostic(code(nu::shell::nushell_failed_spanned), url(docsrs))]
+    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailedSpanned(String, String, #[label = "{1}"] Span),
+
+    /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
+    ///
+    /// ## Resolution
+    ///
+    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    #[error("Nushell failed: {0}.")]
+    #[diagnostic(code(nu::shell::nushell_failed_help), url(docsrs))]
+    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
+    NushellFailedHelp(String, #[help] String),
+
+    /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
+    ///
+    /// ## Resolution
+    ///
+    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    #[error("Nushell failed: {0}.")]
+    #[diagnostic(code(nu::shell::nushell_failed_spanned_help), url(docsrs))]
+    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
+    NushellFailedSpannedHelp(String, String, #[label = "{1}"] Span, #[help] String),
 
     /// A referenced variable was not found at runtime.
     ///
@@ -198,6 +218,33 @@ pub enum ShellError {
     #[error("Environment variable '{0}' not found")]
     #[diagnostic(code(nu::shell::env_variable_not_found), url(docsrs))]
     EnvVarNotFoundAtRuntime(String, #[label = "environment variable not found"] Span),
+
+    /// A referenced module was not found at runtime.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the module name. Did you typo it? Did you forget to declare it? Is the casing right?
+    #[error("Module '{0}' not found")]
+    #[diagnostic(code(nu::shell::module_not_found), url(docsrs))]
+    ModuleNotFoundAtRuntime(String, #[label = "module not found"] Span),
+
+    /// A referenced module or overlay was not found at runtime.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the module name. Did you typo it? Did you forget to declare it? Is the casing right?
+    #[error("Module or overlay'{0}' not found")]
+    #[diagnostic(code(nu::shell::module_not_found), url(docsrs))]
+    ModuleOrOverlayNotFoundAtRuntime(String, #[label = "not a module or overlay"] Span),
+
+    /// A referenced overlay was not found at runtime.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the overlay name. Did you typo it? Did you forget to declare it? Is the casing right?
+    #[error("Overlay '{0}' not found")]
+    #[diagnostic(code(nu::shell::overlay_not_found), url(docsrs))]
+    OverlayNotFoundAtRuntime(String, #[label = "overlay not found"] Span),
 
     /// The given item was not found. This is a fairly generic error that depends on context.
     ///
@@ -636,6 +683,27 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
         String,
         #[label = "'{0}' is deprecated. Please use '{1}' instead."] Span,
     ),
+
+    /// Non-Unicode input received.
+    ///
+    /// ## Resolution
+    ///
+    /// Check that your path is UTF-8 compatible.
+    #[error("Non-Unicode input received.")]
+    #[diagnostic(code(nu::shell::non_unicode_input), url(docsrs))]
+    NonUnicodeInput,
+
+    // /// Path not found.
+    // #[error("Path not found.")]
+    // PathNotFound,
+    /// Unexpected abbr component.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the path abbreviation to ensure that it is valid.
+    #[error("Unexpected abbr component `{0}`.")]
+    #[diagnostic(code(nu::shell::unexpected_path_abbreviateion), url(docsrs))]
+    UnexpectedAbbrComponent(String),
 }
 
 impl From<std::io::Error> for ShellError {

@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct VariableCompletion {
-    engine_state: Arc<EngineState>,
+    engine_state: Arc<EngineState>, // TODO: Is engine state necessary? It's already a part of working set in fetch()
     stack: Stack,
     var_context: (Vec<u8>, Vec<Vec<u8>>), // tuple with $var and the sublevels (.b.c.d)
 }
@@ -143,24 +143,39 @@ impl Completer for VariableCompletion {
             }
         }
 
+        // TODO: The following can be refactored (see find_commands_by_predicate() used in
+        // command_completions).
+        let mut removed_overlays = vec![];
         // Working set scope vars
-        for scope in &working_set.delta.scope {
-            for v in &scope.vars {
-                if options.match_algorithm.matches_u8(v.0, &prefix) {
-                    output.push(Suggestion {
-                        value: String::from_utf8_lossy(v.0).to_string(),
-                        description: None,
-                        extra: None,
-                        span: current_span,
-                        append_whitespace: false,
-                    });
+        for scope_frame in working_set.delta.scope.iter().rev() {
+            for overlay_frame in scope_frame
+                .active_overlays(&mut removed_overlays)
+                .iter()
+                .rev()
+            {
+                for v in &overlay_frame.vars {
+                    if options.match_algorithm.matches_u8(v.0, &prefix) {
+                        output.push(Suggestion {
+                            value: String::from_utf8_lossy(v.0).to_string(),
+                            description: None,
+                            extra: None,
+                            span: current_span,
+                            append_whitespace: false,
+                        });
+                    }
                 }
             }
         }
 
         // Permanent state vars
-        for scope in &self.engine_state.scope {
-            for v in &scope.vars {
+        // for scope in &self.engine_state.scope {
+        for overlay_frame in self
+            .engine_state
+            .active_overlays(&removed_overlays)
+            .iter()
+            .rev()
+        {
+            for v in &overlay_frame.vars {
                 if options.match_algorithm.matches_u8(v.0, &prefix) {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(v.0).to_string(),
@@ -173,7 +188,7 @@ impl Completer for VariableCompletion {
             }
         }
 
-        output.dedup();
+        output.dedup(); // TODO: Removes only consecutive duplicates, is it intended?
 
         output
     }

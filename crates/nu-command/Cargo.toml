@@ -4,28 +4,29 @@ description = "Nushell's built-in commands"
 edition = "2021"
 license = "MIT"
 name = "nu-command"
-version = "0.62.0"
+version = "0.62.1"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-color-config = { path = "../nu-color-config", version = "0.62.0"  }
-nu-engine = { path = "../nu-engine", version = "0.62.0"  }
-nu-glob = { path = "../nu-glob", version = "0.62.0" }
-nu-json = { path = "../nu-json", version = "0.62.0"  }
-nu-parser = { path = "../nu-parser", version = "0.62.0"  }
-nu-path = { path = "../nu-path", version = "0.62.0"  }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.62.0"  }
-nu-protocol = { path = "../nu-protocol", version = "0.62.0"  }
-nu-system = { path = "../nu-system", version = "0.62.0"  }
-nu-table = { path = "../nu-table", version = "0.62.0"  }
-nu-term-grid = { path = "../nu-term-grid", version = "0.62.0"  }
-nu-test-support = { path = "../nu-test-support", version = "0.62.0"  }
-nu-utils = { path = "../nu-utils", version = "0.62.0" }
+nu-color-config = { path = "../nu-color-config", version = "0.62.1"  }
+nu-engine = { path = "../nu-engine", version = "0.62.1"  }
+nu-glob = { path = "../nu-glob", version = "0.62.1" }
+nu-json = { path = "../nu-json", version = "0.62.1"  }
+nu-parser = { path = "../nu-parser", version = "0.62.1"  }
+nu-path = { path = "../nu-path", version = "0.62.1"  }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.62.1"  }
+nu-protocol = { path = "../nu-protocol", version = "0.62.1"  }
+nu-system = { path = "../nu-system", version = "0.62.1"  }
+nu-table = { path = "../nu-table", version = "0.62.1"  }
+nu-term-grid = { path = "../nu-term-grid", version = "0.62.1"  }
+nu-test-support = { path = "../nu-test-support", version = "0.62.1"  }
+nu-utils = { path = "../nu-utils", version = "0.62.1" }
 nu-ansi-term = "0.45.1"
 
 # Potential dependencies for extras
+alphanumeric-sort = "1.4.4"
 base64 = "0.13.0"
 bytesize = "1.1.0"
 calamine = "0.18.0"
@@ -56,6 +57,7 @@ mime = "0.3.16"
 notify = "4.0.17"
 num = { version = "0.4.0", optional = true }
 pathdiff = "0.2.1"
+powierza-coefficient = "1.0"
 quick-xml = "0.22"
 rand = "0.8"
 rayon = "1.5.1"

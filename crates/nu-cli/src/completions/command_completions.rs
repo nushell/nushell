@@ -34,7 +34,7 @@ impl CommandCompletion {
     ) -> Vec<String> {
         let mut executables = vec![];
 
-        let paths = self.engine_state.env_vars.get("PATH");
+        let paths = self.engine_state.get_env_var("PATH");
 
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {
@@ -207,7 +207,7 @@ impl Completer for CommandCompletion {
             self.complete_commands(working_set, span, offset, true, options.match_algorithm)
         } else {
             vec![]
-        };
+        }
 
         subcommands
             .into_iter()

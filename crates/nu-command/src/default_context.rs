@@ -52,6 +52,10 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             History,
             If,
             Ignore,
+            Overlay,
+            OverlayAdd,
+            OverlayList,
+            OverlayRemove,
             Let,
             Metadata,
             Module,
@@ -158,6 +162,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Decode,
             DetectColumns,
             Format,
+            FileSize,
             Parse,
             Size,
             Split,
@@ -265,6 +270,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ToJson,
             ToMd,
             ToNuon,
+            ToText,
             ToToml,
             ToTsv,
             ToCsv,
@@ -352,6 +358,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Cal,
             Seq,
             SeqDate,
+            SeqChar,
         };
 
         // Hash
