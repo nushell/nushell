@@ -451,7 +451,6 @@ pub(crate) fn dir_entry_dict(
 
     cols.push("size".to_string());
     if let Some(md) = metadata {
-        #[cfg(unix)]
         let zero_sized =
             file_type == "socket" || file_type == "block device" || file_type == "char device";
 
