@@ -99,7 +99,7 @@ pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
                 }
             }
 
-            if input.parse::<i32>().is_ok()
+            if input.parse::<f64>().is_ok()
                 || (!input.contains(' ')
                     && !input.contains('=')
                     && !input.contains('"')
