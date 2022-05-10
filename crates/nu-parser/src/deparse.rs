@@ -105,7 +105,7 @@ pub fn escape_quote_string_with_file(input: &str, file: &str, count: usize) -> S
                             }
                             type_tripped = 0;
                         }
-                        if type_tripped != 0 {
+                        if type_tripped != 0 && n != ' ' {
                             word.push(n);
                         }
                     }
