@@ -52,7 +52,7 @@ impl Command for FileSize {
         // must accept a table to make format, or else we should return nothing.
         // Something need to consider:
         // 1. what if input data type is not table?  For now just output nothing.
-        // 2. what if value is not a FileSize type?  For now just return empty for the value.
+        // 2. what if value is not a FileSize type?  For now just return nothing too for the value.
         match data_as_value {
             Value::List { vals, span } => format_impl(vals, field, format_value, span),
             _ => Ok(Value::Nothing { span }.into_pipeline_data()),
