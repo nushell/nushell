@@ -143,7 +143,8 @@ Welcome to the Nushell tutorial!
 With the `tutor` command, you'll be able to learn a lot about how Nushell
 works along with many fun tips and tricks to speed up everyday tasks.
 
-To get started, you can use `tutor begin`.
+To get started, you can use `tutor begin`, and to see all the available
+tutorials just run `tutor list`.
 
 "#
 }
