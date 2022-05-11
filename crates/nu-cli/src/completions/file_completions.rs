@@ -159,17 +159,14 @@ pub fn file_path_completion(
 }
 
 pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
-    // Create new values to not mutate the original ones
-    let mut haystack = from.to_string();
-    let mut needle = partial.to_string();
-
     // Check for case sensitive
     if !options.case_sensitive {
-        haystack = haystack.to_ascii_lowercase();
-        needle = needle.to_ascii_lowercase();
+        return options
+            .match_algorithm
+            .matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase());
     }
 
-    options.match_algorithm.matches_str(&haystack, &needle)
+    options.match_algorithm.matches_str(&from, &partial)
 }
 
 /// Returns whether the base_dir should be prepended to the file path
