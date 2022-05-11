@@ -44,6 +44,11 @@ impl Command for Cp {
                 "copy recursively through subdirectories",
                 Some('r'),
             )
+            .switch(
+                "verbose",
+                "do copy in verbose mode (default:false)",
+                Some('v'),
+            )
             // TODO: add back in additional features
             // .switch("force", "suppress error when no file", Some('f'))
             // .switch("interactive", "ask user to confirm action", Some('i'))
@@ -60,12 +65,14 @@ impl Command for Cp {
         let src: Spanned<String> = call.req(engine_state, stack, 0)?;
         let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
         let recursive = call.has_flag("recursive");
+        let verbose = call.has_flag("verbose");
 
         let path = current_dir(engine_state, stack)?;
         let source = path.join(src.item.as_str());
         let destination = path.join(dst.item.as_str());
 
         let ctrlc = engine_state.ctrlc.clone();
+        let span = call.head;
 
         let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
             Ok(files) => files.collect(),
@@ -137,17 +144,14 @@ impl Command for Cp {
                             Ok(_) => {
                                 let msg =
                                     format!("copied {:} to {:}", src.display(), dst.display());
-                                result.push(Value::String {
-                                    val: msg,
-                                    span: call.head,
-                                });
+                                result.push(Value::String { val: msg, span });
                             }
                             Err(e) => {
                                 let error = Value::Error {
                                     error: ShellError::GenericError(
                                         e.to_string(),
                                         e.to_string(),
-                                        Some(call.head),
+                                        Some(span),
                                         None,
                                         Vec::new(),
                                     ),
@@ -221,10 +225,7 @@ impl Command for Cp {
                         match std::fs::copy(&s, &d) {
                             Ok(_) => {
                                 let msg = format!("copied {:} to {:}", &s.display(), &d.display());
-                                result.push(Value::String {
-                                    val: msg,
-                                    span: call.head,
-                                });
+                                result.push(Value::String { val: msg, span });
                             }
                             Err(e) => {
                                 let msg = "Can not copy source".to_string();
@@ -232,7 +233,7 @@ impl Command for Cp {
                                     error: ShellError::GenericError(
                                         msg,
                                         e.to_string(),
-                                        Some(call.head),
+                                        Some(span),
                                         None,
                                         Vec::new(),
                                     ),
@@ -245,7 +246,11 @@ impl Command for Cp {
             }
         }
 
-        Ok(result.into_iter().into_pipeline_data(ctrlc))
+        if verbose {
+            Ok(result.into_iter().into_pipeline_data(ctrlc))
+        } else {
+            Ok(PipelineData::new(span))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -258,6 +263,11 @@ impl Command for Cp {
             Example {
                 description: "Recursively copy dir_a to dir_b",
                 example: "cp -r dir_a dir_b",
+                result: None,
+            },
+            Example {
+                description: "Recursively copy dir_a to dir_b, and print the feedbacks",
+                example: "cp -r -v dir_a dir_b",
                 result: None,
             },
             Example {
