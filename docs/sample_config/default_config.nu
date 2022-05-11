@@ -201,7 +201,7 @@ let-env config = {
   cd_with_abbreviations: false # set to true to allow you to do things like cd s/o/f and nushell expand it to cd some/other/folder
   hooks: {
     pre_prompt: [{
-      $nothing  # replace with source code to run before the prompt is shown 
+      $nothing  # replace with source code to run before the prompt is shown
     }]
     pre_execution: [{
       $nothing  # replace with source code to run before the repl input is run
