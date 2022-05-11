@@ -86,7 +86,7 @@ fn main() -> Result<()> {
         } else if arg.starts_with('-') {
             // Cool, it's a flag
             let flag_value = match arg.as_ref() {
-                "--commands" | "-c" | "--table_mode" | "-m" => {
+                "--commands" | "-c" | "--table-mode" | "-m" => {
                     args.next().map(|a| escape_quote_string(&a))
                 }
                 "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
@@ -325,7 +325,7 @@ fn parse_commandline_args(
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
             let table_mode: Option<Value> =
-                call.get_flag(engine_state, &mut stack, "table_mode")?;
+                call.get_flag(engine_state, &mut stack, "table-mode")?;
 
             fn extract_contents(
                 expression: Option<Expression>,
@@ -471,7 +471,7 @@ impl Command for Nu {
                 Some('t'),
             )
             .named(
-                "table_mode",
+                "table-mode",
                 SyntaxShape::String,
                 "the table mode to use. rounded is default.",
                 Some('m'),
