@@ -25,6 +25,8 @@ pub enum Operator {
     Pow,
     StartsWith,
     EndsWith,
+    ShiftLeft,
+    ShiftRight,
 }
 
 impl Display for Operator {
@@ -46,6 +48,8 @@ impl Display for Operator {
             Operator::And => write!(f, "&&"),
             Operator::Or => write!(f, "||"),
             Operator::Pow => write!(f, "**"),
+            Operator::ShiftLeft => write!(f, "shl"),
+            Operator::ShiftRight => write!(f, "shr"),
             Operator::LessThanOrEqual => write!(f, "<="),
             Operator::GreaterThanOrEqual => write!(f, ">="),
             Operator::StartsWith => write!(f, "starts-with"),

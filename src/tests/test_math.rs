@@ -26,6 +26,16 @@ fn modulo2() -> TestResult {
 }
 
 #[test]
+fn shr() -> TestResult {
+    run_test("16 shr 1", "8")
+}
+
+#[test]
+fn shl() -> TestResult {
+    run_test("5 shl 1", "10")
+}
+
+#[test]
 fn and() -> TestResult {
     run_test("true && false", "false")
 }

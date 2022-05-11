@@ -32,6 +32,7 @@ impl Expression {
                     Operator::Pow => 100,
                     Operator::Multiply | Operator::Divide | Operator::Modulo => 95,
                     Operator::Plus | Operator::Minus => 90,
+                    Operator::ShiftLeft | Operator::ShiftRight => 85,
                     Operator::NotRegexMatch
                     | Operator::RegexMatch
                     | Operator::StartsWith
