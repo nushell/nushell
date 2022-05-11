@@ -12,12 +12,12 @@ jobs:
       fail-fast: false
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        style: [all, default]
+        style: [extra, default]
         rust:
           - stable
         include:
-          - style: all
-            flags: "--all-features"
+          - style: extra
+            flags: "--features=extra"
           - style: default
             flags: ""
         exclude:
@@ -53,7 +53,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --workspace ${{ matrix.flags }}
+          args: ${{ matrix.flags }}
 
       - name: Clippy
         uses: actions-rs/cargo@v1
@@ -66,12 +66,12 @@ jobs:
       fail-fast: false
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        style: [all, default]
+        style: [extra, default]
         rust:
           - stable
         include:
-          - style: all
-            flags: "--all-features"
+          - style: extra
+            flags: "--features=extra"
           - style: default
             flags: ""
         exclude:
