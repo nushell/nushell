@@ -166,7 +166,7 @@ pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
             .matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase());
     }
 
-    options.match_algorithm.matches_str(&from, &partial)
+    options.match_algorithm.matches_str(from, partial)
 }
 
 /// Returns whether the base_dir should be prepended to the file path
