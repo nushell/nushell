@@ -1,4 +1,5 @@
-use nu_test_support::playground::{Dirs, Playground};
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[test]
@@ -6,7 +7,7 @@ fn from_range() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1..5 | into string | to json
+        echo 1..5 | into string | to json -r
         "#
         )
     );
@@ -79,7 +80,7 @@ fn from_filename() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "ls sample.toml | get name | into string"
+            "ls sample.toml | get name | into string | get 0"
         );
 
         assert_eq!(actual.out, "sample.toml");
@@ -99,10 +100,12 @@ fn from_filesize() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "ls sample.toml | get size | into string"
+            "ls sample.toml | get size | into string | get 0"
         );
 
-        assert_eq!(actual.out, "25 B");
+        let expected = if cfg!(windows) { "27 B" } else { "25 B" };
+
+        assert_eq!(actual.out, expected);
     })
 }
 
@@ -111,7 +114,7 @@ fn from_decimal_correct_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        = 1.23000 | into string -d 3
+        1.23000 | into string -d 3
         "#
     ));
 
@@ -123,7 +126,7 @@ fn from_int_decimal_correct_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        = 1.00000 | into string -d 3
+        1.00000 | into string -d 3
         "#
     ));
 
@@ -135,7 +138,7 @@ fn from_int_decimal_trim_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        = 1.00000 | into string | format "{$it} flat"
+        1.00000 | into string | $"($in) flat"
         "#
     ));
 
@@ -155,4 +158,16 @@ fn from_table() {
 
     assert!(actual.out.contains("32.38"));
     assert!(actual.out.contains("15.20"));
+}
+
+#[test]
+fn from_nothing() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        $nothing | into string
+        "#
+    ));
+
+    assert_eq!(actual.out, "");
 }
