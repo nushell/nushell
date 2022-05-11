@@ -86,7 +86,9 @@ fn main() -> Result<()> {
         } else if arg.starts_with('-') {
             // Cool, it's a flag
             let flag_value = match arg.as_ref() {
-                "--commands" | "-c" => args.next().map(|a| escape_quote_string(&a)),
+                "--commands" | "-c" | "--table-mode" | "-m" => {
+                    args.next().map(|a| escape_quote_string(&a))
+                }
                 "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
                 "--log-level" | "--testbin" | "--threads" | "-t" => args.next(),
                 _ => None,
@@ -200,11 +202,11 @@ fn main() -> Result<()> {
                     &mut stack,
                     input,
                     is_perf_true(),
+                    binary_args.table_mode,
                 );
                 if is_perf_true() {
                     info!("-c command execution {}:{}:{}", file!(), line!(), column!());
                 }
-
                 ret_val
             } else if !script_name.is_empty() && binary_args.interactive_shell.is_none() {
                 #[cfg(feature = "plugin")]
@@ -322,6 +324,8 @@ fn parse_commandline_args(
             let env_file: Option<Expression> = call.get_flag_expr("env-config");
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
+            let table_mode: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "table-mode")?;
 
             fn extract_contents(
                 expression: Option<Expression>,
@@ -384,6 +388,7 @@ fn parse_commandline_args(
                 log_level,
                 perf,
                 threads,
+                table_mode,
             });
         }
     }
@@ -406,6 +411,7 @@ struct NushellCliArgs {
     log_level: Option<Spanned<String>>,
     perf: bool,
     threads: Option<Value>,
+    table_mode: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -464,6 +470,12 @@ impl Command for Nu {
                 "threads to use for parallel commands",
                 Some('t'),
             )
+            .named(
+                "table-mode",
+                SyntaxShape::String,
+                "the table mode to use. rounded is default.",
+                Some('m'),
+            )
             .optional(
                 "script file",
                 SyntaxShape::Filepath,
@@ -514,11 +526,6 @@ impl Command for Nu {
 pub fn is_perf_true() -> bool {
     IS_PERF.with(|value| *value.borrow())
 }
-
-// #[allow(dead_code)]
-// fn is_perf_value() -> bool {
-//     IS_PERF.with(|value| *value.borrow())
-// }
 
 fn set_is_perf_value(value: bool) {
     IS_PERF.with(|new_value| {
