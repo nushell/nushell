@@ -113,7 +113,8 @@ fn tutor(
             }
         }
 
-        let message = format!("You can find '{find}' in the following topics:\n\n{}\n\n{notes}",
+        let message = format!(
+            "You can find '{find}' in the following topics:\n\n{}\n\n{notes}",
             results.into_iter().map(|x| format!("- {}", x)).join("\n")
         );
 
@@ -121,7 +122,8 @@ fn tutor(
     } else if let Some(search) = search {
         if search == "list" {
             let results = search_space.map(|s| s.0[0].to_string());
-            let message = format!("This tutorial contains the following topics:\n\n{}\n\n{notes}",
+            let message = format!(
+                "This tutorial contains the following topics:\n\n{}\n\n{notes}",
                 results.map(|x| format!("- {}", x)).join("\n")
             );
             return Ok(display(&message, engine_state, stack, span));
