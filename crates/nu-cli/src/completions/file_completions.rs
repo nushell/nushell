@@ -1,4 +1,4 @@
-use crate::completions::{Completer, CompletionOptions, MatchAlgorithm};
+use crate::completions::{Completer, CompletionOptions};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -39,7 +39,7 @@ impl Completer for FileCompletion {
             "".to_string()
         };
         let prefix = String::from_utf8_lossy(&prefix).to_string();
-        let output: Vec<_> = file_path_completion(span, &prefix, &cwd, options.match_algorithm)
+        let output: Vec<_> = file_path_completion(span, &prefix, &cwd, options)
             .into_iter()
             .map(move |x| Suggestion {
                 value: x.1,
@@ -112,7 +112,7 @@ pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
     cwd: &str,
-    match_algorithm: MatchAlgorithm,
+    options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
     let original_input = partial;
     let (base_dir_name, partial) = partial_from(partial);
@@ -129,7 +129,7 @@ pub fn file_path_completion(
             .filter_map(|entry| {
                 entry.ok().and_then(|entry| {
                     let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                    if matches(&partial, &file_name, match_algorithm) {
+                    if matches(&partial, &file_name, options) {
                         let mut path = if prepend_base_dir(original_input, &base_dir_name) {
                             format!("{}{}", base_dir_name, file_name)
                         } else {
@@ -158,8 +158,15 @@ pub fn file_path_completion(
     Vec::new()
 }
 
-pub fn matches(partial: &str, from: &str, match_algorithm: MatchAlgorithm) -> bool {
-    match_algorithm.matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase())
+pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
+    // Check for case sensitive
+    if !options.case_sensitive {
+        return options
+            .match_algorithm
+            .matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase());
+    }
+
+    options.match_algorithm.matches_str(from, partial)
 }
 
 /// Returns whether the base_dir should be prepended to the file path

@@ -91,7 +91,7 @@ impl Completer for DotNuCompletion {
         let output: Vec<Suggestion> = search_dirs
             .into_iter()
             .flat_map(|it| {
-                file_path_completion(span, &partial, &it, options.match_algorithm)
+                file_path_completion(span, &partial, &it, options)
                     .into_iter()
                     .filter(|it| {
                         // Different base dir, so we list the .nu files or folders
