@@ -351,24 +351,14 @@ let-env config = {
       modifier: control
       keycode: char_r
       mode: emacs
-      event: {
-        until: [
-          { send: menu name: history_menu }
-          { send: menupagenext }
-        ]
-      }
+      event: { send: menu name: history_menu }
     }
     {
-      name: history_previous
+      name: undo
       modifier: control
       keycode: char_z
       mode: emacs
-      event: {
-        until: [
-          { send: menupageprevious }
-          { edit: undo }
-        ]
-      }
+      event: { edit: undo }
     }
     # Keybindings used to trigger the user defined menus
     {
