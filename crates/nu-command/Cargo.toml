@@ -70,7 +70,7 @@ serde_ini = "0.2.0"
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.8.16"
 sha2 = "0.10.0"
-shadow-rs = "0.11.0"
+shadow-rs = { version = "0.11.0", default-features = false }
 strip-ansi-escapes = "0.1.1"
 sysinfo = "0.23.5"
 terminal_size = "0.1.17"
@@ -112,7 +112,7 @@ dataframe = ["polars", "num"]
 database = ["sqlparser", "rusqlite"]
 
 [build-dependencies]
-shadow-rs = "0.11.0"
+shadow-rs = { version = "0.11.0", default-features = false }
 
 [dev-dependencies]
 hamcrest2 = "0.3.0"
