@@ -6,9 +6,8 @@ on:
 
 name: continuous-integration
 
-
 jobs:
-  nu-clippy:
+  nu-fmt-clippy:
     strategy:
       fail-fast: false
       matrix:
@@ -78,7 +77,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
+          key: ${{ matrix.style }}v2 # increment this to bust the cache if needed
 
       - uses: taiki-e/install-action@nextest
 
@@ -146,7 +145,7 @@ jobs:
 
   # Build+test plugins on their own, without the rest of Nu. This helps with CI parallelization and
   # also helps test that the plugins build without any feature unification shenanigans
-  plugins-all:
+  plugins:
     strategy:
       fail-fast: false
       matrix:
