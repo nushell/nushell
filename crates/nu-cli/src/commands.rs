@@ -21,6 +21,12 @@ pub fn evaluate_commands(
 ) -> Result<()> {
     // Run a command (or commands) given to us by the user
     let (block, delta) = {
+        if let Some(ref t_mode) = table_mode {
+            let mut config = engine_state.get_config().clone();
+            config.table_mode = t_mode.as_string()?;
+            engine_state.set_config(&config);
+        }
+
         let mut working_set = StateWorkingSet::new(engine_state);
 
         let (output, err) = parse(&mut working_set, None, commands.item.as_bytes(), false, &[]);
