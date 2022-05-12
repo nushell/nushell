@@ -6,7 +6,6 @@ on:
 
 name: continuous-integration
 
-
 jobs:
   nu-clippy:
     strategy:
