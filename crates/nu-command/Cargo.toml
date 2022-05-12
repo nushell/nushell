@@ -70,7 +70,6 @@ serde_ini = "0.2.0"
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.8.16"
 sha2 = "0.10.0"
-shadow-rs = { version = "0.11.0", default-features = false }
 strip-ansi-escapes = "0.1.1"
 sysinfo = "0.23.5"
 terminal_size = "0.1.17"
@@ -85,6 +84,12 @@ reedline = { version = "0.5.0", features = ["bashisms"]}
 wax = { version =  "0.4.0", features = ["diagnostics"] }
 rusqlite = { version = "0.27.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.16.0", features = ["serde"], optional = true }
+
+# Disable shadow-rs's git integration in test mode. It's very slow to build because it pulls in all of libgit2
+[target.'cfg(test)'.dependencies]
+shadow-rs = { version = "0.11.0", default-features = false }
+[target.'cfg(not(test))'.dependencies]
+shadow-rs = "0.11.0"
 
 [target.'cfg(unix)'.dependencies]
 umask = "2.0.0"
@@ -111,8 +116,11 @@ plugin = ["nu-parser/plugin"]
 dataframe = ["polars", "num"]
 database = ["sqlparser", "rusqlite"]
 
-[build-dependencies]
+# Disable shadow-rs's git integration in test mode. It's very slow to build because it pulls in all of libgit2
+[target.'cfg(test)'.build-dependencies]
 shadow-rs = { version = "0.11.0", default-features = false }
+[target.'cfg(not(test))'.build-dependencies]
+shadow-rs = "0.11.0"
 
 [dev-dependencies]
 hamcrest2 = "0.3.0"
