@@ -305,7 +305,6 @@ fn rm(
                     };
 
                     let result;
-
                     #[cfg(all(
                         feature = "trash-support",
                         not(target_os = "android"),
