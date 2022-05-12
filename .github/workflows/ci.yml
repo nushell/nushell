@@ -30,7 +30,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: "v1" # increment this to bust the cache if needed
+          key: "v2" # increment this to bust the cache if needed
 
       - name: Rustfmt
         uses: actions-rs/cargo@v1
@@ -77,7 +77,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.style }}v2 # increment this to bust the cache if needed
+          key: ${{ matrix.style }}v3 # increment this to bust the cache if needed
 
       - uses: taiki-e/install-action@nextest
 
@@ -117,7 +117,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: "1" # increment this to bust the cache if needed
+          key: "2" # increment this to bust the cache if needed
 
       - name: Install Nushell
         uses: actions-rs/cargo@v1
