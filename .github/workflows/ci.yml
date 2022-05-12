@@ -161,6 +161,8 @@ jobs:
         run: cd virtualenv && tox -e ${{ matrix.py }} -- -k nushell
         shell: bash
 
+  # Build plugins on their own, without the rest of Nu. This helps with CI parallelization and
+  # also helps test that the plugins build without any feature unification shenanigans
   plugins:
     strategy:
       fail-fast: false
@@ -181,8 +183,9 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
 
-      # This job does not use rust-cache because 1) we have limited cache space, 2) even
-      # without caching, it's not the slowest job. Revisit if those facts change.
+      - uses: Swatinem/rust-cache@v1
+        with:
+          key: "1" # increment this to bust the cache if needed
 
       - name: Build nu_plugin_example
         uses: actions-rs/cargo@v1
