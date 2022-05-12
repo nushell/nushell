@@ -8,7 +8,7 @@ name: continuous-integration
 
 
 jobs:
-  build-nu:
+  nu-clippy:
     strategy:
       fail-fast: false
       matrix:
@@ -50,11 +50,12 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Build Nushell
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: ${{ matrix.flags }} --workspace --exclude nu_plugin_*
+      # Given that Clippy builds, we don't really need a separate build
+      # - name: Build Nushell
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: build
+      #     args: ${{ matrix.flags }} --workspace --exclude nu_plugin_*
 
       - name: Clippy
         uses: actions-rs/cargo@v1
@@ -62,7 +63,7 @@ jobs:
           command: clippy
           args: ${{ matrix.flags }} --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
-  test:
+  nu-tests:
     strategy:
       fail-fast: false
       matrix:
@@ -84,13 +85,19 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: "3" # increment this to bust the cache if needed
+          key: "1" # increment this to bust the cache if needed
 
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
+          command: nextest
+          args: run --workspace --exclude nu_plugin_* ${{ matrix.flags }}
+
+      - name: Doctests
+        uses: actions-rs/cargo@v1
+        with:
           command: test
-          args: --features=extra --workspace --exclude nu_plugin_*
+          args: --workspace --exclude nu_plugin_* --doc ${{ matrix.flags }}
 
   python-virtualenv:
     strategy:
@@ -142,9 +149,9 @@ jobs:
         run: cd virtualenv && tox -e ${{ matrix.py }} -- -k nushell
         shell: bash
 
-  # Build plugins on their own, without the rest of Nu. This helps with CI parallelization and
+  # Build+test plugins on their own, without the rest of Nu. This helps with CI parallelization and
   # also helps test that the plugins build without any feature unification shenanigans
-  plugins:
+  plugins-all:
     strategy:
       fail-fast: false
       matrix:
@@ -164,18 +171,24 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
 
-      - uses: Swatinem/rust-cache@v1
-        with:
-          key: "3" # increment this to bust the cache if needed
+      # - uses: Swatinem/rust-cache@v1
+      #   with:
+      #     key: "3" # increment this to bust the cache if needed
 
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --package nu_plugin_*
+      # - name: Build
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: build
+      #     args: --package nu_plugin_*
 
       - name: Clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: --package nu_plugin_* ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+
+      - name: Tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --package nu_plugin_*
