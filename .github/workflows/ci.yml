@@ -6,9 +6,8 @@ on:
 
 name: continuous-integration
 
-
 jobs:
-  build-clippy:
+  build-nu:
     strategy:
       fail-fast: false
       matrix:
@@ -42,7 +41,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.style }}v2 # increment this to bust the cache if needed
+          key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
 
       - name: Rustfmt
         uses: actions-rs/cargo@v1
@@ -54,32 +53,21 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: ${{ matrix.flags }}
+          args: ${{ matrix.flags }} --workspace --exclude nu_plugin_*
 
       - name: Clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+          args: ${{ matrix.flags }} --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
   test:
     strategy:
       fail-fast: false
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        style: [extra, default]
         rust:
           - stable
-        include:
-          - style: extra
-            flags: "--features=extra"
-          - style: default
-            flags: ""
-        exclude:
-          - platform: windows-latest
-            style: default
-          - platform: macos-latest
-            style: default
 
     runs-on: ${{ matrix.platform }}
 
@@ -92,28 +80,16 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.style }}v2 # increment this to bust the cache if needed
-
-      - uses: taiki-e/install-action@nextest
-
+          key: "3" # increment this to bust the cache if needed
 
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
-          command: nextest
-          # TODO: can we get by without --all? That means *everything* including plugins gets built
-          args: run --all ${{ matrix.flags }}
-
-      - name: Doctests
-        uses: actions-rs/cargo@v1
-        with:
           command: test
-          # TODO: can we get by without --workspace?? That means *everything* including plugins gets built
-          args: --workspace --doc ${{ matrix.flags }}
+          args: --features=extra --workspace --exclude nu_plugin_*
 
   python-virtualenv:
     strategy:
@@ -189,52 +165,16 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: "2" # increment this to bust the cache if needed
+          key: "3" # increment this to bust the cache if needed
 
-      - name: Build nu_plugin_example
+      - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --package nu_plugin_example
+          args: --package nu_plugin_*
 
-      - name: Clippy nu_plugin_example
+      - name: Clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --package nu_plugin_example ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
-
-      - name: Build nu_plugin_gstat
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --package nu_plugin_gstat
-
-      - name: Clippy nu_plugin_gstat
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --package nu_plugin_gstat ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
-
-      - name: Build nu_plugin_inc
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --package nu_plugin_inc
-
-      - name: Clippy nu_plugin_inc
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --package nu_plugin_inc ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
-
-      - name: Build nu_plugin_query
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --package nu_plugin_query
-
-      - name: Clippy nu_plugin_query
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --package nu_plugin_query ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+          args: --package nu_plugin_* ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
