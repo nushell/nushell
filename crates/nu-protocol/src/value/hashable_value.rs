@@ -182,6 +182,22 @@ mod test {
                 HashableValue::Duration { val: 1, span },
             ),
             (
+                Value::Date {
+                    val: DateTime::<FixedOffset>::parse_from_rfc2822(
+                        "Wed, 18 Feb 2015 23:16:09 GMT",
+                    )
+                    .unwrap(),
+                    span,
+                },
+                HashableValue::Date {
+                    val: DateTime::<FixedOffset>::parse_from_rfc2822(
+                        "Wed, 18 Feb 2015 23:16:09 GMT",
+                    )
+                    .unwrap(),
+                    span,
+                },
+            ),
+            (
                 Value::String {
                     val: "1".to_string(),
                     span,
