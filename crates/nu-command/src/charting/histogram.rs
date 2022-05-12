@@ -239,3 +239,15 @@ fn histogram_impl(
     }
     Value::List { vals: result, span }.into_pipeline_data()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Histogram)
+    }
+}
