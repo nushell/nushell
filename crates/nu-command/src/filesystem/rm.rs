@@ -327,7 +327,6 @@ fn rm(
                             std::fs::remove_dir_all(&f)
                         };
                     }
-
                     #[cfg(any(
                         not(feature = "trash-support"),
                         target_os = "android",
