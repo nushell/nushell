@@ -67,8 +67,8 @@ hamcrest2 = "0.3.0"
 rstest = "0.12.0"
 itertools = "0.10.3"
 
-[target.'cfg(windows)'.build-dependencies]
-# embed-resource = "1"
+[target.'cfg(all(windows, not(test)))'.build-dependencies]
+embed-resource = "1"
 
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
