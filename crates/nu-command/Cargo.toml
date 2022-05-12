@@ -87,7 +87,7 @@ rusqlite = { version = "0.27.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.16.0", features = ["serde"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
-umask = "1.0.0"
+umask = "2.0.0"
 users = "0.11.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
