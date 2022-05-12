@@ -6,6 +6,7 @@ on:
 
 name: continuous-integration
 
+
 jobs:
   build-clippy:
     strategy:
