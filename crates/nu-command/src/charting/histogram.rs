@@ -122,17 +122,12 @@ fn run_histogram(
     calc_method: PercentageCalcMethod,
     head_span: Span,
 ) -> Result<PipelineData, ShellError> {
-    // make more input check.
-    // some invalid input scenario needs to handle:
-    // * item in `input` is not a record, just skip it.
-    // * a record doesn't contain specific column, just skip it.
-    // * all records don't contain specific column, throw out error, indicate that the row is required.
-    // * a record contain a value which can't convert to string, throw out error indicate which field in invalid too.
     let mut inputs = vec![];
     // convert from inputs to hashable values.
     match column_name {
         None => {
-            // would expect input is a list of simple values.
+            // some invalid input scenario needs to handle:
+            // Expect input is a list of hashable value, if one value is not hashable, throw out error.
             for v in values {
                 let current_span = v.span().unwrap_or(head_span);
                 inputs.push(HashableValue::from_value(v, head_span).map_err(|_| {
@@ -145,6 +140,11 @@ fn run_histogram(
             }
         }
         Some(ref col) => {
+            // some invalid input scenario needs to handle:
+            // * item in `input` is not a record, just skip it.
+            // * a record doesn't contain specific column, just skip it.
+            // * all records don't contain specific column, throw out error, indicate at least one row should contains specific column.
+            // * a record contain a value which can't be hashed, skip it.
             let col_name = &col.item;
             for v in values {
                 match v {
