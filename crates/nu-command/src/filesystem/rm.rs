@@ -313,7 +313,8 @@ fn rm(
                     {
                         use std::io::Error;
                         result = if let Err(e) = interaction {
-                            Err(Error::new(ErrorKind::Other, &*e.to_string()))
+                            let e = Error::new(ErrorKind::Other, &*e.to_string());
+                            Err(e)
                         } else if interactive && !confirmed {
                             Ok(())
                         } else if trash || (rm_always_trash && !permanent) {
@@ -332,9 +333,10 @@ fn rm(
                         target_os = "ios"
                     ))]
                     {
-                        use std::io::Error;
+                        use std::io::{Error, ErrorKind};
                         result = if let Err(e) = interaction {
-                            Err(Error::new(ErrorKind::Other, &*e.to_string()))
+                            let e = Error::new(ErrorKind::Other, &*e.to_string());
+                            Err(e)
                         } else if interactive && !confirmed {
                             Ok(())
                         } else if metadata.is_file() || is_socket || is_fifo {
