@@ -61,15 +61,18 @@ pub fn evaluate_file(
 }
 
 pub fn print_table_or_error(
-    engine_state: &EngineState,
+    engine_state: &mut EngineState,
     stack: &mut Stack,
     mut pipeline_data: PipelineData,
-    config: &Config,
+    config: &mut Config,
 ) {
     let exit_code = match &mut pipeline_data {
         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
         _ => None,
     };
+
+    // Change the engine_state config to use the passed in configuration
+    engine_state.set_config(config);
 
     match engine_state.find_decl("table".as_bytes(), &[]) {
         Some(decl_id) => {

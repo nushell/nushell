@@ -236,7 +236,7 @@ impl Completer for CommandCompletion {
         // let prefix = working_set.get_span_contents(flat.0);
         let prefix = String::from_utf8_lossy(&prefix).to_string();
 
-        file_path_completion(span, &prefix, &cwd, options.match_algorithm)
+        file_path_completion(span, &prefix, &cwd, options)
             .into_iter()
             .map(move |x| {
                 if self.flat_idx == 0 {

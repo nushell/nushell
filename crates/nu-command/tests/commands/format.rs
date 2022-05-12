@@ -46,8 +46,6 @@ fn can_use_variables() {
     assert_eq!(actual.out, "nu is a new type of shell");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn format_filesize_works() {
     Playground::setup("format_filesize_test_1", |dirs, sandbox| {
@@ -71,8 +69,6 @@ fn format_filesize_works() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn format_filesize_works_with_nonempty_files() {
     Playground::setup(
