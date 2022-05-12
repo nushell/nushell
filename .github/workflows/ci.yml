@@ -99,16 +99,19 @@ jobs:
 
       - uses: taiki-e/install-action@nextest
 
+
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
           command: nextest
+          # TODO: can we get by without --all? That means *everything* including plugins gets built
           args: run --all ${{ matrix.flags }}
 
       - name: Doctests
         uses: actions-rs/cargo@v1
         with:
           command: test
+          # TODO: can we get by without --workspace?? That means *everything* including plugins gets built
           args: --workspace --doc ${{ matrix.flags }}
 
   python-virtualenv:
