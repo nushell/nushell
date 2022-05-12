@@ -59,7 +59,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --workspace ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+          args: ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
   test:
     strategy:
@@ -193,11 +193,23 @@ jobs:
           command: build
           args: --package nu_plugin_example
 
+      - name: Clippy nu_plugin_example
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --package nu_plugin_example ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+
       - name: Build nu_plugin_gstat
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --package nu_plugin_gstat
+
+      - name: Clippy nu_plugin_gstat
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --package nu_plugin_gstat ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
       - name: Build nu_plugin_inc
         uses: actions-rs/cargo@v1
@@ -205,8 +217,20 @@ jobs:
           command: build
           args: --package nu_plugin_inc
 
+      - name: Clippy nu_plugin_inc
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --package nu_plugin_inc ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+
       - name: Build nu_plugin_query
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --package nu_plugin_query
+
+      - name: Clippy nu_plugin_query
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --package nu_plugin_query ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
