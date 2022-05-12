@@ -12,6 +12,43 @@ jobs:
       fail-fast: false
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
+        rust:
+          - stable
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+          key: "v1" # increment this to bust the cache if needed
+
+      - name: Rustfmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: Clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --features=extra --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+
+  nu-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-latest, macos-latest, ubuntu-latest]
         style: [extra, default]
         rust:
           - stable
@@ -37,54 +74,10 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v1
         with:
           key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
-
-      - name: Rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
-      # Given that Clippy builds, we don't really need a separate build
-      # - name: Build Nushell
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: build
-      #     args: ${{ matrix.flags }} --workspace --exclude nu_plugin_*
-
-      - name: Clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: ${{ matrix.flags }} --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
-
-  nu-tests:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
-        rust:
-          - stable
-
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
-
-      - uses: Swatinem/rust-cache@v1
-        with:
-          key: "1" # increment this to bust the cache if needed
 
       - uses: taiki-e/install-action@nextest
 
@@ -171,16 +164,6 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-
-      # - uses: Swatinem/rust-cache@v1
-      #   with:
-      #     key: "3" # increment this to bust the cache if needed
-
-      # - name: Build
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: build
-      #     args: --package nu_plugin_*
 
       - name: Clippy
         uses: actions-rs/cargo@v1
