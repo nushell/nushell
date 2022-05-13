@@ -1,8 +1,7 @@
-// Skip embedding resource during tests because it's fairly slow and not needed
-#[cfg(all(windows, not(test)))]
+#[cfg(windows)]
 fn main() {
     embed_resource::compile_for("assets/nushell.rc", &["nu"])
 }
 
-#[cfg(any(not(windows), test))]
+#[cfg(not(windows))]
 fn main() {}
