@@ -1,8 +1,6 @@
-[target.x86_64-pc-windows-msvc]
 # increase the default windows stack size
+[target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "link-args=-stack:10000000"]
-# use the faster lld linker. every second counts in Windows CI builds, they're slow
-linker = "rust-lld.exe"
 
 # keeping this but commentting out in case we need them in the future
 
