@@ -176,37 +176,39 @@ impl NuCompleter {
                                     pos,
                                 );
                             }
-                            FlatShape::Filepath
-                            | FlatShape::GlobPattern
-                            | FlatShape::ExternalArg => {
-                                let mut completer = FileCompletion::new(self.engine_state.clone());
-
-                                return self.process_completion(
-                                    &mut completer,
-                                    &working_set,
-                                    prefix,
-                                    new_span,
-                                    offset,
-                                    pos,
-                                );
-                            }
                             flat_shape => {
                                 let mut completer = CommandCompletion::new(
                                     self.engine_state.clone(),
                                     &working_set,
                                     flattened.clone(),
-                                    flat_idx,
+                                    // flat_idx,
                                     flat_shape.clone(),
                                 );
 
-                                return self.process_completion(
+                                let out: Vec<_> = self.process_completion(
                                     &mut completer,
                                     &working_set,
-                                    prefix,
+                                    prefix.clone(),
                                     new_span,
                                     offset,
                                     pos,
                                 );
+
+                                if out.is_empty() {
+                                    let mut completer =
+                                        FileCompletion::new(self.engine_state.clone());
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
+                                }
+
+                                return out;
                             }
                         };
                     }
