@@ -112,6 +112,7 @@ fn rename(
     let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
 
+    let head_span = call.head;
     input
         .map(
             move |item| match item {
@@ -151,7 +152,13 @@ fn rename(
 
                     Value::Record { cols, vals, span }
                 }
-                x => x,
+                x => Value::Error {
+                    error: ShellError::UnsupportedInput(
+                        "can't rename: input is not table, so no column names available for rename"
+                            .to_string(),
+                        x.span().unwrap_or(head_span),
+                    ),
+                },
             },
             engine_state.ctrlc.clone(),
         )
