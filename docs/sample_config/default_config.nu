@@ -201,7 +201,7 @@ let-env config = {
   cd_with_abbreviations: false # set to true to allow you to do things like cd s/o/f and nushell expand it to cd some/other/folder
   hooks: {
     pre_prompt: [{
-      $nothing  # replace with source code to run before the prompt is shown 
+      $nothing  # replace with source code to run before the prompt is shown
     }]
     pre_execution: [{
       $nothing  # replace with source code to run before the repl input is run
@@ -349,17 +349,19 @@ let-env config = {
     {
       name: history_menu
       modifier: control
-      keycode: char_x
+      keycode: char_r
       mode: emacs
-      event: {
-        until: [
-          { send: menu name: history_menu }
-          { send: menupagenext }
-        ]
-      }
+      event: { send: menu name: history_menu }
     }
     {
-      name: history_previous
+      name: next_page
+      modifier: control
+      keycode: char_x
+      mode: emacs
+      event: { send: menupagenext }
+    }
+    {
+      name: undo_or_previous_page
       modifier: control
       keycode: char_z
       mode: emacs
@@ -368,7 +370,7 @@ let-env config = {
           { send: menupageprevious }
           { edit: undo }
         ]
-      }
+       }
     }
     # Keybindings used to trigger the user defined menus
     {
