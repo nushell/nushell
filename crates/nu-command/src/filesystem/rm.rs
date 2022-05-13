@@ -301,7 +301,7 @@ fn rm(
                             trash::delete(&f).map_err(|e: trash::Error| {
                                 Error::new(ErrorKind::Other, format!("{:?}", e))
                             })
-                        } else if metadata.is_file() {
+                        } else if metadata.is_file() || is_socket || is_fifo {
                             std::fs::remove_file(&f)
                         } else {
                             std::fs::remove_dir_all(&f)
