@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use nu_cli::NuCompleter;
 use reedline::Completer;
@@ -22,7 +22,7 @@ fn file_completions() {
         folder(dir.join("test_a")),
         folder(dir.join("test_b")),
         folder(dir.join("another")),
-        file(dir.join("test_dotnu.nu")),
+        file(dir.join("custom_completion.nu")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
     ];

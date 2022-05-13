@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use nu_cli::NuCompleter;
 use reedline::Completer;

@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use nu_cli::NuCompleter;
 use reedline::Completer;
@@ -17,12 +17,12 @@ fn dotnu_completions() {
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     assert_eq!(1, suggestions.len());
-    assert_eq!("test_dotnu.nu", suggestions.get(0).unwrap().value);
+    assert_eq!("custom_completion.nu", suggestions.get(0).unwrap().value);
 
     // Test use completion
     let completion_str = "use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     assert_eq!(1, suggestions.len());
-    assert_eq!("test_dotnu.nu", suggestions.get(0).unwrap().value);
+    assert_eq!("custom_completion.nu", suggestions.get(0).unwrap().value);
 }
