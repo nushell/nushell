@@ -1,7 +1,6 @@
 mod custom_value;
 mod from;
 mod from_value;
-mod hashable_value;
 mod range;
 mod stream;
 mod unit;
@@ -28,7 +27,6 @@ use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 
 use crate::ast::Operator;
 pub use custom_value::CustomValue;
-pub use hashable_value::HashableValue;
 
 use crate::ShellError;
 

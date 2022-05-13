@@ -1,5 +1,5 @@
-use crate::{ShellError, Span, Value};
 use chrono::{DateTime, FixedOffset};
+use nu_protocol::{ShellError, Span, Value};
 use std::hash::{Hash, Hasher};
 
 /// A subset of [Value](crate::Value), which is hashable.
@@ -10,8 +10,7 @@ use std::hash::{Hash, Hasher};
 ///
 /// Please note that although each variant contains `span` field, but during hashing, this field will not be concerned.
 /// Which means that the following will be true:
-/// ```rust
-/// use nu_protocol::{HashableValue, Span};
+/// ```text
 /// assert_eq!(HashableValue::Bool {val: true, span: Span{start: 0, end: 1}}, HashableValue::Bool {val: true, span: Span{start: 90, end: 1000}})
 /// ```
 #[derive(Eq, Debug)]
@@ -159,7 +158,8 @@ impl PartialEq for HashableValue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::collections::HashSet;
+    use nu_protocol::ast::{CellPath, PathMember};
+    use std::collections::{HashMap, HashSet};
 
     #[test]
     fn from_value() {
@@ -222,15 +222,31 @@ mod test {
 
     #[test]
     fn from_unhashable_value() {
-        let value = Value::List {
-            vals: vec![Value::Bool {
-                val: true,
-                span: Span { start: 0, end: 0 },
-            }],
-            span: Span { start: 0, end: 0 },
-        };
-
-        assert!(HashableValue::from_value(value, Span { start: 0, end: 0 }).is_err())
+        let span = Span::test_data();
+        let values = [
+            Value::List {
+                vals: vec![Value::Bool { val: true, span }],
+                span,
+            },
+            Value::Block {
+                val: 0,
+                captures: HashMap::new(),
+                span,
+            },
+            Value::Nothing { span },
+            Value::Error {
+                error: ShellError::DidYouMean("what?".to_string(), span),
+            },
+            Value::CellPath {
+                val: CellPath {
+                    members: vec![PathMember::Int { val: 0, span }],
+                },
+                span,
+            },
+        ];
+        for v in values {
+            assert!(HashableValue::from_value(v, Span { start: 0, end: 0 }).is_err())
+        }
     }
 
     #[test]
@@ -256,6 +272,23 @@ mod test {
                 expected_val
             );
         }
+    }
+
+    #[test]
+    fn hashable_value_eq_without_concern_span() {
+        assert_eq!(
+            HashableValue::Bool {
+                val: true,
+                span: Span { start: 0, end: 1 }
+            },
+            HashableValue::Bool {
+                val: true,
+                span: Span {
+                    start: 90,
+                    end: 1000
+                }
+            }
+        )
     }
 
     #[test]
