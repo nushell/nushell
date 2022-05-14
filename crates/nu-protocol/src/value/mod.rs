@@ -27,6 +27,7 @@ use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 
 use crate::ast::Operator;
 pub use custom_value::CustomValue;
+use std::iter;
 
 use crate::ShellError;
 
@@ -1287,9 +1288,15 @@ impl PartialOrd for Value {
                     vals: rhs_vals,
                     ..
                 } => {
-                    let result = lhs_cols.partial_cmp(rhs_cols);
+                    // reorder cols and vals to make more logically compare.
+                    let (lhs_cols_ordered, lhs_vals_ordered) =
+                        reorder_record_inner(lhs_cols, lhs_vals);
+                    let (rhs_cols_ordered, rhs_vals_ordered) =
+                        reorder_record_inner(rhs_cols, rhs_vals);
+
+                    let result = lhs_cols_ordered.partial_cmp(&rhs_cols_ordered);
                     if result == Some(Ordering::Equal) {
-                        lhs_vals.partial_cmp(rhs_vals)
+                        lhs_vals_ordered.partial_cmp(&rhs_vals_ordered)
                     } else {
                         result
                     }
@@ -2230,6 +2237,21 @@ impl Value {
             }),
         }
     }
+}
+
+fn reorder_record_inner(cols: &[String], vals: &[Value]) -> (Vec<String>, Vec<Value>) {
+    let mut kv_pairs =
+        iter::zip(cols.to_owned(), vals.to_owned()).collect::<Vec<(String, Value)>>();
+    kv_pairs.sort_by(|a, b| {
+        a.0.partial_cmp(&b.0)
+            .expect("Columns should support compare")
+    });
+    let (mut cols, mut vals) = (vec![], vec![]);
+    for (col, val) in kv_pairs {
+        cols.push(col);
+        vals.push(val);
+    }
+    (cols, vals)
 }
 
 /// Create a Value::Record from a spanned hashmap
