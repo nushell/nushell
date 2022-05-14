@@ -97,6 +97,14 @@ impl NuExpression {
         Self::try_from_value(value)
     }
 
+    pub fn can_downcast(value: &Value) -> bool {
+        if let Value::CustomValue { val, .. } = value {
+            val.as_any().downcast_ref::<NuExpression>().is_some()
+        } else {
+            false
+        }
+    }
+
     pub fn into_polars(self) -> Expr {
         self.0.expect("Expression cannot be none to convert")
     }
@@ -277,5 +285,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         Expr::RenameAlias { .. } => todo!(),
         Expr::Count => todo!(),
         Expr::Nth(_) => todo!(),
+        Expr::AnonymousFunction { .. } => todo!(),
     }
 }

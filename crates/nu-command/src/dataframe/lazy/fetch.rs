@@ -12,7 +12,7 @@ pub struct LazyFetch;
 
 impl Command for LazyFetch {
     fn name(&self) -> &str {
-        "dfl fetch"
+        "dfr fetch"
     }
 
     fn usage(&self) -> &str {

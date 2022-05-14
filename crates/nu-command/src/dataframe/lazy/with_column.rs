@@ -14,7 +14,7 @@ pub struct LazyWithColumn;
 
 impl Command for LazyWithColumn {
     fn name(&self) -> &str {
-        "dfl with-column"
+        "dfr with-column"
     }
 
     fn usage(&self) -> &str {

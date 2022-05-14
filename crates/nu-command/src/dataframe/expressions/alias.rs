@@ -12,7 +12,7 @@ pub struct ExprAlias;
 
 impl Command for ExprAlias {
     fn name(&self) -> &str {
-        "as"
+        "dfr as"
     }
 
     fn usage(&self) -> &str {

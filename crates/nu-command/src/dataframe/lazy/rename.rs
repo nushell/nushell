@@ -14,7 +14,7 @@ pub struct LazyRename;
 
 impl Command for LazyRename {
     fn name(&self) -> &str {
-        "dfl rename"
+        "dfr rename"
     }
 
     fn usage(&self) -> &str {

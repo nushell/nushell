@@ -11,7 +11,7 @@ pub struct LazyFillNull;
 
 impl Command for LazyFillNull {
     fn name(&self) -> &str {
-        "dfl fill-null"
+        "dfr fill-null"
     }
 
     fn usage(&self) -> &str {

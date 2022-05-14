@@ -12,7 +12,7 @@ pub struct LazyQuantile;
 
 impl Command for LazyQuantile {
     fn name(&self) -> &str {
-        "dfl quantile"
+        "dfr quantile"
     }
 
     fn usage(&self) -> &str {

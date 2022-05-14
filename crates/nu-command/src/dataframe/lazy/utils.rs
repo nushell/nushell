@@ -1,4 +1,4 @@
-use nu_protocol::{Value, ShellError, FromValue};
+use nu_protocol::{FromValue, ShellError, Value};
 
 pub fn extract_strings(value: Value) -> Result<Vec<String>, ShellError> {
     match (

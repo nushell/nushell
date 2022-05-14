@@ -13,7 +13,7 @@ pub struct LazyFilter;
 
 impl Command for LazyFilter {
     fn name(&self) -> &str {
-        "dfl filter"
+        "dfr filter"
     }
 
     fn usage(&self) -> &str {

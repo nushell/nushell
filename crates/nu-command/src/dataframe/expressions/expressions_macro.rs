@@ -9,7 +9,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature,
 };
 
-// Macro to create the Nushell Command that represents a lazy expression
+// The structs defined in this file are structs that form part of other commands
+// since they share a similar name
 macro_rules! expr_command {
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident) => {
         #[derive(Clone)]
@@ -25,7 +26,7 @@ macro_rules! expr_command {
             }
 
             fn signature(&self) -> Signature {
-                Signature::build(self.name()).category(Category::Custom("expressions".into()))
+                Signature::build(self.name()).category(Category::Custom("dataframe".into()))
             }
 
             fn examples(&self) -> Vec<Example> {
@@ -51,53 +52,11 @@ macro_rules! expr_command {
     };
 }
 
-// ExprNot command
-// Expands to a command definition for a not expression
-expr_command!(
-    ExprNot,
-    "not",
-    "creates a not expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    not
-);
-
-// ExprIsNull command
-// Expands to a command definition for a is null expression
-expr_command!(
-    ExprIsNull,
-    "is-null",
-    "creates a is-null expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    is_null
-);
-
-// ExprIsNotNull command
-// Expands to a command definition for a is not null expression
-expr_command!(
-    ExprIsNotNull,
-    "is-not-null",
-    "creates a is-not-null expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    is_not_null
-);
-
 // ExprMax command
 // Expands to a command definition for a max expression
 expr_command!(
     ExprMax,
-    "max",
+    "dfr max",
     "creates a max expression",
     vec![Example {
         description: "",
@@ -111,7 +70,7 @@ expr_command!(
 // Expands to a command definition for a min expression
 expr_command!(
     ExprMin,
-    "min",
+    "dfr min",
     "creates a min expression",
     vec![Example {
         description: "",
@@ -125,7 +84,7 @@ expr_command!(
 // Expands to a command definition for a mean expression
 expr_command!(
     ExprMean,
-    "mean",
+    "dfr mean",
     "creates a mean expression",
     vec![Example {
         description: "",
@@ -139,7 +98,7 @@ expr_command!(
 // Expands to a command definition for a median expression
 expr_command!(
     ExprMedian,
-    "median",
+    "dfr median",
     "creates a median expression",
     vec![Example {
         description: "",
@@ -153,7 +112,7 @@ expr_command!(
 // Expands to a command definition for a sum expression
 expr_command!(
     ExprSum,
-    "sum",
+    "dfr sum",
     "creates a sum expression",
     vec![Example {
         description: "",
@@ -163,53 +122,11 @@ expr_command!(
     sum
 );
 
-// ExprNUnique command
-// Expands to a command definition for a n-unique expression
-expr_command!(
-    ExprNUnique,
-    "n-unique",
-    "creates a n-unique expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    n_unique
-);
-
-// ExprFirst command
-// Expands to a command definition for a first expression
-expr_command!(
-    ExprFirst,
-    "dfirst",
-    "creates a first expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    first
-);
-
-// ExprLast command
-// Expands to a command definition for a last expression
-expr_command!(
-    ExprLast,
-    "dlast",
-    "creates a last expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    last
-);
-
 // ExprList command
 // Expands to a command definition for a list expression
 expr_command!(
     ExprList,
-    "list",
+    "dfr list",
     "creates a list expression",
     vec![Example {
         description: "",
@@ -223,7 +140,7 @@ expr_command!(
 // Expands to a command definition for a agg groups expression
 expr_command!(
     ExprAggGroups,
-    "agg-groups",
+    "dfr agg-groups",
     "creates an agg_groups expression",
     vec![Example {
         description: "",
@@ -237,7 +154,7 @@ expr_command!(
 // Expands to a command definition for a flatten expression
 expr_command!(
     ExprFlatten,
-    "dflatten",
+    "dfr flatten",
     "creates a flatten expression",
     vec![Example {
         description: "",
@@ -251,7 +168,7 @@ expr_command!(
 // Expands to a command definition for a explode expression
 expr_command!(
     ExprExplode,
-    "explode",
+    "dfr explode",
     "creates an explode expression",
     vec![Example {
         description: "",

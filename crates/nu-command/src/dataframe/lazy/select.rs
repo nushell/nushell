@@ -14,7 +14,7 @@ pub struct LazySelect;
 
 impl Command for LazySelect {
     fn name(&self) -> &str {
-        "dfl select"
+        "dfr select"
     }
 
     fn usage(&self) -> &str {

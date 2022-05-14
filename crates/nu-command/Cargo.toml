@@ -95,14 +95,15 @@ version = "2.0.2"
 optional = true
 
 [dependencies.polars]
-#version = "0.20.0"
-path = "../../../../polars/polars"
+version = "0.21.1"
+# path = "../../../../polars/polars"
 optional = true
 features = [
-	"default", "parquet", "json", "serde", "object",
-	"checked_arithmetic", "strings", "cum_agg", "is_in",
+	"default", "to_dummies", "parquet", "json", "serde", "serde-lazy", 
+	"object", "checked_arithmetic", "strings", "cum_agg", "is_in",
 	"rolling_window", "strings", "rows", "random",
-  "dtype-datetime", "dtype-struct", "lazy", "cross_join"
+  "dtype-datetime", "dtype-struct", "lazy", "cross_join",
+	"dynamic_groupby"
 ]
 
 [features]

@@ -3,7 +3,6 @@ mod utils;
 
 mod aggregate;
 mod collect;
-mod command;
 mod fetch;
 mod fill_na;
 mod fill_null;
@@ -26,7 +25,6 @@ use crate::dataframe::lazy::macro_commands::*;
 
 use crate::dataframe::lazy::aggregate::LazyAggregate;
 use crate::dataframe::lazy::collect::LazyCollect;
-use crate::dataframe::lazy::command::LazyDataframe;
 use crate::dataframe::lazy::fetch::LazyFetch;
 use crate::dataframe::lazy::fill_na::LazyFillNA;
 use crate::dataframe::lazy::fill_null::LazyFillNull;
@@ -57,7 +55,6 @@ pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
         LazyAggregate,
         LazyCache,
         LazyCollect,
-        LazyDataframe,
         LazyFetch,
         LazyFillNA,
         LazyFillNull,

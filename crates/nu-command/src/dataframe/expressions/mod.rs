@@ -26,22 +26,16 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
         ExprAlias,
         ExprCol,
         ExprLit,
-        ExprNot,
-        ExprIsNull,
-        ExprIsNotNull,
+        ExprToNu,
+        ExprWhen,
         ExprMax,
         ExprMin,
         ExprMean,
         ExprMedian,
         ExprSum,
-        ExprNUnique,
-        ExprFirst,
-        ExprLast,
         ExprList,
         ExprAggGroups,
         ExprFlatten,
-        ExprExplode,
-        ExprToNu,
-        ExprWhen
+        ExprExplode
     );
 }

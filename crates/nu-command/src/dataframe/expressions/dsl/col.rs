@@ -12,7 +12,7 @@ pub struct ExprCol;
 
 impl Command for ExprCol {
     fn name(&self) -> &str {
-        "col"
+        "dfr col"
     }
 
     fn usage(&self) -> &str {

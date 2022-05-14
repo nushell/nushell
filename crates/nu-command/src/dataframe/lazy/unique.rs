@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 use polars::prelude::UniqueKeepStrategy;
 
@@ -14,7 +14,7 @@ pub struct LazyUnique;
 
 impl Command for LazyUnique {
     fn name(&self) -> &str {
-        "dfl unique"
+        "dfr unique"
     }
 
     fn usage(&self) -> &str {
@@ -27,10 +27,18 @@ impl Command for LazyUnique {
                 "subset",
                 SyntaxShape::Any,
                 "Subset of column(s) to use to maintain rows",
-                Some('s')
+                Some('s'),
             )
-            .switch("last", "Keeps last unique value. Default keeps first value", Some('l'))
-            .switch("maintain-order", "Keep the same order as the original DataFrame", Some('k'))
+            .switch(
+                "last",
+                "Keeps last unique value. Default keeps first value",
+                Some('l'),
+            )
+            .switch(
+                "maintain-order",
+                "Keep the same order as the original DataFrame",
+                Some('k'),
+            )
             .category(Category::Custom("lazyframe".into()))
     }
 
@@ -55,15 +63,14 @@ impl Command for LazyUnique {
         let subset: Option<Value> = call.get_flag(engine_state, stack, "subset")?;
         let subset = match subset {
             Some(value) => Some(extract_strings(value)?),
-            None => None
+            None => None,
         };
-        
+
         let strategy = if last {
             UniqueKeepStrategy::Last
         } else {
             UniqueKeepStrategy::First
         };
-
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?.into_polars();
         let lazy: NuLazyFrame = if maintain {

@@ -50,7 +50,7 @@ macro_rules! lazy_command {
 // Expands to a command definition for reverse
 lazy_command!(
     LazyReverse,
-    "dfl reverse",
+    "dfr reverse",
     "Reverses the LazyFrame",
     vec![Example {
         description: "",
@@ -64,7 +64,7 @@ lazy_command!(
 // Expands to a command definition for cache
 lazy_command!(
     LazyCache,
-    "dfl cache",
+    "dfr cache",
     "Caches operations in a new LazyFrame",
     vec![Example {
         description: "",
@@ -78,7 +78,7 @@ lazy_command!(
 // Expands to a command definition for max aggregation
 lazy_command!(
     LazyMax,
-    "dfl max",
+    "dfr max",
     "Aggregates columns to their max value",
     vec![Example {
         description: "",
@@ -92,7 +92,7 @@ lazy_command!(
 // Expands to a command definition for min aggregation
 lazy_command!(
     LazyMin,
-    "dfl min",
+    "dfr min",
     "Aggregates columns to their min value",
     vec![Example {
         description: "",
@@ -106,7 +106,7 @@ lazy_command!(
 // Expands to a command definition for sum aggregation
 lazy_command!(
     LazySum,
-    "dfl sum",
+    "dfr sum",
     "Aggregates columns to their sum value",
     vec![Example {
         description: "",
@@ -120,7 +120,7 @@ lazy_command!(
 // Expands to a command definition for mean aggregation
 lazy_command!(
     LazyMean,
-    "dfl mean",
+    "dfr mean",
     "Aggregates columns to their mean value",
     vec![Example {
         description: "",
@@ -134,7 +134,7 @@ lazy_command!(
 // Expands to a command definition for median aggregation
 lazy_command!(
     LazyMedian,
-    "dfl median",
+    "dfr median",
     "Aggregates columns to their median value",
     vec![Example {
         description: "",
@@ -148,7 +148,7 @@ lazy_command!(
 // Expands to a command definition for std aggregation
 lazy_command!(
     LazyStd,
-    "dfl std",
+    "dfr std",
     "Aggregates columns to their std value",
     vec![Example {
         description: "",
@@ -162,7 +162,7 @@ lazy_command!(
 // Expands to a command definition for var aggregation
 lazy_command!(
     LazyVar,
-    "dfl var",
+    "dfr var",
     "Aggregates columns to their var value",
     vec![Example {
         description: "",

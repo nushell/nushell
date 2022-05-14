@@ -11,7 +11,7 @@ pub struct LazyShift;
 
 impl Command for LazyShift {
     fn name(&self) -> &str {
-        "dfl shift"
+        "dfr shift"
     }
 
     fn usage(&self) -> &str {

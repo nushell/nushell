@@ -211,6 +211,14 @@ impl NuDataFrame {
         Self::try_from_value(value)
     }
 
+    pub fn can_downcast(value: &Value) -> bool {
+        if let Value::CustomValue { val, .. } = value {
+            val.as_any().downcast_ref::<NuDataFrame>().is_some()
+        } else {
+            false
+        }
+    }
+
     pub fn column(&self, column: &str, span: Span) -> Result<Self, ShellError> {
         let s = self.0.column(column).map_err(|_| {
             let possibilities = self

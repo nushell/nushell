@@ -13,7 +13,7 @@ pub struct ToLazyGroupBy;
 
 impl Command for ToLazyGroupBy {
     fn name(&self) -> &str {
-        "dfl group-by"
+        "dfr group-by"
     }
 
     fn usage(&self) -> &str {
