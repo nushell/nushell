@@ -1289,6 +1289,8 @@ impl PartialOrd for Value {
                     ..
                 } => {
                     // reorder cols and vals to make more logically compare.
+                    // more genral, if two record have same col and values,
+                    // the order of cols shouldn't affect the equal property.
                     let (lhs_cols_ordered, lhs_vals_ordered) =
                         reorder_record_inner(lhs_cols, lhs_vals);
                     let (rhs_cols_ordered, rhs_vals_ordered) =
