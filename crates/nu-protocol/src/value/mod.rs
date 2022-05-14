@@ -458,7 +458,7 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize(*val, config),
+            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => format!("{} ({})", val.to_rfc2822(), HumanTime::from(*val)),
             Value::Range { val, .. } => {
@@ -499,7 +499,7 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize(*val, config),
+            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => HumanTime::from(*val).to_string(),
             Value::Range { val, .. } => {
@@ -547,7 +547,7 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize(*val, config),
+            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => format!("{:?}", val),
             Value::Range { val, .. } => {
@@ -2325,14 +2325,24 @@ pub fn format_duration(duration: i64) -> String {
     )
 }
 
-fn format_filesize(num_bytes: i64, config: &Config) -> String {
+fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
+    // We need to take into account config.filesize_metric so, if someone asks for KB
+    // filesize_metric is true, return KiB
+    format_filesize(
+        num_bytes,
+        config.filesize_format.as_str(),
+        config.filesize_metric,
+    )
+}
+
+pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool) -> String {
     // Allow the user to specify how they want their numbers formatted
-    let filesize_format_var = get_config_filesize_format(config);
+    let filesize_format_var = get_filesize_format(format_value, filesize_metric);
 
     let byte = byte_unit::Byte::from_bytes(num_bytes as u128);
     let adj_byte =
         if filesize_format_var.0 == byte_unit::ByteUnit::B && filesize_format_var.1 == "auto" {
-            byte.get_appropriate_unit(!config.filesize_metric)
+            byte.get_appropriate_unit(!filesize_metric)
         } else {
             byte.get_adjusted_unit(filesize_format_var.0)
         };
@@ -2371,13 +2381,11 @@ fn format_filesize(num_bytes: i64, config: &Config) -> String {
     }
 }
 
-fn get_config_filesize_format(config: &Config) -> (ByteUnit, &str) {
-    // We need to take into account config.filesize_metric so, if someone asks for KB
-    // filesize_metric is true, return KiB
-    let filesize_format = match config.filesize_format.as_str() {
+fn get_filesize_format(format_value: &str, filesize_metric: bool) -> (ByteUnit, &str) {
+    match format_value {
         "b" => (byte_unit::ByteUnit::B, ""),
         "kb" => {
-            if config.filesize_metric {
+            if filesize_metric {
                 (byte_unit::ByteUnit::KiB, "")
             } else {
                 (byte_unit::ByteUnit::KB, "")
@@ -2385,7 +2393,7 @@ fn get_config_filesize_format(config: &Config) -> (ByteUnit, &str) {
         }
         "kib" => (byte_unit::ByteUnit::KiB, ""),
         "mb" => {
-            if config.filesize_metric {
+            if filesize_metric {
                 (byte_unit::ByteUnit::MiB, "")
             } else {
                 (byte_unit::ByteUnit::MB, "")
@@ -2393,7 +2401,7 @@ fn get_config_filesize_format(config: &Config) -> (ByteUnit, &str) {
         }
         "mib" => (byte_unit::ByteUnit::MiB, ""),
         "gb" => {
-            if config.filesize_metric {
+            if filesize_metric {
                 (byte_unit::ByteUnit::GiB, "")
             } else {
                 (byte_unit::ByteUnit::GB, "")
@@ -2401,7 +2409,7 @@ fn get_config_filesize_format(config: &Config) -> (ByteUnit, &str) {
         }
         "gib" => (byte_unit::ByteUnit::GiB, ""),
         "tb" => {
-            if config.filesize_metric {
+            if filesize_metric {
                 (byte_unit::ByteUnit::TiB, "")
             } else {
                 (byte_unit::ByteUnit::TB, "")
@@ -2409,7 +2417,7 @@ fn get_config_filesize_format(config: &Config) -> (ByteUnit, &str) {
         }
         "tib" => (byte_unit::ByteUnit::TiB, ""),
         "pb" => {
-            if config.filesize_metric {
+            if filesize_metric {
                 (byte_unit::ByteUnit::PiB, "")
             } else {
                 (byte_unit::ByteUnit::PB, "")
@@ -2417,7 +2425,7 @@ fn get_config_filesize_format(config: &Config) -> (ByteUnit, &str) {
         }
         "pib" => (byte_unit::ByteUnit::PiB, ""),
         "eb" => {
-            if config.filesize_metric {
+            if filesize_metric {
                 (byte_unit::ByteUnit::EiB, "")
             } else {
                 (byte_unit::ByteUnit::EB, "")
@@ -2425,7 +2433,7 @@ fn get_config_filesize_format(config: &Config) -> (ByteUnit, &str) {
         }
         "eib" => (byte_unit::ByteUnit::EiB, ""),
         "zb" => {
-            if config.filesize_metric {
+            if filesize_metric {
                 (byte_unit::ByteUnit::ZiB, "")
             } else {
                 (byte_unit::ByteUnit::ZB, "")
@@ -2433,9 +2441,7 @@ fn get_config_filesize_format(config: &Config) -> (ByteUnit, &str) {
         }
         "zib" => (byte_unit::ByteUnit::ZiB, ""),
         _ => (byte_unit::ByteUnit::B, "auto"),
-    };
-
-    filesize_format
+    }
 }
 
 #[cfg(test)]

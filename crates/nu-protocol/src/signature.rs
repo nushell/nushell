@@ -57,6 +57,7 @@ pub enum Category {
     Viewers,
     Hash,
     Generators,
+    Chart,
     Custom(String),
     Deprecated,
 }
@@ -83,6 +84,7 @@ impl std::fmt::Display for Category {
             Category::Viewers => "viewers",
             Category::Hash => "hash",
             Category::Generators => "generators",
+            Category::Chart => "chart",
             Category::Custom(name) => name,
             Category::Deprecated => "deprecated",
         };

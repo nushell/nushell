@@ -4795,9 +4795,9 @@ checksum = "56dee185309b50d1f11bfedef0fe6d036842e3fb77413abef29f8f8d1c5d4c1c"
 
 [[package]]
 name = "umask"
-version = "1.0.1"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efb3f38a494193b563eb215c43cb635a4fda1dfcd885fe3906b215bc6a9fb6b8"
+checksum = "46b0c16eadfb312c7acd6970fc97d1f3152eb536714a2ff72ca09a92cae6fa67"
 
 [[package]]
 name = "uncased"

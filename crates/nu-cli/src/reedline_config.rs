@@ -501,14 +501,16 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         ReedlineEvent::MenuPrevious,
     );
 
-    // History menu keybinding
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char('r'),
+        ReedlineEvent::Menu("history_menu".to_string()),
+    );
+
     keybindings.add_binding(
         KeyModifiers::CONTROL,
         KeyCode::Char('x'),
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("history_menu".to_string()),
-            ReedlineEvent::MenuPageNext,
-        ]),
+        ReedlineEvent::MenuPageNext,
     );
 
     keybindings.add_binding(

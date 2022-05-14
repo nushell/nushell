@@ -817,6 +817,10 @@ impl EngineState {
         &self.config
     }
 
+    pub fn set_config(&mut self, conf: &Config) {
+        self.config = conf.clone();
+    }
+
     pub fn get_var(&self, var_id: VarId) -> &Variable {
         self.vars
             .get(var_id)
