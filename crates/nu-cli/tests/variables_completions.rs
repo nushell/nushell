@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use nu_cli::NuCompleter;
 use reedline::Completer;
@@ -7,7 +7,11 @@ use support::{match_suggestions, new_engine};
 #[test]
 fn variables_completions() {
     // Create a new engine
-    let (_, _, engine, stack) = new_engine();
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Add record value as example
+    let record = "let actor = { name: 'Tom Hardy', age: 44 }";
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     // Instatiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
