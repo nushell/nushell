@@ -2407,7 +2407,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "assert_cmd",
  "chrono",
@@ -2456,7 +2456,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "crossterm",
  "fuzzy-matcher",
@@ -2478,7 +2478,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "nu-ansi-term",
  "nu-json",
@@ -2489,7 +2489,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "Inflector",
  "alphanumeric-sort",
@@ -2576,7 +2576,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "chrono",
  "nu-glob",
@@ -2587,7 +2587,7 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "doc-comment",
  "tempdir",
@@ -2595,7 +2595,7 @@ dependencies = [
 
 [[package]]
 name = "nu-json"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "lazy_static",
  "linked-hash-map",
@@ -2608,7 +2608,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "chrono",
  "log",
@@ -2622,7 +2622,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "dirs-next",
  "dunce",
@@ -2631,7 +2631,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "capnp",
  "nu-engine",
@@ -2642,7 +2642,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "heapless 0.7.10",
  "nu-ansi-term",
@@ -2651,7 +2651,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "byte-unit",
  "chrono",
@@ -2670,7 +2670,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "chrono",
  "errno",
@@ -2684,7 +2684,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "ansi-str",
  "atty",
@@ -2697,7 +2697,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "strip-ansi-escapes",
  "unicode-width",
@@ -2705,7 +2705,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "getset",
  "hamcrest2",
@@ -2717,14 +2717,14 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "crossterm_winapi",
 ]
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -2732,7 +2732,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "git2",
  "nu-engine",
@@ -2742,7 +2742,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -2751,7 +2751,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.62.0"
+version = "0.62.1"
 dependencies = [
  "gjson",
  "nu-engine",
@@ -4791,9 +4791,9 @@ checksum = "56dee185309b50d1f11bfedef0fe6d036842e3fb77413abef29f8f8d1c5d4c1c"
 
 [[package]]
 name = "umask"
-version = "1.0.1"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efb3f38a494193b563eb215c43cb635a4fda1dfcd885fe3906b215bc6a9fb6b8"
+checksum = "46b0c16eadfb312c7acd6970fc97d1f3152eb536714a2ff72ca09a92cae6fa67"
 
 [[package]]
 name = "uncased"

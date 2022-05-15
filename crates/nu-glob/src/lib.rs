@@ -782,7 +782,11 @@ fn fill_todo(
             } else {
                 path.join(&s)
             };
-            if (special && is_dir) || (!special && fs::metadata(&next_path).is_ok()) {
+            if (special && is_dir)
+                || (!special
+                    && (fs::metadata(&next_path).is_ok()
+                        || fs::symlink_metadata(&next_path).is_ok()))
+            {
                 add(todo, next_path);
             }
         }

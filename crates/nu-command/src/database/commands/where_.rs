@@ -7,7 +7,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use sqlparser::ast::{Expr, Query, Select, SetExpr};
+use sqlparser::ast::{Expr, Query, Select, SetExpr, Statement};
 
 #[derive(Clone)]
 pub struct WhereDb;
@@ -54,12 +54,23 @@ impl Command for WhereDb {
         let expr = ExprDb::try_from_value(&value)?.into_native();
 
         let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
-        db.query = match db.query {
-            Some(query) => Some(modify_query(query, expr)),
+        match db.statement.as_mut() {
+            Some(statement) => match statement {
+                Statement::Query(query) => modify_query(query, expr),
+                s => {
+                    return Err(ShellError::GenericError(
+                        "Connection doesnt define a query".into(),
+                        format!("Expected a connection with query. Got {}", s),
+                        Some(call.head),
+                        None,
+                        Vec::new(),
+                    ))
+                }
+            },
             None => {
                 return Err(ShellError::GenericError(
-                    "Connection without query".into(),
-                    "The connection needs a query defined".into(),
+                    "Connection without statement".into(),
+                    "The connection needs a statement defined".into(),
                     Some(call.head),
                     None,
                     Vec::new(),
@@ -71,18 +82,17 @@ impl Command for WhereDb {
     }
 }
 
-fn modify_query(mut query: Query, expression: Expr) -> Query {
-    query.body = match query.body {
-        SetExpr::Select(select) => SetExpr::Select(modify_select(select, expression)),
-        _ => SetExpr::Select(Box::new(create_select(expression))),
+fn modify_query(query: &mut Box<Query>, expression: Expr) {
+    match query.body {
+        SetExpr::Select(ref mut select) => modify_select(select, expression),
+        _ => {
+            query.as_mut().body = SetExpr::Select(Box::new(create_select(expression)));
+        }
     };
-
-    query
 }
 
-fn modify_select(mut select: Box<Select>, expression: Expr) -> Box<Select> {
+fn modify_select(select: &mut Box<Select>, expression: Expr) {
     select.as_mut().selection = Some(expression);
-    select
 }
 
 fn create_select(expression: Expr) -> Select {

@@ -18,7 +18,8 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_use,
+    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_overlay,
+    parse_use,
 };
 
 use log::trace;
@@ -2700,7 +2701,7 @@ pub fn parse_import_pattern(
         );
     };
 
-    let maybe_overlay_id = working_set.find_overlay(&head);
+    let maybe_module_id = working_set.find_module(&head);
 
     let (import_pattern, err) = if let Some(tail_span) = spans.get(1) {
         // FIXME: expand this to handle deeper imports once we support module imports
@@ -2710,7 +2711,7 @@ pub fn parse_import_pattern(
                 ImportPattern {
                     head: ImportPatternHead {
                         name: head,
-                        id: maybe_overlay_id,
+                        id: maybe_module_id,
                         span: *head_span,
                     },
                     members: vec![ImportPatternMember::Glob { span: *tail_span }],
@@ -2743,7 +2744,7 @@ pub fn parse_import_pattern(
                         ImportPattern {
                             head: ImportPatternHead {
                                 name: head,
-                                id: maybe_overlay_id,
+                                id: maybe_module_id,
                                 span: *head_span,
                             },
                             members: vec![ImportPatternMember::List { names: output }],
@@ -2756,7 +2757,7 @@ pub fn parse_import_pattern(
                     ImportPattern {
                         head: ImportPatternHead {
                             name: head,
-                            id: maybe_overlay_id,
+                            id: maybe_module_id,
                             span: *head_span,
                         },
                         members: vec![],
@@ -2771,7 +2772,7 @@ pub fn parse_import_pattern(
                 ImportPattern {
                     head: ImportPatternHead {
                         name: head,
-                        id: maybe_overlay_id,
+                        id: maybe_module_id,
                         span: *head_span,
                     },
                     members: vec![ImportPatternMember::Name {
@@ -2788,7 +2789,7 @@ pub fn parse_import_pattern(
             ImportPattern {
                 head: ImportPatternHead {
                     name: head,
-                    id: maybe_overlay_id,
+                    id: maybe_module_id,
                     span: *head_span,
                 },
                 members: vec![],
@@ -4287,13 +4288,16 @@ pub fn parse_expression(
                 },
             );
             let rhs = if spans[pos].start + point < spans[pos].end {
-                parse_string_strict(
-                    working_set,
-                    Span {
-                        start: spans[pos].start + point,
-                        end: spans[pos].end,
-                    },
-                )
+                let rhs_span = Span {
+                    start: spans[pos].start + point,
+                    end: spans[pos].end,
+                };
+
+                if working_set.get_span_contents(rhs_span).starts_with(b"$") {
+                    parse_dollar_expr(working_set, rhs_span, expand_aliases_denylist)
+                } else {
+                    parse_string_strict(working_set, rhs_span)
+                }
             } else {
                 (
                     Expression {
@@ -4401,6 +4405,31 @@ pub fn parse_expression(
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("use".into(), spans[0])),
             ),
+            b"overlay" => {
+                if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"list" {
+                    // whitelist 'overlay list'
+                    parse_call(
+                        working_set,
+                        &spans[pos..],
+                        spans[0],
+                        expand_aliases_denylist,
+                    )
+                } else {
+                    (
+                        parse_call(
+                            working_set,
+                            &spans[pos..],
+                            spans[0],
+                            expand_aliases_denylist,
+                        )
+                        .0,
+                        Some(ParseError::BuiltinCommandInPipeline(
+                            "overlay".into(),
+                            spans[0],
+                        )),
+                    )
+                }
+            }
             b"source" => (
                 parse_call(
                     working_set,
@@ -4555,6 +4584,7 @@ pub fn parse_builtin_commands(
         b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
         b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
         b"use" => parse_use(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => {
             if let Some(decl_id) = working_set.find_decl(b"alias") {

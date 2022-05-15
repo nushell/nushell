@@ -45,7 +45,11 @@ impl Command for Mv {
                 SyntaxShape::Filepath,
                 "the location to move files/directories to",
             )
-            .switch("quiet", "suppress output showing files moved", Some('q'))
+            .switch(
+                "verbose",
+                "make mv to be verbose, showing files been moved.",
+                Some('v'),
+            )
             // .switch("interactive", "ask user to confirm action", Some('i'))
             // .switch("force", "suppress error when no file", Some('f'))
             .category(Category::FileSystem)
@@ -61,7 +65,7 @@ impl Command for Mv {
         // TODO: handle invalid directory or insufficient permissions when moving
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
-        let quiet = call.has_flag("quiet");
+        let verbose = call.has_flag("verbose");
         // let interactive = call.has_flag("interactive");
         // let force = call.has_flag("force");
 
@@ -148,15 +152,15 @@ impl Command for Mv {
                 );
                 if let Err(error) = result {
                     Some(Value::Error { error })
-                } else if quiet {
-                    None
-                } else {
+                } else if verbose {
                     let val = format!(
                         "moved {:} to {:}",
                         entry.to_string_lossy(),
                         destination.to_string_lossy()
                     );
                     Some(Value::String { val, span })
+                } else {
+                    None
                 }
             })
             .into_pipeline_data(ctrlc))

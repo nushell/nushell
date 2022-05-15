@@ -26,6 +26,7 @@ impl Command for FromCsv {
                 "don't treat the first row as column names",
                 Some('n'),
             )
+            .switch("no-infer", "no field type inferencing", None)
             .named(
                 "trim",
                 SyntaxShape::String,
@@ -98,6 +99,7 @@ fn from_csv(
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
 
+    let no_infer = call.has_flag("no-infer");
     let noheaders = call.has_flag("noheaders");
     let separator: Option<Value> = call.get_flag(engine_state, stack, "separator")?;
     let trim: Option<Value> = call.get_flag(engine_state, stack, "trim")?;
@@ -123,7 +125,7 @@ fn from_csv(
 
     let trim = trim_from_str(trim)?;
 
-    from_delimited_data(noheaders, sep, trim, input, name, config)
+    from_delimited_data(noheaders, no_infer, sep, trim, input, name, config)
 }
 
 #[cfg(test)]

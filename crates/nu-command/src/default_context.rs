@@ -52,6 +52,10 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             History,
             If,
             Ignore,
+            Overlay,
+            OverlayAdd,
+            OverlayList,
+            OverlayRemove,
             Let,
             Metadata,
             Module,
@@ -60,6 +64,11 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Use,
             Version,
         };
+
+        // Charts
+        bind_command! {
+            Histogram
+        }
 
         // Filters
         bind_command! {
@@ -158,6 +167,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Decode,
             DetectColumns,
             Format,
+            FileSize,
             Parse,
             Size,
             Split,

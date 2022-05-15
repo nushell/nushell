@@ -69,7 +69,9 @@ pub fn eval_config_contents(
             // Merge the delta in case env vars changed in the config
             match nu_engine::env::current_dir(engine_state, stack) {
                 Ok(cwd) => {
-                    if let Err(e) = engine_state.merge_delta(StateDelta::new(), Some(stack), cwd) {
+                    if let Err(e) =
+                        engine_state.merge_delta(StateDelta::new(engine_state), Some(stack), cwd)
+                    {
                         let working_set = StateWorkingSet::new(engine_state);
                         report_error(&working_set, &e);
                     }

@@ -24,7 +24,7 @@ const DEFAULT_COMPLETION_MENU: &str = r#"
   type: {
       layout: columnar
       columns: 4
-      col_width: 20   
+      col_width: 20
       col_padding: 2
   }
   style: {
@@ -58,7 +58,7 @@ const DEFAULT_HELP_MENU: &str = r#"
   type: {
       layout: description
       columns: 4
-      col_width: 20   
+      col_width: 20
       col_padding: 2
       selection_rows: 4
       description_rows: 10
@@ -501,14 +501,16 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         ReedlineEvent::MenuPrevious,
     );
 
-    // History menu keybinding
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char('r'),
+        ReedlineEvent::Menu("history_menu".to_string()),
+    );
+
     keybindings.add_binding(
         KeyModifiers::CONTROL,
         KeyCode::Char('x'),
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("history_menu".to_string()),
-            ReedlineEvent::MenuPageNext,
-        ]),
+        ReedlineEvent::MenuPageNext,
     );
 
     keybindings.add_binding(

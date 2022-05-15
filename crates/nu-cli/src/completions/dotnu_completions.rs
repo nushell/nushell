@@ -37,7 +37,7 @@ impl Completer for DotNuCompletion {
 
         // Fetch the lib dirs
         let lib_dirs: Vec<String> =
-            if let Some(lib_dirs) = self.engine_state.env_vars.get("NU_LIB_DIRS") {
+            if let Some(lib_dirs) = self.engine_state.get_env_var("NU_LIB_DIRS") {
                 lib_dirs
                     .as_list()
                     .into_iter()
@@ -58,7 +58,7 @@ impl Completer for DotNuCompletion {
             };
 
         // Check if the base_dir is a folder
-        if base_dir != "./" {
+        if base_dir != format!(".{}", SEP) {
             // Add the base dir into the directories to be searched
             search_dirs.push(base_dir.clone());
 
@@ -70,7 +70,7 @@ impl Completer for DotNuCompletion {
             partial = base_dir_partial;
         } else {
             // Fetch the current folder
-            let current_folder = if let Some(d) = self.engine_state.env_vars.get("PWD") {
+            let current_folder = if let Some(d) = self.engine_state.get_env_var("PWD") {
                 match d.as_string() {
                     Ok(s) => s,
                     Err(_) => "".to_string(),
@@ -91,7 +91,7 @@ impl Completer for DotNuCompletion {
         let output: Vec<Suggestion> = search_dirs
             .into_iter()
             .flat_map(|it| {
-                file_path_completion(span, &partial, &it, options.match_algorithm)
+                file_path_completion(span, &partial, &it, options)
                     .into_iter()
                     .filter(|it| {
                         // Different base dir, so we list the .nu files or folders

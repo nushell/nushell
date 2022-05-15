@@ -8,7 +8,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::{partial_from, prepend_base_dir, MatchAlgorithm};
+use super::{partial_from, prepend_base_dir};
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
@@ -33,7 +33,7 @@ impl Completer for DirectoryCompletion {
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
+        let cwd = if let Some(d) = self.engine_state.get_env_var("PWD") {
             match d.as_string() {
                 Ok(s) => s,
                 Err(_) => "".to_string(),
@@ -44,7 +44,7 @@ impl Completer for DirectoryCompletion {
         let partial = String::from_utf8_lossy(&prefix).to_string();
 
         // Filter only the folders
-        let output: Vec<_> = directory_completion(span, &partial, &cwd, options.match_algorithm)
+        let output: Vec<_> = directory_completion(span, &partial, &cwd, options)
             .into_iter()
             .map(move |x| Suggestion {
                 value: x.1,
@@ -103,7 +103,7 @@ pub fn directory_completion(
     span: nu_protocol::Span,
     partial: &str,
     cwd: &str,
-    match_algorithm: MatchAlgorithm,
+    options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
     let original_input = partial;
 
@@ -124,7 +124,7 @@ pub fn directory_completion(
                     if let Ok(metadata) = fs::metadata(entry.path()) {
                         if metadata.is_dir() {
                             let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                            if matches(&partial, &file_name, match_algorithm) {
+                            if matches(&partial, &file_name, options) {
                                 let mut path = if prepend_base_dir(original_input, &base_dir_name) {
                                     format!("{}{}", base_dir_name, file_name)
                                 } else {

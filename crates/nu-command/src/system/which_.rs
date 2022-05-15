@@ -69,7 +69,7 @@ fn entry(arg: impl Into<String>, path: impl Into<String>, builtin: bool, span: S
 }
 
 fn get_entry_in_aliases(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
-    if let Some(alias_id) = engine_state.find_alias(name.as_bytes()) {
+    if let Some(alias_id) = engine_state.find_alias(name.as_bytes(), &[]) {
         let alias = engine_state.get_alias(alias_id);
         let alias_str = alias
             .iter()
@@ -90,7 +90,7 @@ fn get_entry_in_aliases(engine_state: &EngineState, name: &str, span: Span) -> O
 }
 
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
-    if let Some(decl_id) = engine_state.find_decl(name.as_bytes()) {
+    if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
         let (msg, is_builtin) = if engine_state.get_decl(decl_id).get_block_id().is_some() {
             ("Nushell custom command", false)
         } else {

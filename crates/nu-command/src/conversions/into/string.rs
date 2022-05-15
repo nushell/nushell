@@ -248,7 +248,7 @@ pub fn action(
             span,
         },
         Value::Nothing { .. } => Value::String {
-            val: "nothing".to_string(),
+            val: "".to_string(),
             span,
         },
         Value::Record {

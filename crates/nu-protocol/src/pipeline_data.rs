@@ -448,7 +448,7 @@ impl PipelineData {
             return Ok(());
         }
 
-        match engine_state.find_decl("table".as_bytes()) {
+        match engine_state.find_decl("table".as_bytes(), &[]) {
             Some(decl_id) => {
                 let table = engine_state.get_decl(decl_id).run(
                     engine_state,

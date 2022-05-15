@@ -44,6 +44,7 @@ impl Command for Table {
                 "row number to start viewing from",
                 Some('n'),
             )
+            .switch("list", "list available table modes/themes", Some('l'))
             .category(Category::Viewers)
     }
 
@@ -60,12 +61,34 @@ impl Command for Table {
         let color_hm = get_color_config(config);
         let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
         let row_offset = start_num.unwrap_or_default() as usize;
+        let list: bool = call.has_flag("list");
 
         let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
             (w - 1) as usize
         } else {
             80usize
         };
+
+        if list {
+            let table_modes = vec![
+                Value::string("basic", Span::test_data()),
+                Value::string("compact", Span::test_data()),
+                Value::string("compact_double", Span::test_data()),
+                Value::string("default", Span::test_data()),
+                Value::string("heavy", Span::test_data()),
+                Value::string("light", Span::test_data()),
+                Value::string("none", Span::test_data()),
+                Value::string("reinforced", Span::test_data()),
+                Value::string("rounded", Span::test_data()),
+                Value::string("thin", Span::test_data()),
+                Value::string("with_love", Span::test_data()),
+            ];
+            return Ok(Value::List {
+                vals: table_modes,
+                span: Span::test_data(),
+            }
+            .into_pipeline_data());
+        }
 
         // reset vt processing, aka ansi because illbehaved externals can break it
         #[cfg(windows)]
@@ -153,11 +176,15 @@ impl Command for Table {
                 let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
                 self.run(engine_state, stack, call, base_pipeline)
             }
-            PipelineData::Value(x @ Value::Range { .. }, ..) => Ok(Value::String {
-                val: x.into_string("", config),
-                span: call.head,
-            }
-            .into_pipeline_data()),
+            PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(
+                engine_state,
+                stack,
+                ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc.clone()),
+                call,
+                row_offset,
+                ctrlc,
+                metadata,
+            ),
             x => Ok(x),
         }
     }
