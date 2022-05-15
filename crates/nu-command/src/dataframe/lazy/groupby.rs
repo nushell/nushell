@@ -1,5 +1,4 @@
-use super::into_expression::IntoExpression;
-use crate::dataframe::values::{NuLazyFrame, NuLazyGroupBy};
+use crate::dataframe::values::{NuExpression, NuLazyFrame, NuLazyGroupBy};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -22,7 +21,7 @@ impl Command for ToLazyGroupBy {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .rest(
                 "Group by expressions",
                 SyntaxShape::Any,
                 "Expression(s) that define the lazy group by",
@@ -31,11 +30,34 @@ impl Command for ToLazyGroupBy {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "",
-            example: "",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Group by and perform an aggregation",
+                example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
+    | dfr to-df
+    | dfr group-by a
+    | dfr aggregate [
+        ("b" | dfr min | dfr as "b_min")
+        ("b" | dfr max | dfr as "b_max")
+        ("b" | dfr sum | dfr as "b_sum")
+     ]"#,
+                result: None,
+            },
+            Example {
+                description: "Group by and perform an aggregation",
+                example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
+    | dfr to-df
+    | dfr to-lazy
+    | dfr group-by a
+    | dfr aggregate [
+        ("b" | dfr min | dfr as "b_min")
+        ("b" | dfr max | dfr as "b_max")
+        ("b" | dfr sum | dfr as "b_sum")
+     ]
+    | dfr collect"#,
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -45,8 +67,12 @@ impl Command for ToLazyGroupBy {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value: Value = call.req(engine_state, stack, 0)?;
-        let expressions = value.into_expressions()?;
+        let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        let value = Value::List {
+            vals,
+            span: call.head,
+        };
+        let expressions = NuExpression::extract_exprs(value)?;
 
         if expressions
             .iter()
@@ -59,20 +85,14 @@ impl Command for ToLazyGroupBy {
             ));
         }
 
-        let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?.into_polars();
-        let group_by: NuLazyGroupBy = lazy.groupby(&expressions).into();
+        let value = input.into_value(call.head);
+        let (lazy, from_eager) = NuLazyFrame::maybe_is_eager(value)?;
+
+        let group_by = NuLazyGroupBy {
+            group_by: Some(lazy.into_polars().groupby(&expressions)),
+            from_eager,
+        };
 
         Ok(PipelineData::Value(group_by.into_value(call.head), None))
     }
 }
-
-//#[cfg(test)]
-//mod test {
-//    use super::super::super::test_dataframe::test_dataframe;
-//    use super::*;
-//
-//    #[test]
-//    fn test_examples() {
-//        test_dataframe(vec![Box::new(ToLazyGroupBy {})])
-//    }
-//}

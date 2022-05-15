@@ -31,8 +31,8 @@ impl Command for ExprAlias {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "",
-            example: "",
+            description: "Creates and alias expression",
+            example: "(dfr col a | df as new_a)",
             result: None,
         }]
     }
@@ -55,14 +55,3 @@ impl Command for ExprAlias {
         ))
     }
 }
-
-//#[cfg(test)]
-//mod test {
-//    use super::super::super::test_dataframe::test_dataframe;
-//    use super::*;
-//
-//    #[test]
-//    fn test_examples() {
-//        test_dataframe(vec![Box::new(ExprAlias {})])
-//    }
-//}

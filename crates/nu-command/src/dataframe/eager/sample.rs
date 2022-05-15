@@ -85,18 +85,15 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     match (rows, fraction) {
-        (Some(rows), None) => df
-            .as_ref()
-            .sample_n(rows.item, replace, seed)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error creating sample".into(),
-                    e.to_string(),
-                    Some(rows.span),
-                    None,
-                    Vec::new(),
-                )
-            }),
+        (Some(rows), None) => df.as_ref().sample_n(rows.item, replace, seed).map_err(|e| {
+            ShellError::GenericError(
+                "Error creating sample".into(),
+                e.to_string(),
+                Some(rows.span),
+                None,
+                Vec::new(),
+            )
+        }),
         (None, Some(frac)) => df
             .as_ref()
             .sample_frac(frac.item, replace, seed)

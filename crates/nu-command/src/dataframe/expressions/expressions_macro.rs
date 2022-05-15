@@ -52,82 +52,12 @@ macro_rules! expr_command {
     };
 }
 
-// ExprMax command
-// Expands to a command definition for a max expression
-expr_command!(
-    ExprMax,
-    "dfr max",
-    "creates a max expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    max
-);
-
-// ExprMin command
-// Expands to a command definition for a min expression
-expr_command!(
-    ExprMin,
-    "dfr min",
-    "creates a min expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    min
-);
-
-// ExprMean command
-// Expands to a command definition for a mean expression
-expr_command!(
-    ExprMean,
-    "dfr mean",
-    "creates a mean expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    mean
-);
-
-// ExprMedian command
-// Expands to a command definition for a median expression
-expr_command!(
-    ExprMedian,
-    "dfr median",
-    "creates a median expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    median
-);
-
-// ExprSum command
-// Expands to a command definition for a sum expression
-expr_command!(
-    ExprSum,
-    "dfr sum",
-    "creates a sum expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    sum
-);
-
 // ExprList command
 // Expands to a command definition for a list expression
 expr_command!(
     ExprList,
     "dfr list",
-    "creates a list expression",
+    "Aggregates a group to a Series",
     vec![Example {
         description: "",
         example: "",

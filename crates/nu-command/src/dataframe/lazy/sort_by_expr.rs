@@ -1,5 +1,5 @@
 use super::super::values::NuLazyFrame;
-use super::into_expression::IntoExpression;
+use crate::dataframe::values::NuExpression;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -51,7 +51,7 @@ impl Command for LazySortBy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value: Value = call.req(engine_state, stack, 0)?;
-        let expressions = value.into_expressions()?;
+        let expressions = NuExpression::extract_exprs(value)?;
 
         let reverse: Option<Vec<bool>> = call.get_flag(engine_state, stack, "reverse")?;
         let reverse = match reverse {

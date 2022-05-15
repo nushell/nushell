@@ -1,3 +1,5 @@
+use crate::dataframe::values::{NuExpression, NuLazyFrame};
+
 use super::super::values::{Column, NuDataFrame};
 
 use nu_engine::CallExt;
@@ -22,6 +24,12 @@ impl Command for Shift {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("period", SyntaxShape::Int, "shift period")
+            .named(
+                "fill",
+                SyntaxShape::Any,
+                "Expression to use to fill the null values (lazy df)",
+                Some('f'),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -47,23 +55,58 @@ impl Command for Shift {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        command(engine_state, stack, call, input)
+        let value = input.into_value(call.head);
+
+        if NuLazyFrame::can_downcast(&value) {
+            let df = NuLazyFrame::try_from_value(value)?;
+            command_lazy(engine_state, stack, call, df)
+        } else if NuDataFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value(value)?;
+            command_eager(engine_state, stack, call, df)
+        } else {
+            Err(ShellError::CantConvert(
+                "expression or query".into(),
+                value.get_type().to_string(),
+                value.span()?,
+                None,
+            ))
+        }
     }
 }
 
-fn command(
+fn command_eager(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
+    df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let period: i64 = call.req(engine_state, stack, 0)?;
-
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?.shift(period);
 
     NuDataFrame::try_from_series(vec![series], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
+}
+
+fn command_lazy(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    lazy: NuLazyFrame,
+) -> Result<PipelineData, ShellError> {
+    let shift: i64 = call.req(engine_state, stack, 0)?;
+    let fill: Option<Value> = call.get_flag(engine_state, stack, "fill")?;
+
+    let lazy = lazy.into_polars();
+
+    let lazy: NuLazyFrame = match fill {
+        Some(fill) => {
+            let expr = NuExpression::try_from_value(fill)?.into_polars();
+            lazy.shift_and_fill(shift, expr).into()
+        }
+        None => lazy.shift(shift).into(),
+    };
+
+    Ok(PipelineData::Value(lazy.into_value(call.head), None))
 }
 
 #[cfg(test)]

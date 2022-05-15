@@ -1,6 +1,5 @@
-use crate::dataframe::values::NuLazyFrame;
+use crate::dataframe::values::{NuExpression, NuLazyFrame};
 
-use super::into_expression::IntoExpression;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -47,7 +46,7 @@ impl Command for LazySelect {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value: Value = call.req(engine_state, stack, 0)?;
-        let expressions = value.into_expressions()?;
+        let expressions = NuExpression::extract_exprs(value)?;
 
         if expressions
             .iter()

@@ -1,11 +1,14 @@
+use crate::dataframe::{utils::extract_strings, values::NuLazyFrame};
+
 use super::super::values::{Column, NuDataFrame};
 
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use polars::prelude::IntoSeries;
+use polars::prelude::{IntoSeries, UniqueKeepStrategy};
 
 #[derive(Clone)]
 pub struct Unique;
@@ -20,7 +23,24 @@ impl Command for Unique {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
+        Signature::build(self.name())
+            .named(
+                "subset",
+                SyntaxShape::Any,
+                "Subset of column(s) to use to maintain rows (lazy df)",
+                Some('s'),
+            )
+            .switch(
+                "last",
+                "Keeps last unique value. Default keeps first value (lazy df)",
+                Some('l'),
+            )
+            .switch(
+                "maintain-order",
+                "Keep the same order as the original DataFrame (lazy df)",
+                Some('k'),
+            )
+            .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -45,17 +65,31 @@ impl Command for Unique {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        command(engine_state, stack, call, input)
+        let value = input.into_value(call.head);
+
+        if NuLazyFrame::can_downcast(&value) {
+            let df = NuLazyFrame::try_from_value(value)?;
+            command_lazy(engine_state, stack, call, df)
+        } else if NuDataFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value(value)?;
+            command_eager(engine_state, stack, call, df)
+        } else {
+            Err(ShellError::CantConvert(
+                "expression or query".into(),
+                value.get_type().to_string(),
+                value.span()?,
+                None,
+            ))
+        }
     }
 }
 
-fn command(
+fn command_eager(
     _engine_state: &EngineState,
     _stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
+    df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
     let res = series.unique().map_err(|e| {
@@ -70,6 +104,37 @@ fn command(
 
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
+}
+
+fn command_lazy(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    lazy: NuLazyFrame,
+) -> Result<PipelineData, ShellError> {
+    let last = call.has_flag("last");
+    let maintain = call.has_flag("maintain-order");
+
+    let subset: Option<Value> = call.get_flag(engine_state, stack, "subset")?;
+    let subset = match subset {
+        Some(value) => Some(extract_strings(value)?),
+        None => None,
+    };
+
+    let strategy = if last {
+        UniqueKeepStrategy::Last
+    } else {
+        UniqueKeepStrategy::First
+    };
+
+    let lazy = lazy.into_polars();
+    let lazy: NuLazyFrame = if maintain {
+        lazy.unique(subset, strategy).into()
+    } else {
+        lazy.unique_stable(subset, strategy).into()
+    };
+
+    Ok(PipelineData::Value(lazy.into_value(call.head), None))
 }
 
 #[cfg(test)]

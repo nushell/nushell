@@ -9,7 +9,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 // Polars LazyFrame is behind and Option to allow easy implementation of
 // the Deserialize trait
 #[derive(Default)]
-pub struct NuLazyGroupBy(Option<LazyGroupBy>);
+pub struct NuLazyGroupBy {
+    pub group_by: Option<LazyGroupBy>,
+    pub from_eager: bool,
+}
 
 // Mocked serialization of the LazyFrame object
 impl Serialize for NuLazyGroupBy {
@@ -42,7 +45,9 @@ impl AsRef<LazyGroupBy> for NuLazyGroupBy {
     fn as_ref(&self) -> &polars::prelude::LazyGroupBy {
         // The only case when there cannot be a lazy frame is if it is created
         // using the default function or if created by deserializing something
-        self.0.as_ref().expect("there should always be a frame")
+        self.group_by
+            .as_ref()
+            .expect("there should always be a frame")
     }
 }
 
@@ -50,13 +55,18 @@ impl AsMut<LazyGroupBy> for NuLazyGroupBy {
     fn as_mut(&mut self) -> &mut polars::prelude::LazyGroupBy {
         // The only case when there cannot be a lazy frame is if it is created
         // using the default function or if created by deserializing something
-        self.0.as_mut().expect("there should always be a frame")
+        self.group_by
+            .as_mut()
+            .expect("there should always be a frame")
     }
 }
 
 impl From<LazyGroupBy> for NuLazyGroupBy {
     fn from(group_by: LazyGroupBy) -> Self {
-        Self(Some(group_by))
+        Self {
+            group_by: Some(group_by),
+            from_eager: false,
+        }
     }
 }
 
@@ -69,14 +79,17 @@ impl NuLazyGroupBy {
     }
 
     pub fn into_polars(self) -> LazyGroupBy {
-        self.0.expect("GroupBy cannot be none to convert")
+        self.group_by.expect("GroupBy cannot be none to convert")
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         match value {
             Value::CustomValue { val, span } => {
                 match val.as_any().downcast_ref::<NuLazyGroupBy>() {
-                    Some(group) => Ok(Self(group.0.clone())),
+                    Some(group) => Ok(Self {
+                        group_by: group.group_by.clone(),
+                        from_eager: group.from_eager,
+                    }),
                     None => Err(ShellError::CantConvert(
                         "lazy frame".into(),
                         "non-dataframe".into(),

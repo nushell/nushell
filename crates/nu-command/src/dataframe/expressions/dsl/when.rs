@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 use polars::prelude::when;
 
@@ -43,22 +43,15 @@ impl Command for ExprWhen {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "",
-            example: "",
-            result: Some(Value::Record {
-                cols: vec!["expr".into(), "value".into()],
-                vals: vec![
-                    Value::String {
-                        val: "column".into(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "col_a".into(),
-                        span: Span::test_data(),
-                    },
-                ],
-                span: Span::test_data(),
-            }),
+            description: "Create a new column for the dataframe",
+            example: r#"[[a b]; [1 2] [3 4]]
+   | dfr to-df
+   | dfr to-lazy
+   | dfr with-column (
+       dfr when ((dfr col a) > 2) --then 4 --otherwise 5  | dfr as "c"
+     )
+   | dfr collect"#,
+            result: None,
         }]
     }
 

@@ -1,5 +1,4 @@
-use super::into_expression::IntoExpression;
-use crate::dataframe::values::NuLazyFrame;
+use crate::dataframe::values::{NuExpression, NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -23,8 +22,8 @@ impl Command for LazyJoin {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("other", SyntaxShape::Any, "LazyFrame to join with")
-            .required("left_on", SyntaxShape::Any, "Left columns to join on")
-            .required("right_on", SyntaxShape::Any, "Right columns to join on")
+            .required("left_on", SyntaxShape::Any, "Left column(s) to join on")
+            .required("right_on", SyntaxShape::Any, "Right column(s) to join on")
             .switch(
                 "inner",
                 "inner joing between lazyframes (default)",
@@ -43,11 +42,22 @@ impl Command for LazyJoin {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "",
-            example: "",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Join two lazy dataframes",
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | dfr to-lazy);
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [1 "c" "var"] [1 "c" "const"]] | dfr to-lazy);
+    $df_a | dfr join $df_b a foo | dfr collect"#,
+                result: None,
+            },
+            Example {
+                description: "Join one eager dataframe with a lazy dataframe",
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | dfr to-df);
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [1 "c" "var"] [1 "c" "const"]] | dfr to-lazy);
+    $df_a | dfr join $df_b a foo"#,
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -72,13 +82,14 @@ impl Command for LazyJoin {
         };
 
         let other: Value = call.req(engine_state, stack, 0)?;
-        let other = NuLazyFrame::try_from_value(other)?.into_polars();
+        let (other, _) = NuLazyFrame::maybe_is_eager(other)?;
+        let other = other.into_polars();
 
         let left_on: Value = call.req(engine_state, stack, 1)?;
-        let left_on = left_on.into_expressions()?;
+        let left_on = NuExpression::extract_exprs(left_on)?;
 
         let right_on: Value = call.req(engine_state, stack, 2)?;
-        let right_on = right_on.into_expressions()?;
+        let right_on = NuExpression::extract_exprs(right_on)?;
 
         if left_on.len() != right_on.len() {
             let right_on: Value = call.req(engine_state, stack, 2)?;
@@ -102,7 +113,10 @@ impl Command for LazyJoin {
         let suffix: Option<String> = call.get_flag(engine_state, stack, "suffix")?;
         let suffix = suffix.unwrap_or_else(|| "_x".into());
 
-        let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?.into_polars();
+        let value = input.into_value(call.head);
+        let (lazy, from_eager) = NuLazyFrame::maybe_is_eager(value)?;
+        let lazy = lazy.into_polars();
+
         let lazy: NuLazyFrame = lazy
             .join_builder()
             .with(other)
@@ -114,17 +128,12 @@ impl Command for LazyJoin {
             .finish()
             .into();
 
-        Ok(PipelineData::Value(lazy.into_value(call.head), None))
+        let res = if from_eager {
+            lazy.collect(call.head)?.into_value(call.head)
+        } else {
+            lazy.into_value(call.head)
+        };
+
+        Ok(PipelineData::Value(res, None))
     }
 }
-
-//#[cfg(test)]
-//mod test {
-//    use super::super::super::test_dataframe::test_dataframe;
-//    use super::*;
-//
-//    #[test]
-//    fn test_examples() {
-//        test_dataframe(vec![Box::new(LazyJoin {})])
-//    }
-//}

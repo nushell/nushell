@@ -12,7 +12,10 @@ impl CustomValue for NuLazyGroupBy {
     }
 
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        let cloned = NuLazyGroupBy(self.0.clone());
+        let cloned = NuLazyGroupBy {
+            group_by: self.group_by.clone(),
+            from_eager: self.from_eager,
+        };
 
         Value::CustomValue {
             val: Box::new(cloned),

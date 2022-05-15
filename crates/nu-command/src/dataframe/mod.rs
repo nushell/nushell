@@ -2,6 +2,7 @@ mod eager;
 mod expressions;
 mod lazy;
 mod series;
+mod utils;
 mod values;
 
 pub use eager::add_eager_decls;

@@ -70,7 +70,7 @@ impl NuExpression {
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<NuExpression>() {
+            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(NuExpression(expr.0.clone())),
                 None => Err(ShellError::CantConvert(
                     "lazy expression".into(),
@@ -98,26 +98,18 @@ impl NuExpression {
     }
 
     pub fn can_downcast(value: &Value) -> bool {
-        if let Value::CustomValue { val, .. } = value {
-            val.as_any().downcast_ref::<NuExpression>().is_some()
-        } else {
-            false
+        match value {
+            Value::CustomValue { val, .. } => val.as_any().downcast_ref::<Self>().is_some(),
+            Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {
+                true
+            }
+            _ => false,
         }
     }
 
     pub fn into_polars(self) -> Expr {
         self.0.expect("Expression cannot be none to convert")
     }
-
-    //pub fn apply<F>(self, f: F) -> Self
-    //where
-    //    F: Fn(Expr) -> Expr,
-    //{
-    //    let expr = self.0.expect("Lazy expression must not be empty to apply");
-    //    let new_expr = f(expr);
-
-    //    Self::new(new_expr)
-    //}
 
     pub fn apply_with_expr<F>(self, other: NuExpression, f: F) -> Self
     where
@@ -131,6 +123,49 @@ impl NuExpression {
 
     pub fn to_value(&self, span: Span) -> Value {
         expr_to_value(self.as_ref(), span)
+    }
+
+    // Convenient function to extrac multiple Expr that could be inside a nushell Value
+    pub fn extract_exprs(value: Value) -> Result<Vec<Expr>, ShellError> {
+        ExtractedExpr::extract_exprs(value).map(ExtractedExpr::into_exprs)
+    }
+}
+
+// Enum to represent the parsing of the expressions from Value
+enum ExtractedExpr {
+    Single(Expr),
+    List(Vec<ExtractedExpr>),
+}
+
+impl ExtractedExpr {
+    fn into_exprs(self) -> Vec<Expr> {
+        match self {
+            Self::Single(expr) => vec![expr],
+            Self::List(expressions) => expressions
+                .into_iter()
+                .flat_map(ExtractedExpr::into_exprs)
+                .collect(),
+        }
+    }
+
+    fn extract_exprs(value: Value) -> Result<ExtractedExpr, ShellError> {
+        match value {
+            Value::String { val, .. } => Ok(ExtractedExpr::Single(col(val.as_str()))),
+            Value::CustomValue { .. } => NuExpression::try_from_value(value)
+                .map(NuExpression::into_polars)
+                .map(ExtractedExpr::Single),
+            Value::List { vals, .. } => vals
+                .into_iter()
+                .map(Self::extract_exprs)
+                .collect::<Result<Vec<ExtractedExpr>, ShellError>>()
+                .map(ExtractedExpr::List),
+            x => Err(ShellError::CantConvert(
+                "expression".into(),
+                x.get_type().to_string(),
+                x.span()?,
+                None,
+            )),
+        }
     }
 }
 

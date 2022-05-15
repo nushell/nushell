@@ -188,7 +188,7 @@ impl NuDataFrame {
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<NuDataFrame>() {
+            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(df) => Ok(NuDataFrame(df.0.clone())),
                 None => Err(ShellError::CantConvert(
                     "dataframe".into(),
@@ -213,7 +213,7 @@ impl NuDataFrame {
 
     pub fn can_downcast(value: &Value) -> bool {
         if let Value::CustomValue { val, .. } = value {
-            val.as_any().downcast_ref::<NuDataFrame>().is_some()
+            val.as_any().downcast_ref::<Self>().is_some()
         } else {
             false
         }

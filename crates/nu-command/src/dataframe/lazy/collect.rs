@@ -46,14 +46,3 @@ impl Command for LazyCollect {
         ))
     }
 }
-
-//#[cfg(test)]
-//mod test {
-//    use super::super::super::test_dataframe::test_dataframe;
-//    use super::*;
-//
-//    #[test]
-//    fn test_examples() {
-//        test_dataframe(vec![Box::new(LazyCollect {})])
-//    }
-//}

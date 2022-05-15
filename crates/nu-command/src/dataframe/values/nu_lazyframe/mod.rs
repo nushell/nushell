@@ -96,7 +96,7 @@ impl NuLazyFrame {
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<NuLazyFrame>() {
+            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(Self(expr.0.clone())),
                 None => Err(ShellError::CantConvert(
                     "lazy frame".into(),
@@ -117,6 +117,30 @@ impl NuLazyFrame {
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(value)
+    }
+
+    pub fn can_downcast(value: &Value) -> bool {
+        if let Value::CustomValue { val, .. } = value {
+            val.as_any().downcast_ref::<Self>().is_some()
+        } else {
+            false
+        }
+    }
+
+    pub fn maybe_is_eager(value: Value) -> Result<(Self, bool), ShellError> {
+        if Self::can_downcast(&value) {
+            Ok((Self::try_from_value(value)?, false))
+        } else if NuDataFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value(value)?;
+            Ok((NuLazyFrame::from_dataframe(df), true))
+        } else {
+            Err(ShellError::CantConvert(
+                "lazy or eager dataframe".into(),
+                value.get_type().to_string(),
+                value.span()?,
+                None,
+            ))
+        }
     }
 
     pub fn apply_with_expr<F>(self, expr: NuExpression, f: F) -> Self
