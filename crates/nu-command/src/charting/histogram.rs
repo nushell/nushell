@@ -72,7 +72,7 @@ impl Command for Histogram {
         let frequency_column_name = match frequency_name_arg {
             Some(inner) => {
                 let span = inner.span;
-                if ["value", "count", "percentage"].contains(&inner.item.as_str()) {
+                if ["value", "count", "quantile", "percentage"].contains(&inner.item.as_str()) {
                     return Err(ShellError::UnsupportedInput(
                         "frequency-column-name can't be 'value', 'count' or 'percentage'"
                             .to_string(),
@@ -208,27 +208,29 @@ fn histogram_impl(
     let result_cols = vec![
         value_column_name.to_string(),
         "count".to_string(),
+        "quantile".to_string(),
         "percentage".to_string(),
         freq_column.to_string(),
     ];
     const MAX_FREQ_COUNT: f64 = 100.0;
     for (val, count) in counter.into_iter() {
-        let (percentage, freq) = {
-            let percentage = match calc_method {
-                PercentageCalcMethod::Normalize => (count as f64 / total_cnt as f64),
-                PercentageCalcMethod::Relative => (count as f64 / max_cnt as f64),
-            };
-            (
-                format!("{:.2}%", percentage * 100_f64),
-                "*".repeat((MAX_FREQ_COUNT * percentage).floor() as usize),
-            )
+        let quantile = match calc_method {
+            PercentageCalcMethod::Normalize => (count as f64 / total_cnt as f64),
+            PercentageCalcMethod::Relative => (count as f64 / max_cnt as f64),
         };
+
+        let percentage = format!("{:.2}%", quantile * 100_f64);
+        let freq = "*".repeat((MAX_FREQ_COUNT * quantile).floor() as usize);
 
         result.push(Value::Record {
             cols: result_cols.clone(),
             vals: vec![
                 val.into_value(),
                 Value::Int { val: count, span },
+                Value::Float {
+                    val: quantile,
+                    span,
+                },
                 Value::String {
                     val: percentage,
                     span,

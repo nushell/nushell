@@ -126,7 +126,7 @@ fn count() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo [[bit];  [1] [0] [0] [0] [0] [0] [0] [1]]
+            echo [[bit];  [1] [0] [0] [0] [0] [0] [0] [1] [1]]
             | histogram bit --percentage-type relative
             | sort-by count
             | reject frequency
@@ -134,7 +134,7 @@ fn count() {
         "#
     ));
 
-    let bit_json = r#"[  {    "bit": 1,    "count": 2,    "percentage": "33.33%"  },  {    "bit": 0,    "count": 6,    "percentage": "100.00%"  }]"#;
+    let bit_json = r#"[  {    "bit": 1,    "count": 3,    "quantile": 0.5,    "percentage": "50.00%"  },  {    "bit": 0,    "count": 6,    "quantile": 1,    "percentage": "100.00%"  }]"#;
 
     assert_eq!(actual.out, bit_json);
 }
@@ -152,7 +152,7 @@ fn count_with_normalize_percentage() {
         "#
     ));
 
-    let bit_json = r#"[  {    "bit": 1,    "count": 2,    "percentage": "25.00%"  },  {    "bit": 0,    "count": 6,    "percentage": "75.00%"  }]"#;
+    let bit_json = r#"[  {    "bit": 1,    "count": 2,    "quantile": 0.25,    "percentage": "25.00%"  },  {    "bit": 0,    "count": 6,    "quantile": 0.75,    "percentage": "75.00%"  }]"#;
 
     assert_eq!(actual.out, bit_json);
 }
