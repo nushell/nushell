@@ -84,6 +84,12 @@ impl AsMut<DataFrame> for NuDataFrame {
     }
 }
 
+impl From<DataFrame> for NuDataFrame {
+    fn from(dataframe: DataFrame) -> Self {
+        Self(dataframe)
+    }
+}
+
 impl NuDataFrame {
     pub fn new(dataframe: DataFrame) -> Self {
         Self(dataframe)
@@ -132,6 +138,7 @@ impl NuDataFrame {
 
         for value in iter {
             match value {
+                Value::CustomValue { .. } => return Self::try_from_value(value),
                 Value::List { vals, .. } => {
                     let cols = (0..vals.len())
                         .map(|i| format!("{}", i))
@@ -181,7 +188,7 @@ impl NuDataFrame {
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<NuDataFrame>() {
+            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(df) => Ok(NuDataFrame(df.0.clone())),
                 None => Err(ShellError::CantConvert(
                     "dataframe".into(),
@@ -201,7 +208,15 @@ impl NuDataFrame {
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
         let value = input.into_value(span);
-        NuDataFrame::try_from_value(value)
+        Self::try_from_value(value)
+    }
+
+    pub fn can_downcast(value: &Value) -> bool {
+        if let Value::CustomValue { val, .. } = value {
+            val.as_any().downcast_ref::<Self>().is_some()
+        } else {
+            false
+        }
     }
 
     pub fn column(&self, column: &str, span: Span) -> Result<Self, ShellError> {

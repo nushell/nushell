@@ -1,4 +1,3 @@
-mod aggregate;
 mod append;
 mod column;
 mod command;
@@ -11,13 +10,10 @@ mod dummies;
 mod filter_with;
 mod first;
 mod get;
-mod groupby;
-mod join;
 mod last;
 mod list;
 mod melt;
 mod open;
-mod pivot;
 mod rename;
 mod sample;
 mod shape;
@@ -32,7 +28,6 @@ mod with_column;
 
 use nu_protocol::engine::StateWorkingSet;
 
-pub use aggregate::Aggregate;
 pub use append::AppendDF;
 pub use column::ColumnDF;
 pub use command::Dataframe;
@@ -45,13 +40,10 @@ pub use dummies::Dummies;
 pub use filter_with::FilterWith;
 pub use first::FirstDF;
 pub use get::GetDF;
-pub use groupby::CreateGroupBy;
-pub use join::JoinDF;
 pub use last::LastDF;
 pub use list::ListDF;
 pub use melt::MeltDF;
 pub use open::OpenDataFrame;
-pub use pivot::PivotDF;
 pub use rename::RenameDF;
 pub use sample::SampleDF;
 pub use shape::ShapeDF;
@@ -76,10 +68,8 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
 
     // Dataframe commands
     bind_command!(
-        Aggregate,
         AppendDF,
         ColumnDF,
-        CreateGroupBy,
         Dataframe,
         DataTypes,
         DescribeDF,
@@ -90,12 +80,10 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         FilterWith,
         FirstDF,
         GetDF,
-        JoinDF,
         LastDF,
         ListDF,
         MeltDF,
         OpenDataFrame,
-        PivotDF,
         RenameDF,
         SampleDF,
         ShapeDF,

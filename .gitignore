@@ -23,4 +23,5 @@ debian/nu/
 .vscode/*
 
 # Helix configuration folder
+.helix/*
 .helix

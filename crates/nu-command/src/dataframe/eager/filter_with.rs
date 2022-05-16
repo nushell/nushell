@@ -4,6 +4,9 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
+use polars::prelude::LazyFrame;
+
+use crate::dataframe::values::{NuExpression, NuLazyFrame};
 
 use super::super::values::{Column, NuDataFrame};
 
@@ -16,12 +19,16 @@ impl Command for FilterWith {
     }
 
     fn usage(&self) -> &str {
-        "Filters dataframe using a mask as reference"
+        "Filters dataframe using a mask or expression as reference"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("mask", SyntaxShape::Any, "boolean mask used to filter data")
+            .required(
+                "mask or expression",
+                SyntaxShape::Any,
+                "boolean mask used to filter data",
+            )
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -48,15 +55,30 @@ impl Command for FilterWith {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        command(engine_state, stack, call, input)
+        let value = input.into_value(call.head);
+
+        if NuLazyFrame::can_downcast(&value) {
+            let df = NuLazyFrame::try_from_value(value)?;
+            command_lazy(engine_state, stack, call, df)
+        } else if NuDataFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value(value)?;
+            command_eager(engine_state, stack, call, df)
+        } else {
+            Err(ShellError::CantConvert(
+                "expression or query".into(),
+                value.get_type().to_string(),
+                value.span()?,
+                None,
+            ))
+        }
     }
 }
 
-fn command(
+fn command_eager(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
+    df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let mask_value: Value = call.req(engine_state, stack, 0)?;
 
@@ -72,8 +94,6 @@ fn command(
         )
     })?;
 
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
-
     df.as_ref()
         .filter(mask)
         .map_err(|e| {
@@ -86,6 +106,23 @@ fn command(
             )
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
+}
+
+fn command_lazy(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    lazy: NuLazyFrame,
+) -> Result<PipelineData, ShellError> {
+    let expr: Value = call.req(engine_state, stack, 0)?;
+    let expr = NuExpression::try_from_value(expr)?;
+
+    let lazy = lazy.apply_with_expr(expr, LazyFrame::filter);
+
+    Ok(PipelineData::Value(
+        NuLazyFrame::into_value(lazy, call.head),
+        None,
+    ))
 }
 
 #[cfg(test)]

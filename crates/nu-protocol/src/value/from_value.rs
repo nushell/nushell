@@ -238,6 +238,31 @@ impl FromValue for Vec<String> {
     }
 }
 
+impl FromValue for Vec<bool> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::List { vals, .. } => vals
+                .iter()
+                .map(|val| match val {
+                    Value::Bool { val, .. } => Ok(*val),
+                    c => Err(ShellError::CantConvert(
+                        "bool".into(),
+                        c.get_type().to_string(),
+                        c.span()?,
+                        None,
+                    )),
+                })
+                .collect::<Result<Vec<bool>, ShellError>>(),
+            v => Err(ShellError::CantConvert(
+                "bool".into(),
+                v.get_type().to_string(),
+                v.span()?,
+                None,
+            )),
+        }
+    }
+}
+
 impl FromValue for CellPath {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         let span = v.span()?;

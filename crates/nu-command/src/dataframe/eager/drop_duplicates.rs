@@ -4,7 +4,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use polars::prelude::DistinctKeepStrategy;
+use polars::prelude::UniqueKeepStrategy;
 
 use super::super::values::utils::convert_columns_string;
 use super::super::values::{Column, NuDataFrame};
@@ -89,13 +89,13 @@ fn command(
     let subset_slice = subset.as_ref().map(|cols| &cols[..]);
 
     let keep_strategy = if call.has_flag("last") {
-        DistinctKeepStrategy::Last
+        UniqueKeepStrategy::Last
     } else {
-        DistinctKeepStrategy::First
+        UniqueKeepStrategy::First
     };
 
     df.as_ref()
-        .distinct(subset_slice, keep_strategy)
+        .unique(subset_slice, keep_strategy)
         .map_err(|e| {
             ShellError::GenericError(
                 "Error dropping duplicates".into(),

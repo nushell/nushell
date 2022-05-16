@@ -1,10 +1,10 @@
-use super::NuGroupBy;
+use super::NuLazyGroupBy;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 
 // CustomValue implementation for NuDataFrame
-impl CustomValue for NuGroupBy {
+impl CustomValue for NuLazyGroupBy {
     fn typetag_name(&self) -> &'static str {
-        "groupby"
+        "lazygroupby"
     }
 
     fn typetag_deserialize(&self) {
@@ -12,10 +12,9 @@ impl CustomValue for NuGroupBy {
     }
 
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        let cloned = NuGroupBy {
-            dataframe: self.dataframe.clone(),
-            by: self.by.clone(),
-            groups: self.groups.clone(),
+        let cloned = NuLazyGroupBy {
+            group_by: self.group_by.clone(),
+            from_eager: self.from_eager,
         };
 
         Value::CustomValue {
@@ -29,9 +28,13 @@ impl CustomValue for NuGroupBy {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let vals = self.print(span)?;
+        let cols = vec!["LazyGroupBy".into()];
+        let vals = vec![Value::String {
+            val: "apply aggregation to complete execution plan".into(),
+            span,
+        }];
 
-        Ok(Value::List { vals, span })
+        Ok(Value::Record { cols, vals, span })
     }
 
     fn to_json(&self) -> nu_json::Value {

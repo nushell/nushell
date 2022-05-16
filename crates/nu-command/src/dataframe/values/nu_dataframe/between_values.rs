@@ -76,39 +76,33 @@ pub(super) fn compute_between_series(
             }
         }
         Operator::Equal => {
-            let mut res = Series::equal(lhs, rhs).into_series();
             let name = format!("eq_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::NotEqual => {
-            let mut res = Series::not_equal(lhs, rhs).into_series();
             let name = format!("neq_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::LessThan => {
-            let mut res = Series::lt(lhs, rhs).into_series();
             let name = format!("lt_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::LessThanOrEqual => {
-            let mut res = Series::lt_eq(lhs, rhs).into_series();
             let name = format!("lte_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::GreaterThan => {
-            let mut res = Series::gt(lhs, rhs).into_series();
             let name = format!("gt_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::GreaterThanOrEqual => {
-            let mut res = Series::gt_eq(lhs, rhs).into_series();
             let name = format!("gte_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::And => match lhs.dtype() {
@@ -177,6 +171,32 @@ pub(super) fn compute_between_series(
             rhs_span: right.span()?,
         }),
     }
+}
+
+fn compare_series<'s, F>(
+    lhs: &'s Series,
+    rhs: &'s Series,
+    name: &'s str,
+    span: Option<Span>,
+    f: F,
+) -> Result<Series, ShellError>
+where
+    F: Fn(&'s Series, &'s Series) -> Result<ChunkedArray<BooleanType>, PolarsError>,
+{
+    let mut res = f(lhs, rhs)
+        .map_err(|e| {
+            ShellError::GenericError(
+                "Equality error".into(),
+                e.to_string(),
+                span,
+                None,
+                Vec::new(),
+            )
+        })?
+        .into_series();
+
+    res.rename(name);
+    Ok(res)
 }
 
 pub(super) fn compute_series_single_value(
