@@ -1,14 +1,13 @@
 use lscolors::{LsColors, Style};
 use nu_color_config::{get_color_config, style_primitive};
-use nu_engine::column::get_columns;
-use nu_engine::{env_to_string, CallExt};
-use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
+use nu_engine::{column::get_columns, env_to_string, CallExt};
 use nu_protocol::{
+    ast::{Call, PathMember},
+    engine::{Command, EngineState, Stack, StateWorkingSet},
     format_error, Category, Config, DataSource, Example, IntoPipelineData, ListStream,
     PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use nu_table::{StyledString, TextStyle, Theme};
+use nu_table::{StyledString, TableTheme, TextStyle};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -536,17 +535,17 @@ impl Iterator for PagingTableCreator {
     }
 }
 
-fn load_theme_from_config(config: &Config) -> Theme {
+fn load_theme_from_config(config: &Config) -> TableTheme {
     match config.table_mode.as_str() {
-        "basic" => nu_table::Theme::basic(),
-        "compact" => nu_table::Theme::compact(),
-        "compact_double" => nu_table::Theme::compact_double(),
-        "light" => nu_table::Theme::light(),
-        "with_love" => nu_table::Theme::with_love(),
-        "rounded" => nu_table::Theme::rounded(),
-        "reinforced" => nu_table::Theme::reinforced(),
-        "heavy" => nu_table::Theme::heavy(),
-        "none" => nu_table::Theme::none(),
-        _ => nu_table::Theme::rounded(),
+        "basic" => nu_table::TableTheme::basic(),
+        "compact" => nu_table::TableTheme::compact(),
+        "compact_double" => nu_table::TableTheme::compact_double(),
+        "light" => nu_table::TableTheme::light(),
+        "with_love" => nu_table::TableTheme::with_love(),
+        "rounded" => nu_table::TableTheme::rounded(),
+        "reinforced" => nu_table::TableTheme::reinforced(),
+        "heavy" => nu_table::TableTheme::heavy(),
+        "none" => nu_table::TableTheme::none(),
+        _ => nu_table::TableTheme::rounded(),
     }
 }
