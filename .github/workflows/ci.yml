@@ -79,12 +79,12 @@ jobs:
         with:
           key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
 
-      - uses: taiki-e/install-action@nextest
+      # - uses: taiki-e/install-action@nextest
 
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
-          command: nextest
+          command: test
           args: run --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
       - name: Doctests
