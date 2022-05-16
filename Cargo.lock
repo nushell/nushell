@@ -4191,7 +4191,6 @@ checksum = "f47e98e36909e951f4da3908f4475f969bec92a41734dd92e883aaa11c10294b"
 dependencies = [
  "chrono",
  "const_format",
- "git2",
  "is_debug",
 ]
 
