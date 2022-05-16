@@ -106,7 +106,7 @@ debug = true
 # build with `cargo build --profile ci`
 # to analyze performance with tooling like linux perf
 [profile.ci]
-inherits = "debug"
+inherits = "dev"
 strip = false
 debug = false
 
