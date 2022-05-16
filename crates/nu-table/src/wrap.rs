@@ -1,4 +1,4 @@
-use crate::table::TextStyle;
+use crate::textstyle::TextStyle;
 use ansi_str::AnsiStr;
 use nu_ansi_term::Style;
 use std::borrow::Cow;
