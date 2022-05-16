@@ -660,8 +660,12 @@ impl Value {
                         let cols = cols.clone();
                         let span = *span;
 
-                        if let Some(found) =
-                            cols.iter().zip(vals.iter()).find(|x| x.0 == column_name)
+                        // Make reverse iterate to avoid duplicate column leads to first value, actuall last value is expected.
+                        if let Some(found) = cols
+                            .iter()
+                            .zip(vals.iter())
+                            .rev()
+                            .find(|x| x.0 == column_name)
                         {
                             current = found.1.clone();
                         } else if let Some(suggestion) = did_you_mean(&cols, column_name) {

@@ -2,8 +2,6 @@ use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn row() {
     Playground::setup("merge_test_1", |dirs, sandbox| {
