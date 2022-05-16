@@ -85,13 +85,13 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: nextest
-          args: run --workspace --exclude nu_plugin_* ${{ matrix.flags }}
+          args: run --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
       - name: Doctests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --exclude nu_plugin_* --doc ${{ matrix.flags }}
+          args: --workspace --profile ci --exclude nu_plugin_* --doc ${{ matrix.flags }}
 
   python-virtualenv:
     strategy:
@@ -123,7 +123,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --path=. --no-default-features --debug
+          args: --path=. --profile ci --no-default-features --debug
 
       - name: Setup Python
         uses: actions/setup-python@v2

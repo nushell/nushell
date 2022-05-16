@@ -103,6 +103,13 @@ inherits = "release"
 strip = false
 debug = true
 
+# build with `cargo build --profile ci`
+# to analyze performance with tooling like linux perf
+[profile.ci]
+inherits = "debug"
+strip = false
+debug = false
+
 # Main nu binary
 [[bin]]
 name = "nu"
