@@ -4924,15 +4924,18 @@ pub fn discover_captures_in_expr(
             output.extend(&result);
         }
         Expr::Block(block_id) => {
-            let block = working_set.get_block(*block_id);
-            let results = {
-                let mut seen = vec![];
-                discover_captures_in_block(working_set, block, &mut seen, seen_blocks)
-            };
-            seen_blocks.insert(*block_id, results.clone());
-            for var_id in results.into_iter() {
-                if !seen.contains(&var_id) {
-                    output.push(var_id)
+            if !seen_blocks.contains_key(block_id) {
+                let block = working_set.get_block(*block_id);
+                seen_blocks.insert(*block_id, vec![]);
+                let results = {
+                    let mut seen = vec![];
+                    discover_captures_in_block(working_set, block, &mut seen, seen_blocks)
+                };
+                seen_blocks.insert(*block_id, results.clone());
+                for var_id in results.into_iter() {
+                    if !seen.contains(&var_id) {
+                        output.push(var_id)
+                    }
                 }
             }
         }
@@ -5073,15 +5076,18 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
-            let block = working_set.get_block(*block_id);
-            let results = {
-                let mut seen = vec![];
-                discover_captures_in_block(working_set, block, &mut seen, seen_blocks)
-            };
-            seen_blocks.insert(*block_id, results.clone());
-            for var_id in results.into_iter() {
-                if !seen.contains(&var_id) {
-                    output.push(var_id)
+            if !seen_blocks.contains_key(block_id) {
+                let block = working_set.get_block(*block_id);
+                seen_blocks.insert(*block_id, vec![]);
+                let results = {
+                    let mut seen = vec![];
+                    discover_captures_in_block(working_set, block, &mut seen, seen_blocks)
+                };
+                seen_blocks.insert(*block_id, results.clone());
+                for var_id in results.into_iter() {
+                    if !seen.contains(&var_id) {
+                        output.push(var_id)
+                    }
                 }
             }
         }
