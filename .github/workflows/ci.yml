@@ -90,7 +90,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: run --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
+          args: --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
       - name: Doctests
         uses: actions-rs/cargo@v1
