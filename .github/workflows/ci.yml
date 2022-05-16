@@ -9,13 +9,15 @@ name: continuous-integration
 jobs:
   nu-fmt-clippy:
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
         rust:
           - stable
 
     runs-on: ${{ matrix.platform }}
+    env:
+      NUSHELL_CARGO_TARGET: ci
 
     steps:
       - uses: actions/checkout@v2
@@ -45,8 +47,11 @@ jobs:
           args: --features=extra --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
   nu-tests:
+    env:
+      NUSHELL_CARGO_TARGET: ci
+
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
         style: [extra, default]
@@ -79,23 +84,26 @@ jobs:
         with:
           key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
 
-      - uses: taiki-e/install-action@nextest
+      # - uses: taiki-e/install-action@nextest
 
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
-          command: nextest
-          args: run --workspace --exclude nu_plugin_* ${{ matrix.flags }}
+          command: test
+          args: --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
       - name: Doctests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --exclude nu_plugin_* --doc ${{ matrix.flags }}
+          args: --workspace --profile ci --exclude nu_plugin_* --doc ${{ matrix.flags }}
 
   python-virtualenv:
+    env:
+      NUSHELL_CARGO_TARGET: ci
+
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
         rust:
@@ -123,7 +131,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --path=. --no-default-features --debug
+          args: --path=. --profile ci --no-default-features
 
       - name: Setup Python
         uses: actions/setup-python@v2
@@ -146,8 +154,11 @@ jobs:
   # Build+test plugins on their own, without the rest of Nu. This helps with CI parallelization and
   # also helps test that the plugins build without any feature unification shenanigans
   plugins:
+    env:
+      NUSHELL_CARGO_TARGET: ci
+
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
         rust:
@@ -175,4 +186,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --package nu_plugin_*
+          args: --profile ci --package nu_plugin_*

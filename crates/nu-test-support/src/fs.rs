@@ -246,9 +246,12 @@ pub fn root() -> PathBuf {
 }
 
 pub fn binaries() -> PathBuf {
-    let mut build_type = "debug";
+    let mut build_type = "debug".to_string();
     if !cfg!(debug_assertions) {
-        build_type = "release"
+        build_type = "release".to_string()
+    }
+    if let Ok(target) = std::env::var("NUSHELL_CARGO_TARGET") {
+        build_type = target;
     }
 
     std::env::var("CARGO_TARGET_DIR")
