@@ -37,6 +37,11 @@ use std::{
 thread_local! { static IS_PERF: RefCell<bool> = RefCell::new(false) }
 
 fn main() -> Result<()> {
+    // Enable backtraces on panic to help diagnostics
+    if std::env::var("RUST_BACKTRACE").is_err() {
+        std::env::set_var("RUST_BACKTRACE", "1");
+    }
+
     // miette::set_panic_hook();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
