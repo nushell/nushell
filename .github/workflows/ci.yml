@@ -82,21 +82,13 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.style }}v2 # increment this to bust the cache if needed
-
-      # - uses: taiki-e/install-action@nextest
+          key: ${{ matrix.style }}v3 # increment this to bust the cache if needed
 
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
-
-      - name: Doctests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace --profile ci --exclude nu_plugin_* --doc ${{ matrix.flags }}
 
   python-virtualenv:
     env:
