@@ -437,6 +437,7 @@ impl PipelineData {
             if let Some(stream) = stream {
                 for s in stream {
                     let _ = stdout.lock().write_all(s?.as_binary()?);
+                    let _ = stdout.lock().flush()?;
                 }
             }
 
@@ -475,7 +476,9 @@ impl PipelineData {
                     }
 
                     match stdout.lock().write_all(out.as_bytes()) {
-                        Ok(_) => (),
+                        Ok(_) => {
+                            let _ = stdout.lock().flush()?;
+                        }
                         Err(err) => eprintln!("{}", err),
                     };
                 }
@@ -498,7 +501,9 @@ impl PipelineData {
                     }
 
                     match stdout.lock().write_all(out.as_bytes()) {
-                        Ok(_) => (),
+                        Ok(_) => {
+                            let _ = stdout.lock().flush()?;
+                        }
                         Err(err) => eprintln!("{}", err),
                     };
                 }
