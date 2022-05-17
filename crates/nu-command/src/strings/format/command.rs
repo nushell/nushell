@@ -187,17 +187,9 @@ fn format_record(
                 // path member should split by '.' to handle for nested structure.
                 let path_members: Vec<PathMember> = col_name
                     .split('.')
-                    .filter_map(|path| {
-                        // it's a little tricky here, in nu's format command, `$it` can only be value it self.
-                        // so `$it` here is meanless, just skip it.
-                        if path == "$it" {
-                            None
-                        } else {
-                            Some(PathMember::String {
-                                val: path.to_string(),
-                                span,
-                            })
-                        }
+                    .map(|path| PathMember::String {
+                        val: path.to_string(),
+                        span,
                     })
                     .collect();
                 match data_as_value.clone().follow_cell_path(&path_members) {
