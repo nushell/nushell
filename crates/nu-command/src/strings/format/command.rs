@@ -184,12 +184,23 @@ fn format_record(
             //  The referenced code suggests to use the correct Spans
             //  See: https://github.com/nushell/nushell/blob/c4af5df828135159633d4bc3070ce800518a42a2/crates/nu-command/src/commands/strings/format/command.rs#L61
             FormatOperation::ValueFromColumn(col_name) => {
-                match data_as_value
-                    .clone()
-                    .follow_cell_path(&[PathMember::String {
-                        val: col_name.clone(),
-                        span,
-                    }]) {
+                // path member should split by '.' to handle for nested structure.
+                let path_members: Vec<PathMember> = col_name
+                    .split('.')
+                    .filter_map(|path| {
+                        // it's a little tricky here, in nu's format command, `$it` can only be value it self.
+                        // so `$it` here is meanless, just skip it.
+                        if path == "$it" {
+                            None
+                        } else {
+                            Some(PathMember::String {
+                                val: path.to_string(),
+                                span,
+                            })
+                        }
+                    })
+                    .collect();
+                match data_as_value.clone().follow_cell_path(&path_members) {
                     Ok(value_at_column) => {
                         output.push_str(value_at_column.into_string(", ", config).as_str())
                     }
