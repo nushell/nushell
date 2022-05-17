@@ -98,7 +98,7 @@ pub enum ParseError {
     #[diagnostic(
         code(nu::parser::module_not_found),
         url(docsrs),
-        help("module files need to be available before your script is run")
+        help("module files and their paths must be available before your script is run as parsing occurs before anything is evaluated")
     )]
     ModuleNotFound(#[label = "module not found"] Span),
 
