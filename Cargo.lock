@@ -2434,6 +2434,7 @@ dependencies = [
  "nu-table",
  "nu-term-grid",
  "nu-test-support",
+ "nu-utils",
  "openssl",
  "pretty_assertions",
  "pretty_env_logger",
@@ -2582,6 +2583,7 @@ dependencies = [
  "nu-glob",
  "nu-path",
  "nu-protocol",
+ "nu-utils",
  "sysinfo",
 ]
 
@@ -2659,6 +2661,7 @@ dependencies = [
  "indexmap",
  "miette 4.5.0",
  "nu-json",
+ "nu-utils",
  "num-format",
  "regex",
  "serde",

@@ -1,14 +1,14 @@
 use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
-use nu_protocol::ast::{Block, Call, Expr, Expression, Operator};
-use nu_protocol::engine::{EngineState, Stack, Visibility};
 use nu_protocol::{
+    ast::{Block, Call, Expr, Expression, Operator},
+    engine::{EngineState, Stack, Visibility},
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
     Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
+use nu_utils::stdout_write_all_and_flush;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::io::Write;
 use sysinfo::SystemExt;
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
@@ -668,8 +668,6 @@ pub fn eval_block(
                             )?;
 
                             for item in table {
-                                let stdout = std::io::stdout();
-
                                 if let Value::Error { error } = item {
                                     return Err(error);
                                 }
@@ -677,16 +675,11 @@ pub fn eval_block(
                                 let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
-                                match stdout.lock().write_all(out.as_bytes()) {
-                                    Ok(_) => (),
-                                    Err(err) => eprintln!("{}", err),
-                                };
+                                stdout_write_all_and_flush(out)?
                             }
                         }
                         None => {
                             for item in input {
-                                let stdout = std::io::stdout();
-
                                 if let Value::Error { error } = item {
                                     return Err(error);
                                 }
@@ -694,10 +687,7 @@ pub fn eval_block(
                                 let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
-                                match stdout.lock().write_all(out.as_bytes()) {
-                                    Ok(_) => (),
-                                    Err(err) => eprintln!("{}", err),
-                                };
+                                stdout_write_all_and_flush(out)?
                             }
                         }
                     };
@@ -724,8 +714,6 @@ pub fn eval_block(
                             )?;
 
                             for item in table {
-                                let stdout = std::io::stdout();
-
                                 if let Value::Error { error } = item {
                                     return Err(error);
                                 }
@@ -733,16 +721,11 @@ pub fn eval_block(
                                 let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
-                                match stdout.lock().write_all(out.as_bytes()) {
-                                    Ok(_) => (),
-                                    Err(err) => eprintln!("{}", err),
-                                };
+                                stdout_write_all_and_flush(out)?
                             }
                         }
                         None => {
                             for item in input {
-                                let stdout = std::io::stdout();
-
                                 if let Value::Error { error } = item {
                                     return Err(error);
                                 }
@@ -750,10 +733,7 @@ pub fn eval_block(
                                 let mut out = item.into_string("\n", config);
                                 out.push('\n');
 
-                                match stdout.lock().write_all(out.as_bytes()) {
-                                    Ok(_) => (),
-                                    Err(err) => eprintln!("{}", err),
-                                };
+                                stdout_write_all_and_flush(out)?
                             }
                         }
                     };

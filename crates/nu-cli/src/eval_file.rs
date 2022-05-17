@@ -9,7 +9,7 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Config, PipelineData, Span, Value,
 };
-use std::io::Write;
+use nu_utils::stdout_write_all_and_flush;
 
 /// Main function used when a file path is found as argument for nu
 pub fn evaluate_file(
@@ -86,8 +86,6 @@ pub fn print_table_or_error(
             match table {
                 Ok(table) => {
                     for item in table {
-                        let stdout = std::io::stdout();
-
                         if let Value::Error { error } = item {
                             let working_set = StateWorkingSet::new(engine_state);
 
@@ -99,10 +97,7 @@ pub fn print_table_or_error(
                         let mut out = item.into_string("\n", config);
                         out.push('\n');
 
-                        match stdout.lock().write_all(out.as_bytes()) {
-                            Ok(_) => (),
-                            Err(err) => eprintln!("{}", err),
-                        };
+                        let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{}", err));
                     }
                 }
                 Err(error) => {
@@ -116,8 +111,6 @@ pub fn print_table_or_error(
         }
         None => {
             for item in pipeline_data {
-                let stdout = std::io::stdout();
-
                 if let Value::Error { error } = item {
                     let working_set = StateWorkingSet::new(engine_state);
 
@@ -129,10 +122,7 @@ pub fn print_table_or_error(
                 let mut out = item.into_string("\n", config);
                 out.push('\n');
 
-                match stdout.lock().write_all(out.as_bytes()) {
-                    Ok(_) => (),
-                    Err(err) => eprintln!("{}", err),
-                };
+                let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{}", err));
             }
         }
     };

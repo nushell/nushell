@@ -1,22 +1,19 @@
 use super::{Command, EnvVars, Stack};
+use crate::Value;
 use crate::{
     ast::Block, AliasId, BlockId, Config, DeclId, Example, Module, ModuleId, OverlayId, ShellError,
     Signature, Span, Type, VarId, Variable,
 };
 use core::panic;
+use std::borrow::Borrow;
+use std::collections::HashSet;
+use std::path::Path;
+#[cfg(feature = "plugin")]
+use std::path::PathBuf;
 use std::{
     collections::HashMap,
     sync::{atomic::AtomicBool, Arc},
 };
-
-use crate::Value;
-
-use std::borrow::Borrow;
-use std::collections::HashSet;
-use std::path::Path;
-
-#[cfg(feature = "plugin")]
-use std::path::PathBuf;
 
 static PWD_ENV: &str = "PWD";
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
@@ -650,6 +647,17 @@ impl EngineState {
                             plugin_file
                                 .write_all(line.as_bytes())
                                 .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                        })
+                        .and_then(|_| {
+                            plugin_file.flush().map_err(|err| {
+                                ShellError::GenericError(
+                                    "Error flushing plugin file".to_string(),
+                                    format! {"{}", err},
+                                    None,
+                                    None,
+                                    Vec::new(),
+                                )
+                            })
                         })
                 })
             })
