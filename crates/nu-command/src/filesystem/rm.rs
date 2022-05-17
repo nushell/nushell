@@ -9,7 +9,7 @@ use std::io::ErrorKind;
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
-use super::util::get_interactive_confirmation;
+use super::util::try_interaction;
 
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
@@ -289,20 +289,8 @@ fn rm(
                     || is_fifo
                     || is_empty()
                 {
-                    let interaction = if interactive {
-                        let prompt = format!("rm: remove '{}'? ", f.to_string_lossy());
-                        match get_interactive_confirmation(prompt) {
-                            Ok(i) => Ok(Some(i)),
-                            Err(e) => Err(e),
-                        }
-                    } else {
-                        Ok(None)
-                    };
-
-                    let confirmed = match interaction {
-                        Ok(maybe_input) => maybe_input.unwrap_or(false),
-                        Err(_) => false,
-                    };
+                    let (interaction, confirmed) =
+                        try_interaction(interactive, "rm: remove", &f.to_string_lossy());
 
                     let result;
                     #[cfg(all(
