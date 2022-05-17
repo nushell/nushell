@@ -24,9 +24,10 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value,
 };
+use nu_utils::stdout_write_all_and_flush;
 use std::cell::RefCell;
 use std::{
-    io::{BufReader, Write},
+    io::BufReader,
     path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -362,11 +363,7 @@ fn parse_commandline_args(
                 let full_help =
                     get_full_help(&Nu.signature(), &Nu.examples(), engine_state, &mut stack);
 
-                let _ = std::panic::catch_unwind(move || {
-                    let stdout = std::io::stdout();
-                    let mut stdout = stdout.lock();
-                    let _ = stdout.write_all(full_help.as_bytes());
-                });
+                let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(full_help));
 
                 std::process::exit(1);
             }
@@ -374,9 +371,7 @@ fn parse_commandline_args(
             if call.has_flag("version") {
                 let version = env!("CARGO_PKG_VERSION").to_string();
                 let _ = std::panic::catch_unwind(move || {
-                    let stdout = std::io::stdout();
-                    let mut stdout = stdout.lock();
-                    let _ = stdout.write_all(format!("{}\n", version).as_bytes());
+                    stdout_write_all_and_flush(format!("{}\n", version))
                 });
 
                 std::process::exit(0);

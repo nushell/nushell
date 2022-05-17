@@ -166,6 +166,8 @@ macro_rules! nu_with_plugins {
             .write_all(commands.as_bytes())
             .expect("couldn't write to stdin");
 
+        stdin.flush()?
+
         let output = process
             .wait_with_output()
             .expect("couldn't read from stdout/stderr");

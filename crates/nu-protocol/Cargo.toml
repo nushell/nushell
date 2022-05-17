@@ -9,6 +9,7 @@ version = "0.62.1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+nu-utils = { path = "../nu-utils", version = "0.62.1"  }
 thiserror = "1.0.29"
 miette = { version = "4.5.0", features = ["fancy"] }
 serde = {version = "1.0.130", features = ["derive"]}
