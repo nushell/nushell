@@ -48,7 +48,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns starting index of given pattern in string counting from 0. Returns -1 when there are no results."
+        "Returns start index of first occurrence of pattern in string, or -1 if no match"
     }
 
     fn run(

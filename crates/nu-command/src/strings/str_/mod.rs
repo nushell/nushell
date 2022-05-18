@@ -1,8 +1,6 @@
-mod capitalize;
 mod case;
 mod collect;
 mod contains;
-mod downcase;
 mod ends_with;
 mod index_of;
 mod length;
@@ -13,13 +11,10 @@ mod rpad;
 mod starts_with;
 mod substring;
 mod trim;
-mod upcase;
 
-pub use capitalize::SubCommand as StrCapitalize;
 pub use case::*;
 pub use collect::*;
 pub use contains::SubCommand as StrContains;
-pub use downcase::SubCommand as StrDowncase;
 pub use ends_with::SubCommand as StrEndswith;
 pub use index_of::SubCommand as StrIndexOf;
 pub use length::SubCommand as StrLength;
@@ -30,4 +25,3 @@ pub use rpad::SubCommand as StrRpad;
 pub use starts_with::SubCommand as StrStartsWith;
 pub use substring::SubCommand as StrSubstring;
 pub use trim::Trim as StrTrim;
-pub use upcase::SubCommand as StrUpcase;
