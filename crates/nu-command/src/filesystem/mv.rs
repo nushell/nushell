@@ -151,7 +151,6 @@ impl Command for Mv {
                     },
                     interactive,
                 );
-
                 if let Err(error) = result {
                     Some(Value::Error { error })
                 } else if verbose {
