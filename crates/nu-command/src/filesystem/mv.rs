@@ -140,44 +140,30 @@ impl Command for Mv {
             .into_iter()
             .flatten()
             .filter_map(move |entry| {
-                let mut confirmed = false;
-
-                let result = if interactive && destination.exists() && !destination.is_dir() {
-                    let (interactive_result, user_confirmed) = interactive_move_file(
-                        interactive,
-                        entry.clone(),
-                        destination.clone(),
-                        span,
-                        spanned_source.span,
-                        spanned_destination.span,
-                    );
-                    confirmed = user_confirmed;
-                    interactive_result
-                } else {
-                    move_file(
-                        Spanned {
-                            item: entry.clone(),
-                            span: spanned_source.span,
-                        },
-                        Spanned {
-                            item: destination.clone(),
-                            span: spanned_destination.span,
-                        },
-                    )
-                };
+                let result = move_file(
+                    Spanned {
+                        item: entry.clone(),
+                        span: spanned_source.span,
+                    },
+                    Spanned {
+                        item: destination.clone(),
+                        span: spanned_destination.span,
+                    },
+                    interactive,
+                );
 
                 if let Err(error) = result {
                     Some(Value::Error { error })
                 } else if verbose {
-                    let val = if interactive && !confirmed {
+                    let val = if result.unwrap() {
                         format!(
-                            "{:} not moved to {:}",
+                            "moved {:} to {:}",
                             entry.to_string_lossy(),
                             destination.to_string_lossy()
                         )
                     } else {
                         format!(
-                            "moved {:} to {:}",
+                            "{:} not moved to {:}",
                             entry.to_string_lossy(),
                             destination.to_string_lossy()
                         )
@@ -211,47 +197,11 @@ impl Command for Mv {
     }
 }
 
-fn interactive_move_file(
-    interactive: bool,
-    entry: PathBuf,
-    destination: PathBuf,
-    span: Span,
-    source_span: Span,
-    destination_span: Span,
-) -> (Result<(), ShellError>, bool) {
-    let (interaction, confirmed) =
-        try_interaction(interactive, "mv: overwrite", &destination.to_string_lossy());
-
-    let result = if let Err(e) = interaction {
-        Err(ShellError::GenericError(
-            format!("Error during interaction: {:}", e),
-            "could not move".into(),
-            Some(span),
-            None,
-            Vec::new(),
-        ))
-    } else if !confirmed {
-        Ok(())
-    } else {
-        move_file(
-            Spanned {
-                item: entry,
-                span: source_span,
-            },
-            Spanned {
-                item: destination,
-                span: destination_span,
-            },
-        )
-    };
-
-    (result, confirmed)
-}
-
 fn move_file(
     spanned_from: Spanned<PathBuf>,
     spanned_to: Spanned<PathBuf>,
-) -> Result<(), ShellError> {
+    interactive: bool,
+) -> Result<bool, ShellError> {
     let Spanned {
         item: from,
         span: from_span,
@@ -290,7 +240,26 @@ fn move_file(
         to.push(from_file_name);
     }
 
-    move_item(&from, from_span, &to)
+    if interactive && to.exists() {
+        let (interaction, confirmed) =
+            try_interaction(interactive, "mv: overwrite", &to.to_string_lossy());
+        if let Err(e) = interaction {
+            return Err(ShellError::GenericError(
+                format!("Error during interaction: {:}", e),
+                "could not move".into(),
+                None,
+                None,
+                Vec::new(),
+            ));
+        } else if !confirmed {
+            return Ok(false);
+        }
+    }
+
+    match move_item(&from, from_span, &to) {
+        Ok(()) => Ok(true),
+        Err(e) => Err(e),
+    }
 }
 
 fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> {
