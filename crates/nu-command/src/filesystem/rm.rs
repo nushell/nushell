@@ -9,7 +9,7 @@ use std::io::ErrorKind;
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
-// use super::util::get_interactive_confirmation;
+use super::util::try_interaction;
 
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
@@ -67,7 +67,7 @@ impl Command for Rm {
                 "make rm to be verbose, showing files been deleted",
                 Some('v'),
             )
-            // .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",
                 SyntaxShape::GlobPattern,
@@ -134,7 +134,7 @@ fn rm(
     let recursive = call.has_flag("recursive");
     let force = call.has_flag("force");
     let verbose = call.has_flag("verbose");
-    // let interactive = call.has_flag("interactive");
+    let interactive = call.has_flag("interactive");
 
     let ctrlc = engine_state.ctrlc.clone();
 
@@ -289,6 +289,9 @@ fn rm(
                     || is_fifo
                     || is_empty()
                 {
+                    let (interaction, confirmed) =
+                        try_interaction(interactive, "rm: remove", &f.to_string_lossy());
+
                     let result;
                     #[cfg(all(
                         feature = "trash-support",
@@ -297,9 +300,14 @@ fn rm(
                     ))]
                     {
                         use std::io::Error;
-                        result = if trash || (rm_always_trash && !permanent) {
+                        result = if let Err(e) = interaction {
+                            let e = Error::new(ErrorKind::Other, &*e.to_string());
+                            Err(e)
+                        } else if interactive && !confirmed {
+                            Ok(())
+                        } else if trash || (rm_always_trash && !permanent) {
                             trash::delete(&f).map_err(|e: trash::Error| {
-                                Error::new(ErrorKind::Other, format!("{:?}", e))
+                                Error::new(ErrorKind::Other, format!("{:?}\nTry '--trash' flag", e))
                             })
                         } else if metadata.is_file() || is_socket || is_fifo {
                             std::fs::remove_file(&f)
@@ -313,7 +321,13 @@ fn rm(
                         target_os = "ios"
                     ))]
                     {
-                        result = if metadata.is_file() || is_socket || is_fifo {
+                        use std::io::{Error, ErrorKind};
+                        result = if let Err(e) = interaction {
+                            let e = Error::new(ErrorKind::Other, &*e.to_string());
+                            Err(e)
+                        } else if interactive && !confirmed {
+                            Ok(())
+                        } else if metadata.is_file() || is_socket || is_fifo {
                             std::fs::remove_file(&f)
                         } else {
                             std::fs::remove_dir_all(&f)
@@ -321,7 +335,7 @@ fn rm(
                     }
 
                     if let Err(e) = result {
-                        let msg = format!("Could not delete because: {:}\nTry '--trash' flag", e);
+                        let msg = format!("Could not delete because: {:}", e);
                         Value::Error {
                             error: ShellError::GenericError(
                                 msg,
@@ -332,7 +346,12 @@ fn rm(
                             ),
                         }
                     } else if verbose {
-                        let val = format!("deleted {:}", f.to_string_lossy());
+                        let msg = if interactive && !confirmed {
+                            "not deleted"
+                        } else {
+                            "deleted"
+                        };
+                        let val = format!("{} {:}", msg, f.to_string_lossy());
                         Value::String { val, span }
                     } else {
                         Value::Nothing { span }
