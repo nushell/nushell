@@ -129,47 +129,46 @@ impl Command for Reduce {
             ));
         };
 
-        let mut acc = start_val;
+        let mut acc = if numbered {
+            Value::Record {
+                cols: vec!["index".to_string(), "item".to_string()],
+                vals: vec![Value::Int { val: 0, span }, start_val],
+                span,
+            }
+        } else {
+            start_val
+        };
 
-        let mut input_iter = input_iter.enumerate().peekable();
-        while let Some((idx, x)) = input_iter.next() {
-            stack.with_env(&orig_env_vars, &orig_env_hidden);
-            // if the acc coming from previous iter is indexed, drop the index
-            acc = if let Value::Record { cols, vals, .. } = &acc {
-                if cols.len() == 2 && vals.len() == 2 {
-                    if cols[0].eq("index") && cols[1].eq("item") {
-                        vals[1].clone()
-                    } else {
-                        acc
+        let mut input_iter = input_iter
+            .enumerate()
+            .map(|(idx, x)| {
+                if numbered {
+                    Value::Record {
+                        cols: vec!["index".to_string(), "item".to_string()],
+                        vals: vec![
+                            Value::Int {
+                                val: idx as i64 + off,
+                                span,
+                            },
+                            x,
+                        ],
+                        span,
                     }
                 } else {
-                    acc
+                    x
                 }
-            } else {
-                acc
-            };
+            })
+            .peekable();
+
+        while let Some(x) = input_iter.next() {
+            stack.with_env(&orig_env_vars, &orig_env_hidden);
 
             if let Some(var) = block.signature.get_positional(0) {
                 if let Some(var_id) = &var.var_id {
-                    let it = if numbered {
-                        Value::Record {
-                            cols: vec!["index".to_string(), "item".to_string()],
-                            vals: vec![
-                                Value::Int {
-                                    val: idx as i64 + off,
-                                    span,
-                                },
-                                x,
-                            ],
-                            span,
-                        }
-                    } else {
-                        x
-                    };
-
-                    stack.add_var(*var_id, it);
+                    stack.add_var(*var_id, x);
                 }
             }
+
             if let Some(var) = block.signature.get_positional(1) {
                 if let Some(var_id) = &var.var_id {
                     stack.add_var(*var_id, acc);
