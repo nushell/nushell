@@ -94,7 +94,10 @@ pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
                         }
                     }
                 }
-                if word.contains(input) {
+                if word.contains(input) || {
+                    let s: Vec<&str> = input.split('=').collect();
+                    word.contains(s[0])
+                } {
                     return input.to_string();
                 }
             }
