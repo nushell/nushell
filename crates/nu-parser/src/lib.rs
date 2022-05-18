@@ -17,8 +17,8 @@ pub use lite_parse::{lite_parse, LiteBlock};
 pub use parse_keywords::*;
 
 pub use parser::{
-    is_math_expression_like, parse, parse_block, parse_duration_bytes, parse_external_call,
-    trim_quotes, trim_quotes_str, unescape_unquote_string, Import,
+    is_math_expression_like, parse, parse_block, parse_duration_bytes, parse_expression,
+    parse_external_call, trim_quotes, trim_quotes_str, unescape_unquote_string, Import,
 };
 
 #[cfg(feature = "plugin")]
