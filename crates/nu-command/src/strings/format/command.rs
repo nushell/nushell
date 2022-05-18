@@ -88,7 +88,7 @@ impl Command for Format {
 // for {column1.column2}, we just need to follow given record or list.
 // for {$it.column1.column2} or {$variable}, we need to manually evaluate the expression.
 //
-// I Have thought about converting from {column1.column2} to {$it.column1.column2}, but that
+// Have thought about converting from {column1.column2} to {$it.column1.column2}, but that
 // will extend input relative span, finally make `nu` panic out with message: span missing in file
 // contents cache.
 #[derive(Debug)]
