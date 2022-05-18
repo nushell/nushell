@@ -16,8 +16,6 @@ fn creates_the_resulting_string_from_the_given_fields() {
     assert_eq!(actual.out, "nu has license ISC");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn given_fields_can_be_column_paths() {
     let actual = nu!(
