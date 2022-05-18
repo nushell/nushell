@@ -34,8 +34,6 @@ fn moves_a_column_before() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn moves_columns_before() {
     Playground::setup("move_column_test_2", |dirs, sandbox| {
@@ -60,8 +58,9 @@ fn moves_columns_before() {
                 open sample.csv
                 | move column99 column3 --before column2
                 | rename _ chars_1 chars_2
-                | get chars_2 chars_1
-                | str trim
+                | select chars_2 chars_1
+                | upsert new_col {|f| $f | transpose | get column1 | str trim | str collect}
+                | get new_col
                 | str collect
             "#
         ));
@@ -70,8 +69,6 @@ fn moves_columns_before() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn moves_a_column_after() {
     Playground::setup("move_column_test_3", |dirs, sandbox| {
@@ -97,8 +94,9 @@ fn moves_a_column_after() {
                 | move letters --after and_more
                 | move letters and_more --before column2
                 | rename _ chars_1 chars_2
-                | get chars_1 chars_2
-                | str trim
+                | select chars_1 chars_2
+                | upsert new_col {|f| $f | transpose | get column1 | str trim | str collect}
+                | get new_col
                 | str collect
             "#
         ));
