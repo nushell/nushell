@@ -94,9 +94,9 @@ impl Command for Format {
 #[derive(Debug)]
 enum FormatOperation {
     FixedText(String),
-    // something like {column1.column2}
+    // raw input is something like {column1.column2}
     ValueFromColumn(String, Span),
-    // something like {$it.column1.column2} or {$var}.
+    // raw input is something like {$it.column1.column2} or {$var}.
     ValueNeedEval(String, Span),
 }
 
