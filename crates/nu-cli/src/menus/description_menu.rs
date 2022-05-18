@@ -586,7 +586,7 @@ impl Menu for DescriptionMenu {
                         } else {
                             self.example_index = Some(self.examples.len().saturating_sub(1));
                         }
-                    } else {
+                    } else if !self.examples.is_empty() {
                         self.example_index = Some(0);
                     }
                 }
@@ -598,7 +598,7 @@ impl Menu for DescriptionMenu {
                         } else {
                             self.example_index = Some(0);
                         }
-                    } else {
+                    } else if !self.examples.is_empty() {
                         self.example_index = Some(0);
                     }
                 }
