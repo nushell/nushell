@@ -22,8 +22,6 @@ fn regular_columns() {
     assert_eq!(actual.out, "Robalino");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn complex_nested_columns() {
     Playground::setup("select_test_2", |dirs, sandbox| {
@@ -57,8 +55,9 @@ fn complex_nested_columns() {
             r#"
                 open los_tres_caballeros.json
                 | select nu."0xATYKARNU" nu.committers.name nu.releases.version
-                | where nu_releases_version > "0.8"
                 | get nu_releases_version
+                | where $it > "0.8"
+                | get 0
             "#
         ));
 

@@ -126,7 +126,7 @@ fn select(
                         //FIXME: improve implementation to not clone
                         let fetcher = input_val.clone().follow_cell_path(&path.members)?;
 
-                        cols.push(path.into_string());
+                        cols.push(path.into_string().replace('.', "_"));
                         vals.push(fetcher);
                     }
 
@@ -150,11 +150,11 @@ fn select(
                         //FIXME: improve implementation to not clone
                         match x.clone().follow_cell_path(&path.members) {
                             Ok(value) => {
-                                cols.push(path.into_string());
+                                cols.push(path.into_string().replace('.', "_"));
                                 vals.push(value);
                             }
                             Err(_) => {
-                                cols.push(path.into_string());
+                                cols.push(path.into_string().replace('.', "_"));
                                 vals.push(Value::Nothing { span });
                             }
                         }
@@ -175,7 +175,7 @@ fn select(
                     // FIXME: remove clone
                     let result = v.clone().follow_cell_path(&cell_path.members)?;
 
-                    cols.push(cell_path.into_string());
+                    cols.push(cell_path.into_string().replace('.', "_"));
                     vals.push(result);
                 }
 
