@@ -40,7 +40,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "convert a string to camelCase",
+                description: "convert a string to snake_case",
                 example: r#" "NuShell" | str snake-case"#,
                 result: Some(Value::String {
                     val: "nu_shell".to_string(),
@@ -48,7 +48,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "convert a string to camelCase",
+                description: "convert a string to snake_case",
                 example: r#" "this_is_the_second_case" | str snake-case"#,
                 result: Some(Value::String {
                     val: "this_is_the_second_case".to_string(),
@@ -56,7 +56,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "convert a string to camelCase",
+                description: "convert a string to snake_case",
                 example: r#""this-is-the-first-case" | str snake-case"#,
                 result: Some(Value::String {
                     val: "this_is_the_first_case".to_string(),
@@ -64,7 +64,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "convert a column from a table to snake-case",
+                description: "convert a column from a table to snake_case",
                 example: r#"[[lang, gems]; [nuTest, 100]] | str snake-case lang"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
