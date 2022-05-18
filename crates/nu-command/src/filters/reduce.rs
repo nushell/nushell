@@ -51,7 +51,7 @@ impl Command for Reduce {
                 }),
             },
             Example {
-                example: "[ 1 2 3 ] | reduce -n {|it, acc| $acc + $it.item }",
+                example: "[ 1 2 3 ] | reduce -n {|it, acc| $acc.item + $it.item }",
                 description: "Sum values of a list (same as 'math sum')",
                 result: Some(Value::Int {
                     val: 6,
@@ -76,10 +76,10 @@ impl Command for Reduce {
             },
             Example {
                 example: r#"[ one longest three bar ] | reduce -n { |it, acc|
-                    if ($it.item | str length) > ($acc | str length) {
+                    if ($it.item | str length) > ($acc.item | str length) {
                         $it.item
                     } else {
-                        $acc
+                        $acc.item
                     }
                 }"#,
                 description: "Find the longest string and its index",
@@ -143,24 +143,27 @@ impl Command for Reduce {
             .enumerate()
             .map(|(idx, x)| {
                 if numbered {
-                    Value::Record {
-                        cols: vec!["index".to_string(), "item".to_string()],
-                        vals: vec![
-                            Value::Int {
-                                val: idx as i64 + off,
-                                span,
-                            },
-                            x,
-                        ],
-                        span,
-                    }
+                    (
+                        idx,
+                        Value::Record {
+                            cols: vec!["index".to_string(), "item".to_string()],
+                            vals: vec![
+                                Value::Int {
+                                    val: idx as i64 + off,
+                                    span,
+                                },
+                                x,
+                            ],
+                            span,
+                        },
+                    )
                 } else {
-                    x
+                    (idx, x)
                 }
             })
             .peekable();
 
-        while let Some(x) = input_iter.next() {
+        while let Some((idx, x)) = input_iter.next() {
             stack.with_env(&orig_env_vars, &orig_env_hidden);
 
             if let Some(var) = block.signature.get_positional(0) {
@@ -171,6 +174,26 @@ impl Command for Reduce {
 
             if let Some(var) = block.signature.get_positional(1) {
                 if let Some(var_id) = &var.var_id {
+                    acc = if numbered {
+                        if let Value::Record { .. } = &acc {
+                            acc
+                        } else {
+                            Value::Record {
+                                cols: vec!["index".to_string(), "item".to_string()],
+                                vals: vec![
+                                    Value::Int {
+                                        val: idx as i64 + off,
+                                        span,
+                                    },
+                                    acc,
+                                ],
+                                span,
+                            }
+                        }
+                    } else {
+                        acc
+                    };
+
                     stack.add_var(*var_id, acc);
                 }
             }
