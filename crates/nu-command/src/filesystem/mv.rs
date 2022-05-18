@@ -154,7 +154,7 @@ impl Command for Mv {
                 if let Err(error) = result {
                     Some(Value::Error { error })
                 } else if verbose {
-                    let val = if result.unwrap() {
+                    let val = if result.expect("Error value when unwrapping mv result") {
                         format!(
                             "moved {:} to {:}",
                             entry.to_string_lossy(),
