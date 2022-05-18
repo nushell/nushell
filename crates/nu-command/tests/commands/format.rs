@@ -29,8 +29,6 @@ fn given_fields_can_be_column_paths() {
     assert_eq!(actual.out, "nu is a new type of shell");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn can_use_variables() {
     let actual = nu!(
