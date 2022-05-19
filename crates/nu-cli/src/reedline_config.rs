@@ -524,8 +524,8 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
 
     // Help menu keybinding
     keybindings.add_binding(
-        KeyModifiers::CONTROL,
-        KeyCode::Char('q'),
+        KeyModifiers::NONE,
+        KeyCode::F(1),
         ReedlineEvent::Menu("help_menu".to_string()),
     );
 }
