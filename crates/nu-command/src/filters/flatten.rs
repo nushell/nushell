@@ -294,49 +294,51 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
             }
 
             let mut expanded = vec![];
+            match inner_table {
+                Some(TableInside::Entries(column, _, entries)) => {
+                    for entry in entries {
+                        let mut base = out.clone();
 
-            if let Some(TableInside::Entries(column, _, entries)) = inner_table {
-                for entry in entries {
-                    let mut base = out.clone();
-
-                    base.insert(column.to_string(), entry.clone());
-                    let record = Value::Record {
-                        cols: base.keys().map(|f| f.to_string()).collect::<Vec<_>>(),
-                        vals: base.values().cloned().collect(),
-                        span: tag,
-                    };
-                    expanded.push(record);
-                }
-            } else if let Some(TableInside::FlatternedRows {
-                columns,
-                _span,
-                values,
-                parent_column_name,
-            }) = inner_table
-            {
-                for (inner_cols, inner_vals) in columns.into_iter().zip(values) {
-                    let mut base = out.clone();
-                    for (col, val) in inner_cols.into_iter().zip(inner_vals) {
-                        if base.contains_key(&col) {
-                            base.insert(format!("{}_{}", parent_column_name, col), val);
-                        } else {
-                            base.insert(col, val);
-                        }
+                        base.insert(column.to_string(), entry.clone());
+                        let record = Value::Record {
+                            cols: base.keys().map(|f| f.to_string()).collect::<Vec<_>>(),
+                            vals: base.values().cloned().collect(),
+                            span: tag,
+                        };
+                        expanded.push(record);
                     }
+                },
+                Some(TableInside::FlatternedRows {
+                    columns,
+                    _span,
+                    values,
+                    parent_column_name,
+                }) => {
+                    for (inner_cols, inner_vals) in columns.into_iter().zip(values) {
+                        let mut base = out.clone();
+                        for (col, val) in inner_cols.into_iter().zip(inner_vals) {
+                            if base.contains_key(&col) {
+                                base.insert(format!("{}_{}", parent_column_name, col), val);
+                            } else {
+                                base.insert(col, val);
+                            }
+                        }
+                        let record = Value::Record {
+                            cols: base.keys().map(|f| f.to_string()).collect::<Vec<_>>(),
+                            vals: base.values().cloned().collect(),
+                            span: tag,
+                        };
+                        expanded.push(record);
+                    }
+                },
+                None => {
                     let record = Value::Record {
-                        cols: base.keys().map(|f| f.to_string()).collect::<Vec<_>>(),
-                        vals: base.values().cloned().collect(),
+                        cols: out.keys().map(|f| f.to_string()).collect::<Vec<_>>(),
+                        vals: out.values().cloned().collect(),
                         span: tag,
                     };
                     expanded.push(record);
                 }
-            } else {
-                let record = Value::Record {
-                    cols: out.keys().map(|f| f.to_string()).collect::<Vec<_>>(),
-                    vals: out.values().cloned().collect(),
-                    span: tag,
-                };
-                expanded.push(record);
             }
             expanded
         } else if item.as_list().is_ok() {
