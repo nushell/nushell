@@ -92,7 +92,7 @@ impl Default for Config {
             partial_completions: true,
             completion_algorithm: "prefix".into(),
             edit_mode: "emacs".into(),
-            max_history_size: 1000,
+            max_history_size: i64::MAX,
             sync_history_on_enter: true,
             log_level: String::new(),
             keybindings: Vec::new(),
