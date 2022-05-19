@@ -180,10 +180,21 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
                         span: _,
                     } => {
                         if column_requested.is_none() && !columns.is_empty() {
-                            out.insert(column.to_string(), value.clone());
+                            if out.contains_key(column) {
+                                out.insert(format!("{}_{}", column, column), value.clone());
+                            } else {
+                                out.insert(column.to_string(), value.clone());
+                            }
                         } else {
-                            cols.iter().enumerate().for_each(|(idx, column)| {
-                                out.insert(column.to_string(), vals[idx].clone());
+                            cols.iter().enumerate().for_each(|(idx, inner_record_col)| {
+                                if out.contains_key(inner_record_col) {
+                                    out.insert(
+                                        format!("{}_{}", column, inner_record_col),
+                                        vals[idx].clone(),
+                                    );
+                                } else {
+                                    out.insert(inner_record_col.to_string(), vals[idx].clone());
+                                }
                             })
                         }
                     }
