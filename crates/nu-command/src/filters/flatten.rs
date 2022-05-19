@@ -307,7 +307,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
                         };
                         expanded.push(record);
                     }
-                },
+                }
                 Some(TableInside::FlatternedRows {
                     columns,
                     _span,
@@ -330,7 +330,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
                         };
                         expanded.push(record);
                     }
-                },
+                }
                 None => {
                     let record = Value::Record {
                         cols: out.keys().map(|f| f.to_string()).collect::<Vec<_>>(),
