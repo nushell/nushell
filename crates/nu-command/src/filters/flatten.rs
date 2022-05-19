@@ -123,7 +123,7 @@ fn flatten(
 }
 
 enum TableInside<'a> {
-    // handle for a column which contains a single list.
+    // handle for a column which contains a single list(but not list of records).
     Entries(&'a str, &'a Span, Vec<&'a Value>),
     // handle for a column which contains a table, we can flatten the inner column to outer level
     // `columns` means that for the given row, it contains `len(columns)` nested rows, and each nested row contains a list of column name.
