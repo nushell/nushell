@@ -238,7 +238,7 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
 
 #[test]
 fn copy_to_non_existing_dir() {
-    Playground::setup("cp_test_11", |dirs, sandbox| {
+    Playground::setup("cp_test_11", |_dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("empty_file")]);
 
         let actual = nu!(
