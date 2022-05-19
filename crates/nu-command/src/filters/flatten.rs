@@ -127,7 +127,7 @@ enum TableInside<'a> {
     Entries(&'a str, &'a Span, Vec<&'a Value>),
     // handle for a column which contains a table, we can flatten the inner column to outer level
     // `columns` means that for the given row, it contains `len(columns)` nested rows, and each nested row contains a list of column name.
-    // at the same, `values` means that for the given row, it contains `len(values)` nested rows, and each nested row contains a list of values.
+    // Likely, `values` means that for the given row, it contains `len(values)` nested rows, and each nested row contains a list of values.
     //
     // `parent_column_name` is handled for conflicting column name, the nested table may contains columns which has the same name
     // to outer level, for that case, the output column name should be f"{parent_column_name}_{inner_column_name}".
