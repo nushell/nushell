@@ -61,8 +61,6 @@ fn uniq_values() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn nested_json_structures() {
     Playground::setup("uniq_test_3", |dirs, sandbox| {
@@ -127,8 +125,6 @@ fn nested_json_structures() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn uniq_when_keys_out_of_order() {
     let actual = nu!(

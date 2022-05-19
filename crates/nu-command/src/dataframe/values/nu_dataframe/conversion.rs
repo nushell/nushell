@@ -7,7 +7,7 @@ use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
 use polars::prelude::{
     DataFrame, DataType, DatetimeChunked, Int64Type, IntoSeries, NamedFrom, NewChunkedArray,
-    ObjectType, Series, TimeUnit,
+    ObjectType, Series, TemporalMethods, TimeUnit,
 };
 use std::ops::{Deref, DerefMut};
 

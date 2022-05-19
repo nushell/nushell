@@ -1,13 +1,10 @@
-use std::{
-    io::Write,
-    sync::{atomic::AtomicBool, Arc},
-};
-
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
+use nu_utils::{stdout_write_all_and_flush, stdout_write_all_as_binary_and_flush};
+use std::sync::{atomic::AtomicBool, Arc};
 
 /// The foundational abstraction for input and output to commands
 ///
@@ -426,7 +423,7 @@ impl PipelineData {
         // to create the table value that will be printed in the terminal
 
         let config = engine_state.get_config();
-        let stdout = std::io::stdout();
+        // let stdout = std::io::stdout();
 
         if let PipelineData::ExternalStream {
             stdout: stream,
@@ -436,7 +433,9 @@ impl PipelineData {
         {
             if let Some(stream) = stream {
                 for s in stream {
-                    let _ = stdout.lock().write_all(s?.as_binary()?);
+                    let s_live = s?;
+                    let bin_output = s_live.as_binary()?;
+                    stdout_write_all_as_binary_and_flush(bin_output)?
                 }
             }
 
@@ -448,7 +447,7 @@ impl PipelineData {
             return Ok(());
         }
 
-        match engine_state.find_decl("table".as_bytes()) {
+        match engine_state.find_decl("table".as_bytes(), &[]) {
             Some(decl_id) => {
                 let table = engine_state.get_decl(decl_id).run(
                     engine_state,
@@ -458,8 +457,6 @@ impl PipelineData {
                 )?;
 
                 for item in table {
-                    let stdout = std::io::stdout();
-
                     let mut out = if let Value::Error { error } = item {
                         let working_set = StateWorkingSet::new(engine_state);
 
@@ -474,15 +471,11 @@ impl PipelineData {
                         out.push('\n');
                     }
 
-                    match stdout.lock().write_all(out.as_bytes()) {
-                        Ok(_) => (),
-                        Err(err) => eprintln!("{}", err),
-                    };
+                    stdout_write_all_and_flush(out)?
                 }
             }
             None => {
                 for item in self {
-                    let stdout = std::io::stdout();
                     let mut out = if let Value::Error { error } = item {
                         let working_set = StateWorkingSet::new(engine_state);
 
@@ -497,10 +490,7 @@ impl PipelineData {
                         out.push('\n');
                     }
 
-                    match stdout.lock().write_all(out.as_bytes()) {
-                        Ok(_) => (),
-                        Err(err) => eprintln!("{}", err),
-                    };
+                    stdout_write_all_and_flush(out)?
                 }
             }
         };

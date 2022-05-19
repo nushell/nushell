@@ -11,7 +11,7 @@ name = "nu"
 readme = "README.md"
 repository = "https://github.com/nushell/nushell"
 rust-version = "1.60"
-version = "0.62.0"
+version = "0.62.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -38,19 +38,20 @@ ctrlc = "3.2.1"
 log = "0.4"
 miette = "4.5.0"
 nu-ansi-term = "0.45.1"
-nu-cli = { path="./crates/nu-cli", version = "0.62.0"  }
-nu-color-config = { path = "./crates/nu-color-config", version = "0.62.0"  }
-nu-command = { path="./crates/nu-command", version = "0.62.0"  }
-nu-engine = { path="./crates/nu-engine", version = "0.62.0"  }
-nu-json = { path="./crates/nu-json", version = "0.62.0"  }
-nu-parser = { path="./crates/nu-parser", version = "0.62.0"  }
-nu-path = { path="./crates/nu-path", version = "0.62.0"  }
-nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.62.0"  }
-nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.62.0"  }
-nu-protocol = { path = "./crates/nu-protocol", version = "0.62.0"  }
-nu-system = { path = "./crates/nu-system", version = "0.62.0" }
-nu-table = { path = "./crates/nu-table", version = "0.62.0"  }
-nu-term-grid = { path = "./crates/nu-term-grid", version = "0.62.0"  }
+nu-cli = { path="./crates/nu-cli", version = "0.62.1"  }
+nu-color-config = { path = "./crates/nu-color-config", version = "0.62.1"  }
+nu-command = { path="./crates/nu-command", version = "0.62.1"  }
+nu-engine = { path="./crates/nu-engine", version = "0.62.1"  }
+nu-json = { path="./crates/nu-json", version = "0.62.1"  }
+nu-parser = { path="./crates/nu-parser", version = "0.62.1"  }
+nu-path = { path="./crates/nu-path", version = "0.62.1"  }
+nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.62.1"  }
+nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.62.1"  }
+nu-protocol = { path = "./crates/nu-protocol", version = "0.62.1"  }
+nu-system = { path = "./crates/nu-system", version = "0.62.1" }
+nu-table = { path = "./crates/nu-table", version = "0.62.1"  }
+nu-term-grid = { path = "./crates/nu-term-grid", version = "0.62.1"  }
+nu-utils = { path = "./crates/nu-utils", version = "0.62.1"  }
 openssl = { version = "0.10.38", features = ["vendored"], optional = true }
 pretty_env_logger = "0.4.0"
 rayon = "1.5.1"
@@ -58,7 +59,7 @@ reedline = { version = "0.5.0", features = ["bashisms"]}
 is_executable = "1.0.1"
 
 [dev-dependencies]
-nu-test-support = { path="./crates/nu-test-support", version = "0.62.0"  }
+nu-test-support = { path="./crates/nu-test-support", version = "0.62.1"  }
 tempfile = "3.2.0"
 assert_cmd = "2.0.2"
 pretty_assertions = "1.0.0"
@@ -102,6 +103,13 @@ lto = "thin"
 inherits = "release"
 strip = false
 debug = true
+
+# build with `cargo build --profile ci`
+# to analyze performance with tooling like linux perf
+[profile.ci]
+inherits = "dev"
+strip = false
+debug = false
 
 # Main nu binary
 [[bin]]

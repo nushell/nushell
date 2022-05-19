@@ -23,6 +23,15 @@ fn env_shorthand_with_equals() {
 }
 
 #[test]
+fn env_shorthand_with_interpolation() {
+    let actual = nu!(cwd: ".", r#"
+        let num = 123
+        FOO=$"($num) bar" echo $env.FOO
+        "#);
+    assert_eq!(actual.out, "123 bar");
+}
+
+#[test]
 fn env_shorthand_with_comma_equals() {
     let actual = nu!(cwd: ".", r#"
         RUST_LOG=info,my_module=info $env.RUST_LOG

@@ -1,10 +1,10 @@
+use super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
-
-use super::super::values::{Column, NuDataFrame};
+use polars::prelude::DataFrameOps;
 
 #[derive(Clone)]
 pub struct Dummies;

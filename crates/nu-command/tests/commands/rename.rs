@@ -61,8 +61,6 @@ fn keeps_remaining_original_names_given_less_new_names_than_total_original_names
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn errors_if_no_columns_present() {
     Playground::setup("rename_test_3", |dirs, sandbox| {

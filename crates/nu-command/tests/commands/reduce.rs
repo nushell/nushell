@@ -46,15 +46,13 @@ fn reduce_rows_example() {
     assert_eq!(actual.out, "14.8");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn reduce_numbered_example() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
         echo one longest three bar
-        | reduce -n { |it, acc| if ($it.item | str length) > ($acc | str length) {echo $it.item} else {echo $acc}}
+        | reduce -n { |it, acc| if ($it.item | str length) > ($acc.item | str length) {echo $it} else {echo $acc}}
         | get index
         "#
         )
@@ -69,7 +67,7 @@ fn reduce_numbered_integer_addition_example() {
         cwd: ".", pipeline(
         r#"
         echo [1 2 3 4]
-        | reduce -n { |it, acc| $acc + $it.item }
+        | reduce -n { |it, acc| $acc.item + $it.item }
         "#
         )
     );

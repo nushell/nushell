@@ -18,6 +18,10 @@ impl Command for BuildString {
         "Create a string from the arguments."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["concatenate", "join"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("build-string")
             .rest("rest", SyntaxShape::String, "list of string")

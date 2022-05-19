@@ -63,33 +63,11 @@ pub fn version(
         span: call.head,
     });
 
-    cols.push("tag".to_string());
-    vals.push(Value::String {
-        val: shadow_rs::tag(),
-        span: call.head,
-    });
-
-    let short_commit: Option<&str> = Some(shadow::SHORT_COMMIT).filter(|x| !x.is_empty());
-    if let Some(short_commit) = short_commit {
-        cols.push("short_commit".to_string());
-        vals.push(Value::String {
-            val: short_commit.to_string(),
-            span: call.head,
-        });
-    }
-    let commit_hash: Option<&str> = Some(shadow::COMMIT_HASH).filter(|x| !x.is_empty());
+    let commit_hash: Option<&str> = option_env!("NU_COMMIT_HASH");
     if let Some(commit_hash) = commit_hash {
         cols.push("commit_hash".to_string());
         vals.push(Value::String {
             val: commit_hash.to_string(),
-            span: call.head,
-        });
-    }
-    let commit_date: Option<&str> = Some(shadow::COMMIT_DATE).filter(|x| !x.is_empty());
-    if let Some(commit_date) = commit_date {
-        cols.push("commit_date".to_string());
-        vals.push(Value::String {
-            val: commit_date.to_string(),
             span: call.head,
         });
     }

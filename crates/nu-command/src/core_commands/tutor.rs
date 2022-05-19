@@ -74,6 +74,7 @@ fn tutor(
 
     let search: Option<String> = call.opt(engine_state, stack, 0).unwrap_or(None);
     let find: Option<String> = call.get_flag(engine_state, stack, "find")?;
+    let notes = "You can learn about a topic using `tutor` followed by the name of the topic.\nFor example: `tutor table` to open the table topic.\n\n";
 
     let search_space = [
         (vec!["begin"], begin_tutor()),
@@ -100,7 +101,6 @@ fn tutor(
             vec!["var", "vars", "variable", "variables"],
             variable_tutor(),
         ),
-        (vec!["engine-q", "e-q"], engineq_tutor()),
         (vec!["block", "blocks"], block_tutor()),
         (vec!["shorthand", "shorthands"], shorthand_tutor()),
     ];
@@ -113,13 +113,22 @@ fn tutor(
             }
         }
 
-        let message = format!("You can find '{}' in the following topics:\n{}\n\nYou can learn about a topic using `tutor` followed by the name of the topic.\nFor example: `tutor table` to open the table topic.\n\n",
-            find,
+        let message = format!(
+            "You can find '{find}' in the following topics:\n\n{}\n\n{notes}",
             results.into_iter().map(|x| format!("- {}", x)).join("\n")
         );
 
         return Ok(display(&message, engine_state, stack, span));
     } else if let Some(search) = search {
+        if search == "list" {
+            let results = search_space.map(|s| s.0[0].to_string());
+            let message = format!(
+                "This tutorial contains the following topics:\n\n{}\n\n{notes}",
+                results.map(|x| format!("- {}", x)).join("\n")
+            );
+            return Ok(display(&message, engine_state, stack, span));
+        }
+
         for search_group in search_space {
             if search_group.0.contains(&search.as_str()) {
                 return Ok(display(search_group.1, engine_state, stack, span));
@@ -136,7 +145,8 @@ Welcome to the Nushell tutorial!
 With the `tutor` command, you'll be able to learn a lot about how Nushell
 works along with many fun tips and tricks to speed up everyday tasks.
 
-To get started, you can use `tutor begin`.
+To get started, you can use `tutor begin`, and to see all the available
+tutorials just run `tutor list`.
 
 "#
 }
@@ -390,29 +400,6 @@ same value using:
 "#
 }
 
-fn engineq_tutor() -> &'static str {
-    r#"
-Engine-q is the upcoming engine for Nushell. Build for speed and correctness,
-it also comes with a set of changes from Nushell versions prior to 0.60. To
-get ready for engine-q look for some of these changes that might impact your
-current scripts:
-
-* Engine-q now uses a few new data structures, including a record syntax
-  that allows you to model key-value pairs similar to JSON objects.
-* Environment variables can now contain more than just strings. Structured
-  values are converted to strings for external commands using converters.
-* `if` will now use an `else` keyword before the else block.
-* We're moving from "config.toml" to "config.nu". This means startup will
-  now be a script file.
-* `config` and its subcommands are being replaced by a record that you can
-  update in the shell which contains all the settings under the variable
-  `$config`.
-* bigint/bigdecimal values are now machine i64 and f64 values
-* And more, you can read more about upcoming changes in the up-to-date list
-  at: https://github.com/nushell/engine-q/issues/522
-"#
-}
-
 fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span) -> PipelineData {
     let help = help.split('`');
 
@@ -424,7 +411,7 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
             code_mode = false;
 
             //TODO: support no-color mode
-            if let Some(highlighter) = engine_state.find_decl(b"nu-highlight") {
+            if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
                 let decl = engine_state.get_decl(highlighter);
 
                 if let Ok(output) = decl.run(

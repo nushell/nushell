@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
-use polars::prelude::IntoSeries;
+use polars::prelude::{DatetimeMethods, IntoSeries};
 
 #[derive(Clone)]
 pub struct GetWeek;

@@ -37,7 +37,6 @@ impl Command for Print {
     ) -> Result<PipelineData, ShellError> {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let no_newline = call.has_flag("no_newline");
-
         let head = call.head;
 
         for arg in args {

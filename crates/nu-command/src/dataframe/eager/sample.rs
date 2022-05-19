@@ -33,6 +33,12 @@ impl Command for SampleDF {
                 "fraction of dataframe to be taken",
                 Some('f'),
             )
+            .named(
+                "seed",
+                SyntaxShape::Number,
+                "seed for the selection",
+                Some('s'),
+            )
             .switch("replace", "sample with replace", Some('e'))
             .category(Category::Custom("dataframe".into()))
     }
@@ -71,12 +77,15 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let rows: Option<Spanned<usize>> = call.get_flag(engine_state, stack, "n-rows")?;
     let fraction: Option<Spanned<f64>> = call.get_flag(engine_state, stack, "fraction")?;
+    let seed: Option<u64> = call
+        .get_flag::<i64>(engine_state, stack, "seed")?
+        .map(|val| val as u64);
     let replace: bool = call.has_flag("replace");
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     match (rows, fraction) {
-        (Some(rows), None) => df.as_ref().sample_n(rows.item, replace, 0).map_err(|e| {
+        (Some(rows), None) => df.as_ref().sample_n(rows.item, replace, seed).map_err(|e| {
             ShellError::GenericError(
                 "Error creating sample".into(),
                 e.to_string(),
@@ -85,15 +94,18 @@ fn command(
                 Vec::new(),
             )
         }),
-        (None, Some(frac)) => df.as_ref().sample_frac(frac.item, replace, 0).map_err(|e| {
-            ShellError::GenericError(
-                "Error creating sample".into(),
-                e.to_string(),
-                Some(frac.span),
-                None,
-                Vec::new(),
-            )
-        }),
+        (None, Some(frac)) => df
+            .as_ref()
+            .sample_frac(frac.item, replace, seed)
+            .map_err(|e| {
+                ShellError::GenericError(
+                    "Error creating sample".into(),
+                    e.to_string(),
+                    Some(frac.span),
+                    None,
+                    Vec::new(),
+                )
+            }),
         (Some(_), Some(_)) => Err(ShellError::GenericError(
             "Incompatible flags".into(),
             "Only one selection criterion allowed".into(),

@@ -7,26 +7,17 @@ on:
 name: continuous-integration
 
 jobs:
-  build-clippy:
+  nu-fmt-clippy:
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        style: [all, default]
         rust:
           - stable
-        include:
-          - style: all
-            flags: "--all-features"
-          - style: default
-            flags: ""
-        exclude:
-          - platform: windows-latest
-            style: default
-          - platform: macos-latest
-            style: default
 
     runs-on: ${{ matrix.platform }}
+    env:
+      NUSHELL_CARGO_TARGET: ci
 
     steps:
       - uses: actions/checkout@v2
@@ -41,7 +32,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
+          key: "v2" # increment this to bust the cache if needed
 
       - name: Rustfmt
         uses: actions-rs/cargo@v1
@@ -49,29 +40,26 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Build Nushell
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --workspace ${{ matrix.flags }}
-
       - name: Clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --workspace ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+          args: --features=extra --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
-  test:
+  nu-tests:
+    env:
+      NUSHELL_CARGO_TARGET: ci
+
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        style: [all, default]
+        style: [extra, default]
         rust:
           - stable
         include:
-          - style: all
-            flags: "--all-features"
+          - style: extra
+            flags: "--features=extra"
           - style: default
             flags: ""
         exclude:
@@ -91,29 +79,23 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.style }}v1 # increment this to bust the cache if needed
-
-      - uses: taiki-e/install-action@nextest
+          key: ${{ matrix.style }}v3 # increment this to bust the cache if needed
 
       - name: Tests
         uses: actions-rs/cargo@v1
         with:
-          command: nextest
-          args: run --all ${{ matrix.flags }}
-
-      - name: Doctests
-        uses: actions-rs/cargo@v1
-        with:
           command: test
-          args: --workspace --doc ${{ matrix.flags }}
+          args: --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
   python-virtualenv:
+    env:
+      NUSHELL_CARGO_TARGET: ci
+
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
         rust:
@@ -135,13 +117,13 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         with:
-          key: "1" # increment this to bust the cache if needed
+          key: "2" # increment this to bust the cache if needed
 
       - name: Install Nushell
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --path=. --no-default-features --debug
+          args: --path=. --profile ci --no-default-features
 
       - name: Setup Python
         uses: actions/setup-python@v2
@@ -161,9 +143,14 @@ jobs:
         run: cd virtualenv && tox -e ${{ matrix.py }} -- -k nushell
         shell: bash
 
+  # Build+test plugins on their own, without the rest of Nu. This helps with CI parallelization and
+  # also helps test that the plugins build without any feature unification shenanigans
   plugins:
+    env:
+      NUSHELL_CARGO_TARGET: ci
+
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
         rust:
@@ -181,29 +168,14 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
 
-      # This job does not use rust-cache because 1) we have limited cache space, 2) even
-      # without caching, it's not the slowest job. Revisit if those facts change.
-
-      - name: Build nu_plugin_example
+      - name: Clippy
         uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --package nu_plugin_example
+          command: clippy
+          args: --package nu_plugin_* ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
-      - name: Build nu_plugin_gstat
+      - name: Tests
         uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --package nu_plugin_gstat
-
-      - name: Build nu_plugin_inc
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --package nu_plugin_inc
-
-      - name: Build nu_plugin_query
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --package nu_plugin_query
+          command: test
+          args: --profile ci --package nu_plugin_*

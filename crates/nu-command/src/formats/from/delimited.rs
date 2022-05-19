@@ -4,6 +4,7 @@ use nu_protocol::{Config, IntoPipelineData, PipelineData, ShellError, Span, Valu
 fn from_delimited_string_to_value(
     s: String,
     noheaders: bool,
+    no_infer: bool,
     separator: char,
     trim: Trim,
     span: Span,
@@ -26,6 +27,14 @@ fn from_delimited_string_to_value(
     for row in reader.records() {
         let mut output_row = vec![];
         for value in row?.iter() {
+            if no_infer {
+                output_row.push(Value::String {
+                    span,
+                    val: value.into(),
+                });
+                continue;
+            }
+
             if let Ok(i) = value.parse::<i64>() {
                 output_row.push(Value::Int { val: i, span });
             } else if let Ok(f) = value.parse::<f64>() {
@@ -49,6 +58,7 @@ fn from_delimited_string_to_value(
 
 pub fn from_delimited_data(
     noheaders: bool,
+    no_infer: bool,
     sep: char,
     trim: Trim,
     input: PipelineData,
@@ -58,7 +68,7 @@ pub fn from_delimited_data(
     let concat_string = input.collect_string("", config)?;
 
     Ok(
-        from_delimited_string_to_value(concat_string, noheaders, sep, trim, name)
+        from_delimited_string_to_value(concat_string, noheaders, no_infer, sep, trim, name)
             .map_err(|x| ShellError::DelimiterError(x.to_string(), name))?
             .into_pipeline_data(),
     )

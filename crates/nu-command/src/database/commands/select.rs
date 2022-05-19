@@ -3,9 +3,10 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Value,
 };
-use sqlparser::ast::{Query, Select, SelectItem, SetExpr};
+use sqlparser::ast::{Query, Select, SelectItem, SetExpr, Statement};
 
 #[derive(Clone)]
 pub struct ProjectionDb;
@@ -63,17 +64,17 @@ impl Command for ProjectionDb {
         let projection = SelectDb::extract_selects(value)?;
 
         let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
-        db.query = match db.query {
-            None => Some(create_query(projection)),
-            Some(query) => Some(modify_query(query, projection)),
+        db.statement = match db.statement {
+            None => Some(create_statement(projection)),
+            Some(statement) => Some(modify_statement(statement, projection, call.head)?),
         };
 
         Ok(db.into_value(call.head).into_pipeline_data())
     }
 }
 
-fn create_query(expressions: Vec<SelectItem>) -> Query {
-    Query {
+fn create_statement(expressions: Vec<SelectItem>) -> Statement {
+    let query = Query {
         with: None,
         body: SetExpr::Select(Box::new(create_select(expressions))),
         order_by: Vec::new(),
@@ -81,21 +82,35 @@ fn create_query(expressions: Vec<SelectItem>) -> Query {
         offset: None,
         fetch: None,
         lock: None,
-    }
-}
-
-fn modify_query(mut query: Query, expressions: Vec<SelectItem>) -> Query {
-    query.body = match query.body {
-        SetExpr::Select(select) => SetExpr::Select(modify_select(select, expressions)),
-        _ => SetExpr::Select(Box::new(create_select(expressions))),
     };
 
-    query
+    Statement::Query(Box::new(query))
 }
 
-fn modify_select(mut select: Box<Select>, projection: Vec<SelectItem>) -> Box<Select> {
-    select.as_mut().projection = projection;
-    select
+fn modify_statement(
+    mut statement: Statement,
+    expressions: Vec<SelectItem>,
+    span: Span,
+) -> Result<Statement, ShellError> {
+    match statement {
+        Statement::Query(ref mut query) => {
+            match query.body {
+                SetExpr::Select(ref mut select) => select.as_mut().projection = expressions,
+                _ => {
+                    query.as_mut().body = SetExpr::Select(Box::new(create_select(expressions)));
+                }
+            };
+
+            Ok(statement)
+        }
+        s => Err(ShellError::GenericError(
+            "Connection doesnt define a statement".into(),
+            format!("Expected a connection with query. Got {}", s),
+            Some(span),
+            None,
+            Vec::new(),
+        )),
+    }
 }
 
 fn create_select(projection: Vec<SelectItem>) -> Select {

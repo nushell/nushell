@@ -5,7 +5,12 @@ use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
+use nu_protocol::{
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Value,
+};
+
+use super::util::try_interaction;
 
 use crate::filesystem::util::FileStructure;
 
@@ -41,9 +46,14 @@ impl Command for Cp {
                 "copy recursively through subdirectories",
                 Some('r'),
             )
+            .switch(
+                "verbose",
+                "do copy in verbose mode (default:false)",
+                Some('v'),
+            )
             // TODO: add back in additional features
             // .switch("force", "suppress error when no file", Some('f'))
-            // .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch("interactive", "ask user to confirm action", Some('i'))
             .category(Category::FileSystem)
     }
 
@@ -57,6 +67,9 @@ impl Command for Cp {
         let src: Spanned<String> = call.req(engine_state, stack, 0)?;
         let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
         let recursive = call.has_flag("recursive");
+        let verbose = call.has_flag("verbose");
+        let interactive = call.has_flag("interactive");
+
         let path = current_dir(engine_state, stack)?;
         let source = path.join(src.item.as_str());
         let destination = path.join(dst.item.as_str());
@@ -70,6 +83,8 @@ impl Command for Cp {
                 Some("destination directory does not exist".to_string()),
             ));
         }
+        let ctrlc = engine_state.ctrlc.clone();
+        let span = call.head;
 
         let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
             Ok(files) => files.collect(),
@@ -116,6 +131,8 @@ impl Command for Cp {
             ));
         }
 
+        let mut result = Vec::new();
+
         for entry in sources.into_iter().flatten() {
             let mut sources = FileStructure::new();
             sources.walk_decorate(&entry, engine_state, stack)?;
@@ -135,15 +152,12 @@ impl Command for Cp {
 
                 for (src, dst) in sources {
                     if src.is_file() {
-                        std::fs::copy(src, dst).map_err(|e| {
-                            ShellError::GenericError(
-                                e.to_string(),
-                                e.to_string(),
-                                Some(call.head),
-                                None,
-                                Vec::new(),
-                            )
-                        })?;
+                        let res = if interactive && dst.exists() {
+                            interactive_copy_file(interactive, src, dst, span)
+                        } else {
+                            copy_file(src, dst, span)
+                        };
+                        result.push(res);
                     }
                 }
             } else if entry.is_dir() {
@@ -207,21 +221,22 @@ impl Command for Cp {
                     }
 
                     if s.is_file() {
-                        std::fs::copy(&s, &d).map_err(|e| {
-                            ShellError::GenericError(
-                                e.to_string(),
-                                e.to_string(),
-                                Some(call.head),
-                                None,
-                                Vec::new(),
-                            )
-                        })?;
+                        let res = if interactive && d.exists() {
+                            interactive_copy_file(interactive, s, d, span)
+                        } else {
+                            copy_file(s, d, span)
+                        };
+                        result.push(res);
                     }
                 }
             }
         }
 
-        Ok(PipelineData::new(call.head))
+        if verbose {
+            Ok(result.into_iter().into_pipeline_data(ctrlc))
+        } else {
+            Ok(PipelineData::new(span))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -236,6 +251,55 @@ impl Command for Cp {
                 example: "cp -r dir_a dir_b",
                 result: None,
             },
+            Example {
+                description: "Recursively copy dir_a to dir_b, and print the feedbacks",
+                example: "cp -r -v dir_a dir_b",
+                result: None,
+            },
+            Example {
+                description: "Move many files into a directory",
+                example: "cp *.txt dir_a",
+                result: None,
+            },
         ]
+    }
+}
+
+fn interactive_copy_file(interactive: bool, src: PathBuf, dst: PathBuf, span: Span) -> Value {
+    let (interaction, confirmed) =
+        try_interaction(interactive, "cp: overwrite", &dst.to_string_lossy());
+    if let Err(e) = interaction {
+        Value::Error {
+            error: ShellError::GenericError(
+                e.to_string(),
+                e.to_string(),
+                Some(span),
+                None,
+                Vec::new(),
+            ),
+        }
+    } else if !confirmed {
+        let msg = format!("{:} not copied to {:}", src.display(), dst.display());
+        Value::String { val: msg, span }
+    } else {
+        copy_file(src, dst, span)
+    }
+}
+
+fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
+    match std::fs::copy(&src, &dst) {
+        Ok(_) => {
+            let msg = format!("copied {:} to {:}", src.display(), dst.display());
+            Value::String { val: msg, span }
+        }
+        Err(e) => Value::Error {
+            error: ShellError::GenericError(
+                e.to_string(),
+                e.to_string(),
+                Some(span),
+                None,
+                Vec::new(),
+            ),
+        },
     }
 }

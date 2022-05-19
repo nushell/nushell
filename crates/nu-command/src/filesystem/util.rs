@@ -97,8 +97,31 @@ pub struct Resource {
 
 impl Resource {}
 
+pub fn try_interaction(
+    interactive: bool,
+    prompt_msg: &str,
+    file_name: &str,
+) -> (Result<Option<bool>, Box<dyn Error>>, bool) {
+    let interaction = if interactive {
+        let prompt = format!("{} '{}'? ", prompt_msg, file_name);
+        match get_interactive_confirmation(prompt) {
+            Ok(i) => Ok(Some(i)),
+            Err(e) => Err(e),
+        }
+    } else {
+        Ok(None)
+    };
+
+    let confirmed = match interaction {
+        Ok(maybe_input) => maybe_input.unwrap_or(false),
+        Err(_) => false,
+    };
+
+    (interaction, confirmed)
+}
+
 #[allow(dead_code)]
-pub fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> {
+fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> {
     let input = Input::new()
         .with_prompt(prompt)
         .validate_with(|c_input: &String| -> Result<(), String> {

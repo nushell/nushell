@@ -68,7 +68,8 @@ fn save_append_will_not_overwrite_content() {
             let mut file =
                 std::fs::File::create(&expected_file).expect("Failed to create test file");
             file.write_all("hello ".as_bytes())
-                .expect("Failed to write to test file")
+                .expect("Failed to write to test file");
+            file.flush().expect("Failed to flush io")
         }
 
         nu!(

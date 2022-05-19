@@ -4,25 +4,25 @@ description = "Nushell's built-in commands"
 edition = "2021"
 license = "MIT"
 name = "nu-command"
-version = "0.62.0"
+version = "0.62.1"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-color-config = { path = "../nu-color-config", version = "0.62.0"  }
-nu-engine = { path = "../nu-engine", version = "0.62.0"  }
-nu-glob = { path = "../nu-glob", version = "0.62.0" }
-nu-json = { path = "../nu-json", version = "0.62.0"  }
-nu-parser = { path = "../nu-parser", version = "0.62.0"  }
-nu-path = { path = "../nu-path", version = "0.62.0"  }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.62.0"  }
-nu-protocol = { path = "../nu-protocol", version = "0.62.0"  }
-nu-system = { path = "../nu-system", version = "0.62.0"  }
-nu-table = { path = "../nu-table", version = "0.62.0"  }
-nu-term-grid = { path = "../nu-term-grid", version = "0.62.0"  }
-nu-test-support = { path = "../nu-test-support", version = "0.62.0"  }
-nu-utils = { path = "../nu-utils", version = "0.62.0" }
+nu-color-config = { path = "../nu-color-config", version = "0.62.1"  }
+nu-engine = { path = "../nu-engine", version = "0.62.1"  }
+nu-glob = { path = "../nu-glob", version = "0.62.1" }
+nu-json = { path = "../nu-json", version = "0.62.1"  }
+nu-parser = { path = "../nu-parser", version = "0.62.1"  }
+nu-path = { path = "../nu-path", version = "0.62.1"  }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.62.1"  }
+nu-protocol = { path = "../nu-protocol", version = "0.62.1"  }
+nu-system = { path = "../nu-system", version = "0.62.1"  }
+nu-table = { path = "../nu-table", version = "0.62.1"  }
+nu-term-grid = { path = "../nu-term-grid", version = "0.62.1"  }
+nu-test-support = { path = "../nu-test-support", version = "0.62.1"  }
+nu-utils = { path = "../nu-utils", version = "0.62.1" }
 nu-ansi-term = "0.45.1"
 
 # Potential dependencies for extras
@@ -70,7 +70,8 @@ serde_ini = "0.2.0"
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.8.16"
 sha2 = "0.10.0"
-shadow-rs = "0.11.0"
+# Disable default features b/c the default features build Git (very slow to compile)
+shadow-rs = { version = "0.11.0", default-features = false }
 strip-ansi-escapes = "0.1.1"
 sysinfo = "0.23.5"
 terminal_size = "0.1.17"
@@ -87,21 +88,23 @@ rusqlite = { version = "0.27.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.16.0", features = ["serde"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
-umask = "1.0.0"
+umask = "2.0.0"
 users = "0.11.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
-version = "2.0.2"
+version = "2.1.3"
 optional = true
 
 [dependencies.polars]
-version = "0.20.0"
+version = "0.21.1"
+# path = "../../../../polars/polars"
 optional = true
 features = [
-	"default", "parquet", "json", "serde", "object",
-	"checked_arithmetic", "strings", "cum_agg", "is_in",
+	"default", "to_dummies", "parquet", "json", "serde", "serde-lazy",
+	"object", "checked_arithmetic", "strings", "cum_agg", "is_in",
 	"rolling_window", "strings", "rows", "random",
-    "dtype-datetime"
+  "dtype-datetime", "dtype-struct", "lazy", "cross_join",
+	"dynamic_groupby"
 ]
 
 [features]
@@ -112,7 +115,7 @@ dataframe = ["polars", "num"]
 database = ["sqlparser", "rusqlite"]
 
 [build-dependencies]
-shadow-rs = "0.11.0"
+shadow-rs = { version = "0.11.0", default-features = false }
 
 [dev-dependencies]
 hamcrest2 = "0.3.0"

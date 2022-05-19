@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-// use super::util::get_interactive_confirmation;
+use super::util::try_interaction;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -45,8 +45,12 @@ impl Command for Mv {
                 SyntaxShape::Filepath,
                 "the location to move files/directories to",
             )
-            .switch("quiet", "suppress output showing files moved", Some('q'))
-            // .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch(
+                "verbose",
+                "make mv to be verbose, showing files been moved.",
+                Some('v'),
+            )
+            .switch("interactive", "ask user to confirm action", Some('i'))
             // .switch("force", "suppress error when no file", Some('f'))
             .category(Category::FileSystem)
     }
@@ -61,8 +65,8 @@ impl Command for Mv {
         // TODO: handle invalid directory or insufficient permissions when moving
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
-        let quiet = call.has_flag("quiet");
-        // let interactive = call.has_flag("interactive");
+        let verbose = call.has_flag("verbose");
+        let interactive = call.has_flag("interactive");
         // let force = call.has_flag("force");
 
         let ctrlc = engine_state.ctrlc.clone();
@@ -145,18 +149,27 @@ impl Command for Mv {
                         item: destination.clone(),
                         span: spanned_destination.span,
                     },
+                    interactive,
                 );
                 if let Err(error) = result {
                     Some(Value::Error { error })
-                } else if quiet {
-                    None
-                } else {
-                    let val = format!(
-                        "moved {:} to {:}",
-                        entry.to_string_lossy(),
-                        destination.to_string_lossy()
-                    );
+                } else if verbose {
+                    let val = if result.expect("Error value when unwrapping mv result") {
+                        format!(
+                            "moved {:} to {:}",
+                            entry.to_string_lossy(),
+                            destination.to_string_lossy()
+                        )
+                    } else {
+                        format!(
+                            "{:} not moved to {:}",
+                            entry.to_string_lossy(),
+                            destination.to_string_lossy()
+                        )
+                    };
                     Some(Value::String { val, span })
+                } else {
+                    None
                 }
             })
             .into_pipeline_data(ctrlc))
@@ -186,7 +199,8 @@ impl Command for Mv {
 fn move_file(
     spanned_from: Spanned<PathBuf>,
     spanned_to: Spanned<PathBuf>,
-) -> Result<(), ShellError> {
+    interactive: bool,
+) -> Result<bool, ShellError> {
     let Spanned {
         item: from,
         span: from_span,
@@ -225,7 +239,26 @@ fn move_file(
         to.push(from_file_name);
     }
 
-    move_item(&from, from_span, &to)
+    if interactive && to.exists() {
+        let (interaction, confirmed) =
+            try_interaction(interactive, "mv: overwrite", &to.to_string_lossy());
+        if let Err(e) = interaction {
+            return Err(ShellError::GenericError(
+                format!("Error during interaction: {:}", e),
+                "could not move".into(),
+                None,
+                None,
+                Vec::new(),
+            ));
+        } else if !confirmed {
+            return Ok(false);
+        }
+    }
+
+    match move_item(&from, from_span, &to) {
+        Ok(()) => Ok(true),
+        Err(e) => Err(e),
+    }
 }
 
 fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> {

@@ -411,9 +411,9 @@ mod test {
 
     #[test]
     fn test_order_paths() {
-        fn sort<'a>(paths: &'a Vec<&'a str>, abbr: &str) -> Vec<&'a str> {
+        fn sort<'a>(paths: &'a [&'a str], abbr: &str) -> Vec<&'a str> {
             let abbr = Abbr::new_sanitized(abbr);
-            let mut paths = paths.clone();
+            let mut paths = paths.to_owned();
             paths.sort_by_key(|path| abbr.compare(path).unwrap());
 
             paths

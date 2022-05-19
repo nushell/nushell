@@ -87,19 +87,22 @@ fn get_documentation(
     {
         long_desc.push_str("\nParameters:\n");
         for positional in &sig.required_positional {
-            long_desc.push_str(&format!("  {}: {}\n", positional.name, positional.desc));
+            long_desc.push_str(&format!(
+                "  {} <{:?}>: {}\n",
+                positional.name, positional.shape, positional.desc
+            ));
         }
         for positional in &sig.optional_positional {
             long_desc.push_str(&format!(
-                "  (optional) {}: {}\n",
-                positional.name, positional.desc
+                "  (optional) {} <{:?}>: {}\n",
+                positional.name, positional.shape, positional.desc
             ));
         }
 
         if let Some(rest_positional) = &sig.rest_positional {
             long_desc.push_str(&format!(
-                "  ...{}: {}\n",
-                rest_positional.name, rest_positional.desc
+                "  ...{} <{:?}>: {}\n",
+                rest_positional.name, rest_positional.shape, rest_positional.desc
             ));
         }
     }
@@ -115,7 +118,7 @@ fn get_documentation(
 
         if config.no_color {
             long_desc.push_str(&format!("\n  > {}\n", example.example));
-        } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight") {
+        } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
             let decl = engine_state.get_decl(highlighter);
 
             match decl.run(

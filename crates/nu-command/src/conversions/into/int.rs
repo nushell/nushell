@@ -86,6 +86,11 @@ impl Command for SubCommand {
                 }),
             },
             Example {
+                description: "Convert date to integer (Unix timestamp)",
+                example: "2022-02-02 | into int",
+                result: Some(Value::test_int(1643760000)),
+            },
+            Example {
                 description: "Convert to integer from binary",
                 example: "'1101' | into int -r 2",
                 result: Some(Value::test_int(13)),
@@ -181,6 +186,10 @@ pub fn action(input: &Value, span: Span, radix: u32) -> Value {
                 Value::Int { val: 0, span }
             }
         }
+        Value::Date { val, .. } => Value::Int {
+            val: val.timestamp(),
+            span,
+        },
         _ => Value::Error {
             error: ShellError::UnsupportedInput("'into int' for unsupported type".into(), span),
         },

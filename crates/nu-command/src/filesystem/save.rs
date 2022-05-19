@@ -5,7 +5,6 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
 };
 use std::io::{BufWriter, Write};
-
 use std::path::Path;
 
 #[derive(Clone)]
@@ -82,7 +81,7 @@ impl Command for Save {
         };
 
         if let Some(ext) = ext {
-            let output = match engine_state.find_decl(format!("to {}", ext).as_bytes()) {
+            let output = match engine_state.find_decl(format!("to {}", ext).as_bytes(), &[]) {
                 Some(converter_id) => {
                     let output = engine_state.get_decl(converter_id).run(
                         engine_state,
@@ -100,6 +99,8 @@ impl Command for Save {
                 Value::String { val, .. } => {
                     if let Err(err) = file.write_all(val.as_bytes()) {
                         return Err(ShellError::IOError(err.to_string()));
+                    } else {
+                        file.flush()?
                     }
 
                     Ok(PipelineData::new(span))
@@ -107,6 +108,8 @@ impl Command for Save {
                 Value::Binary { val, .. } => {
                     if let Err(err) = file.write_all(&val) {
                         return Err(ShellError::IOError(err.to_string()));
+                    } else {
+                        file.flush()?
                     }
 
                     Ok(PipelineData::new(span))
@@ -121,6 +124,8 @@ impl Command for Save {
 
                     if let Err(err) = file.write_all(val.as_bytes()) {
                         return Err(ShellError::IOError(err.to_string()));
+                    } else {
+                        file.flush()?
                     }
 
                     Ok(PipelineData::new(span))
@@ -166,6 +171,8 @@ impl Command for Save {
                     Value::String { val, .. } => {
                         if let Err(err) = file.write_all(val.as_bytes()) {
                             return Err(ShellError::IOError(err.to_string()));
+                        } else {
+                            file.flush()?
                         }
 
                         Ok(PipelineData::new(span))
@@ -173,6 +180,8 @@ impl Command for Save {
                     Value::Binary { val, .. } => {
                         if let Err(err) = file.write_all(&val) {
                             return Err(ShellError::IOError(err.to_string()));
+                        } else {
+                            file.flush()?
                         }
 
                         Ok(PipelineData::new(span))
@@ -187,6 +196,8 @@ impl Command for Save {
 
                         if let Err(err) = file.write_all(val.as_bytes()) {
                             return Err(ShellError::IOError(err.to_string()));
+                        } else {
+                            file.flush()?
                         }
 
                         Ok(PipelineData::new(span))
