@@ -178,9 +178,16 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
                         cols,
                         vals,
                         span: _,
-                    } => cols.iter().enumerate().for_each(|(idx, column)| {
-                        out.insert(column.to_string(), vals[idx].clone());
-                    }),
+                    } => {
+                        if column_requested.is_none() && !columns.is_empty() {
+                            out.insert(column.to_string(), value.clone());
+                        } else {
+                            cols.iter().enumerate().for_each(|(idx, column)| {
+                                out.insert(column.to_string(), vals[idx].clone());
+                            })
+                        }
+                    }
+                    /*
                     Value::List { vals, span: _ } if vals.iter().all(|f| f.as_record().is_ok()) => {
                         let mut cs = vec![];
                         let mut vs = vec![];
@@ -212,6 +219,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
                             }
                         }
                     }
+                    */
                     Value::List {
                         vals: values,
                         span: _,
