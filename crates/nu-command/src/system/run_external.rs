@@ -339,8 +339,7 @@ impl ExternalCommand {
                 self.create_command(d)?
             };
 
-            // not trying to set current directory if cwd is not exists
-            // or else it will cause process running failed.
+            // do not try to set current directory if cwd does not exist
             if Path::new(&d).exists() {
                 process.current_dir(d);
             }
