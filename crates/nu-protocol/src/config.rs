@@ -29,6 +29,7 @@ pub struct ParsedMenu {
 pub struct Hooks {
     pub pre_prompt: Option<Value>,
     pub pre_execution: Option<Value>,
+    pub env_change: Option<Value>,
 }
 
 impl Hooks {
@@ -36,6 +37,7 @@ impl Hooks {
         Self {
             pre_prompt: None,
             pre_execution: None,
+            env_change: None,
         }
     }
 }
@@ -384,9 +386,10 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
                 match cols[idx].as_str() {
                     "pre_prompt" => hooks.pre_prompt = Some(vals[idx].clone()),
                     "pre_execution" => hooks.pre_execution = Some(vals[idx].clone()),
+                    "env_change" => hooks.env_change = Some(vals[idx].clone()),
                     x => {
                         return Err(ShellError::UnsupportedConfigValue(
-                            "'pre_prompt' or 'pre_execution'".to_string(),
+                            "'pre_prompt', 'pre_execution', or 'env_change'".to_string(),
                             x.to_string(),
                             *span,
                         ));
