@@ -451,8 +451,10 @@ pub(crate) fn dir_entry_dict(
 
     cols.push("size".to_string());
     if let Some(md) = metadata {
-        let zero_sized =
-            file_type == "socket" || file_type == "block device" || file_type == "char device" || file_type == "pipe";
+        let zero_sized = file_type == "pipe"
+            || file_type == "socket"
+            || file_type == "char device"
+            || file_type == "block device";
 
         if md.is_dir() {
             if du {
