@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::engine::{EngineState, DEFAULT_OVERLAY_NAME};
+use crate::engine::EngineState;
+use crate::engine::DEFAULT_OVERLAY_NAME;
 use crate::{ShellError, Span, Value, VarId};
 
 /// Environment variables per overlay
