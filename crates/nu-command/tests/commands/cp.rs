@@ -235,3 +235,17 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
         assert!(files_exist_at(vec!["hello_there", "hello_again"], expected));
     })
 }
+
+#[test]
+fn copy_to_non_existing_dir() {
+    Playground::setup("cp_test_11", |_dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("empty_file")]);
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "cp empty_file ~/not_a_dir/",
+        );
+        assert!(actual.err.contains("directory not found"));
+        assert!(actual.err.contains("destination directory does not exist"));
+    });
+}

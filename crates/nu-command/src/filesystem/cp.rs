@@ -74,6 +74,15 @@ impl Command for Cp {
         let source = path.join(src.item.as_str());
         let destination = path.join(dst.item.as_str());
 
+        // check if destination is a dir and it exists
+        let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
+        let is_directory = path_last_char == Some('/') || path_last_char == Some('\\');
+        if is_directory && !destination.exists() {
+            return Err(ShellError::DirectoryNotFound(
+                dst.span,
+                Some("destination directory does not exist".to_string()),
+            ));
+        }
         let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
 
@@ -254,185 +263,6 @@ impl Command for Cp {
             },
         ]
     }
-
-    //     let mut sources =
-    //         nu_glob::glob(&source.to_string_lossy()).map_or_else(|_| Vec::new(), Iterator::collect);
-    //     if sources.is_empty() {
-    //         return Err(ShellError::FileNotFound(call.positional[0].span));
-    //     }
-
-    //     if sources.len() > 1 && !destination.is_dir() {
-    //         return Err(ShellError::MoveNotPossible {
-    //             source_message: "Can't move many files".to_string(),
-    //             source_span: call.positional[0].span,
-    //             destination_message: "into single file".to_string(),
-    //             destination_span: call.positional[1].span,
-    //         });
-    //     }
-
-    //     let any_source_is_dir = sources.iter().any(|f| matches!(f, Ok(f) if f.is_dir()));
-    //     let recursive: bool = call.has_flag("recursive");
-    //     if any_source_is_dir && !recursive {
-    //         return Err(ShellError::MoveNotPossibleSingle(
-    //             "Directories must be copied using \"--recursive\"".to_string(),
-    //             call.positional[0].span,
-    //         ));
-    //     }
-
-    //     if interactive && !force {
-    //         let mut remove: Vec<usize> = vec![];
-    //         for (index, file) in sources.iter().enumerate() {
-    //             let prompt = format!(
-    //                 "Are you shure that you want to copy {} to {}?",
-    //                 file.as_ref()
-    //                     .map_err(|err| ShellError::SpannedLabeledError(
-    //                         "Reference error".into(),
-    //                         err.to_string(),
-    //                         call.head
-    //                     ))?
-    //                     .file_name()
-    //                     .ok_or_else(|| ShellError::SpannedLabeledError(
-    //                         "File name error".into(),
-    //                         "Unable to get file name".into(),
-    //                         call.head
-    //                     ))?
-    //                     .to_str()
-    //                     .ok_or_else(|| ShellError::SpannedLabeledError(
-    //                         "Unable to get str error".into(),
-    //                         "Unable to convert to str file name".into(),
-    //                         call.head
-    //                     ))?,
-    //                 destination
-    //                     .file_name()
-    //                     .ok_or_else(|| ShellError::SpannedLabeledError(
-    //                         "File name error".into(),
-    //                         "Unable to get file name".into(),
-    //                         call.head
-    //                     ))?
-    //                     .to_str()
-    //                     .ok_or_else(|| ShellError::SpannedLabeledError(
-    //                         "Unable to get str error".into(),
-    //                         "Unable to convert to str file name".into(),
-    //                         call.head
-    //                     ))?,
-    //             );
-
-    //             let input = get_interactive_confirmation(prompt)?;
-
-    //             if !input {
-    //                 remove.push(index);
-    //             }
-    //         }
-
-    //         remove.reverse();
-
-    //         for index in remove {
-    //             sources.remove(index);
-    //         }
-
-    //         if sources.is_empty() {
-    //             return Err(ShellError::NoFileToBeCopied());
-    //         }
-    //     }
-
-    //     for entry in sources.into_iter().flatten() {
-    //         let mut sources = FileStructure::new();
-    //         sources.walk_decorate(&entry, engine_state, stack)?;
-
-    //         if entry.is_file() {
-    //             let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
-    //                 if destination.is_dir() {
-    //                     let mut dest = canonicalize_with(&destination, &path)?;
-    //                     if let Some(name) = entry.file_name() {
-    //                         dest.push(name);
-    //                     }
-    //                     Ok((source_file, dest))
-    //                 } else {
-    //                     Ok((source_file, destination.clone()))
-    //                 }
-    //             })?;
-
-    //             for (src, dst) in sources {
-    //                 if src.is_file() {
-    //                     std::fs::copy(&src, dst).map_err(|e| {
-    //                         ShellError::MoveNotPossibleSingle(
-    //                             format!(
-    //                                 "failed to move containing file \"{}\": {}",
-    //                                 src.to_string_lossy(),
-    //                                 e
-    //                             ),
-    //                             call.positional[0].span,
-    //                         )
-    //                     })?;
-    //                 }
-    //             }
-    //         } else if entry.is_dir() {
-    //             let destination = if !destination.exists() {
-    //                 destination.clone()
-    //             } else {
-    //                 match entry.file_name() {
-    //                     Some(name) => destination.join(name),
-    //                     None => {
-    //                         return Err(ShellError::FileNotFoundCustom(
-    //                             format!("containing \"{:?}\" is not a valid path", entry),
-    //                             call.positional[0].span,
-    //                         ))
-    //                     }
-    //                 }
-    //             };
-
-    //             std::fs::create_dir_all(&destination).map_err(|e| {
-    //                 ShellError::MoveNotPossibleSingle(
-    //                     format!("failed to recursively fill destination: {}", e),
-    //                     call.positional[1].span,
-    //                 )
-    //             })?;
-
-    //             let sources = sources.paths_applying_with(|(source_file, depth_level)| {
-    //                 let mut dest = destination.clone();
-    //                 let path = canonicalize_with(&source_file, &path)?;
-    //                 let components = path
-    //                     .components()
-    //                     .map(|fragment| fragment.as_os_str())
-    //                     .rev()
-    //                     .take(1 + depth_level);
-
-    //                 components.for_each(|fragment| dest.push(fragment));
-    //                 Ok((PathBuf::from(&source_file), dest))
-    //             })?;
-
-    //             for (src, dst) in sources {
-    //                 if src.is_dir() && !dst.exists() {
-    //                     std::fs::create_dir_all(&dst).map_err(|e| {
-    //                         ShellError::MoveNotPossibleSingle(
-    //                             format!(
-    //                                 "failed to create containing directory \"{}\": {}",
-    //                                 dst.to_string_lossy(),
-    //                                 e
-    //                             ),
-    //                             call.positional[1].span,
-    //                         )
-    //                     })?;
-    //                 }
-
-    //                 if src.is_file() {
-    //                     std::fs::copy(&src, &dst).map_err(|e| {
-    //                         ShellError::MoveNotPossibleSingle(
-    //                             format!(
-    //                                 "failed to move containing file \"{}\": {}",
-    //                                 src.to_string_lossy(),
-    //                                 e
-    //                             ),
-    //                             call.positional[0].span,
-    //                         )
-    //                     })?;
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     Ok(PipelineData::new(call.head))
-    // }
 }
 
 fn interactive_copy_file(interactive: bool, src: PathBuf, dst: PathBuf, span: Span) -> Value {

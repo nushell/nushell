@@ -14,6 +14,9 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
         };
     }
 
+    let path_last_char = path.as_os_str().to_string_lossy().chars().last();
+    let need_trailing_slash = path_last_char == Some('/') || path_last_char == Some('\\');
+
     match home {
         None => path.into(),
         Some(mut h) => {
@@ -30,6 +33,10 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
                     // even if it's empty
                     if p != Path::new("") {
                         h.push(p)
+                    }
+
+                    if need_trailing_slash {
+                        h.push("");
                     }
                 }
                 h
