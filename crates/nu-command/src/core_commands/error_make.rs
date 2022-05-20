@@ -134,8 +134,8 @@ fn make_error(value: &Value, throw_span: Span) -> Option<ShellError> {
                 }
             }
             (Some(Value::String { val: message, .. }), None) => Some(ShellError::GenericError(
-                format!("Custom error: {}", message),
                 message,
+                "originates from here".to_string(),
                 Some(throw_span),
                 None,
                 Vec::new(),
