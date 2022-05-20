@@ -220,10 +220,7 @@ pub fn eval_source(
         }
     };
 
-    if let Err(err) = engine_state.merge_delta(delta, Some(stack), &cwd) {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, &err);
-    }
+    let _ = engine_state.merge_delta(delta, Some(stack), &cwd);
 
     match eval_block(engine_state, stack, &block, input, false, false) {
         Ok(mut pipeline_data) => {

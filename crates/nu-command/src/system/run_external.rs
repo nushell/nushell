@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
@@ -339,7 +339,10 @@ impl ExternalCommand {
                 self.create_command(d)?
             };
 
-            process.current_dir(d);
+            // do not try to set current directory if cwd does not exist
+            if Path::new(&d).exists() {
+                process.current_dir(d);
+            }
             process
         } else {
             return Err(ShellError::GenericError(
