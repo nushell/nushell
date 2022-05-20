@@ -244,7 +244,7 @@ pub fn evaluate_repl(
                         &working_set,
                         &ShellError::TypeMismatch(
                             "record for 'env_change' hook".to_string(),
-                            x.span().unwrap_or(Span::new(0, 0)),
+                            x.span().unwrap_or_else(|_| Span::new(0, 0)),
                         ),
                     )
                 }
@@ -480,13 +480,11 @@ pub fn run_hook_block(
 
     let mut callee_stack = stack.gather_captures(&block.captures);
 
-    for (idx, positional) in block.signature.required_positional.iter().enumerate() {
-        match positional {
-            PositionalArg { var_id, .. } => {
-                if let Some(var_id) = var_id {
-                    callee_stack.add_var(*var_id, arguments[idx].clone())
-                }
-            }
+    for (idx, PositionalArg { var_id, .. }) in
+        block.signature.required_positional.iter().enumerate()
+    {
+        if let Some(var_id) = var_id {
+            callee_stack.add_var(*var_id, arguments[idx].clone())
         }
     }
 
