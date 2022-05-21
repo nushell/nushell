@@ -48,6 +48,10 @@ impl Command for SubCommand {
         "Get part of a string"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["slice"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
