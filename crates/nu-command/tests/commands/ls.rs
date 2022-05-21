@@ -259,9 +259,20 @@ fn fails_with_ls_to_dir_without_permission() {
                 chmod 000 dir_a; ls dir_a
             "#
         ));
-        assert!(actual
-            .err
-            .contains("The permissions of 0 do not allow access for this user"));
+
+        let check_not_root = nu!(
+            cwd: dirs.test(), pipeline(
+                r#"
+                    id -u
+                "#
+        ));
+
+        assert!(
+            actual
+                .err
+                .contains("The permissions of 0 do not allow access for this user")
+                || check_not_root.out == "0"
+        );
     })
 }
 
