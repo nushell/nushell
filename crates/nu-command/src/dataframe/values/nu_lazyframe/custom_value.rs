@@ -12,7 +12,10 @@ impl CustomValue for NuLazyFrame {
     }
 
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        let cloned = NuLazyFrame(self.0.clone());
+        let cloned = NuLazyFrame {
+            lazy: self.lazy.clone(),
+            from_eager: self.from_eager,
+        };
 
         Value::CustomValue {
             val: Box::new(cloned),

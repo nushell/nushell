@@ -1,15 +1,18 @@
 mod alias;
-mod dsl;
 mod expressions_macro;
-mod to_nu;
+mod as_nu;
+mod col;
+mod lit;
+mod when;
 
 use nu_protocol::engine::StateWorkingSet;
 
-use crate::dataframe::expressions::dsl::*;
-
-use crate::dataframe::expressions::alias::ExprAlias;
-use crate::dataframe::expressions::expressions_macro::*;
-use crate::dataframe::expressions::to_nu::ExprToNu;
+pub(super) use crate::dataframe::expressions::col::ExprCol;
+pub(super) use crate::dataframe::expressions::lit::ExprLit;
+pub(super) use crate::dataframe::expressions::when::ExprWhen;
+pub(crate) use crate::dataframe::expressions::alias::ExprAlias;
+pub(crate) use crate::dataframe::expressions::expressions_macro::*;
+use crate::dataframe::expressions::as_nu::ExprAsNu;
 
 pub fn add_expressions(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {
@@ -26,7 +29,7 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
         ExprAlias,
         ExprCol,
         ExprLit,
-        ExprToNu,
+        ExprAsNu,
         ExprWhen,
         ExprList,
         ExprAggGroups,

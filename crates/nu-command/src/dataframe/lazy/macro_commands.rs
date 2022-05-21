@@ -40,7 +40,7 @@ macro_rules! lazy_command {
                 let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?.into_polars();
                 let lazy: NuLazyFrame = lazy.$func().into();
 
-                Ok(PipelineData::Value(lazy.into_value(call.head), None))
+                Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
             }
         }
     };
@@ -119,7 +119,7 @@ macro_rules! lazy_expr_command {
                     let lazy = NuLazyFrame::try_from_value(value)?.into_polars();
                     let lazy: NuLazyFrame = lazy.$func().into();
 
-                    Ok(PipelineData::Value(lazy.into_value(call.head), None))
+                    Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
                 } else {
                     Err(ShellError::CantConvert(
                         "expression or lazyframe".into(),

@@ -40,7 +40,7 @@ impl Command for Unique {
                 "Keep the same order as the original DataFrame (lazy df)",
                 Some('k'),
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -134,7 +134,7 @@ fn command_lazy(
         lazy.unique_stable(subset, strategy).into()
     };
 
-    Ok(PipelineData::Value(lazy.into_value(call.head), None))
+    Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
 }
 
 #[cfg(test)]

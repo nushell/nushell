@@ -49,17 +49,6 @@ impl Command for LazyFillNA {
         let expr = NuExpression::try_from_value(fill)?.into_polars();
         let lazy: NuLazyFrame = lazy.fill_nan(expr).into();
 
-        Ok(PipelineData::Value(lazy.into_value(call.head), None))
+        Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
     }
 }
-
-//#[cfg(test)]
-//mod test {
-//    use super::super::super::test_dataframe::test_dataframe;
-//    use super::*;
-//
-//    #[test]
-//    fn test_examples() {
-//        test_dataframe(vec![Box::new(LazyFillNA {})])
-//    }
-//}

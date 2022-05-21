@@ -29,7 +29,7 @@ impl Command for FilterWith {
                 SyntaxShape::Any,
                 "boolean mask used to filter data",
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -120,7 +120,7 @@ fn command_lazy(
     let lazy = lazy.apply_with_expr(expr, LazyFrame::filter);
 
     Ok(PipelineData::Value(
-        NuLazyFrame::into_value(lazy, call.head),
+        NuLazyFrame::into_value(lazy, call.head)?,
         None,
     ))
 }

@@ -27,7 +27,7 @@ impl Command for WithColumn {
                 SyntaxShape::Any,
                 "series to be added or expressions used to define the new columns",
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -146,7 +146,7 @@ fn command_lazy(
     let lazy: NuLazyFrame = lazy.into_polars().with_columns(&expressions).into();
 
     Ok(PipelineData::Value(
-        NuLazyFrame::into_value(lazy, call.head),
+        NuLazyFrame::into_value(lazy, call.head)?,
         None,
     ))
 }

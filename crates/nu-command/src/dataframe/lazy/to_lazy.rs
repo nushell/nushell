@@ -3,7 +3,7 @@ use super::super::values::{NuDataFrame, NuLazyFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature,
+    Category, Example, PipelineData, ShellError, Signature, Value,
 };
 
 #[derive(Clone)]
@@ -39,7 +39,11 @@ impl Command for ToLazyFrame {
     ) -> Result<PipelineData, ShellError> {
         let df = NuDataFrame::try_from_iter(input.into_iter())?;
         let lazy = NuLazyFrame::from_dataframe(df);
+        let value = Value::CustomValue {
+            val: Box::new(lazy),
+            span: call.head,
+        };
 
-        Ok(PipelineData::Value(lazy.into_value(call.head), None))
+        Ok(PipelineData::Value(value, None))
     }
 }

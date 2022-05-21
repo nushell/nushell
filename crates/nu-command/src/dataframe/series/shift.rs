@@ -30,7 +30,7 @@ impl Command for Shift {
                 "Expression to use to fill the null values (lazy df)",
                 Some('f'),
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -106,7 +106,7 @@ fn command_lazy(
         None => lazy.shift(shift).into(),
     };
 
-    Ok(PipelineData::Value(lazy.into_value(call.head), None))
+    Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
 }
 
 #[cfg(test)]

@@ -33,7 +33,7 @@ impl Command for RenameDF {
                 SyntaxShape::Any,
                 "New names for the selected column(s). A string or list of strings",
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -133,7 +133,7 @@ fn command_lazy(
     let lazy = lazy.into_polars();
     let lazy: NuLazyFrame = lazy.rename(&columns, &new_names).into();
 
-    Ok(PipelineData::Value(lazy.into_value(call.head), None))
+    Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
 }
 
 #[cfg(test)]

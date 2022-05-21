@@ -51,17 +51,6 @@ impl Command for LazyQuantile {
             .quantile(quantile, QuantileInterpolOptions::default())
             .into();
 
-        Ok(PipelineData::Value(lazy.into_value(call.head), None))
+        Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
     }
 }
-
-//#[cfg(test)]
-//mod test {
-//    use super::super::super::test_dataframe::test_dataframe;
-//    use super::*;
-//
-//    #[test]
-//    fn test_examples() {
-//        test_dataframe(vec![Box::new(LazyQuantile {})])
-//    }
-//}

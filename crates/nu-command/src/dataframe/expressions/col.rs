@@ -26,13 +26,13 @@ impl Command for ExprCol {
                 SyntaxShape::String,
                 "Name of column to be used",
             )
-            .category(Category::Custom("expressions".into()))
+            .category(Category::Custom("lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a named column expression and converts it to a nu object",
-            example: "dfr col col_a | dfr to-nu",
+            example: "dfr col col_a | dfr as-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![
@@ -67,11 +67,11 @@ impl Command for ExprCol {
 #[cfg(test)]
 mod test {
     use super::super::super::super::test_dataframe::test_dataframe;
-    use super::super::super::ExprToNu;
+    use super::super::super::ExprAsNu;
     use super::*;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ExprCol {}), Box::new(ExprToNu {})])
+        test_dataframe(vec![Box::new(ExprCol {}), Box::new(ExprAsNu {})])
     }
 }

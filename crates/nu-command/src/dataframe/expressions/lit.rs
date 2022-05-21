@@ -25,13 +25,13 @@ impl Command for ExprLit {
                 SyntaxShape::Any,
                 "literal to construct the expression",
             )
-            .category(Category::Custom("expressions".into()))
+            .category(Category::Custom("lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Created a literal expression and converts it to a nu object",
-            example: "dfr lit 2 | dfr to-nu",
+            example: "dfr lit 2 | dfr as-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![
@@ -69,11 +69,11 @@ impl Command for ExprLit {
 #[cfg(test)]
 mod test {
     use super::super::super::super::test_dataframe::test_dataframe;
-    use super::super::super::ExprToNu;
+    use super::super::super::ExprAsNu;
     use super::*;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ExprLit {}), Box::new(ExprToNu {})])
+        test_dataframe(vec![Box::new(ExprLit {}), Box::new(ExprAsNu {})])
     }
 }

@@ -22,7 +22,7 @@ impl Command for NotSeries {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
+        Signature::build(self.name()).category(Category::Custom("dataframe or lazyframes".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

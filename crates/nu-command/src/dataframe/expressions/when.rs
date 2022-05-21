@@ -38,7 +38,7 @@ impl Command for ExprWhen {
                 "Expression that will be applied when predicate is false",
                 Some('o'),
             )
-            .category(Category::Custom("expressions".into()))
+            .category(Category::Custom("lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -86,11 +86,11 @@ impl Command for ExprWhen {
 #[cfg(test)]
 mod test {
     use super::super::super::super::test_dataframe::test_dataframe;
-    use super::super::super::ExprToNu;
+    use super::super::super::ExprAsNu;
     use super::*;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ExprWhen {}), Box::new(ExprToNu {})])
+        test_dataframe(vec![Box::new(ExprWhen {}), Box::new(ExprAsNu {})])
     }
 }

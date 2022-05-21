@@ -12,7 +12,7 @@ use polars::prelude::{DataFrame, DataType, PolarsObject, Series};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
-use super::utils::DEFAULT_ROWS;
+use super::{utils::DEFAULT_ROWS, NuLazyFrame};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -70,29 +70,38 @@ impl PolarsObject for DataFrameValue {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct NuDataFrame(DataFrame);
+pub struct NuDataFrame{
+    pub df: DataFrame,
+    pub from_lazy: bool,
+}
 
 impl AsRef<DataFrame> for NuDataFrame {
     fn as_ref(&self) -> &polars::prelude::DataFrame {
-        &self.0
+        &self.df
     }
 }
 
 impl AsMut<DataFrame> for NuDataFrame {
     fn as_mut(&mut self) -> &mut polars::prelude::DataFrame {
-        &mut self.0
+        &mut self.df
     }
 }
 
 impl From<DataFrame> for NuDataFrame {
-    fn from(dataframe: DataFrame) -> Self {
-        Self(dataframe)
+    fn from(df: DataFrame) -> Self {
+        Self {
+            df,
+            from_lazy: false,
+        }
     }
 }
 
 impl NuDataFrame {
-    pub fn new(dataframe: DataFrame) -> Self {
-        Self(dataframe)
+    pub fn new(df: DataFrame) -> Self {
+        Self{
+            df,
+            from_lazy: false,
+        }
     }
 
     fn default_value(span: Span) -> Value {
@@ -108,9 +117,17 @@ impl NuDataFrame {
     }
 
     pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
+        if self.from_lazy {
+            let lazy = NuLazyFrame::from_dataframe(self);
+            Value::CustomValue {
+                val: Box::new(lazy),
+                span,
+            }
+        } else {
+            Value::CustomValue {
+                val: Box::new(self),
+                span,
+            }
         }
     }
 
@@ -187,9 +204,30 @@ impl NuDataFrame {
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+        if Self::can_downcast(&value) {
+            Ok(Self::get_df(value)?)
+        } else if NuLazyFrame::can_downcast(&value) {
+            let span = value.span()?;
+            let lazy = NuLazyFrame::try_from_value(value)?;
+            let df = lazy.collect(span)?;
+            Ok(df)
+        } else {
+            Err(ShellError::CantConvert(
+                "lazy or eager dataframe".into(),
+                value.get_type().to_string(),
+                value.span()?,
+                None,
+            ))
+        }
+    }
+
+    pub fn get_df(value: Value) -> Result<Self, ShellError> {
         match value {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
-                Some(df) => Ok(NuDataFrame(df.0.clone())),
+                Some(df) => Ok(NuDataFrame{
+                    df: df.df.clone(),
+                    from_lazy: false
+                }),
                 None => Err(ShellError::CantConvert(
                     "dataframe".into(),
                     "non-dataframe".into(),
@@ -220,9 +258,9 @@ impl NuDataFrame {
     }
 
     pub fn column(&self, column: &str, span: Span) -> Result<Self, ShellError> {
-        let s = self.0.column(column).map_err(|_| {
+        let s = self.df.column(column).map_err(|_| {
             let possibilities = self
-                .0
+                .df
                 .get_column_names()
                 .iter()
                 .map(|name| name.to_string())
@@ -232,7 +270,7 @@ impl NuDataFrame {
             ShellError::DidYouMean(option, span)
         })?;
 
-        let dataframe = DataFrame::new(vec![s.clone()]).map_err(|e| {
+        let df = DataFrame::new(vec![s.clone()]).map_err(|e| {
             ShellError::GenericError(
                 "Error creating dataframe".into(),
                 e.to_string(),
@@ -242,11 +280,14 @@ impl NuDataFrame {
             )
         })?;
 
-        Ok(Self(dataframe))
+        Ok(Self {
+            df, 
+            from_lazy: false
+        })
     }
 
     pub fn is_series(&self) -> bool {
-        self.0.width() == 1
+        self.df.width() == 1
     }
 
     pub fn as_series(&self, span: Span) -> Result<Series, ShellError> {
@@ -261,7 +302,7 @@ impl NuDataFrame {
         }
 
         let series = self
-            .0
+            .df
             .get_columns()
             .get(0)
             .expect("We have already checked that the width is 1");
@@ -286,7 +327,7 @@ impl NuDataFrame {
 
     // Print is made out a head and if the dataframe is too large, then a tail
     pub fn print(&self, span: Span) -> Result<Vec<Value>, ShellError> {
-        let df = &self.0;
+        let df = &self.df;
         let size: usize = 20;
 
         if df.height() > size {
@@ -305,7 +346,7 @@ impl NuDataFrame {
     }
 
     pub fn height(&self) -> usize {
-        self.0.height()
+        self.df.height()
     }
 
     pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
@@ -316,7 +357,7 @@ impl NuDataFrame {
     }
 
     pub fn tail(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
-        let df = &self.0;
+        let df = &self.df;
         let to_row = df.height();
         let size = rows.unwrap_or(DEFAULT_ROWS);
         let from_row = to_row.saturating_sub(size);
@@ -332,12 +373,12 @@ impl NuDataFrame {
         to_row: usize,
         span: Span,
     ) -> Result<Vec<Value>, ShellError> {
-        let df = &self.0;
+        let df = &self.df;
         let upper_row = to_row.min(df.height());
 
         let mut size: usize = 0;
         let columns = self
-            .0
+            .df
             .get_columns()
             .iter()
             .map(

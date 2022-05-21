@@ -22,7 +22,7 @@ impl Command for LastDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .optional("rows", SyntaxShape::Int, "Number of rows for tail")
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

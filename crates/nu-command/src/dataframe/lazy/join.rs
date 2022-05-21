@@ -82,7 +82,7 @@ impl Command for LazyJoin {
         };
 
         let other: Value = call.req(engine_state, stack, 0)?;
-        let (other, _) = NuLazyFrame::maybe_is_eager(other)?;
+        let other = NuLazyFrame::try_from_value(other)?;
         let other = other.into_polars();
 
         let left_on: Value = call.req(engine_state, stack, 1)?;
@@ -114,7 +114,8 @@ impl Command for LazyJoin {
         let suffix = suffix.unwrap_or_else(|| "_x".into());
 
         let value = input.into_value(call.head);
-        let (lazy, from_eager) = NuLazyFrame::maybe_is_eager(value)?;
+        let lazy = NuLazyFrame::try_from_value(value)?;
+        let from_eager = lazy.from_eager;
         let lazy = lazy.into_polars();
 
         let lazy: NuLazyFrame = lazy
@@ -131,7 +132,7 @@ impl Command for LazyJoin {
         let res = if from_eager {
             lazy.collect(call.head)?.into_value(call.head)
         } else {
-            lazy.into_value(call.head)
+            lazy.into_value(call.head)?
         };
 
         Ok(PipelineData::Value(res, None))
