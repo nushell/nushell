@@ -22,6 +22,7 @@ impl Command for Flatten {
                 SyntaxShape::String,
                 "optionally flatten data by column",
             )
+            .switch("all", "flatten inner table out", Some('a'))
             .category(Category::Filters)
     }
 
@@ -63,17 +64,17 @@ impl Command for Flatten {
             },
             Example {
                 description: "flatten a column having a nested table",
-                example: "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten | get meal",
+                example: "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten --all | get meal",
                 result: None,//Some(Value::test_string("arepa")),
             },
             Example {
                 description: "restrict the flattening by passing column names",
-                example: "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions",
+                example: "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions --all | last | get versions",
                 result: None, //Some(Value::test_string("0.22")),
             },
             Example {
                 description: "Flatten inner table",
-                example: "{ a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten",
+                example: "{ a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten --all",
                 result: Some(Value::List{
                     vals: vec![
                         Value::Record{
@@ -113,10 +114,11 @@ fn flatten(
     let tag = call.head;
     let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
+    let flatten_all = call.has_flag("all");
 
     input
         .flat_map(
-            move |item| flat_value(&columns, &item, tag),
+            move |item| flat_value(&columns, &item, tag, flatten_all),
             engine_state.ctrlc.clone(),
         )
         .map(|x| x.set_metadata(metadata))
@@ -139,7 +141,7 @@ enum TableInside<'a> {
     },
 }
 
-fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value> {
+fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) -> Vec<Value> {
     let tag = match item.span() {
         Ok(x) => x,
         Err(e) => return vec![Value::Error { error: e }],
@@ -211,7 +213,9 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
                             })
                         }
                     }
-                    Value::List { vals, span: _ } if vals.iter().all(|f| f.as_record().is_ok()) => {
+                    Value::List { vals, span: _ }
+                        if all && vals.iter().all(|f| f.as_record().is_ok()) =>
+                    {
                         // it's a table (a list of record, we can flatten inner record)
                         let mut cs = vec![];
                         let mut vs = vec![];
