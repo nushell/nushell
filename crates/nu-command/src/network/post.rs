@@ -79,6 +79,10 @@ impl Command for SubCommand {
         "Performs HTTP POST operation."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["network", "post", "send", "push", "http"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

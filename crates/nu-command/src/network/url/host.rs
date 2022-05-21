@@ -25,6 +25,10 @@ impl Command for SubCommand {
         "Get the host of a URL"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["url", "host", "hostname"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

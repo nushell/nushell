@@ -21,6 +21,10 @@ impl Command for Url {
         "Apply url function."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["url", "network", "parse"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

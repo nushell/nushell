@@ -25,6 +25,10 @@ impl Command for SubCommand {
         "Get the scheme (e.g. http, file) of a URL"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["url", "scheme", "protocol"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

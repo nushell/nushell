@@ -25,6 +25,10 @@ impl Command for SubCommand {
         "Get the query string of a URL"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["url", "query", "parameter"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
