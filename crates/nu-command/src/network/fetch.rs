@@ -75,6 +75,10 @@ impl Command for SubCommand {
         "Performs HTTP GET operation."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["network", "fetch", "get", "pull", "request", "http"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
