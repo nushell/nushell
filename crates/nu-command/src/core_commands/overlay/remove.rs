@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, Spanned, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, Signature, Spanned, SyntaxShape, ShellError};
 
 #[derive(Clone)]
 pub struct OverlayRemove;
@@ -18,6 +18,11 @@ impl Command for OverlayRemove {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay remove")
             .optional("name", SyntaxShape::String, "Overlay to remove")
+            .switch(
+                "keep",
+                "Keep newly added symbols within the next activated overlay",
+                Some('k'),
+            )
             .category(Category::Core)
     }
 
@@ -37,8 +42,6 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        // let module_name: Spanned<String> = call.req(engine_state, stack, 0)?;
-
         let module_name: Spanned<String> = if let Some(name) = call.opt(engine_state, stack, 0)? {
             name
         } else {
@@ -48,8 +51,41 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             }
         };
 
-        // TODO: Add env merging
+        let env_vars_to_keep = if call.has_flag("keep") {
+            if let Some(id) = engine_state.find_active_overlay(module_name.item.as_bytes()) {
+                let overlay_frame = engine_state.get_overlay(id);
+                let orig_module = engine_state.get_module(overlay_frame.origin);
+
+                let mut result = stack.get_overlay_env_vars(engine_state, &module_name.item);
+                result.retain(|name, _| !orig_module.has_env_var(name.as_bytes()));
+
+                Some(result)
+            } else {
+                if let Some(id) = engine_state.find_module(module_name.item.as_bytes(), &[]) {
+                    let orig_module = engine_state.get_module(id);
+
+                    let mut result = stack.get_overlay_env_vars(engine_state, &module_name.item);
+                    result.retain(|name, _| !orig_module.has_env_var(name.as_bytes()));
+
+                    Some(result)
+                } else {
+                    return Err(ShellError::ModuleOrOverlayNotFoundAtRuntime(
+                        module_name.item,
+                        module_name.span,
+                    ));
+                }
+            }
+        } else {
+            None
+        };
+
         stack.remove_overlay(&module_name.item, &module_name.span)?;
+
+        if let Some(env_vars) = env_vars_to_keep {
+            for (name, val) in env_vars.into_iter() {
+                stack.add_env_var(name, val);
+            }
+        }
 
         Ok(PipelineData::new(call.head))
     }
