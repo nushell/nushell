@@ -19,7 +19,7 @@ impl Command for OverlayRemove {
         Signature::build("overlay remove")
             .optional("name", SyntaxShape::String, "Overlay to remove")
             .switch(
-                "keep",
+                "keep-custom",
                 "Keep newly added symbols within the next activated overlay",
                 Some('k'),
             )
@@ -51,7 +51,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             }
         };
 
-        let env_vars_to_keep = if call.has_flag("keep") {
+        let env_vars_to_keep = if call.has_flag("keep-custom") {
             if let Some(id) = engine_state.find_active_overlay(module_name.item.as_bytes()) {
                 let overlay_frame = engine_state.get_overlay(id);
                 let orig_module = engine_state.get_module(overlay_frame.origin);
