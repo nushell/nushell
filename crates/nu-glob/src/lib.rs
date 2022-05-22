@@ -936,16 +936,18 @@ mod test {
         use std::io;
         let mut iter = glob("/root/*").unwrap();
 
-        // GlobErrors shouldn't halt iteration
-        let next = iter.next();
-        assert!(next.is_some());
+        if std::fs::read_dir("/root/").is_err() {
+            // GlobErrors shouldn't halt iteration
+            let next = iter.next();
+            assert!(next.is_some());
 
-        let err = next.unwrap();
-        assert!(err.is_err());
+            let err = next.unwrap();
+            assert!(err.is_err());
 
-        let err = err.err().unwrap();
-        assert!(err.path() == Path::new("/root"));
-        assert!(err.error().kind() == io::ErrorKind::PermissionDenied);
+            let err = err.err().unwrap();
+            assert!(err.path() == Path::new("/root"));
+            assert!(err.error().kind() == io::ErrorKind::PermissionDenied);
+        }
     }
 
     #[test]
