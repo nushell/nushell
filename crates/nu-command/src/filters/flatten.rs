@@ -197,13 +197,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                         vals,
                         span: _,
                     } => {
-                        if !need_flatten {
-                            if out.contains_key(column) {
-                                out.insert(format!("{}_{}", column, column), value.clone());
-                            } else {
-                                out.insert(column.to_string(), value.clone());
-                            }
-                        } else {
+                        if need_flatten {
                             cols.iter().enumerate().for_each(|(idx, inner_record_col)| {
                                 if out.contains_key(inner_record_col) {
                                     out.insert(
@@ -214,6 +208,10 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                                     out.insert(inner_record_col.to_string(), vals[idx].clone());
                                 }
                             })
+                        } else if out.contains_key(column) {
+                            out.insert(format!("{}_{}", column, column), value.clone());
+                        } else {
+                            out.insert(column.to_string(), value.clone());
                         }
                     }
                     Value::List { vals, span: _ }
@@ -237,13 +235,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             }
                         }
 
-                        if !need_flatten {
-                            if out.contains_key(column) {
-                                out.insert(format!("{}_{}", column, column), value.clone());
-                            } else {
-                                out.insert(column.to_string(), value.clone());
-                            }
-                        } else {
+                        if need_flatten {
                             let cols = cs.into_iter().map(|f| f.to_vec());
                             let vals = vs.into_iter().map(|f| f.to_vec());
 
@@ -254,6 +246,10 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                                 parent_column_name: column,
                                 parent_column_index: column_index,
                             });
+                        } else if out.contains_key(column) {
+                            out.insert(format!("{}_{}", column, column), value.clone());
+                        } else {
+                            out.insert(column.to_string(), value.clone());
                         }
                     }
                     Value::List {
