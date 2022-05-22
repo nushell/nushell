@@ -151,7 +151,6 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
         if item.as_record().is_ok() {
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
-            let mut tables_explicitly_flattened = 0;
 
             let records = match item {
                 Value::Record {
@@ -187,6 +186,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
 
             for (column, value) in records_iterator {
                 let column_requested = columns.iter().find(|c| c.into_string() == *column);
+                let need_flatten = { columns.is_empty() || column_requested.is_some() };
 
                 match value {
                     Value::Record {
@@ -194,7 +194,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                         vals,
                         span: _,
                     } => {
-                        if column_requested.is_none() && !columns.is_empty() {
+                        if !need_flatten {
                             if out.contains_key(column) {
                                 out.insert(format!("{}_{}", column, column), value.clone());
                             } else {
@@ -216,6 +216,13 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                     Value::List { vals, span: _ }
                         if all && vals.iter().all(|f| f.as_record().is_ok()) =>
                     {
+                        if need_flatten && inner_table.is_some() {
+                            return vec![Value::Error{ error: ShellError::UnsupportedInput(
+                                    "can only flatten one inner list at the same time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
+                                    s
+                                )}
+                            ];
+                        }
                         // it's a table (a list of record, we can flatten inner record)
                         let mut cs = vec![];
                         let mut vs = vec![];
@@ -227,7 +234,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             }
                         }
 
-                        if column_requested.is_none() && !columns.is_empty() {
+                        if !need_flatten {
                             if out.contains_key(column) {
                                 out.insert(format!("{}_{}", column, column), value.clone());
                             } else {
@@ -249,46 +256,36 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                         vals: values,
                         span: _,
                     } => {
-                        if tables_explicitly_flattened >= 1 && column_requested.is_some() {
+                        if need_flatten && inner_table.is_some() {
                             return vec![Value::Error{ error: ShellError::UnsupportedInput(
-                                    "can only flatten one inner table at the same time. tried flattening more than one column with inner tables... but is flattened already".to_string(),
+                                    "can only flatten one inner list at the same time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
                                     s
                                 )}
                             ];
                         }
 
                         if !columns.is_empty() {
-                            let cell_path = match column_requested {
-                                Some(x) => match x.members.first() {
+                            let cell_path =
+                                column_requested.and_then(|x| match x.members.first() {
                                     Some(PathMember::String { val, span: _ }) => Some(val),
-                                    Some(PathMember::Int { val: _, span: _ }) => None,
-                                    None => None,
-                                },
-                                None => None,
-                            };
+                                    _ => None,
+                                });
 
                             if let Some(r) = cell_path {
-                                if !columns.is_empty() {
-                                    inner_table = Some(TableInside::Entries(
-                                        r,
-                                        &s,
-                                        values.iter().collect::<Vec<_>>(),
-                                    ));
-
-                                    tables_explicitly_flattened += 1;
-                                }
+                                inner_table = Some(TableInside::Entries(
+                                    r,
+                                    &s,
+                                    values.iter().collect::<Vec<_>>(),
+                                ));
                             } else {
                                 out.insert(column.to_string(), value.clone());
                             }
-                        } else if inner_table.is_none() {
+                        } else {
                             inner_table = Some(TableInside::Entries(
                                 column,
                                 &s,
                                 values.iter().collect::<Vec<_>>(),
                             ));
-                            out.insert(column.to_string(), value.clone());
-                        } else {
-                            out.insert(column.to_string(), value.clone());
                         }
                     }
                     _ => {
