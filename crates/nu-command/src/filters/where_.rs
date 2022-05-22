@@ -19,7 +19,11 @@ impl Command for Where {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("where")
-            .required("cond", SyntaxShape::RowCondition, "condition")
+            .required(
+                "block",
+                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
+                "the block to run",
+            )
             .category(Category::Filters)
     }
 
