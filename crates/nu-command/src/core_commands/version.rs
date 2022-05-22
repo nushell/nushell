@@ -83,7 +83,7 @@ pub fn version(
 
     let build_target: Option<&str> = Some(shadow::BUILD_TARGET).filter(|x| !x.is_empty());
     if let Some(build_target) = build_target {
-        cols.push("build_os".to_string());
+        cols.push("build_target".to_string());
         vals.push(Value::String {
             val: build_target.to_string(),
             span: call.head,
