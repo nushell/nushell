@@ -637,13 +637,14 @@ pub fn eval_block(
     let num_pipelines = block.len();
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         for (i, elem) in pipeline.expressions.iter().enumerate() {
+            let not_last = i != pipeline.expressions.len() - 1;
             input = eval_expression_with_input(
                 engine_state,
                 stack,
                 elem,
                 input,
-                redirect_stdout || (i != pipeline.expressions.len() - 1),
-                redirect_stderr || (i != pipeline.expressions.len() - 1),
+                redirect_stdout || not_last,
+                redirect_stderr || not_last,
             )?
         }
 
