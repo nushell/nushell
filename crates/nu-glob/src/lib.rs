@@ -936,6 +936,7 @@ mod test {
         use std::io;
         let mut iter = glob("/root/*").unwrap();
 
+        // Skip test if running with permissions to read /root
         if std::fs::read_dir("/root/").is_err() {
             // GlobErrors shouldn't halt iteration
             let next = iter.next();
