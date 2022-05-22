@@ -314,6 +314,8 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             LetEnv,
             LoadEnv,
             WithEnv,
+            ConfigNu,
+            ConfigEnv,
         };
 
         // Math
