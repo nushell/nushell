@@ -66,8 +66,8 @@ impl Command for ExprCol {
 
 #[cfg(test)]
 mod test {
-    use super::super::super::super::test_dataframe::test_dataframe;
-    use super::super::super::ExprAsNu;
+    use super::super::super::test_dataframe::test_dataframe;
+    use crate::dataframe::expressions::as_nu::ExprAsNu;
     use super::*;
 
     #[test]
