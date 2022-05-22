@@ -643,7 +643,7 @@ pub fn eval_block(
                 elem,
                 input,
                 redirect_stdout || (i != pipeline.expressions.len() - 1),
-                redirect_stderr,
+                redirect_stderr || (i != pipeline.expressions.len() - 1),
             )?
         }
 

@@ -310,11 +310,15 @@ impl ExternalCommand {
                     } else {
                         None
                     },
-                    stderr: Some(RawStream::new(
-                        Box::new(stderr_receiver),
-                        output_ctrlc.clone(),
-                        head,
-                    )),
+                    stderr: if redirect_stderr {
+                        Some(RawStream::new(
+                            Box::new(stderr_receiver),
+                            output_ctrlc.clone(),
+                            head,
+                        ))
+                    } else {
+                        None
+                    },
                     exit_code: Some(ListStream::from_stream(
                         Box::new(exit_code_receiver),
                         output_ctrlc,
