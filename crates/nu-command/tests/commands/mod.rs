@@ -6,6 +6,7 @@ mod cal;
 mod cd;
 mod compact;
 mod cp;
+mod date;
 mod def;
 mod default;
 mod drop;
