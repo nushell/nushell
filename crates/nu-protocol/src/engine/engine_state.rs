@@ -1712,7 +1712,7 @@ impl<'a> StateWorkingSet<'a> {
         } else {
             last_scope_frame
                 .overlays
-                .push((name, OverlayFrame::from(origin)));
+                .push((name, OverlayFrame::from_origin(origin)));
             last_scope_frame.overlays.len() - 1
         };
 
