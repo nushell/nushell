@@ -1,10 +1,13 @@
 use chrono::Local;
+use chrono::{DateTime, TimeZone};
+
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
+use std::fmt::{Display, Write};
 
 use super::utils::parse_date_from_string;
 
@@ -50,11 +53,11 @@ impl Command for SubCommand {
             ));
         }
 
-        let format = call.opt::<String>(engine_state, stack, 0)?;
+        let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
         input.map(
             move |value| match &format {
-                Some(format) => format_helper(value, format.as_str(), head),
+                Some(format) => format_helper(value, format.item.as_str(), format.span, head),
                 None => format_helper_rfc2822(value, head),
             },
             engine_state.ctrlc.clone(),
@@ -90,34 +93,41 @@ impl Command for SubCommand {
     }
 }
 
-fn format_helper(value: Value, formatter: &str, span: Span) -> Value {
-    match value {
-        Value::Date { val, span: _ } => Value::String {
-            val: val.format(formatter).to_string(),
+fn format_from<Tz: TimeZone>(date_time: DateTime<Tz>, formatter: &str, span: Span) -> Value
+where
+    Tz::Offset: Display,
+{
+    let mut formatter_buf = String::new();
+    let format = date_time.format(formatter);
+
+    match formatter_buf.write_fmt(format_args!("{}", format)) {
+        Ok(_) => Value::String {
+            val: formatter_buf,
             span,
         },
-        Value::String {
-            val,
-            span: val_span,
-        } => {
-            let dt = parse_date_from_string(&val, val_span);
+        Err(_) => Value::Error {
+            error: ShellError::UnsupportedInput("invalid format".to_string(), span),
+        },
+    }
+}
+
+fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span: Span) -> Value {
+    match value {
+        Value::Date { val, .. } => format_from(val, formatter, formatter_span),
+        Value::String { val, .. } => {
+            let dt = parse_date_from_string(&val, formatter_span);
+
             match dt {
-                Ok(x) => Value::String {
-                    val: x.format(formatter).to_string(),
-                    span,
-                },
+                Ok(x) => format_from(x, formatter, formatter_span),
                 Err(e) => e,
             }
         }
-        Value::Nothing { span: _ } => {
+        Value::Nothing { .. } => {
             let dt = Local::now();
-            Value::String {
-                val: dt.with_timezone(dt.offset()).format(formatter).to_string(),
-                span,
-            }
+            format_from(dt, formatter, formatter_span)
         }
         _ => Value::Error {
-            error: ShellError::DatetimeParseError(span),
+            error: ShellError::DatetimeParseError(head_span),
         },
     }
 }
