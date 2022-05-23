@@ -324,6 +324,38 @@ fn remove_overlay_keep_env() {
 }
 
 #[test]
+fn remove_overlay_keep_decl() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"def bagr [] { "bagr" }"#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
+fn remove_overlay_keep_alias() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"alias bagr = "bagr""#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
 fn remove_overlay_keep_discard_overwritten_env() {
     let inp = &[
         r#"overlay add samples/spam.nu"#,

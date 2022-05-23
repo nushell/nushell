@@ -1727,7 +1727,7 @@ impl<'a> StateWorkingSet<'a> {
         self.use_aliases(aliases);
     }
 
-    pub fn remove_overlay(&mut self, name: &[u8]) {
+    pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
         let removed_overlay = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
@@ -1742,18 +1742,16 @@ impl<'a> StateWorkingSet<'a> {
                 .map(|id| self.permanent_state.get_overlay(id).clone())
         };
 
-        if removed_overlay.is_some() {
+        if let Some(overlay_frame) = removed_overlay {
             last_scope_frame.removed_overlays.push(name.to_owned());
+
+            if keep_custom {
+                let (diff_decls, diff_aliases) = overlay_frame.diff(&self);
+
+                self.use_decls(diff_decls);
+                self.use_aliases(diff_aliases);
+            }
         }
-
-        // if let Some(module) = original_module {
-        //     let last_overlay_name = self.last_overlay_name().to_owned();
-
-        //     if let Some(overlay) = removed_overlay {
-        //         let (diff_decls, diff_aliases) = overlay.diff(&module);
-        //         self.add_overlay(last_overlay_name, diff_decls, diff_aliases);
-        //     }
-        // }
     }
 
     pub fn render(self) -> StateDelta {

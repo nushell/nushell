@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use crate::{AliasId, DeclId, ModuleId, OverlayId, VarId};
 
+use super::StateWorkingSet;
+
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 
 /// Tells whether a decl or alias is visible or not
@@ -195,7 +197,7 @@ impl ScopeFrame {
     }
 }
 
-// type OverlayDiff = (Vec<(Vec<u8>, DeclId)>, Vec<(Vec<u8>, AliasId)>);
+type OverlayDiff = (Vec<(Vec<u8>, DeclId)>, Vec<(Vec<u8>, AliasId)>);
 
 #[derive(Debug, Clone)]
 pub struct OverlayFrame {
@@ -221,44 +223,44 @@ impl OverlayFrame {
         }
     }
 
-    // Find out which definitions are custom compared to the origin module
-    // pub fn diff(&self, engine_state: &EngineState) -> OverlayDiff {
-    //     let module = engine_state.get_module(self.origin);
+    /// Find out which definitions are newly added compared to the origin module
+    pub fn diff(&self, working_set: &StateWorkingSet) -> OverlayDiff {
+        let module = working_set.get_module(self.origin);
 
-    //     let decls = self
-    //         .decls
-    //         .iter()
-    //         .filter(|(name, decl_id)| {
-    //             if self.visibility.is_decl_id_visible(decl_id) {
-    //                 if let Some(original_id) = module.get_decl_id(name) {
-    //                     &original_id != *decl_id
-    //                 } else {
-    //                     true
-    //                 }
-    //             } else {
-    //                 false
-    //             }
-    //         })
-    //         .map(|(name, decl_id)| (name.to_owned(), *decl_id))
-    //         .collect();
+        let decls = self
+            .decls
+            .iter()
+            .filter(|(name, decl_id)| {
+                if self.visibility.is_decl_id_visible(decl_id) {
+                    if module.has_decl(name) {
+                        false
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            })
+            .map(|(name, decl_id)| (name.to_owned(), *decl_id))
+            .collect();
 
-    //     let aliases = self
-    //         .aliases
-    //         .iter()
-    //         .filter(|(name, alias_id)| {
-    //             if self.visibility.is_alias_id_visible(alias_id) {
-    //                 if let Some(original_id) = module.get_alias_id(name) {
-    //                     &original_id != *alias_id
-    //                 } else {
-    //                     true
-    //                 }
-    //             } else {
-    //                 false
-    //             }
-    //         })
-    //         .map(|(name, alias_id)| (name.to_owned(), *alias_id))
-    //         .collect();
+        let aliases = self
+            .aliases
+            .iter()
+            .filter(|(name, alias_id)| {
+                if self.visibility.is_alias_id_visible(alias_id) {
+                    if module.has_alias(name) {
+                        false
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            })
+            .map(|(name, alias_id)| (name.to_owned(), *alias_id))
+            .collect();
 
-    //     (decls, aliases)
-    // }
+        (decls, aliases)
+    }
 }

@@ -2063,6 +2063,8 @@ pub fn parse_overlay_remove(
         )
     };
 
+    let keep_custom = call.has_flag("keep-custom");
+
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
         span: span(spans),
@@ -2097,16 +2099,7 @@ pub fn parse_overlay_remove(
         );
     }
 
-    // let original_module = if call.has_flag("discard") {
-    //     None
-    // } else if let Some(module_id) = working_set.find_module(overlay_name.as_bytes()) {
-    //     // TODO: Remove clone
-    //     Some(working_set.get_module(module_id).clone())
-    // } else {
-    //     Some(Module::new())
-    // };
-
-    working_set.remove_overlay(overlay_name.as_bytes());
+    working_set.remove_overlay(overlay_name.as_bytes(), keep_custom);
 
     (pipeline, None)
 }
