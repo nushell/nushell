@@ -68,6 +68,13 @@ impl From<LazyFrame> for NuLazyFrame {
 }
 
 impl NuLazyFrame {
+    pub fn new(from_eager: bool, lazy: LazyFrame) -> Self {
+        Self {
+            lazy: Some(lazy),
+            from_eager
+        }
+    }
+    
     pub fn from_dataframe(df: NuDataFrame) -> Self {
         let lazy = df.as_ref().clone().lazy();
         Self {
