@@ -1094,7 +1094,11 @@ pub fn parse_binary(
 ) -> (Expression, Option<ParseError>) {
     let (hex_value, err) = parse_binary_with_base(working_set, span, 16, 2, b"0x[", b"]");
     if err.is_some() {
-        return parse_binary_with_base(working_set, span, 2, 8, b"0b[", b"]");
+        let (octal_value, err) = parse_binary_with_base(working_set, span, 8, 3, b"0o[", b"]");
+        if err.is_some() {
+            return parse_binary_with_base(working_set, span, 2, 8, b"0b[", b"]");
+        }
+        return (octal_value, err);
     }
     (hex_value, err)
 }
