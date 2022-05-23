@@ -55,7 +55,7 @@ nu-utils = { path = "./crates/nu-utils", version = "0.62.1"  }
 openssl = { version = "0.10.38", features = ["vendored"], optional = true }
 pretty_env_logger = "0.4.0"
 rayon = "1.5.1"
-reedline = { git = "https://github.com/nushell/reedline", branch = "main", features = ["bashisms"]}
+reedline = { version = "0.6.0", features = ["bashisms"]}
 is_executable = "1.0.1"
 
 [dev-dependencies]
