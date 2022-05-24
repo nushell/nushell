@@ -44,7 +44,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let module_name: Spanned<String> = if let Some(name) = call.opt(engine_state, stack, 0)? {
+        let overlay_name: Spanned<String> = if let Some(name) = call.opt(engine_state, stack, 0)? {
             name
         } else {
             Spanned {
@@ -53,37 +53,37 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             }
         };
 
-        if !stack.is_overlay_active(&module_name.item) {
+        if !stack.is_overlay_active(&overlay_name.item) {
             return Err(ShellError::OverlayNotFoundAtRuntime(
-                module_name.item,
-                module_name.span,
+                overlay_name.item,
+                overlay_name.span,
             ));
         }
 
         if call.has_flag("keep-custom") {
-            if let Some(overlay_id) = engine_state.find_overlay(module_name.item.as_bytes()) {
+            if let Some(overlay_id) = engine_state.find_overlay(overlay_name.item.as_bytes()) {
                 let overlay_frame = engine_state.get_overlay(overlay_id);
                 let origin_module = engine_state.get_module(overlay_frame.origin);
 
                 let env_vars_to_keep: Vec<(String, Value)> = stack
-                    .get_overlay_env_vars(engine_state, &module_name.item)
+                    .get_overlay_env_vars(engine_state, &overlay_name.item)
                     .into_iter()
                     .filter(|(name, _)| !origin_module.has_env_var(name.as_bytes()))
                     .collect();
 
-                stack.remove_overlay(&module_name.item);
+                stack.remove_overlay(&overlay_name.item);
 
                 for (name, val) in env_vars_to_keep {
                     stack.add_env_var(name, val);
                 }
             } else {
                 return Err(ShellError::OverlayNotFoundAtRuntime(
-                    module_name.item,
-                    module_name.span,
+                    overlay_name.item,
+                    overlay_name.span,
                 ));
             }
         } else {
-            stack.remove_overlay(&module_name.item);
+            stack.remove_overlay(&overlay_name.item);
         }
 
         Ok(PipelineData::new(call.head))
