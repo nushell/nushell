@@ -1780,23 +1780,23 @@ impl<'a> StateWorkingSet<'a> {
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
-        let removed_overlay = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
+        let removed_overlay_origin = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
             last_scope_frame
                 .active_overlays
                 .retain(|id| id != &overlay_id);
 
-            Some(last_scope_frame.get_overlay(overlay_id).clone())
+            Some(last_scope_frame.get_overlay(overlay_id).origin)
         } else {
             self.permanent_state
                 .find_overlay(name)
-                .map(|id| self.permanent_state.get_overlay(id).clone())
+                .map(|id| self.permanent_state.get_overlay(id).origin)
         };
 
-        if let Some(overlay_frame) = removed_overlay {
+        if let Some(module_id) = removed_overlay_origin {
             last_scope_frame.removed_overlays.push(name.to_owned());
 
             if keep_custom {
-                let origin_module = self.get_module(overlay_frame.origin);
+                let origin_module = self.get_module(module_id);
 
                 let decls = self
                     .decls_of_overlay(name)
