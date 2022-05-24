@@ -30,6 +30,7 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
     bind_command!(
         ExprAlias,
         ExprCol,
+        ExprCount,
         ExprLit,
         ExprAsNu,
         ExprWhen,

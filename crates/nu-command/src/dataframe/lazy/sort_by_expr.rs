@@ -1,10 +1,10 @@
 use super::super::values::NuLazyFrame;
-use crate::dataframe::values::NuExpression;
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -37,9 +37,22 @@ impl Command for LazySortBy {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "",
-            example: "",
-            result: None,
+            description: "Max value from columns in a dataframe",
+            example: "[[a b]; [6 2] [1 4] [4 1]] | dfr to-df | dfr sort-by a",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(1), Value::test_int(4), Value::test_int(6)],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(4), Value::test_int(1), Value::test_int(2)],
+                    ),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
         }]
     }
 
@@ -76,14 +89,25 @@ impl Command for LazySortBy {
         };
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
-        let lazy: NuLazyFrame = lazy
-            .into_polars()
-            .sort_by_exprs(&expressions, reverse)
-            .into();
+        let lazy = NuLazyFrame::new(
+            lazy.from_eager,
+            lazy.into_polars().sort_by_exprs(&expressions, reverse),
+        );
 
         Ok(PipelineData::Value(
             NuLazyFrame::into_value(lazy, call.head)?,
             None,
         ))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        test_dataframe(vec![Box::new(LazySortBy {})])
     }
 }

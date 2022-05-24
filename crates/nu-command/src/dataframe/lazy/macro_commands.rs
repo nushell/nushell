@@ -193,7 +193,7 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 4] [two 1]] 
     | dfr to-df 
     | dfr group-by a
-    | dfr aggregate ("b" | dfr max)"#,
+    | dfr agg ("b" | dfr max)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -238,7 +238,7 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 4] [two 1]] 
     | dfr to-df 
     | dfr group-by a
-    | dfr aggregate ("b" | dfr min)"#,
+    | dfr agg ("b" | dfr min)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -283,7 +283,7 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 4] [two 1]] 
     | dfr to-df 
     | dfr group-by a
-    | dfr aggregate ("b" | dfr sum)"#,
+    | dfr agg ("b" | dfr sum)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -328,7 +328,7 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 4] [two 1]] 
     | dfr to-df 
     | dfr group-by a
-    | dfr aggregate ("b" | dfr mean)"#,
+    | dfr agg ("b" | dfr mean)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -373,7 +373,7 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 4] [two 1]] 
     | dfr to-df 
     | dfr group-by a
-    | dfr aggregate ("b" | dfr median)"#,
+    | dfr agg ("b" | dfr median)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -418,7 +418,7 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]] 
     | dfr to-df 
     | dfr group-by a
-    | dfr aggregate ("b" | dfr std)"#,
+    | dfr agg ("b" | dfr std)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -463,7 +463,7 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]] 
     | dfr to-df 
     | dfr group-by a
-    | dfr aggregate ("b" | dfr var)"#,
+    | dfr agg ("b" | dfr var)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

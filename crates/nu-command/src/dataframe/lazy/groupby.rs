@@ -36,7 +36,7 @@ impl Command for ToLazyGroupBy {
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
     | dfr to-df
     | dfr group-by a
-    | dfr aggregate [
+    | dfr agg [
         ("b" | dfr min | dfr as "b_min")
         ("b" | dfr max | dfr as "b_max")
         ("b" | dfr sum | dfr as "b_sum")
@@ -69,7 +69,7 @@ impl Command for ToLazyGroupBy {
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
     | dfr to-df
     | dfr group-by a
-    | dfr aggregate [
+    | dfr agg [
         ("b" | dfr min | dfr as "b_min")
         ("b" | dfr max | dfr as "b_max")
         ("b" | dfr sum | dfr as "b_sum")

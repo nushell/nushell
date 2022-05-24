@@ -107,3 +107,16 @@ expr_command!(
     }],
     explode
 );
+
+// ExprCount command
+// Expands to a command definition for a count expression
+expr_command!(
+    ExprCount,
+    "dfr count",
+    "creates a count expression",
+    vec![Example {
+        description: "",
+        example: "",
+        result: None,
+    }],
+    count);
