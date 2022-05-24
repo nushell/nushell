@@ -308,6 +308,162 @@ fn remove_overlay_discard_env() {
 }
 
 #[test]
+fn remove_overlay_keep_decl() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"def bagr [] { "bagr" }"#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
+fn remove_overlay_keep_alias() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"alias bagr = "bagr""#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
+fn remove_overlay_keep_env() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"let-env BAGR = "bagr""#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"$env.BAGR"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
+fn remove_overlay_keep_discard_overwritten_decl() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"def foo [] { 'bar' }"#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert!(actual_repl.out != "bagr");
+    #[cfg(not(windows))]
+    assert!(!actual_repl.err.is_empty());
+}
+
+#[test]
+fn remove_overlay_keep_discard_overwritten_alias() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"alias bar = 'baz'"#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"bar"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert!(actual_repl.out != "bagr");
+    #[cfg(not(windows))]
+    assert!(!actual_repl.err.is_empty());
+}
+
+#[test]
+fn remove_overlay_keep_discard_overwritten_env() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"let-env BAZ = "bagr""#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"$env.BAZ"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(actual.err.contains("did you mean"));
+    assert!(actual_repl.err.contains("DidYouMean"));
+}
+
+#[test]
+fn remove_overlay_keep_decl_in_latest_overlay() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"def bagr [] { 'bagr' }"#,
+        r#"module eggs { }"#,
+        r#"overlay add eggs"#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
+fn remove_overlay_keep_alias_in_latest_overlay() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"alias bagr = 'bagr'"#,
+        r#"module eggs { }"#,
+        r#"overlay add eggs"#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
+fn remove_overlay_keep_env_in_latest_overlay() {
+    let inp = &[
+        r#"overlay add samples/spam.nu"#,
+        r#"let-env BAGR = "bagr""#,
+        r#"module eggs { }"#,
+        r#"overlay add eggs"#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"$env.BAGR"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
 fn preserve_overrides() {
     let inp = &[
         r#"overlay add samples/spam.nu"#,

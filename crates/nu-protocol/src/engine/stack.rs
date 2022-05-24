@@ -178,12 +178,60 @@ impl Stack {
         result
     }
 
+    /// Flatten the env var scope frames into one frame, only from one overlay
+    pub fn get_overlay_env_vars(
+        &self,
+        engine_state: &EngineState,
+        overlay_name: &str,
+    ) -> HashMap<String, Value> {
+        let mut result = HashMap::new();
+
+        // for active_overlay in self.active_overlays.iter() {
+        if let Some(active_overlay) = self.active_overlays.iter().find(|n| n == &overlay_name) {
+            if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
+                result.extend(
+                    env_vars
+                        .iter()
+                        .filter(|(k, _)| {
+                            if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
+                                !env_hidden.contains(*k)
+                            } else {
+                                // nothing has been hidden in this overlay
+                                true
+                            }
+                        })
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<HashMap<String, Value>>(),
+                );
+            }
+        }
+
+        result.extend(self.get_stack_overlay_env_vars(overlay_name));
+
+        result
+    }
+
     /// Get flattened environment variables only from the stack
     pub fn get_stack_env_vars(&self) -> HashMap<String, Value> {
         let mut result = HashMap::new();
 
         for scope in &self.env_vars {
             for active_overlay in self.active_overlays.iter() {
+                if let Some(env_vars) = scope.get(active_overlay) {
+                    result.extend(env_vars.clone());
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Get flattened environment variables only from the stack and one overlay
+    pub fn get_stack_overlay_env_vars(&self, overlay_name: &str) -> HashMap<String, Value> {
+        let mut result = HashMap::new();
+
+        for scope in &self.env_vars {
+            if let Some(active_overlay) = self.active_overlays.iter().find(|n| n == &overlay_name) {
                 if let Some(env_vars) = scope.get(active_overlay) {
                     result.extend(env_vars.clone());
                 }
@@ -326,6 +374,10 @@ impl Stack {
         engine_state.env_vars.contains_key(name)
     }
 
+    pub fn is_overlay_active(&self, name: &String) -> bool {
+        self.active_overlays.contains(name)
+    }
+
     pub fn add_overlay(&mut self, name: String) {
         self.env_hidden.remove(&name);
 
@@ -333,14 +385,8 @@ impl Stack {
         self.active_overlays.push(name);
     }
 
-    pub fn remove_overlay(&mut self, name: &String, span: &Span) -> Result<(), ShellError> {
-        if !self.active_overlays.contains(name) {
-            return Err(ShellError::OverlayNotFoundAtRuntime(name.into(), *span));
-        }
-
+    pub fn remove_overlay(&mut self, name: &String) {
         self.active_overlays.retain(|o| o != name);
-
-        Ok(())
     }
 }
 

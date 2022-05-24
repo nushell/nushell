@@ -1,7 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, Spanned, SyntaxShape};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct OverlayRemove;
@@ -18,6 +20,11 @@ impl Command for OverlayRemove {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay remove")
             .optional("name", SyntaxShape::String, "Overlay to remove")
+            .switch(
+                "keep-custom",
+                "Keep newly added symbols within the next activated overlay",
+                Some('k'),
+            )
             .category(Category::Core)
     }
 
@@ -37,9 +44,7 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        // let module_name: Spanned<String> = call.req(engine_state, stack, 0)?;
-
-        let module_name: Spanned<String> = if let Some(name) = call.opt(engine_state, stack, 0)? {
+        let overlay_name: Spanned<String> = if let Some(name) = call.opt(engine_state, stack, 0)? {
             name
         } else {
             Spanned {
@@ -48,8 +53,38 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             }
         };
 
-        // TODO: Add env merging
-        stack.remove_overlay(&module_name.item, &module_name.span)?;
+        if !stack.is_overlay_active(&overlay_name.item) {
+            return Err(ShellError::OverlayNotFoundAtRuntime(
+                overlay_name.item,
+                overlay_name.span,
+            ));
+        }
+
+        if call.has_flag("keep-custom") {
+            if let Some(overlay_id) = engine_state.find_overlay(overlay_name.item.as_bytes()) {
+                let overlay_frame = engine_state.get_overlay(overlay_id);
+                let origin_module = engine_state.get_module(overlay_frame.origin);
+
+                let env_vars_to_keep: Vec<(String, Value)> = stack
+                    .get_overlay_env_vars(engine_state, &overlay_name.item)
+                    .into_iter()
+                    .filter(|(name, _)| !origin_module.has_env_var(name.as_bytes()))
+                    .collect();
+
+                stack.remove_overlay(&overlay_name.item);
+
+                for (name, val) in env_vars_to_keep {
+                    stack.add_env_var(name, val);
+                }
+            } else {
+                return Err(ShellError::OverlayNotFoundAtRuntime(
+                    overlay_name.item,
+                    overlay_name.span,
+                ));
+            }
+        } else {
+            stack.remove_overlay(&overlay_name.item);
+        }
 
         Ok(PipelineData::new(call.head))
     }

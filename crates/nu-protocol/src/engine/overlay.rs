@@ -101,7 +101,7 @@ impl ScopeFrame {
 
     pub fn with_empty_overlay(name: Vec<u8>, origin: ModuleId) -> Self {
         Self {
-            overlays: vec![(name, OverlayFrame::from(origin))],
+            overlays: vec![(name, OverlayFrame::from_origin(origin))],
             active_overlays: vec![0],
             removed_overlays: vec![],
             predecls: HashMap::new(),
@@ -195,8 +195,6 @@ impl ScopeFrame {
     }
 }
 
-// type OverlayDiff = (Vec<(Vec<u8>, DeclId)>, Vec<(Vec<u8>, AliasId)>);
-
 #[derive(Debug, Clone)]
 pub struct OverlayFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
@@ -209,7 +207,7 @@ pub struct OverlayFrame {
 }
 
 impl OverlayFrame {
-    pub fn from(origin: ModuleId) -> Self {
+    pub fn from_origin(origin: ModuleId) -> Self {
         Self {
             vars: HashMap::new(),
             predecls: HashMap::new(),
@@ -220,45 +218,4 @@ impl OverlayFrame {
             origin,
         }
     }
-
-    // Find out which definitions are custom compared to the origin module
-    // pub fn diff(&self, engine_state: &EngineState) -> OverlayDiff {
-    //     let module = engine_state.get_module(self.origin);
-
-    //     let decls = self
-    //         .decls
-    //         .iter()
-    //         .filter(|(name, decl_id)| {
-    //             if self.visibility.is_decl_id_visible(decl_id) {
-    //                 if let Some(original_id) = module.get_decl_id(name) {
-    //                     &original_id != *decl_id
-    //                 } else {
-    //                     true
-    //                 }
-    //             } else {
-    //                 false
-    //             }
-    //         })
-    //         .map(|(name, decl_id)| (name.to_owned(), *decl_id))
-    //         .collect();
-
-    //     let aliases = self
-    //         .aliases
-    //         .iter()
-    //         .filter(|(name, alias_id)| {
-    //             if self.visibility.is_alias_id_visible(alias_id) {
-    //                 if let Some(original_id) = module.get_alias_id(name) {
-    //                     &original_id != *alias_id
-    //                 } else {
-    //                     true
-    //                 }
-    //             } else {
-    //                 false
-    //             }
-    //         })
-    //         .map(|(name, alias_id)| (name.to_owned(), *alias_id))
-    //         .collect();
-
-    //     (decls, aliases)
-    // }
 }
