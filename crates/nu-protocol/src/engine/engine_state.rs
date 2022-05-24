@@ -1692,6 +1692,56 @@ impl<'a> StateWorkingSet<'a> {
             .expect("internal error: missing added overlay")
     }
 
+    /// Collect all decls that belong to an overlay
+    pub fn decls_of_overlay(&self, name: &[u8]) -> HashMap<Vec<u8>, DeclId> {
+        let mut result = HashMap::new();
+
+        if let Some(overlay_id) = self.permanent_state.find_overlay(name) {
+            let overlay_frame = self.permanent_state.get_overlay(overlay_id);
+
+            for (decl_name, decl_id) in &overlay_frame.decls {
+                result.insert(decl_name.to_owned(), *decl_id);
+            }
+        }
+
+        for scope_frame in self.delta.scope.iter() {
+            if let Some(overlay_id) = scope_frame.find_overlay(name) {
+                let overlay_frame = scope_frame.get_overlay(overlay_id);
+
+                for (decl_name, decl_id) in &overlay_frame.decls {
+                    result.insert(decl_name.to_owned(), *decl_id);
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Collect all aliases that belong to an overlay
+    pub fn aliases_of_overlay(&self, name: &[u8]) -> HashMap<Vec<u8>, DeclId> {
+        let mut result = HashMap::new();
+
+        if let Some(overlay_id) = self.permanent_state.find_overlay(name) {
+            let overlay_frame = self.permanent_state.get_overlay(overlay_id);
+
+            for (alias_name, alias_id) in &overlay_frame.aliases {
+                result.insert(alias_name.to_owned(), *alias_id);
+            }
+        }
+
+        for scope_frame in self.delta.scope.iter() {
+            if let Some(overlay_id) = scope_frame.find_overlay(name) {
+                let overlay_frame = scope_frame.get_overlay(overlay_id);
+
+                for (alias_name, alias_id) in &overlay_frame.aliases {
+                    result.insert(alias_name.to_owned(), *alias_id);
+                }
+            }
+        }
+
+        result
+    }
+
     pub fn add_overlay(
         &mut self,
         name: Vec<u8>,
@@ -1746,10 +1796,22 @@ impl<'a> StateWorkingSet<'a> {
             last_scope_frame.removed_overlays.push(name.to_owned());
 
             if keep_custom {
-                let (diff_decls, diff_aliases) = overlay_frame.diff(&self);
+                let origin_module = self.get_module(overlay_frame.origin);
 
-                self.use_decls(diff_decls);
-                self.use_aliases(diff_aliases);
+                let decls = self
+                    .decls_of_overlay(name)
+                    .into_iter()
+                    .filter(|(n, _)| !origin_module.has_decl(n))
+                    .collect();
+
+                let aliases = self
+                    .aliases_of_overlay(name)
+                    .into_iter()
+                    .filter(|(n, _)| !origin_module.has_alias(n))
+                    .collect();
+
+                self.use_decls(decls);
+                self.use_aliases(aliases);
             }
         }
     }
