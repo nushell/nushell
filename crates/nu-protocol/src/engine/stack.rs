@@ -374,6 +374,10 @@ impl Stack {
         engine_state.env_vars.contains_key(name)
     }
 
+    pub fn is_overlay_active(&self, name: &String) -> bool {
+        self.active_overlays.contains(name)
+    }
+
     pub fn add_overlay(&mut self, name: String) {
         self.env_hidden.remove(&name);
 
@@ -381,14 +385,8 @@ impl Stack {
         self.active_overlays.push(name);
     }
 
-    pub fn remove_overlay(&mut self, name: &String, span: &Span) -> Result<(), ShellError> {
-        if !self.active_overlays.contains(name) {
-            return Err(ShellError::OverlayNotFoundAtRuntime(name.into(), *span));
-        }
-
+    pub fn remove_overlay(&mut self, name: &String) {
         self.active_overlays.retain(|o| o != name);
-
-        Ok(())
     }
 }
 
