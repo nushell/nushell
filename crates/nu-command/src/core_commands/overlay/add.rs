@@ -56,16 +56,10 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
             .is_some()
         {
             Some(name_arg.item.clone())
+        } else if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
+            os_str.to_str().map(|name| name.to_string())
         } else {
-            if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
-                if let Some(name) = os_str.to_str() {
-                    Some(name.to_string())
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
+            None
         };
 
         if let Some(overlay_name) = maybe_overlay_name {
