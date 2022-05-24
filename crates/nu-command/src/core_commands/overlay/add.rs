@@ -51,26 +51,44 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
     ) -> Result<PipelineData, ShellError> {
         let name_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-        // TODO: This logic is duplicated in the parser.
-        if stack.has_env_overlay(&name_arg.item, engine_state) {
-            // Activate existing overlay
-            stack.add_overlay(name_arg.item.clone());
+        let maybe_overlay_name = if engine_state
+            .find_overlay(name_arg.item.as_bytes())
+            .is_some()
+        {
+            Some(name_arg.item.clone())
+        } else {
+            if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
+                if let Some(name) = os_str.to_str() {
+                    Some(name.to_string())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
 
-            if let Some(module_id) = engine_state
-                .find_overlay(name_arg.item.as_bytes())
-                .map(|id| engine_state.get_overlay(id).origin)
-            {
-                if let Some(new_module_id) = engine_state.find_module(name_arg.item.as_bytes(), &[])
+        if let Some(overlay_name) = maybe_overlay_name {
+            if let Some(overlay_id) = engine_state.find_overlay(overlay_name.as_bytes()) {
+                let old_module_id = engine_state.get_overlay(overlay_id).origin;
+
+                stack.add_overlay(overlay_name.clone());
+
+                if let Some(new_module_id) = engine_state.find_module(overlay_name.as_bytes(), &[])
                 {
-                    if module_id != new_module_id {
-                        // The origin module of an overlay changed => update it
+                    if !stack.has_env_overlay(&overlay_name, engine_state)
+                        || (old_module_id != new_module_id)
+                    {
+                        // Add environment variables only if:
+                        // a) adding a new overlay
+                        // b) refreshing an active overlay (the origin module changed)
                         let module = engine_state.get_module(new_module_id);
 
                         for (name, block_id) in module.env_vars() {
                             let name = if let Ok(s) = String::from_utf8(name.clone()) {
                                 s
                             } else {
-                                return Err(ShellError::NonUtf8(name_arg.span));
+                                return Err(ShellError::NonUtf8(call.head));
                             };
 
                             let block = engine_state.get_block(block_id);
@@ -90,57 +108,16 @@ https://www.nushell.sh/book/thinking_in_nushell.html#parsing-and-evaluation-are-
                     }
                 }
             } else {
+                return Err(ShellError::OverlayNotFoundAtRuntime(
+                    name_arg.item,
+                    name_arg.span,
+                ));
             }
         } else {
-            // Create a new overlay from a module
-            let (overlay_name, module) =
-                if let Some(module_id) = engine_state.find_module(name_arg.item.as_bytes(), &[]) {
-                    (name_arg.item, engine_state.get_module(module_id))
-                } else if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
-                    let name = if let Some(s) = os_str.to_str() {
-                        s.to_string()
-                    } else {
-                        return Err(ShellError::NonUtf8(name_arg.span));
-                    };
-
-                    if let Some(module_id) = engine_state.find_module(name.as_bytes(), &[]) {
-                        (name, engine_state.get_module(module_id))
-                    } else {
-                        return Err(ShellError::ModuleOrOverlayNotFoundAtRuntime(
-                            name_arg.item,
-                            name_arg.span,
-                        ));
-                    }
-                } else {
-                    return Err(ShellError::ModuleOrOverlayNotFoundAtRuntime(
-                        name_arg.item,
-                        name_arg.span,
-                    ));
-                };
-
-            stack.add_overlay(overlay_name);
-
-            for (name, block_id) in module.env_vars() {
-                let name = if let Ok(s) = String::from_utf8(name.clone()) {
-                    s
-                } else {
-                    return Err(ShellError::NonUtf8(name_arg.span));
-                };
-
-                let block = engine_state.get_block(block_id);
-
-                let val = eval_block(
-                    engine_state,
-                    stack,
-                    block,
-                    PipelineData::new(call.head),
-                    false,
-                    true,
-                )?
-                .into_value(call.head);
-
-                stack.add_env_var(name, val);
-            }
+            return Err(ShellError::OverlayNotFoundAtRuntime(
+                name_arg.item,
+                name_arg.span,
+            ));
         }
 
         Ok(PipelineData::new(call.head))
