@@ -249,16 +249,3 @@ fn copy_to_non_existing_dir() {
         assert!(actual.err.contains("destination directory does not exist"));
     });
 }
-
-#[test]
-fn copy_identical_file() {
-    Playground::setup("cp_test_12", |_dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("empty_file")]);
-
-        let actual = nu!(
-            cwd: sandbox.cwd(),
-            "cp empty_file empty_file",
-        );
-        assert!(actual.err.contains("Copy aborted"));
-    });
-}
