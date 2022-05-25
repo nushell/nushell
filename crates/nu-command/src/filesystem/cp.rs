@@ -154,6 +154,19 @@ impl Command for Cp {
                     if src.is_file() {
                         let res = if interactive && dst.exists() {
                             interactive_copy_file(interactive, src, dst, span)
+                        } else if src == dst {
+                            let message = format!(
+                                "src {:?} and dst {:?} are identical(not copied)",
+                                src, dst
+                            );
+
+                            return Err(ShellError::GenericError(
+                                "Copy aborted".into(),
+                                message,
+                                Some(span),
+                                None,
+                                Vec::new(),
+                            ));
                         } else {
                             copy_file(src, dst, span)
                         };
@@ -223,6 +236,19 @@ impl Command for Cp {
                     if s.is_file() {
                         let res = if interactive && d.exists() {
                             interactive_copy_file(interactive, s, d, span)
+                        } else if src == dst {
+                            let message = format!(
+                                "src {:?} and dst {:?} are identical(not copied)",
+                                src, dst
+                            );
+
+                            return Err(ShellError::GenericError(
+                                "Copy aborted".into(),
+                                message,
+                                Some(span),
+                                None,
+                                Vec::new(),
+                            ));
                         } else {
                             copy_file(s, d, span)
                         };
