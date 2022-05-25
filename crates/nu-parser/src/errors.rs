@@ -78,6 +78,16 @@ pub enum ParseError {
     )]
     BuiltinCommandInPipeline(String, #[label("not allowed in pipeline")] Span),
 
+    #[error("Let statement used in pipeline.")]
+    #[diagnostic(
+        code(nu::parser::unexpected_keyword),
+        url(docsrs),
+        help(
+            "Assigning '{0}' to '{1}' does not produced a value to be piped. If the pipeline is meant to apply to '{0}' by itself, use '= ({0} | ...)'."
+        )
+    )]
+    LetInPipeline(String, String, #[label("let in pipeline")] Span),
+
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), url(docsrs), help("{2}"))]
     IncorrectValue(String, #[label("unexpected {0}")] Span, String),
@@ -300,6 +310,7 @@ impl ParseError {
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
+            ParseError::LetInPipeline(_, _, s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(s) => *s,
