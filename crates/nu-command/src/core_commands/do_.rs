@@ -90,7 +90,22 @@ impl Command for Do {
 
         if ignore_errors {
             match result {
-                Ok(x) => Ok(x),
+                Ok(x) => match x {
+                    PipelineData::ExternalStream {
+                        stdout,
+                        exit_code,
+                        span,
+                        metadata,
+                        ..
+                    } => Ok(PipelineData::ExternalStream {
+                        stdout,
+                        stderr: None,
+                        exit_code,
+                        span,
+                        metadata,
+                    }),
+                    _ => Ok(x),
+                },
                 Err(_) => Ok(PipelineData::new(call.head)),
             }
         } else {
