@@ -351,7 +351,7 @@ fn parse_commandline_args(
         if let Some(Expression {
             expr: Expr::Call(call),
             ..
-        }) = pipeline.expressions.get(0)
+        }) = pipeline.get_expr(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");

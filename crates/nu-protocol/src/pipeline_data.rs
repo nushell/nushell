@@ -548,14 +548,45 @@ impl Iterator for PipelineIterator {
             PipelineData::Value(Value::Nothing { .. }, ..) => None,
             PipelineData::Value(v, ..) => Some(std::mem::take(v)),
             PipelineData::ListStream(stream, ..) => stream.next(),
-            PipelineData::ExternalStream { stdout: None, .. } => None,
+            PipelineData::ExternalStream {
+                stdout: None,
+                stderr: None,
+                ..
+            } => None,
             PipelineData::ExternalStream {
                 stdout: Some(stream),
+                stderr: None,
                 ..
             } => stream.next().map(|x| match x {
                 Ok(x) => x,
                 Err(err) => Value::Error { error: err },
             }),
+            PipelineData::ExternalStream {
+                stdout: None,
+                stderr: Some(stream),
+                ..
+            } => stream.next().map(|x| match x {
+                Ok(x) => x,
+                Err(err) => Value::Error { error: err },
+            }),
+            PipelineData::ExternalStream {
+                stdout: Some(stdout_stream),
+                stderr: Some(stderr_stream),
+                ..
+            } => {
+                // Read stdout first.
+                if let Some(value) = stdout_stream.next().map(|x| match x {
+                    Ok(x) => x,
+                    Err(err) => Value::Error { error: err },
+                }) {
+                    Some(value)
+                } else {
+                    stderr_stream.next().map(|x| match x {
+                        Ok(x) => x,
+                        Err(err) => Value::Error { error: err },
+                    })
+                }
+            }
         }
     }
 }

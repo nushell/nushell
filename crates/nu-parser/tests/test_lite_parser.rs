@@ -25,12 +25,12 @@ fn comment_before() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 1);
-    assert_eq!(lite_block.block[0].commands.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
+    assert_eq!(lite_block.block[0].items.len(), 1);
+    assert_eq!(lite_block.block[0].items[0].command.comments.len(), 1);
+    assert_eq!(lite_block.block[0].items[0].command.parts.len(), 3);
 
     assert_eq!(
-        lite_block.block[0].commands[0].comments[0],
+        lite_block.block[0].items[0].command.comments[0],
         Span { start: 0, end: 19 }
     );
 
@@ -46,12 +46,12 @@ fn comment_beside() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 1);
-    assert_eq!(lite_block.block[0].commands.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
+    assert_eq!(lite_block.block[0].items.len(), 1);
+    assert_eq!(lite_block.block[0].items[0].command.comments.len(), 1);
+    assert_eq!(lite_block.block[0].items[0].command.parts.len(), 3);
 
     assert_eq!(
-        lite_block.block[0].commands[0].comments[0],
+        lite_block.block[0].items[0].command.comments[0],
         Span { start: 12, end: 31 }
     );
 
@@ -69,16 +69,16 @@ fn comments_stack() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 2);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
+    assert_eq!(lite_block.block[0].items[0].command.comments.len(), 2);
+    assert_eq!(lite_block.block[0].items[0].command.parts.len(), 3);
 
     assert_eq!(
-        lite_block.block[0].commands[0].comments[0],
+        lite_block.block[0].items[0].command.comments[0],
         Span { start: 0, end: 19 }
     );
 
     assert_eq!(
-        lite_block.block[0].commands[0].comments[1],
+        lite_block.block[0].items[0].command.comments[1],
         Span { start: 20, end: 37 }
     );
 
@@ -97,11 +97,11 @@ fn separated_comments_dont_stack() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
+    assert_eq!(lite_block.block[0].items[0].command.comments.len(), 1);
+    assert_eq!(lite_block.block[0].items[0].command.parts.len(), 3);
 
     assert_eq!(
-        lite_block.block[0].commands[0].comments[0],
+        lite_block.block[0].items[0].command.comments[0],
         Span { start: 21, end: 38 }
     );
 
@@ -121,17 +121,17 @@ fn multiple_pipelines() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 2);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 4);
+    assert_eq!(lite_block.block[0].items[0].command.comments.len(), 1);
+    assert_eq!(lite_block.block[0].items[0].command.parts.len(), 4);
     assert_eq!(
-        lite_block.block[0].commands[0].comments[0],
+        lite_block.block[0].items[0].command.comments[0],
         Span { start: 0, end: 10 }
     );
 
-    assert_eq!(lite_block.block[1].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[1].commands[0].parts.len(), 4);
+    assert_eq!(lite_block.block[1].items[0].command.comments.len(), 1);
+    assert_eq!(lite_block.block[1].items[0].command.parts.len(), 4);
     assert_eq!(
-        lite_block.block[1].commands[0].comments[0],
+        lite_block.block[1].items[0].command.comments[0],
         Span { start: 52, end: 61 }
     );
 
@@ -149,11 +149,11 @@ fn multiple_commands() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 2);
-    assert_eq!(lite_block.block[0].commands.len(), 2);
-    assert_eq!(lite_block.block[1].commands.len(), 1);
+    assert_eq!(lite_block.block[0].items.len(), 2);
+    assert_eq!(lite_block.block[1].items.len(), 1);
 
     assert_eq!(
-        lite_block.block[1].commands[0].comments[0],
+        lite_block.block[1].items[0].command.comments[0],
         Span { start: 41, end: 50 }
     );
 
@@ -173,11 +173,11 @@ fn multiple_commands_with_comment() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 2);
-    assert_eq!(lite_block.block[0].commands.len(), 2);
-    assert_eq!(lite_block.block[1].commands.len(), 1);
+    assert_eq!(lite_block.block[0].items.len(), 2);
+    assert_eq!(lite_block.block[1].items.len(), 1);
 
     assert_eq!(
-        lite_block.block[0].commands[1].comments[0],
+        lite_block.block[0].items[1].command.comments[0],
         Span { start: 29, end: 38 }
     );
 
@@ -208,11 +208,11 @@ let b = 0
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 2);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 3);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 4);
+    assert_eq!(lite_block.block[0].items[0].command.comments.len(), 3);
+    assert_eq!(lite_block.block[0].items[0].command.parts.len(), 4);
 
     assert_eq!(
-        lite_block.block[0].commands[0].parts[3],
+        lite_block.block[0].items[0].command.parts[3],
         Span {
             start: 32,
             end: 107
@@ -220,18 +220,18 @@ let b = 0
     );
 
     assert_eq!(
-        lite_block.block[0].commands[0].comments[2],
+        lite_block.block[0].items[0].command.comments[2],
         Span {
             start: 108,
             end: 123
         }
     );
 
-    assert_eq!(lite_block.block[1].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[1].commands[0].parts.len(), 4);
+    assert_eq!(lite_block.block[1].items[0].command.comments.len(), 1);
+    assert_eq!(lite_block.block[1].items[0].command.parts.len(), 4);
 
     assert_eq!(
-        lite_block.block[1].commands[0].comments[0],
+        lite_block.block[1].items[0].command.comments[0],
         Span {
             start: 124,
             end: 135

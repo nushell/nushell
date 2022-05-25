@@ -94,7 +94,7 @@ impl Command for FromNuon {
         error = error.or(err);
 
         if let Some(pipeline) = block.pipelines.get(1) {
-            if let Some(expr) = pipeline.expressions.get(0) {
+            if let Some(expr) = pipeline.get_expr(0) {
                 return Err(ShellError::GenericError(
                     "error when loading nuon text".into(),
                     "could not load nuon text".into(),
@@ -134,7 +134,7 @@ impl Command for FromNuon {
         } else {
             let mut pipeline = block.pipelines.remove(0);
 
-            if let Some(expr) = pipeline.expressions.get(1) {
+            if let Some(expr) = pipeline.get_expr(1) {
                 return Err(ShellError::GenericError(
                     "error when loading nuon text".into(),
                     "could not load nuon text".into(),
@@ -149,7 +149,7 @@ impl Command for FromNuon {
                 ));
             }
 
-            if pipeline.expressions.is_empty() {
+            if pipeline.items.is_empty() {
                 Expression {
                     expr: Expr::Nothing,
                     span: head,
@@ -157,7 +157,7 @@ impl Command for FromNuon {
                     ty: Type::Nothing,
                 }
             } else {
-                pipeline.expressions.remove(0)
+                pipeline.items.remove(0).expression
             }
         };
 

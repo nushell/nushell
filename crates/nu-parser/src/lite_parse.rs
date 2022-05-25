@@ -31,8 +31,14 @@ impl LiteCommand {
 }
 
 #[derive(Debug)]
+pub struct LitePipelineItem {
+    pub command: LiteCommand,
+    pub pipe: Option<Span>,
+}
+
+#[derive(Debug)]
 pub struct LitePipeline {
-    pub commands: Vec<LiteCommand>,
+    pub items: Vec<LitePipelineItem>,
 }
 
 impl Default for LitePipeline {
@@ -43,15 +49,15 @@ impl Default for LitePipeline {
 
 impl LitePipeline {
     pub fn new() -> Self {
-        Self { commands: vec![] }
+        Self { items: vec![] }
     }
 
-    pub fn push(&mut self, command: LiteCommand) {
-        self.commands.push(command);
+    pub fn push(&mut self, item: LitePipelineItem) {
+        self.items.push(item);
     }
 
     pub fn is_empty(&self) -> bool {
-        self.commands.is_empty()
+        self.items.is_empty()
     }
 }
 
@@ -101,7 +107,10 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
             }
             TokenContents::Pipe => {
                 if !curr_command.is_empty() {
-                    curr_pipeline.push(curr_command);
+                    curr_pipeline.push(LitePipelineItem {
+                        command: curr_command,
+                        pipe: Some(token.span),
+                    });
                     curr_command = LiteCommand::new();
                 }
                 last_token = TokenContents::Pipe;
@@ -109,7 +118,10 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
             TokenContents::Eol => {
                 if last_token != TokenContents::Pipe {
                     if !curr_command.is_empty() {
-                        curr_pipeline.push(curr_command);
+                        curr_pipeline.push(LitePipelineItem {
+                            command: curr_command,
+                            pipe: None,
+                        });
 
                         curr_command = LiteCommand::new();
                     }
@@ -130,7 +142,10 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
             }
             TokenContents::Semicolon => {
                 if !curr_command.is_empty() {
-                    curr_pipeline.push(curr_command);
+                    curr_pipeline.push(LitePipelineItem {
+                        command: curr_command,
+                        pipe: None,
+                    });
 
                     curr_command = LiteCommand::new();
                 }
@@ -163,7 +178,10 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
     }
 
     if !curr_command.is_empty() {
-        curr_pipeline.push(curr_command);
+        curr_pipeline.push(LitePipelineItem {
+            command: curr_command,
+            pipe: None,
+        });
     }
 
     if !curr_pipeline.is_empty() {

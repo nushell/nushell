@@ -194,45 +194,6 @@ impl ExternalCommand {
                     // If this external is not the last expression, then its output is piped to a channel
                     // and we create a ListStream that can be consumed
 
-                    if redirect_stderr {
-                        let stderr = child.stderr.take().ok_or_else(|| {
-                            ShellError::ExternalCommand(
-                                "Error taking stderr from external".to_string(),
-                                "Redirects need access to stderr of an external command"
-                                    .to_string(),
-                                span,
-                            )
-                        })?;
-
-                        // Stderr is read using the Buffer reader. It will do so until there is an
-                        // error or there are no more bytes to read
-                        let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stderr);
-                        while let Ok(bytes) = buf_read.fill_buf() {
-                            if bytes.is_empty() {
-                                break;
-                            }
-
-                            // The Cow generated from the function represents the conversion
-                            // from bytes to String. If no replacements are required, then the
-                            // borrowed value is a proper UTF-8 string. The Owned option represents
-                            // a string where the values had to be replaced, thus marking it as bytes
-                            let bytes = bytes.to_vec();
-                            let length = bytes.len();
-                            buf_read.consume(length);
-
-                            if let Some(ctrlc) = &ctrlc {
-                                if ctrlc.load(Ordering::SeqCst) {
-                                    break;
-                                }
-                            }
-
-                            match stderr_tx.send(bytes) {
-                                Ok(_) => continue,
-                                Err(_) => break,
-                            }
-                        }
-                    }
-
                     if redirect_stdout {
                         let stdout = child.stdout.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
@@ -266,6 +227,45 @@ impl ExternalCommand {
                             }
 
                             match stdout_tx.send(bytes) {
+                                Ok(_) => continue,
+                                Err(_) => break,
+                            }
+                        }
+                    }
+
+                    if redirect_stderr {
+                        let stderr = child.stderr.take().ok_or_else(|| {
+                            ShellError::ExternalCommand(
+                                "Error taking stderr from external".to_string(),
+                                "Redirects need access to stderr of an external command"
+                                    .to_string(),
+                                span,
+                            )
+                        })?;
+
+                        // Stderr is read using the Buffer reader. It will do so until there is an
+                        // error or there are no more bytes to read
+                        let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stderr);
+                        while let Ok(bytes) = buf_read.fill_buf() {
+                            if bytes.is_empty() {
+                                break;
+                            }
+
+                            // The Cow generated from the function represents the conversion
+                            // from bytes to String. If no replacements are required, then the
+                            // borrowed value is a proper UTF-8 string. The Owned option represents
+                            // a string where the values had to be replaced, thus marking it as bytes
+                            let bytes = bytes.to_vec();
+                            let length = bytes.len();
+                            buf_read.consume(length);
+
+                            if let Some(ctrlc) = &ctrlc {
+                                if ctrlc.load(Ordering::SeqCst) {
+                                    break;
+                                }
+                            }
+
+                            match stderr_tx.send(bytes) {
                                 Ok(_) => continue,
                                 Err(_) => break,
                             }

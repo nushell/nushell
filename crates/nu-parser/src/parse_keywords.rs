@@ -332,7 +332,7 @@ pub fn parse_def(
             err = check_call(call_span, &sig, &call).or(err);
             if err.is_some() || call.has_flag("help") {
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
                         ty: Type::Any,
@@ -390,7 +390,7 @@ pub fn parse_def(
     }
 
     (
-        Pipeline::from_vec(vec![Expression {
+        Pipeline::from_expr_vec(vec![Expression {
             expr: Expr::Call(call),
             span: call_span,
             ty: Type::Any,
@@ -498,7 +498,7 @@ pub fn parse_extern(
     }
 
     (
-        Pipeline::from_vec(vec![Expression {
+        Pipeline::from_expr_vec(vec![Expression {
             expr: Expr::Call(call),
             span: call_span,
             ty: Type::Any,
@@ -517,7 +517,7 @@ pub fn parse_alias(
 
     if name == b"alias" {
         if let Some((span, err)) = check_name(working_set, spans) {
-            return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
+            return (Pipeline::from_expr_vec(vec![garbage(*span)]), Some(err));
         }
 
         if let Some(decl_id) = working_set.find_decl(b"alias") {
@@ -531,7 +531,7 @@ pub fn parse_alias(
 
             if call.has_flag("help") {
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: span(spans),
                         ty: Type::Any,
@@ -570,7 +570,7 @@ pub fn parse_alias(
             };
 
             return (
-                Pipeline::from_vec(vec![Expression {
+                Pipeline::from_expr_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: span(spans),
                     ty: Type::Any,
@@ -672,7 +672,7 @@ pub fn parse_export(
                 if let Some(Expression {
                     expr: Expr::Call(ref def_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                }) = pipeline.get_expr(0)
                 {
                     call = def_call.clone();
 
@@ -732,7 +732,7 @@ pub fn parse_export(
                 if let Some(Expression {
                     expr: Expr::Call(ref def_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                }) = pipeline.get_expr(0)
                 {
                     call = def_call.clone();
 
@@ -791,7 +791,7 @@ pub fn parse_export(
                 if let Some(Expression {
                     expr: Expr::Call(ref def_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                }) = pipeline.get_expr(0)
                 {
                     call = def_call.clone();
 
@@ -851,7 +851,7 @@ pub fn parse_export(
                 if let Some(Expression {
                     expr: Expr::Call(ref alias_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                }) = pipeline.get_expr(0)
                 {
                     call = alias_call.clone();
 
@@ -998,7 +998,7 @@ pub fn parse_export(
     };
 
     (
-        Pipeline::from_vec(vec![Expression {
+        Pipeline::from_expr_vec(vec![Expression {
             expr: Expr::Call(call),
             span: span(spans),
             ty: Type::Any,
@@ -1028,10 +1028,10 @@ pub fn parse_module_block(
 
     for pipeline in &output.block {
         // TODO: Should we add export env predecls as well?
-        if pipeline.commands.len() == 1 {
+        if pipeline.items.len() == 1 {
             parse_def_predecl(
                 working_set,
-                &pipeline.commands[0].parts,
+                &pipeline.items[0].command.parts,
                 expand_aliases_denylist,
             );
         }
@@ -1043,20 +1043,23 @@ pub fn parse_module_block(
         .block
         .iter()
         .map(|pipeline| {
-            if pipeline.commands.len() == 1 {
-                let name = working_set.get_span_contents(pipeline.commands[0].parts[0]);
+            if pipeline.items.len() == 1 {
+                let name = working_set.get_span_contents(pipeline.items[0].command.parts[0]);
 
                 let (pipeline, err) = match name {
                     b"def" | b"def-env" => {
-                        let (pipeline, err) =
-                            parse_def(working_set, &pipeline.commands[0], expand_aliases_denylist);
+                        let (pipeline, err) = parse_def(
+                            working_set,
+                            &pipeline.items[0].command,
+                            expand_aliases_denylist,
+                        );
 
                         (pipeline, err)
                     }
                     b"extern" => {
                         let (pipeline, err) = parse_extern(
                             working_set,
-                            &pipeline.commands[0],
+                            &pipeline.items[0].command,
                             expand_aliases_denylist,
                         );
 
@@ -1065,7 +1068,7 @@ pub fn parse_module_block(
                     b"alias" => {
                         let (pipeline, err) = parse_alias(
                             working_set,
-                            &pipeline.commands[0].parts,
+                            &pipeline.items[0].command.parts,
                             expand_aliases_denylist,
                         );
 
@@ -1082,12 +1085,12 @@ pub fn parse_module_block(
                     b"export" => {
                         let (pipe, exportable, err) = parse_export(
                             working_set,
-                            &pipeline.commands[0],
+                            &pipeline.items[0].command,
                             expand_aliases_denylist,
                         );
 
                         if err.is_none() {
-                            let name_span = pipeline.commands[0].parts[2];
+                            let name_span = pipeline.items[0].command.parts[2];
                             let name = working_set.get_span_contents(name_span);
                             let name = trim_quotes(name);
 
@@ -1108,10 +1111,10 @@ pub fn parse_module_block(
                         (pipe, err)
                     }
                     _ => (
-                        garbage_pipeline(&pipeline.commands[0].parts),
+                        garbage_pipeline(&pipeline.items[0].command.parts),
                         Some(ParseError::ExpectedKeyword(
                             "def or export keyword".into(),
-                            pipeline.commands[0].parts[0],
+                            pipeline.items[0].command.parts[0],
                         )),
                     ),
                 };
@@ -1205,7 +1208,7 @@ pub fn parse_module(
         });
 
         (
-            Pipeline::from_vec(vec![Expression {
+            Pipeline::from_expr_vec(vec![Expression {
                 expr: Expr::Call(call),
                 span: span(spans),
                 ty: Type::Any,
@@ -1255,7 +1258,7 @@ pub fn parse_use(
             err = check_call(call_span, &decl.signature(), &call).or(err);
             if err.is_some() || call.has_flag("help") {
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
                         ty: Type::Any,
@@ -1323,7 +1326,7 @@ pub fn parse_use(
                         stem.to_string_lossy().to_string()
                     } else {
                         return (
-                            Pipeline::from_vec(vec![Expression {
+                            Pipeline::from_expr_vec(vec![Expression {
                                 expr: Expr::Call(call),
                                 span: call_span,
                                 ty: Type::Any,
@@ -1362,7 +1365,7 @@ pub fn parse_use(
                         )
                     } else {
                         return (
-                            Pipeline::from_vec(vec![Expression {
+                            Pipeline::from_expr_vec(vec![Expression {
                                 expr: Expr::Call(call),
                                 span: call_span,
                                 ty: Type::Any,
@@ -1447,7 +1450,7 @@ pub fn parse_use(
     });
 
     (
-        Pipeline::from_vec(vec![Expression {
+        Pipeline::from_expr_vec(vec![Expression {
             expr: Expr::Call(call),
             span: span(spans),
             ty: Type::Any,
@@ -1488,7 +1491,7 @@ pub fn parse_hide(
             err = check_call(call_span, &decl.signature(), &call).or(err);
             if err.is_some() || call.has_flag("help") {
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
                         ty: Type::Any,
@@ -1653,7 +1656,7 @@ pub fn parse_hide(
         });
 
         (
-            Pipeline::from_vec(vec![Expression {
+            Pipeline::from_expr_vec(vec![Expression {
                 expr: Expr::Call(call),
                 span: span(spans),
                 ty: Type::Any,
@@ -1712,7 +1715,7 @@ pub fn parse_overlay(
                         err = check_call(call_span, &decl.signature(), &call).or(err);
                         if err.is_some() || call.has_flag("help") {
                             return (
-                                Pipeline::from_vec(vec![Expression {
+                                Pipeline::from_expr_vec(vec![Expression {
                                     expr: Expr::Call(call),
                                     span: call_span,
                                     ty: Type::Any,
@@ -1736,7 +1739,7 @@ pub fn parse_overlay(
                 };
 
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: span(spans),
                         ty: Type::Any,
@@ -1768,7 +1771,7 @@ pub fn parse_overlay(
             err = check_call(call_span, &decl.signature(), &call).or(err);
             if err.is_some() || call.has_flag("help") {
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
                         ty: Type::Any,
@@ -1792,7 +1795,7 @@ pub fn parse_overlay(
     };
 
     (
-        Pipeline::from_vec(vec![Expression {
+        Pipeline::from_expr_vec(vec![Expression {
             expr: Expr::Call(call),
             span: span(spans),
             ty: Type::Any,
@@ -1834,7 +1837,7 @@ pub fn parse_overlay_add(
             err = check_call(call_span, &decl.signature(), &call).or(err);
             if err.is_some() || call.has_flag("help") {
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
                         ty: Type::Any,
@@ -1879,7 +1882,7 @@ pub fn parse_overlay_add(
         );
     };
 
-    let pipeline = Pipeline::from_vec(vec![Expression {
+    let pipeline = Pipeline::from_expr_vec(vec![Expression {
         expr: Expr::Call(call),
         span: span(spans),
         ty: Type::Any,
@@ -2021,7 +2024,7 @@ pub fn parse_overlay_remove(
             err = check_call(call_span, &decl.signature(), &call).or(err);
             if err.is_some() || call.has_flag("help") {
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
                         ty: Type::Any,
@@ -2065,7 +2068,7 @@ pub fn parse_overlay_remove(
 
     let keep_custom = call.has_flag("keep-custom");
 
-    let pipeline = Pipeline::from_vec(vec![Expression {
+    let pipeline = Pipeline::from_expr_vec(vec![Expression {
         expr: Expr::Call(call),
         span: span(spans),
         ty: Type::Any,
@@ -2113,7 +2116,7 @@ pub fn parse_let(
 
     if name == b"let" {
         if let Some((span, err)) = check_name(working_set, spans) {
-            return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
+            return (Pipeline::from_expr_vec(vec![garbage(*span)]), Some(err));
         }
 
         if let Some(decl_id) = working_set.find_decl(b"let") {
@@ -2170,7 +2173,7 @@ pub fn parse_let(
                         });
 
                         return (
-                            Pipeline::from_vec(vec![Expression {
+                            Pipeline::from_expr_vec(vec![Expression {
                                 expr: Expr::Call(call),
                                 span: nu_protocol::span(spans),
                                 ty: Type::Any,
@@ -2190,14 +2193,12 @@ pub fn parse_let(
             );
 
             return (
-                Pipeline {
-                    expressions: vec![Expression {
-                        expr: Expr::Call(call),
-                        span: nu_protocol::span(spans),
-                        ty: Type::Any,
-                        custom_completion: None,
-                    }],
-                },
+                Pipeline::from_expr_vec(vec![Expression {
+                    expr: Expr::Call(call),
+                    span: nu_protocol::span(spans),
+                    ty: Type::Any,
+                    custom_completion: None,
+                }]),
                 err,
             );
         }
@@ -2235,7 +2236,7 @@ pub fn parse_source(
 
             if error.is_some() || call.has_flag("help") {
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: span(spans),
                         ty: Type::Any,
@@ -2265,7 +2266,7 @@ pub fn parse_source(
                             if err.is_some() {
                                 // Unsuccessful parse of file
                                 return (
-                                    Pipeline::from_vec(vec![Expression {
+                                    Pipeline::from_expr_vec(vec![Expression {
                                         expr: Expr::Call(call),
                                         span: span(&spans[1..]),
                                         ty: Type::Any,
@@ -2290,7 +2291,7 @@ pub fn parse_source(
                                 });
 
                                 return (
-                                    Pipeline::from_vec(vec![Expression {
+                                    Pipeline::from_expr_vec(vec![Expression {
                                         expr: Expr::Call(call_with_block),
                                         span: span(spans),
                                         ty: Type::Any,
@@ -2308,7 +2309,7 @@ pub fn parse_source(
                 }
             }
             return (
-                Pipeline::from_vec(vec![Expression {
+                Pipeline::from_expr_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: span(spans),
                     ty: Type::Any,
@@ -2377,7 +2378,7 @@ pub fn parse_register(
             err = check_call(call_span, &decl.signature(), &call).or(err);
             if err.is_some() || call.has_flag("help") {
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
                         ty: Type::Any,
@@ -2479,7 +2480,7 @@ pub fn parse_register(
             Ok(path) => Some(path),
             Err(err) => {
                 return (
-                    Pipeline::from_vec(vec![Expression {
+                    Pipeline::from_expr_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
                         ty: Type::Any,
@@ -2529,7 +2530,7 @@ pub fn parse_register(
     .err();
 
     (
-        Pipeline::from_vec(vec![Expression {
+        Pipeline::from_expr_vec(vec![Expression {
             expr: Expr::Call(call),
             span: call_span,
             ty: Type::Nothing,

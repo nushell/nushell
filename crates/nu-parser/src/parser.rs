@@ -9,8 +9,8 @@ use crate::{
 use nu_protocol::{
     ast::{
         Argument, Block, Call, CellPath, Expr, Expression, FullCellPath, ImportPattern,
-        ImportPatternHead, ImportPatternMember, Operator, PathMember, Pipeline, RangeInclusion,
-        RangeOperator,
+        ImportPatternHead, ImportPatternMember, Operator, PathMember, Pipe, Pipeline, PipelineItem,
+        RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
@@ -39,7 +39,7 @@ pub fn garbage(span: Span) -> Expression {
 }
 
 pub fn garbage_pipeline(spans: &[Span]) -> Pipeline {
-    Pipeline::from_vec(vec![garbage(span(spans))])
+    Pipeline::from_expr_vec(vec![garbage(span(spans))])
 }
 
 fn is_identifier_byte(b: u8) -> bool {
@@ -994,11 +994,13 @@ pub fn parse_call(
                 let (mut result, err) =
                     parse_builtin_commands(working_set, &lite_command, &expand_aliases_denylist);
 
-                let mut result = result.expressions.remove(0);
+                let mut result = result.items.remove(0);
 
-                result.replace_span(working_set, expansion_span, orig_span);
+                result
+                    .expression
+                    .replace_span(working_set, expansion_span, orig_span);
 
-                return (result, err);
+                return (result.expression, err);
             }
         }
 
@@ -2922,8 +2924,7 @@ pub fn parse_row_condition(
         _ => {
             // We have an expression, so let's convert this into a block.
             let mut block = Block::new();
-            let mut pipeline = Pipeline::new();
-            pipeline.expressions.push(expression);
+            let pipeline = Pipeline::from_expr_vec(vec![expression]);
 
             block.pipelines.push(pipeline);
 
@@ -3484,13 +3485,13 @@ pub fn parse_list_expression(
     let mut contained_type: Option<Type> = None;
 
     if !output.block.is_empty() {
-        for arg in &output.block[0].commands {
+        for arg in &output.block[0].items {
             let mut spans_idx = 0;
 
-            while spans_idx < arg.parts.len() {
+            while spans_idx < arg.command.parts.len() {
                 let (arg, err) = parse_multispan_value(
                     working_set,
-                    &arg.parts,
+                    &arg.command.parts,
                     &mut spans_idx,
                     element_shape,
                     expand_aliases_denylist,
@@ -3581,7 +3582,7 @@ pub fn parse_table_expression(
 
             let (headers, err) = parse_value(
                 working_set,
-                output.block[0].commands[0].parts[0],
+                output.block[0].items[0].command.parts[0],
                 &SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 expand_aliases_denylist,
             );
@@ -3596,7 +3597,7 @@ pub fn parse_table_expression(
             }
 
             let mut rows = vec![];
-            for part in &output.block[1].commands[0].parts {
+            for part in &output.block[1].items[0].command.parts {
                 let (values, err) = parse_value(
                     working_set,
                     *part,
@@ -4501,9 +4502,7 @@ pub fn parse_expression(
         if let Some(decl_id) = with_env {
             let mut block = Block::default();
             let ty = output.ty.clone();
-            block.pipelines = vec![Pipeline {
-                expressions: vec![output],
-            }];
+            block.pipelines = vec![Pipeline::from_expr_vec(vec![output])];
 
             let block_id = working_set.add_block(block);
 
@@ -4553,6 +4552,19 @@ pub fn parse_expression(
     }
 }
 
+pub fn parse_pipe(working_set: &mut StateWorkingSet, span: Span) -> (Pipe, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+
+    match bytes {
+        b"|" => (Pipe::default(), None),
+        b"|&" => (Pipe::new(true, true), None),
+        _ => (
+            Pipe::default(),
+            Some(ParseError::Expected("pipe".into(), span)),
+        ),
+    }
+}
+
 pub fn parse_variable(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -4583,7 +4595,7 @@ pub fn parse_builtin_commands(
         b"let" => parse_let(working_set, &lite_command.parts, expand_aliases_denylist),
         b"for" => {
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
-            (Pipeline::from_vec(vec![expr]), err)
+            (Pipeline::from_expr_vec(vec![expr]), err)
         }
         b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
         b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
@@ -4601,7 +4613,7 @@ pub fn parse_builtin_commands(
                 );
                 if call.has_flag("help") {
                     (
-                        Pipeline::from_vec(vec![Expression {
+                        Pipeline::from_expr_vec(vec![Expression {
                             expr: Expr::Call(call),
                             span: span(&lite_command.parts),
                             ty: Type::Any,
@@ -4634,7 +4646,7 @@ pub fn parse_builtin_commands(
         _ => {
             let (expr, err) =
                 parse_expression(working_set, &lite_command.parts, expand_aliases_denylist);
-            (Pipeline::from_vec(vec![expr]), err)
+            (Pipeline::from_expr_vec(vec![expr]), err)
         }
     }
 }
@@ -4745,10 +4757,10 @@ pub fn parse_block(
     // Pre-declare any definition so that definitions
     // that share the same block can see each other
     for pipeline in &lite_block.block {
-        if pipeline.commands.len() == 1 {
+        if pipeline.items.len() == 1 {
             if let Some(err) = parse_def_predecl(
                 working_set,
-                &pipeline.commands[0].parts,
+                &pipeline.items[0].command.parts,
                 expand_aliases_denylist,
             ) {
                 error = error.or(Some(err));
@@ -4761,50 +4773,64 @@ pub fn parse_block(
         .iter()
         .enumerate()
         .map(|(idx, pipeline)| {
-            if pipeline.commands.len() > 1 {
+            if pipeline.items.len() > 1 {
                 let mut output = pipeline
-                    .commands
+                    .items
                     .iter()
-                    .map(|command| {
-                        let (expr, err) =
-                            parse_expression(working_set, &command.parts, expand_aliases_denylist);
+                    .map(|lite_item| {
+                        let (expr, err) = parse_expression(
+                            working_set,
+                            &lite_item.command.parts,
+                            expand_aliases_denylist,
+                        );
 
                         if error.is_none() {
                             error = err;
                         }
 
-                        expr
+                        let mut item = PipelineItem::from_expr(expr);
+
+                        if let Some(pipe) = lite_item.pipe {
+                            let (pipe, err) = parse_pipe(working_set, pipe);
+
+                            if error.is_none() {
+                                error = err;
+                            }
+
+                            item.pipe = Some(pipe);
+                        }
+
+                        item
                     })
-                    .collect::<Vec<Expression>>();
+                    .collect::<Vec<PipelineItem>>();
 
                 if is_subexpression {
-                    for expr in output.iter_mut().skip(1) {
-                        if expr.has_in_variable(working_set) {
-                            *expr = wrap_expr_with_collect(working_set, expr);
+                    for item in output.iter_mut().skip(1) {
+                        if item.expression.has_in_variable(working_set) {
+                            item.expression = wrap_expr_with_collect(working_set, &item.expression);
                         }
                     }
                 } else {
-                    for expr in output.iter_mut() {
-                        if expr.has_in_variable(working_set) {
-                            *expr = wrap_expr_with_collect(working_set, expr);
+                    for item in output.iter_mut() {
+                        if item.expression.has_in_variable(working_set) {
+                            item.expression = wrap_expr_with_collect(working_set, &item.expression);
                         }
                     }
                 }
 
-                Pipeline {
-                    expressions: output,
-                }
+                Pipeline { items: output }
             } else {
                 let (mut pipeline, err) = parse_builtin_commands(
                     working_set,
-                    &pipeline.commands[0],
+                    &pipeline.items[0].command,
                     expand_aliases_denylist,
                 );
 
                 if idx == 0 {
                     if let Some(let_decl_id) = working_set.find_decl(b"let") {
                         if let Some(let_env_decl_id) = working_set.find_decl(b"let-env") {
-                            for expr in pipeline.expressions.iter_mut() {
+                            for item in pipeline.items.iter_mut() {
+                                let expr = &mut item.expression;
                                 if let Expression {
                                     expr: Expr::Call(call),
                                     ..
@@ -4900,8 +4926,8 @@ fn discover_captures_in_pipeline(
     seen_blocks: &mut HashMap<BlockId, Vec<VarId>>,
 ) -> Vec<VarId> {
     let mut output = vec![];
-    for expr in &pipeline.expressions {
-        let result = discover_captures_in_expr(working_set, expr, seen, seen_blocks);
+    for item in &pipeline.items {
+        let result = discover_captures_in_expr(working_set, &item.expression, seen, seen_blocks);
         output.extend(&result);
     }
 
@@ -5137,9 +5163,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         expr.replace_in_variable(working_set, var_id);
 
         let block = Block {
-            pipelines: vec![Pipeline {
-                expressions: vec![expr],
-            }],
+            pipelines: vec![Pipeline::from_expr_vec(vec![expr])],
             signature: Box::new(signature),
             ..Default::default()
         };

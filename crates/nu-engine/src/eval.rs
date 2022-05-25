@@ -583,7 +583,7 @@ pub fn eval_expression_with_input(
             expr: Expr::Call(call),
             ..
         } => {
-            if !redirect_stdout || redirect_stderr {
+            if call.redirect_stdout != redirect_stdout || call.redirect_stderr != redirect_stderr {
                 // we're doing something different than the defaults
                 let mut call = call.clone();
                 call.redirect_stdout = redirect_stdout;
@@ -636,15 +636,22 @@ pub fn eval_block(
 ) -> Result<PipelineData, ShellError> {
     let num_pipelines = block.len();
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        for (i, elem) in pipeline.expressions.iter().enumerate() {
-            let not_last = i != pipeline.expressions.len() - 1;
+        for item in &pipeline.items {
+            let mut redirect_stdout = redirect_stdout;
+            let mut redirect_stderr = redirect_stderr;
+
+            if let Some(pipe) = &item.pipe {
+                redirect_stdout = redirect_stdout || pipe.redirect_stdout;
+                redirect_stderr = redirect_stderr || pipe.redirect_stderr;
+            }
+
             input = eval_expression_with_input(
                 engine_state,
                 stack,
-                elem,
+                &item.expression,
                 input,
-                redirect_stdout || not_last,
-                redirect_stderr || not_last,
+                redirect_stdout,
+                redirect_stderr,
             )?
         }
 
@@ -755,8 +762,15 @@ pub fn eval_subexpression(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
-        for expr in pipeline.expressions.iter() {
-            input = eval_expression_with_input(engine_state, stack, expr, input, true, false)?
+        for item in pipeline.items.iter() {
+            input = eval_expression_with_input(
+                engine_state,
+                stack,
+                &item.expression,
+                input,
+                true,
+                false,
+            )?
         }
     }
 

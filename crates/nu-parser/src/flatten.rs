@@ -494,8 +494,8 @@ pub fn flatten_pipeline(
     pipeline: &Pipeline,
 ) -> Vec<(Span, FlatShape)> {
     let mut output = vec![];
-    for expr in &pipeline.expressions {
-        output.extend(flatten_expression(working_set, expr))
+    for item in &pipeline.items {
+        output.extend(flatten_expression(working_set, &item.expression))
     }
     output
 }

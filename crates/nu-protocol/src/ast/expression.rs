@@ -123,8 +123,8 @@ impl Expression {
                 }
 
                 if let Some(pipeline) = block.pipelines.get(0) {
-                    match pipeline.expressions.get(0) {
-                        Some(expr) => expr.has_in_variable(working_set),
+                    match pipeline.items.get(0) {
+                        Some(item) => item.expression.has_in_variable(working_set),
                         None => false,
                     }
                 } else {
@@ -228,8 +228,8 @@ impl Expression {
                 let block = working_set.get_block(*block_id);
 
                 if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(expr) = pipeline.expressions.get(0) {
-                        expr.has_in_variable(working_set)
+                    if let Some(item) = pipeline.items.get(0) {
+                        item.expression.has_in_variable(working_set)
                     } else {
                         false
                     }
@@ -274,8 +274,8 @@ impl Expression {
                 let block = working_set.get_block(*block_id);
 
                 let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(expr) = pipeline.expressions.get(0) {
-                        let mut new_expr = expr.clone();
+                    if let Some(item) = pipeline.items.get(0) {
+                        let mut new_expr = item.expression.clone();
                         new_expr.replace_in_variable(working_set, new_var_id);
                         Some(new_expr)
                     } else {
@@ -289,8 +289,8 @@ impl Expression {
 
                 if let Some(new_expr) = new_expr {
                     if let Some(pipeline) = block.pipelines.get_mut(0) {
-                        if let Some(expr) = pipeline.expressions.get_mut(0) {
-                            *expr = new_expr
+                        if let Some(item) = pipeline.items.get_mut(0) {
+                            item.expression = new_expr;
                         }
                     }
                 }
@@ -369,8 +369,8 @@ impl Expression {
                 let block = working_set.get_block(*block_id);
 
                 let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(expr) = pipeline.expressions.get(0) {
-                        let mut new_expr = expr.clone();
+                    if let Some(item) = pipeline.items.get(0) {
+                        let mut new_expr = item.expression.clone();
                         new_expr.replace_in_variable(working_set, new_var_id);
                         Some(new_expr)
                     } else {
@@ -384,8 +384,8 @@ impl Expression {
 
                 if let Some(new_expr) = new_expr {
                     if let Some(pipeline) = block.pipelines.get_mut(0) {
-                        if let Some(expr) = pipeline.expressions.get_mut(0) {
-                            *expr = new_expr
+                        if let Some(item) = pipeline.items.get_mut(0) {
+                            item.expression = new_expr;
                         }
                     }
                 }
@@ -439,8 +439,9 @@ impl Expression {
                 let mut block = working_set.get_block(*block_id).clone();
 
                 for pipeline in block.pipelines.iter_mut() {
-                    for expr in pipeline.expressions.iter_mut() {
-                        expr.replace_span(working_set, replaced, new_span)
+                    for item in pipeline.items.iter_mut() {
+                        item.expression
+                            .replace_span(working_set, replaced, new_span)
                     }
                 }
 
@@ -517,8 +518,9 @@ impl Expression {
                 let mut block = working_set.get_block(*block_id).clone();
 
                 for pipeline in block.pipelines.iter_mut() {
-                    for expr in pipeline.expressions.iter_mut() {
-                        expr.replace_span(working_set, replaced, new_span)
+                    for item in pipeline.items.iter_mut() {
+                        item.expression
+                            .replace_span(working_set, replaced, new_span)
                     }
                 }
 

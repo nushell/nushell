@@ -242,13 +242,13 @@ pub fn lex(
     while let Some(c) = input.get(curr_offset) {
         let c = *c;
         if c == b'|' {
-            // If the next character is `|`, it's either `|` or `||`.
-            let idx = curr_offset;
+            // If the next character is `|`, it's might be `|`, '|&' or `||`.
+            let mut idx = curr_offset;
             let prev_idx = idx;
             curr_offset += 1;
 
-            // If the next character is `|`, we're looking at a `||`.
             if let Some(c) = input.get(curr_offset) {
+                // If the next character is `|`, we're looking at a `||`.
                 if *c == b'|' {
                     let idx = curr_offset;
                     curr_offset += 1;
@@ -258,9 +258,15 @@ pub fn lex(
                     ));
                     continue;
                 }
+
+                // If the next character is `&`, we're looking at a `|&`.
+                if *c == b'&' {
+                    idx = curr_offset;
+                    curr_offset += 1;
+                }
             }
 
-            // Otherwise, it's just a regular `|` token.
+            // It's a pipe token, either '|' or `|&`.
 
             // Before we push, check to see if the previous character was a newline.
             // If so, then this is a continuation of the previous line
@@ -269,20 +275,20 @@ pub fn lex(
                     TokenContents::Eol => {
                         *prev = Token::new(
                             TokenContents::Pipe,
-                            Span::new(span_offset + idx, span_offset + idx + 1),
+                            Span::new(span_offset + prev_idx, span_offset + idx + 1),
                         )
                     }
                     _ => {
                         output.push(Token::new(
                             TokenContents::Pipe,
-                            Span::new(span_offset + idx, span_offset + idx + 1),
+                            Span::new(span_offset + prev_idx, span_offset + idx + 1),
                         ));
                     }
                 }
             } else {
                 output.push(Token::new(
                     TokenContents::Pipe,
-                    Span::new(span_offset + idx, span_offset + idx + 1),
+                    Span::new(span_offset + prev_idx, span_offset + idx + 1),
                 ));
             }
 

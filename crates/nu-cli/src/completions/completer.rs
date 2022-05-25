@@ -69,8 +69,8 @@ impl NuCompleter {
         );
 
         for pipeline in output.pipelines.into_iter() {
-            for expr in pipeline.expressions {
-                let flattened: Vec<_> = flatten_expression(&working_set, &expr);
+            for item in pipeline.items {
+                let flattened: Vec<_> = flatten_expression(&working_set, &item.expression);
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
                     if pos >= flat.0.start && pos < flat.0.end {
@@ -132,7 +132,7 @@ impl NuCompleter {
 
                         // Flags completion
                         if prefix.starts_with(b"-") {
-                            let mut completer = FlagCompletion::new(expr);
+                            let mut completer = FlagCompletion::new(item.expression);
 
                             return self.process_completion(
                                 &mut completer,
