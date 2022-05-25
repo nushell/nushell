@@ -83,7 +83,7 @@ pub enum ParseError {
         code(nu::parser::unexpected_keyword),
         url(docsrs),
         help(
-            "Assigning '{0}' to '{1}' does not produced a value to be piped. If the pipeline is meant to apply to '{0}' by itself, use 'let {1} = ({0} | ...)'."
+            "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline is meant to apply to '{0}' by itself, use 'let {1} = ({0} | ...)'."
         )
     )]
     LetInPipeline(String, String, #[label("let in pipeline")] Span),
