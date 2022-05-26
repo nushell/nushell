@@ -42,6 +42,16 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
             },
         },
     );
+    stack.add_env_var(
+        "TEST".to_string(),
+        Value::String {
+            val: "NUSHELL".to_string(),
+            span: nu_protocol::Span {
+                start: 0,
+                end: dir_str.len(),
+            },
+        },
+    );
 
     // Merge delta
     let merge_result = engine_state.merge_delta(delta, Some(&mut stack), &dir);
