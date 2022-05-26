@@ -70,7 +70,18 @@ impl Completer for VariableCompletion {
                         self.var_context.1.clone().into_iter().skip(1).collect();
 
                     if let Some(val) = env_vars.get(&target_var_str) {
-                        return nested_suggestions(val.clone(), nested_levels, current_span);
+                        for suggestion in
+                            nested_suggestions(val.clone(), nested_levels, current_span)
+                        {
+                            if options
+                                .match_algorithm
+                                .matches_u8(suggestion.value.as_bytes(), &prefix)
+                            {
+                                output.push(suggestion);
+                            }
+                        }
+
+                        return output;
                     }
                 } else {
                     // No nesting provided, return all env vars
@@ -105,7 +116,18 @@ impl Completer for VariableCompletion {
                         end: current_span.end,
                     },
                 ) {
-                    return nested_suggestions(nuval, self.var_context.1.clone(), current_span);
+                    for suggestion in
+                        nested_suggestions(nuval, self.var_context.1.clone(), current_span)
+                    {
+                        if options
+                            .match_algorithm
+                            .matches_u8(suggestion.value.as_bytes(), &prefix)
+                        {
+                            output.push(suggestion);
+                        }
+                    }
+
+                    return output;
                 }
             }
 
@@ -122,7 +144,18 @@ impl Completer for VariableCompletion {
 
                 // If the value exists and it's of type Record
                 if let Ok(value) = var {
-                    return nested_suggestions(value, self.var_context.1.clone(), current_span);
+                    for suggestion in
+                        nested_suggestions(value, self.var_context.1.clone(), current_span)
+                    {
+                        if options
+                            .match_algorithm
+                            .matches_u8(suggestion.value.as_bytes(), &prefix)
+                        {
+                            output.push(suggestion);
+                        }
+                    }
+
+                    return output;
                 }
             }
         }
