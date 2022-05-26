@@ -491,13 +491,19 @@ pub fn draw_table(
     config: &Config,
 ) -> String {
     // Remove the edges, if used
-    let termwidth = if table.theme.print_left_border && table.theme.print_right_border {
-        termwidth - 3
+    let edges_width = if table.theme.print_left_border && table.theme.print_right_border {
+        3
     } else if table.theme.print_left_border || table.theme.print_right_border {
-        termwidth - 1
+        1
     } else {
-        termwidth
+        0
     };
+
+    if termwidth < edges_width {
+        return format!("Couldn't fit table into {} columns!", termwidth);
+    }
+
+    let termwidth = termwidth - edges_width;
 
     let mut processed_table = process_table(table);
 

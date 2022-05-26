@@ -18,6 +18,16 @@ use terminal_size::{Height, Width};
 const STREAM_PAGE_SIZE: usize = 1000;
 const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
 
+fn get_width_param(width_param: Option<i64>) -> usize {
+    if let Some(col) = width_param {
+        col as usize
+    } else if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
+        (w - 1) as usize
+    } else {
+        80usize
+    }
+}
+
 #[derive(Clone)]
 pub struct Table;
 
@@ -44,6 +54,12 @@ impl Command for Table {
                 Some('n'),
             )
             .switch("list", "list available table modes/themes", Some('l'))
+            .named(
+                "width",
+                SyntaxShape::Int,
+                "number of terminal columns wide (not output columns)",
+                Some('w'),
+            )
             .category(Category::Viewers)
     }
 
@@ -62,11 +78,8 @@ impl Command for Table {
         let row_offset = start_num.unwrap_or_default() as usize;
         let list: bool = call.has_flag("list");
 
-        let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
-            (w - 1) as usize
-        } else {
-            80usize
-        };
+        let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
+        let term_width = get_width_param(width_param);
 
         if list {
             let table_modes = vec![
@@ -222,7 +235,7 @@ impl Command for Table {
 #[allow(clippy::too_many_arguments)]
 fn handle_row_stream(
     engine_state: &EngineState,
-    stack: &Stack,
+    stack: &mut Stack,
     stream: ListStream,
     call: &Call,
     row_offset: usize,
@@ -306,6 +319,7 @@ fn handle_row_stream(
     };
 
     let head = call.head;
+    let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
 
     Ok(PipelineData::ExternalStream {
         stdout: Some(RawStream::new(
@@ -315,6 +329,7 @@ fn handle_row_stream(
                 ctrlc: ctrlc.clone(),
                 head,
                 stream,
+                width_param,
             }),
             ctrlc,
             head,
@@ -469,6 +484,7 @@ struct PagingTableCreator {
     ctrlc: Option<Arc<AtomicBool>>,
     config: Config,
     row_offset: usize,
+    width_param: Option<i64>,
 }
 
 impl Iterator for PagingTableCreator {
@@ -507,12 +523,7 @@ impl Iterator for PagingTableCreator {
         }
 
         let color_hm = get_color_config(&self.config);
-
-        let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
-            (w - 1) as usize
-        } else {
-            80usize
-        };
+        let term_width = get_width_param(self.width_param);
 
         let table = convert_to_table(
             self.row_offset,
