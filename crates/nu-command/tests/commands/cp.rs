@@ -318,3 +318,16 @@ fn copy_dir_symlink_file_body_not_changed() {
         assert!(actual.contains("hello_data"));
     });
 }
+
+#[test]
+fn copy_identical_file() {
+    Playground::setup("cp_test_15", |_dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("empty_file")]);
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "cp empty_file empty_file",
+        );
+        assert!(actual.err.contains("Copy aborted"));
+    });
+}
