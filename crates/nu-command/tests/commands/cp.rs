@@ -1,3 +1,4 @@
+use nu_test_support::fs::file_contents;
 use nu_test_support::fs::{files_exist_at, AbsoluteFile, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
@@ -293,5 +294,27 @@ fn copy_dir_contains_symlink() {
         assert!(files_exist_at(vec!["hello_there"], expected.clone()));
         let path = expected.join("dangle_symlink");
         assert!(path.is_symlink());
+    });
+}
+
+#[test]
+fn copy_dir_symlink_file_body_not_changed() {
+    Playground::setup("cp_test_14", |_dirs, sandbox| {
+        sandbox
+            .within("tmp_dir")
+            .with_files(vec![EmptyFile("hello_there"), EmptyFile("good_bye")])
+            .within("tmp_dir")
+            .symlink("good_bye", "dangle_symlink");
+
+        // make symbolic link and copy.
+        nu!(
+            cwd: sandbox.cwd(),
+            "rm tmp_dir/good_bye; cp -r -p tmp_dir tmp_dir_2; rm -r tmp_dir; cp -r -p tmp_dir_2 tmp_dir; echo hello_data | save tmp_dir/good_bye",
+        );
+
+        // check dangle_symlink in tmp_dir is no longer dangling.
+        let expected_file = sandbox.cwd().join("tmp_dir").join("dangle_symlink");
+        let actual = file_contents(expected_file);
+        assert!(actual.contains("hello_data"));
     });
 }
