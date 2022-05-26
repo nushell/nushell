@@ -288,7 +288,7 @@ fn copy_dir_contains_symlink() {
             "rm tmp_dir/good_bye; cp -r -p tmp_dir tmp_dir_2",
         );
 
-        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` don't exists inside `tmp_dir_2`.
+        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` also exists inside `tmp_dir_2`.
         let expected = sandbox.cwd().join("tmp_dir_2");
         assert!(files_exist_at(vec!["hello_there"], expected.clone()));
         let path = expected.join("dangle_symlink");
