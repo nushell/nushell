@@ -55,12 +55,12 @@ impl Command for FromOds {
         vec![
             Example {
                 description: "Convert binary .ods data to a table",
-                example: "open test.txt | from ods",
+                example: "open --raw test.ods | from ods",
                 result: None,
             },
             Example {
                 description: "Convert binary .ods data to a table, specifying the tables",
-                example: "open test.txt | from ods -s [Spreadsheet1]",
+                example: "open --raw test.ods | from ods -s [Spreadsheet1]",
                 result: None,
             },
         ]
