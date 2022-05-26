@@ -496,3 +496,14 @@ fn reset_overrides() {
     assert_eq!(actual.out, "foo");
     assert_eq!(actual_repl.out, "foo");
 }
+
+#[test]
+fn overlay_new() {
+    let inp = &[r#"overlay new spam"#, r#"overlay list | last"#];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert_eq!(actual.out, "spam");
+    assert_eq!(actual_repl.out, "spam");
+}
