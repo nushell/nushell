@@ -4371,7 +4371,12 @@ pub fn parse_expression(
                     expand_aliases_denylist,
                 )
                 .0,
-                Some(ParseError::BuiltinCommandInPipeline("let".into(), spans[0])),
+                Some(ParseError::LetInPipeline(
+                    String::from_utf8_lossy(working_set.get_span_contents(spans[spans.len() - 1]))
+                        .to_string(),
+                    String::from_utf8_lossy(working_set.get_span_contents(spans[1])).to_string(),
+                    spans[0],
+                )),
             ),
             b"alias" => (
                 parse_call(
