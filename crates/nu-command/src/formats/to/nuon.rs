@@ -39,7 +39,7 @@ impl Command for ToNuon {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Outputs a nuon string representing the contents of this table",
+            description: "Outputs a nuon string representing the contents of this list",
             example: "[1 2 3] | to nuon",
             result: Some(Value::test_string("[1, 2, 3]")),
         }]
@@ -146,4 +146,14 @@ fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {
     let v = input.into_value(call.head);
 
     value_to_string(&v, call.head)
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::ToNuon;
+        use crate::test_examples;
+        test_examples(ToNuon {})
+    }
 }
