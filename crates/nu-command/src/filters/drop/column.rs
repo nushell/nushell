@@ -57,11 +57,18 @@ impl Command for DropColumn {
             description: "Remove the last column of a table",
             example: "echo [[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column",
             result: Some(Value::List {
-                vals: vec![Value::Record {
-                    cols: vec!["lib".into()],
-                    vals: vec![Value::test_string("nu-lib"), Value::test_string("nu-core")],
-                    span: Span::test_data(),
-                }],
+                vals: vec![
+                    Value::Record {
+                        cols: vec!["lib".into()],
+                        vals: vec![Value::test_string("nu-lib")],
+                        span: Span::test_data(),
+                    },
+                    Value::Record {
+                        cols: vec!["lib".into()],
+                        vals: vec![Value::test_string("nu-core")],
+                        span: Span::test_data(),
+                    },
+                ],
                 span: Span::test_data(),
             }),
         }]
@@ -179,4 +186,14 @@ fn get_keep_columns(input: Vec<String>, mut num_of_columns_to_drop: i64) -> Vec<
 
     let num_of_columns_to_keep = (vlen - num_of_columns_to_drop) as usize;
     input[0..num_of_columns_to_keep].to_vec()
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::DropColumn;
+        use crate::test_examples;
+        test_examples(DropColumn {})
+    }
 }

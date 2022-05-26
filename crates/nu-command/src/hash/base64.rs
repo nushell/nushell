@@ -232,8 +232,14 @@ fn action(
 
 #[cfg(test)]
 mod tests {
-    use super::{action, ActionType, Base64Config};
+    use super::{action, ActionType, Base64, Base64Config};
     use nu_protocol::{Span, Value};
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+        test_examples(Base64 {})
+    }
 
     #[test]
     fn base64_encode_standard() {

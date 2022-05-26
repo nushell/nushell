@@ -55,12 +55,12 @@ impl Command for FromXlsx {
         vec![
             Example {
                 description: "Convert binary .xlsx data to a table",
-                example: "open test.txt | from xlsx",
+                example: "open --raw test.xlsx | from xlsx",
                 result: None,
             },
             Example {
                 description: "Convert binary .xlsx data to a table, specifying the tables",
-                example: "open test.txt | from xlsx -s [Spreadsheet1]",
+                example: "open --raw test.xlsx | from xlsx -s [Spreadsheet1]",
                 result: None,
             },
         ]
