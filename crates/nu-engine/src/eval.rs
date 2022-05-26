@@ -472,8 +472,18 @@ pub fn eval_expression(
             let mut cols = vec![];
             let mut vals = vec![];
             for (col, val) in fields {
-                cols.push(eval_expression(engine_state, stack, col)?.as_string()?);
-                vals.push(eval_expression(engine_state, stack, val)?);
+                // avoid duplicate cols.
+                let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
+                let pos = cols.iter().position(|c| c == &col_name);
+                match pos {
+                    Some(index) => {
+                        vals[index] = eval_expression(engine_state, stack, val)?;
+                    }
+                    None => {
+                        cols.push(col_name);
+                        vals.push(eval_expression(engine_state, stack, val)?);
+                    }
+                }
             }
 
             Ok(Value::Record {
