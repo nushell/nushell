@@ -52,11 +52,14 @@ nu-system = { path = "./crates/nu-system", version = "0.63.1" }
 nu-table = { path = "./crates/nu-table", version = "0.63.1"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.63.1"  }
 nu-utils = { path = "./crates/nu-utils", version = "0.63.1"  }
-openssl = { version = "0.10.38", features = ["vendored"], optional = true }
 pretty_env_logger = "0.4.0"
 rayon = "1.5.1"
 reedline = { version = "0.6.0", features = ["bashisms"]}
 is_executable = "1.0.1"
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+# Our dependencies don't use OpenSSL on Windows
+openssl = { version = "0.10.38", features = ["vendored"], optional = true }
 
 [dev-dependencies]
 nu-test-support = { path="./crates/nu-test-support", version = "0.63.1"  }
