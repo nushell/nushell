@@ -1,3 +1,4 @@
+use std::fs::read_link;
 use std::path::PathBuf;
 
 use nu_engine::env::current_dir;
@@ -54,6 +55,11 @@ impl Command for Cp {
             // TODO: add back in additional features
             // .switch("force", "suppress error when no file", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch(
+                "no-follow-symlink",
+                "don't follow symbolic link file while copy directory, it's only useful when copy directory with '-r' flag",
+                Some('p'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -153,7 +159,7 @@ impl Command for Cp {
                 for (src, dst) in sources {
                     if src.is_file() {
                         let res = if interactive && dst.exists() {
-                            interactive_copy_file(interactive, src, dst, span)
+                            interactive_copy(interactive, src, dst, span, copy_file)
                         } else {
                             copy_file(src, dst, span)
                         };
@@ -188,9 +194,13 @@ impl Command for Cp {
                     )
                 })?;
 
+                let not_follow_symlink = call.has_flag("no-follow-symlink");
                 let sources = sources.paths_applying_with(|(source_file, depth_level)| {
                     let mut dest = destination.clone();
-                    let path =
+
+                    let path = if not_follow_symlink {
+                        expand_path_with(&source_file, &current_dir_path)
+                    } else {
                         canonicalize_with(&source_file, &current_dir_path).or_else(|err| {
                             // check if dangling symbolic link.
                             let path = expand_path_with(&source_file, &current_dir_path);
@@ -199,7 +209,8 @@ impl Command for Cp {
                             } else {
                                 Err(err)
                             }
-                        })?;
+                        })?
+                    };
 
                     #[allow(clippy::needless_collect)]
                     let comps: Vec<_> = path
@@ -229,14 +240,21 @@ impl Command for Cp {
                         })?;
                     }
 
-                    if s.is_file() {
+                    if s.is_symlink() && not_follow_symlink {
                         let res = if interactive && d.exists() {
-                            interactive_copy_file(interactive, s, d, span)
+                            interactive_copy(interactive, s, d, span, copy_symlink)
+                        } else {
+                            copy_symlink(s, d, span)
+                        };
+                        result.push(res);
+                    } else if s.is_file() {
+                        let res = if interactive && d.exists() {
+                            interactive_copy(interactive, s, d, span, copy_file)
                         } else {
                             copy_file(s, d, span)
                         };
                         result.push(res);
-                    }
+                    };
                 }
             }
         }
@@ -274,7 +292,13 @@ impl Command for Cp {
     }
 }
 
-fn interactive_copy_file(interactive: bool, src: PathBuf, dst: PathBuf, span: Span) -> Value {
+fn interactive_copy(
+    interactive: bool,
+    src: PathBuf,
+    dst: PathBuf,
+    span: Span,
+    copy_impl: impl Fn(PathBuf, PathBuf, Span) -> Value,
+) -> Value {
     let (interaction, confirmed) =
         try_interaction(interactive, "cp: overwrite", &dst.to_string_lossy());
     if let Err(e) = interaction {
@@ -291,7 +315,7 @@ fn interactive_copy_file(interactive: bool, src: PathBuf, dst: PathBuf, span: Sp
         let msg = format!("{:} not copied to {:}", src.display(), dst.display());
         Value::String { val: msg, span }
     } else {
-        copy_file(src, dst, span)
+        copy_impl(src, dst, span)
     }
 }
 
@@ -303,6 +327,50 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
         }
         Err(e) => Value::Error {
             error: ShellError::FileNotFoundCustom(format!("copy file {src:?} failed: {e}"), span),
+        },
+    }
+}
+
+fn copy_symlink(src: PathBuf, dst: PathBuf, span: Span) -> Value {
+    let target_path = read_link(src.as_path());
+    let target_path = match target_path {
+        Ok(p) => p,
+        Err(err) => {
+            return Value::Error {
+                error: ShellError::GenericError(
+                    err.to_string(),
+                    err.to_string(),
+                    Some(span),
+                    None,
+                    vec![],
+                ),
+            }
+        }
+    };
+
+    let create_symlink = {
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink
+        }
+
+        #[cfg(windows)]
+        {
+            if !target_path.exists() || target_path.is_file() {
+                std::os::windows::fs::symlink_file
+            } else {
+                std::os::windows::fs::symlink_dir
+            }
+        }
+    };
+
+    match create_symlink(target_path.as_path(), dst.as_path()) {
+        Ok(_) => {
+            let msg = format!("copied {:} to {:}", src.display(), dst.display());
+            Value::String { val: msg, span }
+        }
+        Err(e) => Value::Error {
+            error: ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, vec![]),
         },
     }
 }

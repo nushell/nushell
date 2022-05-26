@@ -251,7 +251,7 @@ fn copy_to_non_existing_dir() {
 }
 
 #[test]
-fn copy_dir_contains_symlink() {
+fn copy_dir_contains_symlink_ignored() {
     Playground::setup("cp_test_12", |_dirs, sandbox| {
         sandbox
             .within("tmp_dir")
@@ -269,6 +269,29 @@ fn copy_dir_contains_symlink() {
         let expected = sandbox.cwd().join("tmp_dir_2");
         assert!(files_exist_at(vec!["hello_there"], expected.clone()));
         let path = expected.join("dangle_symlink");
-        assert!(!path.exists());
+        assert!(!path.exists() && !path.is_symlink());
+    });
+}
+
+#[test]
+fn copy_dir_contains_symlink() {
+    Playground::setup("cp_test_13", |_dirs, sandbox| {
+        sandbox
+            .within("tmp_dir")
+            .with_files(vec![EmptyFile("hello_there"), EmptyFile("good_bye")])
+            .within("tmp_dir")
+            .symlink("good_bye", "dangle_symlink");
+
+        // make symbolic link and copy.
+        nu!(
+            cwd: sandbox.cwd(),
+            "rm tmp_dir/good_bye; cp -r -p tmp_dir tmp_dir_2",
+        );
+
+        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` don't exists inside `tmp_dir_2`.
+        let expected = sandbox.cwd().join("tmp_dir_2");
+        assert!(files_exist_at(vec!["hello_there"], expected.clone()));
+        let path = expected.join("dangle_symlink");
+        assert!(path.is_symlink());
     });
 }
