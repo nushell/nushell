@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
-use nu_path::canonicalize_with;
+use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -70,9 +70,9 @@ impl Command for Cp {
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
 
-        let path = current_dir(engine_state, stack)?;
-        let source = path.join(src.item.as_str());
-        let destination = path.join(dst.item.as_str());
+        let current_dir_path = current_dir(engine_state, stack)?;
+        let source = current_dir_path.join(src.item.as_str());
+        let destination = current_dir_path.join(dst.item.as_str());
 
         // check if destination is a dir and it exists
         let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
@@ -140,7 +140,7 @@ impl Command for Cp {
             if entry.is_file() {
                 let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
                     if destination.is_dir() {
-                        let mut dest = canonicalize_with(&dst.item, &path)?;
+                        let mut dest = canonicalize_with(&dst.item, &current_dir_path)?;
                         if let Some(name) = entry.file_name() {
                             dest.push(name);
                         }
@@ -190,7 +190,16 @@ impl Command for Cp {
 
                 let sources = sources.paths_applying_with(|(source_file, depth_level)| {
                     let mut dest = destination.clone();
-                    let path = canonicalize_with(&source_file, &path)?;
+                    let path =
+                        canonicalize_with(&source_file, &current_dir_path).or_else(|err| {
+                            // check if dangling symbolic link.
+                            let path = expand_path_with(&source_file, &current_dir_path);
+                            if path.is_symlink() && !path.exists() {
+                                Ok(path)
+                            } else {
+                                Err(err)
+                            }
+                        })?;
 
                     #[allow(clippy::needless_collect)]
                     let comps: Vec<_> = path
@@ -293,13 +302,7 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
             Value::String { val: msg, span }
         }
         Err(e) => Value::Error {
-            error: ShellError::GenericError(
-                e.to_string(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            ),
+            error: ShellError::FileNotFoundCustom(format!("copy file {src:?} failed: {e}"), span),
         },
     }
 }

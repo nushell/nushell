@@ -228,7 +228,9 @@ impl<'a> Playground<'a> {
 
     pub fn within(&mut self, directory: &str) -> &mut Self {
         self.cwd.push(directory);
-        std::fs::create_dir(&self.cwd).expect("can not create directory");
+        if !(self.cwd.exists() && self.cwd.is_dir()) {
+            std::fs::create_dir(&self.cwd).expect("can not create directory");
+        }
         self
     }
 

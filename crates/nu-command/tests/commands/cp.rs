@@ -249,3 +249,26 @@ fn copy_to_non_existing_dir() {
         assert!(actual.err.contains("destination directory does not exist"));
     });
 }
+
+#[test]
+fn copy_dir_contains_symlink() {
+    Playground::setup("cp_test_12", |_dirs, sandbox| {
+        sandbox
+            .within("tmp_dir")
+            .with_files(vec![EmptyFile("hello_there"), EmptyFile("good_bye")])
+            .within("tmp_dir")
+            .symlink("good_bye", "dangle_symlink");
+
+        // make symbolic link and copy.
+        nu!(
+            cwd: sandbox.cwd(),
+            "rm tmp_dir/good_bye; cp -r tmp_dir tmp_dir_2",
+        );
+
+        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` don't exists inside `tmp_dir_2`.
+        let expected = sandbox.cwd().join("tmp_dir_2");
+        assert!(files_exist_at(vec!["hello_there"], expected.clone()));
+        let path = expected.join("dangle_symlink");
+        assert!(!path.exists());
+    });
+}
