@@ -75,6 +75,7 @@ pub struct Config {
     pub buffer_editor: String,
     pub disable_table_indexes: bool,
     pub cd_with_abbreviations: bool,
+    pub case_sensitive_completions: bool,
 }
 
 impl Default for Config {
@@ -105,6 +106,7 @@ impl Default for Config {
             buffer_editor: String::new(),
             disable_table_indexes: false,
             cd_with_abbreviations: false,
+            case_sensitive_completions: false,
         }
     }
 }
@@ -311,7 +313,14 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.cd_with_abbreviations = b;
                         } else {
-                            eprintln!("$config.disable_table_indexes is not a bool")
+                            eprintln!("$config.cd_with_abbreviations is not a bool")
+                        }
+                    }
+                    "case_sensitive_completions" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.case_sensitive_completions = b;
+                        } else {
+                            eprintln!("$config.case_sensitive_completions is not a bool")
                         }
                     }
                     x => {

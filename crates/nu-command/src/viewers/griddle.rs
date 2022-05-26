@@ -139,7 +139,7 @@ prints out the list properly."#
                 description: "Render a simple list to a grid",
                 example: "[1 2 3 a b c] | grid",
                 result: Some(Value::String {
-                    val: "1 │ 2 │ 3 │ a │ b │ c".to_string(),
+                    val: "1 │ 2 │ 3 │ a │ b │ c\n".to_string(),
                     span: Span::test_data(),
                 }),
             },
@@ -147,7 +147,7 @@ prints out the list properly."#
                 description: "The above example is the same as:",
                 example: "[1 2 3 a b c] | wrap name | grid",
                 result: Some(Value::String {
-                    val: "1 │ 2 │ 3 │ a │ b │ c".to_string(),
+                    val: "1 │ 2 │ 3 │ a │ b │ c\n".to_string(),
                     span: Span::test_data(),
                 }),
             },
@@ -155,7 +155,7 @@ prints out the list properly."#
                 description: "Render a record to a grid",
                 example: "{name: 'foo', b: 1, c: 2} | grid",
                 result: Some(Value::String {
-                    val: "foo".to_string(),
+                    val: "foo\n".to_string(),
                     span: Span::test_data(),
                 }),
             },
@@ -163,7 +163,7 @@ prints out the list properly."#
                 description: "Render a list of records to a grid",
                 example: "[{name: 'A', v: 1} {name: 'B', v: 2} {name: 'C', v: 3}] | grid",
                 result: Some(Value::String {
-                    val: "A │ B │ C".to_string(),
+                    val: "A │ B │ C\n".to_string(),
                     span: Span::test_data(),
                 }),
             },
@@ -171,7 +171,7 @@ prints out the list properly."#
                 description: "Render a table with 'name' column in it to a grid",
                 example: "[[name patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | grid",
                 result: Some(Value::String {
-                    val: "0.1.0 │ 0.1.1 │ 0.2.0".to_string(),
+                    val: "0.1.0 │ 0.1.1 │ 0.2.0\n".to_string(),
                     span: Span::test_data(),
                 }),
             },
@@ -356,5 +356,15 @@ fn convert_to_list(
         Some(interleaved)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::Griddle;
+        use crate::test_examples;
+        test_examples(Griddle {})
     }
 }

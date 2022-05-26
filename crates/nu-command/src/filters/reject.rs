@@ -205,3 +205,13 @@ fn reject_record_columns(cols: &mut Vec<String>, vals: &mut Vec<Value>, rejects:
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::Reject;
+        use crate::test_examples;
+        test_examples(Reject {})
+    }
+}

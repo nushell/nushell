@@ -81,3 +81,29 @@ fn ignores_duplicate_columns_rejected() {
 
     assert_eq!(actual.out, "last name");
 }
+
+#[test]
+fn reject_record_from_raw_eval() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+            r#"
+            {"a": 3, "a": 4} | reject a | describe
+            "#
+        )
+    );
+
+    assert!(actual.out.contains("record<>"));
+}
+
+#[test]
+fn reject_table_from_raw_eval() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+            r#"
+            [{"a": 3, "a": 4}] | reject a
+            "#
+        )
+    );
+
+    assert!(actual.out.contains("record 0 fields"));
+}
