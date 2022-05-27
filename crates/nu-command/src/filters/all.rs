@@ -27,6 +27,10 @@ impl Command for All {
         "Test if every element of the input matches a predicate."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["every"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
