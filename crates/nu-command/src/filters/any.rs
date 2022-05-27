@@ -27,6 +27,10 @@ impl Command for Any {
         "Tests if any element of the input matches a predicate."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["some"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
