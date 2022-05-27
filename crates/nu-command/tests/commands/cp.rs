@@ -319,7 +319,6 @@ fn copy_dir_symlink_file_body_not_changed() {
     });
 }
 
-#[cfg(not(windows))]
 #[test]
 fn copy_identical_file() {
     Playground::setup("cp_test_15", |_dirs, sandbox| {

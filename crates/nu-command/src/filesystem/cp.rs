@@ -157,6 +157,7 @@ impl Command for Cp {
 
                 for (src, dst) in sources {
                     if src.is_file() {
+                        #[cfg(not(windows))]
                         let dst = match canonicalize(dst.clone()) {
                             Ok(path) => path,
                             Err(_) => dst,
