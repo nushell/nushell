@@ -54,7 +54,6 @@ pub fn parse_def_predecl(
         let (sig, ..) = parse_signature(working_set, spans[2], expand_aliases_denylist);
         let signature = sig.as_signature();
         working_set.exit_scope();
-
         if let (Some(name), Some(mut signature)) = (name, signature) {
             signature.name = name;
             let decl = signature.predeclare();
@@ -360,6 +359,7 @@ pub fn parse_def(
             let declaration = working_set.get_decl_mut(decl_id);
 
             signature.name = name.clone();
+            *signature = signature.add_help();
             signature.usage = usage;
 
             *declaration = signature.clone().into_block_command(block_id);
