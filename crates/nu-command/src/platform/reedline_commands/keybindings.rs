@@ -21,6 +21,10 @@ impl Command for Keybindings {
         "Keybindings related commands"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["shortcut", "hotkey"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
