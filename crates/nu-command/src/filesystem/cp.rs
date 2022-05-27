@@ -57,7 +57,7 @@ impl Command for Cp {
             .switch("interactive", "ask user to confirm action", Some('i'))
             .switch(
                 "no-dereference",
-                "If the -r option is specified, no symbolic links are followed.",
+                "If the -r option is specified, no dangling symbolic links are followed, and it will be copied to target",
                 Some('p'),
             )
             .category(Category::FileSystem)
