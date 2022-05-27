@@ -1,4 +1,4 @@
-use std::fs::{canonicalize, read_link};
+use std::fs::read_link;
 use std::path::PathBuf;
 
 use nu_engine::env::current_dir;
@@ -158,7 +158,7 @@ impl Command for Cp {
                 for (src, dst) in sources {
                     if src.is_file() {
                         #[cfg(not(windows))]
-                        let dst = match canonicalize(dst.clone()) {
+                        let dst = match std::fs::canonicalize(dst.clone()) {
                             Ok(path) => path,
                             Err(_) => dst,
                         };
