@@ -159,10 +159,6 @@ impl Signature {
     pub fn build(name: impl Into<String>) -> Signature {
         Signature::new(name.into()).add_help()
     }
-    // Build an external signature with no presumed flags.
-    pub fn build_external(name: impl Into<String>) -> Signature {
-        Signature::new(name.into())
-    }
 
     /// Add a description to the signature
     pub fn usage(mut self, msg: impl Into<String>) -> Signature {
