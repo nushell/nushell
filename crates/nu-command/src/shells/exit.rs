@@ -31,7 +31,7 @@ impl Command for Exit {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["quit", "close", "exit_code", "error_code"]
+        vec!["quit", "close", "exit_code", "error_code", "logout"]
     }
 
     fn run(
