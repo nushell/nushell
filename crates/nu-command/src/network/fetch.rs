@@ -76,7 +76,9 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["network", "fetch", "get", "pull", "request", "http"]
+        vec![
+            "network", "fetch", "get", "pull", "request", "http", "download", "curl", "wget",
+        ]
     }
 
     fn run(
