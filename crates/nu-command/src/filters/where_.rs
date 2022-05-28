@@ -24,7 +24,7 @@ impl Command for Where {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["filter", "find", "search", "cond", "condition"]
+        vec!["filter", "find", "search", "condition"]
     }
 
     fn run(
