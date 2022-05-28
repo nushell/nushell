@@ -23,6 +23,10 @@ impl Command for Where {
             .category(Category::Filters)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["filter", "find", "search", "condition"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

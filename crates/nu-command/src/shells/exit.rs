@@ -30,6 +30,10 @@ impl Command for Exit {
         "Exit a Nu shell or exit Nu entirely."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["quit", "close", "exit_code", "error_code", "logout"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
