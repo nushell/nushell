@@ -1,3 +1,7 @@
+#
+# REF:
+#   1. https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategymatrixinclude
+#
 name: Create Release Draft
 
 on:
@@ -5,434 +9,89 @@ on:
   push:
     tags: ["[0-9]+.[0-9]+.[0-9]+*"]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  linux:
-    name: Build Linux
-    runs-on: ubuntu-latest
+  all:
+    name: All
+
+    strategy:
+      matrix:
+        target:
+        - aarch64-apple-darwin
+        - x86_64-apple-darwin
+        - x86_64-pc-windows-msvc
+        - x86_64-unknown-linux-gnu
+        - x86_64-unknown-linux-musl
+        - aarch64-unknown-linux-gnu
+        - armv7-unknown-linux-gnueabihf
+        extra: ['bin']
+        include:
+        - target: aarch64-apple-darwin
+          os: macos-latest
+          target_rustflags: ''
+        - target: x86_64-apple-darwin
+          os: macos-latest
+          target_rustflags: ''
+        - target: x86_64-pc-windows-msvc
+          extra: 'bin'
+          os: windows-latest
+          target_rustflags: ''
+        - target: x86_64-pc-windows-msvc
+          extra: msi
+          os: windows-latest
+          target_rustflags: ''
+        - target: x86_64-unknown-linux-gnu
+          os: ubuntu-latest
+          target_rustflags: ''
+        - target: x86_64-unknown-linux-musl
+          os: ubuntu-latest
+          target_rustflags: ''
+        - target: aarch64-unknown-linux-gnu
+          os: ubuntu-latest
+          target_rustflags: ''
+        - target: armv7-unknown-linux-gnueabihf
+          os: ubuntu-latest
+          target_rustflags: ''
+
+    runs-on: ${{matrix.os}}
+
     steps:
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Install libxcb
-        run: sudo apt-get install libxcb-composite0-dev
-
-      - name: Set up cargo
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all --features=extra,static-link-openssl
-
-      # - name: Strip binaries (nu)
-      #   run: strip target/release/nu
-
-      # - name: Strip binaries (nu_plugin_inc)
-      #   run: strip target/release/nu_plugin_inc
-
-      # - name: Strip binaries (nu_plugin_match)
-      #   run: strip target/release/nu_plugin_match
-
-      # - name: Strip binaries (nu_plugin_textview)
-      #   run: strip target/release/nu_plugin_textview
-
-      # - name: Strip binaries (nu_plugin_binaryview)
-      #   run: strip target/release/nu_plugin_binaryview
-
-      # - name: Strip binaries (nu_plugin_chart_bar)
-      #   run: strip target/release/nu_plugin_chart_bar
-
-      # - name: Strip binaries (nu_plugin_chart_line)
-      #   run: strip target/release/nu_plugin_chart_line
-
-      # - name: Strip binaries (nu_plugin_from_bson)
-      #   run: strip target/release/nu_plugin_from_bson
-
-      # - name: Strip binaries (nu_plugin_from_sqlite)
-      #   run: strip target/release/nu_plugin_from_sqlite
-
-      # - name: Strip binaries (nu_plugin_from_mp4)
-      #   run: strip target/release/nu_plugin_from_mp4
-
-      # - name: Strip binaries (nu_plugin_query_json)
-      #   run: strip target/release/nu_plugin_query_json
-
-      # - name: Strip binaries (nu_plugin_s3)
-      #   run: strip target/release/nu_plugin_s3
-
-      # - name: Strip binaries (nu_plugin_selector)
-      #   run: strip target/release/nu_plugin_selector
-
-      # - name: Strip binaries (nu_plugin_start)
-      #   run: strip target/release/nu_plugin_start
-
-      # - name: Strip binaries (nu_plugin_to_bson)
-      #   run: strip target/release/nu_plugin_to_bson
-
-      # - name: Strip binaries (nu_plugin_to_sqlite)
-      #   run: strip target/release/nu_plugin_to_sqlite
-
-      # - name: Strip binaries (nu_plugin_tree)
-      #   run: strip target/release/nu_plugin_tree
-
-      # - name: Strip binaries (nu_plugin_xpath)
-      #   run: strip target/release/nu_plugin_xpath
-
-      - name: Create output directory
-        run: mkdir output
-
-      - name: Copy files to output
-        run: |
-          cp target/release/nu target/release/nu_plugin_* output/
-          cp README.release.txt output/README.txt
-          cp LICENSE output/LICENSE
-          rm output/*.d
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: linux
-          path: output/*
-
-  macos:
-    name: Build macOS
-    runs-on: macos-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Set up cargo
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all --features=extra,static-link-openssl
-
-      # - name: Strip binaries (nu)
-      #   run: strip target/release/nu
-
-      # - name: Strip binaries (nu_plugin_inc)
-      #   run: strip target/release/nu_plugin_inc
-
-      # - name: Strip binaries (nu_plugin_match)
-      #   run: strip target/release/nu_plugin_match
-
-      # - name: Strip binaries (nu_plugin_textview)
-      #   run: strip target/release/nu_plugin_textview
-
-      # - name: Strip binaries (nu_plugin_binaryview)
-      #   run: strip target/release/nu_plugin_binaryview
-
-      # - name: Strip binaries (nu_plugin_chart_bar)
-      #   run: strip target/release/nu_plugin_chart_bar
-
-      # - name: Strip binaries (nu_plugin_chart_line)
-      #   run: strip target/release/nu_plugin_chart_line
-
-      # - name: Strip binaries (nu_plugin_from_bson)
-      #   run: strip target/release/nu_plugin_from_bson
-
-      # - name: Strip binaries (nu_plugin_from_sqlite)
-      #   run: strip target/release/nu_plugin_from_sqlite
-
-      # - name: Strip binaries (nu_plugin_from_mp4)
-      #   run: strip target/release/nu_plugin_from_mp4
-
-      # - name: Strip binaries (nu_plugin_query_json)
-      #   run: strip target/release/nu_plugin_query_json
-
-      # - name: Strip binaries (nu_plugin_s3)
-      #   run: strip target/release/nu_plugin_s3
-
-      # - name: Strip binaries (nu_plugin_selector)
-      #   run: strip target/release/nu_plugin_selector
-
-      # - name: Strip binaries (nu_plugin_start)
-      #   run: strip target/release/nu_plugin_start
-
-      # - name: Strip binaries (nu_plugin_to_bson)
-      #   run: strip target/release/nu_plugin_to_bson
-
-      # - name: Strip binaries (nu_plugin_to_sqlite)
-      #   run: strip target/release/nu_plugin_to_sqlite
-
-      # - name: Strip binaries (nu_plugin_tree)
-      #   run: strip target/release/nu_plugin_tree
-
-      # - name: Strip binaries (nu_plugin_xpath)
-      #   run: strip target/release/nu_plugin_xpath
-
-      - name: Create output directory
-        run: mkdir output
-
-      - name: Copy files to output
-        run: |
-          cp target/release/nu target/release/nu_plugin_* output/
-          cp README.release.txt output/README.txt
-          cp LICENSE output/LICENSE
-          rm output/*.d
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: macos
-          path: output/*
-
-  windows:
-    name: Build Windows
-    runs-on: windows-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Set up cargo
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Add cargo-wix subcommand
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-wix --version 0.3.1
-
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all --features=extra,static-link-openssl
-
-      # - name: Strip binaries (nu.exe)
-      #   run: strip target/release/nu.exe
-
-      # - name: Strip binaries (nu_plugin_inc.exe)
-      #   run: strip target/release/nu_plugin_inc.exe
-
-      # - name: Strip binaries (nu_plugin_match.exe)
-      #   run: strip target/release/nu_plugin_match.exe
-
-      # - name: Strip binaries (nu_plugin_textview.exe)
-      #   run: strip target/release/nu_plugin_textview.exe
-
-      # - name: Strip binaries (nu_plugin_binaryview.exe)
-      #   run: strip target/release/nu_plugin_binaryview.exe
-
-      # - name: Strip binaries (nu_plugin_chart_bar.exe)
-      #   run: strip target/release/nu_plugin_chart_bar.exe
-
-      # - name: Strip binaries (nu_plugin_chart_line.exe)
-      #   run: strip target/release/nu_plugin_chart_line.exe
-
-      # - name: Strip binaries (nu_plugin_from_bson.exe)
-      #   run: strip target/release/nu_plugin_from_bson.exe
-
-      # - name: Strip binaries (nu_plugin_from_sqlite.exe)
-      #   run: strip target/release/nu_plugin_from_sqlite.exe
-
-      # - name: Strip binaries (nu_plugin_from_mp4.exe)
-      #   run: strip target/release/nu_plugin_from_mp4.exe
-
-      # - name: Strip binaries (nu_plugin_query_json.exe)
-      #   run: strip target/release/nu_plugin_query_json.exe
-
-      # - name: Strip binaries (nu_plugin_s3.exe)
-      #   run: strip target/release/nu_plugin_s3.exe
-
-      # - name: Strip binaries (nu_plugin_selector.exe)
-      #   run: strip target/release/nu_plugin_selector.exe
-
-      # - name: Strip binaries (nu_plugin_start.exe)
-      #   run: strip target/release/nu_plugin_start.exe
-
-      # - name: Strip binaries (nu_plugin_to_bson.exe)
-      #   run: strip target/release/nu_plugin_to_bson.exe
-
-      # - name: Strip binaries (nu_plugin_to_sqlite.exe)
-      #   run: strip target/release/nu_plugin_to_sqlite.exe
-
-      # - name: Strip binaries (nu_plugin_tree.exe)
-      #   run: strip target/release/nu_plugin_tree.exe
-
-      # - name: Strip binaries (nu_plugin_xpath.exe)
-      #   run: strip target/release/nu_plugin_xpath.exe
-
-      - name: Create output directory
-        run: mkdir output
-
-      - name: Download Less Binary
-        run: Invoke-WebRequest -Uri "https://github.com/jftuga/less-Windows/releases/download/less-v562.0/less.exe" -OutFile "target\release\less.exe"
-
-      - name: Download Less License
-        run: Invoke-WebRequest -Uri "https://raw.githubusercontent.com/jftuga/less-Windows/master/LICENSE" -OutFile "target\release\LICENSE-for-less.txt"
-
-      - name: Copy files to output
-        run: |
-          cp target\release\nu.exe output\
-          cp LICENSE output\
-          cp target\release\LICENSE-for-less.txt output\
-          cp target\release\nu_plugin_*.exe output\
-          cp README.release.txt output\README.txt
-          cp target\release\less.exe output\
-      # Note: If the version of `less.exe` needs to be changed, update this URL
-      # Similarly, if `less.exe` is checked into the repo, copy from the local path here
-      # moved this stuff down to create wix after we download less
-
-      - name: Create msi with wix
-        uses: actions-rs/cargo@v1
-        with:
-          command: wix
-          args: --no-build --nocapture --output target\wix\nushell-windows.msi
-
-      - name: Upload installer
-        uses: actions/upload-artifact@v2
-        with:
-          name: windows-installer
-          path: target\wix\nushell-windows.msi
-
-      - name: Upload zip
-        uses: actions/upload-artifact@v2
-        with:
-          name: windows-zip
-          path: output\*
-
-  release:
-    name: Publish Release
-    runs-on: ubuntu-latest
-    needs:
-      - linux
-      - macos
-      - windows
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Determine Release Info
-        id: info
-        env:
-          GITHUB_REF: ${{ github.ref }}
-        run: |
-          VERSION=${GITHUB_REF##*/}
-          MAJOR=${VERSION%%.*}
-          MINOR=${VERSION%.*}
-          MINOR=${MINOR#*.}
-          PATCH=${VERSION##*.}
-          echo "::set-output name=version::${VERSION}"
-          echo "::set-output name=linuxdir::nu_${MAJOR}_${MINOR}_${PATCH}_linux"
-          echo "::set-output name=macosdir::nu_${MAJOR}_${MINOR}_${PATCH}_macOS"
-          echo "::set-output name=windowsdir::nu_${MAJOR}_${MINOR}_${PATCH}_windows"
-          echo "::set-output name=innerdir::nushell-${VERSION}"
-
-      - name: Create Release Draft
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ steps.info.outputs.version }} Release
-          draft: true
-
-      - name: Create Linux Directory
-        run: mkdir -p ${{ steps.info.outputs.linuxdir }}/${{ steps.info.outputs.innerdir }}
-
-      - name: Download Linux Artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: linux
-          path: ${{ steps.info.outputs.linuxdir }}/${{ steps.info.outputs.innerdir }}
-
-      - name: Restore Linux File Modes
-        run: |
-          chmod 755 ${{ steps.info.outputs.linuxdir }}/${{ steps.info.outputs.innerdir }}/nu*
-
-      - name: Create Linux tarball
-        run: tar -zcvf ${{ steps.info.outputs.linuxdir }}.tar.gz ${{ steps.info.outputs.linuxdir }}
-
-      - name: Upload Linux Artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./${{ steps.info.outputs.linuxdir }}.tar.gz
-          asset_name: ${{ steps.info.outputs.linuxdir }}.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Create macOS Directory
-        run: mkdir -p ${{ steps.info.outputs.macosdir }}/${{ steps.info.outputs.innerdir }}
-
-      - name: Download macOS Artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: macos
-          path: ${{ steps.info.outputs.macosdir }}/${{ steps.info.outputs.innerdir }}
-
-      - name: Restore macOS File Modes
-        run: chmod 755 ${{ steps.info.outputs.macosdir }}/${{ steps.info.outputs.innerdir }}/nu*
-
-      - name: Create macOS Archive
-        run: zip -r ${{ steps.info.outputs.macosdir }}.zip ${{ steps.info.outputs.macosdir }}
-
-      - name: Upload macOS Artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./${{ steps.info.outputs.macosdir }}.zip
-          asset_name: ${{ steps.info.outputs.macosdir }}.zip
-          asset_content_type: application/zip
-
-      - name: Create Windows Directory
-        run: mkdir -p ${{ steps.info.outputs.windowsdir }}/${{ steps.info.outputs.innerdir }}
-
-      - name: Download Windows zip
-        uses: actions/download-artifact@v2
-        with:
-          name: windows-zip
-          path: ${{ steps.info.outputs.windowsdir }}/${{ steps.info.outputs.innerdir }}
-
-      - name: Show Windows Artifacts
-        run: ls -la ${{ steps.info.outputs.windowsdir }}/${{ steps.info.outputs.innerdir }}
-
-      - name: Create macOS Archive
-        run: zip -r ${{ steps.info.outputs.windowsdir }}.zip ${{ steps.info.outputs.windowsdir }}
-
-      - name: Upload Windows zip
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./${{ steps.info.outputs.windowsdir }}.zip
-          asset_name: ${{ steps.info.outputs.windowsdir }}.zip
-          asset_content_type: application/zip
-
-      - name: Download Windows installer
-        uses: actions/download-artifact@v2
-        with:
-          name: windows-installer
-          path: ./
-
-      - name: Upload Windows installer
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./nushell-windows.msi
-          asset_name: ${{ steps.info.outputs.windowsdir }}.msi
-          asset_content_type: application/x-msi
+    - uses: actions/checkout@v3.0.2
+
+    - name: Install Rust Toolchain Components
+      uses: actions-rs/toolchain@v1.0.6
+      with:
+        override: true
+        profile: minimal
+        toolchain: stable
+        target: ${{ matrix.target }}
+
+    - name: Setup Nushell
+      uses: hustcer/setup-nu@v1
+      with:
+        version: 0.63.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Release Nu Binary
+      id: nu
+      run: nu .github/workflows/release-pkg.nu
+      env:
+        OS: ${{ matrix.os }}
+        REF: ${{ github.ref }}
+        TARGET: ${{ matrix.target }}
+        _EXTRA_: ${{ matrix.extra }}
+        TARGET_RUSTFLAGS: ${{ matrix.target_rustflags }}
+
+    # REF: https://github.com/marketplace/actions/gh-release
+    - name: Publish Archive
+      uses: softprops/action-gh-release@v1
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      with:
+        draft: true
+        files: ${{ steps.nu.outputs.archive }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
