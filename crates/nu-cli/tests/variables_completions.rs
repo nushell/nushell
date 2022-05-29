@@ -35,6 +35,16 @@ fn variables_completions() {
     // Match results
     match_suggestions(expected, suggestions);
 
+    // Test completions for $nu.h (filter)
+    let suggestions = completer.complete("$nu.h".into(), 5);
+
+    assert_eq!(2, suggestions.len());
+
+    let expected: Vec<String> = vec!["history-path".into(), "home-path".into()];
+
+    // Match results
+    match_suggestions(expected, suggestions);
+
     // Test completions for custom var
     let suggestions = completer.complete("$actor.".into(), 7);
 
@@ -45,12 +55,32 @@ fn variables_completions() {
     // Match results
     match_suggestions(expected, suggestions);
 
-    // Test completions for $env
-    let suggestions = completer.complete("$env.".into(), 5);
+    // Test completions for custom var (filtering)
+    let suggestions = completer.complete("$actor.n".into(), 7);
 
     assert_eq!(1, suggestions.len());
 
-    let expected: Vec<String> = vec!["PWD".into()];
+    let expected: Vec<String> = vec!["name".into()];
+
+    // Match results
+    match_suggestions(expected, suggestions);
+
+    // Test completions for $env
+    let suggestions = completer.complete("$env.".into(), 5);
+
+    assert_eq!(2, suggestions.len());
+
+    let expected: Vec<String> = vec!["PWD".into(), "TEST".into()];
+
+    // Match results
+    match_suggestions(expected, suggestions);
+
+    // Test completions for $env
+    let suggestions = completer.complete("$env.T".into(), 5);
+
+    assert_eq!(1, suggestions.len());
+
+    let expected: Vec<String> = vec!["TEST".into()];
 
     // Match results
     match_suggestions(expected, suggestions);

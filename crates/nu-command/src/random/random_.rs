@@ -18,7 +18,11 @@ impl Command for RandomCommand {
     }
 
     fn usage(&self) -> &str {
-        "Generate a random values."
+        "Generate a random value."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "generator"]
     }
 
     fn run(
