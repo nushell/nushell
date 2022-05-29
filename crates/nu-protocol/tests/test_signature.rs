@@ -31,13 +31,10 @@ fn test_signature_chained() {
 
     assert_eq!(signature.required_positional.len(), 1);
     assert_eq!(signature.optional_positional.len(), 1);
-    assert_eq!(signature.named.len(), 4); // The 3 above + help
+    assert_eq!(signature.named.len(), 3);
     assert!(signature.rest_positional.is_some());
-    assert_eq!(signature.get_shorts(), vec!['h', 'r', 'n']);
-    assert_eq!(
-        signature.get_names(),
-        vec!["help", "req-named", "named", "switch"]
-    );
+    assert_eq!(signature.get_shorts(), vec!['r', 'n']);
+    assert_eq!(signature.get_names(), vec!["req-named", "named", "switch"]);
     assert_eq!(signature.num_positionals(), 2);
 
     assert_eq!(
