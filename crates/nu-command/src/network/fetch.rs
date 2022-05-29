@@ -65,10 +65,10 @@ impl Command for SubCommand {
                 Some('r'),
             )
             .named(
-                "output",
+                "file",
                 SyntaxShape::Filepath,
                 "save contents into a file",
-                Some('o'),
+                Some('f'),
             )
             .switch(
                 "bin",
@@ -105,15 +105,15 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let output = call.has_flag("output");
-        if !output {
+        let file = call.has_flag("file");
+        if !file {
             run_fetch(engine_state, stack, call, input)
         } else {
             match run_fetch(engine_state, stack, call, input) {
                 Err(err) => Err(err),
                 Ok(value) => {
                     let path: Value = call
-                        .get_flag(engine_state, stack, "output")
+                        .get_flag(engine_state, stack, "file")
                         .expect("there should be a value")
                         .expect("value should be unwrappable");
                     let bin = call.has_flag("bin");
@@ -134,7 +134,7 @@ impl Command for SubCommand {
                         Ok(file) => file,
                         Err(err) => {
                             let arg_span =
-                                call.get_named_arg("output").expect("arg should exist").span;
+                                call.get_named_arg("file").expect("arg should exist").span;
                             return Ok(PipelineData::Value(
                                 Value::Error {
                                     error: ShellError::GenericError(
