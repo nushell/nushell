@@ -1,9 +1,9 @@
-use crate::dataframe::values::{NuExpression, NuWhen, NuDataFrame, Column};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -105,19 +105,21 @@ impl Command for ExprOtherwise {
 #[cfg(test)]
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
-    use crate::dataframe::expressions::as_nu::ExprAsNu;
-    use crate::dataframe::expressions::when::ExprWhen;
     use crate::dataframe::eager::WithColumn;
-    
+    use crate::dataframe::expressions::{ExprCol, ExprAlias, ExprAsNu};
+    use crate::dataframe::expressions::when::ExprWhen;
+
     use super::*;
 
     #[test]
     fn test_examples() {
         test_dataframe(vec![
-            Box::new(WithColumn {}), 
-            Box::new(ExprWhen {}), 
-            Box::new(ExprOtherwise {}), 
-            Box::new(ExprAsNu {}), 
+            Box::new(WithColumn {}),
+            Box::new(ExprCol {}),
+            Box::new(ExprAlias {}),
+            Box::new(ExprWhen {}),
+            Box::new(ExprOtherwise {}),
+            Box::new(ExprAsNu {}),
         ])
     }
 }

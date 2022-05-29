@@ -1,10 +1,10 @@
-use crate::dataframe::values::{NuDataFrame, Column};
+use crate::dataframe::values::{Column, NuDataFrame};
 
 use super::super::values::NuLazyFrame;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Value, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -69,6 +69,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(LazyCollect{})])
+        test_dataframe(vec![Box::new(LazyCollect {})])
     }
 }

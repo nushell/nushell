@@ -8,7 +8,7 @@ pub use operations::Axis;
 
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, ShellError, Span, Value};
-use polars::prelude::{DataFrame, DataType, PolarsObject, Series};
+use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
@@ -70,7 +70,7 @@ impl PolarsObject for DataFrameValue {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct NuDataFrame{
+pub struct NuDataFrame {
     pub df: DataFrame,
     pub from_lazy: bool,
 }
@@ -97,11 +97,12 @@ impl From<DataFrame> for NuDataFrame {
 }
 
 impl NuDataFrame {
-    pub fn new(df: DataFrame) -> Self {
-        Self{
-            df,
-            from_lazy: false,
-        }
+    pub fn new(from_lazy: bool, df: DataFrame) -> Self {
+        Self { df, from_lazy }
+    }
+
+    pub fn lazy(&self) -> LazyFrame {
+        self.df.clone().lazy()
     }
 
     fn default_value(span: Span) -> Value {
@@ -111,7 +112,7 @@ impl NuDataFrame {
 
     pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Value {
         Value::CustomValue {
-            val: Box::new(Self::new(dataframe)),
+            val: Box::new(Self::new(false, dataframe)),
             span,
         }
     }
@@ -187,7 +188,7 @@ impl NuDataFrame {
             )
         })?;
 
-        Ok(Self::new(dataframe))
+        Ok(Self::new(false, dataframe))
     }
 
     pub fn try_from_columns(columns: Vec<Column>) -> Result<Self, ShellError> {
@@ -224,9 +225,9 @@ impl NuDataFrame {
     pub fn get_df(value: Value) -> Result<Self, ShellError> {
         match value {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
-                Some(df) => Ok(NuDataFrame{
+                Some(df) => Ok(NuDataFrame {
                     df: df.df.clone(),
-                    from_lazy: false
+                    from_lazy: false,
                 }),
                 None => Err(ShellError::CantConvert(
                     "dataframe".into(),
@@ -281,8 +282,8 @@ impl NuDataFrame {
         })?;
 
         Ok(Self {
-            df, 
-            from_lazy: false
+            df,
+            from_lazy: false,
         })
     }
 

@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value, Span
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -42,16 +42,16 @@ impl Command for ExprAlias {
                     vals: vec![expr, value],
                     span: Span::test_data(),
                 };
-                
+
                 let cols = vec!["expr".into(), "alias".into()];
                 let value = Value::test_string("new_a");
-                
+
                 let record = Value::Record {
                     cols,
                     vals: vec![expr, value],
                     span: Span::test_data(),
                 };
-                
+
                 Some(record)
             },
         }]
@@ -78,16 +78,16 @@ impl Command for ExprAlias {
 
 #[cfg(test)]
 mod test {
-    use crate::dataframe::expressions::ExprCol;
-    use crate::dataframe::expressions::ExprAsNu;
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
+    use crate::dataframe::expressions::ExprAsNu;
+    use crate::dataframe::expressions::ExprCol;
 
     #[test]
     fn test_examples() {
         test_dataframe(vec![
             Box::new(ExprAlias {}),
-            Box::new(ExprCol {}), 
+            Box::new(ExprCol {}),
             Box::new(ExprAsNu {}),
         ])
     }

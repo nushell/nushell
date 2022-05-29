@@ -14,7 +14,7 @@ impl CustomValue for NuDataFrame {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
         let cloned = NuDataFrame {
             df: self.df.clone(),
-            from_lazy: false
+            from_lazy: false,
         };
 
         Value::CustomValue {

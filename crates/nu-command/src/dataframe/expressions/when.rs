@@ -1,9 +1,9 @@
-use crate::dataframe::values::{NuExpression, NuWhen, NuDataFrame, Column};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::prelude::when;
 
@@ -120,19 +120,21 @@ impl Command for ExprWhen {
 #[cfg(test)]
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
-    use crate::dataframe::expressions::as_nu::ExprAsNu;
-    use crate::dataframe::expressions::otherwise::ExprOtherwise;
     use crate::dataframe::eager::WithColumn;
-    
+    use crate::dataframe::expressions::{ExprCol, ExprAsNu, ExprAlias};
+    use crate::dataframe::expressions::otherwise::ExprOtherwise;
+
     use super::*;
 
     #[test]
     fn test_examples() {
         test_dataframe(vec![
-            Box::new(WithColumn {}), 
-            Box::new(ExprWhen {}), 
-            Box::new(ExprOtherwise {}), 
-            Box::new(ExprAsNu {}), 
+            Box::new(WithColumn {}),
+            Box::new(ExprCol {}),
+            Box::new(ExprAlias {}),
+            Box::new(ExprWhen {}),
+            Box::new(ExprOtherwise {}),
+            Box::new(ExprAsNu {}),
         ])
     }
 }

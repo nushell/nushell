@@ -1,9 +1,9 @@
-use crate::dataframe::values::{NuExpression, NuLazyFrame, NuLazyGroupBy, NuDataFrame, Column};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::prelude::Expr;
 
@@ -141,16 +141,16 @@ impl Command for ToLazyGroupBy {
 
 #[cfg(test)]
 mod test {
-    use crate::dataframe::expressions::ExprAlias;
-    use crate::dataframe::lazy::{LazyMin, LazyMax, LazySum};
-    use crate::dataframe::lazy::aggregate::LazyAggregate;
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
+    use crate::dataframe::expressions::ExprAlias;
+    use crate::dataframe::lazy::aggregate::LazyAggregate;
+    use crate::dataframe::lazy::{LazyMax, LazyMin, LazySum};
 
     #[test]
     fn test_examples() {
         test_dataframe(vec![
-            Box::new(LazyAggregate {}), 
+            Box::new(LazyAggregate {}),
             Box::new(ToLazyGroupBy {}),
             Box::new(ExprAlias {}),
             Box::new(LazyMin {}),

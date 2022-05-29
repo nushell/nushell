@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 
 use super::eager::ToDataFrame;
-use super::lazy::{ToLazyFrame, LazyCollect};
+use super::lazy::{LazyCollect, ToLazyFrame};
 use crate::Let;
 
 pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {

@@ -1,10 +1,10 @@
-use crate::dataframe::values::{NuExpression, NuLazyFrame, NuLazyGroupBy, NuDataFrame, Column};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy};
 
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -117,11 +117,11 @@ impl Command for LazyAggregate {
 
         let group_by = NuLazyGroupBy::try_from_pipeline(input, call.head)?;
         let from_eager = group_by.from_eager;
-        
+
         let group_by = group_by.into_polars();
         let lazy = NuLazyFrame {
             lazy: group_by.agg(&expressions).into(),
-            from_eager
+            from_eager,
         };
 
         let res = lazy.into_value(call.head)?;
@@ -131,16 +131,16 @@ impl Command for LazyAggregate {
 
 #[cfg(test)]
 mod test {
-    use crate::dataframe::expressions::ExprAlias;
-    use crate::dataframe::lazy::{LazyMin, LazyMax, LazySum};
-    use crate::dataframe::lazy::groupby::ToLazyGroupBy;
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
+    use crate::dataframe::expressions::ExprAlias;
+    use crate::dataframe::lazy::groupby::ToLazyGroupBy;
+    use crate::dataframe::lazy::{LazyMax, LazyMin, LazySum};
 
     #[test]
     fn test_examples() {
         test_dataframe(vec![
-            Box::new(LazyAggregate {}), 
+            Box::new(LazyAggregate {}),
             Box::new(ToLazyGroupBy {}),
             Box::new(ExprAlias {}),
             Box::new(LazyMin {}),

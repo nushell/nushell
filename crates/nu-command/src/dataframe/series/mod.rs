@@ -17,7 +17,6 @@ mod arg_min;
 mod cumulative;
 mod n_null;
 mod n_unique;
-mod rename;
 mod rolling;
 mod shift;
 mod unique;
@@ -32,7 +31,6 @@ pub use arg_min::ArgMin;
 pub use cumulative::Cumulative;
 pub use n_null::NNull;
 pub use n_unique::NUnique;
-pub use rename::Rename;
 pub use rolling::Rolling;
 pub use shift::Shift;
 pub use unique::Unique;
@@ -80,7 +78,6 @@ pub fn add_series_decls(working_set: &mut StateWorkingSet) {
         NNull,
         NUnique,
         NotSeries,
-        Rename,
         Replace,
         ReplaceAll,
         Rolling,

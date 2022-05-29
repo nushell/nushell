@@ -27,7 +27,7 @@ impl Command for Shift {
             .named(
                 "fill",
                 SyntaxShape::Any,
-                "Expression to use to fill the null values (lazy df)",
+                "Expression used to fill the null values (lazy df)",
                 Some('f'),
             )
             .category(Category::Custom("dataframe or lazyframe".into()))

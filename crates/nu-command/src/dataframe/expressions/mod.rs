@@ -1,20 +1,20 @@
 mod alias;
-mod expressions_macro;
 mod as_nu;
 mod col;
+mod expressions_macro;
 mod lit;
-mod when;
 mod otherwise;
+mod when;
 
 use nu_protocol::engine::StateWorkingSet;
 
-pub(super) use crate::dataframe::expressions::col::ExprCol;
-pub(super) use crate::dataframe::expressions::lit::ExprLit;
-pub(super) use crate::dataframe::expressions::when::ExprWhen;
-pub(super) use crate::dataframe::expressions::otherwise::ExprOtherwise;
 pub(crate) use crate::dataframe::expressions::alias::ExprAlias;
-pub(crate) use crate::dataframe::expressions::expressions_macro::*;
 use crate::dataframe::expressions::as_nu::ExprAsNu;
+pub(super) use crate::dataframe::expressions::col::ExprCol;
+pub(crate) use crate::dataframe::expressions::expressions_macro::*;
+pub(super) use crate::dataframe::expressions::lit::ExprLit;
+pub(super) use crate::dataframe::expressions::otherwise::ExprOtherwise;
+pub(super) use crate::dataframe::expressions::when::ExprWhen;
 
 pub fn add_expressions(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {

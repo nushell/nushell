@@ -29,9 +29,9 @@ impl CustomValue for NuWhen {
             NuWhen::WhenThen(_) => "whenthen".into(),
             NuWhen::WhenThenThen(_) => "whenthenthen".into(),
         };
-        
-        let value = Value::String { val, span};
-        Ok(value) 
+
+        let value = Value::String { val, span };
+        Ok(value)
     }
 
     fn to_json(&self) -> nu_json::Value {

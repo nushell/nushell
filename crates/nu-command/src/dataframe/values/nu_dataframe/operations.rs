@@ -147,7 +147,7 @@ impl NuDataFrame {
                     )
                 })?;
 
-                Ok(NuDataFrame::new(df_new))
+                Ok(NuDataFrame::new(false, df_new))
             }
             Axis::Column => {
                 if self.df.width() != other.df.width() {
@@ -207,7 +207,7 @@ impl NuDataFrame {
                     )
                 })?;
 
-                Ok(NuDataFrame::new(df_new))
+                Ok(NuDataFrame::new(false, df_new))
             }
         }
     }

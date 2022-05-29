@@ -1,9 +1,9 @@
-use crate::dataframe::values::{NuExpression, NuLazyFrame, NuDataFrame, Column};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::prelude::{Expr, JoinType};
 
@@ -52,23 +52,48 @@ impl Command for LazyJoin {
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
                             "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(2), Value::test_int(1), Value::test_int(1)],
+                            vec![
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_int(1),
+                                Value::test_int(1),
+                            ],
                         ),
                         Column::new(
                             "b".to_string(),
-                            vec![Value::test_string("a"), Value::test_string("b"), Value::test_string("c"), Value::test_string("c")],
+                            vec![
+                                Value::test_string("a"),
+                                Value::test_string("b"),
+                                Value::test_string("c"),
+                                Value::test_string("c"),
+                            ],
                         ),
                         Column::new(
                             "c".to_string(),
-                            vec![Value::test_int(0), Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                            vec![
+                                Value::test_int(0),
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_int(3),
+                            ],
                         ),
                         Column::new(
                             "bar".to_string(),
-                            vec![Value::test_string("a"), Value::test_string("c"), Value::test_string("a"), Value::test_string("a")],
+                            vec![
+                                Value::test_string("a"),
+                                Value::test_string("c"),
+                                Value::test_string("a"),
+                                Value::test_string("a"),
+                            ],
                         ),
                         Column::new(
                             "ham".to_string(),
-                            vec![Value::test_string("let"), Value::test_string("var"), Value::test_string("let"), Value::test_string("let")],
+                            vec![
+                                Value::test_string("let"),
+                                Value::test_string("var"),
+                                Value::test_string("let"),
+                                Value::test_string("let"),
+                            ],
                         ),
                     ])
                     .expect("simple df for test should not fail")
@@ -84,23 +109,48 @@ impl Command for LazyJoin {
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
                             "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(2), Value::test_int(1), Value::test_int(1)],
+                            vec![
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_int(1),
+                                Value::test_int(1),
+                            ],
                         ),
                         Column::new(
                             "b".to_string(),
-                            vec![Value::test_string("a"), Value::test_string("b"), Value::test_string("c"), Value::test_string("c")],
+                            vec![
+                                Value::test_string("a"),
+                                Value::test_string("b"),
+                                Value::test_string("c"),
+                                Value::test_string("c"),
+                            ],
                         ),
                         Column::new(
                             "c".to_string(),
-                            vec![Value::test_int(0), Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                            vec![
+                                Value::test_int(0),
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_int(3),
+                            ],
                         ),
                         Column::new(
                             "bar".to_string(),
-                            vec![Value::test_string("a"), Value::test_string("c"), Value::test_string("a"), Value::test_string("a")],
+                            vec![
+                                Value::test_string("a"),
+                                Value::test_string("c"),
+                                Value::test_string("a"),
+                                Value::test_string("a"),
+                            ],
                         ),
                         Column::new(
                             "ham".to_string(),
-                            vec![Value::test_string("let"), Value::test_string("var"), Value::test_string("let"), Value::test_string("let")],
+                            vec![
+                                Value::test_string("let"),
+                                Value::test_string("var"),
+                                Value::test_string("let"),
+                                Value::test_string("let"),
+                            ],
                         ),
                     ])
                     .expect("simple df for test should not fail")
@@ -177,7 +227,7 @@ impl Command for LazyJoin {
             .force_parallel(true)
             .suffix(suffix)
             .finish();
-        
+
         let lazy = NuLazyFrame::new(from_eager, lazy);
 
         Ok(PipelineData::Value(lazy.into_value(call.head)?, None))

@@ -62,7 +62,7 @@ impl From<LazyFrame> for NuLazyFrame {
     fn from(lazy_frame: LazyFrame) -> Self {
         Self {
             lazy: Some(lazy_frame),
-            from_eager: false
+            from_eager: false,
         }
     }
 }
@@ -71,15 +71,15 @@ impl NuLazyFrame {
     pub fn new(from_eager: bool, lazy: LazyFrame) -> Self {
         Self {
             lazy: Some(lazy),
-            from_eager
+            from_eager,
         }
     }
-    
+
     pub fn from_dataframe(df: NuDataFrame) -> Self {
         let lazy = df.as_ref().clone().lazy();
         Self {
             lazy: Some(lazy),
-            from_eager: true
+            from_eager: true,
         }
     }
 
@@ -115,9 +115,9 @@ impl NuLazyFrame {
                     Vec::new(),
                 )
             })
-            .map(|df| NuDataFrame{
+            .map(|df| NuDataFrame {
                 df,
-                from_lazy: !self.from_eager
+                from_lazy: !self.from_eager,
             })
     }
 
@@ -141,7 +141,7 @@ impl NuLazyFrame {
         let value = input.into_value(span);
         Self::try_from_value(value)
     }
-    
+
     pub fn get_lazy_df(value: Value) -> Result<Self, ShellError> {
         match value {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
@@ -164,7 +164,7 @@ impl NuLazyFrame {
             )),
         }
     }
-    
+
     pub fn can_downcast(value: &Value) -> bool {
         if let Value::CustomValue { val, .. } = value {
             val.as_any().downcast_ref::<Self>().is_some()
@@ -181,6 +181,9 @@ impl NuLazyFrame {
         let expr = expr.into_polars();
         let new_frame = f(df, expr);
 
-        new_frame.into()
+        Self {
+            from_eager: self.from_eager,
+            lazy: Some(new_frame),
+        }
     }
 }

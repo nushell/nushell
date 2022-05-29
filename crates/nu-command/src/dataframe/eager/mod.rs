@@ -18,7 +18,6 @@ mod rename;
 mod sample;
 mod shape;
 mod slice;
-mod sort;
 mod take;
 mod to_csv;
 mod to_df;
@@ -48,7 +47,6 @@ pub use rename::RenameDF;
 pub use sample::SampleDF;
 pub use shape::ShapeDF;
 pub use slice::SliceDF;
-pub use sort::SortDF;
 pub use take::TakeDF;
 pub use to_csv::ToCSV;
 pub use to_df::ToDataFrame;
@@ -88,7 +86,6 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         SampleDF,
         ShapeDF,
         SliceDF,
-        SortDF,
         TakeDF,
         ToCSV,
         ToDataFrame,
