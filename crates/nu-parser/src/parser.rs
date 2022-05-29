@@ -4372,9 +4372,16 @@ pub fn parse_expression(
                 )
                 .0,
                 Some(ParseError::LetInPipeline(
-                    String::from_utf8_lossy(working_set.get_span_contents(spans[spans.len() - 1]))
+                    String::from_utf8_lossy(match spans.len() {
+                        1 | 2 | 3 => b"value",
+                        _ => working_set.get_span_contents(spans[3]),
+                    })
                         .to_string(),
-                    String::from_utf8_lossy(working_set.get_span_contents(spans[1])).to_string(),
+                    String::from_utf8_lossy(match spans.len() {
+                        1 => b"variable",
+                        _ => working_set.get_span_contents(spans[1]),
+                    })
+                    .to_string(),
                     spans[0],
                 )),
             ),
