@@ -4376,7 +4376,7 @@ pub fn parse_expression(
                         1 | 2 | 3 => b"value",
                         _ => working_set.get_span_contents(spans[3]),
                     })
-                        .to_string(),
+                    .to_string(),
                     String::from_utf8_lossy(match spans.len() {
                         1 => b"variable",
                         _ => working_set.get_span_contents(spans[1]),
