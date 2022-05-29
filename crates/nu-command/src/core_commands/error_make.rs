@@ -24,6 +24,10 @@ impl Command for ErrorMake {
         "Create an error."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["err", "panic", "crash", "throw"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
