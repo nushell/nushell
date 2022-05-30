@@ -170,31 +170,24 @@ fn action(
     command_span: &Span,
 ) -> Result<Value, ShellError> {
     let config_character_set = &base64_config.character_set;
-    let base64_config_enum: base64::Config = if &config_character_set.item == "standard" {
-        base64::STANDARD
-    } else if &config_character_set.item == "standard-no-padding" {
-        base64::STANDARD_NO_PAD
-    } else if &config_character_set.item == "url-safe" {
-        base64::URL_SAFE
-    } else if &config_character_set.item == "url-safe-no-padding" {
-        base64::URL_SAFE_NO_PAD
-    } else if &config_character_set.item == "binhex" {
-        base64::BINHEX
-    } else if &config_character_set.item == "bcrypt" {
-        base64::BCRYPT
-    } else if &config_character_set.item == "crypt" {
-        base64::CRYPT
-    } else {
-        return Err(ShellError::GenericError(
+    let base64_config_enum: base64::Config = match config_character_set.item.as_str() {
+        "standard" => base64::STANDARD,
+        "standard-no-padding" => base64::STANDARD_NO_PAD,
+        "url-safe" => base64::URL_SAFE,
+        "url-safe-no-padding" => base64::URL_SAFE_NO_PAD,
+        "binhex" => base64::BINHEX,
+        "bcrypt" => base64::BCRYPT,
+        "crypt" => base64::CRYPT,
+        not_valid => return Err(ShellError::GenericError(
             "value is not an accepted character set".to_string(),
             format!(
                 "{} is not a valid character-set.\nPlease use `help hash base64` to see a list of valid character sets.",
-                config_character_set.item
+                not_valid
             ),
             Some(config_character_set.span),
             None,
             Vec::new(),
-        ));
+        ))
     };
     match input {
         Value::Binary { val, .. } => match base64_config.action_type {
