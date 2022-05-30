@@ -163,6 +163,7 @@ impl Command for Cp {
                             Err(_) => dst,
                         };
                         // tmp add.
+                        println!("is dst symbolic link?: {}", dst.is_symlink());
                         let tmp_dst = match canonicalize_with(dst.clone(), &current_dir_path) {
                             Ok(path) => path,
                             Err(_) => dst.clone(),
