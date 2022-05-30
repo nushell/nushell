@@ -9,7 +9,7 @@ fn flatten_nested_tables_with_columns() {
         r#"
             echo [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
                  [[origin, people]; [Nu, ('nuno' | wrap name)]]
-            | flatten | flatten
+            | flatten --all | flatten --all
             | get name
             | str collect ','
         "#
@@ -25,7 +25,7 @@ fn flatten_nested_tables_that_have_many_columns() {
         r#"
             echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]]
             [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]]
-            | flatten | flatten
+            | flatten --all | flatten --all
             | get meal
             | str collect ','
         "#
@@ -71,7 +71,7 @@ fn flatten_row_column_explicitly() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open katz.json | flatten people | where name == Andres | length"
+            "open katz.json | flatten people --all | where name == Andres | length"
         );
 
         assert_eq!(actual.out, "1");
@@ -105,7 +105,7 @@ fn flatten_row_columns_having_same_column_names_flats_separately() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open katz.json | flatten | flatten people city | get city_name | length"
+            "open katz.json | flatten --all | flatten people city | get city_name | length"
         );
 
         assert_eq!(actual.out, "4");
@@ -139,7 +139,7 @@ fn flatten_table_columns_explicitly() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open katz.json | flatten city | where people.name == Katz | length"
+            "open katz.json | flatten city --all | where people.name == Katz | length"
         );
 
         assert_eq!(actual.out, "2");
@@ -175,7 +175,7 @@ fn flatten_more_than_one_column_that_are_subtables_not_supported() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open katz.json | flatten tags city"
+            "open katz.json | flatten tags city --all"
         );
 
         assert!(actual.err.contains("tried flattening"));

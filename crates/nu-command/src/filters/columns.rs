@@ -27,7 +27,14 @@ impl Command for Columns {
             Example {
                 example: "[[name,age,grade]; [bill,20,a]] | columns",
                 description: "Get the columns from the table",
-                result: None,
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("name"),
+                        Value::test_string("age"),
+                        Value::test_string("grade"),
+                    ],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 example: "[[name,age,grade]; [bill,20,a]] | columns | first",

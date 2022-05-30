@@ -59,6 +59,14 @@ impl Command for Merge {
                     vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
                 )),
             },
+            Example {
+                example: "{a: 1, b: 3} | merge { {b: 2, c: 4} }",
+                description: "Merge two records with overlap key",
+                result: Some(Value::test_record(
+                    vec!["a", "b", "c"],
+                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(4)],
+                )),
+            },
         ]
     }
 
@@ -106,8 +114,10 @@ impl Command for Merge {
                             (Ok((inp_cols, inp_vals)), Some(to_merge)) => {
                                 match to_merge.as_record() {
                                     Ok((to_merge_cols, to_merge_vals)) => {
-                                        let cols = [inp_cols, to_merge_cols].concat();
-                                        let vals = [inp_vals, to_merge_vals].concat();
+                                        let (cols, vals) = do_merge(
+                                            (inp_cols.to_vec(), inp_vals.to_vec()),
+                                            (to_merge_cols.to_vec(), to_merge_vals.to_vec()),
+                                        );
                                         Value::Record {
                                             cols,
                                             vals,
@@ -146,12 +156,10 @@ impl Command for Merge {
                     ..,
                 ),
             ) => {
-                let mut cols = inp_cols.to_vec();
-                cols.extend(to_merge_cols.to_vec());
-
-                let mut vals = inp_vals.to_vec();
-                vals.extend(to_merge_vals.to_vec());
-
+                let (cols, vals) = do_merge(
+                    (inp_cols.to_vec(), inp_vals.to_vec()),
+                    (to_merge_cols.to_vec(), to_merge_vals.to_vec()),
+                );
                 Ok(Value::Record {
                     cols,
                     vals,
@@ -179,6 +187,29 @@ impl Command for Merge {
             )),
         }
     }
+}
+
+fn do_merge(
+    input_record: (Vec<String>, Vec<Value>),
+    to_merge_record: (Vec<String>, Vec<Value>),
+) -> (Vec<String>, Vec<Value>) {
+    let (mut result_cols, mut result_vals) = input_record;
+    let (to_merge_cols, to_merge_vals) = to_merge_record;
+
+    for (col, val) in to_merge_cols.into_iter().zip(to_merge_vals) {
+        let pos = result_cols.iter().position(|c| c == &col);
+        // if find, replace existing data, else, push new data.
+        match pos {
+            Some(index) => {
+                result_vals[index] = val;
+            }
+            None => {
+                result_cols.push(col);
+                result_vals.push(val);
+            }
+        }
+    }
+    (result_cols, result_vals)
 }
 
 #[cfg(test)]

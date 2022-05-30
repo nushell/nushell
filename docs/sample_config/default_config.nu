@@ -60,6 +60,7 @@ module completions {
     --no-show-forced-updates                      # Don't check if a branch is force-updated
     -4                                            # Use IPv4 addresses, ignore IPv6 addresses
     -6                                            # Use IPv6 addresses, ignore IPv4 addresses
+    --help                                        # Display this help message 
   ]
 
   # Check out git branches and files
@@ -86,6 +87,7 @@ module completions {
     -b: string                                      # create and checkout a new branch
     -B: string                                      # create/reset and checkout a branch
     -l                                              # create reflog for new branch
+    --help                                          # Display this help message
   ]
 
   # Push changes
@@ -117,6 +119,7 @@ module completions {
     --tags                                          # push tags (can't be used with --all or --mirror)
     --thin                                          # use thin pack
     --verbose(-v)                                   # be more verbose
+    --help                                          # Display this help message
   ]
 }
 
@@ -190,7 +193,7 @@ let-env config = {
   completion_algorithm: "prefix"  # prefix, fuzzy
   animate_prompt: false # redraw the prompt every second
   float_precision: 2
-  buffer_editor: "emacs" # command that will be used to edit the current line buffer with ctrl+o
+  # buffer_editor: "emacs" # command that will be used to edit the current line buffer with ctrl+o, if unset fallback to $env.EDITOR and $env.VISUAL
   use_ansi_coloring: true
   filesize_format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
   edit_mode: emacs # emacs, vi
@@ -199,6 +202,8 @@ let-env config = {
   shell_integration: true # enables terminal markers and a workaround to arrow keys stop working issue
   disable_table_indexes: false # set to true to remove the index column from tables
   cd_with_abbreviations: false # set to true to allow you to do things like cd s/o/f and nushell expand it to cd some/other/folder
+  case_sensitive_completions: false # set to true to enable case-sensitive completions
+
   hooks: {
     pre_prompt: [{
       $nothing  # replace with source code to run before the prompt is shown

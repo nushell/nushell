@@ -159,7 +159,26 @@ pub fn evaluate_repl(
             }
         };
 
-        line_editor = line_editor.with_buffer_editor(config.buffer_editor.clone(), "nu".into());
+        let buffer_editor = if !config.buffer_editor.is_empty() {
+            Some(config.buffer_editor.clone())
+        } else {
+            stack
+                .get_env_var(engine_state, "EDITOR")
+                .map(|v| v.as_string().unwrap_or_default())
+                .filter(|v| !v.is_empty())
+                .or_else(|| {
+                    stack
+                        .get_env_var(engine_state, "VISUAL")
+                        .map(|v| v.as_string().unwrap_or_default())
+                        .filter(|v| !v.is_empty())
+                })
+        };
+
+        line_editor = if let Some(buffer_editor) = buffer_editor {
+            line_editor.with_buffer_editor(buffer_editor, "nu".into())
+        } else {
+            line_editor
+        };
 
         if config.sync_history_on_enter {
             if is_perf_true {

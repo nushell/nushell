@@ -24,6 +24,10 @@ impl Command for Length {
             .category(Category::Filters)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["count", "len", "size"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

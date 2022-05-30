@@ -118,6 +118,91 @@ pub fn parse_binary_with_incomplete_binary_format() {
 }
 
 #[test]
+pub fn parse_binary_with_octal_format() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let (block, err) = parse(&mut working_set, None, b"0o[250]", true, &[]);
+
+    assert!(err.is_none());
+    assert!(block.len() == 1);
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert_eq!(expressions[0].expr, Expr::Binary(vec![0o250]))
+}
+
+#[test]
+pub fn parse_binary_with_incomplete_octal_format() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let (block, err) = parse(&mut working_set, None, b"0o[2]", true, &[]);
+
+    assert!(err.is_none());
+    assert!(block.len() == 1);
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert_eq!(expressions[0].expr, Expr::Binary(vec![0o2]))
+}
+
+#[test]
+pub fn parse_binary_with_invalid_octal_format() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let (block, err) = parse(&mut working_set, None, b"0b[90]", true, &[]);
+
+    assert!(err.is_none());
+    assert!(block.len() == 1);
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert!(match &expressions[0].expr {
+        Expr::Binary(_) => false,
+        _ => true,
+    })
+}
+
+#[test]
+pub fn parse_string() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let (block, err) = parse(&mut working_set, None, b"\"hello nushell\"", true, &[]);
+
+    assert!(err.is_none());
+    assert!(block.len() == 1);
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert_eq!(
+        expressions[0].expr,
+        Expr::String("hello nushell".to_string())
+    )
+}
+
+#[test]
+pub fn parse_escaped_string() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let (block, err) = parse(
+        &mut working_set,
+        None,
+        b"\"hello \\u006e\\u0075\\u0073hell\"",
+        true,
+        &[],
+    );
+
+    assert!(err.is_none());
+    assert!(block.len() == 1);
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert_eq!(
+        expressions[0].expr,
+        Expr::String("hello nushell".to_string())
+    )
+}
+
+#[test]
 pub fn parse_call() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);

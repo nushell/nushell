@@ -1094,7 +1094,11 @@ pub fn parse_binary(
 ) -> (Expression, Option<ParseError>) {
     let (hex_value, err) = parse_binary_with_base(working_set, span, 16, 2, b"0x[", b"]");
     if err.is_some() {
-        return parse_binary_with_base(working_set, span, 2, 8, b"0b[", b"]");
+        let (octal_value, err) = parse_binary_with_base(working_set, span, 8, 3, b"0o[", b"]");
+        if err.is_some() {
+            return parse_binary_with_base(working_set, span, 2, 8, b"0b[", b"]");
+        }
+        return (octal_value, err);
     }
     (hex_value, err)
 }
@@ -4367,7 +4371,19 @@ pub fn parse_expression(
                     expand_aliases_denylist,
                 )
                 .0,
-                Some(ParseError::BuiltinCommandInPipeline("let".into(), spans[0])),
+                Some(ParseError::LetInPipeline(
+                    String::from_utf8_lossy(match spans.len() {
+                        1 | 2 | 3 => b"value",
+                        _ => working_set.get_span_contents(spans[3]),
+                    })
+                    .to_string(),
+                    String::from_utf8_lossy(match spans.len() {
+                        1 => b"variable",
+                        _ => working_set.get_span_contents(spans[1]),
+                    })
+                    .to_string(),
+                    spans[0],
+                )),
             ),
             b"alias" => (
                 parse_call(

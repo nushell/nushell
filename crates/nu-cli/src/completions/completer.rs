@@ -37,7 +37,10 @@ impl NuCompleter {
     ) -> Vec<Suggestion> {
         let config = self.engine_state.get_config();
 
-        let mut options = CompletionOptions::default();
+        let mut options = CompletionOptions {
+            case_sensitive: config.case_sensitive_completions,
+            ..Default::default()
+        };
 
         if config.completion_algorithm == "fuzzy" {
             options.match_algorithm = MatchAlgorithm::Fuzzy;

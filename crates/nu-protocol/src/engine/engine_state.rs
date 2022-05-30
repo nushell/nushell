@@ -1692,6 +1692,56 @@ impl<'a> StateWorkingSet<'a> {
             .expect("internal error: missing added overlay")
     }
 
+    /// Collect all decls that belong to an overlay
+    pub fn decls_of_overlay(&self, name: &[u8]) -> HashMap<Vec<u8>, DeclId> {
+        let mut result = HashMap::new();
+
+        if let Some(overlay_id) = self.permanent_state.find_overlay(name) {
+            let overlay_frame = self.permanent_state.get_overlay(overlay_id);
+
+            for (decl_name, decl_id) in &overlay_frame.decls {
+                result.insert(decl_name.to_owned(), *decl_id);
+            }
+        }
+
+        for scope_frame in self.delta.scope.iter() {
+            if let Some(overlay_id) = scope_frame.find_overlay(name) {
+                let overlay_frame = scope_frame.get_overlay(overlay_id);
+
+                for (decl_name, decl_id) in &overlay_frame.decls {
+                    result.insert(decl_name.to_owned(), *decl_id);
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Collect all aliases that belong to an overlay
+    pub fn aliases_of_overlay(&self, name: &[u8]) -> HashMap<Vec<u8>, DeclId> {
+        let mut result = HashMap::new();
+
+        if let Some(overlay_id) = self.permanent_state.find_overlay(name) {
+            let overlay_frame = self.permanent_state.get_overlay(overlay_id);
+
+            for (alias_name, alias_id) in &overlay_frame.aliases {
+                result.insert(alias_name.to_owned(), *alias_id);
+            }
+        }
+
+        for scope_frame in self.delta.scope.iter() {
+            if let Some(overlay_id) = scope_frame.find_overlay(name) {
+                let overlay_frame = scope_frame.get_overlay(overlay_id);
+
+                for (alias_name, alias_id) in &overlay_frame.aliases {
+                    result.insert(alias_name.to_owned(), *alias_id);
+                }
+            }
+        }
+
+        result
+    }
+
     pub fn add_overlay(
         &mut self,
         name: Vec<u8>,
@@ -1712,7 +1762,7 @@ impl<'a> StateWorkingSet<'a> {
         } else {
             last_scope_frame
                 .overlays
-                .push((name, OverlayFrame::from(origin)));
+                .push((name, OverlayFrame::from_origin(origin)));
             last_scope_frame.overlays.len() - 1
         };
 
@@ -1727,33 +1777,43 @@ impl<'a> StateWorkingSet<'a> {
         self.use_aliases(aliases);
     }
 
-    pub fn remove_overlay(&mut self, name: &[u8]) {
+    pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
-        let removed_overlay = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
+        let removed_overlay_origin = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
             last_scope_frame
                 .active_overlays
                 .retain(|id| id != &overlay_id);
 
-            Some(last_scope_frame.get_overlay(overlay_id).clone())
+            Some(last_scope_frame.get_overlay(overlay_id).origin)
         } else {
             self.permanent_state
                 .find_overlay(name)
-                .map(|id| self.permanent_state.get_overlay(id).clone())
+                .map(|id| self.permanent_state.get_overlay(id).origin)
         };
 
-        if removed_overlay.is_some() {
+        if let Some(module_id) = removed_overlay_origin {
             last_scope_frame.removed_overlays.push(name.to_owned());
+
+            if keep_custom {
+                let origin_module = self.get_module(module_id);
+
+                let decls = self
+                    .decls_of_overlay(name)
+                    .into_iter()
+                    .filter(|(n, _)| !origin_module.has_decl(n))
+                    .collect();
+
+                let aliases = self
+                    .aliases_of_overlay(name)
+                    .into_iter()
+                    .filter(|(n, _)| !origin_module.has_alias(n))
+                    .collect();
+
+                self.use_decls(decls);
+                self.use_aliases(aliases);
+            }
         }
-
-        // if let Some(module) = original_module {
-        //     let last_overlay_name = self.last_overlay_name().to_owned();
-
-        //     if let Some(overlay) = removed_overlay {
-        //         let (diff_decls, diff_aliases) = overlay.diff(&module);
-        //         self.add_overlay(last_overlay_name, diff_decls, diff_aliases);
-        //     }
-        // }
     }
 
     pub fn render(self) -> StateDelta {

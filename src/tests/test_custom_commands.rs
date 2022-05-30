@@ -1,4 +1,4 @@
-use crate::tests::{fail_test, run_test, TestResult};
+use crate::tests::{fail_test, run_test, run_test_contains, TestResult};
 
 #[test]
 fn no_scope_leak1() -> TestResult {
@@ -115,5 +115,18 @@ fn allow_missing_optional_params() -> TestResult {
     run_test(
         "def foo [x?:int] { if $x != $nothing { $x + 10 } else { 5 } }; foo",
         "5",
+    )
+}
+
+#[test]
+fn help_present_in_def() -> TestResult {
+    run_test_contains("def foo [] {}; help foo;", "Display this help message")
+}
+
+#[test]
+fn help_not_present_in_extern() -> TestResult {
+    run_test(
+        "module test {export extern \"git fetch\" []}; use test; help git fetch",
+        "Usage:\n  > git fetch",
     )
 }

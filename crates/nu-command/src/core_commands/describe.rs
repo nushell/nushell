@@ -13,7 +13,7 @@ impl Command for Describe {
     }
 
     fn usage(&self) -> &str {
-        "Describe the value(s) piped in."
+        "Describe the type and structure of the value(s) piped in."
     }
 
     fn signature(&self) -> Signature {
@@ -54,6 +54,10 @@ impl Command for Describe {
             example: "'hello' | describe",
             result: Some(Value::test_string("string")),
         }]
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["type", "typeof", "info", "structure"]
     }
 }
 

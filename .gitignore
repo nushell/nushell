@@ -25,3 +25,7 @@ debian/nu/
 # Helix configuration folder
 .helix/*
 .helix
+
+# Coverage tools
+lcov.info
+tarpaulin-report.html

@@ -54,7 +54,6 @@ pub fn parse_def_predecl(
         let (sig, ..) = parse_signature(working_set, spans[2], expand_aliases_denylist);
         let signature = sig.as_signature();
         working_set.exit_scope();
-
         if let (Some(name), Some(mut signature)) = (name, signature) {
             signature.name = name;
             let decl = signature.predeclare();
@@ -360,6 +359,7 @@ pub fn parse_def(
             let declaration = working_set.get_decl_mut(decl_id);
 
             signature.name = name.clone();
+            *signature = signature.add_help();
             signature.usage = usage;
 
             *declaration = signature.clone().into_block_command(block_id);
@@ -1745,6 +1745,9 @@ pub fn parse_overlay(
                     None,
                 );
             }
+            b"new" => {
+                return parse_overlay_new(working_set, spans, expand_aliases_denylist);
+            }
             b"remove" => {
                 return parse_overlay_remove(working_set, spans, expand_aliases_denylist);
             }
@@ -1800,6 +1803,96 @@ pub fn parse_overlay(
         }]),
         None,
     )
+}
+
+pub fn parse_overlay_new(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    if spans.len() > 1 && working_set.get_span_contents(span(&spans[0..2])) != b"overlay new" {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for 'overlay new' command".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    let (call, call_span) = match working_set.find_decl(b"overlay new") {
+        Some(decl_id) => {
+            let (call, mut err) = parse_internal_call(
+                working_set,
+                span(&spans[0..2]),
+                &spans[2..],
+                decl_id,
+                expand_aliases_denylist,
+            );
+            let decl = working_set.get_decl(decl_id);
+
+            let call_span = span(spans);
+
+            err = check_call(call_span, &decl.signature(), &call).or(err);
+            if err.is_some() || call.has_flag("help") {
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    err,
+                );
+            }
+
+            (call, call_span)
+        }
+        None => {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: 'overlay new' declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+    };
+
+    let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
+        if let Some(s) = expr.as_string() {
+            (s, expr.span)
+        } else {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: Module name not a string".into(),
+                    expr.span,
+                )),
+            );
+        }
+    } else {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Missing required positional after call parsing".into(),
+                call_span,
+            )),
+        );
+    };
+
+    let pipeline = Pipeline::from_vec(vec![Expression {
+        expr: Expr::Call(call),
+        span: span(spans),
+        ty: Type::Any,
+        custom_completion: None,
+    }]);
+
+    let module_id = working_set.add_module(&overlay_name, Module::new());
+
+    working_set.add_overlay(overlay_name.as_bytes().to_vec(), module_id, vec![], vec![]);
+
+    (pipeline, None)
 }
 
 pub fn parse_overlay_add(
@@ -2063,6 +2156,8 @@ pub fn parse_overlay_remove(
         )
     };
 
+    let keep_custom = call.has_flag("keep-custom");
+
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
         span: span(spans),
@@ -2097,16 +2192,7 @@ pub fn parse_overlay_remove(
         );
     }
 
-    // let original_module = if call.has_flag("discard") {
-    //     None
-    // } else if let Some(module_id) = working_set.find_module(overlay_name.as_bytes()) {
-    //     // TODO: Remove clone
-    //     Some(working_set.get_module(module_id).clone())
-    // } else {
-    //     Some(Module::new())
-    // };
-
-    working_set.remove_overlay(overlay_name.as_bytes());
+    working_set.remove_overlay(overlay_name.as_bytes(), keep_custom);
 
     (pipeline, None)
 }

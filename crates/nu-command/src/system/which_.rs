@@ -32,6 +32,10 @@ impl Command for Which {
         "Finds a program file, alias or custom command."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["find", "path", "location", "command"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
