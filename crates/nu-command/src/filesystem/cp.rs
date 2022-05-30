@@ -158,13 +158,12 @@ impl Command for Cp {
                 println!("DEBUG sources: {:?}", sources);
                 for (src, dst) in sources {
                     if src.is_file() {
-                        #[cfg(not(windows))]
-                        let dst = match std::fs::canonicalize(dst.clone()) {
+                        let dst = match canonicalize_with(dst.clone(), &current_dir_path) {
                             Ok(path) => path,
                             Err(_) => dst,
                         };
                         // tmp add.
-                        let tmp_dst = match std::fs::canonicalize(dst.clone()) {
+                        let tmp_dst = match canonicalize_with(dst.clone(), &current_dir_path) {
                             Ok(path) => path,
                             Err(_) => dst.clone(),
                         };
