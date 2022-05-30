@@ -155,6 +155,7 @@ impl Command for Cp {
                     }
                 })?;
 
+                println!("DEBUG sources: {:?}", sources);
                 for (src, dst) in sources {
                     if src.is_file() {
                         #[cfg(not(windows))]
@@ -162,6 +163,19 @@ impl Command for Cp {
                             Ok(path) => path,
                             Err(_) => dst,
                         };
+                        // tmp add.
+                        let tmp_dst = match std::fs::canonicalize(dst.clone()) {
+                            Ok(path) => path,
+                            Err(_) => dst.clone(),
+                        };
+                        println!(
+                            "DEBUG, src: {:?}, dst: {:?}, dst after canonizalize: {:?}, equal: {}",
+                            src,
+                            dst,
+                            tmp_dst,
+                            src == dst
+                        );
+                        // end tmp add.
                         let res = if src == dst {
                             let message = format!(
                                 "src {:?} and dst {:?} are identical(not copied)",
