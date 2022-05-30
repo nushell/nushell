@@ -108,6 +108,11 @@ impl Command for Get {
                 example: "sys | get cpu",
                 result: None,
             },
+            Example {
+                description: "Getting Path/PATH in a case-insensitive way",
+                example: "$env | get -i paTH",
+                result: None,
+            },
         ]
     }
 }
