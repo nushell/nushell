@@ -94,7 +94,7 @@ fn reject(
                 let mut vals = vec![];
 
                 for path in &keep_columns {
-                    let fetcher = input_val.clone().follow_cell_path(&path.members);
+                    let fetcher = input_val.clone().follow_cell_path(&path.members, false);
 
                     if let Ok(value) = fetcher {
                         cols.push(path.into_string());
@@ -135,7 +135,7 @@ fn reject(
                 let mut vals = vec![];
 
                 for path in &keep_columns {
-                    let fetcher = input_val.clone().follow_cell_path(&path.members)?;
+                    let fetcher = input_val.clone().follow_cell_path(&path.members, false)?;
                     cols.push(path.into_string());
                     vals.push(fetcher);
                 }
@@ -151,7 +151,7 @@ fn reject(
             let mut vals = vec![];
 
             for cell_path in &keep_columns {
-                let result = v.clone().follow_cell_path(&cell_path.members)?;
+                let result = v.clone().follow_cell_path(&cell_path.members, false)?;
 
                 cols.push(cell_path.into_string());
                 vals.push(result);

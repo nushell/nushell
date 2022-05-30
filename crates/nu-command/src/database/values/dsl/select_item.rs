@@ -56,7 +56,7 @@ impl CustomValue for SelectDb {
     fn follow_path_int(&self, count: usize, span: Span) -> Result<Value, ShellError> {
         let path = PathMember::Int { val: count, span };
 
-        SelectDb::select_to_value(self.as_ref(), span).follow_cell_path(&[path])
+        SelectDb::select_to_value(self.as_ref(), span).follow_cell_path(&[path], false)
     }
 
     fn follow_path_string(&self, column_name: String, span: Span) -> Result<Value, ShellError> {
@@ -64,7 +64,7 @@ impl CustomValue for SelectDb {
             val: column_name,
             span,
         };
-        SelectDb::select_to_value(self.as_ref(), span).follow_cell_path(&[path])
+        SelectDb::select_to_value(self.as_ref(), span).follow_cell_path(&[path], false)
     }
 
     fn typetag_name(&self) -> &'static str {

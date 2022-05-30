@@ -386,12 +386,13 @@ fn convert_to_table(
                 let skip_num = if !disable_index { 1 } else { 0 };
                 for header in headers.iter().skip(skip_num) {
                     let result = match item {
-                        Value::Record { .. } => {
-                            item.clone().follow_cell_path(&[PathMember::String {
+                        Value::Record { .. } => item.clone().follow_cell_path(
+                            &[PathMember::String {
                                 val: header.into(),
                                 span: head,
-                            }])
-                        }
+                            }],
+                            false,
+                        ),
                         _ => Ok(item.clone()),
                     };
 

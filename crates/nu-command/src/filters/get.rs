@@ -26,9 +26,10 @@ impl Command for Get {
                 "the cell path to the data",
             )
             .rest("rest", SyntaxShape::CellPath, "additional cell paths")
+            .switch("quiet", "return nothing if path can't be found", Some('q'))
             .switch(
-                "ignore-errors",
-                "return nothing if path can't be found",
+                "insensitive",
+                "get path in a case-insensitive manner",
                 Some('i'),
             )
             .category(Category::Filters)
@@ -44,13 +45,14 @@ impl Command for Get {
         let span = call.head;
         let cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let ignore_errors = call.has_flag("ignore-errors");
+        let insensitive = call.has_flag("insensitive");
+        let ignore_errors = call.has_flag("quiet");
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 
         if rest.is_empty() {
             let output = input
-                .follow_cell_path(&cell_path.members, call.head)
+                .follow_cell_path(&cell_path.members, call.head, insensitive)
                 .map(|x| x.into_pipeline_data());
 
             if ignore_errors {
@@ -69,7 +71,7 @@ impl Command for Get {
             let input = input.into_value(span);
 
             for path in paths {
-                let val = input.clone().follow_cell_path(&path.members);
+                let val = input.clone().follow_cell_path(&path.members, insensitive);
 
                 if ignore_errors {
                     if let Ok(val) = val {

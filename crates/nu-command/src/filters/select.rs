@@ -124,7 +124,7 @@ fn select(
                     let mut vals = vec![];
                     for path in &columns {
                         //FIXME: improve implementation to not clone
-                        let fetcher = input_val.clone().follow_cell_path(&path.members)?;
+                        let fetcher = input_val.clone().follow_cell_path(&path.members, false)?;
 
                         cols.push(path.into_string().replace('.', "_"));
                         vals.push(fetcher);
@@ -148,7 +148,7 @@ fn select(
                     let mut vals = vec![];
                     for path in &columns {
                         //FIXME: improve implementation to not clone
-                        match x.clone().follow_cell_path(&path.members) {
+                        match x.clone().follow_cell_path(&path.members, false) {
                             Ok(value) => {
                                 cols.push(path.into_string().replace('.', "_"));
                                 vals.push(value);
@@ -173,7 +173,7 @@ fn select(
 
                 for cell_path in columns {
                     // FIXME: remove clone
-                    let result = v.clone().follow_cell_path(&cell_path.members)?;
+                    let result = v.clone().follow_cell_path(&cell_path.members, false)?;
 
                     cols.push(cell_path.into_string().replace('.', "_"));
                     vals.push(result);
