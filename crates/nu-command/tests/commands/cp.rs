@@ -320,15 +320,16 @@ fn copy_dir_symlink_file_body_not_changed() {
 }
 
 #[test]
-#[cfg(not(windows))]
 fn copy_identical_file() {
     Playground::setup("cp_test_15", |_dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("empty_file")]);
+        sandbox.with_files(vec![EmptyFile("same.txt")]);
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "cp empty_file empty_file",
+            "cp same.txt same.txt",
         );
+        println!("actual err is {}", actual.err);
+        println!("actual out is {}", actual.out);
         assert!(actual.err.contains("Copy aborted"));
     });
 }
