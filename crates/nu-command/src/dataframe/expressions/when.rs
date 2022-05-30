@@ -31,7 +31,7 @@ impl Command for ExprWhen {
                 SyntaxShape::Any,
                 "expression that will be applied when predicate is true",
             )
-            .category(Category::Custom("lazyframe".into()))
+            .category(Category::Custom("expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -12,7 +12,7 @@ pub struct LazySortBy;
 
 impl Command for LazySortBy {
     fn name(&self) -> &str {
-        "dfr sort"
+        "dfr sort-by"
     }
 
     fn usage(&self) -> &str {
@@ -39,7 +39,7 @@ impl Command for LazySortBy {
         vec![
             Example {
                 description: "Sort dataframe by one column",
-                example: "[[a b]; [6 2] [1 4] [4 1]] | dfr to-df | dfr sort a",
+                example: "[[a b]; [6 2] [1 4] [4 1]] | dfr to-df | dfr sort-by a",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -58,7 +58,7 @@ impl Command for LazySortBy {
             Example {
                 description: "Sort column using two columns",
                 example:
-                    "[[a b]; [6 2] [1 1] [1 4] [2 4]] | dfr to-df | dfr sort [a b] -r [false true]",
+                    "[[a b]; [6 2] [1 1] [1 4] [2 4]] | dfr to-df | dfr sort-by [a b] -r [false true]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

@@ -25,7 +25,7 @@ impl Command for ExprLit {
                 SyntaxShape::Any,
                 "literal to construct the expression",
             )
-            .category(Category::Custom("lazyframe".into()))
+            .category(Category::Custom("expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -19,7 +19,7 @@ impl Command for NUnique {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("dataframe or lazyframe".into()))
+        Signature::build(self.name()).category(Category::Custom("dataframe or expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

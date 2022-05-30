@@ -25,7 +25,7 @@ impl Command for ExprOtherwise {
                 SyntaxShape::Any,
                 "expressioini to apply when no when predicate matches",
             )
-            .category(Category::Custom("lazyframe".into()))
+            .category(Category::Custom("expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

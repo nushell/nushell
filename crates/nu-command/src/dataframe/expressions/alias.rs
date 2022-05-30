@@ -26,7 +26,7 @@ impl Command for ExprAlias {
                 SyntaxShape::String,
                 "Alias name for the expression",
             )
-            .category(Category::Custom("lazyframe".into()))
+            .category(Category::Custom("expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

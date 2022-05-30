@@ -117,7 +117,7 @@ macro_rules! lazy_expr_command {
             }
 
             fn signature(&self) -> Signature {
-                Signature::build(self.name()).category(Category::Custom("lazyframe".into()))
+                Signature::build(self.name()).category(Category::Custom("lazyframe or expression".into()))
             }
 
             fn examples(&self) -> Vec<Example> {
@@ -190,8 +190,8 @@ lazy_expr_command!(
         },
         Example {
             description: "Max aggregation for a group by",
-            example: r#"[[a b]; [one 2] [one 4] [two 1]] 
-    | dfr to-df 
+            example: r#"[[a b]; [one 2] [one 4] [two 1]]
+    | dfr to-df
     | dfr group-by a
     | dfr agg ("b" | dfr max)"#,
             result: Some(
@@ -235,8 +235,8 @@ lazy_expr_command!(
         },
         Example {
             description: "Min aggregation for a group by",
-            example: r#"[[a b]; [one 2] [one 4] [two 1]] 
-    | dfr to-df 
+            example: r#"[[a b]; [one 2] [one 4] [two 1]]
+    | dfr to-df
     | dfr group-by a
     | dfr agg ("b" | dfr min)"#,
             result: Some(
@@ -280,8 +280,8 @@ lazy_expr_command!(
         },
         Example {
             description: "Sum aggregation for a group by",
-            example: r#"[[a b]; [one 2] [one 4] [two 1]] 
-    | dfr to-df 
+            example: r#"[[a b]; [one 2] [one 4] [two 1]]
+    | dfr to-df
     | dfr group-by a
     | dfr agg ("b" | dfr sum)"#,
             result: Some(
@@ -325,8 +325,8 @@ lazy_expr_command!(
         },
         Example {
             description: "Mean aggregation for a group by",
-            example: r#"[[a b]; [one 2] [one 4] [two 1]] 
-    | dfr to-df 
+            example: r#"[[a b]; [one 2] [one 4] [two 1]]
+    | dfr to-df
     | dfr group-by a
     | dfr agg ("b" | dfr mean)"#,
             result: Some(
@@ -370,8 +370,8 @@ lazy_expr_command!(
         },
         Example {
             description: "Median aggregation for a group by",
-            example: r#"[[a b]; [one 2] [one 4] [two 1]] 
-    | dfr to-df 
+            example: r#"[[a b]; [one 2] [one 4] [two 1]]
+    | dfr to-df
     | dfr group-by a
     | dfr agg ("b" | dfr median)"#,
             result: Some(
@@ -415,8 +415,8 @@ lazy_expr_command!(
         },
         Example {
             description: "Std aggregation for a group by",
-            example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]] 
-    | dfr to-df 
+            example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
+    | dfr to-df
     | dfr group-by a
     | dfr agg ("b" | dfr std)"#,
             result: Some(
@@ -460,8 +460,8 @@ lazy_expr_command!(
         },
         Example {
             description: "Var aggregation for a group by",
-            example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]] 
-    | dfr to-df 
+            example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
+    | dfr to-df
     | dfr group-by a
     | dfr agg ("b" | dfr var)"#,
             result: Some(

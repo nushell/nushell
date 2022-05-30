@@ -40,7 +40,7 @@ impl Command for Unique {
                 "Keep the same order as the original DataFrame (lazy df)",
                 Some('k'),
             )
-            .category(Category::Custom("dataframe or lazyframe".into()))
+            .category(Category::Custom("dataframe or expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

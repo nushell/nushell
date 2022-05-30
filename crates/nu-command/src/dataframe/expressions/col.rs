@@ -26,7 +26,7 @@ impl Command for ExprCol {
                 SyntaxShape::String,
                 "Name of column to be used",
             )
-            .category(Category::Custom("lazyframe".into()))
+            .category(Category::Custom("expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
