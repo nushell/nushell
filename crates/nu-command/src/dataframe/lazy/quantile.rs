@@ -1,9 +1,9 @@
-use crate::dataframe::values::{NuLazyFrame, NuExpression, NuDataFrame, Column};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::prelude::QuantileInterpolOptions;
 
@@ -31,41 +31,39 @@ impl Command for LazyQuantile {
 
     fn examples(&self) -> Vec<Example> {
         vec![
-        Example {
-            description: "quantile value from columns in a dataframe",
-            example: "[[a b]; [6 2] [1 4] [4 1]] | dfr to-df | dfr quantile 0.5",
-            result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                    Column::new("b".to_string(), vec![Value::test_float(2.0)],),
-                ])
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        },
-        Example {
-            description: "Quantile aggregation for a group by",
-            example: r#"[[a b]; [one 2] [one 4] [two 1]] 
+            Example {
+                description: "quantile value from columns in a dataframe",
+                example: "[[a b]; [6 2] [1 4] [4 1]] | dfr to-df | dfr quantile 0.5",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![
+                        Column::new("a".to_string(), vec![Value::test_float(4.0)]),
+                        Column::new("b".to_string(), vec![Value::test_float(2.0)]),
+                    ])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Quantile aggregation for a group by",
+                example: r#"[[a b]; [one 2] [one 4] [two 1]] 
     | dfr to-df 
     | dfr group-by a
     | dfr agg ("b" | dfr quantile 0.5)"#,
-            result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_float(4.0), Value::test_float(1.0)],
-                    ),
-                ])
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        },
-            
-            
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_string("one"), Value::test_string("two")],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_float(4.0), Value::test_float(1.0)],
+                        ),
+                    ])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
@@ -106,9 +104,9 @@ impl Command for LazyQuantile {
 #[cfg(test)]
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
     use crate::dataframe::lazy::aggregate::LazyAggregate;
     use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-    use super::*;
 
     #[test]
     fn test_examples() {

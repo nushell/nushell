@@ -106,8 +106,8 @@ impl Command for ExprOtherwise {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use crate::dataframe::eager::WithColumn;
-    use crate::dataframe::expressions::{ExprCol, ExprAlias, ExprAsNu};
     use crate::dataframe::expressions::when::ExprWhen;
+    use crate::dataframe::expressions::{ExprAlias, ExprAsNu, ExprCol};
 
     use super::*;
 

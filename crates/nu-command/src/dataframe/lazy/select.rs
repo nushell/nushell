@@ -71,10 +71,7 @@ impl Command for LazySelect {
         }
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
-        let lazy = NuLazyFrame::new(
-            lazy.from_eager,
-            lazy.into_polars().select(&expressions),
-        );
+        let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().select(&expressions));
 
         Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
     }

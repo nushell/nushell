@@ -1,9 +1,9 @@
-use crate::dataframe::values::{NuExpression, NuLazyFrame, Column, NuDataFrame};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -36,11 +36,11 @@ impl Command for LazyFillNull {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
                     vec![
-                        Value::test_int(0), 
-                        Value::test_int(0), 
-                        Value::test_int(1), 
-                        Value::test_int(2), 
-                        Value::test_int(2)
+                        Value::test_int(0),
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(2),
                     ],
                 )])
                 .expect("simple df for test should not fail")
@@ -63,12 +63,11 @@ impl Command for LazyFillNull {
             let expr = NuExpression::try_from_value(value)?;
             let fill = NuExpression::try_from_value(fill)?.into_polars();
             let expr: NuExpression = expr.into_polars().fill_null(fill).into();
-            
+
             Ok(PipelineData::Value(
                 NuExpression::into_value(expr, call.head),
                 None,
             ))
-            
         } else {
             let lazy = NuLazyFrame::try_from_value(value)?;
             let expr = NuExpression::try_from_value(fill)?.into_polars();
@@ -87,9 +86,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![
-            Box::new(LazyFillNull {}),
-            Box::new(Shift {}), 
-        ])
+        test_dataframe(vec![Box::new(LazyFillNull {}), Box::new(Shift {})])
     }
 }

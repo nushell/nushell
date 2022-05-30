@@ -121,8 +121,8 @@ impl Command for ExprWhen {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use crate::dataframe::eager::WithColumn;
-    use crate::dataframe::expressions::{ExprCol, ExprAsNu, ExprAlias};
     use crate::dataframe::expressions::otherwise::ExprOtherwise;
+    use crate::dataframe::expressions::{ExprAlias, ExprAsNu, ExprCol};
 
     use super::*;
 

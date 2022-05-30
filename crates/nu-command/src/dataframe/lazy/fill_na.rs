@@ -50,12 +50,11 @@ impl Command for LazyFillNA {
             let expr = NuExpression::try_from_value(value)?;
             let fill = NuExpression::try_from_value(fill)?.into_polars();
             let expr: NuExpression = expr.into_polars().fill_nan(fill).into();
-            
+
             Ok(PipelineData::Value(
                 NuExpression::into_value(expr, call.head),
                 None,
             ))
-            
         } else {
             let lazy = NuLazyFrame::try_from_value(value)?;
             let expr = NuExpression::try_from_value(fill)?.into_polars();

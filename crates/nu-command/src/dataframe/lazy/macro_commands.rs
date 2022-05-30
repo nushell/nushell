@@ -117,7 +117,8 @@ macro_rules! lazy_expr_command {
             }
 
             fn signature(&self) -> Signature {
-                Signature::build(self.name()).category(Category::Custom("lazyframe or expression".into()))
+                Signature::build(self.name())
+                    .category(Category::Custom("lazyframe or expression".into()))
             }
 
             fn examples(&self) -> Vec<Example> {
