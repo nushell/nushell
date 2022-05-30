@@ -3,6 +3,7 @@ use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
+use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -128,7 +129,15 @@ impl Command for Ls {
             item: path.display().to_string(),
             span: p_tag,
         };
-        let (prefix, paths) = nu_engine::glob_from(&glob_path, &cwd, call_span)?;
+
+        let glob_options = if all {
+            None
+        } else {
+            let mut glob_options = MatchOptions::new();
+            glob_options.recursive_match_hidden_dir = false;
+            Some(glob_options)
+        };
+        let (prefix, paths) = nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options)?;
 
         let mut paths_peek = paths.peekable();
         if paths_peek.peek().is_none() {
