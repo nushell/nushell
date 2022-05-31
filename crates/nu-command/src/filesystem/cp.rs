@@ -81,7 +81,6 @@ impl Command for Cp {
         let source = current_dir_path.join(src.item.as_str());
         let destination = current_dir_path.join(dst.item.as_str());
 
-        // check if destination is a dir and it exists
         let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
         let is_directory = path_last_char == Some('/') || path_last_char == Some('\\');
         if is_directory && !destination.exists() {
@@ -159,7 +158,22 @@ impl Command for Cp {
 
                 for (src, dst) in sources {
                     if src.is_file() {
-                        let res = if interactive && dst.exists() {
+                        let dst =
+                            canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
+                        let res = if src == dst {
+                            let message = format!(
+                                "src {:?} and dst {:?} are identical(not copied)",
+                                source, destination
+                            );
+
+                            return Err(ShellError::GenericError(
+                                "Copy aborted".into(),
+                                message,
+                                Some(span),
+                                None,
+                                Vec::new(),
+                            ));
+                        } else if interactive && dst.exists() {
                             interactive_copy(interactive, src, dst, span, copy_file)
                         } else {
                             copy_file(src, dst, span)
@@ -240,7 +254,6 @@ impl Command for Cp {
                             )
                         })?;
                     }
-
                     if s.is_symlink() && not_follow_symlink {
                         let res = if interactive && d.exists() {
                             interactive_copy(interactive, s, d, span, copy_symlink)
