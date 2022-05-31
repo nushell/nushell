@@ -117,6 +117,11 @@ impl Command for Get {
                 example: "$env | get paTH",
                 result: None,
             },
+            Example {
+                description: "Getting Path in a case sensitive way, won't work for 'PATH'",
+                example: "$env | get -s Path",
+                result: None,
+            },
         ]
     }
 }
