@@ -26,7 +26,7 @@ macro_rules! expr_command {
             }
 
             fn signature(&self) -> Signature {
-                Signature::build(self.name()).category(Category::Custom("dataframe".into()))
+                Signature::build(self.name()).category(Category::Custom("expression".into()))
             }
 
             fn examples(&self) -> Vec<Example> {
@@ -106,4 +106,18 @@ expr_command!(
         result: None,
     }],
     explode
+);
+
+// ExprCount command
+// Expands to a command definition for a count expression
+expr_command!(
+    ExprCount,
+    "dfr count",
+    "creates a count expression",
+    vec![Example {
+        description: "",
+        example: "",
+        result: None,
+    }],
+    count
 );

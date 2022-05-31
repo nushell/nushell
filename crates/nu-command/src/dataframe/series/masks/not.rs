@@ -22,7 +22,7 @@ impl Command for NotSeries {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
+        Signature::build(self.name()).category(Category::Custom("dataframe or lazyframes".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -45,7 +45,7 @@ impl Command for NotSeries {
             },
             Example {
                 description: "Creates a not expression from a column",
-                example: "dfr col a | dfr not",
+                example: "((dfr col a) > 2) | dfr not",
                 result: None,
             },
         ]

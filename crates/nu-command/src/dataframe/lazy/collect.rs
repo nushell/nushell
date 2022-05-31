@@ -1,9 +1,10 @@
-use super::super::values::{NuDataFrame, NuLazyFrame};
+use crate::dataframe::values::{Column, NuDataFrame};
 
+use super::super::values::NuLazyFrame;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature,
+    Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -15,7 +16,7 @@ impl Command for LazyCollect {
     }
 
     fn usage(&self) -> &str {
-        "Collect lazy dataframe into dataframe"
+        "Collect lazy dataframe into eager dataframe"
     }
 
     fn signature(&self) -> Signature {
@@ -24,9 +25,22 @@ impl Command for LazyCollect {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "",
-            example: "",
-            result: None,
+            description: "drop duplicates",
+            example: "[[a b]; [1 2] [3 4]] | dfr to-lazy | dfr collect",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(1), Value::test_int(3)],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(2), Value::test_int(4)],
+                    ),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
         }]
     }
 
@@ -39,10 +53,22 @@ impl Command for LazyCollect {
     ) -> Result<PipelineData, ShellError> {
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
         let eager = lazy.collect(call.head)?;
+        let value = Value::CustomValue {
+            val: Box::new(eager),
+            span: call.head,
+        };
 
-        Ok(PipelineData::Value(
-            NuDataFrame::into_value(eager, call.head),
-            None,
-        ))
+        Ok(PipelineData::Value(value, None))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        test_dataframe(vec![Box::new(LazyCollect {})])
     }
 }

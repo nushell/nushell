@@ -1,10 +1,10 @@
-use super::NuLazyFrame;
+use super::NuWhen;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 
 // CustomValue implementation for NuDataFrame
-impl CustomValue for NuLazyFrame {
+impl CustomValue for NuWhen {
     fn typetag_name(&self) -> &'static str {
-        "lazyframe"
+        "when"
     }
 
     fn typetag_deserialize(&self) {
@@ -12,10 +12,7 @@ impl CustomValue for NuLazyFrame {
     }
 
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        let cloned = NuLazyFrame {
-            lazy: self.lazy.clone(),
-            from_eager: self.from_eager,
-        };
+        let cloned = self.clone();
 
         Value::CustomValue {
             val: Box::new(cloned),
@@ -28,22 +25,13 @@ impl CustomValue for NuLazyFrame {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let cols = vec!["plan".into(), "optimized_plan".into()];
-        let vals = vec![
-            Value::String {
-                val: self.as_ref().describe_plan(),
-                span,
-            },
-            Value::String {
-                val: self
-                    .as_ref()
-                    .describe_optimized_plan()
-                    .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string()),
-                span,
-            },
-        ];
+        let val = match self {
+            NuWhen::WhenThen(_) => "whenthen".into(),
+            NuWhen::WhenThenThen(_) => "whenthenthen".into(),
+        };
 
-        Ok(Value::Record { cols, vals, span })
+        let value = Value::String { val, span };
+        Ok(value)
     }
 
     fn to_json(&self) -> nu_json::Value {

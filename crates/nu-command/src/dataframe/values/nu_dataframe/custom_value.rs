@@ -12,7 +12,10 @@ impl CustomValue for NuDataFrame {
     }
 
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        let cloned = NuDataFrame(self.0.clone());
+        let cloned = NuDataFrame {
+            df: self.df.clone(),
+            from_lazy: false,
+        };
 
         Value::CustomValue {
             val: Box::new(cloned),

@@ -5,43 +5,42 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use polars::prelude::col;
 
 #[derive(Clone)]
-pub struct ExprCol;
+pub struct ExprLit;
 
-impl Command for ExprCol {
+impl Command for ExprLit {
     fn name(&self) -> &str {
-        "dfr col"
+        "dfr lit"
     }
 
     fn usage(&self) -> &str {
-        "Creates a named column expression"
+        "Creates a literal expression"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "column name",
-                SyntaxShape::String,
-                "Name of column to be used",
+                "literal",
+                SyntaxShape::Any,
+                "literal to construct the expression",
             )
-            .category(Category::Custom("expressions".into()))
+            .category(Category::Custom("expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Creates a named column expression and converts it to a nu object",
-            example: "dfr col col_a | dfr to-nu",
+            description: "Created a literal expression and converts it to a nu object",
+            example: "dfr lit 2 | dfr as-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![
                     Value::String {
-                        val: "column".into(),
+                        val: "literal".into(),
                         span: Span::test_data(),
                     },
                     Value::String {
-                        val: "col_a".into(),
+                        val: "2i64".into(),
                         span: Span::test_data(),
                     },
                 ],
@@ -57,21 +56,24 @@ impl Command for ExprCol {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name: String = call.req(engine_state, stack, 0)?;
-        let expr: NuExpression = col(name.as_str()).into();
+        let literal: Value = call.req(engine_state, stack, 0)?;
 
-        Ok(PipelineData::Value(expr.into_value(call.head), None))
+        let expr = NuExpression::try_from_value(literal)?;
+        Ok(PipelineData::Value(
+            NuExpression::into_value(expr, call.head),
+            None,
+        ))
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::super::super::super::test_dataframe::test_dataframe;
-    use super::super::super::ExprToNu;
+    use super::super::super::test_dataframe::test_dataframe;
     use super::*;
+    use crate::dataframe::expressions::as_nu::ExprAsNu;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ExprCol {}), Box::new(ExprToNu {})])
+        test_dataframe(vec![Box::new(ExprLit {}), Box::new(ExprAsNu {})])
     }
 }

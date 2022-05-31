@@ -7,11 +7,11 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct ExprToNu;
+pub struct ExprAsNu;
 
-impl Command for ExprToNu {
+impl Command for ExprAsNu {
     fn name(&self) -> &str {
-        "dfr to-nu"
+        "dfr as-nu"
     }
 
     fn usage(&self) -> &str {
@@ -19,13 +19,13 @@ impl Command for ExprToNu {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("expressions".into()))
+        Signature::build(self.name()).category(Category::Custom("expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Convert a col expression into a nushell value",
-            example: "dfr col col_a | dfr to-nu",
+            example: "dfr col col_a | dfr as-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![
@@ -65,6 +65,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ExprToNu {}), Box::new(ExprCol {})])
+        test_dataframe(vec![Box::new(ExprAsNu {}), Box::new(ExprCol {})])
     }
 }

@@ -40,22 +40,29 @@ impl Command for Unique {
                 "Keep the same order as the original DataFrame (lazy df)",
                 Some('k'),
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("dataframe or expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Returns unique values from a series",
-            example: "[2 2 2 2 2] | dfr to-df | dfr unique",
-            result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![Value::test_int(2)],
-                )])
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Returns unique values from a series",
+                example: "[2 2 2 2 2] | dfr to-df | dfr unique",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![Column::new(
+                        "0".to_string(),
+                        vec![Value::test_int(2)],
+                    )])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Creates a is unique expression from a column",
+                example: "dfr col a | dfr unique",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -134,7 +141,7 @@ fn command_lazy(
         lazy.unique_stable(subset, strategy).into()
     };
 
-    Ok(PipelineData::Value(lazy.into_value(call.head), None))
+    Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
 }
 
 #[cfg(test)]

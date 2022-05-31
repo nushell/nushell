@@ -73,11 +73,11 @@ impl NuDataFrame {
                         )
                     }
                     _ => {
-                        if self.0.height() != rhs.0.height() {
+                        if self.df.height() != rhs.df.height() {
                             return Err(ShellError::IncompatibleParameters {
-                                left_message: format!("rows {}", self.0.height()),
+                                left_message: format!("rows {}", self.df.height()),
                                 left_span: lhs_span,
-                                right_message: format!("rows {}", rhs.0.height()),
+                                right_message: format!("rows {}", rhs.df.height()),
                                 right_span: *rhs_span,
                             });
                         }
@@ -119,10 +119,10 @@ impl NuDataFrame {
                 let mut columns: Vec<&str> = Vec::new();
 
                 let new_cols = self
-                    .0
+                    .df
                     .get_columns()
                     .iter()
-                    .chain(other.0.get_columns())
+                    .chain(other.df.get_columns())
                     .map(|s| {
                         let name = if columns.contains(&s.name()) {
                             format!("{}_{}", s.name(), "x")
@@ -147,10 +147,10 @@ impl NuDataFrame {
                     )
                 })?;
 
-                Ok(NuDataFrame::new(df_new))
+                Ok(NuDataFrame::new(false, df_new))
             }
             Axis::Column => {
-                if self.0.width() != other.0.width() {
+                if self.df.width() != other.df.width() {
                     return Err(ShellError::IncompatibleParametersSingle(
                         "Dataframes with different number of columns".into(),
                         span,
@@ -158,10 +158,10 @@ impl NuDataFrame {
                 }
 
                 if !self
-                    .0
+                    .df
                     .get_column_names()
                     .iter()
-                    .all(|col| other.0.get_column_names().contains(col))
+                    .all(|col| other.df.get_column_names().contains(col))
                 {
                     return Err(ShellError::IncompatibleParametersSingle(
                         "Dataframes with different columns names".into(),
@@ -170,12 +170,12 @@ impl NuDataFrame {
                 }
 
                 let new_cols = self
-                    .0
+                    .df
                     .get_columns()
                     .iter()
                     .map(|s| {
                         let other_col = other
-                            .0
+                            .df
                             .column(s.name())
                             .expect("Already checked that dataframes have same columns");
 
@@ -207,7 +207,7 @@ impl NuDataFrame {
                     )
                 })?;
 
-                Ok(NuDataFrame::new(df_new))
+                Ok(NuDataFrame::new(false, df_new))
             }
         }
     }

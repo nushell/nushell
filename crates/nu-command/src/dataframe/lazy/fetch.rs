@@ -1,10 +1,10 @@
 use super::super::values::NuLazyFrame;
-use crate::dataframe::values::NuDataFrame;
+use crate::dataframe::values::{Column, NuDataFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -31,9 +31,22 @@ impl Command for LazyFetch {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "",
-            example: "",
-            result: None,
+            description: "Fetch a rows from the dataframe",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | dfr to-df | dfr fetch 2",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(6), Value::test_int(4)],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(2), Value::test_int(2)],
+                    ),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
         }]
     }
 
@@ -68,13 +81,13 @@ impl Command for LazyFetch {
     }
 }
 
-//#[cfg(test)]
-//mod test {
-//    use super::super::super::test_dataframe::test_dataframe;
-//    use super::*;
-//
-//    #[test]
-//    fn test_examples() {
-//        test_dataframe(vec![Box::new(LazyFetch {})])
-//    }
-//}
+#[cfg(test)]
+mod test {
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        test_dataframe(vec![Box::new(LazyFetch {})])
+    }
+}

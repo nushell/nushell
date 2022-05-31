@@ -10,7 +10,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 // Polars LazyFrame is behind and Option to allow easy implementation of
 // the Deserialize trait
 #[derive(Default)]
-pub struct NuLazyFrame(Option<LazyFrame>);
+pub struct NuLazyFrame {
+    pub lazy: Option<LazyFrame>,
+    pub from_eager: bool,
+}
 
 // Mocked serialization of the LazyFrame object
 impl Serialize for NuLazyFrame {
@@ -43,7 +46,7 @@ impl AsRef<LazyFrame> for NuLazyFrame {
     fn as_ref(&self) -> &polars::prelude::LazyFrame {
         // The only case when there cannot be a lazy frame is if it is created
         // using the default function or if created by deserializing something
-        self.0.as_ref().expect("there should always be a frame")
+        self.lazy.as_ref().expect("there should always be a frame")
     }
 }
 
@@ -51,35 +54,56 @@ impl AsMut<LazyFrame> for NuLazyFrame {
     fn as_mut(&mut self) -> &mut polars::prelude::LazyFrame {
         // The only case when there cannot be a lazy frame is if it is created
         // using the default function or if created by deserializing something
-        self.0.as_mut().expect("there should always be a frame")
+        self.lazy.as_mut().expect("there should always be a frame")
     }
 }
 
 impl From<LazyFrame> for NuLazyFrame {
     fn from(lazy_frame: LazyFrame) -> Self {
-        Self(Some(lazy_frame))
+        Self {
+            lazy: Some(lazy_frame),
+            from_eager: false,
+        }
     }
 }
 
 impl NuLazyFrame {
-    pub fn from_dataframe(df: NuDataFrame) -> Self {
-        let lazy = df.as_ref().clone().lazy();
-        Self(Some(lazy))
+    pub fn new(from_eager: bool, lazy: LazyFrame) -> Self {
+        Self {
+            lazy: Some(lazy),
+            from_eager,
+        }
     }
 
-    pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
+    pub fn from_dataframe(df: NuDataFrame) -> Self {
+        let lazy = df.as_ref().clone().lazy();
+        Self {
+            lazy: Some(lazy),
+            from_eager: true,
+        }
+    }
+
+    pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
+        if self.from_eager {
+            let df = self.collect(span)?;
+            Ok(Value::CustomValue {
+                val: Box::new(df),
+                span,
+            })
+        } else {
+            Ok(Value::CustomValue {
+                val: Box::new(self),
+                span,
+            })
         }
     }
 
     pub fn into_polars(self) -> LazyFrame {
-        self.0.expect("lazyframe cannot be none to convert")
+        self.lazy.expect("lazyframe cannot be none to convert")
     }
 
     pub fn collect(self, span: Span) -> Result<NuDataFrame, ShellError> {
-        self.0
+        self.lazy
             .expect("No empty lazy for collect")
             .collect()
             .map_err(|e| {
@@ -91,13 +115,40 @@ impl NuLazyFrame {
                     Vec::new(),
                 )
             })
-            .map(NuDataFrame::new)
+            .map(|df| NuDataFrame {
+                df,
+                from_lazy: !self.from_eager,
+            })
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+        if Self::can_downcast(&value) {
+            Ok(Self::get_lazy_df(value)?)
+        } else if NuDataFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value(value)?;
+            Ok(NuLazyFrame::from_dataframe(df))
+        } else {
+            Err(ShellError::CantConvert(
+                "lazy or eager dataframe".into(),
+                value.get_type().to_string(),
+                value.span()?,
+                None,
+            ))
+        }
+    }
+
+    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+        let value = input.into_value(span);
+        Self::try_from_value(value)
+    }
+
+    pub fn get_lazy_df(value: Value) -> Result<Self, ShellError> {
         match value {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
-                Some(expr) => Ok(Self(expr.0.clone())),
+                Some(expr) => Ok(Self {
+                    lazy: expr.lazy.clone(),
+                    from_eager: false,
+                }),
                 None => Err(ShellError::CantConvert(
                     "lazy frame".into(),
                     "non-dataframe".into(),
@@ -114,11 +165,6 @@ impl NuLazyFrame {
         }
     }
 
-    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
-        Self::try_from_value(value)
-    }
-
     pub fn can_downcast(value: &Value) -> bool {
         if let Value::CustomValue { val, .. } = value {
             val.as_any().downcast_ref::<Self>().is_some()
@@ -127,30 +173,17 @@ impl NuLazyFrame {
         }
     }
 
-    pub fn maybe_is_eager(value: Value) -> Result<(Self, bool), ShellError> {
-        if Self::can_downcast(&value) {
-            Ok((Self::try_from_value(value)?, false))
-        } else if NuDataFrame::can_downcast(&value) {
-            let df = NuDataFrame::try_from_value(value)?;
-            Ok((NuLazyFrame::from_dataframe(df), true))
-        } else {
-            Err(ShellError::CantConvert(
-                "lazy or eager dataframe".into(),
-                value.get_type().to_string(),
-                value.span()?,
-                None,
-            ))
-        }
-    }
-
     pub fn apply_with_expr<F>(self, expr: NuExpression, f: F) -> Self
     where
         F: Fn(LazyFrame, Expr) -> LazyFrame,
     {
-        let df = self.0.expect("Lazy frame must not be empty to apply");
+        let df = self.lazy.expect("Lazy frame must not be empty to apply");
         let expr = expr.into_polars();
         let new_frame = f(df, expr);
 
-        new_frame.into()
+        Self {
+            from_eager: self.from_eager,
+            lazy: Some(new_frame),
+        }
     }
 }

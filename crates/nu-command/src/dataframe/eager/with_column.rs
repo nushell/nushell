@@ -27,7 +27,7 @@ impl Command for WithColumn {
                 SyntaxShape::Any,
                 "series to be added or expressions used to define the new columns",
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,11 +59,34 @@ impl Command for WithColumn {
             Example {
                 description: "Adds a series to the dataframe",
                 example: r#"[[a b]; [1 2] [3 4]] 
-    | dfr to-df 
     | dfr to-lazy
-    | dfr with-column ((dfr col a) * 2 | dfr as "c")
+    | dfr with-column [
+        ((dfr col a) * 2 | dfr as "c")
+        ((dfr col a) * 3 | dfr as "d")
+      ]
     | dfr collect"#,
-                result: None,
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_int(1), Value::test_int(3)],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(2), Value::test_int(4)],
+                        ),
+                        Column::new(
+                            "c".to_string(),
+                            vec![Value::test_int(2), Value::test_int(6)],
+                        ),
+                        Column::new(
+                            "d".to_string(),
+                            vec![Value::test_int(3), Value::test_int(9)],
+                        ),
+                    ])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
             },
         ]
     }
@@ -85,7 +108,7 @@ impl Command for WithColumn {
             command_eager(engine_state, stack, call, df)
         } else {
             Err(ShellError::CantConvert(
-                "expression or query".into(),
+                "lazy or eager dataframe".into(),
                 value.get_type().to_string(),
                 value.span()?,
                 None,
@@ -100,34 +123,49 @@ fn command_eager(
     call: &Call,
     mut df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
-    let other_value: Value = call.req(engine_state, stack, 0)?;
-    let other_span = other_value.span()?;
-    let mut other = NuDataFrame::try_from_value(other_value)?.as_series(other_span)?;
+    let new_column: Value = call.req(engine_state, stack, 0)?;
+    let column_span = new_column.span()?;
 
-    let name = match call.get_flag::<String>(engine_state, stack, "name")? {
-        Some(name) => name,
-        None => other.name().to_string(),
-    };
+    if NuExpression::can_downcast(&new_column) {
+        let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        let value = Value::List {
+            vals,
+            span: call.head,
+        };
+        let expressions = NuExpression::extract_exprs(value)?;
+        let lazy = NuLazyFrame::new(true, df.lazy().with_columns(&expressions));
 
-    let series = other.rename(&name).clone();
+        let df = lazy.collect(call.head)?;
 
-    df.as_mut()
-        .with_column(series)
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error adding column to dataframe".into(),
-                e.to_string(),
-                Some(other_span),
-                None,
-                Vec::new(),
-            )
-        })
-        .map(|df| {
-            PipelineData::Value(
-                NuDataFrame::dataframe_into_value(df.clone(), call.head),
-                None,
-            )
-        })
+        Ok(PipelineData::Value(df.into_value(call.head), None))
+    } else {
+        let mut other = NuDataFrame::try_from_value(new_column)?.as_series(column_span)?;
+
+        let name = match call.get_flag::<String>(engine_state, stack, "name")? {
+            Some(name) => name,
+            None => other.name().to_string(),
+        };
+
+        let series = other.rename(&name).clone();
+
+        df.as_mut()
+            .with_column(series)
+            .map_err(|e| {
+                ShellError::GenericError(
+                    "Error adding column to dataframe".into(),
+                    e.to_string(),
+                    Some(column_span),
+                    None,
+                    Vec::new(),
+                )
+            })
+            .map(|df| {
+                PipelineData::Value(
+                    NuDataFrame::dataframe_into_value(df.clone(), call.head),
+                    None,
+                )
+            })
+    }
 }
 
 fn command_lazy(
@@ -146,7 +184,7 @@ fn command_lazy(
     let lazy: NuLazyFrame = lazy.into_polars().with_columns(&expressions).into();
 
     Ok(PipelineData::Value(
-        NuLazyFrame::into_value(lazy, call.head),
+        NuLazyFrame::into_value(lazy, call.head)?,
         None,
     ))
 }
@@ -155,9 +193,15 @@ fn command_lazy(
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
+    use crate::dataframe::expressions::ExprAlias;
+    use crate::dataframe::expressions::ExprCol;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(WithColumn {})])
+        test_dataframe(vec![
+            Box::new(WithColumn {}),
+            Box::new(ExprAlias {}),
+            Box::new(ExprCol {}),
+        ])
     }
 }

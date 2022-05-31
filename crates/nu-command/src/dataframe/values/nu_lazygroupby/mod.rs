@@ -91,8 +91,8 @@ impl NuLazyGroupBy {
                         from_eager: group.from_eager,
                     }),
                     None => Err(ShellError::CantConvert(
-                        "lazy frame".into(),
-                        "non-dataframe".into(),
+                        "lazy groupby".into(),
+                        "custom value".into(),
                         span,
                         None,
                     )),

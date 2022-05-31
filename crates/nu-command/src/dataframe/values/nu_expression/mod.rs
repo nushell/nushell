@@ -100,6 +100,7 @@ impl NuExpression {
     pub fn can_downcast(value: &Value) -> bool {
         match value {
             Value::CustomValue { val, .. } => val.as_any().downcast_ref::<Self>().is_some(),
+            Value::List { vals, .. } => vals.iter().all(Self::can_downcast),
             Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {
                 true
             }

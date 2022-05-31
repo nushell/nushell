@@ -14,7 +14,7 @@ pub struct RenameDF;
 
 impl Command for RenameDF {
     fn name(&self) -> &str {
-        "dfr rename-col"
+        "dfr rename"
     }
 
     fn usage(&self) -> &str {
@@ -33,28 +33,65 @@ impl Command for RenameDF {
                 SyntaxShape::Any,
                 "New names for the selected column(s). A string or list of strings",
             )
-            .category(Category::Custom("dataframe".into()))
+            .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Renames a dataframe column",
-            example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr rename-col a a_new",
-            result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a_new".to_string(),
-                        vec![Value::test_int(1), Value::test_int(3)],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(2), Value::test_int(4)],
-                    ),
-                ])
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Renames a series",
+                example: "[5 6 7 8] | dfr to-df | dfr rename '0' new_name",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![Column::new(
+                        "new_name".to_string(),
+                        vec![
+                            Value::test_int(5),
+                            Value::test_int(6),
+                            Value::test_int(7),
+                            Value::test_int(8),
+                        ],
+                    )])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Renames a dataframe column",
+                example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr rename a a_new",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![
+                        Column::new(
+                            "a_new".to_string(),
+                            vec![Value::test_int(1), Value::test_int(3)],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(2), Value::test_int(4)],
+                        ),
+                    ])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Renames two dataframe columns",
+                example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr rename [a b] [a_new b_new]",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![
+                        Column::new(
+                            "a_new".to_string(),
+                            vec![Value::test_int(1), Value::test_int(3)],
+                        ),
+                        Column::new(
+                            "b_new".to_string(),
+                            vec![Value::test_int(2), Value::test_int(4)],
+                        ),
+                    ])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -133,7 +170,7 @@ fn command_lazy(
     let lazy = lazy.into_polars();
     let lazy: NuLazyFrame = lazy.rename(&columns, &new_names).into();
 
-    Ok(PipelineData::Value(lazy.into_value(call.head), None))
+    Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
 }
 
 #[cfg(test)]
