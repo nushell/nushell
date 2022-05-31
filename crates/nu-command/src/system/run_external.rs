@@ -417,7 +417,9 @@ impl ExternalCommand {
             let cwd = PathBuf::from(cwd);
 
             if arg.item.contains('*') {
-                if let Ok((prefix, matches)) = nu_engine::glob_from(&arg, &cwd, self.name.span) {
+                if let Ok((prefix, matches)) =
+                    nu_engine::glob_from(&arg, &cwd, self.name.span, None)
+                {
                     let matches: Vec<_> = matches.collect();
 
                     // FIXME: do we want to special-case this further? We might accidentally expand when they don't
