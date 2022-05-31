@@ -14,6 +14,7 @@ const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
     require_literal_separator: false,
     require_literal_leading_dot: false,
+    recursive_match_hidden_dir: true,
 };
 
 #[derive(Clone)]
