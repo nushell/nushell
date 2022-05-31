@@ -328,8 +328,6 @@ fn copy_identical_file() {
             cwd: sandbox.cwd(),
             "cp same.txt same.txt",
         );
-        println!("actual err is {}", actual.err);
-        println!("actual out is {}", actual.out);
         assert!(actual.err.contains("Copy aborted"));
     });
 }

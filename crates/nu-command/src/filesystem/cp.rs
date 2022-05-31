@@ -157,11 +157,8 @@ impl Command for Cp {
 
                 for (src, dst) in sources {
                     if src.is_file() {
-                        #[cfg(not(windows))]
-                        let dst = match std::fs::canonicalize(dst.clone()) {
-                            Ok(path) => path,
-                            Err(_) => dst,
-                        };
+                        let dst =
+                            canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
                         let res = if src == dst {
                             let message = format!(
                                 "src {:?} and dst {:?} are identical(not copied)",
