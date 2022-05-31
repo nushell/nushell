@@ -60,6 +60,7 @@ module completions {
     --no-show-forced-updates                      # Don't check if a branch is force-updated
     -4                                            # Use IPv4 addresses, ignore IPv6 addresses
     -6                                            # Use IPv6 addresses, ignore IPv4 addresses
+    --help                                        # Display this help message 
   ]
 
   # Check out git branches and files
@@ -86,6 +87,7 @@ module completions {
     -b: string                                      # create and checkout a new branch
     -B: string                                      # create/reset and checkout a branch
     -l                                              # create reflog for new branch
+    --help                                          # Display this help message
   ]
 
   # Push changes
@@ -117,6 +119,7 @@ module completions {
     --tags                                          # push tags (can't be used with --all or --mirror)
     --thin                                          # use thin pack
     --verbose(-v)                                   # be more verbose
+    --help                                          # Display this help message
   ]
 }
 

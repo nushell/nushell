@@ -49,6 +49,7 @@
 //!     case_sensitive: false,
 //!     require_literal_separator: false,
 //!     require_literal_leading_dot: false,
+//!     recursive_match_hidden_dir: true,
 //! };
 //! for entry in glob_with("local/*a*", options).unwrap() {
 //!     if let Ok(path) = entry {
@@ -376,7 +377,16 @@ impl Iterator for Paths {
                 }
 
                 if is_dir(&path) {
-                    // the path is a directory, so it's a match
+                    // the path is a directory, check if matched according
+                    // to `hidden_dir_recursive` option.
+                    if !self.options.recursive_match_hidden_dir
+                        && path
+                            .file_name()
+                            .map(|name| name.to_string_lossy().starts_with('.'))
+                            .unwrap_or(false)
+                    {
+                        continue;
+                    }
 
                     // push this directory's contents
                     fill_todo(
@@ -872,6 +882,10 @@ pub struct MatchOptions {
     /// conventionally considered hidden on Unix systems and it might be
     /// desirable to skip them when listing files.
     pub require_literal_leading_dot: bool,
+
+    /// if given pattern contains `**`, this flag check if `**` matches hidden directory.
+    /// For example: if true, `**` will match `.abcdef/ghi`.
+    pub recursive_match_hidden_dir: bool,
 }
 
 impl MatchOptions {
@@ -886,6 +900,7 @@ impl MatchOptions {
     ///     case_sensitive: true,
     ///     require_literal_separator: false,
     ///     require_literal_leading_dot: false
+    ///     recursive_match_hidden_dir: true,
     /// }
     /// ```
     pub fn new() -> Self {
@@ -893,6 +908,7 @@ impl MatchOptions {
             case_sensitive: true,
             require_literal_separator: false,
             require_literal_leading_dot: false,
+            recursive_match_hidden_dir: true,
         }
     }
 }
@@ -1084,6 +1100,7 @@ mod test {
             case_sensitive: false,
             require_literal_separator: false,
             require_literal_leading_dot: false,
+            recursive_match_hidden_dir: true,
         };
 
         assert!(pat.matches_with("aBcDeFg", options));
@@ -1098,11 +1115,13 @@ mod test {
             case_sensitive: true,
             require_literal_separator: true,
             require_literal_leading_dot: false,
+            recursive_match_hidden_dir: true,
         };
         let options_not_require_literal = MatchOptions {
             case_sensitive: true,
             require_literal_separator: false,
             require_literal_leading_dot: false,
+            recursive_match_hidden_dir: true,
         };
 
         assert!(Pattern::new("abc/def")
@@ -1132,11 +1151,13 @@ mod test {
             case_sensitive: true,
             require_literal_separator: false,
             require_literal_leading_dot: true,
+            recursive_match_hidden_dir: true,
         };
         let options_not_require_literal_leading_dot = MatchOptions {
             case_sensitive: true,
             require_literal_separator: false,
             require_literal_leading_dot: false,
+            recursive_match_hidden_dir: true,
         };
 
         let f = |options| {

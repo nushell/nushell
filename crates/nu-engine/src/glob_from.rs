@@ -2,6 +2,7 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
+use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::{ShellError, Span, Spanned};
 
@@ -17,6 +18,7 @@ pub fn glob_from(
     pattern: &Spanned<String>,
     cwd: &Path,
     span: Span,
+    options: Option<MatchOptions>,
 ) -> Result<
     (
         Option<PathBuf>,
@@ -82,8 +84,9 @@ pub fn glob_from(
     };
 
     let pattern = pattern.to_string_lossy().to_string();
+    let glob_options = options.unwrap_or_else(MatchOptions::new);
 
-    let glob = nu_glob::glob(&pattern).map_err(|err| {
+    let glob = nu_glob::glob_with(&pattern, glob_options).map_err(|err| {
         nu_protocol::ShellError::GenericError(
             "Error extracting glob pattern".into(),
             err.to_string(),

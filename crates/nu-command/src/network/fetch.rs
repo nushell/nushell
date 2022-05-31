@@ -1,4 +1,5 @@
 use crate::BufferedReader;
+use std::io::{BufWriter, Write};
 
 use base64::encode;
 use nu_engine::CallExt;
@@ -15,7 +16,7 @@ use std::collections::HashMap;
 use std::io::BufReader;
 
 use reqwest::StatusCode;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -63,6 +64,22 @@ impl Command for SubCommand {
                 "fetch contents as text rather than a table",
                 Some('r'),
             )
+            .named(
+                "output",
+                SyntaxShape::Filepath,
+                "save contents into a file",
+                Some('o'),
+            )
+            .switch(
+                "bin",
+                "if saving into a file, save as raw binary",
+                Some('b'),
+            )
+            .switch(
+                "append",
+                "if saving into a file, append to end of file",
+                Some('a'),
+            )
             .filter()
             .category(Category::Network)
     }
@@ -88,7 +105,193 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        run_fetch(engine_state, stack, call, input)
+        let output = call.has_flag("output");
+        if !output {
+            run_fetch(engine_state, stack, call, input)
+        } else {
+            match run_fetch(engine_state, stack, call, input) {
+                Err(err) => Err(err),
+                Ok(value) => {
+                    let path: Value = call
+                        .get_flag(engine_state, stack, "output")
+                        .expect("there should be a value")
+                        .expect("value should be unwrappable");
+                    let bin = call.has_flag("bin");
+                    let append = call.has_flag("append");
+                    let span = call.head;
+                    let path = &path.as_string().expect("path should be a string");
+                    let path = Path::new(path);
+
+                    let file = match (append, path.exists()) {
+                        (true, true) => std::fs::OpenOptions::new()
+                            .write(true)
+                            .append(true)
+                            .open(path),
+                        _ => std::fs::File::create(path),
+                    };
+
+                    let mut file = match file {
+                        Ok(file) => file,
+                        Err(err) => {
+                            let arg_span =
+                                call.get_named_arg("output").expect("arg should exist").span;
+                            return Ok(PipelineData::Value(
+                                Value::Error {
+                                    error: ShellError::GenericError(
+                                        "Permission denied".into(),
+                                        err.to_string(),
+                                        Some(arg_span),
+                                        None,
+                                        Vec::new(),
+                                    ),
+                                },
+                                None,
+                            ));
+                        }
+                    };
+
+                    let ext = if bin {
+                        None
+                    } else {
+                        path.extension()
+                            .map(|name| name.to_string_lossy().to_string())
+                    };
+
+                    if let Some(ext) = ext {
+                        let output =
+                            match engine_state.find_decl(format!("to {}", ext).as_bytes(), &[]) {
+                                Some(converter_id) => {
+                                    let output = engine_state.get_decl(converter_id).run(
+                                        engine_state,
+                                        stack,
+                                        &Call::new(span),
+                                        value,
+                                    )?;
+
+                                    output.into_value(span)
+                                }
+                                None => value.into_value(span),
+                            };
+
+                        match output {
+                            Value::String { val, .. } => {
+                                if let Err(err) = file.write_all(val.as_bytes()) {
+                                    return Err(ShellError::IOError(err.to_string()));
+                                } else {
+                                    file.flush()?
+                                }
+
+                                Ok(PipelineData::new(span))
+                            }
+                            Value::Binary { val, .. } => {
+                                if let Err(err) = file.write_all(&val) {
+                                    return Err(ShellError::IOError(err.to_string()));
+                                } else {
+                                    file.flush()?
+                                }
+
+                                Ok(PipelineData::new(span))
+                            }
+                            Value::List { vals, .. } => {
+                                let val = vals
+                                    .into_iter()
+                                    .map(|it| it.as_string())
+                                    .collect::<Result<Vec<String>, ShellError>>()?
+                                    .join("\n")
+                                    + "\n";
+
+                                if let Err(err) = file.write_all(val.as_bytes()) {
+                                    return Err(ShellError::IOError(err.to_string()));
+                                } else {
+                                    file.flush()?
+                                }
+
+                                Ok(PipelineData::new(span))
+                            }
+                            v => Err(ShellError::UnsupportedInput(
+                                format!("{:?} not supported", v.get_type()),
+                                span,
+                            )),
+                        }
+                    } else {
+                        match value {
+                            PipelineData::ExternalStream { stdout: None, .. } => {
+                                Ok(PipelineData::new(span))
+                            }
+                            PipelineData::ExternalStream {
+                                stdout: Some(mut stream),
+                                ..
+                            } => {
+                                let mut writer = BufWriter::new(file);
+
+                                stream
+                                    .try_for_each(move |result| {
+                                        let buf = match result {
+                                            Ok(v) => match v {
+                                                Value::String { val, .. } => val.into_bytes(),
+                                                Value::Binary { val, .. } => val,
+                                                _ => {
+                                                    return Err(ShellError::UnsupportedInput(
+                                                        format!("{:?} not supported", v.get_type()),
+                                                        v.span()?,
+                                                    ));
+                                                }
+                                            },
+                                            Err(err) => return Err(err),
+                                        };
+
+                                        if let Err(err) = writer.write(&buf) {
+                                            return Err(ShellError::IOError(err.to_string()));
+                                        }
+                                        Ok(())
+                                    })
+                                    .map(|_| PipelineData::new(span))
+                            }
+                            value => match value.into_value(span) {
+                                Value::String { val, .. } => {
+                                    if let Err(err) = file.write_all(val.as_bytes()) {
+                                        return Err(ShellError::IOError(err.to_string()));
+                                    } else {
+                                        file.flush()?
+                                    }
+
+                                    Ok(PipelineData::new(span))
+                                }
+                                Value::Binary { val, .. } => {
+                                    if let Err(err) = file.write_all(&val) {
+                                        return Err(ShellError::IOError(err.to_string()));
+                                    } else {
+                                        file.flush()?
+                                    }
+
+                                    Ok(PipelineData::new(span))
+                                }
+                                Value::List { vals, .. } => {
+                                    let val = vals
+                                        .into_iter()
+                                        .map(|it| it.as_string())
+                                        .collect::<Result<Vec<String>, ShellError>>()?
+                                        .join("\n")
+                                        + "\n";
+
+                                    if let Err(err) = file.write_all(val.as_bytes()) {
+                                        return Err(ShellError::IOError(err.to_string()));
+                                    } else {
+                                        file.flush()?
+                                    }
+
+                                    Ok(PipelineData::new(span))
+                                }
+                                v => Err(ShellError::UnsupportedInput(
+                                    format!("{:?} not supported", v.get_type()),
+                                    span,
+                                )),
+                            },
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn examples(&self) -> Vec<Example> {

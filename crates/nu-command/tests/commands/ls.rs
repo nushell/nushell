@@ -245,6 +245,42 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
 }
 
 #[test]
+// TODO Remove this cfg value when we have an OS-agnostic way
+// of creating hidden files using the playground.
+#[cfg(unix)]
+fn glob_with_hidden_directory() {
+    Playground::setup("ls_test_8", |dirs, sandbox| {
+        sandbox.within(".dir_b").with_files(vec![
+            EmptyFile("andres.10.txt"),
+            EmptyFile("chicken_not_to_be_picked_up.100.txt"),
+            EmptyFile(".dotfile3"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls **/*
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "");
+        assert!(actual.err.contains("No matches found"));
+
+        // will list files if provide `-a` flag.
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls -a **/*
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "4");
+    })
+}
+
+#[test]
 #[cfg(unix)]
 fn fails_with_ls_to_dir_without_permission() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
