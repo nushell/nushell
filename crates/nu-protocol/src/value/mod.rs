@@ -605,7 +605,11 @@ impl Value {
     }
 
     /// Follow a given column path into the value: for example accessing select elements in a stream or list
-    pub fn follow_cell_path(self, cell_path: &[PathMember]) -> Result<Value, ShellError> {
+    pub fn follow_cell_path(
+        self,
+        cell_path: &[PathMember],
+        insensitive: bool,
+    ) -> Result<Value, ShellError> {
         let mut current = self;
         for member in cell_path {
             // FIXME: this uses a few extra clones for simplicity, but there may be a way
@@ -661,12 +665,13 @@ impl Value {
                         let span = *span;
 
                         // Make reverse iterate to avoid duplicate column leads to first value, actuall last value is expected.
-                        if let Some(found) = cols
-                            .iter()
-                            .zip(vals.iter())
-                            .rev()
-                            .find(|x| x.0 == column_name)
-                        {
+                        if let Some(found) = cols.iter().zip(vals.iter()).rev().find(|x| {
+                            if insensitive {
+                                x.0.to_lowercase() == column_name.to_lowercase()
+                            } else {
+                                x.0 == column_name
+                            }
+                        }) {
                             current = found.1.clone();
                         } else if let Some(suggestion) = did_you_mean(&cols, column_name) {
                             return Err(ShellError::DidYouMean(suggestion, *origin_span));
@@ -679,10 +684,13 @@ impl Value {
                         let mut hasvalue = false;
                         let mut temp: Result<Value, ShellError> = Err(ShellError::NotFound(*span));
                         for val in vals {
-                            temp = val.clone().follow_cell_path(&[PathMember::String {
-                                val: column_name.clone(),
-                                span: *origin_span,
-                            }]);
+                            temp = val.clone().follow_cell_path(
+                                &[PathMember::String {
+                                    val: column_name.clone(),
+                                    span: *origin_span,
+                                }],
+                                insensitive,
+                            );
                             if let Ok(result) = temp.clone() {
                                 hasvalue = true;
                                 output.push(result);
@@ -723,7 +731,7 @@ impl Value {
     ) -> Result<(), ShellError> {
         let orig = self.clone();
 
-        let new_val = callback(&orig.follow_cell_path(cell_path)?);
+        let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
 
         match new_val {
             Value::Error { error } => Err(error),
@@ -834,7 +842,7 @@ impl Value {
     ) -> Result<(), ShellError> {
         let orig = self.clone();
 
-        let new_val = callback(&orig.follow_cell_path(cell_path)?);
+        let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
 
         match new_val {
             Value::Error { error } => Err(error),

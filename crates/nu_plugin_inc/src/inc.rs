@@ -86,7 +86,7 @@ impl Inc {
     pub fn inc(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
         if let Some(cell_path) = &self.cell_path {
             let working_value = value.clone();
-            let cell_value = working_value.follow_cell_path(&cell_path.members)?;
+            let cell_value = working_value.follow_cell_path(&cell_path.members, false)?;
 
             let cell_value = self.inc_value(head, &cell_value)?;
 

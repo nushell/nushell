@@ -262,7 +262,7 @@ fn get_converted_value(
             val: block_id,
             span: from_span,
             ..
-        }) = env_conversions.follow_cell_path(path_members)
+        }) = env_conversions.follow_cell_path(path_members, false)
         {
             let block = engine_state.get_block(block_id);
 

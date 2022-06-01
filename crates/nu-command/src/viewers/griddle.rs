@@ -310,12 +310,13 @@ fn convert_to_list(
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
-                        Value::Record { .. } => {
-                            item.clone().follow_cell_path(&[PathMember::String {
+                        Value::Record { .. } => item.clone().follow_cell_path(
+                            &[PathMember::String {
                                 val: header.into(),
                                 span: head,
-                            }])
-                        }
+                            }],
+                            false,
+                        ),
                         _ => Ok(item.clone()),
                     };
 
