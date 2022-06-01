@@ -208,7 +208,7 @@ impl Signature {
         self
     }
 
-    /// Add a required positional argument to the signature
+    /// Add an optional positional argument to the signature
     pub fn optional(
         mut self,
         name: impl Into<String>,
