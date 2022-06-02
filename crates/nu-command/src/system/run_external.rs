@@ -72,19 +72,13 @@ impl Command for External {
         let mut spanned_args = vec![];
         for one_arg in args {
             match one_arg {
-                Value::List { vals, span } => {
+                Value::List { vals, .. } => {
                     // turn all the strings in the array into params.
                     // Example: one_arg may be something like ["ls" "-a"]
-                    // convert it to "ls -a"
-                    let mut sub_args = vec![];
+                    // convert it to "ls" "-a"
                     for v in vals {
-                        sub_args.push(v.as_string()?)
+                        spanned_args.push(value_as_spanned(v)?)
                     }
-                    let arg_as_string = sub_args.join(" ");
-                    spanned_args.push(Spanned {
-                        item: arg_as_string,
-                        span,
-                    })
                 }
                 val => spanned_args.push(value_as_spanned(val)?),
             }
