@@ -118,21 +118,21 @@ impl Command for ToHtml {
                 description: "Outputs an  HTML string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to html",
                 result: Some(Value::test_string(
-                    r#"<html><style>body { background-color:white;color:black; }</style><body><table><tr><th>foo</th><th>bar</th></tr><tr><td>1</td><td>2</td></tr></table></body></html>"#,
+                    r#"<html><style>body { background-color:white;color:black; }</style><body><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></body></html>"#,
                 )),
             },
             Example {
                 description: "Optionally, only output the html for the content itself",
                 example: "[[foo bar]; [1 2]] | to html --partial",
                 result: Some(Value::test_string(
-                    r#"<div style="background-color:white;color:black;"><table><tr><th>foo</th><th>bar</th></tr><tr><td>1</td><td>2</td></tr></table></div>"#,
+                    r#"<div style="background-color:white;color:black;"><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></div>"#,
                 )),
             },
             Example {
                 description: "Optionally, output the string with a dark background",
                 example: "[[foo bar]; [1 2]] | to html --dark",
                 result: Some(Value::test_string(
-                    r#"<html><style>body { background-color:black;color:white; }</style><body><table><tr><th>foo</th><th>bar</th></tr><tr><td>1</td><td>2</td></tr></table></body></html>"#,
+                    r#"<html><style>body { background-color:black;color:white; }</style><body><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></body></html>"#,
                 )),
             },
         ]
