@@ -294,7 +294,7 @@ pub fn parse_external_call(
             let (arg, err) = parse_dollar_expr(working_set, *span, expand_aliases_denylist);
             error = error.or(err);
             args.push(arg);
-        } else if contents.starts_with(b"(") {
+        } else if contents.starts_with(b"[") {
             let (arg, err) =
                 parse_full_cell_path(working_set, None, *span, expand_aliases_denylist);
             error = error.or(err);
