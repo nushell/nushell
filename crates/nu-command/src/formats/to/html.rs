@@ -360,13 +360,13 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
 
     output_string.push_str("<table>");
 
-    output_string.push_str("<tr>");
+    output_string.push_str("<thead><tr>");
     for header in &headers {
         output_string.push_str("<th>");
         output_string.push_str(&htmlescape::encode_minimal(header));
         output_string.push_str("</th>");
     }
-    output_string.push_str("</tr>");
+    output_string.push_str("</tr></thead><tbody>");
 
     for row in table {
         if let Value::Record { span, .. } = row {
@@ -383,7 +383,7 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
             output_string.push_str("</tr>");
         }
     }
-    output_string.push_str("</table>");
+    output_string.push_str("</tbody></table>");
 
     output_string
 }
