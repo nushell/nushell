@@ -295,8 +295,12 @@ pub fn parse_external_call(
             error = error.or(err);
             args.push(arg);
         } else if contents.starts_with(b"[") {
-            let (arg, err) =
-                parse_full_cell_path(working_set, None, *span, expand_aliases_denylist);
+            let (arg, err) = parse_list_expression(
+                working_set,
+                *span,
+                &SyntaxShape::Any,
+                expand_aliases_denylist,
+            );
             error = error.or(err);
             args.push(arg);
         } else {
