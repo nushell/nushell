@@ -51,7 +51,7 @@ impl Command for Watch {
             .named(
                 "recursive",
                 SyntaxShape::Boolean,
-                "Watch all directories under `path` recursively. Will be ignored if `path` is a file (default: true)",
+                "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true)",
                 Some('r'),
             )
             .switch("verbose", "Operate in verbose mode (default: false)", Some('v'))
