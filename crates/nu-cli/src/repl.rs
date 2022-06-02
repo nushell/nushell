@@ -19,8 +19,9 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::{sync::atomic::Ordering, time::Instant};
 
-const PRE_EXECUTE_MARKER: &str = "\x1b]133;A\x1b\\";
-const PRE_PROMPT_MARKER: &str = "\x1b]133;C\x1b\\";
+const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
+const PRE_EXECUTE_MARKER: &str = "\x1b]133;C\x1b\\";
+const CMD_FINISHED_MARKER: &str = "\x1b]133;D\x1b\\";
 const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 pub fn evaluate_repl(
@@ -272,8 +273,9 @@ pub fn evaluate_repl(
 
         config = engine_state.get_config();
 
-        if config.shell_integration {
-            run_ansi_sequence(PRE_EXECUTE_MARKER)?;
+        let shell_integration = config.shell_integration;
+        if shell_integration {
+            run_ansi_sequence(PRE_PROMPT_MARKER)?;
         }
 
         let prompt =
@@ -303,9 +305,9 @@ pub fn evaluate_repl(
                     }
                 }
 
-                if config.shell_integration {
+                if shell_integration {
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
-                    run_ansi_sequence(PRE_PROMPT_MARKER)?;
+                    run_ansi_sequence(PRE_EXECUTE_MARKER)?;
                     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
                         let path = cwd.as_string()?;
                         // Try to abbreviate string for windows title
@@ -411,12 +413,23 @@ pub fn evaluate_repl(
                     let _ = std::env::set_current_dir(path);
                     engine_state.add_env_var("PWD".into(), cwd);
                 }
+
+                if shell_integration {
+                    // FIXME: use variant with exit code, if apropriate
+                    run_ansi_sequence(CMD_FINISHED_MARKER)?;
+                }
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
+                if shell_integration {
+                    run_ansi_sequence(CMD_FINISHED_MARKER)?;
+                }
             }
             Ok(Signal::CtrlD) => {
                 // When exiting clear to a new line
+                if shell_integration {
+                    run_ansi_sequence(CMD_FINISHED_MARKER)?;
+                }
                 println!();
                 break;
             }
@@ -424,6 +437,9 @@ pub fn evaluate_repl(
                 let message = err.to_string();
                 if !message.contains("duration") {
                     println!("Error: {:?}", err);
+                }
+                if shell_integration {
+                    run_ansi_sequence(CMD_FINISHED_MARKER)?;
                 }
             }
         }
