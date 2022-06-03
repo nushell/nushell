@@ -13,9 +13,11 @@ use nu_protocol::{
 };
 use pathdiff::diff_paths;
 
+#[cfg(windows)]
 use std::mem::MaybeUninit;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+#[cfg(windows)]
 use std::os::windows::prelude::OsStrExt;
 use std::path::PathBuf;
 use std::sync::Arc;
