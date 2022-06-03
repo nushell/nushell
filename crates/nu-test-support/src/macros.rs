@@ -121,7 +121,7 @@ macro_rules! nu_with_plugins {
         pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
-        pub use crate::NATIVE_PATH_ENV_VAR;
+        pub use $crate::NATIVE_PATH_ENV_VAR;
 
         let commands = &*format!(
             "
