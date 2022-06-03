@@ -107,6 +107,15 @@ features = [
 	"dynamic_groupby"
 ]
 
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.37.0"
+features = [
+    "alloc",
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+	"Win32_System_SystemServices",
+]
+
 [features]
 trash-support = ["trash"]
 which-support = ["which"]
