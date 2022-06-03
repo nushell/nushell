@@ -503,6 +503,7 @@ pub fn draw_table(
         return format!("Couldn't fit table into {} columns!", termwidth);
     }
 
+    let raw_termwidth = termwidth;
     let termwidth = termwidth - edges_width;
 
     let mut processed_table = process_table(table);
@@ -533,12 +534,15 @@ pub fn draw_table(
     let max_column_width = column_space.max_width(termwidth);
 
     // This width isn't quite right, as we're rounding off some of our space
-    let column_space = column_space.fix_almost_column_width(
-        &max_per_column,
-        max_naive_column_width,
-        max_column_width,
-        headers_len,
-    );
+    let column_space = match max_column_width {
+        None => return format!("Couldn't fit table into {} columns!", raw_termwidth),
+        Some(max_column_width) => column_space.fix_almost_column_width(
+            &max_per_column,
+            max_naive_column_width,
+            max_column_width,
+            headers_len,
+        ),
+    };
 
     // This should give us the final max column width
     let max_column_width = column_space.max_width(termwidth);
@@ -547,13 +551,16 @@ pub fn draw_table(
     let re_trailing =
         regex::Regex::new(r"(?P<endsp>\s+$)").expect("error with trailing space regex");
 
-    let wrapped_table = wrap_cells(
-        processed_table,
-        max_column_width,
-        color_hm,
-        &re_leading,
-        &re_trailing,
-    );
+    let wrapped_table = match max_column_width {
+        None => return format!("Couldn't fit table into {} columns!", raw_termwidth),
+        Some(max_column_width) => wrap_cells(
+            processed_table,
+            max_column_width,
+            color_hm,
+            &re_leading,
+            &re_trailing,
+        ),
+    };
 
     wrapped_table.print_table(color_hm, config)
 }
@@ -743,7 +750,7 @@ impl ColumnSpace {
         }
     }
 
-    fn max_width(&self, termwidth: usize) -> usize {
+    fn max_width(&self, termwidth: usize) -> Option<usize> {
         let ColumnSpace {
             num_overages,
             underage_sum,
@@ -751,9 +758,13 @@ impl ColumnSpace {
         } = self;
 
         if *num_overages > 0 {
-            (termwidth - 1 - *underage_sum - *overage_separator_sum) / *num_overages
+            termwidth
+                .checked_sub(1)?
+                .checked_sub(*underage_sum)?
+                .checked_sub(*overage_separator_sum)?
+                .checked_div(*num_overages)
         } else {
-            99999
+            Some(99999)
         }
     }
 }
