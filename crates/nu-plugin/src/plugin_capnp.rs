@@ -2278,7 +2278,7 @@ pub mod signature {
 }
 
 #[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Category {
     Default = 0,
     Conversions = 1,
@@ -2841,7 +2841,7 @@ pub mod argument {
 }
 
 #[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shape {
     None = 0,
     Any = 1,

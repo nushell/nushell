@@ -37,7 +37,7 @@ pub struct PositionalArg {
     pub default_value: Option<Expression>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Category {
     Default,
     Conversions,

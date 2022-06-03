@@ -13,7 +13,7 @@ use serde::de;
 use serde::ser;
 
 /// The errors that can arise while parsing a JSON stream.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum ErrorCode {
     /// Catchall for syntax error messages
     Custom(String),

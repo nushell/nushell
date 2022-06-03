@@ -518,7 +518,7 @@ enum PatternToken {
 }
 
 #[allow(clippy::enum_variant_names)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 enum MatchResult {
     Match,
     SubPatternDoesntMatch,
