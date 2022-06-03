@@ -20,6 +20,10 @@ impl NuHelpCompleter {
                 sig.name.to_lowercase().contains(&line.to_lowercase())
                     || sig.usage.to_lowercase().contains(&line.to_lowercase())
                     || sig
+                        .search_terms
+                        .iter()
+                        .any(|term| term.to_lowercase().contains(&line.to_lowercase()))
+                    || sig
                         .extra_usage
                         .to_lowercase()
                         .contains(&line.to_lowercase())
