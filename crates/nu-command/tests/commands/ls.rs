@@ -393,38 +393,47 @@ fn list_all_columns() {
 }
 
 /// Rust's fs::metadata function is unable to read info for certain system files on Windows,
-/// like  `C:\pagefile.sys`: https://github.com/rust-lang/rust/issues/96980
+/// like the `C:\Windows\System32\Configuration` folder. https://github.com/rust-lang/rust/issues/96980
 /// This test confirms that Nu can work around this successfully.
 #[test]
 #[cfg(windows)]
-fn can_list_pagefile() {
+fn can_list_system_folder() {
+    // the awkward `ls Configuration* | where name == "Configuration"` thing is for speed;
+    // listing the entire System32 folder is slow and `ls Configuration*` alone
+    // might return more than 1 file someday
     let file_type = nu!(
-        cwd: "C:\\", pipeline(
-        r#"ls | where name =~ "pagefile.sys" | get type.0"#
+        cwd: "C:\\Windows\\System32", pipeline(
+        r#"ls Configuration* | where name == "Configuration" | get type.0"#
     ));
-    assert_eq!(file_type.out, "file");
+    assert_eq!(file_type.out, "dir");
 
     let file_size = nu!(
-        cwd: "C:\\", pipeline(
-        r#"ls | where name =~ "pagefile.sys" | get size.0"#
+        cwd: "C:\\Windows\\System32", pipeline(
+        r#"ls Configuration* | where name == "Configuration" | get size.0"#
     ));
     assert!(file_size.out.trim() != "");
 
     let file_modified = nu!(
-        cwd: "C:\\", pipeline(
-        r#"ls | where name =~ "pagefile.sys" | get modified.0"#
+        cwd: "C:\\Windows\\System32", pipeline(
+        r#"ls Configuration* | where name == "Configuration" | get modified.0"#
     ));
     assert!(file_modified.out.trim() != "");
 
     let file_accessed = nu!(
-        cwd: "C:\\", pipeline(
-        r#"ls -l | where name =~ "pagefile.sys" | get accessed.0"#
+        cwd: "C:\\Windows\\System32", pipeline(
+        r#"ls -l Configuration* | where name == "Configuration" | get accessed.0"#
     ));
     assert!(file_accessed.out.trim() != "");
 
     let file_created = nu!(
-        cwd: "C:\\", pipeline(
-        r#"ls -l | where name =~ "pagefile.sys" | get created.0"#
+        cwd: "C:\\Windows\\System32", pipeline(
+        r#"ls -l Configuration* | where name == "Configuration" | get created.0"#
     ));
     assert!(file_created.out.trim() != "");
+
+    let ls_with_filter = nu!(
+        cwd: "C:\\Windows\\System32", pipeline(
+        r#"ls | where size > 10mb"#
+    ));
+    assert_eq!(ls_with_filter.err, "");
 }
