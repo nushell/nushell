@@ -17,7 +17,7 @@ fn variables_completions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for $nu
-    let suggestions = completer.complete("$nu.".into(), 4);
+    let suggestions = completer.complete("$nu.", 4);
 
     assert_eq!(8, suggestions.len());
 
@@ -36,7 +36,7 @@ fn variables_completions() {
     match_suggestions(expected, suggestions);
 
     // Test completions for $nu.h (filter)
-    let suggestions = completer.complete("$nu.h".into(), 5);
+    let suggestions = completer.complete("$nu.h", 5);
 
     assert_eq!(2, suggestions.len());
 
@@ -46,7 +46,7 @@ fn variables_completions() {
     match_suggestions(expected, suggestions);
 
     // Test completions for custom var
-    let suggestions = completer.complete("$actor.".into(), 7);
+    let suggestions = completer.complete("$actor.", 7);
 
     assert_eq!(2, suggestions.len());
 
@@ -56,7 +56,7 @@ fn variables_completions() {
     match_suggestions(expected, suggestions);
 
     // Test completions for custom var (filtering)
-    let suggestions = completer.complete("$actor.n".into(), 7);
+    let suggestions = completer.complete("$actor.n", 7);
 
     assert_eq!(1, suggestions.len());
 
@@ -66,7 +66,7 @@ fn variables_completions() {
     match_suggestions(expected, suggestions);
 
     // Test completions for $env
-    let suggestions = completer.complete("$env.".into(), 5);
+    let suggestions = completer.complete("$env.", 5);
 
     assert_eq!(2, suggestions.len());
 
@@ -76,7 +76,7 @@ fn variables_completions() {
     match_suggestions(expected, suggestions);
 
     // Test completions for $env
-    let suggestions = completer.complete("$env.T".into(), 5);
+    let suggestions = completer.complete("$env.T", 5);
 
     assert_eq!(1, suggestions.len());
 

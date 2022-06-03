@@ -156,10 +156,7 @@ pub fn parse_binary_with_invalid_octal_format() {
     assert!(block.len() == 1);
     let expressions = &block[0];
     assert!(expressions.len() == 1);
-    assert!(match &expressions[0].expr {
-        Expr::Binary(_) => false,
-        _ => true,
-    })
+    assert!(!matches!(&expressions[0].expr, Expr::Binary(_)))
 }
 
 #[test]
