@@ -13,25 +13,11 @@ use nu_protocol::{
 };
 use pathdiff::diff_paths;
 
-#[cfg(windows)]
-use std::mem::MaybeUninit;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-#[cfg(windows)]
-use std::os::windows::prelude::OsStrExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-
-#[cfg(windows)]
-use windows::Win32::Foundation::FILETIME;
-#[cfg(windows)]
-use windows::Win32::Storage::FileSystem::{
-    FindFirstFileW, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_READONLY,
-    FILE_ATTRIBUTE_REPARSE_POINT, WIN32_FIND_DATAW,
-};
-#[cfg(windows)]
-use windows::Win32::System::SystemServices::{IO_REPARSE_TAG_MOUNT_POINT, IO_REPARSE_TAG_SYMLINK};
 
 #[derive(Clone)]
 pub struct Ls;
@@ -377,7 +363,7 @@ pub(crate) fn dir_entry_dict(
 ) -> Result<Value, ShellError> {
     #[cfg(windows)]
     if metadata.is_none() {
-        return dir_entry_dict_windows_fallback(filename, display_name, span, long);
+        return windows_helper::dir_entry_dict_windows_fallback(filename, display_name, span, long);
     }
 
     let mut cols = vec![];
@@ -588,178 +574,6 @@ pub(crate) fn dir_entry_dict(
     Ok(Value::Record { cols, vals, span })
 }
 
-#[cfg(windows)]
-/// A secondary way to get file info on Windows, for when std::fs::symlink_metadata() fails.
-/// dir_entry_dict depends on metadata, but that can't be retrieved for some Windows system files:
-/// https://github.com/rust-lang/rust/issues/96980
-fn dir_entry_dict_windows_fallback(
-    filename: &Path,
-    display_name: &str,
-    span: Span,
-    long: bool,
-) -> Result<Value, ShellError> {
-    let mut cols = vec![];
-    let mut vals = vec![];
-
-    cols.push("name".into());
-    vals.push(Value::String {
-        val: display_name.to_string(),
-        span,
-    });
-
-    let find_data = find_first_file(filename, span)?;
-
-    cols.push("type".into());
-    vals.push(Value::String {
-        val: get_file_type_windows_fallback(&find_data),
-        span,
-    });
-
-    if long {
-        cols.push("target".into());
-        if is_symlink(&find_data) {
-            if let Ok(path_to_link) = filename.read_link() {
-                vals.push(Value::String {
-                    val: path_to_link.to_string_lossy().to_string(),
-                    span,
-                });
-            } else {
-                vals.push(Value::String {
-                    val: "Could not obtain target file's path".to_string(),
-                    span,
-                });
-            }
-        } else {
-            vals.push(Value::nothing(span));
-        }
-
-        cols.push("readonly".into());
-        vals.push(Value::Bool {
-            val: (find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY.0 != 0),
-            span,
-        });
-    }
-
-    cols.push("size".to_string());
-    let file_size = (find_data.nFileSizeHigh as u64) << 32 | find_data.nFileSizeLow as u64;
-    vals.push(Value::Filesize {
-        val: file_size as i64,
-        span,
-    });
-
-    if long {
-        cols.push("created".to_string());
-        {
-            let mut val = Value::nothing(span);
-            let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftCreationTime);
-            if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                val = Value::Date {
-                    val: local.with_timezone(local.offset()),
-                    span,
-                };
-            }
-            vals.push(val);
-        }
-
-        cols.push("accessed".to_string());
-        {
-            let mut val = Value::nothing(span);
-            let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastAccessTime);
-            if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                val = Value::Date {
-                    val: local.with_timezone(local.offset()),
-                    span,
-                };
-            }
-            vals.push(val);
-        }
-    }
-
-    cols.push("modified".to_string());
-    {
-        let mut val = Value::nothing(span);
-        let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastWriteTime);
-        if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-            val = Value::Date {
-                val: local.with_timezone(local.offset()),
-                span,
-            };
-        }
-        vals.push(val);
-    }
-
-    Ok(Value::Record { cols, vals, span })
-}
-
-#[cfg(windows)]
-fn unix_time_from_filetime(ft: &FILETIME) -> i64 {
-    /// January 1, 1970 as Windows file time
-    const EPOCH_AS_FILETIME: u64 = 116444736000000000;
-    const HUNDREDS_OF_NANOSECONDS: u64 = 10000000;
-
-    let time_u64 = ((ft.dwHighDateTime as u64) << 32) | (ft.dwLowDateTime as u64);
-    let rel_to_linux_epoch = time_u64 - EPOCH_AS_FILETIME;
-    let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
-
-    seconds_since_unix_epoch as i64
-}
-
-#[cfg(windows)]
-// wrapper around the FindFirstFileW Win32 API
-fn find_first_file(filename: &Path, span: Span) -> Result<WIN32_FIND_DATAW, ShellError> {
-    unsafe {
-        let mut find_data = MaybeUninit::<WIN32_FIND_DATAW>::uninit();
-        // The windows crate really needs a nicer way to do string conversions
-        let filename_wide: Vec<u16> = filename
-            .as_os_str()
-            .encode_wide()
-            .chain(std::iter::once(0))
-            .collect();
-
-        if FindFirstFileW(
-            windows::core::PCWSTR(filename_wide.as_ptr()),
-            find_data.as_mut_ptr(),
-        )
-        .is_err()
-        {
-            return Err(ShellError::ReadingFile(
-                "Could not read file metadata".to_string(),
-                span,
-            ));
-        }
-
-        let find_data = find_data.assume_init();
-        Ok(find_data)
-    }
-}
-
-#[cfg(windows)]
-fn get_file_type_windows_fallback(find_data: &WIN32_FIND_DATAW) -> String {
-    if find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0 {
-        return "dir".to_string();
-    }
-
-    if is_symlink(find_data) {
-        return "symlink".to_string();
-    }
-
-    "file".to_string()
-}
-
-#[cfg(windows)]
-fn is_symlink(find_data: &WIN32_FIND_DATAW) -> bool {
-    if find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
-        // Follow Golang's lead in treating mount points as symlinks.
-        // https://github.com/golang/go/blob/016d7552138077741a9c3fdadc73c0179f5d3ff7/src/os/types_windows.go#L104-L105
-        if find_data.dwReserved0 == IO_REPARSE_TAG_SYMLINK
-            || find_data.dwReserved0 == IO_REPARSE_TAG_MOUNT_POINT
-        {
-            return true;
-        }
-    }
-    false
-}
-
 // TODO: can we get away from local times in `ls`? internals might be cleaner if we worked in UTC
 // and left the conversion to local time to the display layer
 fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
@@ -790,5 +604,188 @@ fn unix_time_to_local_date_time(secs: i64) -> Option<DateTime<Local>> {
     match Utc.timestamp_opt(secs, 0) {
         LocalResult::Single(t) => Some(t.with_timezone(&Local)),
         _ => None,
+    }
+}
+
+#[cfg(windows)]
+mod windows_helper {
+    use super::*;
+
+    use std::mem::MaybeUninit;
+    use std::os::windows::prelude::OsStrExt;
+    use windows::Win32::Foundation::FILETIME;
+    use windows::Win32::Storage::FileSystem::{
+        FindFirstFileW, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_READONLY,
+        FILE_ATTRIBUTE_REPARSE_POINT, WIN32_FIND_DATAW,
+    };
+    use windows::Win32::System::SystemServices::{
+        IO_REPARSE_TAG_MOUNT_POINT, IO_REPARSE_TAG_SYMLINK,
+    };
+
+    /// A secondary way to get file info on Windows, for when std::fs::symlink_metadata() fails.
+    /// dir_entry_dict depends on metadata, but that can't be retrieved for some Windows system files:
+    /// https://github.com/rust-lang/rust/issues/96980
+    pub fn dir_entry_dict_windows_fallback(
+        filename: &Path,
+        display_name: &str,
+        span: Span,
+        long: bool,
+    ) -> Result<Value, ShellError> {
+        let mut cols = vec![];
+        let mut vals = vec![];
+
+        cols.push("name".into());
+        vals.push(Value::String {
+            val: display_name.to_string(),
+            span,
+        });
+
+        let find_data = find_first_file(filename, span)?;
+
+        cols.push("type".into());
+        vals.push(Value::String {
+            val: get_file_type_windows_fallback(&find_data),
+            span,
+        });
+
+        if long {
+            cols.push("target".into());
+            if is_symlink(&find_data) {
+                if let Ok(path_to_link) = filename.read_link() {
+                    vals.push(Value::String {
+                        val: path_to_link.to_string_lossy().to_string(),
+                        span,
+                    });
+                } else {
+                    vals.push(Value::String {
+                        val: "Could not obtain target file's path".to_string(),
+                        span,
+                    });
+                }
+            } else {
+                vals.push(Value::nothing(span));
+            }
+
+            cols.push("readonly".into());
+            vals.push(Value::Bool {
+                val: (find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY.0 != 0),
+                span,
+            });
+        }
+
+        cols.push("size".to_string());
+        let file_size = (find_data.nFileSizeHigh as u64) << 32 | find_data.nFileSizeLow as u64;
+        vals.push(Value::Filesize {
+            val: file_size as i64,
+            span,
+        });
+
+        if long {
+            cols.push("created".to_string());
+            {
+                let mut val = Value::nothing(span);
+                let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftCreationTime);
+                if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
+                    val = Value::Date {
+                        val: local.with_timezone(local.offset()),
+                        span,
+                    };
+                }
+                vals.push(val);
+            }
+
+            cols.push("accessed".to_string());
+            {
+                let mut val = Value::nothing(span);
+                let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastAccessTime);
+                if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
+                    val = Value::Date {
+                        val: local.with_timezone(local.offset()),
+                        span,
+                    };
+                }
+                vals.push(val);
+            }
+        }
+
+        cols.push("modified".to_string());
+        {
+            let mut val = Value::nothing(span);
+            let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastWriteTime);
+            if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
+                val = Value::Date {
+                    val: local.with_timezone(local.offset()),
+                    span,
+                };
+            }
+            vals.push(val);
+        }
+
+        Ok(Value::Record { cols, vals, span })
+    }
+
+    fn unix_time_from_filetime(ft: &FILETIME) -> i64 {
+        /// January 1, 1970 as Windows file time
+        const EPOCH_AS_FILETIME: u64 = 116444736000000000;
+        const HUNDREDS_OF_NANOSECONDS: u64 = 10000000;
+
+        let time_u64 = ((ft.dwHighDateTime as u64) << 32) | (ft.dwLowDateTime as u64);
+        let rel_to_linux_epoch = time_u64 - EPOCH_AS_FILETIME;
+        let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
+
+        seconds_since_unix_epoch as i64
+    }
+
+    // wrapper around the FindFirstFileW Win32 API
+    fn find_first_file(filename: &Path, span: Span) -> Result<WIN32_FIND_DATAW, ShellError> {
+        unsafe {
+            let mut find_data = MaybeUninit::<WIN32_FIND_DATAW>::uninit();
+            // The windows crate really needs a nicer way to do string conversions
+            let filename_wide: Vec<u16> = filename
+                .as_os_str()
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect();
+
+            if FindFirstFileW(
+                windows::core::PCWSTR(filename_wide.as_ptr()),
+                find_data.as_mut_ptr(),
+            )
+            .is_err()
+            {
+                return Err(ShellError::ReadingFile(
+                    "Could not read file metadata".to_string(),
+                    span,
+                ));
+            }
+
+            let find_data = find_data.assume_init();
+            Ok(find_data)
+        }
+    }
+
+    fn get_file_type_windows_fallback(find_data: &WIN32_FIND_DATAW) -> String {
+        if find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0 {
+            return "dir".to_string();
+        }
+
+        if is_symlink(find_data) {
+            return "symlink".to_string();
+        }
+
+        "file".to_string()
+    }
+
+    fn is_symlink(find_data: &WIN32_FIND_DATAW) -> bool {
+        if find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
+            // Follow Golang's lead in treating mount points as symlinks.
+            // https://github.com/golang/go/blob/016d7552138077741a9c3fdadc73c0179f5d3ff7/src/os/types_windows.go#L104-L105
+            if find_data.dwReserved0 == IO_REPARSE_TAG_SYMLINK
+                || find_data.dwReserved0 == IO_REPARSE_TAG_MOUNT_POINT
+            {
+                return true;
+            }
+        }
+        false
     }
 }
