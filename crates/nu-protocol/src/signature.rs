@@ -11,6 +11,7 @@ use crate::PipelineData;
 use crate::ShellError;
 use crate::SyntaxShape;
 use crate::VarId;
+use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Flag {
@@ -345,7 +346,7 @@ impl Signature {
         }
 
         if let Some(rest) = &self.rest_positional {
-            one_liner.push_str(&format!("...{}", get_positional_short_name(rest, false)));
+            let _ = write!(one_liner, "...{}", get_positional_short_name(rest, false));
         }
 
         // if !self.subcommands.is_empty() {

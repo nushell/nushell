@@ -1,6 +1,7 @@
 use nu_engine::documentation::get_flags_section;
 use nu_protocol::{engine::EngineState, levenshtein_distance};
 use reedline::{Completer, Suggestion};
+use std::fmt::Write;
 use std::sync::Arc;
 
 pub struct NuHelpCompleter(Arc<EngineState>);
@@ -53,7 +54,7 @@ impl NuHelpCompleter {
                     long_desc.push_str("\r\n\r\n");
                 }
 
-                long_desc.push_str(&format!("Usage:\r\n  > {}\r\n", sig.call_signature()));
+                let _ = write!(long_desc, "Usage:\r\n  > {}\r\n", sig.call_signature());
 
                 if !sig.named.is_empty() {
                     long_desc.push_str(&get_flags_section(sig))
@@ -65,21 +66,22 @@ impl NuHelpCompleter {
                 {
                     long_desc.push_str("\r\nParameters:\r\n");
                     for positional in &sig.required_positional {
-                        long_desc
-                            .push_str(&format!("  {}: {}\r\n", positional.name, positional.desc));
+                        let _ = write!(long_desc, "  {}: {}\r\n", positional.name, positional.desc);
                     }
                     for positional in &sig.optional_positional {
-                        long_desc.push_str(&format!(
+                        let _ = write!(
+                            long_desc,
                             "  (optional) {}: {}\r\n",
                             positional.name, positional.desc
-                        ));
+                        );
                     }
 
                     if let Some(rest_positional) = &sig.rest_positional {
-                        long_desc.push_str(&format!(
+                        let _ = write!(
+                            long_desc,
                             "  ...{}: {}\r\n",
                             rest_positional.name, rest_positional.desc
-                        ));
+                        );
                     }
                 }
 
