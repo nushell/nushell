@@ -87,7 +87,7 @@ fn exec(
         redirect_stderr: false,
     };
 
-    let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy().to_string())?;
+    let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy())?;
     command.current_dir(current_dir);
 
     let err = command.exec(); // this replaces our process, should not return
