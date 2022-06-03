@@ -784,6 +784,8 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
     }
 }
 
+// #[cfg(windows)] is just to make Clippy happy, remove if you ever want to use this on other platforms
+#[cfg(windows)]
 fn unix_time_to_local_date_time(secs: i64) -> Option<DateTime<Local>> {
     match Utc.timestamp_opt(secs, 0) {
         LocalResult::Single(t) => Some(t.with_timezone(&Local)),
