@@ -974,7 +974,7 @@ struct VariantDeserializer {
     val: Option<Value>,
 }
 
-impl<'de, 'a> de::VariantAccess<'de> for VariantDeserializer {
+impl<'de> de::VariantAccess<'de> for VariantDeserializer {
     type Error = Error;
 
     fn unit_variant(self) -> Result<()> {
@@ -1062,7 +1062,7 @@ struct MapDeserializer {
     value: Option<Value>,
 }
 
-impl<'de, 'a> de::MapAccess<'de> for MapDeserializer {
+impl<'de> de::MapAccess<'de> for MapDeserializer {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>

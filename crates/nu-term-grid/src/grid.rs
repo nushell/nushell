@@ -138,7 +138,7 @@ pub enum Alignment {
 /// The easiest way to create a Cell is just by using `string.into()`, which
 /// uses the **unicode width** of the string (see the `unicode_width` crate).
 /// However, the fields are public, if you wish to provide your own length.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Cell {
     /// The string to display when this cell gets rendered.
     pub contents: String,
@@ -171,7 +171,7 @@ impl<'a> From<&'a str> for Cell {
 }
 
 /// Direction cells should be written in — either across, or downwards.
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum Direction {
     /// Starts at the top left and moves rightwards, going back to the first
     /// column for a new row, like a typewriter.
@@ -187,7 +187,7 @@ pub type Width = usize;
 
 /// The text to put in between each pair of columns.
 /// This does not include any spaces used when aligning cells.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum Filling {
     /// A certain number of spaces should be used as the separator.
     Spaces(Width),
@@ -208,7 +208,7 @@ impl Filling {
 
 /// The user-assignable options for a grid view that should be passed to
 /// [`Grid::new()`](struct.Grid.html#method.new).
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct GridOptions {
     /// The direction that the cells should be written in — either
     /// across, or downwards.
@@ -218,7 +218,7 @@ pub struct GridOptions {
     pub filling: Filling,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 struct Dimensions {
     /// The number of lines in the grid.
     num_lines: Width,

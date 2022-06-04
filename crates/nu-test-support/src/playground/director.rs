@@ -2,6 +2,7 @@ use super::nu_process::*;
 use super::EnvironmentVariable;
 use std::ffi::OsString;
 use std::fmt;
+use std::fmt::Write;
 
 #[derive(Default, Debug)]
 pub struct Director {
@@ -94,7 +95,7 @@ impl Executable for Director {
                         if !commands.is_empty() {
                             commands.push_str("| ");
                         }
-                        commands.push_str(&format!("{}\n", pipeline));
+                        let _ = writeln!(commands, "{}", pipeline);
                     }
                 }
 

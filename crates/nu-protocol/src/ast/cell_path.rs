@@ -1,6 +1,7 @@
 use super::Expression;
 use crate::Span;
 use serde::{Deserialize, Serialize};
+use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialOrd, Serialize, Deserialize)]
 pub enum PathMember {
@@ -32,7 +33,9 @@ impl CellPath {
                 output.push('.');
             }
             match elem {
-                PathMember::Int { val, .. } => output.push_str(&format!("{}", val)),
+                PathMember::Int { val, .. } => {
+                    let _ = write!(output, "{}", val);
+                }
                 PathMember::String { val, .. } => output.push_str(val),
             }
         }

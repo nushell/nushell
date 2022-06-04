@@ -3,6 +3,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Example, IntoPipelineData, Signature, Span, Value,
 };
+use std::fmt::Write;
 
 pub fn get_full_help(
     sig: &Signature,
@@ -62,13 +63,14 @@ fn get_documentation(
     }
 
     if !sig.search_terms.is_empty() {
-        long_desc.push_str(&format!(
+        let _ = write!(
+            long_desc,
             "Search terms: {}\n\n",
             sig.search_terms.join(", ")
-        ));
+        );
     }
 
-    long_desc.push_str(&format!("Usage:\n  > {}\n", sig.call_signature()));
+    let _ = write!(long_desc, "Usage:\n  > {}\n", sig.call_signature());
 
     if !subcommands.is_empty() {
         long_desc.push_str("\nSubcommands:\n");
@@ -87,23 +89,26 @@ fn get_documentation(
     {
         long_desc.push_str("\nParameters:\n");
         for positional in &sig.required_positional {
-            long_desc.push_str(&format!(
-                "  {} <{:?}>: {}\n",
+            let _ = writeln!(
+                long_desc,
+                "  {} <{:?}>: {}",
                 positional.name, positional.shape, positional.desc
-            ));
+            );
         }
         for positional in &sig.optional_positional {
-            long_desc.push_str(&format!(
-                "  (optional) {} <{:?}>: {}\n",
+            let _ = writeln!(
+                long_desc,
+                "  (optional) {} <{:?}>: {}",
                 positional.name, positional.shape, positional.desc
-            ));
+            );
         }
 
         if let Some(rest_positional) = &sig.rest_positional {
-            long_desc.push_str(&format!(
-                "  ...{} <{:?}>: {}\n",
+            let _ = writeln!(
+                long_desc,
+                "  ...{} <{:?}>: {}",
                 rest_positional.name, rest_positional.shape, rest_positional.desc
-            ));
+            );
         }
     }
 
@@ -117,7 +122,7 @@ fn get_documentation(
         long_desc.push_str(example.description);
 
         if config.no_color {
-            long_desc.push_str(&format!("\n  > {}\n", example.example));
+            let _ = write!(long_desc, "\n  > {}\n", example.example);
         } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
             let decl = engine_state.get_decl(highlighter);
 
@@ -135,19 +140,19 @@ fn get_documentation(
                     let result = output.into_value(Span { start: 0, end: 0 });
                     match result.as_string() {
                         Ok(s) => {
-                            long_desc.push_str(&format!("\n  > {}\n", s));
+                            let _ = write!(long_desc, "\n  > {}\n", s);
                         }
                         _ => {
-                            long_desc.push_str(&format!("\n  > {}\n", example.example));
+                            let _ = write!(long_desc, "\n  > {}\n", example.example);
                         }
                     }
                 }
                 Err(_) => {
-                    long_desc.push_str(&format!("\n  > {}\n", example.example));
+                    let _ = write!(long_desc, "\n  > {}\n", example.example);
                 }
             }
         } else {
-            long_desc.push_str(&format!("\n  > {}\n", example.example));
+            let _ = write!(long_desc, "\n  > {}\n", example.example);
         }
     }
 

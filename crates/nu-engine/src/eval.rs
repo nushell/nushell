@@ -1108,7 +1108,7 @@ pub fn create_scope(
                 if !alias_text.is_empty() {
                     alias_text.push(' ');
                 }
-                alias_text.push_str(&String::from_utf8_lossy(contents).to_string());
+                alias_text.push_str(&String::from_utf8_lossy(contents));
             }
             aliases.push((
                 Value::String {

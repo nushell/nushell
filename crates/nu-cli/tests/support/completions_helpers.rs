@@ -89,7 +89,7 @@ pub fn merge_input(
     dir: PathBuf,
 ) -> Result<(), ShellError> {
     let (block, delta) = {
-        let mut working_set = StateWorkingSet::new(&engine_state);
+        let mut working_set = StateWorkingSet::new(engine_state);
 
         let (block, err) = parse(&mut working_set, None, input, false, &[]);
 
@@ -98,7 +98,7 @@ pub fn merge_input(
         (block, working_set.render())
     };
     assert!(eval_block(
-        &engine_state,
+        engine_state,
         stack,
         &block,
         PipelineData::Value(

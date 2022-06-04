@@ -294,7 +294,7 @@ fn cell_content(element: ElementRef) -> String {
     let frag = Html::parse_fragment(&element);
     for node in frag.tree {
         if let scraper::node::Node::Text(text) = node {
-            dehtmlize.push_str(&text.text.to_string())
+            dehtmlize.push_str(&text.text)
         }
     }
 
@@ -314,7 +314,7 @@ fn contains_str(slice: &[String], item: &str) -> bool {
     let frag = Html::parse_fragment(item);
     for node in frag.tree {
         if let scraper::node::Node::Text(text) = node {
-            dehtmlized.push_str(&text.text.to_string());
+            dehtmlized.push_str(&text.text);
         }
     }
 

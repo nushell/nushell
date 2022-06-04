@@ -1,7 +1,7 @@
 use nu_ansi_term::{Color, Style};
 use serde::Deserialize;
 
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Eq, Debug)]
 pub struct NuStyle {
     pub fg: Option<String>,
     pub bg: Option<String>,

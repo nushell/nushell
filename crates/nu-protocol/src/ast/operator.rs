@@ -54,13 +54,13 @@ impl Display for Operator {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
 pub enum RangeInclusion {
     Inclusive,
     RightExclusive,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RangeOperator {
     pub inclusion: RangeInclusion,
     pub span: Span,

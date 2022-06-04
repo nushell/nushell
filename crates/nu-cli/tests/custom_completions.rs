@@ -18,7 +18,7 @@ fn variables_completions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for $nu
-    let suggestions = completer.complete("my-command ".into(), 11);
+    let suggestions = completer.complete("my-command ", 11);
 
     assert_eq!(3, suggestions.len());
 

@@ -428,7 +428,7 @@ pub fn extension_is_one_of(path: &Path, choices: &[&str]) -> bool {
 //     choices.contains(&&name[..])
 // }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct FileExtensions;
 
 // TODO: We may want to re-add these FileExtensions impl fns back. I have disabled

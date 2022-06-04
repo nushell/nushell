@@ -18,7 +18,7 @@ pub enum PluginCall {
     CallInfo(Box<CallInfo>),
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub struct LabeledError {
     pub label: String,
     pub msg: String,

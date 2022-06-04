@@ -12,7 +12,7 @@ pub struct Base64Config {
     pub action_type: ActionType,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ActionType {
     Encode,
     Decode,
