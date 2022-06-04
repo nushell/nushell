@@ -17,7 +17,7 @@ impl Command for Range {
 
     fn signature(&self) -> Signature {
         Signature::build("range")
-            .optional(
+            .required(
                 "rows",
                 SyntaxShape::Range,
                 "range of rows to return: Eg) 4..7 (=> from 4 to 7)",
