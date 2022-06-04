@@ -1,10 +1,7 @@
 use is_root::is_root;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span,
-    Value,
-};
+use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Span, Value};
 
 #[derive(Clone)]
 pub struct IsAdmin;
