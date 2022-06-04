@@ -1,11 +1,10 @@
-use nu_engine::CallExt;
+use is_root::is_root;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Category, Example, IntoPipelineData, PipelineData, Signature, Span,
     Value,
 };
-use is_root::is_root;
 
 #[derive(Clone)]
 pub struct IsAdmin;
@@ -20,8 +19,7 @@ impl Command for IsAdmin {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("is-admin")
-            .category(Category::Core)
+        Signature::build("is-admin").category(Category::Core)
     }
 
     fn run(

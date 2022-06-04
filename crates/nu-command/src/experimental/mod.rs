@@ -1,5 +1,5 @@
-mod view_source;
 mod is_admin;
+mod view_source;
 
-pub use view_source::ViewSource;
 pub use is_admin::IsAdmin;
+pub use view_source::ViewSource;
