@@ -64,7 +64,7 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     };
 
     match input {
-        Value::String { val, span } => Ok(begin_selector_query(val.to_string(), selector, *span)),
+        Value::String(val) => Ok(begin_selector_query(val.to_string(), selector, *span)),
         _ => Err(LabeledError {
             label: "requires text input".to_string(),
             msg: "Expected text from pipeline".to_string(),
@@ -145,7 +145,7 @@ pub fn retrieve_tables(
         .map(move |table| retrieve_table(table, columns, span))
         .collect();
 
-    Value::List { vals, span }
+    Value::List(vals)
 }
 
 fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
@@ -183,7 +183,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
                 vals.push(Value::string(cell.to_string(), span))
             }
         }
-        table_out.push(Value::Record { cols, vals, span })
+        table_out.push(Value::Record { cols, vals })
     } else {
         for row in &table {
             let mut vals = vec![];
@@ -202,7 +202,6 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
             table_out.push(Value::Record {
                 cols: record_cols.to_vec(),
                 vals,
-                span,
             })
         }
     }
@@ -216,10 +215,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
     }
     // table_out
 
-    Value::List {
-        vals: table_out,
-        span,
-    }
+    Value::List(table_out)
 }
 
 fn execute_selector_query_with_attribute(
@@ -240,7 +236,7 @@ fn execute_selector_query_with_attribute(
             )
         })
         .collect();
-    Value::List { vals, span }
+    Value::List(vals)
 }
 
 fn execute_selector_query(
@@ -270,7 +266,7 @@ fn execute_selector_query(
             .collect(),
     };
 
-    Value::List { vals, span }
+    Value::List(vals)
 }
 
 pub fn css(selector: &str, inspect: bool) -> ScraperSelector {

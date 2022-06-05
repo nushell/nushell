@@ -8,7 +8,7 @@ pub fn execute_json_query(
     input: &Value,
     query: Option<Spanned<String>>,
 ) -> Result<Value, LabeledError> {
-    let input_string = match &input.as_string() {
+    let input_string = match &input.as_string(call.head) {
         Ok(s) => s.clone(),
         Err(e) => {
             return Err(LabeledError {
@@ -79,7 +79,7 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: &Span) -> Value {
                 true
             });
 
-            Value::List { vals, span: *span }
+            Value::List(vals)
         }
         gjson::Kind::Null => Value::nothing(*span),
         gjson::Kind::False => Value::boolean(false, *span),
@@ -101,11 +101,7 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: &Span) -> Value {
                 vals.push(convert_gjson_value_to_nu_value(&v, span));
                 true
             });
-            Value::Record {
-                cols,
-                vals,
-                span: *span,
-            }
+            Value::Record { cols, vals }
         }
     }
 }

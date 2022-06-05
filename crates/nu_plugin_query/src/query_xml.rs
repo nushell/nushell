@@ -21,7 +21,7 @@ pub fn execute_xpath_query(
     };
 
     let xpath = build_xpath(query_string, span)?;
-    let input_string = input.as_string()?;
+    let input_string = input.as_string(span)?;
     let package = parser::parse(&input_string);
 
     if package.is_err() {
@@ -84,14 +84,10 @@ pub fn execute_xpath_query(
                 records.push(Value::Record {
                     cols: vec![k.to_string()],
                     vals: vec![v.clone()],
-                    span: Span::test_data(),
                 })
             }
 
-            Ok(Value::List {
-                vals: records,
-                span: Span::test_data(),
-            })
+            Ok(Value::List(records))
         }
         Err(_) => Err(LabeledError {
             label: "xpath query error".to_string(),
@@ -143,14 +139,10 @@ mod tests {
         };
 
         let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
-        let expected = Value::List {
-            vals: vec![Value::Record {
-                cols: vec!["count(//a/*[posit...".to_string()],
-                vals: vec![Value::float(1.0, Span::test_data())],
-                span: Span::test_data(),
-            }],
-            span: Span::test_data(),
-        };
+        let expected = Value::List(vec![Value::Record {
+            cols: vec!["count(//a/*[posit...".to_string()],
+            vals: vec![Value::float(1.0, Span::test_data())],
+        }]);
 
         assert_eq!(actual, expected);
     }
@@ -174,14 +166,10 @@ mod tests {
         };
 
         let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
-        let expected = Value::List {
-            vals: vec![Value::Record {
-                cols: vec!["count(//*[contain...".to_string()],
-                vals: vec![Value::float(1.0, Span::test_data())],
-                span: Span::test_data(),
-            }],
-            span: Span::test_data(),
-        };
+        let expected = Value::List(vec![Value::Record {
+            cols: vec!["count(//*[contain...".to_string()],
+            vals: vec![Value::float(1.0, Span::test_data())],
+        }]);
 
         assert_eq!(actual, expected);
     }
