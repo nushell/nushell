@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
-    Example, IntoPipelineData, Signature, Span, Value,
+    Example, IntoPipelineData, Signature, Span, SyntaxShape, Value,
 };
 use std::fmt::Write;
 
@@ -89,17 +89,20 @@ fn get_documentation(
     {
         long_desc.push_str("\nParameters:\n");
         for positional in &sig.required_positional {
-            let _ = writeln!(
-                long_desc,
-                "  {} <{:?}>: {}",
-                positional.name, positional.shape, positional.desc
-            );
+            long_desc.push_str(&format!(
+                "  (optional) {} <{:?}>: {}\n",
+                positional.name,
+                document_shape(positional.shape.clone()),
+                positional.desc
+            ));
         }
         for positional in &sig.optional_positional {
             let _ = writeln!(
                 long_desc,
                 "  (optional) {} <{:?}>: {}",
-                positional.name, positional.shape, positional.desc
+                positional.name,
+                document_shape(positional.shape.clone()),
+                positional.desc
             );
         }
 
@@ -107,7 +110,9 @@ fn get_documentation(
             let _ = writeln!(
                 long_desc,
                 "  ...{} <{:?}>: {}",
-                rest_positional.name, rest_positional.shape, rest_positional.desc
+                rest_positional.name,
+                document_shape(rest_positional.shape.clone()),
+                rest_positional.desc
             );
         }
     }
@@ -159,6 +164,14 @@ fn get_documentation(
     long_desc.push('\n');
 
     long_desc
+}
+
+// document shape helps showing more useful information
+pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
+    match shape {
+        SyntaxShape::Custom(inner_shape, _) => *inner_shape,
+        _ => shape,
+    }
 }
 
 pub fn get_flags_section(signature: &Signature) -> String {
