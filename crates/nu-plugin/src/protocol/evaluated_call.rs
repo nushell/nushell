@@ -71,7 +71,7 @@ impl EvaluatedCall {
 
     pub fn get_flag<T: FromValue>(&self, name: &str) -> Result<Option<T>, ShellError> {
         if let Some(value) = self.get_flag_value(name) {
-            FromValue::from_value(&value).map(Some)
+            FromValue::from_value(&value, self.head).map(Some)
         } else {
             Ok(None)
         }
@@ -81,13 +81,13 @@ impl EvaluatedCall {
         self.positional
             .iter()
             .skip(starting_pos)
-            .map(|value| FromValue::from_value(value))
+            .map(|value| FromValue::from_value(value, self.head))
             .collect()
     }
 
     pub fn opt<T: FromValue>(&self, pos: usize) -> Result<Option<T>, ShellError> {
         if let Some(value) = self.nth(pos) {
-            FromValue::from_value(&value).map(Some)
+            FromValue::from_value(&value, self.head).map(Some)
         } else {
             Ok(None)
         }
@@ -95,7 +95,7 @@ impl EvaluatedCall {
 
     pub fn req<T: FromValue>(&self, pos: usize) -> Result<T, ShellError> {
         if let Some(value) = self.nth(pos) {
-            FromValue::from_value(&value)
+            FromValue::from_value(&value, self.head)
         } else {
             Err(ShellError::AccessBeyondEnd(
                 self.positional.len(),
@@ -114,26 +114,14 @@ mod test {
     fn call_to_value() {
         let call = EvaluatedCall {
             head: Span { start: 0, end: 10 },
-            positional: vec![
-                Value::Float {
-                    val: 1.0,
-                    span: Span { start: 0, end: 10 },
-                },
-                Value::String {
-                    val: "something".into(),
-                    span: Span { start: 0, end: 10 },
-                },
-            ],
+            positional: vec![Value::Float(1.0), Value::String("something".into())],
             named: vec![
                 (
                     Spanned {
                         item: "name".to_string(),
                         span: Span { start: 0, end: 10 },
                     },
-                    Some(Value::Float {
-                        val: 1.0,
-                        span: Span { start: 0, end: 10 },
-                    }),
+                    Some(Value::Float(1.0)),
                 ),
                 (
                     Spanned {

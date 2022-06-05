@@ -162,26 +162,14 @@ mod tests {
     fn call_round_trip() {
         let call = EvaluatedCall {
             head: Span { start: 0, end: 10 },
-            positional: vec![
-                Value::Float {
-                    val: 1.0,
-                    span: Span { start: 0, end: 10 },
-                },
-                Value::String {
-                    val: "something".into(),
-                    span: Span { start: 0, end: 10 },
-                },
-            ],
+            positional: vec![Value::Float(1.0), Value::String("something".into())],
             named: vec![
                 (
                     Spanned {
                         item: "name".to_string(),
                         span: Span { start: 0, end: 10 },
                     },
-                    Some(Value::Float {
-                        val: 1.0,
-                        span: Span { start: 0, end: 10 },
-                    }),
+                    Some(Value::Float(1.0)),
                 ),
                 (
                     Spanned {

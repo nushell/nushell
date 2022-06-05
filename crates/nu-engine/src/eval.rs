@@ -87,8 +87,6 @@ pub fn eval_call(
                 rest_items.push(result);
             }
 
-            let span = call.head;
-
             callee_stack.add_var(
                 rest_positional
                     .var_id
@@ -469,7 +467,7 @@ pub fn eval_expression(
                 .into_iter()
                 .into_pipeline_data(None)
                 .collect_string("", config, expr.span)
-                .map(|x| Value::String(x))
+                .map(Value::String)
         }
         Expr::String(s) => Ok(Value::String(s.clone())),
         Expr::Filepath(s) => {

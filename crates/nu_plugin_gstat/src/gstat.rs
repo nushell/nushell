@@ -38,7 +38,7 @@ impl GStat {
         let mut using_input_value = false;
 
         // let's get the input value as a string
-        let piped_value = match value.as_string(span) {
+        let piped_value = match value.as_string(*span) {
             Ok(s) => {
                 using_input_value = true;
                 s

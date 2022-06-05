@@ -1300,7 +1300,7 @@ pub fn parse_use(
         );
     };
 
-    let cwd = working_set.get_cwd();
+    let cwd = working_set.get_cwd(call.head);
 
     let mut error = None;
 
@@ -1982,7 +1982,7 @@ pub fn parse_overlay_add(
     // TODO: Add support for it -- needs to play well with overlay remove
     let has_prefix = false; //call.has_flag("prefix");
 
-    let cwd = working_set.get_cwd();
+    let cwd = working_set.get_cwd(call.head);
 
     let mut error = None;
 
