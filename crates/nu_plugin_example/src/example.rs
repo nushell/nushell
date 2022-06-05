@@ -51,7 +51,7 @@ impl Example {
     pub fn test1(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
         self.print_values(1, call, input)?;
 
-        Ok(Value::Nothing { span: call.head })
+        Ok(Value::Nothing)
     }
 
     pub fn test2(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
@@ -62,24 +62,17 @@ impl Example {
         let vals = (0..10i64)
             .map(|i| {
                 let vals = (0..3)
-                    .map(|v| Value::Int {
-                        val: v * i,
-                        span: call.head,
-                    })
+                    .map(|v| Value::Int(v * i))
                     .collect::<Vec<Value>>();
 
                 Value::Record {
                     cols: cols.clone(),
                     vals,
-                    span: call.head,
                 }
             })
             .collect::<Vec<Value>>();
 
-        Ok(Value::List {
-            vals,
-            span: call.head,
-        })
+        Ok(Value::List(vals))
     }
 
     pub fn test3(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
