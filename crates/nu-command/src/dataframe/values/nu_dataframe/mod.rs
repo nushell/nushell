@@ -38,9 +38,7 @@ impl Display for DataFrameValue {
 
 impl Default for DataFrameValue {
     fn default() -> Self {
-        Self(Value::Nothing {
-            span: Span { start: 0, end: 0 },
-        })
+        Self(Value::Nothing)
     }
 }
 
@@ -54,9 +52,9 @@ impl Eq for DataFrameValue {}
 impl std::hash::Hash for DataFrameValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match &self.0 {
-            Value::Nothing { .. } => 0.hash(state),
-            Value::Int { val, .. } => val.hash(state),
-            Value::String { val, .. } => val.hash(state),
+            Value::Nothing => 0.hash(state),
+            Value::Int(val) => val.hash(state),
+            Value::String(val) => val.hash(state),
             // TODO. Define hash for the rest of types
             _ => {}
         }
@@ -105,36 +103,27 @@ impl NuDataFrame {
         self.df.clone().lazy()
     }
 
-    fn default_value(span: Span) -> Value {
+    fn default_value() -> Value {
         let dataframe = DataFrame::default();
-        NuDataFrame::dataframe_into_value(dataframe, span)
+        NuDataFrame::dataframe_into_value(dataframe)
     }
 
-    pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(Self::new(false, dataframe)),
-            span,
-        }
+    pub fn dataframe_into_value(dataframe: DataFrame) -> Value {
+        Value::CustomValue(Box::new(Self::new(false, dataframe)))
     }
 
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self) -> Value {
         if self.from_lazy {
             let lazy = NuLazyFrame::from_dataframe(self);
-            Value::CustomValue {
-                val: Box::new(lazy),
-                span,
-            }
+            Value::CustomValue(Box::new(lazy))
         } else {
-            Value::CustomValue {
-                val: Box::new(self),
-                span,
-            }
+            Value::CustomValue(Box::new(self))
         }
     }
 
     pub fn series_to_value(series: Series, span: Span) -> Result<Value, ShellError> {
         match DataFrame::new(vec![series]) {
-            Ok(dataframe) => Ok(NuDataFrame::dataframe_into_value(dataframe, span)),
+            Ok(dataframe) => Ok(NuDataFrame::dataframe_into_value(dataframe)),
             Err(e) => Err(ShellError::GenericError(
                 "Error creating dataframe".into(),
                 e.to_string(),
@@ -145,7 +134,7 @@ impl NuDataFrame {
         }
     }
 
-    pub fn try_from_iter<T>(iter: T) -> Result<Self, ShellError>
+    pub fn try_from_iter<T>(iter: T, span: Span) -> Result<Self, ShellError>
     where
         T: Iterator<Item = Value>,
     {
@@ -156,8 +145,8 @@ impl NuDataFrame {
 
         for value in iter {
             match value {
-                Value::CustomValue { .. } => return Self::try_from_value(value),
-                Value::List { vals, .. } => {
+                Value::CustomValue(..) => return Self::try_from_value(value, span),
+                Value::List(vals) => {
                     let cols = (0..vals.len())
                         .map(|i| format!("{}", i))
                         .collect::<Vec<String>>();
@@ -174,7 +163,7 @@ impl NuDataFrame {
             }
         }
 
-        conversion::from_parsed_columns(column_values)
+        conversion::from_parsed_columns(column_values, span)
     }
 
     pub fn try_from_series(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
@@ -191,7 +180,7 @@ impl NuDataFrame {
         Ok(Self::new(false, dataframe))
     }
 
-    pub fn try_from_columns(columns: Vec<Column>) -> Result<Self, ShellError> {
+    pub fn try_from_columns(columns: Vec<Column>, span: Span) -> Result<Self, ShellError> {
         let mut column_values: ColumnMap = IndexMap::new();
 
         for column in columns {
@@ -201,30 +190,29 @@ impl NuDataFrame {
             }
         }
 
-        conversion::from_parsed_columns(column_values)
+        conversion::from_parsed_columns(column_values, span)
     }
 
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+    pub fn try_from_value(value: Value, span: Span) -> Result<Self, ShellError> {
         if Self::can_downcast(&value) {
-            Ok(Self::get_df(value)?)
+            Ok(Self::get_df(value, span)?)
         } else if NuLazyFrame::can_downcast(&value) {
-            let span = value.span()?;
-            let lazy = NuLazyFrame::try_from_value(value)?;
+            let lazy = NuLazyFrame::try_from_value(value, span)?;
             let df = lazy.collect(span)?;
             Ok(df)
         } else {
             Err(ShellError::CantConvert(
                 "lazy or eager dataframe".into(),
                 value.get_type().to_string(),
-                value.span()?,
+                span,
                 None,
             ))
         }
     }
 
-    pub fn get_df(value: Value) -> Result<Self, ShellError> {
+    pub fn get_df(value: Value, span: Span) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue(val) => match val.as_any().downcast_ref::<Self>() {
                 Some(df) => Ok(NuDataFrame {
                     df: df.df.clone(),
                     from_lazy: false,
@@ -239,7 +227,7 @@ impl NuDataFrame {
             x => Err(ShellError::CantConvert(
                 "dataframe".into(),
                 x.get_type().to_string(),
-                x.span()?,
+                span,
                 None,
             )),
         }
@@ -247,11 +235,11 @@ impl NuDataFrame {
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
         let value = input.into_value(span);
-        Self::try_from_value(value)
+        Self::try_from_value(value, span)
     }
 
     pub fn can_downcast(value: &Value) -> bool {
-        if let Value::CustomValue { val, .. } = value {
+        if let Value::CustomValue(val) = value {
             val.as_any().downcast_ref::<Self>().is_some()
         } else {
             false
@@ -409,11 +397,11 @@ impl NuDataFrame {
 
                     match col.next() {
                         Some(v) => vals.push(v),
-                        None => vals.push(Value::Nothing { span }),
+                        None => vals.push(Value::Nothing),
                     };
                 }
 
-                Value::Record { cols, vals, span }
+                Value::Record { cols, vals }
             })
             .collect::<Vec<Value>>();
 

@@ -55,12 +55,12 @@ pub fn convert_env_values(
 
     #[cfg(not(windows))]
     {
-        error = error.or_else(|| ensure_path(&mut new_scope, ENV_PATH_NAME));
+        error = error.or_else(|| ensure_path(&mut new_scope, ENV_PATH_NAME, span));
     }
 
     #[cfg(windows)]
     {
-        let first_result = ensure_path(&mut new_scope, ENV_PATH_NAME, span);
+        let first_result = ensure_path(&mut new_scope, ENV_PATH_NAME, span, span);
         if first_result.is_some() {
             let second_result = ensure_path(&mut new_scope, ENV_PATH_NAME_SECONDARY, span);
 

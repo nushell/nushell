@@ -86,15 +86,9 @@ impl NuLazyFrame {
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         if self.from_eager {
             let df = self.collect(span)?;
-            Ok(Value::CustomValue {
-                val: Box::new(df),
-                span,
-            })
+            Ok(Value::CustomValue(Box::new(df)))
         } else {
-            Ok(Value::CustomValue {
-                val: Box::new(self),
-                span,
-            })
+            Ok(Value::CustomValue(Box::new(self)))
         }
     }
 
@@ -121,9 +115,9 @@ impl NuLazyFrame {
             })
     }
 
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+    pub fn try_from_value(value: Value, span: Span) -> Result<Self, ShellError> {
         if Self::can_downcast(&value) {
-            Ok(Self::get_lazy_df(value)?)
+            Ok(Self::get_lazy_df(value, span)?)
         } else if NuDataFrame::can_downcast(&value) {
             let df = NuDataFrame::try_from_value(value)?;
             Ok(NuLazyFrame::from_dataframe(df))
@@ -131,7 +125,7 @@ impl NuLazyFrame {
             Err(ShellError::CantConvert(
                 "lazy or eager dataframe".into(),
                 value.get_type().to_string(),
-                value.span()?,
+                span,
                 None,
             ))
         }
@@ -139,12 +133,12 @@ impl NuLazyFrame {
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
         let value = input.into_value(span);
-        Self::try_from_value(value)
+        Self::try_from_value(value, span)
     }
 
-    pub fn get_lazy_df(value: Value) -> Result<Self, ShellError> {
+    pub fn get_lazy_df(value: Value, span: Span) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue(val) => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(Self {
                     lazy: expr.lazy.clone(),
                     from_eager: false,
@@ -159,14 +153,14 @@ impl NuLazyFrame {
             x => Err(ShellError::CantConvert(
                 "lazy frame".into(),
                 x.get_type().to_string(),
-                x.span()?,
+                span,
                 None,
             )),
         }
     }
 
     pub fn can_downcast(value: &Value) -> bool {
-        if let Value::CustomValue { val, .. } = value {
+        if let Value::CustomValue(val) = value {
             val.as_any().downcast_ref::<Self>().is_some()
         } else {
             false

@@ -34,10 +34,6 @@ impl Column {
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
-
-    //pub fn iter(&self) -> impl Iterator<Item = &Value> {
-    //    self.values.iter()
-    //}
 }
 
 impl IntoIterator for Column {
@@ -114,7 +110,7 @@ pub fn create_column(
     let size = to_row - from_row;
     match series.dtype() {
         DataType::Null => {
-            let values = std::iter::repeat(Value::Nothing { span })
+            let values = std::iter::repeat(Value::Nothing)
                 .take(size)
                 .collect::<Vec<Value>>();
 
@@ -135,11 +131,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Int(a as i64),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -160,11 +153,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Int(a as i64),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -185,11 +175,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Int(a as i64),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -210,11 +197,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Int(a as i64),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -235,11 +219,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Int(a as i64),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -260,11 +241,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Int(a as i64),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -285,11 +263,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Int(a as i64),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -310,11 +285,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Int(a as i64),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -335,11 +307,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Float {
-                        val: a as f64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Float(a as f64),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -360,8 +329,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Float { val: a, span },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Float(a),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -383,8 +352,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Bool { val: a, span },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::Bool(a),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -406,11 +375,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::String {
-                        val: a.into(),
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(a) => Value::String(a.into()),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -436,7 +402,7 @@ pub fn create_column(
                         .take(size)
                         .map(|v| match v {
                             Some(a) => a.get_value(),
-                            None => Value::Nothing { span },
+                            None => Value::Nothing,
                         })
                         .collect::<Vec<Value>>();
 
@@ -469,12 +435,9 @@ pub fn create_column(
                         let offset = FixedOffset::east(0);
                         let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
 
-                        Value::Date {
-                            val: datetime,
-                            span,
-                        }
+                        Value::Date(datetime)
                     }
-                    None => Value::Nothing { span },
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -505,12 +468,9 @@ pub fn create_column(
                         let offset = FixedOffset::east(0);
                         let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
 
-                        Value::Date {
-                            val: datetime,
-                            span,
-                        }
+                        Value::Date(datetime)
                     }
-                    None => Value::Nothing { span },
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -532,11 +492,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(nanoseconds) => Value::Duration {
-                        val: nanoseconds,
-                        span,
-                    },
-                    None => Value::Nothing { span },
+                    Some(nanoseconds) => Value::Duration(nanoseconds),
+                    None => Value::Nothing,
                 })
                 .collect::<Vec<Value>>();
 
@@ -560,13 +517,10 @@ pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, span: Span) {
 
     for name in df.get_column_names() {
         cols.push(name.to_string());
-        vals.push(Value::String {
-            val: "...".into(),
-            span,
-        })
+        vals.push(Value::String("...".into()));
     }
 
-    let extra_record = Value::Record { cols, vals, span };
+    let extra_record = Value::Record { cols, vals };
 
     values.push(extra_record);
 }
@@ -642,32 +596,35 @@ pub fn insert_value(
 // The ColumnMap has the parsed data from the StreamInput
 // This data can be used to create a Series object that can initialize
 // the dataframe based on the type of data that is found
-pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, ShellError> {
+pub fn from_parsed_columns(
+    column_values: ColumnMap,
+    span: Span,
+) -> Result<NuDataFrame, ShellError> {
     let mut df_series: Vec<Series> = Vec::new();
     for (name, column) in column_values {
         if let Some(column_type) = &column.column_type {
             match column_type {
                 InputType::Float => {
                     let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_f64()).collect();
+                        column.values.iter().map(|v| v.as_f64(span)).collect();
                     let series = Series::new(&name, series_values?);
                     df_series.push(series)
                 }
                 InputType::Integer => {
                     let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_i64()).collect();
+                        column.values.iter().map(|v| v.as_i64(span)).collect();
                     let series = Series::new(&name, series_values?);
                     df_series.push(series)
                 }
                 InputType::String => {
                     let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_string()).collect();
+                        column.values.iter().map(|v| v.as_string(span)).collect();
                     let series = Series::new(&name, series_values?);
                     df_series.push(series)
                 }
                 InputType::Boolean => {
                     let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_bool()).collect();
+                        column.values.iter().map(|v| v.as_bool(span)).collect();
                     let series = Series::new(&name, series_values?);
                     df_series.push(series)
                 }
@@ -684,7 +641,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                 }
                 InputType::Date => {
                     let it = column.values.iter().map(|v| {
-                        if let Value::Date { val, .. } = &v {
+                        if let Value::Date(val) = &v {
                             Some(val.timestamp_millis())
                         } else {
                             None
@@ -699,7 +656,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                 }
                 InputType::Duration => {
                     let it = column.values.iter().map(|v| {
-                        if let Value::Duration { val, .. } = &v {
+                        if let Value::Duration(val) = &v {
                             Some(*val)
                         } else {
                             None

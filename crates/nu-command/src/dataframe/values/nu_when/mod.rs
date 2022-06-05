@@ -50,16 +50,13 @@ impl From<WhenThenThen> for NuWhen {
 }
 
 impl NuWhen {
-    pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
-        }
+    pub fn into_value(self) -> Value {
+        Value::CustomValue(Box::new(self))
     }
 
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+    pub fn try_from_value(value: Value, span: Span) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue(val) => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(expr.clone()),
                 None => Err(ShellError::CantConvert(
                     "when expression".into(),
@@ -71,7 +68,7 @@ impl NuWhen {
             x => Err(ShellError::CantConvert(
                 "when expression".into(),
                 x.get_type().to_string(),
-                x.span()?,
+                span,
                 None,
             )),
         }

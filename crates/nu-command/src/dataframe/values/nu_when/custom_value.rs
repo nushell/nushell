@@ -11,13 +11,10 @@ impl CustomValue for NuWhen {
         unimplemented!("typetag_deserialize")
     }
 
-    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+    fn clone_value(&self) -> Value {
         let cloned = self.clone();
 
-        Value::CustomValue {
-            val: Box::new(cloned),
-            span,
-        }
+        Value::CustomValue(Box::new(cloned))
     }
 
     fn value_string(&self) -> String {
@@ -30,7 +27,7 @@ impl CustomValue for NuWhen {
             NuWhen::WhenThenThen(_) => "whenthenthen".into(),
         };
 
-        let value = Value::String { val, span };
+        let value = Value::String(val);
         Ok(value)
     }
 

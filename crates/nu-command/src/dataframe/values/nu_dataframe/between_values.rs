@@ -15,18 +15,15 @@ pub(super) fn between_dataframes(
     right: &Value,
     rhs: &NuDataFrame,
 ) -> Result<Value, ShellError> {
-    let operation_span = span(&[left.span()?, right.span()?]);
     match operator.item {
         Operator::Plus => match lhs.append_df(rhs, Axis::Row, operation_span) {
-            Ok(df) => Ok(df.into_value(operation_span)),
+            Ok(df) => Ok(df.into_value()),
             Err(e) => Err(e),
         },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
             lhs_ty: left.get_type(),
-            lhs_span: left.span()?,
             rhs_ty: right.get_type(),
-            rhs_span: right.span()?,
         }),
     }
 }

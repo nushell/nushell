@@ -16,19 +16,15 @@ impl NuDataFrame {
     pub fn compute_with_value(
         &self,
         lhs_span: Span,
-        operator: Operator,
-        op_span: Span,
-        right: &Value,
+        operator: Spanned<Operator>,
+        right: Spanned<&Value>,
     ) -> Result<Value, ShellError> {
-        match right {
-            Value::CustomValue {
-                val: rhs,
-                span: rhs_span,
-            } => {
+        match right.item {
+            Value::CustomValue(rhs) => {
                 let rhs = rhs.as_any().downcast_ref::<NuDataFrame>().ok_or_else(|| {
                     ShellError::DowncastNotPossible(
                         "Unable to create dataframe".to_string(),
-                        *rhs_span,
+                        right.span,
                     )
                 })?;
 
@@ -38,7 +34,7 @@ impl NuDataFrame {
                             .as_series(lhs_span)
                             .expect("Already checked that is a series");
                         let rhs = &rhs
-                            .as_series(*rhs_span)
+                            .as_series(right.span)
                             .expect("Already checked that is a series");
 
                         if lhs.dtype() != rhs.dtype() {
@@ -46,7 +42,7 @@ impl NuDataFrame {
                                 left_message: format!("datatype {}", lhs.dtype()),
                                 left_span: lhs_span,
                                 right_message: format!("datatype {}", lhs.dtype()),
-                                right_span: *rhs_span,
+                                right_span: right.span,
                             });
                         }
 
@@ -55,20 +51,15 @@ impl NuDataFrame {
                                 left_message: format!("len {}", lhs.len()),
                                 left_span: lhs_span,
                                 right_message: format!("len {}", rhs.len()),
-                                right_span: *rhs_span,
+                                right_span: right.span,
                             });
                         }
 
-                        let op = Spanned {
-                            item: operator,
-                            span: op_span,
-                        };
-
                         compute_between_series(
-                            op,
-                            &NuDataFrame::default_value(lhs_span),
+                            operator,
+                            &NuDataFrame::default_value(),
                             lhs,
-                            right,
+                            right.item,
                             rhs,
                         )
                     }
@@ -78,33 +69,26 @@ impl NuDataFrame {
                                 left_message: format!("rows {}", self.df.height()),
                                 left_span: lhs_span,
                                 right_message: format!("rows {}", rhs.df.height()),
-                                right_span: *rhs_span,
+                                right_span: right.span,
                             });
                         }
 
-                        let op = Spanned {
-                            item: operator,
-                            span: op_span,
-                        };
-
                         between_dataframes(
-                            op,
-                            &NuDataFrame::default_value(lhs_span),
+                            operator,
+                            &NuDataFrame::default_value(),
                             self,
-                            right,
+                            right.item,
                             rhs,
                         )
                     }
                 }
             }
-            _ => {
-                let op = Spanned {
-                    item: operator,
-                    span: op_span,
-                };
-
-                compute_series_single_value(op, &NuDataFrame::default_value(lhs_span), self, right)
-            }
+            _ => compute_series_single_value(
+                operator,
+                &NuDataFrame::default_value(),
+                self,
+                right.item,
+            ),
         }
     }
 

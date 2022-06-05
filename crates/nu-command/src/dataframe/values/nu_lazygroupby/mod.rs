@@ -71,37 +71,32 @@ impl From<LazyGroupBy> for NuLazyGroupBy {
 }
 
 impl NuLazyGroupBy {
-    pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
-        }
+    pub fn into_value(self) -> Value {
+        Value::CustomValue(Box::new(self))
     }
 
     pub fn into_polars(self) -> LazyGroupBy {
         self.group_by.expect("GroupBy cannot be none to convert")
     }
 
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+    pub fn try_from_value(value: Value, span: Span) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, span } => {
-                match val.as_any().downcast_ref::<NuLazyGroupBy>() {
-                    Some(group) => Ok(Self {
-                        group_by: group.group_by.clone(),
-                        from_eager: group.from_eager,
-                    }),
-                    None => Err(ShellError::CantConvert(
-                        "lazy groupby".into(),
-                        "custom value".into(),
-                        span,
-                        None,
-                    )),
-                }
-            }
+            Value::CustomValue(val) => match val.as_any().downcast_ref::<NuLazyGroupBy>() {
+                Some(group) => Ok(Self {
+                    group_by: group.group_by.clone(),
+                    from_eager: group.from_eager,
+                }),
+                None => Err(ShellError::CantConvert(
+                    "lazy groupby".into(),
+                    "custom value".into(),
+                    span,
+                    None,
+                )),
+            },
             x => Err(ShellError::CantConvert(
                 "lazy groupby".into(),
                 x.get_type().to_string(),
-                x.span()?,
+                span,
                 None,
             )),
         }
@@ -109,6 +104,6 @@ impl NuLazyGroupBy {
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
         let value = input.into_value(span);
-        Self::try_from_value(value)
+        Self::try_from_value(value, span)
     }
 }

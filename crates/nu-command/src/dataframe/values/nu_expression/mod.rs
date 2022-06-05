@@ -62,15 +62,12 @@ impl From<Expr> for NuExpression {
 
 impl NuExpression {
     pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
-        }
+        Value::CustomValue(Box::new(self))
     }
 
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+    pub fn try_from_value(value: Value, span: Span) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue(val) => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(NuExpression(expr.0.clone())),
                 None => Err(ShellError::CantConvert(
                     "lazy expression".into(),
@@ -79,14 +76,14 @@ impl NuExpression {
                     None,
                 )),
             },
-            Value::String { val, .. } => Ok(col(val.as_str()).into()),
-            Value::Int { val, .. } => Ok(val.lit().into()),
-            Value::Bool { val, .. } => Ok(val.lit().into()),
-            Value::Float { val, .. } => Ok(val.lit().into()),
+            Value::String(val) => Ok(col(val.as_str()).into()),
+            Value::Int(val) => Ok(val.lit().into()),
+            Value::Bool(val) => Ok(val.lit().into()),
+            Value::Float(val) => Ok(val.lit().into()),
             x => Err(ShellError::CantConvert(
                 "lazy expression".into(),
                 x.get_type().to_string(),
-                x.span()?,
+                span,
                 None,
             )),
         }
@@ -94,16 +91,14 @@ impl NuExpression {
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
         let value = input.into_value(span);
-        Self::try_from_value(value)
+        Self::try_from_value(value, span)
     }
 
     pub fn can_downcast(value: &Value) -> bool {
         match value {
-            Value::CustomValue { val, .. } => val.as_any().downcast_ref::<Self>().is_some(),
-            Value::List { vals, .. } => vals.iter().all(Self::can_downcast),
-            Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {
-                true
-            }
+            Value::CustomValue(val) => val.as_any().downcast_ref::<Self>().is_some(),
+            Value::List(vals) => vals.iter().all(Self::can_downcast),
+            Value::String(..) | Value::Int(..) | Value::Bool(..) | Value::Float(..) => true,
             _ => false,
         }
     }
@@ -127,8 +122,8 @@ impl NuExpression {
     }
 
     // Convenient function to extrac multiple Expr that could be inside a nushell Value
-    pub fn extract_exprs(value: Value) -> Result<Vec<Expr>, ShellError> {
-        ExtractedExpr::extract_exprs(value).map(ExtractedExpr::into_exprs)
+    pub fn extract_exprs(value: Value, span: Span) -> Result<Vec<Expr>, ShellError> {
+        ExtractedExpr::extract_exprs(value, span).map(ExtractedExpr::into_exprs)
     }
 }
 
@@ -149,21 +144,21 @@ impl ExtractedExpr {
         }
     }
 
-    fn extract_exprs(value: Value) -> Result<ExtractedExpr, ShellError> {
+    fn extract_exprs(value: Value, span: Span) -> Result<ExtractedExpr, ShellError> {
         match value {
-            Value::String { val, .. } => Ok(ExtractedExpr::Single(col(val.as_str()))),
-            Value::CustomValue { .. } => NuExpression::try_from_value(value)
+            Value::String(val) => Ok(ExtractedExpr::Single(col(val.as_str()))),
+            Value::CustomValue(..) => NuExpression::try_from_value(value, span)
                 .map(NuExpression::into_polars)
                 .map(ExtractedExpr::Single),
-            Value::List { vals, .. } => vals
+            Value::List(vals) => vals
                 .into_iter()
-                .map(Self::extract_exprs)
+                .map(|val| Self::extract_exprs(val, span))
                 .collect::<Result<Vec<ExtractedExpr>, ShellError>>()
                 .map(ExtractedExpr::List),
             x => Err(ShellError::CantConvert(
                 "expression".into(),
                 x.get_type().to_string(),
-                x.span()?,
+                span,
                 None,
             )),
         }
@@ -177,80 +172,51 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         Expr::Not(_) => todo!(),
         Expr::Alias(expr, alias) => {
             let expr = expr_to_value(expr.as_ref(), span);
-            let alias = Value::String {
-                val: alias.as_ref().into(),
-                span,
-            };
-
+            let alias = Value::String(alias.as_ref().into());
             let cols = vec!["expr".to_string(), "alias".to_string()];
 
             Value::Record {
                 cols,
                 vals: vec![expr, alias],
-                span,
             }
         }
         Expr::Column(name) => {
-            let expr_type = Value::String {
-                val: "column".into(),
-                span,
-            };
-            let value = Value::String {
-                val: name.to_string(),
-                span,
-            };
+            let expr_type = Value::String("column".into());
+            let value = Value::String(name.to_string());
 
             let vals = vec![expr_type, value];
-            Value::Record { cols, vals, span }
+            Value::Record { cols, vals }
         }
         Expr::Columns(columns) => {
-            let expr_type = Value::String {
-                val: "columns".into(),
-                span,
-            };
-            let value = Value::List {
-                vals: columns
+            let expr_type = Value::String("columns".into());
+            let value = Value::List(
+                columns
                     .iter()
-                    .map(|col| Value::String {
-                        val: col.clone(),
-                        span,
-                    })
+                    .map(|col| Value::String(col.clone()))
                     .collect(),
-                span,
-            };
+            );
 
             let vals = vec![expr_type, value];
-            Value::Record { cols, vals, span }
+            Value::Record { cols, vals }
         }
         Expr::DtypeColumn(_) => todo!(),
         Expr::Literal(literal) => {
-            let expr_type = Value::String {
-                val: "literal".into(),
-                span,
-            };
-            let value = Value::String {
-                val: format!("{:?}", literal),
-                span,
-            };
+            let expr_type = Value::String("literal".into());
+            let value = Value::String(format!("{:?}", literal));
 
             let vals = vec![expr_type, value];
-            Value::Record { cols, vals, span }
+            Value::Record { cols, vals }
         }
         Expr::BinaryExpr { left, op, right } => {
             let left_val = expr_to_value(left, span);
             let right_val = expr_to_value(right, span);
 
-            let operator = Value::String {
-                val: format!("{:?}", op),
-                span,
-            };
-
+            let operator = Value::String(format!("{:?}", op));
             let cols = vec!["left".to_string(), "op".to_string(), "right".to_string()];
 
             Value::Record {
                 cols,
                 vals: vec![left_val, operator, right_val],
-                span,
             }
         }
         Expr::Ternary {
@@ -271,7 +237,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             Value::Record {
                 cols,
                 vals: vec![predicate, truthy, falsy],
-                span,
             }
         }
         Expr::Agg(agg_expr) => {
@@ -292,13 +257,9 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 AggExpr::Quantile { .. } => todo!(),
             };
 
-            let expr_type = Value::String {
-                val: "agg".into(),
-                span,
-            };
-
+            let expr_type = Value::String("agg".into());
             let vals = vec![expr_type, value];
-            Value::Record { cols, vals, span }
+            Value::Record { cols, vals }
         }
         Expr::IsNotNull(_) => todo!(),
         Expr::IsNull(_) => todo!(),
