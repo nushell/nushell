@@ -121,6 +121,7 @@ fn into_bool(
             }
         },
         engine_state.ctrlc.clone(),
+        head,
     )
 }
 
@@ -148,10 +149,10 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
 
 fn action(input: &Value, span: Span) -> Value {
     match input {
-        Value::Bool { .. } => input.clone(),
-        Value::Int { val, .. } => Value::Bool(*val != 0),
-        Value::Float { val, .. } => Value::Bool(val.abs() >= f64::EPSILON),
-        Value::String { val, .. } => match string_to_boolean(val, span) {
+        Value::Bool(..) => input.clone(),
+        Value::Int(val) => Value::Bool(*val != 0),
+        Value::Float(val) => Value::Bool(val.abs() >= f64::EPSILON),
+        Value::String(val) => match string_to_boolean(val, span) {
             Ok(val) => Value::Bool(val),
             Err(error) => Value::Error(error),
         },

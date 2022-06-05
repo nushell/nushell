@@ -48,26 +48,21 @@ impl Command for SubCommand {
                 description: "convert string to a nushell binary primitive",
                 example: "'This is a string that is exactly 52 characters long.' | into binary",
                 result: Some(Value::Binary(
-                    val: "This is a string that is exactly 52 characters long."
+                    "This is a string that is exactly 52 characters long."
                         .to_string()
                         .as_bytes()
-                        .to_vec()
+                        .to_vec(),
                 )),
             },
             Example {
                 description: "convert a number to a nushell binary primitive",
                 example: "1 | into binary",
-                result: Some(Value::Binary(
-                    i64::from(1).to_le_bytes().to_vec(),
-                )),
+                result: Some(Value::Binary(i64::from(1).to_le_bytes().to_vec())),
             },
             Example {
                 description: "convert a boolean to a nushell binary primitive",
                 example: "true | into binary",
-                result: Some(Value::Binary {
-                    val: i64::from(1).to_le_bytes().to_vec(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::Binary(i64::from(1).to_le_bytes().to_vec())),
             },
             Example {
                 description: "convert a filesize to a nushell binary primitive",
@@ -82,10 +77,7 @@ impl Command for SubCommand {
             Example {
                 description: "convert a decimal to a nushell binary primitive",
                 example: "1.234 | into binary",
-                result: Some(Value::Binary {
-                    val: 1.234f64.to_le_bytes().to_vec(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::Binary(1.234f64.to_le_bytes().to_vec())),
             },
         ]
     }
@@ -132,6 +124,7 @@ fn into_binary(
                 }
             },
             engine_state.ctrlc.clone(),
+            head,
         ),
     }
 }
@@ -154,13 +147,13 @@ fn float_to_endian(n: f64) -> Vec<u8> {
 
 pub fn action(input: &Value, span: Span) -> Value {
     match input {
-        Value::Binary { .. } => input.clone(),
-        Value::Int { val, .. } => Value::Binary(int_to_endian(*val)),
-        Value::Float { val, .. } => Value::Binary(float_to_endian(*val)),
-        Value::Filesize { val, .. } => Value::Binary(int_to_endian(*val)),
-        Value::String { val, .. } => Value::Binary(val.as_bytes().to_vec()),
-        Value::Bool { val, .. } => Value::Binary(int_to_endian(if *val { 1i64 } else { 0 })),
-        Value::Date { val, .. } => Value::Binary(val.format("%c").to_string().as_bytes().to_vec()),
+        Value::Binary(..) => input.clone(),
+        Value::Int(val) => Value::Binary(int_to_endian(*val)),
+        Value::Float(val) => Value::Binary(float_to_endian(*val)),
+        Value::Filesize(val) => Value::Binary(int_to_endian(*val)),
+        Value::String(val) => Value::Binary(val.as_bytes().to_vec()),
+        Value::Bool(val) => Value::Binary(int_to_endian(if *val { 1i64 } else { 0 })),
+        Value::Date(val) => Value::Binary(val.format("%c").to_string().as_bytes().to_vec()),
 
         _ => Value::Error(ShellError::UnsupportedInput(
             "'into binary' for unsupported type".into(),

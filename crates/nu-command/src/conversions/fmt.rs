@@ -41,40 +41,15 @@ impl Command for Fmt {
                     "upperhex".into(),
                 ],
                 vals: vec![
-                    Value::String {
-                        val: "0b101010".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "42".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "42".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "4.2e1".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "0x2a".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "0o52".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "4.2E1".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "0x2A".to_string(),
-                        span: Span::test_data(),
-                    },
+                    Value::String("0b101010".to_string()),
+                    Value::String("42".to_string()),
+                    Value::String("42".to_string()),
+                    Value::String("4.2e1".to_string()),
+                    Value::String("0x2a".to_string()),
+                    Value::String("0o52".to_string()),
+                    Value::String("4.2E1".to_string()),
+                    Value::String("0x2A".to_string()),
                 ],
-                span: Span::test_data(),
             }),
         }]
     }
@@ -109,7 +84,7 @@ fn fmt(
                     let r =
                         ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
                     if let Err(error) = r {
-                        return Value::Error { error };
+                        return Value::Error ( error );
                     }
                 }
 
@@ -117,19 +92,18 @@ fn fmt(
             }
         },
         engine_state.ctrlc.clone(),
+        head,
     )
 }
 
 pub fn action(input: &Value, span: Span) -> Value {
     match input {
-        Value::Int { val, .. } => fmt_it(*val, span),
-        Value::Filesize { val, .. } => fmt_it(*val, span),
-        _ => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!("unsupported input type: {:?}", input.get_type()),
-                span,
-            ),
-        },
+        Value::Int(val) => fmt_it(*val, span),
+        Value::Filesize(val) => fmt_it(*val, span),
+        _ => Value::Error(ShellError::UnsupportedInput(
+            format!("unsupported input type: {:?}", input.get_type()),
+            span,
+        )),
     }
 }
 
@@ -138,33 +112,33 @@ fn fmt_it(num: i64, span: Span) -> Value {
     let mut vals = vec![];
 
     cols.push("binary".into());
-    vals.push(Value::string(format!("{:#b}", num), span));
+    vals.push(Value::string(format!("{:#b}", num)));
 
     cols.push("debug".into());
-    vals.push(Value::string(format!("{:#?}", num), span));
+    vals.push(Value::string(format!("{:#?}", num)));
 
     cols.push("display".into());
-    vals.push(Value::string(format!("{}", num), span));
+    vals.push(Value::string(format!("{}", num)));
 
     cols.push("lowerexp".into());
-    vals.push(Value::string(format!("{:#e}", num), span));
+    vals.push(Value::string(format!("{:#e}", num)));
 
     cols.push("lowerhex".into());
-    vals.push(Value::string(format!("{:#x}", num), span));
+    vals.push(Value::string(format!("{:#x}", num)));
 
     cols.push("octal".into());
-    vals.push(Value::string(format!("{:#o}", num), span));
+    vals.push(Value::string(format!("{:#o}", num)));
 
     // cols.push("pointer".into());
-    // vals.push(Value::string(format!("{:#p}", &num), span));
+    // vals.push(Value::string(format!("{:#p}", &num), ));
 
     cols.push("upperexp".into());
-    vals.push(Value::string(format!("{:#E}", num), span));
+    vals.push(Value::string(format!("{:#E}", num)));
 
     cols.push("upperhex".into());
-    vals.push(Value::string(format!("{:#X}", num), span));
+    vals.push(Value::string(format!("{:#X}", num)));
 
-    Value::Record { cols, vals, span }
+    Value::Record { cols, vals }
 }
 
 #[cfg(test)]

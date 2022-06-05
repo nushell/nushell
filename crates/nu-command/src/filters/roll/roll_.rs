@@ -26,10 +26,13 @@ impl Command for Roll {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::String {
-            val: get_full_help(&Roll.signature(), &Roll.examples(), engine_state, stack),
-            span: call.head,
-        }
+        Ok(Value::String(get_full_help(
+            &Roll.signature(),
+            &Roll.examples(),
+            engine_state,
+            stack,
+            call.head,
+        ))
         .into_pipeline_data())
     }
 }

@@ -103,7 +103,7 @@ impl Command for Histogram {
         let span = call.head;
         let data_as_value = input.into_value(span);
         // `input` is not a list, here we can return an error.
-        match data_as_value.as_list() {
+        match data_as_value.as_list(span) {
             Ok(list_value) => run_histogram(
                 list_value.to_vec(),
                 column_name,
@@ -130,12 +130,11 @@ fn run_histogram(
             // some invalid input scenario needs to handle:
             // Expect input is a list of hashable value, if one value is not hashable, throw out error.
             for v in values {
-                let current_span = v.span().unwrap_or(head_span);
                 inputs.push(HashableValue::from_value(v, head_span).map_err(|_| {
                     ShellError::UnsupportedInput(
                         "--column-name is not provided, can only support a list of simple value."
                             .to_string(),
-                        current_span,
+                        head_span,
                     )
                 })?);
             }
@@ -226,21 +225,14 @@ fn histogram_impl(
             cols: result_cols.clone(),
             vals: vec![
                 val.into_value(),
-                Value::Int { val: count, span },
-                Value::Float {
-                    val: quantile,
-                    span,
-                },
-                Value::String {
-                    val: percentage,
-                    span,
-                },
-                Value::String { val: freq, span },
+                Value::Int(count),
+                Value::Float(quantile),
+                Value::String(percentage),
+                Value::String(freq),
             ],
-            span,
         });
     }
-    Value::List { vals: result, span }.into_pipeline_data()
+    Value::List(result).into_pipeline_data()
 }
 
 #[cfg(test)]

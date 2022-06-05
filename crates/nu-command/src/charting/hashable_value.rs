@@ -139,7 +139,7 @@ mod test {
     fn from_unhashable_value() {
         let span = Span::test_data();
         let values = [
-            Value::List(vec![Value::Bool { true}]),
+            Value::List(vec![Value::Bool(true)]),
             Value::Block {
                 val: 0,
                 captures: HashMap::new(),

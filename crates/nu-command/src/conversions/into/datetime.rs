@@ -208,6 +208,7 @@ fn operate(
             }
         },
         engine_state.ctrlc.clone(),
+        head,
     )
 }
 
@@ -219,8 +220,8 @@ fn action(
 ) -> Value {
     // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
     let timestamp = match input {
-        Value::Int { val, .. } => Ok(*val),
-        Value::String { val, .. } => val.parse::<i64>(),
+        Value::Int(val) => Ok(*val),
+        Value::String(val) => val.parse::<i64>(),
         other => {
             return Value::Error(ShellError::UnsupportedInput(
                 format!("Expected string or int, got {} instead", other.get_type()),
@@ -312,7 +313,7 @@ mod tests {
 
     #[test]
     fn takes_a_date_format() {
-        let date_str = Value::test_string("16.11.1984 8:00 am +0000");
+        let date_str = Value::String("16.11.1984 8:00 am +0000");
         let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
         let actual = action(&date_str, &None, &fmt_options, Span::test_data());
         let expected = Value::Date(
@@ -323,7 +324,7 @@ mod tests {
 
     #[test]
     fn takes_iso8601_date_format() {
-        let date_str = Value::test_string("2020-08-04T16:39:18+00:00");
+        let date_str = Value::String("2020-08-04T16:39:18+00:00");
         let actual = action(&date_str, &None, &None, Span::test_data());
         let expected = Value::Date(
             DateTime::parse_from_str("2020-08-04T16:39:18+00:00", "%Y-%m-%dT%H:%M:%S%z").unwrap(),
@@ -333,7 +334,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_offset() {
-        let date_str = Value::test_string("1614434140");
+        let date_str = Value::String("1614434140");
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
             span: Span::test_data(),
@@ -348,7 +349,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_offset_as_int() {
-        let date_int = Value::test_int(1614434140);
+        let date_int = Value::Int(1614434141);
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
             span: Span::test_data(),
@@ -363,7 +364,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp() {
-        let date_str = Value::test_string("1614434140");
+        let date_str = Value::String("1614434140");
         let timezone_option = Some(Spanned {
             item: Zone::Local,
             span: Span::test_data(),
@@ -376,7 +377,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_without_timezone() {
-        let date_str = Value::test_string("1614434140");
+        let date_str = Value::String("1614434140");
         let timezone_option = None;
         let actual = action(&date_str, &timezone_option, &None, Span::test_data());
 
@@ -387,7 +388,7 @@ mod tests {
 
     #[test]
     fn takes_invalid_timestamp() {
-        let date_str = Value::test_string("10440970000000");
+        let date_str = Value::String("10440970000000");
         let timezone_option = Some(Spanned {
             item: Zone::Utc,
             span: Span::test_data(),
@@ -399,7 +400,7 @@ mod tests {
 
     #[test]
     fn communicates_parsing_error_given_an_invalid_datetimelike_string() {
-        let date_str = Value::test_string("16.11.1984 8:00 am Oops0000");
+        let date_str = Value::String("16.11.1984 8:00 am Oops0000");
         let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
         let actual = action(&date_str, &None, &fmt_options, Span::test_data());
 
