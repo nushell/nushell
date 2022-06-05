@@ -565,7 +565,7 @@ impl Value {
                             return temp;
                         }
                     }
-                    Value::CustomValue { val, .. } => {
+                    Value::CustomValue(val) => {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
                     x => {
@@ -608,7 +608,7 @@ impl Value {
                     val: col_name,
                     span,
                 } => match self {
-                    Value::List { vals, .. } => {
+                    Value::List(vals) => {
                         for val in vals.iter_mut() {
                             match val {
                                 Value::Record { cols, vals, .. } => {
@@ -673,14 +673,14 @@ impl Value {
                     v => return Err(ShellError::CantFindColumn(*span)),
                 },
                 PathMember::Int { val: row_num, span } => match self {
-                    Value::List { vals, .. } => {
+                    Value::List(vals) => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.upsert_data_at_cell_path(&cell_path[1..], new_val)?
                         } else {
                             return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
                         }
                     }
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    v => return Err(ShellError::NotAList(*span)),
                 },
             },
             None => {
@@ -701,7 +701,7 @@ impl Value {
         let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
 
         match new_val {
-            Value::Error { error } => Err(error),
+            Value::Error(error) => Err(error),
             new_val => self.update_data_at_cell_path(cell_path, new_val),
         }
     }
@@ -717,14 +717,10 @@ impl Value {
                     val: col_name,
                     span,
                 } => match self {
-                    Value::List { vals, .. } => {
+                    Value::List(vals) => {
                         for val in vals.iter_mut() {
                             match val {
-                                Value::Record {
-                                    cols,
-                                    vals,
-                                    span: v_span,
-                                } => {
+                                Value::Record { cols, vals } => {
                                     let mut found = false;
                                     for col in cols.iter().zip(vals.iter_mut()) {
                                         if col.0 == col_name {
@@ -736,18 +732,14 @@ impl Value {
                                         }
                                     }
                                     if !found {
-                                        return Err(ShellError::CantFindColumn(*span, *v_span));
+                                        return Err(ShellError::CantFindColumn(*span));
                                     }
                                 }
-                                v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                                v => return Err(ShellError::CantFindColumn(*span)),
                             }
                         }
                     }
-                    Value::Record {
-                        cols,
-                        vals,
-                        span: v_span,
-                    } => {
+                    Value::Record { cols, vals } => {
                         let mut found = false;
 
                         for col in cols.iter().zip(vals.iter_mut()) {
@@ -759,20 +751,20 @@ impl Value {
                             }
                         }
                         if !found {
-                            return Err(ShellError::CantFindColumn(*span, *v_span));
+                            return Err(ShellError::CantFindColumn(*span));
                         }
                     }
-                    v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                    v => return Err(ShellError::CantFindColumn(*span)),
                 },
                 PathMember::Int { val: row_num, span } => match self {
-                    Value::List { vals, .. } => {
+                    Value::List(vals) => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.update_data_at_cell_path(&cell_path[1..], new_val)?
                         } else {
                             return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
                         }
                     }
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    v => return Err(ShellError::NotAList(*span)),
                 },
             },
             None => {
@@ -793,20 +785,14 @@ impl Value {
                     val: col_name,
                     span,
                 } => match self {
-                    Value::List { vals, .. } => {
+                    Value::List(vals) => {
                         for val in vals.iter_mut() {
                             match val {
-                                Value::Record {
-                                    cols,
-                                    vals,
-                                    span: v_span,
-                                } => {
+                                Value::Record { cols, vals } => {
                                     for col in cols.iter().zip(vals.iter_mut()) {
                                         if col.0 == col_name {
                                             if cell_path.len() == 1 {
-                                                return Err(ShellError::ColumnAlreadyExists(
-                                                    *span, *v_span,
-                                                ));
+                                                return Err(ShellError::ColumnAlreadyExists(*span));
                                             } else {
                                                 return col.1.insert_data_at_cell_path(
                                                     &cell_path[1..],
@@ -828,15 +814,11 @@ impl Value {
                             }
                         }
                     }
-                    Value::Record {
-                        cols,
-                        vals,
-                        span: v_span,
-                    } => {
+                    Value::Record { cols, vals } => {
                         for col in cols.iter().zip(vals.iter_mut()) {
                             if col.0 == col_name {
                                 if cell_path.len() == 1 {
-                                    return Err(ShellError::ColumnAlreadyExists(*span, *v_span));
+                                    return Err(ShellError::ColumnAlreadyExists(*span));
                                 } else {
                                     return col
                                         .1
@@ -856,14 +838,14 @@ impl Value {
                     }
                 },
                 PathMember::Int { val: row_num, span } => match self {
-                    Value::List { vals, .. } => {
+                    Value::List(vals) => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.insert_data_at_cell_path(&cell_path[1..], new_val)?
                         } else {
                             return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
                         }
                     }
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    v => return Err(ShellError::NotAList(*span)),
                 },
             },
             None => {
@@ -874,7 +856,7 @@ impl Value {
     }
 
     pub fn is_true(&self) -> bool {
-        matches!(self, Value::Bool { val: true, .. })
+        matches!(self, Value::Bool(true))
     }
 
     pub fn columns(&self) -> Vec<String> {
@@ -884,95 +866,32 @@ impl Value {
         }
     }
 
-    pub fn string(val: impl Into<String>, span: Span) -> Value {
-        Value::String {
-            val: val.into(),
-            span,
-        }
+    pub fn string(val: impl Into<String>) -> Value {
+        Value::String(val.into())
     }
 
-    pub fn int(val: i64, span: Span) -> Value {
-        Value::Int { val, span }
+    pub fn int(val: i64) -> Value {
+        Value::Int(val)
     }
 
-    pub fn float(val: f64, span: Span) -> Value {
-        Value::Float { val, span }
+    pub fn float(val: f64) -> Value {
+        Value::Float(val)
     }
 
-    pub fn boolean(val: bool, span: Span) -> Value {
-        Value::Bool { val, span }
+    pub fn boolean(val: bool) -> Value {
+        Value::Bool(val)
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_string(s: impl Into<String>) -> Value {
-        Value::String {
-            val: s.into(),
-            span: Span::test_data(),
-        }
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_int(val: i64) -> Value {
-        Value::Int {
-            val,
-            span: Span::test_data(),
-        }
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_float(val: f64) -> Value {
-        Value::Float {
-            val,
-            span: Span::test_data(),
-        }
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_bool(val: bool) -> Value {
-        Value::Bool {
-            val,
-            span: Span::test_data(),
-        }
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_filesize(val: i64) -> Value {
-        Value::Filesize {
-            val,
-            span: Span::test_data(),
-        }
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_nothing() -> Value {
-        Value::Nothing {
-            span: Span::test_data(),
-        }
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_record(cols: Vec<impl Into<String>>, vals: Vec<Value>) -> Value {
-        Value::Record {
-            cols: cols.into_iter().map(|s| s.into()).collect(),
-            vals,
-
-            span: Span::test_data(),
-        }
+        Value::String(s.into())
     }
 }
 
 impl Default for Value {
     fn default() -> Self {
-        Value::Nothing {
-            span: Span { start: 0, end: 0 },
-        }
+        Value::Nothing
     }
 }
 
@@ -991,8 +910,8 @@ impl PartialOrd for Value {
         }
 
         match (self, other) {
-            (Value::Bool { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { val: rhs, .. } => lhs.partial_cmp(rhs),
+            (Value::Bool(lhs), rhs) => match rhs {
+                Value::Bool(rhs) => lhs.partial_cmp(rhs),
                 Value::Int { .. } => Some(Ordering::Less),
                 Value::Float { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
@@ -1009,10 +928,10 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::Int { val: lhs, .. }, rhs) => match rhs {
+            (Value::Int(lhs), rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::Float { val: rhs, .. } => compare_floats(*lhs as f64, *rhs),
+                Value::Int(rhs) => lhs.partial_cmp(rhs),
+                Value::Float(rhs) => compare_floats(*lhs as f64, *rhs),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
@@ -1027,10 +946,10 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::Float { val: lhs, .. }, rhs) => match rhs {
+            (Value::Float(lhs), rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { val: rhs, .. } => compare_floats(*lhs, *rhs as f64),
-                Value::Float { val: rhs, .. } => compare_floats(*lhs, *rhs),
+                Value::Int(rhs) => compare_floats(*lhs, *rhs as f64),
+                Value::Float(rhs) => compare_floats(*lhs, *rhs),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
@@ -1045,11 +964,11 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::Filesize { val: lhs, .. }, rhs) => match rhs {
+            (Value::Filesize(lhs), rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Filesize(rhs) => lhs.partial_cmp(rhs),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -1063,12 +982,12 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::Duration { val: lhs, .. }, rhs) => match rhs {
+            (Value::Duration(lhs), rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Duration(rhs) => lhs.partial_cmp(rhs),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
@@ -1081,13 +1000,13 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::Date { val: lhs, .. }, rhs) => match rhs {
+            (Value::Date(lhs), rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Date(rhs) => lhs.partial_cmp(rhs),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
@@ -1099,14 +1018,14 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::Range { val: lhs, .. }, rhs) => match rhs {
+            (Value::Range(lhs), rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Range(rhs) => lhs.partial_cmp(rhs),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -1117,7 +1036,7 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::String { val: lhs, .. }, rhs) => match rhs {
+            (Value::String(lhs), rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
@@ -1125,7 +1044,7 @@ impl PartialOrd for Value {
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::String(rhs) => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
@@ -1179,7 +1098,7 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::List { vals: lhs, .. }, rhs) => match rhs {
+            (Value::List(lhs), rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
@@ -1189,7 +1108,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
-                Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::List(rhs) => lhs.partial_cmp(rhs),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -1251,7 +1170,7 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::Binary { val: lhs, .. }, rhs) => match rhs {
+            (Value::Binary(lhs), rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
@@ -1265,11 +1184,11 @@ impl PartialOrd for Value {
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
-                Value::Binary { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Binary(rhs) => lhs.partial_cmp(rhs),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::CellPath { val: lhs, .. }, rhs) => match rhs {
+            (Value::CellPath(lhs), rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
@@ -1284,10 +1203,10 @@ impl PartialOrd for Value {
                 Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
                 Value::Binary { .. } => Some(Ordering::Greater),
-                Value::CellPath { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::CellPath(rhs) => lhs.partial_cmp(rhs),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
+            (Value::CustomValue(lhs), rhs) => lhs.partial_cmp(rhs),
         }
     }
 }
@@ -1301,9 +1220,9 @@ impl PartialEq for Value {
 impl Value {
     pub fn add(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+            (Value::Int(lhs), Value::Int(rhs)) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
-                    Ok(Value::Int { val, span })
+                    Ok(Value::Int(val))
                 } else {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
@@ -1311,34 +1230,22 @@ impl Value {
                     ))
                 }
             }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: *lhs as f64 + *rhs,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
-                val: *lhs + *rhs as f64,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: lhs + rhs,
-                span,
-            }),
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::String {
-                val: lhs.to_string() + rhs,
-                span,
-            }),
-            (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+            (Value::Int(lhs), Value::Float(rhs)) => Ok(Value::Float(*lhs as f64 + *rhs)),
+            (Value::Float(lhs), Value::Int(rhs)) => Ok(Value::Float(*lhs + *rhs as f64)),
+            (Value::Float(lhs), Value::Float(rhs)) => Ok(Value::Float(lhs + rhs)),
+            (Value::String(lhs), Value::String(rhs)) => Ok(Value::String(lhs.to_string() + rhs)),
+            (Value::Date(lhs), Value::Duration(rhs)) => {
                 match lhs.checked_add_signed(chrono::Duration::nanoseconds(*rhs)) {
-                    Some(val) => Ok(Value::Date { val, span }),
+                    Some(val) => Ok(Value::Date(val)),
                     _ => Err(ShellError::OperatorOverflow(
                         "addition operation overflowed".into(),
                         span,
                     )),
                 }
             }
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+            (Value::Duration(lhs), Value::Duration(rhs)) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
-                    Ok(Value::Duration { val, span })
+                    Ok(Value::Duration(val))
                 } else {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
@@ -1346,9 +1253,9 @@ impl Value {
                     ))
                 }
             }
-            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+            (Value::Filesize(lhs), Value::Filesize(rhs)) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
-                    Ok(Value::Filesize { val, span })
+                    Ok(Value::Filesize(val))
                 } else {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
@@ -1357,9 +1264,7 @@ impl Value {
                 }
             }
 
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Plus, op, rhs)
-            }
+            (Value::CustomValue(lhs), rhs) => lhs.operation(*span, Operator::Plus, op, rhs),
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,

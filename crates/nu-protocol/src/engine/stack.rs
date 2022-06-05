@@ -63,7 +63,7 @@ impl Stack {
 
     pub fn get_var(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
         if let Some(v) = self.vars.get(&var_id) {
-            return Ok(v.clone().with_span(span));
+            return Ok(v.clone());
         }
 
         Err(ShellError::VariableNotFoundAtRuntime(span))
@@ -126,15 +126,13 @@ impl Stack {
         }
     }
 
-    pub fn gather_captures(&self, captures: &[VarId]) -> Stack {
+    pub fn gather_captures(&self, captures: &[VarId], span: Span) -> Stack {
         let mut vars = HashMap::new();
-
-        let fake_span = Span::new(0, 0);
 
         for capture in captures {
             // Note: this assumes we have calculated captures correctly and that commands
             // that take in a var decl will manually set this into scope when running the blocks
-            if let Ok(value) = self.get_var(*capture, fake_span) {
+            if let Ok(value) = self.get_var(*capture, span) {
                 vars.insert(*capture, value);
             }
         }

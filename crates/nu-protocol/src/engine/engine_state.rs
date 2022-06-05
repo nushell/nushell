@@ -1447,12 +1447,13 @@ impl<'a> StateWorkingSet<'a> {
         last.visibility.use_alias_id(&alias_id);
     }
 
-    pub fn get_cwd(&self) -> String {
+    pub fn get_cwd(&self, span: Span) -> String {
         let pwd = self
             .permanent_state
             .get_env_var(PWD_ENV)
             .expect("internal error: can't find PWD");
-        pwd.as_string().expect("internal error: PWD not a string")
+        pwd.as_string(span)
+            .expect("internal error: PWD not a string")
     }
 
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {

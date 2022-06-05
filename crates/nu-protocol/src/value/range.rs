@@ -29,68 +29,44 @@ impl Range {
         // Select from & to values if they're not specified
         // TODO: Replace the placeholder values with proper min/max for range based on data type
         let from = if let Value::Nothing { .. } = from {
-            Value::Int {
-                val: 0i64,
-                span: expr_span,
-            }
+            Value::Int(0i64)
         } else {
             from
         };
 
         let to = if let Value::Nothing { .. } = to {
-            if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, &from, expr_span) {
-                Value::Int {
-                    val: i64::MIN,
-                    span: expr_span,
-                }
+            if let Ok(Value::Bool(val)) = next.lt(expr_span, &from, expr_span) {
+                Value::Int(i64::MIN)
             } else {
-                Value::Int {
-                    val: i64::MAX,
-                    span: expr_span,
-                }
+                Value::Int(i64::MAX)
             }
         } else {
             to
         };
 
         // Check if the range counts up or down
-        let moves_up = matches!(
-            from.lte(expr_span, &to, expr_span),
-            Ok(Value::Bool { val: true, .. })
-        );
+        let moves_up = matches!(from.lte(expr_span, &to, expr_span), Ok(Value::Bool(true)));
 
         // Convert the next value into the inctement
         let incr = if let Value::Nothing { .. } = next {
             if moves_up {
-                Value::Int {
-                    val: 1i64,
-                    span: expr_span,
-                }
+                Value::Int(1i64)
             } else {
-                Value::Int {
-                    val: -1i64,
-                    span: expr_span,
-                }
+                Value::Int(-1i64)
             }
         } else {
             next.sub(operator.next_op_span, &from, expr_span)?
         };
 
-        let zero = Value::Int {
-            val: 0i64,
-            span: expr_span,
-        };
+        let zero = Value::Int(0i64);
 
         // Increment must be non-zero, otherwise we iterate forever
-        if matches!(
-            incr.eq(expr_span, &zero, expr_span),
-            Ok(Value::Bool { val: true, .. })
-        ) {
+        if matches!(incr.eq(expr_span, &zero, expr_span), Ok(Value::Bool(true))) {
             return Err(ShellError::CannotCreateRange(expr_span));
         }
 
         // If to > from, then incr > 0, otherwise we iterate forever
-        if let (Value::Bool { val: true, .. }, Value::Bool { val: false, .. }) = (
+        if let (Value::Bool(true), Value::Bool(false)) = (
             to.gt(operator.span, &from, expr_span)?,
             incr.gt(operator.next_op_span, &zero, expr_span)?,
         ) {
@@ -98,7 +74,7 @@ impl Range {
         }
 
         // If to < from, then incr < 0, otherwise we iterate forever
-        if let (Value::Bool { val: true, .. }, Value::Bool { val: false, .. }) = (
+        if let (Value::Bool(true), Value::Bool(false)) = (
             to.lt(operator.span, &from, expr_span)?,
             incr.lt(operator.next_op_span, &zero, expr_span)?,
         ) {
@@ -134,9 +110,8 @@ impl Range {
     pub fn into_range_iter(
         self,
         ctrlc: Option<Arc<AtomicBool>>,
+        span: Span,
     ) -> Result<RangeIterator, ShellError> {
-        let span = self.from.span()?;
-
         Ok(RangeIterator::new(self, ctrlc, span))
     }
 }
@@ -176,15 +151,12 @@ impl RangeIterator {
         let is_end_inclusive = range.is_end_inclusive();
 
         let start = match range.from {
-            Value::Nothing { .. } => Value::Int { val: 0, span },
+            Value::Nothing { .. } => Value::Int(0),
             x => x,
         };
 
         let end = match range.to {
-            Value::Nothing { .. } => Value::Int {
-                val: i64::MAX,
-                span,
-            },
+            Value::Nothing { .. } => Value::Int(i64::MAX),
             x => x,
         };
 
@@ -224,9 +196,7 @@ impl Iterator for RangeIterator {
             ord
         } else {
             self.done = true;
-            return Some(Value::Error {
-                error: ShellError::CannotCreateRange(self.span),
-            });
+            return Some(Value::Error(ShellError::CannotCreateRange(self.span)));
         };
 
         let desired_ordering = if self.moves_up {
@@ -244,7 +214,7 @@ impl Iterator for RangeIterator {
 
                 Err(error) => {
                     self.done = true;
-                    return Some(Value::Error { error });
+                    return Some(Value::Error(error));
                 }
             };
             std::mem::swap(&mut self.curr, &mut next);

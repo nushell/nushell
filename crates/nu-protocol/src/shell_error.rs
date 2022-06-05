@@ -348,10 +348,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Drop or rename the existing column (check `rename -h`) and try again.
     #[error("Column already exists")]
     #[diagnostic(code(nu::shell::column_already_exists), url(docsrs))]
-    ColumnAlreadyExists(
-        #[label = "column already exists"] Span,
-        #[label = "value originates here"] Span,
-    ),
+    ColumnAlreadyExists(#[label = "column already exists"] Span),
 
     /// The given operation can only be performed on lists.
     ///
@@ -360,10 +357,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Check the input type to this command. Are you sure it's a list?
     #[error("Not a list value")]
     #[diagnostic(code(nu::shell::not_a_list), url(docsrs))]
-    NotAList(
-        #[label = "value not a list"] Span,
-        #[label = "value originates here"] Span,
-    ),
+    NotAList(#[label = "value not a list"] Span),
 
     /// An error happened while performing an external command.
     ///
