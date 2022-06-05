@@ -86,7 +86,7 @@ pub fn print_table_or_error(
             match table {
                 Ok(table) => {
                     for item in table {
-                        if let Value::Error { error } = item {
+                        if let Value::Error(error) = item {
                             let working_set = StateWorkingSet::new(engine_state);
 
                             report_error(&working_set, &error);
@@ -111,7 +111,7 @@ pub fn print_table_or_error(
         }
         None => {
             for item in pipeline_data {
-                if let Value::Error { error } = item {
+                if let Value::Error(error) = item {
                     let working_set = StateWorkingSet::new(engine_state);
 
                     report_error(&working_set, &error);

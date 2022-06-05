@@ -34,7 +34,7 @@ impl Completer for DirectoryCompletion {
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let cwd = if let Some(d) = self.engine_state.get_env_var("PWD") {
-            match d.as_string() {
+            match d.as_string(span) {
                 Ok(s) => s,
                 Err(_) => "".to_string(),
             }

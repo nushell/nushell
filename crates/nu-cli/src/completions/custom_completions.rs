@@ -35,7 +35,7 @@ impl CustomCompletion {
     ) -> Vec<Suggestion> {
         list.filter_map(move |x| {
             // Match for string values
-            if let Ok(s) = x.as_string() {
+            if let Ok(s) = x.as_string(span) {
                 return Some(Suggestion {
                     value: s,
                     description: None,
@@ -49,7 +49,7 @@ impl CustomCompletion {
             }
 
             // Match for record values
-            if let Ok((cols, vals)) = x.as_record() {
+            if let Ok((cols, vals)) = x.as_record(span) {
                 let mut suggestion = Suggestion {
                     value: String::from(""), // Initialize with empty string
                     description: None,
@@ -66,7 +66,7 @@ impl CustomCompletion {
                     // Match `value` column
                     if it.0 == "value" {
                         // Convert the value to string
-                        if let Ok(val_str) = it.1.as_string() {
+                        if let Ok(val_str) = it.1.as_string(span) {
                             // Update the suggestion value
                             suggestion.value = val_str;
                         }
@@ -75,7 +75,7 @@ impl CustomCompletion {
                     // Match `description` column
                     if it.0 == "description" {
                         // Convert the value to string
-                        if let Ok(desc_str) = it.1.as_string() {
+                        if let Ok(desc_str) = it.1.as_string(span) {
                             // Update the suggestion value
                             suggestion.description = Some(desc_str);
                         }
@@ -142,7 +142,7 @@ impl Completer for CustomCompletion {
                         let completions = value
                             .get_data_by_key("completions")
                             .and_then(|val| {
-                                val.as_list()
+                                val.as_list(span)
                                     .ok()
                                     .map(|it| self.map_completions(it.iter(), span, offset))
                             })
@@ -153,7 +153,7 @@ impl Completer for CustomCompletion {
                             let options = options.unwrap_or_default();
                             let should_sort = options
                                 .get_data_by_key("sort")
-                                .and_then(|val| val.as_bool().ok())
+                                .and_then(|val| val.as_bool(span).ok())
                                 .unwrap_or(false);
 
                             if should_sort {
@@ -163,11 +163,11 @@ impl Completer for CustomCompletion {
                             custom_completion_options = Some(CompletionOptions {
                                 case_sensitive: options
                                     .get_data_by_key("case_sensitive")
-                                    .and_then(|val| val.as_bool().ok())
+                                    .and_then(|val| val.as_bool(span).ok())
                                     .unwrap_or(true),
                                 positional: options
                                     .get_data_by_key("positional")
-                                    .and_then(|val| val.as_bool().ok())
+                                    .and_then(|val| val.as_bool(span).ok())
                                     .unwrap_or(true),
                                 sort_by: if should_sort {
                                     SortBy::Ascending
@@ -178,7 +178,7 @@ impl Completer for CustomCompletion {
                                     .get_data_by_key("completion_algorithm")
                                 {
                                     Some(option) => option
-                                        .as_string()
+                                        .as_string(span)
                                         .ok()
                                         .and_then(|option| option.try_into().ok())
                                         .unwrap_or(MatchAlgorithm::Prefix),

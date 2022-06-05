@@ -39,11 +39,11 @@ impl Completer for DotNuCompletion {
         let lib_dirs: Vec<String> =
             if let Some(lib_dirs) = self.engine_state.get_env_var("NU_LIB_DIRS") {
                 lib_dirs
-                    .as_list()
+                    .as_list(span)
                     .into_iter()
                     .flat_map(|it| {
                         it.iter().map(|x| {
-                            x.as_path()
+                            x.as_path(span)
                                 .expect("internal error: failed to convert lib path")
                         })
                     })
@@ -71,7 +71,7 @@ impl Completer for DotNuCompletion {
         } else {
             // Fetch the current folder
             let current_folder = if let Some(d) = self.engine_state.get_env_var("PWD") {
-                match d.as_string() {
+                match d.as_string(span) {
                     Ok(s) => s,
                     Err(_) => "".to_string(),
                 }

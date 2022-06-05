@@ -280,9 +280,7 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                 }
 
                 // Current sublevel value not found
-                return Value::Nothing {
-                    span: Span { start: 0, end: 0 },
-                };
+                return Value::Nothing;
             }
             _ => return val,
         }

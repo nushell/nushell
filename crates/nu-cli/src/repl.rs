@@ -52,21 +52,9 @@ pub fn evaluate_repl(
     }
 
     // seed env vars
-    stack.add_env_var(
-        "CMD_DURATION_MS".into(),
-        Value::String {
-            val: "0823".to_string(),
-            span: Span { start: 0, end: 0 },
-        },
-    );
+    stack.add_env_var("CMD_DURATION_MS".into(), Value::String("0823".to_string()));
 
-    stack.add_env_var(
-        "LAST_EXIT_CODE".into(),
-        Value::Int {
-            val: 0,
-            span: Span { start: 0, end: 0 },
-        },
-    );
+    stack.add_env_var("LAST_EXIT_CODE".into(), Value::Int(0));
 
     if is_perf_true {
         info!(
@@ -358,14 +346,8 @@ pub fn evaluate_repl(
 
                     //FIXME: this only changes the current scope, but instead this environment variable
                     //should probably be a block that loads the information from the state in the overlay
-                    stack.add_env_var(
-                        "PWD".into(),
-                        Value::String {
-                            val: path.clone(),
-                            span: Span { start: 0, end: 0 },
-                        },
-                    );
-                    let cwd = Value::String { val: cwd, span };
+                    stack.add_env_var("PWD".into(), Value::String(path.clone()));
+                    let cwd = Value::String(cwd);
 
                     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
                     let mut shells = if let Some(v) = shells {
@@ -383,9 +365,9 @@ pub fn evaluate_repl(
                         0
                     };
 
-                    shells[current_shell] = Value::String { val: path, span };
+                    shells[current_shell] = Value::String(path);
 
-                    stack.add_env_var("NUSHELL_SHELLS".into(), Value::List { vals: shells, span });
+                    stack.add_env_var("NUSHELL_SHELLS".into(), Value::List(vals));
                 } else {
                     trace!("eval source: {}", s);
 
@@ -400,10 +382,7 @@ pub fn evaluate_repl(
 
                 stack.add_env_var(
                     "CMD_DURATION_MS".into(),
-                    Value::String {
-                        val: format!("{}", start_time.elapsed().as_millis()),
-                        span: Span { start: 0, end: 0 },
-                    },
+                    Value::String(format!("{}", start_time.elapsed().as_millis())),
                 );
 
                 // FIXME: permanent state changes like this hopefully in time can be removed
@@ -513,7 +492,7 @@ pub fn run_hook_block(
     let block = engine_state.get_block(block_id);
     let input = PipelineData::new(span);
 
-    let mut callee_stack = stack.gather_captures(&block.captures);
+    let mut callee_stack = stack.gather_captures(&block.captures, span);
 
     for (idx, PositionalArg { var_id, .. }) in
         block.signature.required_positional.iter().enumerate()
@@ -525,7 +504,7 @@ pub fn run_hook_block(
 
     match eval_block(engine_state, &mut callee_stack, block, input, false, false) {
         Ok(pipeline_data) => match pipeline_data.into_value(span) {
-            Value::Error { error } => Err(error),
+            Value::Error(error) => Err(error),
             _ => Ok(()),
         },
         Err(err) => Err(err),

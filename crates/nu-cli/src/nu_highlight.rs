@@ -42,12 +42,9 @@ impl Command for NuHighlight {
                 Ok(line) => {
                     let highlights = highlighter.highlight(&line, line.len());
 
-                    Value::String {
-                        val: highlights.render_simple(),
-                        span: head,
-                    }
+                    Value::String(highlights.render_simple())
                 }
-                Err(err) => Value::Error { error: err },
+                Err(err) => Value::Error(err),
             },
             ctrlc,
         )

@@ -32,26 +32,8 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     let delta = StateDelta::new(&engine_state);
 
     // Add pwd as env var
-    stack.add_env_var(
-        "PWD".to_string(),
-        Value::String {
-            val: dir_str.clone(),
-            span: nu_protocol::Span {
-                start: 0,
-                end: dir_str.len(),
-            },
-        },
-    );
-    stack.add_env_var(
-        "TEST".to_string(),
-        Value::String {
-            val: "NUSHELL".to_string(),
-            span: nu_protocol::Span {
-                start: 0,
-                end: dir_str.len(),
-            },
-        },
-    );
+    stack.add_env_var("PWD".to_string(), Value::String(dir_str.clone()));
+    stack.add_env_var("TEST".to_string(), Value::String("NUSHELL".to_string()));
 
     // Merge delta
     let merge_result = engine_state.merge_delta(delta, Some(&mut stack), &dir);
@@ -101,12 +83,7 @@ pub fn merge_input(
         engine_state,
         stack,
         &block,
-        PipelineData::Value(
-            Value::Nothing {
-                span: Span { start: 0, end: 0 },
-            },
-            None
-        ),
+        PipelineData::Value(Value::Nothing, None),
         false,
         false
     )

@@ -164,10 +164,7 @@ fn gather_env_vars(vars: impl Iterator<Item = (String, String)>, engine_state: &
                     continue;
                 }
 
-                Value::String {
-                    val: bytes,
-                    span: *span,
-                }
+                Value::String(bytes)
             } else {
                 report_capture_error(
                     engine_state,
@@ -263,13 +260,7 @@ pub fn eval_source(
 }
 
 fn set_last_exit_code(stack: &mut Stack, exit_code: i64) {
-    stack.add_env_var(
-        "LAST_EXIT_CODE".to_string(),
-        Value::Int {
-            val: exit_code,
-            span: Span { start: 0, end: 0 },
-        },
-    );
+    stack.add_env_var("LAST_EXIT_CODE".to_string(), Value::Int(exit_code));
 }
 
 pub fn report_error(

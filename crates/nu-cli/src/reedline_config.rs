@@ -160,7 +160,7 @@ macro_rules! add_style {
         $menu = match extract_value($name, $cols, $vals, $span) {
             Ok(text) => {
                 let text = match text {
-                    Value::String { val, .. } => val.clone(),
+                    Value::String(val) => val.clone(),
                     Value::Record { cols, vals, span } => {
                         color_value_string(span, cols, vals, $config).into_string("", $config)
                     }
@@ -583,7 +583,7 @@ fn add_keybinding(
     normal_keybindings: &mut Keybindings,
 ) -> Result<(), ShellError> {
     match &mode {
-        Value::String { val, span } => match val.as_str() {
+        Value::String(val) => match val.as_str() {
             "emacs" => add_parsed_keybinding(emacs_keybindings, keybinding, config),
             "vi_insert" => add_parsed_keybinding(insert_keybindings, keybinding, config),
             "vi_normal" => add_parsed_keybinding(normal_keybindings, keybinding, config),
@@ -976,20 +976,13 @@ mod test {
     #[test]
     fn test_send_event() {
         let cols = vec!["send".to_string()];
-        let vals = vec![Value::String {
-            val: "Enter".to_string(),
-            span: Span::test_data(),
-        }];
+        let vals = vec![Value::String("Enter".to_string())];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
         assert!(matches!(b, EventType::Send(_)));
 
-        let event = Value::Record {
-            vals,
-            cols,
-            span: Span::test_data(),
-        };
+        let event = Value::Record { vals, cols };
         let config = Config::default();
 
         let parsed_event = parse_event(&event, &config).unwrap();
@@ -999,20 +992,15 @@ mod test {
     #[test]
     fn test_edit_event() {
         let cols = vec!["edit".to_string()];
-        let vals = vec![Value::String {
+        let vals = vec![Value::String(
             val: "Clear".to_string(),
-            span: Span::test_data(),
-        }];
+        )];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
         assert!(matches!(b, EventType::Edit(_)));
 
-        let event = Value::Record {
-            vals,
-            cols,
-            span: Span::test_data(),
-        };
+        let event = Value::Record { vals, cols };
         let config = Config::default();
 
         let parsed_event = parse_event(&event, &config).unwrap();
@@ -1026,25 +1014,19 @@ mod test {
     fn test_send_menu() {
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            Value::String {
+            Value::String(
                 val: "Menu".to_string(),
-                span: Span::test_data(),
-            },
-            Value::String {
+            ),
+            Value::String(
                 val: "history_menu".to_string(),
-                span: Span::test_data(),
-            },
+            ),
         ];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
         assert!(matches!(b, EventType::Send(_)));
 
-        let event = Value::Record {
-            vals,
-            cols,
-            span: Span::test_data(),
-        };
+        let event = Value::Record { vals, cols };
         let config = Config::default();
 
         let parsed_event = parse_event(&event, &config).unwrap();
@@ -1059,51 +1041,33 @@ mod test {
         // Menu event
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            Value::String {
+            Value::String(
                 val: "Menu".to_string(),
-                span: Span::test_data(),
-            },
-            Value::String {
+            ),
+            Value::String(
                 val: "history_menu".to_string(),
-                span: Span::test_data(),
-            },
+            ),
         ];
 
-        let menu_event = Value::Record {
-            cols,
-            vals,
-            span: Span::test_data(),
-        };
+        let menu_event = Value::Record { cols, vals };
 
         // Enter event
         let cols = vec!["send".to_string()];
-        let vals = vec![Value::String {
+        let vals = vec![Value::String(
             val: "Enter".to_string(),
-            span: Span::test_data(),
-        }];
+        )];
 
-        let enter_event = Value::Record {
-            cols,
-            vals,
-            span: Span::test_data(),
-        };
+        let enter_event = Value::Record { cols, vals };
 
         // Until event
         let cols = vec!["until".to_string()];
-        let vals = vec![Value::List {
-            vals: vec![menu_event, enter_event],
-            span: Span::test_data(),
-        }];
+        let vals = vec![Value::List(vec![menu_event, enter_event])];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
         assert!(matches!(b, EventType::Until(_)));
 
-        let event = Value::Record {
-            cols,
-            vals,
-            span: Span::test_data(),
-        };
+        let event = Value::Record { cols, vals };
         let config = Config::default();
 
         let parsed_event = parse_event(&event, &config).unwrap();
@@ -1121,40 +1085,24 @@ mod test {
         // Menu event
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            Value::String {
+            Value::String(
                 val: "Menu".to_string(),
-                span: Span::test_data(),
-            },
-            Value::String {
-                val: "history_menu".to_string(),
-                span: Span::test_data(),
-            },
+            ),
+            Value::String(
+                "history_menu".to_string(),
+            ),
         ];
 
-        let menu_event = Value::Record {
-            cols,
-            vals,
-            span: Span::test_data(),
-        };
+        let menu_event = Value::Record { cols, vals };
 
         // Enter event
         let cols = vec!["send".to_string()];
-        let vals = vec![Value::String {
-            val: "Enter".to_string(),
-            span: Span::test_data(),
-        }];
+        let vals = vec![Value::String("Enter".to_string())];
 
-        let enter_event = Value::Record {
-            cols,
-            vals,
-            span: Span::test_data(),
-        };
+        let enter_event = Value::Record { cols, vals };
 
         // Multiple event
-        let event = Value::List {
-            vals: vec![menu_event, enter_event],
-            span: Span::test_data(),
-        };
+        let event = Value::List(vec![menu_event, enter_event]);
 
         let config = Config::default();
         let parsed_event = parse_event(&event, &config).unwrap();
@@ -1170,10 +1118,7 @@ mod test {
     #[test]
     fn test_error() {
         let cols = vec!["not_exist".to_string()];
-        let vals = vec![Value::String {
-            val: "Enter".to_string(),
-            span: Span::test_data(),
-        }];
+        let vals = vec![Value::String("Enter".to_string())];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span);
