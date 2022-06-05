@@ -72,18 +72,12 @@ impl Command for SubCommand {
             Example {
                 description: "Convert file size to integer",
                 example: "4KB | into int",
-                result: Some(Value::Int {
-                    val: 4000,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::Int(4000)),
             },
             Example {
                 description: "Convert bool to integer",
                 example: "[false, true] | into int",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(1)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::List(vec![Value::test_int(0), Value::test_int(1)])),
             },
             Example {
                 description: "Convert date to integer (Unix timestamp)",
@@ -144,7 +138,7 @@ fn into_int(
                         Box::new(move |old| action(old, head, radix)),
                     );
                     if let Err(error) = r {
-                        return Value::Error { error };
+                        return Value::Error(error);
                     }
                 }
 
@@ -164,16 +158,13 @@ pub fn action(input: &Value, span: Span, radix: u32) -> Value {
                 convert_int(input, span, radix)
             }
         }
-        Value::Filesize { val, .. } => Value::Int { val: *val, span },
-        Value::Float { val, .. } => Value::Int {
-            val: *val as i64,
-            span,
-        },
+        Value::Filesize { val, .. } => Value::Int(*val),
+        Value::Float { val, .. } => Value::Int(*val as i64),
         Value::String { val, .. } => {
             if radix == 10 {
                 match int_from_string(val, span) {
-                    Ok(val) => Value::Int { val, span },
-                    Err(error) => Value::Error { error },
+                    Ok(val) => Value::Int(val),
+                    Err(error) => Value::Error(error),
                 }
             } else {
                 convert_int(input, span, radix)
@@ -181,18 +172,16 @@ pub fn action(input: &Value, span: Span, radix: u32) -> Value {
         }
         Value::Bool { val, .. } => {
             if *val {
-                Value::Int { val: 1, span }
+                Value::Int(1)
             } else {
-                Value::Int { val: 0, span }
+                Value::Int(0)
             }
         }
-        Value::Date { val, .. } => Value::Int {
-            val: val.timestamp(),
+        Value::Date { val, .. } => Value::Int(val.timestamp()),
+        _ => Value::Error(ShellError::UnsupportedInput(
+            "'into int' for unsupported type".into(),
             span,
-        },
-        _ => Value::Error {
-            error: ShellError::UnsupportedInput("'into int' for unsupported type".into(), span),
-        },
+        )),
     }
 }
 
@@ -202,26 +191,27 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
         Value::String { val, .. } => {
             if val.starts_with("0x") || val.starts_with("0b") {
                 match int_from_string(val, head) {
-                    Ok(x) => return Value::Int { val: x, span: head },
-                    Err(e) => return Value::Error { error: e },
+                    Ok(x) => return Value::Int(x),
+                    Err(e) => return Value::Error(e),
                 }
             }
             val.to_string()
         }
         _ => {
-            return Value::Error {
-                error: ShellError::UnsupportedInput(
-                    "only strings or integers are supported".to_string(),
-                    head,
-                ),
-            }
+            return Value::Error(ShellError::UnsupportedInput(
+                "only strings or integers are supported".to_string(),
+                head,
+            ))
         }
     };
     match i64::from_str_radix(&i, radix) {
-        Ok(n) => Value::Int { val: n, span: head },
-        Err(_reason) => Value::Error {
-            error: ShellError::CantConvert("int".to_string(), "string".to_string(), head, None),
-        },
+        Ok(n) => Value::Int(n),
+        Err(_reason) => Value::Error(ShellError::CantConvert(
+            "int".to_string(),
+            "string".to_string(),
+            head,
+            None,
+        )),
     }
 }
 

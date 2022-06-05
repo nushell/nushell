@@ -56,26 +56,17 @@ impl Command for SubCommand {
             Example {
                 description: "convert decimal to string and round to nearest integer",
                 example: "1.7 | into string -d 0",
-                result: Some(Value::String {
-                    val: "2".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::String("2".to_string())),
             },
             Example {
                 description: "convert decimal to string",
                 example: "1.7 | into string -d 1",
-                result: Some(Value::String {
-                    val: "1.7".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::String("1.7".to_string())),
             },
             Example {
                 description: "convert decimal to string and limit to 2 decimals",
                 example: "1.734 | into string -d 2",
-                result: Some(Value::String {
-                    val: "1.73".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::String("1.73".to_string())),
             },
             Example {
                 description: "try to convert decimal to string and provide negative decimal points",
@@ -92,26 +83,17 @@ impl Command for SubCommand {
             Example {
                 description: "convert decimal to string",
                 example: "4.3 | into string",
-                result: Some(Value::String {
-                    val: "4.3".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::String("4.3".to_string())),
             },
             Example {
                 description: "convert string to string",
                 example: "'1234' | into string",
-                result: Some(Value::String {
-                    val: "1234".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::String("1234".to_string())),
             },
             Example {
                 description: "convert boolean to string",
                 example: "true | into string",
-                result: Some(Value::String {
-                    val: "true".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::String("true".to_string())),
             },
             Example {
                 description: "convert date to string",
@@ -154,22 +136,16 @@ fn string_helper(
     }
 
     match input {
-        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::String {
-            val: String::new(),
-            span: head,
+        PipelineData::ExternalStream { stdout: None, .. } => {
+            Ok(Value::String(String::new()).into_pipeline_data())
         }
-        .into_pipeline_data()),
         PipelineData::ExternalStream {
             stdout: Some(stream),
             ..
         } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_string()?;
-            Ok(Value::String {
-                val: output.item,
-                span: head,
-            }
-            .into_pipeline_data())
+            Ok(Value::String(output.item).into_pipeline_data())
         }
         _ => input.map(
             move |v| {
@@ -186,7 +162,7 @@ fn string_helper(
                             }),
                         );
                         if let Err(error) = r {
-                            return Value::Error { error };
+                            return Value::Error(error);
                         }
                     }
 
@@ -214,69 +190,41 @@ pub fn action(
                 val.to_string()
             };
 
-            Value::String { val: res, span }
+            Value::String(res)
         }
         Value::Float { val, .. } => {
             if decimals {
                 let decimal_value = digits.unwrap_or(2) as usize;
-                Value::String {
-                    val: format!("{:.*}", decimal_value, val),
-                    span,
-                }
+                Value::String(format!("{:.*}", decimal_value, val))
             } else {
-                Value::String {
-                    val: val.to_string(),
-                    span,
-                }
+                Value::String(val.to_string())
             }
         }
-        Value::Bool { val, .. } => Value::String {
-            val: val.to_string(),
-            span,
-        },
-        Value::Date { val, .. } => Value::String {
-            val: val.format("%c").to_string(),
-            span,
-        },
-        Value::String { val, .. } => Value::String {
-            val: val.to_string(),
-            span,
-        },
-
-        Value::Filesize { val: _, .. } => Value::String {
-            val: input.into_string(", ", config),
-            span,
-        },
-        Value::Nothing { .. } => Value::String {
-            val: "".to_string(),
-            span,
-        },
+        Value::Bool { val, .. } => Value::String(val.to_string()),
+        Value::Date { val, .. } => Value::String(val.format("%c").to_string()),
+        Value::String { val, .. } => Value::String(val.to_string()),
+        Value::Filesize { val: _, .. } => Value::String(input.into_string(", ", config)),
+        Value::Nothing { .. } => Value::String("".to_string()),
         Value::Record {
             cols: _,
             vals: _,
             span: _,
-        } => Value::Error {
-            error: ShellError::UnsupportedInput(
-                "Cannot convert Record into string".to_string(),
-                span,
-            ),
-        },
-        Value::Binary { .. } => Value::Error {
-            error: ShellError::CantConvert(
-                "string".into(),
-                "binary".into(),
-                span,
-                Some("try using the `decode` command".into()),
-            ),
-        },
-        x => Value::Error {
-            error: ShellError::CantConvert(
-                String::from("string"),
-                x.get_type().to_string(),
-                span,
-                None,
-            ),
-        },
+        } => Value::Error(ShellError::UnsupportedInput(
+            "Cannot convert Record into string".to_string(),
+            span,
+        )),
+        Value::Binary { .. } => Value::Error(ShellError::CantConvert(
+            "string".into(),
+            "binary".into(),
+            span,
+            Some("try using the `decode` command".into()),
+        )),
+        x => Value::Error(ShellError::CantConvert(
+            String::from("string"),
+            x.get_type().to_string(),
+            span,
+            None,
+        )),
     }
 }
 fn format_int(int: i64) -> String {

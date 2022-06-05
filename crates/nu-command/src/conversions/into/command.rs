@@ -28,11 +28,10 @@ impl Command for Into {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        Ok(Value::String {
-            val: get_full_help(&Into.signature(), &[], engine_state, stack),
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(
+            Value::String(get_full_help(&Into.signature(), &[], engine_state, stack))
+                .into_pipeline_data(),
+        )
     }
 }
 

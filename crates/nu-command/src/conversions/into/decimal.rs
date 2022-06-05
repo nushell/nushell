@@ -44,14 +44,12 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to integer in table",
                 example: "[[num]; ['5.01']] | into decimal num",
-                result: Some(Value::List {
+                result: Some(Value::List(
                     vals: vec![Value::Record {
                         cols: vec!["num".to_string()],
                         vals: vec![Value::test_float(5.01)],
-                        span: Span::test_data(),
                     }],
-                    span: Span::test_data(),
-                }),
+                )),
             },
             Example {
                 description: "Convert string to integer",
@@ -86,7 +84,7 @@ fn operate(
                     let r =
                         ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
                     if let Err(error) = r {
-                        return Value::Error { error };
+                        return Value::Error(error);
                     }
                 }
 
@@ -99,35 +97,28 @@ fn operate(
 
 fn action(input: &Value, head: Span) -> Value {
     match input {
-        Value::String { val: s, span } => {
+        Value::String(s) => {
             let other = s.trim();
 
             match other.parse::<f64>() {
-                Ok(x) => Value::Float { val: x, span: head },
-                Err(reason) => Value::Error {
-                    error: ShellError::CantConvert(
-                        "float".to_string(),
-                        reason.to_string(),
-                        *span,
-                        None,
-                    ),
-                },
+                Ok(x) => Value::Float(x),
+                Err(reason) => Value::Error(ShellError::CantConvert(
+                    "float".to_string(),
+                    reason.to_string(),
+                    *span,
+                    None,
+                )),
             }
         }
-        Value::Int { val: v, span } => Value::Float {
-            val: *v as f64,
-            span: *span,
-        },
+        Value::Int(v) => Value::Float(*v as f64),
         other => {
             let span = other.span();
             match span {
                 Ok(s) => {
                     let got = format!("Expected a string, got {} instead", other.get_type());
-                    Value::Error {
-                        error: ShellError::UnsupportedInput(got, s),
-                    }
+                    Value::Error(ShellError::UnsupportedInput(got, s))
                 }
-                Err(e) => Value::Error { error: e },
+                Err(e) => Value::Error(e),
             }
         }
     }

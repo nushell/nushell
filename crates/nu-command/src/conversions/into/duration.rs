@@ -48,59 +48,47 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to duration in table",
                 example: "echo [[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::List (
+                    vec![
                         Value::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 1000 * 1000 * 1000,
-                                span,
-                            }],
-                            span,
+                            vals: vec![Value::Duration (
+                                1000 * 1000 * 1000,
+                )],
                         },
                         Value::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 2 * 60 * 1000 * 1000 * 1000,
-                                span,
-                            }],
-                            span,
+                            vals: vec![Value::Duration(
+                                2 * 60 * 1000 * 1000 * 1000,
+                )],
                         },
                         Value::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 3 * 60 * 60 * 1000 * 1000 * 1000,
-                                span,
-                            }],
-                            span,
+                            vals: vec![Value::Duration(
+                                3 * 60 * 60 * 1000 * 1000 * 1000,
+                )],
                         },
                         Value::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 4 * 24 * 60 * 60 * 1000 * 1000 * 1000,
-                                span,
-                            }],
-                            span,
+                            vals: vec![Value::Duration(
+                                4 * 24 * 60 * 60 * 1000 * 1000 * 1000,
+                            )],
                         },
                         Value::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 5 * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000,
-                                span,
-                            }],
-                            span,
+                            vals: vec![Value::Duration(
+                                5 * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000,
+                )],
                         },
                     ],
-                    span,
-                }),
+                )),
             },
             Example {
                 description: "Convert string to duration",
                 example: "'7min' | into duration",
-                result: Some(Value::Duration {
-                    val: 7 * 60 * 1000 * 1000 * 1000,
-                    span,
-                }),
+                result: Some(Value::Duration (
+                    7 * 60 * 1000 * 1000 * 1000,
+                )),
             },
         ]
     }
@@ -125,7 +113,7 @@ fn into_duration(
                     let r =
                         ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
                     if let Err(error) = r {
-                        return Value::Error { error };
+                        return Value::Error(error);
                     }
                 }
 
@@ -167,15 +155,13 @@ fn action(input: &Value, span: Span) -> Value {
     match input {
         Value::Duration { .. } => input.clone(),
         Value::String { val, .. } => match string_to_duration(val, span) {
-            Ok(val) => Value::Duration { val, span },
-            Err(error) => Value::Error { error },
+            Ok(val) => Value::Duration(val),
+            Err(error) => Value::Error(error),
         },
-        _ => Value::Error {
-            error: ShellError::UnsupportedInput(
-                "'into duration' does not support this input".into(),
-                span,
-            ),
-        },
+        _ => Value::Error(ShellError::UnsupportedInput(
+            "'into duration' does not support this input".into(),
+            span,
+        )),
     }
 }
 
@@ -194,7 +180,7 @@ mod test {
     fn turns_ns_to_duration() {
         let span = Span::test_data();
         let word = Value::test_string("3ns");
-        let expected = Value::Duration { val: 3, span };
+        let expected = Value::Duration(3);
 
         let actual = action(&word, span);
         assert_eq!(actual, expected);
@@ -204,10 +190,7 @@ mod test {
     fn turns_us_to_duration() {
         let span = Span::test_data();
         let word = Value::test_string("4us");
-        let expected = Value::Duration {
-            val: 4 * 1000,
-            span,
-        };
+        let expected = Value::Duration(4 * 1000);
 
         let actual = action(&word, span);
         assert_eq!(actual, expected);
@@ -217,10 +200,7 @@ mod test {
     fn turns_ms_to_duration() {
         let span = Span::test_data();
         let word = Value::test_string("5ms");
-        let expected = Value::Duration {
-            val: 5 * 1000 * 1000,
-            span,
-        };
+        let expected = Value::Duration(5 * 1000 * 1000);
 
         let actual = action(&word, span);
         assert_eq!(actual, expected);
@@ -230,10 +210,7 @@ mod test {
     fn turns_sec_to_duration() {
         let span = Span::test_data();
         let word = Value::test_string("1sec");
-        let expected = Value::Duration {
-            val: 1000 * 1000 * 1000,
-            span,
-        };
+        let expected = Value::Duration(1000 * 1000 * 1000);
 
         let actual = action(&word, span);
         assert_eq!(actual, expected);
@@ -243,10 +220,7 @@ mod test {
     fn turns_min_to_duration() {
         let span = Span::test_data();
         let word = Value::test_string("7min");
-        let expected = Value::Duration {
-            val: 7 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
+        let expected = Value::Duration(7 * 60 * 1000 * 1000 * 1000);
 
         let actual = action(&word, span);
         assert_eq!(actual, expected);
@@ -256,10 +230,7 @@ mod test {
     fn turns_hr_to_duration() {
         let span = Span::test_data();
         let word = Value::test_string("42hr");
-        let expected = Value::Duration {
-            val: 42 * 60 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
+        let expected = Value::Duration(42 * 60 * 60 * 1000 * 1000 * 1000);
 
         let actual = action(&word, span);
         assert_eq!(actual, expected);
@@ -269,10 +240,7 @@ mod test {
     fn turns_day_to_duration() {
         let span = Span::test_data();
         let word = Value::test_string("123day");
-        let expected = Value::Duration {
-            val: 123 * 24 * 60 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
+        let expected = Value::Duration(123 * 24 * 60 * 60 * 1000 * 1000 * 1000);
 
         let actual = action(&word, span);
         assert_eq!(actual, expected);
@@ -282,10 +250,7 @@ mod test {
     fn turns_wk_to_duration() {
         let span = Span::test_data();
         let word = Value::test_string("3wk");
-        let expected = Value::Duration {
-            val: 3 * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
+        let expected = Value::Duration(3 * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000);
 
         let actual = action(&word, span);
         assert_eq!(actual, expected);

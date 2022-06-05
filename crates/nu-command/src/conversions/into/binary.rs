@@ -47,21 +47,19 @@ impl Command for SubCommand {
             Example {
                 description: "convert string to a nushell binary primitive",
                 example: "'This is a string that is exactly 52 characters long.' | into binary",
-                result: Some(Value::Binary {
+                result: Some(Value::Binary(
                     val: "This is a string that is exactly 52 characters long."
                         .to_string()
                         .as_bytes()
-                        .to_vec(),
-                    span: Span::test_data(),
-                }),
+                        .to_vec()
+                )),
             },
             Example {
                 description: "convert a number to a nushell binary primitive",
                 example: "1 | into binary",
-                result: Some(Value::Binary {
-                    val: i64::from(1).to_le_bytes().to_vec(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::Binary(
+                    i64::from(1).to_le_bytes().to_vec(),
+                )),
             },
             Example {
                 description: "convert a boolean to a nushell binary primitive",
@@ -103,22 +101,16 @@ fn into_binary(
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     match input {
-        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::Binary {
-            val: vec![],
-            span: head,
+        PipelineData::ExternalStream { stdout: None, .. } => {
+            Ok(Value::Binary(vec![]).into_pipeline_data())
         }
-        .into_pipeline_data()),
         PipelineData::ExternalStream {
             stdout: Some(stream),
             ..
         } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_bytes()?;
-            Ok(Value::Binary {
-                val: output.item,
-                span: head,
-            }
-            .into_pipeline_data())
+            Ok(Value::Binary(output.item).into_pipeline_data())
         }
         _ => input.map(
             move |v| {
@@ -132,7 +124,7 @@ fn into_binary(
                             Box::new(move |old| action(old, head)),
                         );
                         if let Err(error) = r {
-                            return Value::Error { error };
+                            return Value::Error(error);
                         }
                     }
 
@@ -163,34 +155,17 @@ fn float_to_endian(n: f64) -> Vec<u8> {
 pub fn action(input: &Value, span: Span) -> Value {
     match input {
         Value::Binary { .. } => input.clone(),
-        Value::Int { val, .. } => Value::Binary {
-            val: int_to_endian(*val),
-            span,
-        },
-        Value::Float { val, .. } => Value::Binary {
-            val: float_to_endian(*val),
-            span,
-        },
-        Value::Filesize { val, .. } => Value::Binary {
-            val: int_to_endian(*val),
-            span,
-        },
-        Value::String { val, .. } => Value::Binary {
-            val: val.as_bytes().to_vec(),
-            span,
-        },
-        Value::Bool { val, .. } => Value::Binary {
-            val: int_to_endian(if *val { 1i64 } else { 0 }),
-            span,
-        },
-        Value::Date { val, .. } => Value::Binary {
-            val: val.format("%c").to_string().as_bytes().to_vec(),
-            span,
-        },
+        Value::Int { val, .. } => Value::Binary(int_to_endian(*val)),
+        Value::Float { val, .. } => Value::Binary(float_to_endian(*val)),
+        Value::Filesize { val, .. } => Value::Binary(int_to_endian(*val)),
+        Value::String { val, .. } => Value::Binary(val.as_bytes().to_vec()),
+        Value::Bool { val, .. } => Value::Binary(int_to_endian(if *val { 1i64 } else { 0 })),
+        Value::Date { val, .. } => Value::Binary(val.format("%c").to_string().as_bytes().to_vec()),
 
-        _ => Value::Error {
-            error: ShellError::UnsupportedInput("'into binary' for unsupported type".into(), span),
-        },
+        _ => Value::Error(ShellError::UnsupportedInput(
+            "'into binary' for unsupported type".into(),
+            span,
+        )),
     }
 }
 
