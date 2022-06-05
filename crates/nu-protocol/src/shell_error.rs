@@ -339,10 +339,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Check the spelling of your column name. Did you forget to rename a column somewhere?
     #[error("Cannot find column")]
     #[diagnostic(code(nu::shell::column_not_found), url(docsrs))]
-    CantFindColumn(
-        #[label = "cannot find column"] Span,
-        #[label = "value originates here"] Span,
-    ),
+    CantFindColumn(#[label = "cannot find column"] Span),
 
     /// Attempted to insert a column into a table, but a column with that name already exists.
     ///

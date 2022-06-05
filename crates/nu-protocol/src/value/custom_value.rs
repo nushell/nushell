@@ -5,7 +5,7 @@ use crate::{ast::Operator, ShellError, Span, Value};
 // Trait definition for a custom value
 #[typetag::serde(tag = "type")]
 pub trait CustomValue: fmt::Debug + Send + Sync {
-    fn clone_value(&self, span: Span) -> Value;
+    fn clone_value(&self) -> Value;
 
     //fn category(&self) -> Category;
 

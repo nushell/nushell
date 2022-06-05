@@ -36,150 +36,67 @@ use crate::ShellError;
 // impact on the PartialOrd implementation and the global sort order
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Value {
-    Bool {
-        val: bool,
-        span: Span,
-    },
-    Int {
-        val: i64,
-        span: Span,
-    },
-    Float {
-        val: f64,
-        span: Span,
-    },
-    Filesize {
-        val: i64,
-        span: Span,
-    },
-    Duration {
-        val: i64,
-        span: Span,
-    },
-    Date {
-        val: DateTime<FixedOffset>,
-        span: Span,
-    },
-    Range {
-        val: Box<Range>,
-        span: Span,
-    },
-    String {
-        val: String,
-        span: Span,
-    },
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    Filesize(i64),
+    Duration(i64),
+    Date(DateTime<FixedOffset>),
+    Range(Box<Range>),
+    String(String),
     Record {
         cols: Vec<String>,
         vals: Vec<Value>,
-        span: Span,
     },
-    List {
-        vals: Vec<Value>,
-        span: Span,
-    },
+    List(Vec<Value>),
     Block {
         val: BlockId,
         captures: HashMap<VarId, Value>,
-        span: Span,
     },
-    Nothing {
-        span: Span,
-    },
-    Error {
-        error: ShellError,
-    },
-    Binary {
-        val: Vec<u8>,
-        span: Span,
-    },
-    CellPath {
-        val: CellPath,
-        span: Span,
-    },
-    CustomValue {
-        val: Box<dyn CustomValue>,
-        span: Span,
-    },
+    Nothing,
+    Error(ShellError),
+    Binary(Vec<u8>),
+    CellPath(CellPath),
+    CustomValue(Box<dyn CustomValue>),
 }
 
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
-            Value::Bool { val, span } => Value::Bool {
-                val: *val,
-                span: *span,
-            },
-            Value::Int { val, span } => Value::Int {
-                val: *val,
-                span: *span,
-            },
-            Value::Filesize { val, span } => Value::Filesize {
-                val: *val,
-                span: *span,
-            },
-            Value::Duration { val, span } => Value::Duration {
-                val: *val,
-                span: *span,
-            },
-            Value::Date { val, span } => Value::Date {
-                val: *val,
-                span: *span,
-            },
-            Value::Range { val, span } => Value::Range {
-                val: val.clone(),
-                span: *span,
-            },
-            Value::Float { val, span } => Value::Float {
-                val: *val,
-                span: *span,
-            },
-            Value::String { val, span } => Value::String {
-                val: val.clone(),
-                span: *span,
-            },
-            Value::Record { cols, vals, span } => Value::Record {
+            Value::Bool(val) => Value::Bool(*val),
+            Value::Int(val) => Value::Int(*val),
+            Value::Filesize(val) => Value::Filesize(*val),
+            Value::Duration(val) => Value::Duration(*val),
+            Value::Date(val) => Value::Date(*val),
+            Value::Range(val) => Value::Range(val.clone()),
+            Value::Float(val) => Value::Float(*val),
+            Value::String(val) => Value::String(val.clone()),
+            Value::Record { cols, vals } => Value::Record {
                 cols: cols.clone(),
                 vals: vals.clone(),
-                span: *span,
             },
-            Value::List { vals, span } => Value::List {
-                vals: vals.clone(),
-                span: *span,
-            },
-            Value::Block {
-                val,
-                captures,
-                span,
-            } => Value::Block {
+            Value::List(vals) => Value::List(vals.clone()),
+            Value::Block { val, captures } => Value::Block {
                 val: *val,
                 captures: captures.clone(),
-                span: *span,
             },
-            Value::Nothing { span } => Value::Nothing { span: *span },
-            Value::Error { error } => Value::Error {
-                error: error.clone(),
-            },
-            Value::Binary { val, span } => Value::Binary {
-                val: val.clone(),
-                span: *span,
-            },
-            Value::CellPath { val, span } => Value::CellPath {
-                val: val.clone(),
-                span: *span,
-            },
-            Value::CustomValue { val, span } => val.clone_value(*span),
+            Value::Nothing => Value::Nothing,
+            Value::Error(error) => Value::Error(error.clone()),
+            Value::Binary(val) => Value::Binary(val.clone()),
+            Value::CellPath(val) => Value::CellPath(val.clone()),
+            Value::CustomValue(val) => val.clone_value(),
         }
     }
 }
 
 impl Value {
     /// Converts into string values that can be changed into string natively
-    pub fn as_string(&self) -> Result<String, ShellError> {
+    pub fn as_string(&self, span: Span) -> Result<String, ShellError> {
         match self {
-            Value::Int { val, .. } => Ok(val.to_string()),
-            Value::Float { val, .. } => Ok(val.to_string()),
-            Value::String { val, .. } => Ok(val.to_string()),
-            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
+            Value::Int(val) => Ok(val.to_string()),
+            Value::Float(val) => Ok(val.to_string()),
+            Value::String(val) => Ok(val.to_string()),
+            Value::Binary(val) => Ok(match std::str::from_utf8(val) {
                 Ok(s) => s.to_string(),
                 Err(_) => {
                     // println!("{:?}", e);
@@ -188,7 +105,7 @@ impl Value {
                     return Err(ShellError::CantConvert(
                         "string".into(),
                         "binary".into(),
-                        self.span()?,
+                        span,
                         None,
                     ));
                 }
@@ -196,28 +113,28 @@ impl Value {
             x => Err(ShellError::CantConvert(
                 "string".into(),
                 x.get_type().to_string(),
-                self.span()?,
+                span,
                 None,
             )),
         }
     }
 
-    pub fn as_spanned_string(&self) -> Result<Spanned<String>, ShellError> {
+    pub fn as_spanned_string(&self, span: Span) -> Result<Spanned<String>, ShellError> {
         match self {
-            Value::String { val, span } => Ok(Spanned {
+            Value::String(val) => Ok(Spanned {
                 item: val.to_string(),
-                span: *span,
+                span,
             }),
-            Value::Binary { val, span } => Ok(match std::str::from_utf8(val) {
+            Value::Binary(val) => Ok(match std::str::from_utf8(val) {
                 Ok(s) => Spanned {
                     item: s.to_string(),
-                    span: *span,
+                    span,
                 },
                 Err(_) => {
                     return Err(ShellError::CantConvert(
                         "string".into(),
                         "binary".into(),
-                        self.span()?,
+                        span,
                         None,
                     ))
                 }
@@ -225,174 +142,128 @@ impl Value {
             x => Err(ShellError::CantConvert(
                 "string".into(),
                 x.get_type().to_string(),
-                self.span()?,
+                span,
                 None,
             )),
         }
     }
 
-    pub fn as_path(&self) -> Result<PathBuf, ShellError> {
+    pub fn as_path(&self, span: Span) -> Result<PathBuf, ShellError> {
         match self {
-            Value::String { val, .. } => Ok(PathBuf::from(val)),
+            Value::String(val) => Ok(PathBuf::from(val)),
             x => Err(ShellError::CantConvert(
                 "path".into(),
                 x.get_type().to_string(),
-                self.span()?,
+                span,
                 None,
             )),
         }
     }
 
-    pub fn as_block(&self) -> Result<BlockId, ShellError> {
+    pub fn as_block(&self, span: Span) -> Result<BlockId, ShellError> {
         match self {
             Value::Block { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert(
                 "block".into(),
                 x.get_type().to_string(),
-                self.span()?,
+                span,
                 None,
             )),
         }
     }
 
-    pub fn as_binary(&self) -> Result<&[u8], ShellError> {
+    pub fn as_binary(&self, span: Span) -> Result<&[u8], ShellError> {
         match self {
-            Value::Binary { val, .. } => Ok(val),
-            Value::String { val, .. } => Ok(val.as_bytes()),
+            Value::Binary(val) => Ok(val),
+            Value::String(val) => Ok(val.as_bytes()),
             x => Err(ShellError::CantConvert(
                 "binary".into(),
                 x.get_type().to_string(),
-                self.span()?,
+                span,
                 None,
             )),
         }
     }
 
-    pub fn as_record(&self) -> Result<(&[String], &[Value]), ShellError> {
+    pub fn as_record(&self, span: Span) -> Result<(&[String], &[Value]), ShellError> {
         match self {
             Value::Record { cols, vals, .. } => Ok((cols, vals)),
             x => Err(ShellError::CantConvert(
                 "record".into(),
                 x.get_type().to_string(),
-                self.span()?,
+                span,
                 None,
             )),
         }
     }
 
-    pub fn as_list(&self) -> Result<&[Value], ShellError> {
+    pub fn as_list(&self, span: Span) -> Result<&[Value], ShellError> {
         match self {
-            Value::List { vals, .. } => Ok(vals),
+            Value::List(vals) => Ok(vals),
             x => Err(ShellError::CantConvert(
                 "list".into(),
                 x.get_type().to_string(),
-                self.span()?,
+                span,
                 None,
             )),
         }
     }
 
-    pub fn as_bool(&self) -> Result<bool, ShellError> {
+    pub fn as_bool(&self, span: Span) -> Result<bool, ShellError> {
         match self {
-            Value::Bool { val, .. } => Ok(*val),
+            Value::Bool(val) => Ok(*val),
             x => Err(ShellError::CantConvert(
                 "boolean".into(),
                 x.get_type().to_string(),
-                self.span()?,
+                span,
                 None,
             )),
         }
     }
 
-    pub fn as_float(&self) -> Result<f64, ShellError> {
+    pub fn as_float(&self, span: Span) -> Result<f64, ShellError> {
         match self {
-            Value::Float { val, .. } => Ok(*val),
-            Value::Int { val, .. } => Ok(*val as f64),
+            Value::Float(val) => Ok(*val),
+            Value::Int(val) => Ok(*val as f64),
             x => Err(ShellError::CantConvert(
                 "float".into(),
                 x.get_type().to_string(),
-                self.span()?,
+                span,
                 None,
             )),
         }
     }
 
-    pub fn as_integer(&self) -> Result<i64, ShellError> {
+    pub fn as_integer(&self, span: Span) -> Result<i64, ShellError> {
         match self {
-            Value::Int { val, .. } => Ok(*val),
+            Value::Int(val) => Ok(*val),
             x => Err(ShellError::CantConvert(
                 "integer".into(),
                 x.get_type().to_string(),
-                self.span()?,
+                span,
                 None,
             )),
         }
-    }
-
-    /// Get the span for the current value
-    pub fn span(&self) -> Result<Span, ShellError> {
-        match self {
-            Value::Error { error } => Err(error.clone()),
-            Value::Bool { span, .. } => Ok(*span),
-            Value::Int { span, .. } => Ok(*span),
-            Value::Float { span, .. } => Ok(*span),
-            Value::Filesize { span, .. } => Ok(*span),
-            Value::Duration { span, .. } => Ok(*span),
-            Value::Date { span, .. } => Ok(*span),
-            Value::Range { span, .. } => Ok(*span),
-            Value::String { span, .. } => Ok(*span),
-            Value::Record { span, .. } => Ok(*span),
-            Value::List { span, .. } => Ok(*span),
-            Value::Block { span, .. } => Ok(*span),
-            Value::Nothing { span, .. } => Ok(*span),
-            Value::Binary { span, .. } => Ok(*span),
-            Value::CellPath { span, .. } => Ok(*span),
-            Value::CustomValue { span, .. } => Ok(*span),
-        }
-    }
-
-    /// Update the value with a new span
-    pub fn with_span(mut self, new_span: Span) -> Value {
-        match &mut self {
-            Value::Bool { span, .. } => *span = new_span,
-            Value::Int { span, .. } => *span = new_span,
-            Value::Float { span, .. } => *span = new_span,
-            Value::Filesize { span, .. } => *span = new_span,
-            Value::Duration { span, .. } => *span = new_span,
-            Value::Date { span, .. } => *span = new_span,
-            Value::Range { span, .. } => *span = new_span,
-            Value::String { span, .. } => *span = new_span,
-            Value::Record { span, .. } => *span = new_span,
-            Value::List { span, .. } => *span = new_span,
-            Value::Block { span, .. } => *span = new_span,
-            Value::Nothing { span, .. } => *span = new_span,
-            Value::Error { .. } => {}
-            Value::Binary { span, .. } => *span = new_span,
-            Value::CellPath { span, .. } => *span = new_span,
-            Value::CustomValue { span, .. } => *span = new_span,
-        }
-
-        self
     }
 
     /// Get the type of the current Value
     pub fn get_type(&self) -> Type {
         match self {
-            Value::Bool { .. } => Type::Bool,
-            Value::Int { .. } => Type::Int,
-            Value::Float { .. } => Type::Float,
-            Value::Filesize { .. } => Type::Filesize,
-            Value::Duration { .. } => Type::Duration,
-            Value::Date { .. } => Type::Date,
-            Value::Range { .. } => Type::Range,
-            Value::String { .. } => Type::String,
-            Value::Record { cols, vals, .. } => Type::Record(
+            Value::Bool(_) => Type::Bool,
+            Value::Int(_) => Type::Int,
+            Value::Float(_) => Type::Float,
+            Value::Filesize(_) => Type::Filesize,
+            Value::Duration(_) => Type::Duration,
+            Value::Date(_) => Type::Date,
+            Value::Range(_) => Type::Range,
+            Value::String(_) => Type::String,
+            Value::Record { cols, vals } => Type::Record(
                 cols.iter()
                     .zip(vals.iter())
                     .map(|(x, y)| (x.clone(), y.get_type()))
                     .collect(),
             ),
-            Value::List { vals, .. } => {
+            Value::List(vals) => {
                 let mut ty = None;
                 for val in vals {
                     let val_ty = val.get_type();
@@ -412,39 +283,36 @@ impl Value {
                     None => Type::List(Box::new(ty.unwrap_or(Type::Any))),
                 }
             }
-            Value::Nothing { .. } => Type::Nothing,
+            Value::Nothing => Type::Nothing,
             Value::Block { .. } => Type::Block,
-            Value::Error { .. } => Type::Error,
-            Value::Binary { .. } => Type::Binary,
-            Value::CellPath { .. } => Type::CellPath,
-            Value::CustomValue { .. } => Type::Custom,
+            Value::Error(_) => Type::Error,
+            Value::Binary(_) => Type::Binary,
+            Value::CellPath(_) => Type::CellPath,
+            Value::CustomValue(_) => Type::Custom,
         }
     }
 
     pub fn get_data_by_key(&self, name: &str) -> Option<Value> {
         match self {
-            Value::Record { cols, vals, .. } => cols
+            Value::Record { cols, vals } => cols
                 .iter()
                 .zip(vals.iter())
                 .find(|(col, _)| col == &name)
                 .map(|(_, val)| val.clone()),
-            Value::List { vals, span } => {
+            Value::List(vals) => {
                 let mut out = vec![];
                 for item in vals {
                     match item {
                         Value::Record { .. } => match item.get_data_by_key(name) {
                             Some(v) => out.push(v),
-                            None => out.push(Value::nothing(*span)),
+                            None => out.push(Value::Nothing),
                         },
-                        _ => out.push(Value::nothing(*span)),
+                        _ => out.push(Value::Nothing),
                     }
                 }
 
                 if !out.is_empty() {
-                    Some(Value::List {
-                        vals: out,
-                        span: *span,
-                    })
+                    Some(Value::List(out))
                 } else {
                     None
                 }
@@ -456,28 +324,28 @@ impl Value {
     /// Convert Value into string. Note that Streams will be consumed.
     pub fn into_string(&self, separator: &str, config: &Config) -> String {
         match self {
-            Value::Bool { val, .. } => val.to_string(),
-            Value::Int { val, .. } => val.to_string(),
-            Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
-            Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => format!("{} ({})", val.to_rfc2822(), HumanTime::from(*val)),
-            Value::Range { val, .. } => {
+            Value::Bool(val) => val.to_string(),
+            Value::Int(val) => val.to_string(),
+            Value::Float(val) => val.to_string(),
+            Value::Filesize(val) => format_filesize_from_conf(*val, config),
+            Value::Duration(val) => format_duration(*val),
+            Value::Date(val) => format!("{} ({})", val.to_rfc2822(), HumanTime::from(*val)),
+            Value::Range(val) => {
                 format!(
                     "{}..{}",
                     val.from.into_string(", ", config),
                     val.to.into_string(", ", config)
                 )
             }
-            Value::String { val, .. } => val.clone(),
-            Value::List { vals: val, .. } => format!(
+            Value::String(val) => val.clone(),
+            Value::List(val) => format!(
                 "[{}]",
                 val.iter()
                     .map(|x| x.into_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::Record { cols, vals, .. } => format!(
+            Value::Record { cols, vals } => format!(
                 "{{{}}}",
                 cols.iter()
                     .zip(vals.iter())
@@ -486,32 +354,32 @@ impl Value {
                     .join(separator)
             ),
             Value::Block { val, .. } => format!("<Block {}>", val),
-            Value::Nothing { .. } => String::new(),
-            Value::Error { error } => format!("{:?}", error),
-            Value::Binary { val, .. } => format!("{:?}", val),
-            Value::CellPath { val, .. } => val.into_string(),
-            Value::CustomValue { val, .. } => val.value_string(),
+            Value::Nothing => String::new(),
+            Value::Error(error) => format!("{:?}", error),
+            Value::Binary(val) => format!("{:?}", val),
+            Value::CellPath(val) => val.into_string(),
+            Value::CustomValue(val) => val.value_string(),
         }
     }
 
     /// Convert Value into string. Note that Streams will be consumed.
     pub fn into_abbreviated_string(&self, config: &Config) -> String {
         match self {
-            Value::Bool { val, .. } => val.to_string(),
-            Value::Int { val, .. } => val.to_string(),
-            Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
-            Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => HumanTime::from(*val).to_string(),
-            Value::Range { val, .. } => {
+            Value::Bool(val) => val.to_string(),
+            Value::Int(val) => val.to_string(),
+            Value::Float(val) => val.to_string(),
+            Value::Filesize(val) => format_filesize_from_conf(*val, config),
+            Value::Duration(val) => format_duration(*val),
+            Value::Date(val) => HumanTime::from(*val).to_string(),
+            Value::Range(val) => {
                 format!(
                     "{}..{}",
                     val.from.into_string(", ", config),
                     val.to.into_string(", ", config)
                 )
             }
-            Value::String { val, .. } => val.to_string(),
-            Value::List { ref vals, .. } => match &vals[..] {
+            Value::String(val) => val.to_string(),
+            Value::List(ref vals) => match &vals[..] {
                 [Value::Record { .. }, _end @ ..] => format!(
                     "[table {} row{}]",
                     vals.len(),
@@ -529,11 +397,11 @@ impl Value {
                 if cols.len() == 1 { "" } else { "s" }
             ),
             Value::Block { val, .. } => format!("<Block {}>", val),
-            Value::Nothing { .. } => String::new(),
-            Value::Error { error } => format!("{:?}", error),
-            Value::Binary { val, .. } => format!("{:?}", val),
-            Value::CellPath { val, .. } => val.into_string(),
-            Value::CustomValue { val, .. } => val.value_string(),
+            Value::Nothing => String::new(),
+            Value::Error(error) => format!("{:?}", error),
+            Value::Binary(val) => format!("{:?}", val),
+            Value::CellPath(val) => val.into_string(),
+            Value::CustomValue(val) => val.value_string(),
         }
     }
 
@@ -545,28 +413,28 @@ impl Value {
     /// Convert Value into string. Note that Streams will be consumed.
     pub fn debug_string(&self, separator: &str, config: &Config) -> String {
         match self {
-            Value::Bool { val, .. } => val.to_string(),
-            Value::Int { val, .. } => val.to_string(),
-            Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
-            Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => format!("{:?}", val),
-            Value::Range { val, .. } => {
+            Value::Bool(val) => val.to_string(),
+            Value::Int(val) => val.to_string(),
+            Value::Float(val) => val.to_string(),
+            Value::Filesize(val) => format_filesize_from_conf(*val, config),
+            Value::Duration(val) => format_duration(*val),
+            Value::Date(val) => format!("{:?}", val),
+            Value::Range(val) => {
                 format!(
                     "{}..{}",
                     val.from.into_string(", ", config),
                     val.to.into_string(", ", config)
                 )
             }
-            Value::String { val, .. } => val.clone(),
-            Value::List { vals: val, .. } => format!(
+            Value::String(val) => val.clone(),
+            Value::List(val) => format!(
                 "[{}]",
                 val.iter()
                     .map(|x| x.into_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::Record { cols, vals, .. } => format!(
+            Value::Record { cols, vals } => format!(
                 "{{{}}}",
                 cols.iter()
                     .zip(vals.iter())
@@ -575,33 +443,28 @@ impl Value {
                     .join(separator)
             ),
             Value::Block { val, .. } => format!("<Block {}>", val),
-            Value::Nothing { .. } => String::new(),
-            Value::Error { error } => format!("{:?}", error),
-            Value::Binary { val, .. } => format!("{:?}", val),
-            Value::CellPath { val, .. } => val.into_string(),
-            Value::CustomValue { val, .. } => val.value_string(),
+            Value::Nothing => String::new(),
+            Value::Error(error) => format!("{:?}", error),
+            Value::Binary(val) => format!("{:?}", val),
+            Value::CellPath(val) => val.into_string(),
+            Value::CustomValue(val) => val.value_string(),
         }
     }
 
     /// Check if the content is empty
     pub fn is_empty(&self) -> bool {
         match self {
-            Value::String { val, .. } => val.is_empty(),
-            Value::List { vals, .. } => vals.is_empty(),
+            Value::String(val) => val.is_empty(),
+            Value::List(vals) => vals.is_empty(),
             Value::Record { cols, .. } => cols.is_empty(),
-            Value::Binary { val, .. } => val.is_empty(),
-            Value::Nothing { .. } => true,
+            Value::Binary(val) => val.is_empty(),
+            Value::Nothing => true,
             _ => false,
         }
     }
 
     pub fn is_nothing(&self) -> bool {
-        matches!(self, Value::Nothing { .. })
-    }
-
-    /// Create a new `Nothing` value
-    pub fn nothing(span: Span) -> Value {
-        Value::Nothing { span }
+        matches!(self, Value::Nothing)
     }
 
     /// Follow a given column path into the value: for example accessing select elements in a stream or list
@@ -621,31 +484,28 @@ impl Value {
                 } => {
                     // Treat a numeric path member as `select <val>`
                     match &mut current {
-                        Value::List { vals: val, .. } => {
+                        Value::List(val) => {
                             if let Some(item) = val.get(*count) {
                                 current = item.clone();
                             } else {
                                 return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
                             }
                         }
-                        Value::Binary { val, .. } => {
+                        Value::Binary(val) => {
                             if let Some(item) = val.get(*count) {
-                                current = Value::Int {
-                                    val: *item as i64,
-                                    span: *origin_span,
-                                };
+                                current = Value::Int(*item as i64);
                             } else {
                                 return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
                             }
                         }
-                        Value::Range { val, .. } => {
+                        Value::Range(val) => {
                             if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
                                 current = item.clone();
                             } else {
                                 return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
                             }
                         }
-                        Value::CustomValue { val, .. } => {
+                        Value::CustomValue(val) => {
                             current = val.follow_path_int(*count, *origin_span)?;
                         }
                         x => {
@@ -660,9 +520,9 @@ impl Value {
                     val: column_name,
                     span: origin_span,
                 } => match &mut current {
-                    Value::Record { cols, vals, span } => {
+                    Value::Record { cols, vals } => {
                         let cols = cols.clone();
-                        let span = *span;
+                        let span = *origin_span;
 
                         // Make reverse iterate to avoid duplicate column leads to first value, actuall last value is expected.
                         if let Some(found) = cols.iter().zip(vals.iter()).rev().find(|x| {
@@ -676,13 +536,14 @@ impl Value {
                         } else if let Some(suggestion) = did_you_mean(&cols, column_name) {
                             return Err(ShellError::DidYouMean(suggestion, *origin_span));
                         } else {
-                            return Err(ShellError::CantFindColumn(*origin_span, span));
+                            return Err(ShellError::CantFindColumn(*origin_span));
                         }
                     }
-                    Value::List { vals, span } => {
+                    Value::List(vals) => {
                         let mut output = vec![];
                         let mut hasvalue = false;
-                        let mut temp: Result<Value, ShellError> = Err(ShellError::NotFound(*span));
+                        let mut temp: Result<Value, ShellError> =
+                            Err(ShellError::NotFound(*origin_span));
                         for val in vals {
                             temp = val.clone().follow_cell_path(
                                 &[PathMember::String {
@@ -695,14 +556,11 @@ impl Value {
                                 hasvalue = true;
                                 output.push(result);
                             } else {
-                                output.push(Value::Nothing { span: *span });
+                                output.push(Value::Nothing);
                             }
                         }
                         if hasvalue {
-                            current = Value::List {
-                                vals: output,
-                                span: *span,
-                            };
+                            current = Value::List(output);
                         } else {
                             return temp;
                         }
@@ -734,7 +592,7 @@ impl Value {
         let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
 
         match new_val {
-            Value::Error { error } => Err(error),
+            Value::Error(error) => Err(error),
             new_val => self.upsert_data_at_cell_path(cell_path, new_val),
         }
     }
@@ -773,7 +631,6 @@ impl Value {
                                             let mut new_col = Value::Record {
                                                 cols: vec![],
                                                 vals: vec![],
-                                                span: new_val.span()?,
                                             };
                                             new_col.upsert_data_at_cell_path(
                                                 &cell_path[1..],
@@ -784,7 +641,7 @@ impl Value {
                                         }
                                     }
                                 }
-                                v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                                v => return Err(ShellError::CantFindColumn(*span)),
                             }
                         }
                     }
@@ -807,14 +664,13 @@ impl Value {
                                 let mut new_col = Value::Record {
                                     cols: vec![],
                                     vals: vec![],
-                                    span: new_val.span()?,
                                 };
                                 new_col.upsert_data_at_cell_path(&cell_path[1..], new_val)?;
                                 vals.push(new_col);
                             }
                         }
                     }
-                    v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                    v => return Err(ShellError::CantFindColumn(*span)),
                 },
                 PathMember::Int { val: row_num, span } => match self {
                     Value::List { vals, .. } => {
