@@ -61,9 +61,7 @@ impl Example {
 
         let vals = (0..10i64)
             .map(|i| {
-                let vals = (0..3)
-                    .map(|v| Value::Int(v * i))
-                    .collect::<Vec<Value>>();
+                let vals = (0..3).map(|v| Value::Int(v * i)).collect::<Vec<Value>>();
 
                 Value::Record {
                     cols: cols.clone(),
