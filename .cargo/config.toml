@@ -1,6 +1,7 @@
-# increase the default windows stack size
 [target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "link-args=-stack:10000000"]
+# increase the default windows stack size
+# statically link the CRT so users don't have to install it
+rustflags = ["-C", "link-args=-stack:10000000", "-C", "target-feature=+crt-static"]
 
 # keeping this but commentting out in case we need them in the future
 
