@@ -24,7 +24,7 @@ impl Command for ToUrl {
         vec![Example {
             description: "Outputs an URL string representing the contents of this table",
             example: r#"[[foo bar]; ["1" "2"]] | to url"#,
-            result: Some(Value::test_string("foo=1&bar=2")),
+            result: Some(Value::String("foo=1&bar=2".into())),
         }]
     }
 

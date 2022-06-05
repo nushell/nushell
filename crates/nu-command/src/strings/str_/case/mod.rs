@@ -66,7 +66,7 @@ where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
     match input {
-        Value::String { val, .. } => Value::String {
+        Value::String(val) => Value::String {
             val: case_operation(val),
             span: head,
         },

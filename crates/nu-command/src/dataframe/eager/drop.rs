@@ -33,7 +33,7 @@ impl Command for DropDF {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "b".to_string(),
-                    vec![Value::test_int(2), Value::test_int(4)],
+                    vec![Value::Int(2), Value::Int(4)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

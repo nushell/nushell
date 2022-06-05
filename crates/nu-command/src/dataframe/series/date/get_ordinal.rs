@@ -32,7 +32,7 @@ impl Command for GetOrdinal {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(217), Value::test_int(217)],
+                    vec![Value::Int(217), Value::Int(217)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

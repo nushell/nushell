@@ -47,12 +47,7 @@ impl Command for Default {
                 description: "Default the `$nothing` value in a list",
                 example: "[1, 2, $nothing, 4] | default 3",
                 result: Some(Value::List {
-                    vals: vec![
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                        Value::test_int(4),
-                    ],
+                    vals: vec![Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4)],
                     span: Span::test_data(),
                 }),
             },

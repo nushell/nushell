@@ -31,13 +31,13 @@ impl Command for IsUnique {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_unique".to_string(),
                     vec![
-                        Value::test_bool(true),
-                        Value::test_bool(false),
-                        Value::test_bool(false),
-                        Value::test_bool(false),
-                        Value::test_bool(false),
-                        Value::test_bool(false),
-                        Value::test_bool(false),
+                        Value::Bool(true),
+                        Value::Bool(false),
+                        Value::Bool(false),
+                        Value::Bool(false),
+                        Value::Bool(false),
+                        Value::Bool(false),
+                        Value::Bool(false),
                     ],
                 )])
                 .expect("simple df for test should not fail")

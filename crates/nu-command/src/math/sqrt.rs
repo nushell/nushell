@@ -41,7 +41,7 @@ impl Command for SubCommand {
             description: "Apply the square root function to a list of numbers",
             example: "[9 16] | math sqrt",
             result: Some(Value::List {
-                vals: vec![Value::test_int(3), Value::test_int(4)],
+                vals: vec![Value::Int(3), Value::Int(4)],
                 span: Span::test_data(),
             }),
         }]

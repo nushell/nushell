@@ -50,9 +50,9 @@ impl Command for SubCommand {
                 example: "echo 'abc' | split row ''",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_string("a"),
-                        Value::test_string("b"),
-                        Value::test_string("c"),
+                        Value::String("a".into()),
+                        Value::String("b".into()),
+                        Value::String("c".into()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -62,9 +62,9 @@ impl Command for SubCommand {
                 example: "echo 'a--b--c' | split row '--'",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_string("a"),
-                        Value::test_string("b"),
-                        Value::test_string("c"),
+                        Value::String("a".into()),
+                        Value::String("b".into()),
+                        Value::String("c".into()),
                     ],
                     span: Span::test_data(),
                 }),

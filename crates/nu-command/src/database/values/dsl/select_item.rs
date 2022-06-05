@@ -88,7 +88,7 @@ impl SelectDb {
                     None,
                 )),
             },
-            Value::String { val, .. } => match val.as_str() {
+            Value::String(val) => match val.as_str() {
                 "*" => Ok(SelectItem::Wildcard.into()),
                 name if (name.contains('.') && name.contains('*')) => {
                     let parts: Vec<Ident> = name
@@ -223,7 +223,7 @@ impl ExtractedSelect {
 
     fn extract_selects(value: Value) -> Result<ExtractedSelect, ShellError> {
         match value {
-            Value::String { val, .. } => {
+            Value::String(val) => {
                 let expr = Expr::Identifier(Ident {
                     value: val,
                     quote_style: None,

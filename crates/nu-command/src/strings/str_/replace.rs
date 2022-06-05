@@ -192,7 +192,7 @@ fn action(
     head: Span,
 ) -> Value {
     match input {
-        Value::String { val, .. } => {
+        Value::String(val) => {
             let FindReplace(find, replacement) = FindReplace(find, replace);
             if *no_regex {
                 // just use regular string replacement vs regular expressions

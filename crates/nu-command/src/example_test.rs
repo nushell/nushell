@@ -73,7 +73,6 @@ pub fn test_examples(cmd: impl Command + 'static) {
             "PWD".to_string(),
             Value::String {
                 val: cwd.to_string_lossy().to_string(),
-                span: Span::test_data(),
             },
         );
         let _ = engine_state.merge_delta(
@@ -108,7 +107,6 @@ pub fn test_examples(cmd: impl Command + 'static) {
             "PWD".to_string(),
             Value::String {
                 val: cwd.to_string_lossy().to_string(),
-                span: Span::test_data(),
             },
         );
 

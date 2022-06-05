@@ -42,13 +42,13 @@ impl Command for SubCommand {
             Example {
                 description: "Return the lengths of multiple strings",
                 example: "'hello' | str length",
-                result: Some(Value::test_int(5)),
+                result: Some(Value::Int(5)),
             },
             Example {
                 description: "Return the lengths of multiple strings",
                 example: "['hi' 'there'] | str length",
                 result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(5)],
+                    vals: vec![Value::Int(2), Value::Int(5)],
                     span: Span::test_data(),
                 }),
             },
@@ -86,7 +86,7 @@ fn operate(
 
 fn action(input: &Value, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::Int {
+        Value::String(val) => Value::Int {
             val: val.len() as i64,
             span: head,
         },

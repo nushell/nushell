@@ -55,25 +55,28 @@ impl Command for Uniq {
                 description: "Remove duplicate rows of a list/table",
                 example: "[2 3 3 4] | uniq",
                 result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
+                    vals: vec![Value::Int(2), Value::Int(3), Value::Int(4)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Only print duplicate lines, one for each group",
                 example: "[1 2 2] | uniq -d",
-                result: Some(Value::test_int(2)),
+                result: Some(Value::Int(2)),
             },
             Example {
                 description: "Only print unique lines lines",
                 example: "[1 2 2] | uniq -u",
-                result: Some(Value::test_int(1)),
+                result: Some(Value::Int(1)),
             },
             Example {
                 description: "Ignore differences in case when comparing",
                 example: "['hello' 'goodbye' 'Hello'] | uniq -i",
                 result: Some(Value::List {
-                    vals: vec![Value::test_string("hello"), Value::test_string("goodbye")],
+                    vals: vec![
+                        Value::String("hello".into()),
+                        Value::String("goodbye".into()),
+                    ],
                     span: Span::test_data(),
                 }),
             },
@@ -84,12 +87,12 @@ impl Command for Uniq {
                     vals: vec![
                         Value::Record {
                             cols: vec!["value".to_string(), "count".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(1)],
+                            vals: vec![Value::Int(1), Value::Int(1)],
                             span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["value".to_string(), "count".to_string()],
-                            vals: vec![Value::test_int(2), Value::test_int(2)],
+                            vals: vec![Value::Int(2), Value::Int(2)],
                             span: Span::test_data(),
                         },
                     ],

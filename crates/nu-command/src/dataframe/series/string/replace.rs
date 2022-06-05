@@ -45,9 +45,9 @@ impl Command for Replace {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
                     vec![
-                        Value::test_string("ABc"),
-                        Value::test_string("ABc"),
-                        Value::test_string("ABc"),
+                        Value::String("ABc".into()),
+                        Value::String("ABc".into()),
+                        Value::String("ABc".into()),
                     ],
                 )])
                 .expect("simple df for test should not fail")

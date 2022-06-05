@@ -55,7 +55,7 @@ impl Command for SubCommand {
             result: Some(Value::List {
                 vals: vec![Value::Record {
                     cols: vec!["timezone".into()],
-                    vals: vec![Value::test_string("Asia/Shanghai")],
+                    vals: vec![Value::String("Asia/Shanghai".into())],
                     span: Span::test_data(),
                 }],
                 span: Span::test_data(),

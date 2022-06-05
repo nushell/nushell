@@ -39,7 +39,7 @@ impl Command for SubCommand {
             Example {
                 description: "Sum a list of numbers",
                 example: "[1 2 3] | math sum",
-                result: Some(Value::test_int(6)),
+                result: Some(Value::Int(6)),
             },
             Example {
                 description: "Get the disk usage for the current directory",

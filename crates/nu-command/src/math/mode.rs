@@ -62,7 +62,7 @@ impl Command for SubCommand {
             description: "Get the mode(s) of a list of numbers",
             example: "[3 3 9 12 12 15] | math mode",
             result: Some(Value::List {
-                vals: vec![Value::test_int(3), Value::test_int(12)],
+                vals: vec![Value::Int(3), Value::Int(12)],
                 span: Span::test_data(),
             }),
         }]
@@ -94,13 +94,11 @@ pub fn mode(values: &[Value], head: &Span) -> Result<Value, ShellError> {
     let hashable_values = values
         .iter()
         .map(|val| match val {
-            Value::Int { val, .. } => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int)),
+            Value::Int(val) => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int)),
             Value::Duration { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Duration))
             }
-            Value::Float { val, .. } => {
-                Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Float))
-            }
+            Value::Float(val) => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Float)),
             Value::Filesize { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
             }

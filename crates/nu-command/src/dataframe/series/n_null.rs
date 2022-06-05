@@ -30,7 +30,7 @@ impl Command for NNull {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "count_null".to_string(),
-                    vec![Value::test_int(2)],
+                    vec![Value::Int(2)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

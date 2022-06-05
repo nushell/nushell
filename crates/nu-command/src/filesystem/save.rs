@@ -105,7 +105,7 @@ impl Command for Save {
             };
 
             match output {
-                Value::String { val, .. } => {
+                Value::String(val) => {
                     if let Err(err) = file.write_all(val.as_bytes()) {
                         return Err(ShellError::IOError(err.to_string()));
                     } else {
@@ -157,7 +157,7 @@ impl Command for Save {
                         .try_for_each(move |result| {
                             let buf = match result {
                                 Ok(v) => match v {
-                                    Value::String { val, .. } => val.into_bytes(),
+                                    Value::String(val) => val.into_bytes(),
                                     Value::Binary { val, .. } => val,
                                     _ => {
                                         return Err(ShellError::UnsupportedInput(
@@ -177,7 +177,7 @@ impl Command for Save {
                         .map(|_| PipelineData::new(span))
                 }
                 input => match input.into_value(span) {
-                    Value::String { val, .. } => {
+                    Value::String(val) => {
                         if let Err(err) = file.write_all(val.as_bytes()) {
                             return Err(ShellError::IOError(err.to_string()));
                         } else {

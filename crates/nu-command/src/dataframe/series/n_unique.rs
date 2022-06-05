@@ -30,7 +30,7 @@ impl Command for NUnique {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "count_unique".to_string(),
-                        vec![Value::test_int(4)],
+                        vec![Value::Int(4)],
                     )])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

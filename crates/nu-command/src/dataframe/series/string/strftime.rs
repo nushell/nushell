@@ -36,8 +36,8 @@ impl Command for StrFTime {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
                     vec![
-                        Value::test_string("2020/08/04"),
-                        Value::test_string("2020/08/04"),
+                        Value::String("2020/08/04".into()),
+                        Value::String("2020/08/04".into()),
                     ],
                 )])
                 .expect("simple df for test should not fail")

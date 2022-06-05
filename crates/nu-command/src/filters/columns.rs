@@ -29,9 +29,9 @@ impl Command for Columns {
                 description: "Get the columns from the table",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_string("name"),
-                        Value::test_string("age"),
-                        Value::test_string("grade"),
+                        Value::String("name".into()),
+                        Value::String("age".into()),
+                        Value::String("grade".into()),
                     ],
                     span: Span::test_data(),
                 }),

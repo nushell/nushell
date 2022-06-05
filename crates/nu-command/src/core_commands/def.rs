@@ -50,12 +50,12 @@ impl Command for Def {
             Example {
                 description: "Define a command and run it",
                 example: r#"def say-hi [] { echo 'hi' }; say-hi"#,
-                result: Some(Value::test_string("hi")),
+                result: Some(Value::String("hi".into())),
             },
             Example {
                 description: "Define a command and run it with parameter(s)",
                 example: r#"def say-sth [sth: string] { echo $sth }; say-sth hi"#,
-                result: Some(Value::test_string("hi")),
+                result: Some(Value::String("hi".into())),
             },
         ]
     }

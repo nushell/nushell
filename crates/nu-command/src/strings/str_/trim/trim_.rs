@@ -81,37 +81,37 @@ impl Command for SubCommand {
             Example {
                 description: "Trim whitespace",
                 example: "'Nu shell ' | str trim",
-                result: Some(Value::test_string("Nu shell")),
+                result: Some(Value::String("Nu shell".into())),
             },
             Example {
                 description: "Trim a specific character",
                 example: "'=== Nu shell ===' | str trim -c '=' | str trim",
-                result: Some(Value::test_string("Nu shell")),
+                result: Some(Value::String("Nu shell".into())),
             },
             Example {
                 description: "Trim all characters",
                 example: "' Nu   shell ' | str trim -a",
-                result: Some(Value::test_string("Nushell")),
+                result: Some(Value::String("Nushell".into())),
             },
             Example {
                 description: "Trim whitespace from the beginning of string",
                 example: "' Nu shell ' | str trim -l",
-                result: Some(Value::test_string("Nu shell ")),
+                result: Some(Value::String("Nu shell ".into())),
             },
             Example {
                 description: "Trim a specific character",
                 example: "'=== Nu shell ===' | str trim -c '='",
-                result: Some(Value::test_string(" Nu shell ")),
+                result: Some(Value::String(" Nu shell ".into())),
             },
             Example {
                 description: "Trim whitespace from the end of string",
                 example: "' Nu shell ' | str trim -r",
-                result: Some(Value::test_string(" Nu shell")),
+                result: Some(Value::String(" Nu shell".into())),
             },
             Example {
                 description: "Trim a specific character",
                 example: "'=== Nu shell ===' | str trim -r -c '='",
-                result: Some(Value::test_string("=== Nu shell ")),
+                result: Some(Value::String("=== Nu shell ".into())),
             },
         ]
     }
@@ -366,8 +366,8 @@ mod tests {
 
     #[test]
     fn trims() {
-        let word = Value::test_string("andres ");
-        let expected = Value::test_string("andres");
+        let word = Value::String("andres ".into());
+        let expected = Value::String("andres".into());
         let closure_flags = ClosureFlags {
             both_flag: true,
             ..Default::default()
@@ -386,8 +386,8 @@ mod tests {
 
     #[test]
     fn trims_global() {
-        let word = Value::test_string(" global   ");
-        let expected = Value::test_string("global");
+        let word = Value::String(" global   ".into());
+        let expected = Value::String("global".into());
         let closure_flags = ClosureFlags {
             both_flag: true,
             ..Default::default()
@@ -406,8 +406,8 @@ mod tests {
 
     #[test]
     fn global_trim_ignores_numbers() {
-        let number = Value::test_int(2020);
-        let expected = Value::test_int(2020);
+        let number = Value::Int(2020);
+        let expected = Value::Int(2020);
         let closure_flags = ClosureFlags {
             both_flag: true,
             ..Default::default()
@@ -467,8 +467,8 @@ mod tests {
 
     #[test]
     fn trims_custom_character_both_ends() {
-        let word = Value::test_string("!#andres#!");
-        let expected = Value::test_string("#andres#");
+        let word = Value::String("!#andres#!".into());
+        let expected = Value::String("#andres#".into());
         let closure_flags = ClosureFlags {
             both_flag: true,
             ..Default::default()
@@ -486,8 +486,8 @@ mod tests {
     }
     #[test]
     fn trims_all_white_space() {
-        let word = Value::test_string(" Value1 a lot  of  spaces ");
-        let expected = Value::test_string("Value1alotofspaces");
+        let word = Value::String(" Value1 a lot  of  spaces ".into());
+        let expected = Value::String("Value1alotofspaces".into());
         let closure_flags = ClosureFlags {
             all_flag: true,
             ..Default::default()
@@ -583,8 +583,8 @@ mod tests {
 
     #[test]
     fn trims_all_custom_character() {
-        let word = Value::test_string(".Value1.a.lot..of...dots.");
-        let expected = Value::test_string("Value1alotofdots");
+        let word = Value::String(".Value1.a.lot..of...dots.".into());
+        let expected = Value::String("Value1alotofdots".into());
         let closure_flags = ClosureFlags {
             all_flag: true,
             ..Default::default()
@@ -676,8 +676,8 @@ mod tests {
 
     #[test]
     fn trims_whitespace_from_left() {
-        let word = Value::test_string(" andres ");
-        let expected = Value::test_string("andres ");
+        let word = Value::String(" andres ".into());
+        let expected = Value::String("andres ".into());
         let closure_flags = ClosureFlags {
             left_trim: true,
             ..Default::default()
@@ -696,8 +696,8 @@ mod tests {
 
     #[test]
     fn global_trim_left_ignores_numbers() {
-        let number = Value::test_int(2020);
-        let expected = Value::test_int(2020);
+        let number = Value::Int(2020);
+        let expected = Value::Int(2020);
         let closure_flags = ClosureFlags {
             left_trim: true,
             ..Default::default()
@@ -716,8 +716,8 @@ mod tests {
 
     #[test]
     fn trims_left_global() {
-        let word = Value::test_string(" global   ");
-        let expected = Value::test_string("global   ");
+        let word = Value::String(" global   ".into());
+        let expected = Value::String("global   ".into());
         let closure_flags = ClosureFlags {
             left_trim: true,
             ..Default::default()
@@ -809,8 +809,8 @@ mod tests {
 
     #[test]
     fn trims_custom_chars_from_left() {
-        let word = Value::test_string("!!! andres !!!");
-        let expected = Value::test_string(" andres !!!");
+        let word = Value::String("!!! andres !!!".into());
+        let expected = Value::String(" andres !!!".into());
         let closure_flags = ClosureFlags {
             left_trim: true,
             ..Default::default()
@@ -828,8 +828,8 @@ mod tests {
     }
     #[test]
     fn trims_whitespace_from_right() {
-        let word = Value::test_string(" andres ");
-        let expected = Value::test_string(" andres");
+        let word = Value::String(" andres ".into());
+        let expected = Value::String(" andres".into());
         let closure_flags = ClosureFlags {
             right_trim: true,
             ..Default::default()
@@ -848,8 +848,8 @@ mod tests {
 
     #[test]
     fn trims_right_global() {
-        let word = Value::test_string(" global   ");
-        let expected = Value::test_string(" global");
+        let word = Value::String(" global   ".into());
+        let expected = Value::String(" global".into());
         let closure_flags = ClosureFlags {
             right_trim: true,
             ..Default::default()
@@ -868,8 +868,8 @@ mod tests {
 
     #[test]
     fn global_trim_right_ignores_numbers() {
-        let number = Value::test_int(2020);
-        let expected = Value::test_int(2020);
+        let number = Value::Int(2020);
+        let expected = Value::Int(2020);
         let closure_flags = ClosureFlags {
             right_trim: true,
             ..Default::default()
@@ -961,8 +961,8 @@ mod tests {
 
     #[test]
     fn trims_custom_chars_from_right() {
-        let word = Value::test_string("#@! andres !@#");
-        let expected = Value::test_string("#@! andres !@");
+        let word = Value::String("#@! andres !@#".into());
+        let expected = Value::String("#@! andres !@".into());
         let closure_flags = ClosureFlags {
             right_trim: true,
             ..Default::default()
@@ -981,8 +981,8 @@ mod tests {
 
     #[test]
     fn trims_whitespace_format_flag() {
-        let word = Value::test_string(" nushell    is     great ");
-        let expected = Value::test_string("nushell is great");
+        let word = Value::String(" nushell    is     great ".into());
+        let expected = Value::String("nushell is great".into());
         let closure_flags = ClosureFlags {
             format_flag: true,
             ..Default::default()
@@ -1001,8 +1001,8 @@ mod tests {
 
     #[test]
     fn trims_format_flag_global() {
-        let word = Value::test_string("global ");
-        let expected = Value::test_string("global");
+        let word = Value::String("global ".into());
+        let expected = Value::String("global".into());
         let closure_flags = ClosureFlags {
             format_flag: true,
             ..Default::default()
@@ -1020,8 +1020,8 @@ mod tests {
     }
     #[test]
     fn global_trim_format_flag_ignores_numbers() {
-        let number = Value::test_int(2020);
-        let expected = Value::test_int(2020);
+        let number = Value::Int(2020);
+        let expected = Value::Int(2020);
         let closure_flags = ClosureFlags {
             format_flag: true,
             ..Default::default()
@@ -1113,8 +1113,8 @@ mod tests {
 
     #[test]
     fn trims_custom_chars_format_flag() {
-        let word = Value::test_string(".Value1.a..lot...of....dots.");
-        let expected = Value::test_string("Value1.a.lot.of.dots");
+        let word = Value::String(".Value1.a..lot...of....dots.".into());
+        let expected = Value::String("Value1.a.lot.of.dots".into());
         let closure_flags = ClosureFlags {
             format_flag: true,
             ..Default::default()
@@ -1133,8 +1133,8 @@ mod tests {
 
     #[test]
     fn trims_all_format_flag_whitespace() {
-        let word = Value::test_string(" nushell    is     great   ");
-        let expected = Value::test_string("nushellisgreat");
+        let word = Value::String(" nushell    is     great   ".into());
+        let expected = Value::String("nushellisgreat".into());
         let closure_flags = ClosureFlags {
             format_flag: true,
             all_flag: true,
@@ -1154,8 +1154,8 @@ mod tests {
 
     #[test]
     fn trims_all_format_flag_global() {
-        let word = Value::test_string(" nushell    is     great   ");
-        let expected = Value::test_string("nushellisgreat");
+        let word = Value::String(" nushell    is     great   ".into());
+        let expected = Value::String("nushellisgreat".into());
         let closure_flags = ClosureFlags {
             format_flag: true,
             all_flag: true,

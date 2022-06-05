@@ -275,12 +275,12 @@ Format: #
             Example {
                 description: "Change color to green",
                 example: r#"ansi green"#,
-                result: Some(Value::test_string("\u{1b}[32m")),
+                result: Some(Value::String("\u{1b}[32m".into())),
             },
             Example {
                 description: "Reset the color",
                 example: r#"ansi reset"#,
-                result: Some(Value::test_string("\u{1b}[0m")),
+                result: Some(Value::String("\u{1b}[0m".into())),
             },
             Example {
                 description:

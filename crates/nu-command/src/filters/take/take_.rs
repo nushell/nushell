@@ -35,12 +35,12 @@ impl Command for Take {
                     vals: vec![
                         Value::Record {
                             cols: vec!["editions".to_owned()],
-                            vals: vec![Value::test_int(2015)],
+                            vals: vec![Value::Int(2015)],
                             span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["editions".to_owned()],
-                            vals: vec![Value::test_int(2018)],
+                            vals: vec![Value::Int(2018)],
                             span: Span::test_data(),
                         },
                     ],
@@ -51,7 +51,7 @@ impl Command for Take {
                 description: "Take the first value",
                 example: "echo [2 4 6 8] | take",
                 result: Some(Value::List {
-                    vals: vec![Value::test_int(2)],
+                    vals: vec![Value::Int(2)],
                     span: Span::test_data(),
                 }),
             },

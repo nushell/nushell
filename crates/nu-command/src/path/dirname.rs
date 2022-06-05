@@ -77,7 +77,7 @@ impl Command for SubCommand {
             Example {
                 description: "Get dirname of a path",
                 example: "'C:\\Users\\joe\\code\\test.txt' | path dirname",
-                result: Some(Value::test_string("C:\\Users\\joe\\code")),
+                result: Some(Value::String("C:\\Users\\joe\\code".into())),
             },
             Example {
                 description: "Get dirname of a path in a column",
@@ -87,13 +87,13 @@ impl Command for SubCommand {
             Example {
                 description: "Walk up two levels",
                 example: "'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
-                result: Some(Value::test_string("C:\\Users\\joe")),
+                result: Some(Value::String("C:\\Users\\joe".into())),
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
                 example:
                     "'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
-                result: Some(Value::test_string("C:\\Users\\viking\\code\\test.txt")),
+                result: Some(Value::String("C:\\Users\\viking\\code\\test.txt".into())),
             },
         ]
     }
@@ -104,7 +104,7 @@ impl Command for SubCommand {
             Example {
                 description: "Get dirname of a path",
                 example: "'/home/joe/code/test.txt' | path dirname",
-                result: Some(Value::test_string("/home/joe/code")),
+                result: Some(Value::String("/home/joe/code".into())),
             },
             Example {
                 description: "Get dirname of a path in a column",
@@ -114,12 +114,12 @@ impl Command for SubCommand {
             Example {
                 description: "Walk up two levels",
                 example: "'/home/joe/code/test.txt' | path dirname -n 2",
-                result: Some(Value::test_string("/home/joe")),
+                result: Some(Value::String("/home/joe".into())),
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
                 example: "'/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking",
-                result: Some(Value::test_string("/home/viking/code/test.txt")),
+                result: Some(Value::String("/home/viking/code/test.txt".into())),
             },
         ]
     }

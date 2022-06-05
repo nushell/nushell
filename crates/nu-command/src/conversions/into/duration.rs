@@ -154,7 +154,7 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
 fn action(input: &Value, span: Span) -> Value {
     match input {
         Value::Duration { .. } => input.clone(),
-        Value::String { val, .. } => match string_to_duration(val, span) {
+        Value::String(val) => match string_to_duration(val, span) {
             Ok(val) => Value::Duration(val),
             Err(error) => Value::Error(error),
         },
@@ -179,7 +179,7 @@ mod test {
     #[test]
     fn turns_ns_to_duration() {
         let span = Span::test_data();
-        let word = Value::test_string("3ns");
+        let word = Value::String("3ns".into());
         let expected = Value::Duration(3);
 
         let actual = action(&word, span);
@@ -189,7 +189,7 @@ mod test {
     #[test]
     fn turns_us_to_duration() {
         let span = Span::test_data();
-        let word = Value::test_string("4us");
+        let word = Value::String("4us".into());
         let expected = Value::Duration(4 * 1000);
 
         let actual = action(&word, span);
@@ -199,7 +199,7 @@ mod test {
     #[test]
     fn turns_ms_to_duration() {
         let span = Span::test_data();
-        let word = Value::test_string("5ms");
+        let word = Value::String("5ms".into());
         let expected = Value::Duration(5 * 1000 * 1000);
 
         let actual = action(&word, span);
@@ -209,7 +209,7 @@ mod test {
     #[test]
     fn turns_sec_to_duration() {
         let span = Span::test_data();
-        let word = Value::test_string("1sec");
+        let word = Value::String("1sec".into());
         let expected = Value::Duration(1000 * 1000 * 1000);
 
         let actual = action(&word, span);
@@ -219,7 +219,7 @@ mod test {
     #[test]
     fn turns_min_to_duration() {
         let span = Span::test_data();
-        let word = Value::test_string("7min");
+        let word = Value::String("7min".into());
         let expected = Value::Duration(7 * 60 * 1000 * 1000 * 1000);
 
         let actual = action(&word, span);
@@ -229,7 +229,7 @@ mod test {
     #[test]
     fn turns_hr_to_duration() {
         let span = Span::test_data();
-        let word = Value::test_string("42hr");
+        let word = Value::String("42hr".into());
         let expected = Value::Duration(42 * 60 * 60 * 1000 * 1000 * 1000);
 
         let actual = action(&word, span);
@@ -239,7 +239,7 @@ mod test {
     #[test]
     fn turns_day_to_duration() {
         let span = Span::test_data();
-        let word = Value::test_string("123day");
+        let word = Value::String("123day".into());
         let expected = Value::Duration(123 * 24 * 60 * 60 * 1000 * 1000 * 1000);
 
         let actual = action(&word, span);
@@ -249,7 +249,7 @@ mod test {
     #[test]
     fn turns_wk_to_duration() {
         let span = Span::test_data();
-        let word = Value::test_string("3wk");
+        let word = Value::String("3wk".into());
         let expected = Value::Duration(3 * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000);
 
         let actual = action(&word, span);

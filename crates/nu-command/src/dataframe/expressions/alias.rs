@@ -35,8 +35,8 @@ impl Command for ExprAlias {
             example: "dfr col a | dfr as new_a | dfr as-nu",
             result: {
                 let cols = vec!["expr".into(), "value".into()];
-                let expr = Value::test_string("column");
-                let value = Value::test_string("a");
+                let expr = Value::String("column".into());
+                let value = Value::String("a".into());
                 let expr = Value::Record {
                     cols,
                     vals: vec![expr, value],
@@ -44,7 +44,7 @@ impl Command for ExprAlias {
                 };
 
                 let cols = vec!["expr".into(), "alias".into()];
-                let value = Value::test_string("new_a");
+                let value = Value::String("new_a".into());
 
                 let record = Value::Record {
                     cols,

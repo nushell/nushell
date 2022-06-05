@@ -29,14 +29,8 @@ impl Command for ToDataFrame {
                 example: "[[a b];[1 2] [3 4]] | dfr to-df",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
+                        Column::new("a".to_string(), vec![Value::Int(1), Value::Int(3)]),
+                        Column::new("b".to_string(), vec![Value::Int(2), Value::Int(4)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -49,18 +43,18 @@ impl Command for ToDataFrame {
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
                             "0".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
+                            vec![Value::Int(1), Value::Int(3), Value::Int(5)],
                         ),
                         Column::new(
                             "1".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)],
+                            vec![Value::Int(2), Value::Int(4), Value::Int(6)],
                         ),
                         Column::new(
                             "2".to_string(),
                             vec![
-                                Value::test_string("a"),
-                                Value::test_string("b"),
-                                Value::test_string("c"),
+                                Value::String("a".into()),
+                                Value::String("b".into()),
+                                Value::String("c".into()),
                             ],
                         ),
                     ])
@@ -75,9 +69,9 @@ impl Command for ToDataFrame {
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),
                         vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
+                            Value::String("a".into()),
+                            Value::String("b".into()),
+                            Value::String("c".into()),
                         ],
                     )])
                     .expect("simple df for test should not fail")
@@ -90,11 +84,7 @@ impl Command for ToDataFrame {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),
-                        vec![
-                            Value::test_bool(true),
-                            Value::test_bool(true),
-                            Value::test_bool(false),
-                        ],
+                        vec![Value::Bool(true), Value::Bool(true), Value::Bool(false)],
                     )])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

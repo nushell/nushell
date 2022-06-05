@@ -54,7 +54,7 @@ impl Command for SeqChar {
             Example {
                 description: "sequence a to e with pipe separator separator",
                 example: "seq char -s '|' a e",
-                result: Some(Value::test_string("a|b|c|d|e")),
+                result: Some(Value::String("a|b|c|d|e".into())),
             },
         ]
     }

@@ -103,7 +103,7 @@ impl Command for Do {
             Example {
                 description: "Run the block",
                 example: r#"do { echo hello }"#,
-                result: Some(Value::test_string("hello")),
+                result: Some(Value::String("hello".into())),
             },
             Example {
                 description: "Run the block and ignore errors",
@@ -113,7 +113,7 @@ impl Command for Do {
             Example {
                 description: "Run the block, with a positional parameter",
                 example: r#"do {|x| 100 + $x } 50"#,
-                result: Some(Value::test_int(150)),
+                result: Some(Value::Int(150)),
             },
         ]
     }

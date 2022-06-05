@@ -33,11 +33,7 @@ impl Command for NotSeries {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),
-                        vec![
-                            Value::test_bool(false),
-                            Value::test_bool(true),
-                            Value::test_bool(false),
-                        ],
+                        vec![Value::Bool(false), Value::Bool(true), Value::Bool(false)],
                     )])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

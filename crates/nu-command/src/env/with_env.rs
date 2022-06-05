@@ -49,17 +49,17 @@ impl Command for WithEnv {
             Example {
                 description: "Set the MYENV environment variable",
                 example: r#"with-env [MYENV "my env value"] { $env.MYENV }"#,
-                result: Some(Value::test_string("my env value")),
+                result: Some(Value::String("my env value".into())),
             },
             Example {
                 description: "Set by primitive value list",
                 example: r#"with-env [X Y W Z] { $env.X }"#,
-                result: Some(Value::test_string("Y")),
+                result: Some(Value::String("Y".into())),
             },
             Example {
                 description: "Set by single row table",
                 example: r#"with-env [[X W]; [Y Z]] { $env.W }"#,
-                result: Some(Value::test_string("Z")),
+                result: Some(Value::String("Z".into())),
             },
             Example {
                 description: "Set by row(e.g. `open x.json` or `from json`)",

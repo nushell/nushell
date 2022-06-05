@@ -84,7 +84,7 @@ fn fmt(
                     let r =
                         ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
                     if let Err(error) = r {
-                        return Value::Error ( error );
+                        return Value::Error(error);
                     }
                 }
 

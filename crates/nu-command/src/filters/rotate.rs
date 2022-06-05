@@ -38,12 +38,12 @@ impl Command for Rotate {
                     vals: vec![
                         Value::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_string("a")],
+                            vals: vec![Value::Int(1), Value::String("a".into())],
                             span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_int(2), Value::test_string("b")],
+                            vals: vec![Value::Int(2), Value::String("b".into())],
                             span: Span::test_data(),
                         },
                     ],
@@ -63,10 +63,10 @@ impl Command for Rotate {
                                 "column3".to_string(),
                             ],
                             vals: vec![
-                                Value::test_int(5),
-                                Value::test_int(3),
-                                Value::test_int(1),
-                                Value::test_string("a"),
+                                Value::Int(5),
+                                Value::Int(3),
+                                Value::Int(1),
+                                Value::String("a".into()),
                             ],
                             span: Span::test_data(),
                         },
@@ -78,10 +78,10 @@ impl Command for Rotate {
                                 "column3".to_string(),
                             ],
                             vals: vec![
-                                Value::test_int(6),
-                                Value::test_int(4),
-                                Value::test_int(2),
-                                Value::test_string("b"),
+                                Value::Int(6),
+                                Value::Int(4),
+                                Value::Int(2),
+                                Value::String("b".into()),
                             ],
                             span: Span::test_data(),
                         },
@@ -96,12 +96,12 @@ impl Command for Rotate {
                     vals: vec![
                         Value::Record {
                             cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_string("a")],
+                            vals: vec![Value::Int(1), Value::String("a".into())],
                             span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![Value::test_int(2), Value::test_string("b")],
+                            vals: vec![Value::Int(2), Value::String("b".into())],
                             span: Span::test_data(),
                         },
                     ],
@@ -115,12 +115,12 @@ impl Command for Rotate {
                     vals: vec![
                         Value::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(2)],
+                            vals: vec![Value::String("b".into()), Value::Int(2)],
                             span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("a"), Value::test_int(1)],
+                            vals: vec![Value::String("a".into()), Value::Int(1)],
                             span: Span::test_data(),
                         },
                     ],
@@ -140,10 +140,10 @@ impl Command for Rotate {
                                 "column3".to_string(),
                             ],
                             vals: vec![
-                                Value::test_string("b"),
-                                Value::test_int(2),
-                                Value::test_int(4),
-                                Value::test_int(6),
+                                Value::String("b".into()),
+                                Value::Int(2),
+                                Value::Int(4),
+                                Value::Int(6),
                             ],
                             span: Span::test_data(),
                         },
@@ -155,10 +155,10 @@ impl Command for Rotate {
                                 "column3".to_string(),
                             ],
                             vals: vec![
-                                Value::test_string("a"),
-                                Value::test_int(1),
-                                Value::test_int(3),
-                                Value::test_int(5),
+                                Value::String("a".into()),
+                                Value::Int(1),
+                                Value::Int(3),
+                                Value::Int(5),
                             ],
                             span: Span::test_data(),
                         },
@@ -173,12 +173,12 @@ impl Command for Rotate {
                     vals: vec![
                         Value::Record {
                             cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(2)],
+                            vals: vec![Value::String("b".into()), Value::Int(2)],
                             span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![Value::test_string("a"), Value::test_int(1)],
+                            vals: vec![Value::String("a".into()), Value::Int(1)],
                             span: Span::test_data(),
                         },
                     ],

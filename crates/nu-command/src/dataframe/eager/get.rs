@@ -34,7 +34,7 @@ impl Command for GetDF {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "a".to_string(),
-                    vec![Value::test_int(1), Value::test_int(3)],
+                    vec![Value::Int(1), Value::Int(3)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

@@ -42,12 +42,12 @@ impl Command for SubCommand {
             example: "[-50 -100.0 25] | math abs",
             result: Some(Value::List {
                 vals: vec![
-                    Value::test_int(50),
+                    Value::Int(50),
                     Value::Float {
                         val: 100.0,
                         span: Span::test_data(),
                     },
-                    Value::test_int(25),
+                    Value::Int(25),
                 ],
                 span: Span::test_data(),
             }),

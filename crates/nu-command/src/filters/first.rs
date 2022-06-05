@@ -43,13 +43,13 @@ impl Command for First {
             Example {
                 description: "Return the first item of a list/table",
                 example: "[1 2 3] | first",
-                result: Some(Value::test_int(1)),
+                result: Some(Value::Int(1)),
             },
             Example {
                 description: "Return the first 2 items of a list/table",
                 example: "[1 2 3] | first 2",
                 result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                    vals: vec![Value::Int(1), Value::Int(2)],
                     span: Span::test_data(),
                 }),
             },

@@ -47,7 +47,7 @@ impl Command for Rename {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["my_column".to_string(), "b".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2)],
+                        vals: vec![Value::Int(1), Value::Int(2)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -59,7 +59,7 @@ impl Command for Rename {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["eggs".to_string(), "ham".to_string(), "bacon".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                        vals: vec![Value::Int(1), Value::Int(2), Value::Int(3)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -71,7 +71,7 @@ impl Command for Rename {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["ham".to_string(), "b".to_string(), "c".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                        vals: vec![Value::Int(1), Value::Int(2), Value::Int(3)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),

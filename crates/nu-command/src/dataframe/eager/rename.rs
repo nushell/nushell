@@ -44,12 +44,7 @@ impl Command for RenameDF {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "new_name".to_string(),
-                        vec![
-                            Value::test_int(5),
-                            Value::test_int(6),
-                            Value::test_int(7),
-                            Value::test_int(8),
-                        ],
+                        vec![Value::Int(5), Value::Int(6), Value::Int(7), Value::Int(8)],
                     )])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -60,14 +55,8 @@ impl Command for RenameDF {
                 example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr rename a a_new",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a_new".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
+                        Column::new("a_new".to_string(), vec![Value::Int(1), Value::Int(3)]),
+                        Column::new("b".to_string(), vec![Value::Int(2), Value::Int(4)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -78,14 +67,8 @@ impl Command for RenameDF {
                 example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr rename [a b] [a_new b_new]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a_new".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b_new".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
+                        Column::new("a_new".to_string(), vec![Value::Int(1), Value::Int(3)]),
+                        Column::new("b_new".to_string(), vec![Value::Int(2), Value::Int(4)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

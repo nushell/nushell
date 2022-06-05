@@ -61,19 +61,19 @@ impl Command for ExprWhen {
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
                             "a".to_string(),
-                            vec![Value::test_int(6), Value::test_int(1), Value::test_int(4)],
+                            vec![Value::Int(6), Value::Int(1), Value::Int(4)],
                         ),
                         Column::new(
                             "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4), Value::test_int(1)],
+                            vec![Value::Int(2), Value::Int(4), Value::Int(1)],
                         ),
                         Column::new(
                             "c".to_string(),
-                            vec![Value::test_int(4), Value::test_int(5), Value::test_int(4)],
+                            vec![Value::Int(4), Value::Int(5), Value::Int(4)],
                         ),
                         Column::new(
                             "d".to_string(),
-                            vec![Value::test_int(10), Value::test_int(6), Value::test_int(0)],
+                            vec![Value::Int(10), Value::Int(6), Value::Int(0)],
                         ),
                     ])
                     .expect("simple df for test should not fail")

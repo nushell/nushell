@@ -62,11 +62,11 @@ impl Command for SubCommand {
                 example: r"'C:\Users\viking\spam.txt' | path split",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_string("C:"),
+                        Value::String("C:".into()),
                         Value::test_string(r"\"),
-                        Value::test_string("Users"),
-                        Value::test_string("viking"),
-                        Value::test_string("spam.txt"),
+                        Value::String("Users".into()),
+                        Value::String("viking".into()),
+                        Value::String("spam.txt".into()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -87,10 +87,10 @@ impl Command for SubCommand {
                 example: r"'/home/viking/spam.txt' | path split",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_string("/"),
-                        Value::test_string("home"),
-                        Value::test_string("viking"),
-                        Value::test_string("spam.txt"),
+                        Value::String("/".into()),
+                        Value::String("home".into()),
+                        Value::String("viking".into()),
+                        Value::String("spam.txt".into()),
                     ],
                     span: Span::test_data(),
                 }),

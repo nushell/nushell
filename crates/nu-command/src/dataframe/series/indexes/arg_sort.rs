@@ -35,11 +35,11 @@ impl Command for ArgSort {
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "arg_sort".to_string(),
                         vec![
-                            Value::test_int(0),
-                            Value::test_int(1),
-                            Value::test_int(2),
-                            Value::test_int(3),
-                            Value::test_int(4),
+                            Value::Int(0),
+                            Value::Int(1),
+                            Value::Int(2),
+                            Value::Int(3),
+                            Value::Int(4),
                         ],
                     )])
                     .expect("simple df for test should not fail")
@@ -53,11 +53,11 @@ impl Command for ArgSort {
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "arg_sort".to_string(),
                         vec![
-                            Value::test_int(3),
-                            Value::test_int(4),
-                            Value::test_int(1),
-                            Value::test_int(2),
-                            Value::test_int(0),
+                            Value::Int(3),
+                            Value::Int(4),
+                            Value::Int(1),
+                            Value::Int(2),
+                            Value::Int(0),
                         ],
                     )])
                     .expect("simple df for test should not fail")

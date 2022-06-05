@@ -75,7 +75,7 @@ impl Command for SubCommand {
                                 val: "nu_test".to_string(),
                                 span: Span::test_data(),
                             },
-                            Value::test_int(100),
+                            Value::Int(100),
                         ],
                     }],
                     span: Span::test_data(),

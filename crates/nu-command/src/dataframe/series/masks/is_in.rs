@@ -35,13 +35,13 @@ impl Command for IsIn {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_in".to_string(),
                     vec![
-                        Value::test_bool(false),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(false),
-                        Value::test_bool(false),
-                        Value::test_bool(false),
+                        Value::Bool(false),
+                        Value::Bool(true),
+                        Value::Bool(true),
+                        Value::Bool(true),
+                        Value::Bool(false),
+                        Value::Bool(false),
+                        Value::Bool(false),
                     ],
                 )])
                 .expect("simple df for test should not fail")

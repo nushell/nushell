@@ -217,10 +217,10 @@ pub(super) fn compute_series_single_value(
 
     match operator.item {
         Operator::Plus => match &right {
-            Value::Int { val, .. } => {
+            Value::Int(val) => {
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::add, lhs_span)
             }
-            Value::Float { val, .. } => {
+            Value::Float(val) => {
                 compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::add, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -232,10 +232,10 @@ pub(super) fn compute_series_single_value(
             }),
         },
         Operator::Minus => match &right {
-            Value::Int { val, .. } => {
+            Value::Int(val) => {
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::sub, lhs_span)
             }
-            Value::Float { val, .. } => {
+            Value::Float(val) => {
                 compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::sub, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -247,10 +247,10 @@ pub(super) fn compute_series_single_value(
             }),
         },
         Operator::Multiply => match &right {
-            Value::Int { val, .. } => {
+            Value::Int(val) => {
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::mul, lhs_span)
             }
-            Value::Float { val, .. } => {
+            Value::Float(val) => {
                 compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::mul, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -285,15 +285,13 @@ pub(super) fn compute_series_single_value(
             }),
         },
         Operator::Equal => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::equal, lhs_span),
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::equal, lhs_span)
-            }
-            Value::String { val, .. } => {
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::equal, lhs_span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::equal, lhs_span),
+            Value::String(val) => {
                 let equal_pattern = format!("^{}$", regex::escape(val));
                 contains_series_pat(&lhs, &equal_pattern, lhs_span)
             }
-            Value::Date { val, .. } => {
+            Value::Date(val) => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::equal, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -305,13 +303,11 @@ pub(super) fn compute_series_single_value(
             }),
         },
         Operator::NotEqual => match &right {
-            Value::Int { val, .. } => {
-                compare_series_i64(&lhs, *val, ChunkedArray::not_equal, lhs_span)
-            }
-            Value::Float { val, .. } => {
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::not_equal, lhs_span),
+            Value::Float(val) => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::not_equal, lhs_span)
             }
-            Value::Date { val, .. } => compare_series_i64(
+            Value::Date(val) => compare_series_i64(
                 &lhs,
                 val.timestamp_millis(),
                 ChunkedArray::not_equal,
@@ -326,11 +322,9 @@ pub(super) fn compute_series_single_value(
             }),
         },
         Operator::LessThan => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::lt, lhs_span),
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::lt, lhs_span)
-            }
-            Value::Date { val, .. } => {
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::lt, lhs_span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::lt, lhs_span),
+            Value::Date(val) => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -342,11 +336,9 @@ pub(super) fn compute_series_single_value(
             }),
         },
         Operator::LessThanOrEqual => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::lt_eq, lhs_span),
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::lt_eq, lhs_span)
-            }
-            Value::Date { val, .. } => {
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::lt_eq, lhs_span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::lt_eq, lhs_span),
+            Value::Date(val) => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt_eq, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -358,11 +350,9 @@ pub(super) fn compute_series_single_value(
             }),
         },
         Operator::GreaterThan => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::gt, lhs_span),
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::gt, lhs_span)
-            }
-            Value::Date { val, .. } => {
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::gt, lhs_span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::gt, lhs_span),
+            Value::Date(val) => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -374,11 +364,9 @@ pub(super) fn compute_series_single_value(
             }),
         },
         Operator::GreaterThanOrEqual => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::gt_eq, lhs_span),
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::gt_eq, lhs_span)
-            }
-            Value::Date { val, .. } => {
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::gt_eq, lhs_span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::gt_eq, lhs_span),
+            Value::Date(val) => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt_eq, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -391,7 +379,7 @@ pub(super) fn compute_series_single_value(
         },
         // TODO: update this to do a regex match instead of a simple contains?
         Operator::RegexMatch => match &right {
-            Value::String { val, .. } => contains_series_pat(&lhs, val, lhs_span),
+            Value::String(val) => contains_series_pat(&lhs, val, lhs_span),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type(),
@@ -401,7 +389,7 @@ pub(super) fn compute_series_single_value(
             }),
         },
         Operator::StartsWith => match &right {
-            Value::String { val, .. } => {
+            Value::String(val) => {
                 let starts_with_pattern = format!("^{}", regex::escape(val));
                 contains_series_pat(&lhs, &starts_with_pattern, lhs_span)
             }
@@ -414,7 +402,7 @@ pub(super) fn compute_series_single_value(
             }),
         },
         Operator::EndsWith => match &right {
-            Value::String { val, .. } => {
+            Value::String(val) => {
                 let ends_with_pattern = format!("{}$", regex::escape(val));
                 contains_series_pat(&lhs, &ends_with_pattern, lhs_span)
             }

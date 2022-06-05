@@ -30,7 +30,7 @@ impl Command for ArgTrue {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "arg_true".to_string(),
-                    vec![Value::test_int(1)],
+                    vec![Value::Int(1)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

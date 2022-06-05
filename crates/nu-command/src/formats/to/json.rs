@@ -83,19 +83,19 @@ impl Command for ToJson {
                 description:
                     "Outputs a JSON string, with default indentation, representing the contents of this table",
                 example: "[a b c] | to json",
-                result: Some(Value::test_string("[\n  \"a\",\n  \"b\",\n  \"c\"\n]")),
+                result: Some(Value::String("[\n  \"a\",\n  \"b\",\n  \"c\"\n]".into())),
             },
             Example {
                 description:
                     "Outputs a JSON string, with 4-space indentation, representing the contents of this table",
                 example: "[Joe Bob Sam] | to json -i 4",
-                result: Some(Value::test_string("[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]")),
+                result: Some(Value::String("[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]".into())),
             },
             Example {
                 description:
                     "Outputs an unformatted JSON string representing the contents of this table",
                 example: "[1 2 3] | to json -r",
-                result: Some(Value::test_string("[1,2,3]")),
+                result: Some(Value::String("[1,2,3]".into())),
             },
         ]
     }
@@ -103,14 +103,14 @@ impl Command for ToJson {
 
 pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
     Ok(match v {
-        Value::Bool { val, .. } => nu_json::Value::Bool(*val),
+        Value::Bool(val) => nu_json::Value::Bool(*val),
         Value::Filesize { val, .. } => nu_json::Value::I64(*val),
         Value::Duration { val, .. } => nu_json::Value::I64(*val),
-        Value::Date { val, .. } => nu_json::Value::String(val.to_string()),
-        Value::Float { val, .. } => nu_json::Value::F64(*val),
-        Value::Int { val, .. } => nu_json::Value::I64(*val),
+        Value::Date(val) => nu_json::Value::String(val.to_string()),
+        Value::Float(val) => nu_json::Value::F64(*val),
+        Value::Int(val) => nu_json::Value::I64(*val),
         Value::Nothing { .. } => nu_json::Value::Null,
-        Value::String { val, .. } => nu_json::Value::String(val.to_string()),
+        Value::String(val) => nu_json::Value::String(val.to_string()),
         Value::CellPath { val, .. } => nu_json::Value::Array(
             val.members
                 .iter()

@@ -30,9 +30,9 @@ impl Command for Headers {
                     vals: vec![Value::Record {
                         cols: columns.clone(),
                         vals: vec![
-                            Value::test_string("1"),
-                            Value::test_string("2"),
-                            Value::test_string("3"),
+                            Value::String("1".into()),
+                            Value::String("2".into()),
+                            Value::String("3".into()),
                         ],
                         span: Span::test_data(),
                     }],
@@ -47,18 +47,18 @@ impl Command for Headers {
                         Value::Record {
                             cols: columns.clone(),
                             vals: vec![
-                                Value::test_string("1"),
-                                Value::test_string("2"),
-                                Value::test_string("3"),
+                                Value::String("1".into()),
+                                Value::String("2".into()),
+                                Value::String("3".into()),
                             ],
                             span: Span::test_data(),
                         },
                         Value::Record {
                             cols: columns,
                             vals: vec![
-                                Value::test_string("1"),
-                                Value::test_string("2"),
-                                Value::test_string("3"),
+                                Value::String("1".into()),
+                                Value::String("2".into()),
+                                Value::String("3".into()),
                             ],
                             span: Span::test_data(),
                         },

@@ -57,17 +57,17 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to integer",
                 example: "'2' | into int",
-                result: Some(Value::test_int(2)),
+                result: Some(Value::Int(2)),
             },
             Example {
                 description: "Convert decimal to integer",
                 example: "5.9 | into int",
-                result: Some(Value::test_int(5)),
+                result: Some(Value::Int(5)),
             },
             Example {
                 description: "Convert decimal string to integer",
                 example: "'5.9' | into int",
-                result: Some(Value::test_int(5)),
+                result: Some(Value::Int(5)),
             },
             Example {
                 description: "Convert file size to integer",
@@ -77,22 +77,22 @@ impl Command for SubCommand {
             Example {
                 description: "Convert bool to integer",
                 example: "[false, true] | into int",
-                result: Some(Value::List(vec![Value::test_int(0), Value::test_int(1)])),
+                result: Some(Value::List(vec![Value::Int(0), Value::Int(1)])),
             },
             Example {
                 description: "Convert date to integer (Unix timestamp)",
                 example: "2022-02-02 | into int",
-                result: Some(Value::test_int(1643760000)),
+                result: Some(Value::Int(1643760000)),
             },
             Example {
                 description: "Convert to integer from binary",
                 example: "'1101' | into int -r 2",
-                result: Some(Value::test_int(13)),
+                result: Some(Value::Int(13)),
             },
             Example {
                 description: "Convert to integer from hex",
                 example: "'FF' |  into int -r 16",
-                result: Some(Value::test_int(255)),
+                result: Some(Value::Int(255)),
             },
         ]
     }
@@ -112,7 +112,7 @@ fn into_int(
     };
 
     let radix: u32 = match options.radix {
-        Some(Value::Int { val, .. }) => val as u32,
+        Some(Value::Int(val)) => val as u32,
         Some(_) => 10,
         None => 10,
     };
@@ -159,8 +159,8 @@ pub fn action(input: &Value, span: Span, radix: u32) -> Value {
             }
         }
         Value::Filesize { val, .. } => Value::Int(*val),
-        Value::Float { val, .. } => Value::Int(*val as i64),
-        Value::String { val, .. } => {
+        Value::Float(val) => Value::Int(*val as i64),
+        Value::String(val) => {
             if radix == 10 {
                 match int_from_string(val, span) {
                     Ok(val) => Value::Int(val),
@@ -170,14 +170,14 @@ pub fn action(input: &Value, span: Span, radix: u32) -> Value {
                 convert_int(input, span, radix)
             }
         }
-        Value::Bool { val, .. } => {
+        Value::Bool(val) => {
             if *val {
                 Value::Int(1)
             } else {
                 Value::Int(0)
             }
         }
-        Value::Date { val, .. } => Value::Int(val.timestamp()),
+        Value::Date(val) => Value::Int(val.timestamp()),
         _ => Value::Error(ShellError::UnsupportedInput(
             "'into int' for unsupported type".into(),
             span,
@@ -187,8 +187,8 @@ pub fn action(input: &Value, span: Span, radix: u32) -> Value {
 
 fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     let i = match input {
-        Value::Int { val, .. } => val.to_string(),
-        Value::String { val, .. } => {
+        Value::Int(val) => val.to_string(),
+        Value::String(val) => {
             if val.starts_with("0x") || val.starts_with("0b") {
                 match int_from_string(val, head) {
                     Ok(x) => return Value::Int(x),
@@ -278,8 +278,8 @@ mod test {
 
     #[test]
     fn turns_to_integer() {
-        let word = Value::test_string("10");
-        let expected = Value::test_int(10);
+        let word = Value::String("10".into());
+        let expected = Value::Int(10);
 
         let actual = action(&word, Span::test_data(), 10);
         assert_eq!(actual, expected);
@@ -287,21 +287,21 @@ mod test {
 
     #[test]
     fn turns_binary_to_integer() {
-        let s = Value::test_string("0b101");
+        let s = Value::String("0b101".into());
         let actual = action(&s, Span::test_data(), 10);
-        assert_eq!(actual, Value::test_int(5));
+        assert_eq!(actual, Value::Int(5));
     }
 
     #[test]
     fn turns_hex_to_integer() {
-        let s = Value::test_string("0xFF");
+        let s = Value::String("0xFF".into());
         let actual = action(&s, Span::test_data(), 16);
-        assert_eq!(actual, Value::test_int(255));
+        assert_eq!(actual, Value::Int(255));
     }
 
     #[test]
     fn communicates_parsing_error_given_an_invalid_integerlike_string() {
-        let integer_str = Value::test_string("36anra");
+        let integer_str = Value::String("36anra".into());
 
         let actual = action(&integer_str, Span::test_data(), 10);
 

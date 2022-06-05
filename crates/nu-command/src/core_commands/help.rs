@@ -111,56 +111,31 @@ fn help(
                 || matches_term
             {
                 cols.push("name".into());
-                vals.push(Value::String {
-                    val: key,
-                    span: head,
-                });
+                vals.push(Value::String(key));
 
                 cols.push("category".into());
-                vals.push(Value::String {
-                    val: sig.category.to_string(),
-                    span: head,
-                });
+                vals.push(Value::String(sig.category.to_string()));
 
                 cols.push("is_plugin".into());
-                vals.push(Value::Bool {
-                    val: decl.is_plugin().is_some(),
-                    span: head,
-                });
+                vals.push(Value::Bool(decl.is_plugin().is_some()));
 
                 cols.push("is_custom".into());
-                vals.push(Value::Bool {
-                    val: decl.get_block_id().is_some(),
-                    span: head,
-                });
+                vals.push(Value::Bool(decl.get_block_id().is_some()));
 
                 cols.push("is_keyword".into());
-                vals.push(Value::Bool {
-                    val: decl.is_parser_keyword(),
-                    span: head,
-                });
+                vals.push(Value::Bool(decl.is_parser_keyword()));
 
                 cols.push("usage".into());
-                vals.push(Value::String {
-                    val: usage,
-                    span: head,
-                });
+                vals.push(Value::String(usage));
 
                 cols.push("search_terms".into());
                 vals.push(if search_terms.is_empty() {
                     Value::nothing(head)
                 } else {
-                    Value::String {
-                        val: search_terms.join(", "),
-                        span: head,
-                    }
+                    Value::String(search_terms.join(", "))
                 });
 
-                found_cmds_vec.push(Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                });
+                found_cmds_vec.push(Value::Record { cols, vals });
             }
         }
 
@@ -185,56 +160,31 @@ fn help(
                 let search_terms = sig.search_terms;
 
                 cols.push("name".into());
-                vals.push(Value::String {
-                    val: key,
-                    span: head,
-                });
+                vals.push(Value::String(key));
 
                 cols.push("category".into());
-                vals.push(Value::String {
-                    val: sig.category.to_string(),
-                    span: head,
-                });
+                vals.push(Value::String(sig.category.to_string()));
 
                 cols.push("is_plugin".into());
-                vals.push(Value::Bool {
-                    val: decl.is_plugin().is_some(),
-                    span: head,
-                });
+                vals.push(Value::Bool(decl.is_plugin().is_some()));
 
                 cols.push("is_custom".into());
-                vals.push(Value::Bool {
-                    val: decl.get_block_id().is_some(),
-                    span: head,
-                });
+                vals.push(Value::Bool(decl.get_block_id().is_some()));
 
                 cols.push("is_keyword".into());
-                vals.push(Value::Bool {
-                    val: decl.is_parser_keyword(),
-                    span: head,
-                });
+                vals.push(Value::Bool(decl.is_parser_keyword()));
 
                 cols.push("usage".into());
-                vals.push(Value::String {
-                    val: usage,
-                    span: head,
-                });
+                vals.push(Value::String(usage));
 
                 cols.push("search_terms".into());
                 vals.push(if search_terms.is_empty() {
                     Value::nothing(head)
                 } else {
-                    Value::String {
-                        val: search_terms.join(", "),
-                        span: head,
-                    }
+                    Value::String(search_terms.join(", "))
                 });
 
-                found_cmds_vec.push(Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                });
+                found_cmds_vec.push(Value::Record { cols, vals });
             }
 
             Ok(found_cmds_vec
@@ -260,11 +210,7 @@ fn help(
                 .collect::<Vec<String>>();
 
             if !output.is_empty() {
-                Ok(Value::String {
-                    val: output.join("======================\n\n"),
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                Ok(Value::String(output.join("======================\n\n")).into_pipeline_data())
             } else {
                 Err(ShellError::CommandNotFound(span(&[
                     rest[0].span,
@@ -296,10 +242,6 @@ Get the processes on your system actively using CPU:
 
 You can also learn more at https://www.nushell.sh/book/"#;
 
-        Ok(Value::String {
-            val: msg.into(),
-            span: head,
-        }
-        .into_pipeline_data())
+        Ok(Value::String(msg.into()).into_pipeline_data())
     }
 }

@@ -34,7 +34,7 @@ impl Command for Skip {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["editions".to_owned()],
-                        vals: vec![Value::test_int(2021)],
+                        vals: vec![Value::Int(2021)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -44,7 +44,7 @@ impl Command for Skip {
                 description: "Skip the first value",
                 example: "echo [2 4 6 8] | skip",
                 result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(6), Value::test_int(8)],
+                    vals: vec![Value::Int(4), Value::Int(6), Value::Int(8)],
                     span: Span::test_data(),
                 }),
             },
@@ -89,7 +89,7 @@ impl Command for Skip {
                     let frame = frame?;
 
                     match frame {
-                        Value::String { val, .. } => {
+                        Value::String(val) => {
                             let bytes = val.as_bytes();
                             if bytes.len() < remaining {
                                 remaining -= bytes.len();

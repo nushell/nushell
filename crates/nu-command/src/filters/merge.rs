@@ -33,39 +33,36 @@ impl Command for Merge {
             Example {
                 example: "[a b c] | wrap name | merge { [1 2 3] | wrap index }",
                 description: "Merge an index column into the input table",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_record(
-                            vec!["name", "index"],
-                            vec![Value::test_string("a"), Value::test_int(1)],
-                        ),
-                        Value::test_record(
-                            vec!["name", "index"],
-                            vec![Value::test_string("b"), Value::test_int(2)],
-                        ),
-                        Value::test_record(
-                            vec!["name", "index"],
-                            vec![Value::test_string("c"), Value::test_int(3)],
-                        ),
-                    ],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::List(vec![
+                    Value::Record {
+                        cols: vec!["name".into(), "index".into()],
+                        vals: vec![Value::String("a".into()), Value::Int(1)],
+                    },
+                    Value::Record {
+                        cols: vec!["name".into(), "index".into()],
+                        vals: vec![Value::String("b".into()), Value::Int(2)],
+                    },
+                    Value::Record {
+                        cols: vec!["name".into(), "index".into()],
+                        vals: vec![Value::String("c".into()), Value::Int(3)],
+                    },
+                ])),
             },
             Example {
                 example: "{a: 1, b: 2} | merge { {c: 3} }",
                 description: "Merge two records",
-                result: Some(Value::test_record(
-                    vec!["a", "b", "c"],
-                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                )),
+                result: Some(Value::Record {
+                    cols: vec!["a".into(), "b".into(), "c".into()],
+                    vals: vec![Value::Int(1), Value::Int(2), Value::Int(3)],
+                }),
             },
             Example {
                 example: "{a: 1, b: 3} | merge { {b: 2, c: 4} }",
                 description: "Merge two records with overlap key",
-                result: Some(Value::test_record(
-                    vec!["a", "b", "c"],
-                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(4)],
-                )),
+                result: Some(Value::Record {
+                    cols: vec!["a".into(), "b".into(), "c".into()],
+                    vals: vec![Value::Int(1), Value::Int(2), Value::Int(4)],
+                }),
             },
         ]
     }
@@ -118,17 +115,13 @@ impl Command for Merge {
                                             (inp_cols.to_vec(), inp_vals.to_vec()),
                                             (to_merge_cols.to_vec(), to_merge_vals.to_vec()),
                                         );
-                                        Value::Record {
-                                            cols,
-                                            vals,
-                                            span: call.head,
-                                        }
+                                        Value::Record { cols, vals }
                                     }
-                                    Err(error) => Value::Error { error },
+                                    Err(error) => Value::Error(error),
                                 }
                             }
                             (_, None) => inp,
-                            (Err(error), _) => Value::Error { error },
+                            (Err(error), _) => Value::Error(error),
                         });
 
                 if let Some(md) = metadata {
@@ -160,12 +153,7 @@ impl Command for Merge {
                     (inp_cols.to_vec(), inp_vals.to_vec()),
                     (to_merge_cols.to_vec(), to_merge_vals.to_vec()),
                 );
-                Ok(Value::Record {
-                    cols,
-                    vals,
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                Ok(Value::Record { cols, vals }.into_pipeline_data())
             }
             (_, PipelineData::Value(val, ..)) | (PipelineData::Value(val, ..), _) => {
                 let span = if val.span()? == Span::test_data() {

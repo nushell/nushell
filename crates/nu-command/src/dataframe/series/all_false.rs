@@ -30,7 +30,7 @@ impl Command for AllFalse {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_false".to_string(),
-                        vec![Value::test_bool(true)],
+                        vec![Value::Bool(true)],
                     )])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -44,7 +44,7 @@ impl Command for AllFalse {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_false".to_string(),
-                        vec![Value::test_bool(false)],
+                        vec![Value::Bool(false)],
                     )])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

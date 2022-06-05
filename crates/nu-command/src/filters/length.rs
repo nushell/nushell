@@ -48,12 +48,12 @@ impl Command for Length {
             Example {
                 description: "Count the number of entries in a list",
                 example: "echo [1 2 3 4 5] | length",
-                result: Some(Value::test_int(5)),
+                result: Some(Value::Int(5)),
             },
             Example {
                 description: "Count the number of columns in the calendar table",
                 example: "cal | length -c",
-                result: Some(Value::test_int(7)),
+                result: Some(Value::Int(7)),
             },
         ]
     }

@@ -36,12 +36,12 @@ impl Command for All {
             Example {
                 description: "Find if services are running",
                 example: "echo [[status]; [UP] [UP]] | all? status == UP",
-                result: Some(Value::test_bool(true)),
+                result: Some(Value::Bool(true)),
             },
             Example {
                 description: "Check that all values are even",
                 example: "echo [2 4 6 8] | all? ($it mod 2) == 0",
-                result: Some(Value::test_bool(true)),
+                result: Some(Value::Bool(true)),
             },
         ]
     }

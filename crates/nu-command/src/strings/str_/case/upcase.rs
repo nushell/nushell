@@ -42,7 +42,7 @@ impl Command for SubCommand {
         vec![Example {
             description: "Upcase contents",
             example: "'nu' | str upcase",
-            result: Some(Value::test_string("NU")),
+            result: Some(Value::String("NU".into())),
         }]
     }
 }
@@ -104,10 +104,10 @@ mod tests {
 
     #[test]
     fn upcases() {
-        let word = Value::test_string("andres");
+        let word = Value::String("andres".into());
 
         let actual = action(&word, Span::test_data());
-        let expected = Value::test_string("ANDRES");
+        let expected = Value::String("ANDRES".into());
         assert_eq!(actual, expected);
     }
 }

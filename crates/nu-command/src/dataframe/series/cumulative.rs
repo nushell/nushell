@@ -66,11 +66,11 @@ impl Command for Cumulative {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0_cumulative_sum".to_string(),
                     vec![
-                        Value::test_int(1),
-                        Value::test_int(3),
-                        Value::test_int(6),
-                        Value::test_int(10),
-                        Value::test_int(15),
+                        Value::Int(1),
+                        Value::Int(3),
+                        Value::Int(6),
+                        Value::Int(10),
+                        Value::Int(15),
                     ],
                 )])
                 .expect("simple df for test should not fail")

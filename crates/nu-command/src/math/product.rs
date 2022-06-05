@@ -38,7 +38,7 @@ impl Command for SubCommand {
         vec![Example {
             description: "Get the product of a list of numbers",
             example: "[2 3 3 4] | math product",
-            result: Some(Value::test_int(72)),
+            result: Some(Value::Int(72)),
         }]
     }
 }

@@ -35,14 +35,14 @@ impl Command for Last {
                 example: "[1,2,3] | last 2",
                 description: "Get the last 2 items",
                 result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(3)],
+                    vals: vec![Value::Int(2), Value::Int(3)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 example: "[1,2,3] | last",
                 description: "Get the last item",
-                result: Some(Value::test_int(3)),
+                result: Some(Value::Int(3)),
             },
         ]
     }

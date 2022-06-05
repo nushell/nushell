@@ -81,7 +81,7 @@ impl Command for Sleep {
             Example {
                 description: "Send output after 1sec",
                 example: "sleep 1sec; echo done",
-                result: Some(Value::test_string("done")),
+                result: Some(Value::String("done".into())),
             },
         ]
     }

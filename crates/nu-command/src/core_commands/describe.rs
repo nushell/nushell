@@ -52,7 +52,7 @@ impl Command for Describe {
         vec![Example {
             description: "Describe the type of a string",
             example: "'hello' | describe",
-            result: Some(Value::test_string("string")),
+            result: Some(Value::String("string".into())),
         }]
     }
 

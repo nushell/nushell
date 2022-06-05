@@ -200,7 +200,7 @@ fn action(
                 *command_span,
             )),
         },
-        Value::String { val, .. } => {
+        Value::String(val) => {
             match base64_config.action_type {
                 ActionType::Encode => Ok(Value::string(
                     encode_config(&val, base64_config_enum),

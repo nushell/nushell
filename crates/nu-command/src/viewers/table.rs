@@ -83,23 +83,19 @@ impl Command for Table {
 
         if list {
             let table_modes = vec![
-                Value::string("basic", Span::test_data()),
-                Value::string("compact", Span::test_data()),
-                Value::string("compact_double", Span::test_data()),
-                Value::string("default", Span::test_data()),
-                Value::string("heavy", Span::test_data()),
-                Value::string("light", Span::test_data()),
-                Value::string("none", Span::test_data()),
-                Value::string("reinforced", Span::test_data()),
-                Value::string("rounded", Span::test_data()),
-                Value::string("thin", Span::test_data()),
-                Value::string("with_love", Span::test_data()),
+                Value::String("basic".into()),
+                Value::String("compact".into()),
+                Value::String("compact_double".into()),
+                Value::String("default".into()),
+                Value::String("heavy".into()),
+                Value::String("light".into()),
+                Value::String("none".into()),
+                Value::String("reinforced".into()),
+                Value::String("rounded".into()),
+                Value::String("thin".into()),
+                Value::String("with_love".into()),
             ];
-            return Ok(Value::List {
-                vals: table_modes,
-                span: Span::test_data(),
-            }
-            .into_pipeline_data());
+            return Ok(Value::List(table_modes).into_pipeline_data());
         }
 
         // reset vt processing, aka ansi because illbehaved externals can break it
@@ -170,11 +166,7 @@ impl Command for Table {
 
                 let result = nu_table::draw_table(&table, term_width, &color_hm, config);
 
-                Ok(Value::String {
-                    val: result,
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                Ok(Value::String(result).into_pipeline_data())
             }
             PipelineData::Value(Value::Error { error }, ..) => {
                 let working_set = StateWorkingSet::new(engine_state);
@@ -216,12 +208,12 @@ impl Command for Table {
                     vals: vec![
                         Value::Record {
                             cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                            vals: vec![Value::Int(1), Value::Int(2)],
                             span,
                         },
                         Value::Record {
                             cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(3), Value::test_int(4)],
+                            vals: vec![Value::Int(3), Value::Int(4)],
                             span,
                         },
                     ],

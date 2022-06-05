@@ -221,7 +221,7 @@ fn helper(
         Value::Binary { val, .. } => {
             request = request.body(val);
         }
-        Value::String { val, .. } => {
+        Value::String(val) => {
             request = request.body(val);
         }
         Value::Record { .. } if body_type == BodyType::Json => {

@@ -29,22 +29,10 @@ impl Command for Dummies {
                 example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr to-dummies",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a_1".to_string(),
-                            vec![Value::test_int(1), Value::test_int(0)],
-                        ),
-                        Column::new(
-                            "a_3".to_string(),
-                            vec![Value::test_int(0), Value::test_int(1)],
-                        ),
-                        Column::new(
-                            "b_2".to_string(),
-                            vec![Value::test_int(1), Value::test_int(0)],
-                        ),
-                        Column::new(
-                            "b_4".to_string(),
-                            vec![Value::test_int(0), Value::test_int(1)],
-                        ),
+                        Column::new("a_1".to_string(), vec![Value::Int(1), Value::Int(0)]),
+                        Column::new("a_3".to_string(), vec![Value::Int(0), Value::Int(1)]),
+                        Column::new("b_2".to_string(), vec![Value::Int(1), Value::Int(0)]),
+                        Column::new("b_4".to_string(), vec![Value::Int(0), Value::Int(1)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -58,31 +46,31 @@ impl Command for Dummies {
                         Column::new(
                             "0_1".to_string(),
                             vec![
-                                Value::test_int(1),
-                                Value::test_int(0),
-                                Value::test_int(0),
-                                Value::test_int(0),
-                                Value::test_int(0),
+                                Value::Int(1),
+                                Value::Int(0),
+                                Value::Int(0),
+                                Value::Int(0),
+                                Value::Int(0),
                             ],
                         ),
                         Column::new(
                             "0_2".to_string(),
                             vec![
-                                Value::test_int(0),
-                                Value::test_int(1),
-                                Value::test_int(1),
-                                Value::test_int(0),
-                                Value::test_int(0),
+                                Value::Int(0),
+                                Value::Int(1),
+                                Value::Int(1),
+                                Value::Int(0),
+                                Value::Int(0),
                             ],
                         ),
                         Column::new(
                             "0_3".to_string(),
                             vec![
-                                Value::test_int(0),
-                                Value::test_int(0),
-                                Value::test_int(0),
-                                Value::test_int(1),
-                                Value::test_int(1),
+                                Value::Int(0),
+                                Value::Int(0),
+                                Value::Int(0),
+                                Value::Int(1),
+                                Value::Int(1),
                             ],
                         ),
                     ])

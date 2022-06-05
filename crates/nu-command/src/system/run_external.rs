@@ -167,7 +167,7 @@ impl ExternalCommand {
                             if let Ok(input) = input {
                                 for value in input.into_iter() {
                                     let buf = match value {
-                                        Value::String { val, .. } => val.into_bytes(),
+                                        Value::String(val) => val.into_bytes(),
                                         Value::Binary { val, .. } => val,
                                         _ => return Err(()),
                                     };

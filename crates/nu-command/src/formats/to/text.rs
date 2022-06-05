@@ -49,7 +49,7 @@ impl Command for ToText {
             Example {
                 description: "Outputs data as simple text",
                 example: "1 | to text",
-                result: Some(Value::test_string("1")),
+                result: Some(Value::String("1".into())),
             },
             Example {
                 description: "Outputs external data as simple text",

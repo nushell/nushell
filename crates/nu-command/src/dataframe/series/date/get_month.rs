@@ -32,7 +32,7 @@ impl Command for GetMonth {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(8), Value::test_int(8)],
+                    vec![Value::Int(8), Value::Int(8)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

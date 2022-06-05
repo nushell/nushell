@@ -50,7 +50,7 @@ impl Command for Update {
                 example: "echo {'name': 'nu', 'stars': 5} | update name 'Nushell'",
                 result: Some(Value::Record {
                     cols: vec!["name".into(), "stars".into()],
-                    vals: vec![Value::test_string("Nushell"), Value::test_int(5)],
+                    vals: vec![Value::String("Nushell".into()), Value::Int(5)],
                     span: Span::test_data(),
                 }),
             },
@@ -60,7 +60,7 @@ impl Command for Update {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["count".into(), "fruit".into()],
-                        vals: vec![Value::test_int(2), Value::test_string("apple")],
+                        vals: vec![Value::Int(2), Value::String("apple".into())],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),

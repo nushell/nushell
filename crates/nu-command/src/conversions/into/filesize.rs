@@ -114,9 +114,9 @@ pub fn action(input: &Value, span: Span) -> Value {
     if let Ok(value_span) = input.span() {
         match input {
             Value::Filesize { .. } => input.clone(),
-            Value::Int { val, .. } => Value::Filesize(*val),
-            Value::Float { val, .. } => Value::Filesize(*val as i64),
-            Value::String { val, .. } => match int_from_string(val, value_span) {
+            Value::Int(val) => Value::Filesize(*val),
+            Value::Float(val) => Value::Filesize(*val as i64),
+            Value::String(val) => match int_from_string(val, value_span) {
                 Ok(val) => Value::Filesize(val),
                 Err(error) => Value::Error(error),
             },

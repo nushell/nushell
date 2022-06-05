@@ -30,8 +30,8 @@ impl Command for ShapeDF {
             example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr shape",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
-                    Column::new("rows".to_string(), vec![Value::test_int(2)]),
-                    Column::new("columns".to_string(), vec![Value::test_int(2)]),
+                    Column::new("rows".to_string(), vec![Value::Int(2)]),
+                    Column::new("columns".to_string(), vec![Value::Int(2)]),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

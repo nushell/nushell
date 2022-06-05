@@ -24,7 +24,7 @@ impl Command for ToToml {
         vec![Example {
             description: "Outputs an TOML string representing the contents of this table",
             example: r#"[[foo bar]; ["1" "2"]] | to toml"#,
-            result: Some(Value::test_string("bar = \"2\"\nfoo = \"1\"\n")),
+            result: Some(Value::String("bar = \"2\"\nfoo = \"1\"\n".into())),
         }]
     }
 
@@ -44,14 +44,14 @@ impl Command for ToToml {
 // This shouldn't be called at the top-level
 fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellError> {
     Ok(match &v {
-        Value::Bool { val, .. } => toml::Value::Boolean(*val),
-        Value::Int { val, .. } => toml::Value::Integer(*val),
+        Value::Bool(val) => toml::Value::Boolean(*val),
+        Value::Int(val) => toml::Value::Integer(*val),
         Value::Filesize { val, .. } => toml::Value::Integer(*val),
         Value::Duration { val, .. } => toml::Value::String(val.to_string()),
-        Value::Date { val, .. } => toml::Value::String(val.to_string()),
+        Value::Date(val) => toml::Value::String(val.to_string()),
         Value::Range { .. } => toml::Value::String("<Range>".to_string()),
-        Value::Float { val, .. } => toml::Value::Float(*val),
-        Value::String { val, .. } => toml::Value::String(val.clone()),
+        Value::Float(val) => toml::Value::Float(*val),
+        Value::String(val) => toml::Value::String(val.clone()),
         Value::Record { cols, vals, .. } => {
             let mut m = toml::map::Map::new();
             for (k, v) in cols.iter().zip(vals.iter()) {
@@ -185,12 +185,12 @@ mod tests {
         let engine_state = EngineState::new();
 
         let mut m = indexmap::IndexMap::new();
-        m.insert("rust".to_owned(), Value::test_string("editor"));
+        m.insert("rust".to_owned(), Value::String("editor".into()));
         m.insert("is".to_owned(), Value::nothing(Span::test_data()));
         m.insert(
             "features".to_owned(),
             Value::List {
-                vals: vec![Value::test_string("hello"), Value::test_string("array")],
+                vals: vec![Value::String("hello".into()), Value::String("array".into())],
                 span: Span::test_data(),
             },
         );
@@ -239,14 +239,14 @@ mod tests {
         //
         value_to_toml_value(
             &engine_state,
-            &Value::test_string("not_valid"),
+            &Value::String("not_valid".into()),
             Span::test_data(),
         )
         .expect_err("Expected non-valid toml (String) to cause error!");
         value_to_toml_value(
             &engine_state,
             &Value::List {
-                vals: vec![Value::test_string("1")],
+                vals: vec![Value::String("1".into())],
                 span: Span::test_data(),
             },
             Span::test_data(),

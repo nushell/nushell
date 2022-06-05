@@ -38,7 +38,7 @@ impl Command for SubCommand {
         vec![Example {
             description: "Find the maximum of list of numbers",
             example: "[-50 100 25] | math max",
-            result: Some(Value::test_int(100)),
+            result: Some(Value::Int(100)),
         }]
     }
 }

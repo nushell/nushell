@@ -46,7 +46,7 @@ impl Command for ViewSource {
                     Ok(Value::string("<internal command>", call.head).into_pipeline_data())
                 }
             }
-            Value::String { val, .. } => {
+            Value::String(val) => {
                 if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);

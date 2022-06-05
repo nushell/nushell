@@ -52,25 +52,15 @@ impl Command for GroupBy {
                 result: Some(Value::Record {
                     cols: vec!["1".to_string(), "3".to_string(), "2".to_string()],
                     vals: vec![
-                        Value::List {
-                            vals: vec![
-                                Value::test_string("1"),
-                                Value::test_string("1"),
-                                Value::test_string("1"),
-                                Value::test_string("1"),
-                            ],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![Value::test_string("3"), Value::test_string("3")],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![Value::test_string("2")],
-                            span: Span::test_data(),
-                        },
+                        Value::List(vec![
+                            Value::String("1".into()),
+                            Value::String("1".into()),
+                            Value::String("1".into()),
+                            Value::String("1".into()),
+                        ]),
+                        Value::List(vec![Value::String("3".into()), Value::String("3".into())]),
+                        Value::List(vec![Value::String("2".into())]),
                     ],
-                    span: Span::test_data(),
                 }),
             },
         ]
@@ -107,10 +97,7 @@ pub fn group_by(
 
     let first = values[0].clone();
 
-    let value_list = Value::List {
-        vals: values.clone(),
-        span: name,
-    };
+    let value_list = Value::List(values.clone());
 
     match grouper {
         Some(Value::Block { .. }) => {
@@ -220,10 +207,10 @@ pub fn data_group(
 
     for (k, v) in groups {
         cols.push(k.to_string());
-        vals.push(Value::List { vals: v, span });
+        vals.push(Value::List(v));
     }
 
-    Ok(Value::Record { cols, vals, span })
+    Ok(Value::Record { cols, vals })
 }
 
 pub fn group(

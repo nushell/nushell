@@ -41,14 +41,8 @@ impl Command for TakeDF {
     $df | dfr take $indices"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(4), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
+                        Column::new("a".to_string(), vec![Value::Int(4), Value::Int(4)]),
+                        Column::new("b".to_string(), vec![Value::Int(1), Value::Int(3)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -62,7 +56,7 @@ impl Command for TakeDF {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),
-                        vec![Value::test_int(4), Value::test_int(5)],
+                        vec![Value::Int(4), Value::Int(5)],
                     )])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

@@ -36,12 +36,12 @@ impl Command for ToCsv {
             Example {
                 description: "Outputs an CSV string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to csv",
-                result: Some(Value::test_string("foo,bar\n1,2\n")),
+                result: Some(Value::String("foo,bar\n1,2\n".into())),
             },
             Example {
                 description: "Outputs an CSV string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to csv -s ';' ",
-                result: Some(Value::test_string("foo;bar\n1;2\n")),
+                result: Some(Value::String("foo;bar\n1;2\n".into())),
             },
         ]
     }
