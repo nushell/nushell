@@ -7,101 +7,61 @@ use std::hash::{Hash, Hasher};
 /// for further usage like value statistics.
 ///
 /// For now the main way to crate a [HashableValue] is using [from_value](HashableValue::from_value)
-///
-/// Please note that although each variant contains `span` field, but during hashing, this field will not be concerned.
-/// Which means that the following will be true:
-/// ```text
-/// assert_eq!(HashableValue::Bool {val: true, span: Span{start: 0, end: 1}}, HashableValue::Bool {val: true, span: Span{start: 90, end: 1000}})
-/// ```
 #[derive(Eq, Debug)]
 pub enum HashableValue {
-    Bool {
-        val: bool,
-        span: Span,
-    },
-    Int {
-        val: i64,
-        span: Span,
-    },
-    Float {
-        val: [u8; 8], // because f64 is not hashable, we save it as [u8;8] array to make it hashable.
-        span: Span,
-    },
-    Filesize {
-        val: i64,
-        span: Span,
-    },
-    Duration {
-        val: i64,
-        span: Span,
-    },
-    Date {
-        val: DateTime<FixedOffset>,
-        span: Span,
-    },
-    String {
-        val: String,
-        span: Span,
-    },
-    Binary {
-        val: Vec<u8>,
-        span: Span,
-    },
+    Bool(bool),
+    Int(i64),
+    Float(
+        [u8; 8], // because f64 is not hashable, we save it as [u8;8] array to make it hashable.
+    ),
+    Filesize(i64),
+    Duration(i64),
+    Date(DateTime<FixedOffset>),
+    String(String),
+    Binary(Vec<u8>),
 }
 
 impl Default for HashableValue {
     fn default() -> Self {
-        HashableValue::Bool {
-            val: false,
-            span: Span { start: 0, end: 0 },
-        }
+        HashableValue::Bool(false)
     }
 }
 
 impl HashableValue {
     /// Try to convert from `value` to self
     ///
-    /// A `span` is required because when there is an error in value, it may not contain `span` field.
+    /// A `span` is required because when there is an error in value, it does not contain a `span` field.
     ///
     /// If the given value is not hashable(mainly because of it is structured data), an error will returned.
     pub fn from_value(value: Value, span: Span) -> Result<Self, ShellError> {
         match value {
-            Value::Bool { val, span } => Ok(HashableValue::Bool { val, span }),
-            Value::Int { val, span } => Ok(HashableValue::Int { val, span }),
-            Value::Filesize { val, span } => Ok(HashableValue::Filesize { val, span }),
-            Value::Duration { val, span } => Ok(HashableValue::Duration { val, span }),
-            Value::Date { val, span } => Ok(HashableValue::Date { val, span }),
-            Value::Float { val, span } => Ok(HashableValue::Float {
-                val: val.to_ne_bytes(),
-                span,
-            }),
-            Value::String { val, span } => Ok(HashableValue::String { val, span }),
-            Value::Binary { val, span } => Ok(HashableValue::Binary { val, span }),
+            Value::Bool(val) => Ok(HashableValue::Bool(val)),
+            Value::Int(val) => Ok(HashableValue::Int(val)),
+            Value::Filesize(val) => Ok(HashableValue::Filesize(val)),
+            Value::Duration(val) => Ok(HashableValue::Duration(val)),
+            Value::Date(val) => Ok(HashableValue::Date(val)),
+            Value::Float(val) => Ok(HashableValue::Float(val.to_ne_bytes())),
+            Value::String(val) => Ok(HashableValue::String(val)),
+            Value::Binary(val) => Ok(HashableValue::Binary(val)),
 
-            _ => {
-                let input_span = value.span().unwrap_or(span);
-                Err(ShellError::UnsupportedInput(
-                    format!("input value {value:?} is not hashable"),
-                    input_span,
-                ))
-            }
+            _ => Err(ShellError::UnsupportedInput(
+                format!("input value {value:?} is not hashable"),
+                span,
+            )),
         }
     }
 
     /// Convert from self to nu's core data type `Value`.
     pub fn into_value(self) -> Value {
         match self {
-            HashableValue::Bool { val, span } => Value::Bool { val, span },
-            HashableValue::Int { val, span } => Value::Int { val, span },
-            HashableValue::Filesize { val, span } => Value::Filesize { val, span },
-            HashableValue::Duration { val, span } => Value::Duration { val, span },
-            HashableValue::Date { val, span } => Value::Date { val, span },
-            HashableValue::Float { val, span } => Value::Float {
-                val: f64::from_ne_bytes(val),
-                span,
-            },
-            HashableValue::String { val, span } => Value::String { val, span },
-            HashableValue::Binary { val, span } => Value::Binary { val, span },
+            HashableValue::Bool(val) => Value::Bool(val),
+            HashableValue::Int(val) => Value::Int(val),
+            HashableValue::Filesize(val) => Value::Filesize(val),
+            HashableValue::Duration(val) => Value::Duration(val),
+            HashableValue::Date(val) => Value::Date(val),
+            HashableValue::Float(val) => Value::Float(f64::from_ne_bytes(val)),
+            HashableValue::String(val) => Value::String(val),
+            HashableValue::Binary(val) => Value::Binary(val),
         }
     }
 }
@@ -109,14 +69,14 @@ impl HashableValue {
 impl Hash for HashableValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
-            HashableValue::Bool { val, .. } => val.hash(state),
-            HashableValue::Int { val, .. } => val.hash(state),
-            HashableValue::Filesize { val, .. } => val.hash(state),
-            HashableValue::Duration { val, .. } => val.hash(state),
-            HashableValue::Date { val, .. } => val.hash(state),
-            HashableValue::Float { val, .. } => val.hash(state),
-            HashableValue::String { val, .. } => val.hash(state),
-            HashableValue::Binary { val, .. } => val.hash(state),
+            HashableValue::Bool(val) => val.hash(state),
+            HashableValue::Int(val) => val.hash(state),
+            HashableValue::Filesize(val) => val.hash(state),
+            HashableValue::Duration(val) => val.hash(state),
+            HashableValue::Date(val) => val.hash(state),
+            HashableValue::Float(val) => val.hash(state),
+            HashableValue::String(val) => val.hash(state),
+            HashableValue::Binary(val) => val.hash(state),
         }
     }
 }
@@ -124,32 +84,14 @@ impl Hash for HashableValue {
 impl PartialEq for HashableValue {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (HashableValue::Bool { val: lhs, .. }, HashableValue::Bool { val: rhs, .. }) => {
-                lhs == rhs
-            }
-            (HashableValue::Int { val: lhs, .. }, HashableValue::Int { val: rhs, .. }) => {
-                lhs == rhs
-            }
-            (
-                HashableValue::Filesize { val: lhs, .. },
-                HashableValue::Filesize { val: rhs, .. },
-            ) => lhs == rhs,
-            (
-                HashableValue::Duration { val: lhs, .. },
-                HashableValue::Duration { val: rhs, .. },
-            ) => lhs == rhs,
-            (HashableValue::Date { val: lhs, .. }, HashableValue::Date { val: rhs, .. }) => {
-                lhs == rhs
-            }
-            (HashableValue::Float { val: lhs, .. }, HashableValue::Float { val: rhs, .. }) => {
-                lhs == rhs
-            }
-            (HashableValue::String { val: lhs, .. }, HashableValue::String { val: rhs, .. }) => {
-                lhs == rhs
-            }
-            (HashableValue::Binary { val: lhs, .. }, HashableValue::Binary { val: rhs, .. }) => {
-                lhs == rhs
-            }
+            (HashableValue::Bool(lhs), HashableValue::Bool(rhs)) => lhs == rhs,
+            (HashableValue::Int(lhs), HashableValue::Int(rhs)) => lhs == rhs,
+            (HashableValue::Filesize(lhs), HashableValue::Filesize(rhs)) => lhs == rhs,
+            (HashableValue::Duration(lhs), HashableValue::Duration(rhs)) => lhs == rhs,
+            (HashableValue::Date(lhs), HashableValue::Date(rhs)) => lhs == rhs,
+            (HashableValue::Float(lhs), HashableValue::Float(rhs)) => lhs == rhs,
+            (HashableValue::String(lhs), HashableValue::String(rhs)) => lhs == rhs,
+            (HashableValue::Binary(lhs), HashableValue::Binary(rhs)) => lhs == rhs,
             _ => false,
         }
     }
@@ -165,52 +107,25 @@ mod test {
     fn from_value() {
         let span = Span::test_data();
         let values = vec![
+            (Value::Bool(true), HashableValue::Bool(true)),
+            (Value::Int(1), HashableValue::Int(1)),
+            (Value::Filesize(1), HashableValue::Filesize(1)),
+            (Value::Duration(1), HashableValue::Duration(1)),
             (
-                Value::Bool { val: true, span },
-                HashableValue::Bool { val: true, span },
+                Value::Date(
+                    DateTime::<FixedOffset>::parse_from_rfc2822("Wed, 18 Feb 2015 23:16:09 GMT")
+                        .unwrap(),
+                ),
+                HashableValue::Date(
+                    DateTime::<FixedOffset>::parse_from_rfc2822("Wed, 18 Feb 2015 23:16:09 GMT")
+                        .unwrap(),
+                ),
             ),
             (
-                Value::Int { val: 1, span },
-                HashableValue::Int { val: 1, span },
+                Value::String("1".to_string()),
+                HashableValue::String("1".to_string()),
             ),
-            (
-                Value::Filesize { val: 1, span },
-                HashableValue::Filesize { val: 1, span },
-            ),
-            (
-                Value::Duration { val: 1, span },
-                HashableValue::Duration { val: 1, span },
-            ),
-            (
-                Value::Date {
-                    val: DateTime::<FixedOffset>::parse_from_rfc2822(
-                        "Wed, 18 Feb 2015 23:16:09 GMT",
-                    )
-                    .unwrap(),
-                    span,
-                },
-                HashableValue::Date {
-                    val: DateTime::<FixedOffset>::parse_from_rfc2822(
-                        "Wed, 18 Feb 2015 23:16:09 GMT",
-                    )
-                    .unwrap(),
-                    span,
-                },
-            ),
-            (
-                Value::String {
-                    val: "1".to_string(),
-                    span,
-                },
-                HashableValue::String {
-                    val: "1".to_string(),
-                    span,
-                },
-            ),
-            (
-                Value::Binary { val: vec![1], span },
-                HashableValue::Binary { val: vec![1], span },
-            ),
+            (Value::Binary(vec![1]), HashableValue::Binary(vec![1])),
         ];
         for (val, expect_hashable_val) in values.into_iter() {
             assert_eq!(
@@ -224,25 +139,16 @@ mod test {
     fn from_unhashable_value() {
         let span = Span::test_data();
         let values = [
-            Value::List {
-                vals: vec![Value::Bool { val: true, span }],
-                span,
-            },
+            Value::List(vec![Value::Bool { true}]),
             Value::Block {
                 val: 0,
                 captures: HashMap::new(),
-                span,
             },
-            Value::Nothing { span },
-            Value::Error {
-                error: ShellError::DidYouMean("what?".to_string(), span),
-            },
-            Value::CellPath {
-                val: CellPath {
-                    members: vec![PathMember::Int { val: 0, span }],
-                },
-                span,
-            },
+            Value::Nothing {},
+            Value::Error(ShellError::DidYouMean("what?".to_string(), span)),
+            Value::CellPath(CellPath {
+                members: vec![PathMember::Int { val: 0, span }],
+            }),
         ];
         for v in values {
             assert!(HashableValue::from_value(v, Span { start: 0, end: 0 }).is_err())
@@ -253,15 +159,12 @@ mod test {
     fn from_to_tobe_same() {
         let span = Span::test_data();
         let values = vec![
-            Value::Bool { val: true, span },
-            Value::Int { val: 1, span },
-            Value::Filesize { val: 1, span },
-            Value::Duration { val: 1, span },
-            Value::String {
-                val: "1".to_string(),
-                span,
-            },
-            Value::Binary { val: vec![1], span },
+            Value::Bool(true),
+            Value::Int(1),
+            Value::Filesize(1),
+            Value::Duration(1),
+            Value::String("1".to_string()),
+            Value::Binary(vec![1]),
         ];
         for val in values.into_iter() {
             let expected_val = val.clone();
@@ -275,43 +178,18 @@ mod test {
     }
 
     #[test]
-    fn hashable_value_eq_without_concern_span() {
-        assert_eq!(
-            HashableValue::Bool {
-                val: true,
-                span: Span { start: 0, end: 1 }
-            },
-            HashableValue::Bool {
-                val: true,
-                span: Span {
-                    start: 90,
-                    end: 1000
-                }
-            }
-        )
-    }
-
-    #[test]
     fn put_to_hashset() {
         let span = Span::test_data();
         let mut set = HashSet::new();
-        set.insert(HashableValue::Bool { val: true, span });
-        assert!(set.contains(&HashableValue::Bool { val: true, span }));
-
-        // hashable value doesn't care about span.
-        let diff_span = Span { start: 1, end: 2 };
-        set.insert(HashableValue::Bool {
-            val: true,
-            span: diff_span,
-        });
-        assert!(set.contains(&HashableValue::Bool { val: true, span }));
-        assert!(set.contains(&HashableValue::Bool {
-            val: true,
-            span: diff_span
-        }));
+        set.insert(HashableValue::Bool(true));
+        assert!(set.contains(&HashableValue::Bool(true,)));
         assert_eq!(set.len(), 1);
 
-        set.insert(HashableValue::Int { val: 2, span });
+        set.insert(HashableValue::Bool(true));
+        assert!(set.contains(&HashableValue::Bool(true,)));
+        assert_eq!(set.len(), 1);
+
+        set.insert(HashableValue::Int(2));
         assert_eq!(set.len(), 2);
     }
 }
