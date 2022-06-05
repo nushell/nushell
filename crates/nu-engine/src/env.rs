@@ -29,7 +29,11 @@ enum ConversionResult {
 /// It returns Option instead of Result since we do want to translate all the values we can and
 /// skip errors. This function is called in the main() so we want to keep running, we cannot just
 /// exit.
-pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Option<ShellError> {
+pub fn convert_env_values(
+    engine_state: &mut EngineState,
+    stack: &Stack,
+    span: Span,
+) -> Option<ShellError> {
     let mut error = None;
 
     let mut new_scope = HashMap::new();
@@ -37,7 +41,7 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
     let env_vars = engine_state.render_env_vars();
 
     for (name, val) in env_vars {
-        match get_converted_value(engine_state, stack, name, val, "from_string") {
+        match get_converted_value(engine_state, stack, name, val, "from_string", span) {
             ConversionResult::Ok(v) => {
                 let _ = new_scope.insert(name.to_string(), v);
             }
@@ -56,9 +60,9 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
 
     #[cfg(windows)]
     {
-        let first_result = ensure_path(&mut new_scope, ENV_PATH_NAME);
+        let first_result = ensure_path(&mut new_scope, ENV_PATH_NAME, span);
         if first_result.is_some() {
-            let second_result = ensure_path(&mut new_scope, ENV_PATH_NAME_SECONDARY);
+            let second_result = ensure_path(&mut new_scope, ENV_PATH_NAME_SECONDARY, span);
 
             if second_result.is_some() {
                 error = error.or(first_result);
@@ -99,41 +103,35 @@ pub fn env_to_string(
     value: &Value,
     engine_state: &EngineState,
     stack: &Stack,
+    span: Span,
 ) -> Result<String, ShellError> {
-    match get_converted_value(engine_state, stack, env_name, value, "to_string") {
-        ConversionResult::Ok(v) => Ok(v.as_string()?),
+    match get_converted_value(engine_state, stack, env_name, value, "to_string", span) {
+        ConversionResult::Ok(v) => Ok(v.as_string(span)?),
         ConversionResult::ConversionError(e) => Err(e),
         ConversionResult::GeneralError(e) => Err(e),
-        ConversionResult::CellPathError => match value.as_string() {
+        ConversionResult::CellPathError => match value.as_string(span) {
             Ok(s) => Ok(s),
             Err(_) => {
                 if env_name == ENV_PATH_NAME {
                     // Try to convert PATH/Path list to a string
                     match value {
-                        Value::List { vals, .. } => {
+                        Value::List(vals) => {
                             let paths = vals
                                 .iter()
-                                .map(|v| v.as_string())
+                                .map(|v| v.as_string(span))
                                 .collect::<Result<Vec<_>, _>>()?;
 
                             match std::env::join_paths(paths) {
                                 Ok(p) => Ok(p.to_string_lossy().to_string()),
-                                Err(_) => Err(ShellError::EnvVarNotAString(
-                                    env_name.to_string(),
-                                    value.span()?,
-                                )),
+                                Err(_) => {
+                                    Err(ShellError::EnvVarNotAString(env_name.to_string(), span))
+                                }
                             }
                         }
-                        _ => Err(ShellError::EnvVarNotAString(
-                            env_name.to_string(),
-                            value.span()?,
-                        )),
+                        _ => Err(ShellError::EnvVarNotAString(env_name.to_string(), span)),
                     }
                 } else {
-                    Err(ShellError::EnvVarNotAString(
-                        env_name.to_string(),
-                        value.span()?,
-                    ))
+                    Err(ShellError::EnvVarNotAString(env_name.to_string(), span))
                 }
             }
         },
@@ -144,11 +142,12 @@ pub fn env_to_string(
 pub fn env_to_strings(
     engine_state: &EngineState,
     stack: &Stack,
+    span: Span,
 ) -> Result<HashMap<String, String>, ShellError> {
     let env_vars = stack.get_env_vars(engine_state);
     let mut env_vars_str = HashMap::new();
     for (env_name, val) in env_vars {
-        match env_to_string(&env_name, &val, engine_state, stack) {
+        match env_to_string(&env_name, &val, engine_state, stack, span) {
             Ok(val_str) => {
                 env_vars_str.insert(env_name, val_str);
             }
@@ -161,9 +160,13 @@ pub fn env_to_strings(
 }
 
 /// Shorthand for env_to_string() for PWD with custom error
-pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<String, ShellError> {
+pub fn current_dir_str(
+    engine_state: &EngineState,
+    stack: &Stack,
+    span: Span,
+) -> Result<String, ShellError> {
     if let Some(pwd) = stack.get_env_var(engine_state, "PWD") {
-        match env_to_string("PWD", &pwd, engine_state, stack) {
+        match env_to_string("PWD", &pwd, engine_state, stack, span) {
             Ok(cwd) => {
                 if Path::new(&cwd).is_absolute() {
                     Ok(cwd)
@@ -171,7 +174,7 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
                     Err(ShellError::GenericError(
                             "Invalid current directory".to_string(),
                             format!("The 'PWD' environment variable must be set to an absolute path. Found: '{}'", cwd),
-                            Some(pwd.span()?),
+                            Some(span),
                             None,
                             Vec::new()
                     ))
@@ -191,8 +194,12 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
 }
 
 /// Calls current_dir_str() and returns the current directory as a PathBuf
-pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf, ShellError> {
-    current_dir_str(engine_state, stack).map(PathBuf::from)
+pub fn current_dir(
+    engine_state: &EngineState,
+    stack: &Stack,
+    span: Span,
+) -> Result<PathBuf, ShellError> {
+    current_dir_str(engine_state, stack, span).map(PathBuf::from)
 }
 
 /// Get the contents of path environment variable as a list of strings
@@ -223,7 +230,7 @@ pub fn path_str(
         }
     }?;
 
-    env_to_string(pathname, &pathval, engine_state, stack)
+    env_to_string(pathname, &pathval, engine_state, stack, span)
 }
 
 fn get_converted_value(
@@ -232,21 +239,9 @@ fn get_converted_value(
     name: &str,
     orig_val: &Value,
     direction: &str,
+    env_span: Span,
 ) -> ConversionResult {
     if let Some(env_conversions) = stack.get_env_var(engine_state, ENV_CONVERSIONS) {
-        let env_span = match env_conversions.span() {
-            Ok(span) => span,
-            Err(e) => {
-                return ConversionResult::GeneralError(e);
-            }
-        };
-        let val_span = match orig_val.span() {
-            Ok(span) => span,
-            Err(e) => {
-                return ConversionResult::GeneralError(e);
-            }
-        };
-
         let path_members = &[
             PathMember::String {
                 val: name.to_string(),
@@ -258,16 +253,13 @@ fn get_converted_value(
             },
         ];
 
-        if let Ok(Value::Block {
-            val: block_id,
-            span: from_span,
-            ..
-        }) = env_conversions.follow_cell_path(path_members, false)
+        if let Ok(Value::Block { val: block_id, .. }) =
+            env_conversions.follow_cell_path(path_members, false)
         {
             let block = engine_state.get_block(block_id);
 
             if let Some(var) = block.signature.get_positional(0) {
-                let mut stack = stack.gather_captures(&block.captures);
+                let mut stack = stack.gather_captures(&block.captures, env_span);
                 if let Some(var_id) = &var.var_id {
                     stack.add_var(*var_id, orig_val.clone());
                 }
@@ -276,19 +268,19 @@ fn get_converted_value(
                     engine_state,
                     &mut stack,
                     block,
-                    PipelineData::new(val_span),
+                    PipelineData::new(),
                     true,
                     true,
                 );
 
                 match result {
-                    Ok(data) => ConversionResult::Ok(data.into_value(val_span)),
+                    Ok(data) => ConversionResult::Ok(data.into_value(env_span)),
                     Err(e) => ConversionResult::ConversionError(e),
                 }
             } else {
                 ConversionResult::ConversionError(ShellError::MissingParameter(
                     "block input".into(),
-                    from_span,
+                    env_span,
                 ))
             }
         } else {
@@ -299,31 +291,31 @@ fn get_converted_value(
     }
 }
 
-fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Option<ShellError> {
+fn ensure_path(
+    scope: &mut HashMap<String, Value>,
+    env_path_name: &str,
+    span: Span,
+) -> Option<ShellError> {
     let mut error = None;
 
     // If PATH/Path is still a string, force-convert it to a list
     match scope.get(env_path_name) {
-        Some(Value::String { val, span }) => {
+        Some(Value::String(val)) => {
             // Force-split path into a list
-            let span = *span;
             let paths = std::env::split_paths(val)
-                .map(|p| Value::String {
-                    val: p.to_string_lossy().to_string(),
-                    span,
-                })
+                .map(|p| Value::String(p.to_string_lossy().to_string()))
                 .collect();
 
-            scope.insert(env_path_name.to_string(), Value::List { vals: paths, span });
+            scope.insert(env_path_name.to_string(), Value::List(paths));
         }
-        Some(Value::List { vals, span }) => {
+        Some(Value::List(vals)) => {
             // Must be a list of strings
             if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
                 error = error.or_else(|| {
                     Some(ShellError::GenericError(
                         format!("Wrong {} environment variable value", env_path_name),
                         format!("{} must be a list of strings", env_path_name),
-                        Some(*span),
+                        Some(span),
                         None,
                         Vec::new(),
                     ))
@@ -332,13 +324,6 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
         }
         Some(val) => {
             // All other values are errors
-            let span = match val.span() {
-                Ok(sp) => sp,
-                Err(e) => {
-                    error = error.or(Some(e));
-                    Span::test_data() // FIXME: any better span to use here?
-                }
-            };
 
             error = error.or_else(|| {
                 Some(ShellError::GenericError(

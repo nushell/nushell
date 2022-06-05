@@ -31,7 +31,7 @@ pub fn eval_call(
 ) -> Result<PipelineData, ShellError> {
     if let Some(ctrlc) = &engine_state.ctrlc {
         if ctrlc.load(core::sync::atomic::Ordering::SeqCst) {
-            return Ok(Value::Nothing { span: call.head }.into_pipeline_data());
+            return Ok(Value::Nothing.into_pipeline_data());
         }
     }
     let decl = engine_state.get_decl(call.decl_id);
@@ -41,16 +41,18 @@ pub fn eval_call(
         signature.usage = decl.usage().to_string();
         signature.extra_usage = decl.extra_usage().to_string();
 
-        let full_help = get_full_help(&signature, &decl.examples(), engine_state, caller_stack);
-        Ok(Value::String {
-            val: full_help,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        let full_help = get_full_help(
+            &signature,
+            &decl.examples(),
+            engine_state,
+            caller_stack,
+            call.head,
+        );
+        Ok(Value::String(full_help).into_pipeline_data())
     } else if let Some(block_id) = decl.get_block_id() {
         let block = engine_state.get_block(block_id);
 
-        let mut callee_stack = caller_stack.gather_captures(&block.captures);
+        let mut callee_stack = caller_stack.gather_captures(&block.captures, call.head);
 
         for (param_idx, param) in decl
             .signature()
@@ -70,7 +72,7 @@ pub fn eval_call(
                 let result = eval_expression(engine_state, caller_stack, arg)?;
                 callee_stack.add_var(var_id, result);
             } else {
-                callee_stack.add_var(var_id, Value::nothing(call.head));
+                callee_stack.add_var(var_id, Value::Nothing);
             }
         }
 
@@ -85,20 +87,13 @@ pub fn eval_call(
                 rest_items.push(result);
             }
 
-            let span = if let Some(rest_item) = rest_items.first() {
-                rest_item.span()?
-            } else {
-                call.head
-            };
+            let span = call.head;
 
             callee_stack.add_var(
                 rest_positional
                     .var_id
                     .expect("Internal error: rest positional parameter lacks var_id"),
-                Value::List {
-                    vals: rest_items,
-                    span,
-                },
+                Value::List(rest_items),
             )
         }
 
@@ -116,13 +111,7 @@ pub fn eval_call(
 
                             callee_stack.add_var(var_id, result);
                         } else {
-                            callee_stack.add_var(
-                                var_id,
-                                Value::Bool {
-                                    val: true,
-                                    span: call.head,
-                                },
-                            )
+                            callee_stack.add_var(var_id, Value::Bool(true))
                         }
                         found = true;
                     }
@@ -130,19 +119,13 @@ pub fn eval_call(
 
                 if !found {
                     if named.arg.is_none() {
-                        callee_stack.add_var(
-                            var_id,
-                            Value::Bool {
-                                val: false,
-                                span: call.head,
-                            },
-                        )
+                        callee_stack.add_var(var_id, Value::Bool(false))
                     } else if let Some(arg) = &named.default_value {
                         let result = eval_expression(engine_state, caller_stack, arg)?;
 
                         callee_stack.add_var(var_id, result);
                     } else {
-                        callee_stack.add_var(var_id, Value::Nothing { span: call.head })
+                        callee_stack.add_var(var_id, Value::Nothing)
                     }
                 }
             }
@@ -237,24 +220,12 @@ pub fn eval_expression(
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
-        Expr::Bool(b) => Ok(Value::Bool {
-            val: *b,
-            span: expr.span,
-        }),
-        Expr::Int(i) => Ok(Value::Int {
-            val: *i,
-            span: expr.span,
-        }),
-        Expr::Float(f) => Ok(Value::Float {
-            val: *f,
-            span: expr.span,
-        }),
-        Expr::Binary(b) => Ok(Value::Binary {
-            val: b.clone(),
-            span: expr.span,
-        }),
+        Expr::Bool(b) => Ok(Value::Bool(*b)),
+        Expr::Int(i) => Ok(Value::Int(*i)),
+        Expr::Float(f) => Ok(Value::Float(*f)),
+        Expr::Binary(b) => Ok(Value::Binary(b.clone())),
         Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
-            Value::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
+            Value::Int(val) => Ok(compute(val, unit.item, unit.span)),
             x => Err(ShellError::CantConvert(
                 "unit value".into(),
                 x.get_type().to_string(),
@@ -266,44 +237,37 @@ pub fn eval_expression(
             let from = if let Some(f) = from {
                 eval_expression(engine_state, stack, f)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Nothing
             };
 
             let next = if let Some(s) = next {
                 eval_expression(engine_state, stack, s)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Nothing
             };
 
             let to = if let Some(t) = to {
                 eval_expression(engine_state, stack, t)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Nothing
             };
 
-            Ok(Value::Range {
-                val: Box::new(Range::new(expr.span, from, next, to, operator)?),
-                span: expr.span,
-            })
+            Ok(Value::Range(Box::new(Range::new(
+                expr.span, from, next, to, operator,
+            )?)))
         }
         Expr::Var(var_id) => eval_variable(engine_state, stack, *var_id, expr.span),
-        Expr::VarDecl(_) => Ok(Value::Nothing { span: expr.span }),
-        Expr::CellPath(cell_path) => Ok(Value::CellPath {
-            val: cell_path.clone(),
-            span: expr.span,
-        }),
+        Expr::VarDecl(_) => Ok(Value::Nothing),
+        Expr::CellPath(cell_path) => Ok(Value::CellPath(cell_path.clone())),
         Expr::FullCellPath(cell_path) => {
             let value = eval_expression(engine_state, stack, &cell_path.head)?;
 
             value.follow_cell_path(&cell_path.tail, false)
         }
-        Expr::ImportPattern(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::ImportPattern(_) => Ok(Value::Nothing),
         Expr::Call(call) => {
             // FIXME: protect this collect with ctrl-c
-            Ok(
-                eval_call(engine_state, stack, call, PipelineData::new(call.head))?
-                    .into_value(call.head),
-            )
+            Ok(eval_call(engine_state, stack, call, PipelineData::new())?.into_value(call.head))
         }
         Expr::ExternalCall(head, args) => {
             let span = head.span;
@@ -313,24 +277,18 @@ pub fn eval_expression(
                 stack,
                 head,
                 args,
-                PipelineData::new(span),
+                PipelineData::new(),
                 false,
                 false,
             )?
             .into_value(span))
         }
-        Expr::DateTime(dt) => Ok(Value::Date {
-            val: *dt,
-            span: expr.span,
-        }),
-        Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::DateTime(dt) => Ok(Value::Date(*dt)),
+        Expr::Operator(_) => Ok(Value::Nothing),
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
-                Value::Bool { val, .. } => Ok(Value::Bool {
-                    val: !val,
-                    span: expr.span,
-                }),
+                Value::Bool(val) => Ok(Value::Bool(!val)),
                 _ => Err(ShellError::TypeMismatch("bool".to_string(), expr.span)),
             }
         }
@@ -342,10 +300,7 @@ pub fn eval_expression(
             match op {
                 Operator::And => {
                     if !lhs.is_true() {
-                        Ok(Value::Bool {
-                            val: false,
-                            span: expr.span,
-                        })
+                        Ok(Value::Bool(false))
                     } else {
                         let rhs = eval_expression(engine_state, stack, rhs)?;
                         lhs.and(op_span, &rhs, expr.span)
@@ -353,10 +308,7 @@ pub fn eval_expression(
                 }
                 Operator::Or => {
                     if lhs.is_true() {
-                        Ok(Value::Bool {
-                            val: true,
-                            span: expr.span,
-                        })
+                        Ok(Value::Bool(true))
                     } else {
                         let rhs = eval_expression(engine_state, stack, rhs)?;
                         lhs.or(op_span, &rhs, expr.span)
@@ -441,7 +393,7 @@ pub fn eval_expression(
 
             // FIXME: protect this collect with ctrl-c
             Ok(
-                eval_subexpression(engine_state, stack, block, PipelineData::new(expr.span))?
+                eval_subexpression(engine_state, stack, block, PipelineData::new())?
                     .into_value(expr.span),
             )
         }
@@ -455,7 +407,6 @@ pub fn eval_expression(
             Ok(Value::Block {
                 val: *block_id,
                 captures,
-                span: expr.span,
             })
         }
         Expr::List(x) => {
@@ -463,17 +414,14 @@ pub fn eval_expression(
             for expr in x {
                 output.push(eval_expression(engine_state, stack, expr)?);
             }
-            Ok(Value::List {
-                vals: output,
-                span: expr.span,
-            })
+            Ok(Value::List(output))
         }
         Expr::Record(fields) => {
             let mut cols = vec![];
             let mut vals = vec![];
             for (col, val) in fields {
                 // avoid duplicate cols.
-                let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
+                let col_name = eval_expression(engine_state, stack, col)?.as_string(expr.span)?;
                 let pos = cols.iter().position(|c| c == &col_name);
                 match pos {
                     Some(index) => {
@@ -486,16 +434,13 @@ pub fn eval_expression(
                 }
             }
 
-            Ok(Value::Record {
-                cols,
-                vals,
-                span: expr.span,
-            })
+            Ok(Value::Record { cols, vals })
         }
         Expr::Table(headers, vals) => {
             let mut output_headers = vec![];
             for expr in headers {
-                output_headers.push(eval_expression(engine_state, stack, expr)?.as_string()?);
+                output_headers
+                    .push(eval_expression(engine_state, stack, expr)?.as_string(expr.span)?);
             }
 
             let mut output_rows = vec![];
@@ -507,13 +452,9 @@ pub fn eval_expression(
                 output_rows.push(Value::Record {
                     cols: output_headers.clone(),
                     vals: row,
-                    span: expr.span,
                 });
             }
-            Ok(Value::List {
-                vals: output_rows,
-                span: expr.span,
-            })
+            Ok(Value::List(output_rows))
         }
         Expr::Keyword(_, _, expr) => eval_expression(engine_state, stack, expr),
         Expr::StringInterpolation(exprs) => {
@@ -527,53 +468,35 @@ pub fn eval_expression(
             parts
                 .into_iter()
                 .into_pipeline_data(None)
-                .collect_string("", config)
-                .map(|x| Value::String {
-                    val: x,
-                    span: expr.span,
-                })
+                .collect_string("", config, expr.span)
+                .map(|x| Value::String(x))
         }
-        Expr::String(s) => Ok(Value::String {
-            val: s.clone(),
-            span: expr.span,
-        }),
+        Expr::String(s) => Ok(Value::String(s.clone())),
         Expr::Filepath(s) => {
-            let cwd = current_dir_str(engine_state, stack)?;
+            let cwd = current_dir_str(engine_state, stack, expr.span)?;
             let path = expand_path_with(s, cwd);
 
-            Ok(Value::String {
-                val: path.to_string_lossy().to_string(),
-                span: expr.span,
-            })
+            Ok(Value::String(path.to_string_lossy().to_string()))
         }
         Expr::Directory(s) => {
             if s == "-" {
-                Ok(Value::String {
-                    val: "-".to_string(),
-                    span: expr.span,
-                })
+                Ok(Value::String("-".to_string()))
             } else {
-                let cwd = current_dir_str(engine_state, stack)?;
+                let cwd = current_dir_str(engine_state, stack, expr.span)?;
                 let path = expand_path_with(s, cwd);
 
-                Ok(Value::String {
-                    val: path.to_string_lossy().to_string(),
-                    span: expr.span,
-                })
+                Ok(Value::String(path.to_string_lossy().to_string()))
             }
         }
         Expr::GlobPattern(s) => {
-            let cwd = current_dir_str(engine_state, stack)?;
+            let cwd = current_dir_str(engine_state, stack, expr.span)?;
             let path = expand_path_with(s, cwd);
 
-            Ok(Value::String {
-                val: path.to_string_lossy().to_string(),
-                span: expr.span,
-            })
+            Ok(Value::String(path.to_string_lossy().to_string()))
         }
-        Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
-        Expr::Garbage => Ok(Value::Nothing { span: expr.span }),
-        Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
+        Expr::Signature(_) => Ok(Value::Nothing),
+        Expr::Garbage => Ok(Value::Nothing),
+        Expr::Nothing => Ok(Value::Nothing),
     }
 }
 
@@ -678,7 +601,7 @@ pub fn eval_block(
                             )?;
 
                             for item in table {
-                                if let Value::Error { error } = item {
+                                if let Value::Error(error) = item {
                                     return Err(error);
                                 }
 
@@ -690,7 +613,7 @@ pub fn eval_block(
                         }
                         None => {
                             for item in input {
-                                if let Value::Error { error } = item {
+                                if let Value::Error(error) = item {
                                     return Err(error);
                                 }
 
@@ -724,7 +647,7 @@ pub fn eval_block(
                             )?;
 
                             for item in table {
-                                if let Value::Error { error } = item {
+                                if let Value::Error(error) = item {
                                     return Err(error);
                                 }
 
@@ -736,7 +659,7 @@ pub fn eval_block(
                         }
                         None => {
                             for item in input {
-                                if let Value::Error { error } = item {
+                                if let Value::Error(error) = item {
                                     return Err(error);
                                 }
 
@@ -750,7 +673,7 @@ pub fn eval_block(
                 }
             }
 
-            input = PipelineData::new(Span { start: 0, end: 0 })
+            input = PipelineData::new()
         }
     }
 
@@ -812,20 +735,19 @@ pub fn create_scope(
     }
 
     for var in vars_map {
-        let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
+        let var_name = Value::String(String::from_utf8_lossy(var.0).to_string());
 
-        let var_type = Value::string(engine_state.get_var(*var.1).ty.to_string(), span);
+        let var_type = Value::String(engine_state.get_var(*var.1).ty.to_string());
 
         let var_value = if let Ok(val) = stack.get_var(*var.1, span) {
             val
         } else {
-            Value::nothing(span)
+            Value::Nothing
         };
 
         vars.push(Value::Record {
             cols: vec!["name".to_string(), "type".to_string(), "value".to_string()],
             vals: vec![var_name, var_type, var_value],
-            span,
         })
     }
 
@@ -847,22 +769,18 @@ pub fn create_scope(
             }
 
             cols.push("command".into());
-            vals.push(Value::String {
-                val: String::from_utf8_lossy(command_name).to_string(),
-                span,
-            });
+            vals.push(Value::String(
+                String::from_utf8_lossy(command_name).to_string(),
+            ));
 
             cols.push("module_name".into());
-            vals.push(Value::string(module_commands.join(", "), span));
+            vals.push(Value::String(module_commands.join(", ")));
 
             let decl = engine_state.get_decl(*decl_id);
             let signature = decl.signature();
 
             cols.push("category".to_string());
-            vals.push(Value::String {
-                val: signature.category.to_string(),
-                span,
-            });
+            vals.push(Value::String(signature.category.to_string()));
 
             // signature
             let mut sig_records = vec![];
@@ -881,46 +799,38 @@ pub fn create_scope(
                 // required_positional
                 for req in signature.required_positional {
                     let sig_vals = vec![
-                        Value::string(&signature.name, span),
-                        Value::string(req.name, span),
-                        Value::string("positional", span),
-                        Value::string(req.shape.to_string(), span),
-                        Value::boolean(false, span),
-                        Value::nothing(span),
-                        Value::string(req.desc, span),
-                        Value::string(
-                            extract_custom_completion_from_arg(engine_state, &req.shape),
-                            span,
-                        ),
+                        Value::String(signature.name.to_string()),
+                        Value::String(req.name),
+                        Value::String("positional".to_string()),
+                        Value::String(req.shape.to_string()),
+                        Value::Bool(false),
+                        Value::Nothing,
+                        Value::String(req.desc),
+                        Value::String(extract_custom_completion_from_arg(engine_state, &req.shape)),
                     ];
 
                     sig_records.push(Value::Record {
                         cols: sig_cols.clone(),
                         vals: sig_vals,
-                        span,
                     });
                 }
 
                 // optional_positional
                 for opt in signature.optional_positional {
                     let sig_vals = vec![
-                        Value::string(&signature.name, span),
-                        Value::string(opt.name, span),
-                        Value::string("positional", span),
-                        Value::string(opt.shape.to_string(), span),
-                        Value::boolean(true, span),
-                        Value::nothing(span),
-                        Value::string(opt.desc, span),
-                        Value::string(
-                            extract_custom_completion_from_arg(engine_state, &opt.shape),
-                            span,
-                        ),
+                        Value::String(signature.name.to_string()),
+                        Value::String(opt.name),
+                        Value::String("positional".to_string()),
+                        Value::String(opt.shape.to_string()),
+                        Value::Bool(true),
+                        Value::Nothing,
+                        Value::String(opt.desc),
+                        Value::String(extract_custom_completion_from_arg(engine_state, &opt.shape)),
                     ];
 
                     sig_records.push(Value::Record {
                         cols: sig_cols.clone(),
                         vals: sig_vals,
-                        span,
                     });
                 }
 
@@ -928,23 +838,22 @@ pub fn create_scope(
                     // rest_positional
                     if let Some(rest) = signature.rest_positional {
                         let sig_vals = vec![
-                            Value::string(&signature.name, span),
-                            Value::string(rest.name, span),
-                            Value::string("rest", span),
-                            Value::string(rest.shape.to_string(), span),
-                            Value::boolean(true, span),
-                            Value::nothing(span),
-                            Value::string(rest.desc, span),
-                            Value::string(
-                                extract_custom_completion_from_arg(engine_state, &rest.shape),
-                                span,
-                            ),
+                            Value::String(signature.name.to_string()),
+                            Value::String(rest.name),
+                            Value::String("rest".to_string()),
+                            Value::String(rest.shape.to_string()),
+                            Value::Bool(true),
+                            Value::Nothing,
+                            Value::String(rest.desc),
+                            Value::String(extract_custom_completion_from_arg(
+                                engine_state,
+                                &rest.shape,
+                            )),
                         ];
 
                         sig_records.push(Value::Record {
                             cols: sig_cols.clone(),
                             vals: sig_vals,
-                            span,
                         });
                     }
                 }
@@ -960,142 +869,96 @@ pub fn create_scope(
 
                     let mut custom_completion_command_name: String = "".to_string();
                     let shape = if let Some(arg) = named.arg {
-                        flag_type = Value::string("named", span);
+                        flag_type = Value::String("named".to_string());
                         custom_completion_command_name =
                             extract_custom_completion_from_arg(engine_state, &arg);
-                        Value::string(arg.to_string(), span)
+                        Value::String(arg.to_string())
                     } else {
-                        flag_type = Value::string("switch", span);
-                        Value::nothing(span)
+                        flag_type = Value::String("switch".to_string());
+                        Value::Nothing
                     };
 
                     let short_flag = if let Some(c) = named.short {
-                        Value::string(c, span)
+                        Value::String(c.to_string())
                     } else {
-                        Value::nothing(span)
+                        Value::Nothing
                     };
 
                     let sig_vals = vec![
-                        Value::string(&signature.name, span),
-                        Value::string(named.long, span),
+                        Value::String(signature.name.to_string()),
+                        Value::String(named.long),
                         flag_type,
                         shape,
-                        Value::boolean(!named.required, span),
+                        Value::Bool(!named.required),
                         short_flag,
-                        Value::string(named.desc, span),
-                        Value::string(custom_completion_command_name, span),
+                        Value::String(named.desc),
+                        Value::String(custom_completion_command_name),
                     ];
 
                     sig_records.push(Value::Record {
                         cols: sig_cols.clone(),
                         vals: sig_vals,
-                        span,
                     });
                 }
             }
 
             cols.push("signature".to_string());
-            vals.push(Value::List {
-                vals: sig_records,
-                span,
-            });
+            vals.push(Value::List(sig_records));
 
             cols.push("usage".to_string());
-            vals.push(Value::String {
-                val: decl.usage().into(),
-                span,
-            });
+            vals.push(Value::String(decl.usage().into()));
 
             cols.push("examples".to_string());
-            vals.push(Value::List {
-                vals: decl
-                    .examples()
+            vals.push(Value::List(
+                decl.examples()
                     .into_iter()
                     .map(|x| Value::Record {
                         cols: vec!["description".into(), "example".into()],
                         vals: vec![
-                            Value::String {
-                                val: x.description.to_string(),
-                                span,
-                            },
-                            Value::String {
-                                val: x.example.to_string(),
-                                span,
-                            },
+                            Value::String(x.description.to_string()),
+                            Value::String(x.example.to_string()),
                         ],
-                        span,
                     })
                     .collect(),
-                span,
-            });
+            ));
 
             cols.push("is_binary".to_string());
-            vals.push(Value::Bool {
-                val: decl.is_binary(),
-                span,
-            });
+            vals.push(Value::Bool(decl.is_binary()));
 
             cols.push("is_builtin".to_string());
             // we can only be a is_builtin or is_custom, not both
-            vals.push(Value::Bool {
-                val: decl.get_block_id().is_none(),
-                span,
-            });
+            vals.push(Value::Bool(decl.get_block_id().is_none()));
 
             cols.push("is_sub".to_string());
-            vals.push(Value::Bool {
-                val: decl.is_sub(),
-                span,
-            });
+            vals.push(Value::Bool(decl.is_sub()));
 
             cols.push("is_plugin".to_string());
-            vals.push(Value::Bool {
-                val: decl.is_plugin().is_some(),
-                span,
-            });
+            vals.push(Value::Bool(decl.is_plugin().is_some()));
 
             cols.push("is_custom".to_string());
-            vals.push(Value::Bool {
-                val: decl.get_block_id().is_some(),
-                span,
-            });
+            vals.push(Value::Bool(decl.get_block_id().is_some()));
 
             cols.push("is_keyword".into());
-            vals.push(Value::Bool {
-                val: decl.is_parser_keyword(),
-                span,
-            });
+            vals.push(Value::Bool(decl.is_parser_keyword()));
 
             cols.push("is_extern".to_string());
-            vals.push(Value::Bool {
-                val: decl.is_known_external(),
-                span,
-            });
+            vals.push(Value::Bool(decl.is_known_external()));
 
             cols.push("creates_scope".to_string());
-            vals.push(Value::Bool {
-                val: signature.creates_scope,
-                span,
-            });
+            vals.push(Value::Bool(signature.creates_scope));
 
             cols.push("extra_usage".to_string());
-            vals.push(Value::String {
-                val: decl.extra_usage().into(),
-                span,
-            });
+            vals.push(Value::String(decl.extra_usage().into()));
 
             let search_terms = decl.search_terms();
             cols.push("search_terms".to_string());
             vals.push(if search_terms.is_empty() {
-                Value::nothing(span)
+                Value::Nothing
             } else {
-                Value::String {
-                    val: search_terms.join(", "),
-                    span,
-                }
+                Value::String(search_terms.join(", "))
             });
 
-            commands.push(Value::Record { cols, vals, span })
+            commands.push(Value::Record { cols, vals })
         }
     }
 
@@ -1111,24 +974,18 @@ pub fn create_scope(
                 alias_text.push_str(&String::from_utf8_lossy(contents));
             }
             aliases.push((
-                Value::String {
-                    val: String::from_utf8_lossy(alias_name).to_string(),
-                    span,
-                },
-                Value::string(alias_text, span),
+                Value::String(String::from_utf8_lossy(alias_name).to_string()),
+                Value::String(alias_text),
             ));
         }
     }
 
     for module in modules_map {
-        modules.push(Value::String {
-            val: String::from_utf8_lossy(module.0).to_string(),
-            span,
-        });
+        modules.push(Value::String(String::from_utf8_lossy(module.0).to_string()));
     }
 
     output_cols.push("vars".to_string());
-    output_vals.push(Value::List { vals: vars, span });
+    output_vals.push(Value::List(vars));
 
     commands.sort_by(|a, b| match (a, b) {
         (Value::Record { vals: rec_a, .. }, Value::Record { vals: rec_b, .. }) => {
@@ -1137,9 +994,7 @@ pub fn create_scope(
             // The names of the commands should be a value string
             match (rec_a.get(0), rec_b.get(0)) {
                 (Some(val_a), Some(val_b)) => match (val_a, val_b) {
-                    (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
-                        str_a.cmp(str_b)
-                    }
+                    (Value::String(str_a), Value::String(str_b)) => str_a.cmp(str_b),
                     _ => Ordering::Equal,
                 },
                 _ => Ordering::Equal,
@@ -1148,36 +1003,27 @@ pub fn create_scope(
         _ => Ordering::Equal,
     });
     output_cols.push("commands".to_string());
-    output_vals.push(Value::List {
-        vals: commands,
-        span,
-    });
+    output_vals.push(Value::List(commands));
 
     aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
     output_cols.push("aliases".to_string());
-    output_vals.push(Value::List {
-        vals: aliases
+    output_vals.push(Value::List(
+        aliases
             .into_iter()
             .map(|(alias, value)| Value::Record {
                 cols: vec!["alias".into(), "expansion".into()],
                 vals: vec![alias, value],
-                span,
             })
             .collect(),
-        span,
-    });
+    ));
 
     modules.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
     output_cols.push("modules".to_string());
-    output_vals.push(Value::List {
-        vals: modules,
-        span,
-    });
+    output_vals.push(Value::List(modules));
 
     Ok(Value::Record {
         cols: output_cols,
         vals: output_vals,
-        span,
     })
 }
 
@@ -1202,36 +1048,24 @@ pub fn eval_variable(
                 history_path.push("history.txt");
 
                 output_cols.push("history-path".into());
-                output_vals.push(Value::String {
-                    val: history_path.to_string_lossy().to_string(),
-                    span,
-                });
+                output_vals.push(Value::String(history_path.to_string_lossy().to_string()));
 
                 config_path.push("config.nu");
 
                 output_cols.push("config-path".into());
-                output_vals.push(Value::String {
-                    val: config_path.to_string_lossy().to_string(),
-                    span,
-                });
+                output_vals.push(Value::String(config_path.to_string_lossy().to_string()));
 
                 env_config_path.push("env.nu");
 
                 output_cols.push("env-path".into());
-                output_vals.push(Value::String {
-                    val: env_config_path.to_string_lossy().to_string(),
-                    span,
-                });
+                output_vals.push(Value::String(env_config_path.to_string_lossy().to_string()));
             }
 
             #[cfg(feature = "plugin")]
             if let Some(path) = &engine_state.plugin_signatures {
                 if let Some(path_str) = path.to_str() {
                     output_cols.push("plugin-path".into());
-                    output_vals.push(Value::String {
-                        val: path_str.into(),
-                        span,
-                    });
+                    output_vals.push(Value::String(path_str.into()));
                 }
             }
 
@@ -1241,25 +1075,19 @@ pub fn eval_variable(
             if let Some(home_path) = nu_path::home_dir() {
                 if let Some(home_path_str) = home_path.to_str() {
                     output_cols.push("home-path".into());
-                    output_vals.push(Value::String {
-                        val: home_path_str.into(),
-                        span,
-                    })
+                    output_vals.push(Value::String(home_path_str.into()))
                 }
             }
 
             let temp = std::env::temp_dir();
             if let Some(temp_path) = temp.to_str() {
                 output_cols.push("temp-path".into());
-                output_vals.push(Value::String {
-                    val: temp_path.into(),
-                    span,
-                })
+                output_vals.push(Value::String(temp_path.into()))
             }
 
             let pid = std::process::id();
             output_cols.push("pid".into());
-            output_vals.push(Value::int(pid as i64, span));
+            output_vals.push(Value::Int(pid as i64));
 
             let sys = sysinfo::System::new();
             let ver = match sys.kernel_version() {
@@ -1275,12 +1103,11 @@ pub fn eval_variable(
                     "kernel_version".into(),
                 ],
                 vals: vec![
-                    Value::string(std::env::consts::OS, span),
-                    Value::string(std::env::consts::ARCH, span),
-                    Value::string(std::env::consts::FAMILY, span),
-                    Value::string(ver, span),
+                    Value::String(std::env::consts::OS.to_string()),
+                    Value::String(std::env::consts::ARCH.to_string()),
+                    Value::String(std::env::consts::FAMILY.to_string()),
+                    Value::String(ver),
                 ],
-                span,
             };
             output_cols.push("os-info".into());
             output_vals.push(os_record);
@@ -1288,7 +1115,6 @@ pub fn eval_variable(
             Ok(Value::Record {
                 cols: output_cols,
                 vals: output_vals,
-                span,
             })
         }
         ENV_VARIABLE_ID => {
@@ -1308,7 +1134,6 @@ pub fn eval_variable(
             Ok(Value::Record {
                 cols: env_columns,
                 vals: env_values,
-                span,
             })
         }
         var_id => stack.get_var(var_id, span),
@@ -1317,93 +1142,44 @@ pub fn eval_variable(
 
 fn compute(size: i64, unit: Unit, span: Span) -> Value {
     match unit {
-        Unit::Byte => Value::Filesize { val: size, span },
-        Unit::Kilobyte => Value::Filesize {
-            val: size * 1000,
-            span,
-        },
-        Unit::Megabyte => Value::Filesize {
-            val: size * 1000 * 1000,
-            span,
-        },
-        Unit::Gigabyte => Value::Filesize {
-            val: size * 1000 * 1000 * 1000,
-            span,
-        },
-        Unit::Terabyte => Value::Filesize {
-            val: size * 1000 * 1000 * 1000 * 1000,
-            span,
-        },
-        Unit::Petabyte => Value::Filesize {
-            val: size * 1000 * 1000 * 1000 * 1000 * 1000,
-            span,
-        },
+        Unit::Byte => Value::Filesize(size),
+        Unit::Kilobyte => Value::Filesize(size * 1000),
+        Unit::Megabyte => Value::Filesize(size * 1000 * 1000),
+        Unit::Gigabyte => Value::Filesize(size * 1000 * 1000 * 1000),
+        Unit::Terabyte => Value::Filesize(size * 1000 * 1000 * 1000 * 1000),
+        Unit::Petabyte => Value::Filesize(size * 1000 * 1000 * 1000 * 1000 * 1000),
 
-        Unit::Kibibyte => Value::Filesize {
-            val: size * 1024,
-            span,
-        },
-        Unit::Mebibyte => Value::Filesize {
-            val: size * 1024 * 1024,
-            span,
-        },
-        Unit::Gibibyte => Value::Filesize {
-            val: size * 1024 * 1024 * 1024,
-            span,
-        },
-        Unit::Tebibyte => Value::Filesize {
-            val: size * 1024 * 1024 * 1024 * 1024,
-            span,
-        },
-        Unit::Pebibyte => Value::Filesize {
-            val: size * 1024 * 1024 * 1024 * 1024 * 1024,
-            span,
-        },
+        Unit::Kibibyte => Value::Filesize(size * 1024),
+        Unit::Mebibyte => Value::Filesize(size * 1024 * 1024),
+        Unit::Gibibyte => Value::Filesize(size * 1024 * 1024 * 1024),
+        Unit::Tebibyte => Value::Filesize(size * 1024 * 1024 * 1024 * 1024),
+        Unit::Pebibyte => Value::Filesize(size * 1024 * 1024 * 1024 * 1024 * 1024),
 
-        Unit::Nanosecond => Value::Duration { val: size, span },
-        Unit::Microsecond => Value::Duration {
-            val: size * 1000,
-            span,
-        },
-        Unit::Millisecond => Value::Duration {
-            val: size * 1000 * 1000,
-            span,
-        },
-        Unit::Second => Value::Duration {
-            val: size * 1000 * 1000 * 1000,
-            span,
-        },
-        Unit::Minute => Value::Duration {
-            val: size * 1000 * 1000 * 1000 * 60,
-            span,
-        },
-        Unit::Hour => Value::Duration {
-            val: size * 1000 * 1000 * 1000 * 60 * 60,
-            span,
-        },
+        Unit::Nanosecond => Value::Duration(size),
+        Unit::Microsecond => Value::Duration(size * 1000),
+        Unit::Millisecond => Value::Duration(size * 1000 * 1000),
+        Unit::Second => Value::Duration(size * 1000 * 1000 * 1000),
+        Unit::Minute => Value::Duration(size * 1000 * 1000 * 1000 * 60),
+        Unit::Hour => Value::Duration(size * 1000 * 1000 * 1000 * 60 * 60),
         Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-            Some(val) => Value::Duration { val, span },
-            None => Value::Error {
-                error: ShellError::GenericError(
-                    "duration too large".into(),
-                    "duration too large".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                ),
-            },
+            Some(val) => Value::Duration(val),
+            None => Value::Error(ShellError::GenericError(
+                "duration too large".into(),
+                "duration too large".into(),
+                Some(span),
+                None,
+                Vec::new(),
+            )),
         },
         Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
-            Some(val) => Value::Duration { val, span },
-            None => Value::Error {
-                error: ShellError::GenericError(
-                    "duration too large".into(),
-                    "duration too large".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                ),
-            },
+            Some(val) => Value::Duration(val),
+            None => Value::Error(ShellError::GenericError(
+                "duration too large".into(),
+                "duration too large".into(),
+                Some(span),
+                None,
+                Vec::new(),
+            )),
         },
     }
 }

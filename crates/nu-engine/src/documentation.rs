@@ -10,6 +10,7 @@ pub fn get_full_help(
     examples: &[Example],
     engine_state: &EngineState,
     stack: &mut Stack,
+    span: Span,
 ) -> String {
     get_documentation(
         sig,
@@ -17,6 +18,7 @@ pub fn get_full_help(
         engine_state,
         stack,
         &DocumentationConfig::default(),
+        span,
     )
 }
 
@@ -36,6 +38,7 @@ fn get_documentation(
     engine_state: &EngineState,
     stack: &mut Stack,
     config: &DocumentationConfig,
+    span: Span,
 ) -> String {
     let cmd_name = &sig.name;
     let mut long_desc = String::new();
@@ -130,15 +133,11 @@ fn get_documentation(
                 engine_state,
                 stack,
                 &Call::new(Span::new(0, 0)),
-                Value::String {
-                    val: example.example.to_string(),
-                    span: Span { start: 0, end: 0 },
-                }
-                .into_pipeline_data(),
+                Value::String(example.example.to_string()).into_pipeline_data(),
             ) {
                 Ok(output) => {
                     let result = output.into_value(Span { start: 0, end: 0 });
-                    match result.as_string() {
+                    match result.as_string(span) {
                         Ok(s) => {
                             let _ = write!(long_desc, "\n  > {}\n", s);
                         }

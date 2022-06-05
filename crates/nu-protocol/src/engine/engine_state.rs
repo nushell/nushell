@@ -202,7 +202,8 @@ impl EngineState {
                         // Updating existing overlay
                         for (k, v) in env.drain() {
                             if k == "config" {
-                                self.config = v.clone().into_config().unwrap_or_default();
+                                self.config =
+                                    v.clone().into_config(Span::new(0, 0)).unwrap_or_default();
                             }
 
                             env_vars.insert(k, v);

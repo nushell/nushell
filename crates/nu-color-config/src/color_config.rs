@@ -1,6 +1,6 @@
 use crate::nu_style::{color_from_hex, color_string_to_nustyle};
 use nu_ansi_term::{Color, Style};
-use nu_protocol::Config;
+use nu_protocol::{Config, Span};
 use nu_table::{Alignment, TextStyle};
 use std::collections::HashMap;
 
@@ -183,7 +183,7 @@ fn update_hashmap(key: &str, val: &str, hm: &mut HashMap<String, Style>) {
     }
 }
 
-pub fn get_color_config(config: &Config) -> HashMap<String, Style> {
+pub fn get_color_config(config: &Config, span: Span) -> HashMap<String, Style> {
     let config = config;
 
     // create the hashmap
@@ -218,7 +218,7 @@ pub fn get_color_config(config: &Config) -> HashMap<String, Style> {
 
     for (key, value) in &config.color_config {
         let value = value
-            .as_string()
+            .as_string(span)
             .expect("the only values for config color must be strings");
         update_hashmap(key, &value, &mut hm);
 

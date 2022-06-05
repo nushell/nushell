@@ -524,7 +524,6 @@ impl Value {
                 } => match &mut current {
                     Value::Record { cols, vals } => {
                         let cols = cols.clone();
-                        let span = *origin_span;
 
                         // Make reverse iterate to avoid duplicate column leads to first value, actuall last value is expected.
                         if let Some(found) = cols.iter().zip(vals.iter()).rev().find(|x| {
@@ -643,7 +642,7 @@ impl Value {
                                         }
                                     }
                                 }
-                                v => return Err(ShellError::CantFindColumn(*span)),
+                                _ => return Err(ShellError::CantFindColumn(*span)),
                             }
                         }
                     }
@@ -672,7 +671,7 @@ impl Value {
                             }
                         }
                     }
-                    v => return Err(ShellError::CantFindColumn(*span)),
+                    _ => return Err(ShellError::CantFindColumn(*span)),
                 },
                 PathMember::Int { val: row_num, span } => match self {
                     Value::List(vals) => {
@@ -682,7 +681,7 @@ impl Value {
                             return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
                         }
                     }
-                    v => return Err(ShellError::NotAList(*span)),
+                    _ => return Err(ShellError::NotAList(*span)),
                 },
             },
             None => {
@@ -737,7 +736,7 @@ impl Value {
                                         return Err(ShellError::CantFindColumn(*span));
                                     }
                                 }
-                                v => return Err(ShellError::CantFindColumn(*span)),
+                                _ => return Err(ShellError::CantFindColumn(*span)),
                             }
                         }
                     }

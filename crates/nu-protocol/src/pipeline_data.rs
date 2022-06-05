@@ -485,22 +485,24 @@ impl IntoIterator for PipelineData {
                     metadata,
                 ))
             }
-            PipelineData::Value(Value::Range(val), metadata) => match val.into_range_iter(None) {
-                Ok(iter) => PipelineIterator(PipelineData::ListStream(
-                    ListStream {
-                        stream: Box::new(iter),
-                        ctrlc: None,
-                    },
-                    metadata,
-                )),
-                Err(error) => PipelineIterator(PipelineData::ListStream(
-                    ListStream {
-                        stream: Box::new(std::iter::once(Value::Error(error))),
-                        ctrlc: None,
-                    },
-                    metadata,
-                )),
-            },
+            PipelineData::Value(Value::Range(val), metadata) => {
+                match val.into_range_iter(None, Span::new(0, 0)) {
+                    Ok(iter) => PipelineIterator(PipelineData::ListStream(
+                        ListStream {
+                            stream: Box::new(iter),
+                            ctrlc: None,
+                        },
+                        metadata,
+                    )),
+                    Err(error) => PipelineIterator(PipelineData::ListStream(
+                        ListStream {
+                            stream: Box::new(std::iter::once(Value::Error(error))),
+                            ctrlc: None,
+                        },
+                        metadata,
+                    )),
+                }
+            }
             x => PipelineIterator(x),
         }
     }

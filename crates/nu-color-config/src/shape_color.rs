@@ -1,10 +1,10 @@
 use crate::color_config::lookup_ansi_color_style;
 use nu_ansi_term::{Color, Style};
-use nu_protocol::Config;
+use nu_protocol::{Config, Span};
 
-pub fn get_shape_color(shape: String, conf: &Config) -> Style {
+pub fn get_shape_color(shape: String, conf: &Config, span: Span) -> Style {
     match conf.color_config.get(shape.as_str()) {
-        Some(int_color) => match int_color.as_string() {
+        Some(int_color) => match int_color.as_string(span) {
             Ok(int_color) => lookup_ansi_color_style(&int_color),
             Err(_) => Style::default(),
         },
