@@ -124,8 +124,8 @@ pub enum FooterMode {
 }
 
 impl Value {
-    pub fn into_config(self) -> Result<Config, ShellError> {
-        let v = self.as_record();
+    pub fn into_config(self, span: Span) -> Result<Config, ShellError> {
+        let v = self.as_record(span);
 
         let mut config = Config::default();
 
@@ -133,42 +133,42 @@ impl Value {
             for (key, value) in v.0.iter().zip(v.1) {
                 match key.as_str() {
                     "filesize_metric" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.filesize_metric = b;
                         } else {
                             eprintln!("$config.filesize_metric is not a bool")
                         }
                     }
                     "table_mode" => {
-                        if let Ok(v) = value.as_string() {
+                        if let Ok(v) = value.as_string(span) {
                             config.table_mode = v;
                         } else {
                             eprintln!("$config.table_mode is not a string")
                         }
                     }
                     "use_ls_colors" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.use_ls_colors = b;
                         } else {
                             eprintln!("$config.use_ls_colors is not a bool")
                         }
                     }
                     "color_config" => {
-                        if let Ok(map) = create_map(value, &config) {
+                        if let Ok(map) = create_map(value, &config, span) {
                             config.color_config = map;
                         } else {
                             eprintln!("$config.color_config is not a record")
                         }
                     }
                     "use_grid_icons" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.use_grid_icons = b;
                         } else {
                             eprintln!("$config.use_grid_icons is not a bool")
                         }
                     }
                     "footer_mode" => {
-                        if let Ok(b) = value.as_string() {
+                        if let Ok(b) = value.as_string(span) {
                             let val_str = b.to_lowercase();
                             config.footer_mode = match val_str.as_ref() {
                                 "auto" => FooterMode::Auto,
@@ -184,97 +184,97 @@ impl Value {
                         }
                     }
                     "animate_prompt" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.animate_prompt = b;
                         } else {
                             eprintln!("$config.animate_prompt is not a bool")
                         }
                     }
                     "float_precision" => {
-                        if let Ok(i) = value.as_integer() {
+                        if let Ok(i) = value.as_integer(span) {
                             config.float_precision = i;
                         } else {
                             eprintln!("$config.float_precision is not an integer")
                         }
                     }
                     "use_ansi_coloring" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.use_ansi_coloring = b;
                         } else {
                             eprintln!("$config.use_ansi_coloring is not a bool")
                         }
                     }
                     "quick_completions" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.quick_completions = b;
                         } else {
                             eprintln!("$config.quick_completions is not a bool")
                         }
                     }
                     "partial_completions" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.partial_completions = b;
                         } else {
                             eprintln!("$config.partial_completions is not a bool")
                         }
                     }
                     "completion_algorithm" => {
-                        if let Ok(v) = value.as_string() {
+                        if let Ok(v) = value.as_string(span) {
                             config.completion_algorithm = v.to_lowercase();
                         } else {
                             eprintln!("$config.completion_algorithm is not a string")
                         }
                     }
                     "rm_always_trash" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.rm_always_trash = b;
                         } else {
                             eprintln!("$config.rm_always_trash is not a bool")
                         }
                     }
                     "filesize_format" => {
-                        if let Ok(v) = value.as_string() {
+                        if let Ok(v) = value.as_string(span) {
                             config.filesize_format = v.to_lowercase();
                         } else {
                             eprintln!("$config.filesize_format is not a string")
                         }
                     }
                     "edit_mode" => {
-                        if let Ok(v) = value.as_string() {
+                        if let Ok(v) = value.as_string(span) {
                             config.edit_mode = v.to_lowercase();
                         } else {
                             eprintln!("$config.edit_mode is not a string")
                         }
                     }
                     "max_history_size" => {
-                        if let Ok(i) = value.as_i64() {
+                        if let Ok(i) = value.as_i64(span) {
                             config.max_history_size = i;
                         } else {
                             eprintln!("$config.max_history_size is not an integer")
                         }
                     }
                     "sync_history_on_enter" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.sync_history_on_enter = b;
                         } else {
                             eprintln!("$config.sync_history_on_enter is not a bool")
                         }
                     }
                     "log_level" => {
-                        if let Ok(v) = value.as_string() {
+                        if let Ok(v) = value.as_string(span) {
                             config.log_level = v.to_lowercase();
                         } else {
                             eprintln!("$config.log_level is not a string")
                         }
                     }
-                    "menus" => match create_menus(value, &config) {
+                    "menus" => match create_menus(value, &config, &span) {
                         Ok(map) => config.menus = map,
                         Err(e) => {
                             eprintln!("$config.menus is not a valid list of menus");
                             eprintln!("{:?}", e);
                         }
                     },
-                    "keybindings" => match create_keybindings(value, &config) {
+                    "keybindings" => match create_keybindings(value, &config, &span) {
                         Ok(keybindings) => config.keybindings = keybindings,
                         Err(e) => {
                             eprintln!("$config.keybindings is not a valid keybindings list");
@@ -289,35 +289,35 @@ impl Value {
                         }
                     },
                     "shell_integration" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.shell_integration = b;
                         } else {
                             eprintln!("$config.shell_integration is not a bool")
                         }
                     }
                     "buffer_editor" => {
-                        if let Ok(v) = value.as_string() {
+                        if let Ok(v) = value.as_string(span) {
                             config.buffer_editor = v.to_lowercase();
                         } else {
                             eprintln!("$config.buffer_editor is not a string")
                         }
                     }
                     "disable_table_indexes" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.disable_table_indexes = b;
                         } else {
                             eprintln!("$config.disable_table_indexes is not a bool")
                         }
                     }
                     "cd_with_abbreviations" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.cd_with_abbreviations = b;
                         } else {
                             eprintln!("$config.cd_with_abbreviations is not a bool")
                         }
                     }
                     "case_sensitive_completions" => {
-                        if let Ok(b) = value.as_bool() {
+                        if let Ok(b) = value.as_bool(span) {
                             config.case_sensitive_completions = b;
                         } else {
                             eprintln!("$config.case_sensitive_completions is not a bool")
@@ -336,8 +336,12 @@ impl Value {
     }
 }
 
-fn create_map(value: &Value, config: &Config) -> Result<HashMap<String, Value>, ShellError> {
-    let (cols, inner_vals) = value.as_record()?;
+fn create_map(
+    value: &Value,
+    config: &Config,
+    span: Span,
+) -> Result<HashMap<String, Value>, ShellError> {
+    let (cols, inner_vals) = value.as_record(span)?;
     let mut hm: HashMap<String, Value> = HashMap::new();
 
     for (k, v) in cols.iter().zip(inner_vals) {
@@ -345,9 +349,8 @@ fn create_map(value: &Value, config: &Config) -> Result<HashMap<String, Value>, 
             Value::Record {
                 cols: inner_cols,
                 vals: inner_vals,
-                span,
             } => {
-                let val = color_value_string(span, inner_cols, inner_vals, config);
+                let val = color_value_string(&span, inner_cols, inner_vals, config);
                 hm.insert(k.to_string(), val);
             }
             _ => {
@@ -379,16 +382,13 @@ pub fn color_value_string(
         .collect();
 
     // now insert the braces at the front and the back to fake the json string
-    Value::String {
-        val: format!("{{{}}}", val),
-        span: *span,
-    }
+    Value::String(format!("{{{}}}", val))
 }
 
 // Parse the hooks to find the blocks to run when the hooks fire
 fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
     match value {
-        Value::Record { cols, vals, span } => {
+        Value::Record { cols, vals } => {
             let mut hooks = Hooks::new();
 
             for idx in 0..cols.len() {
@@ -398,9 +398,8 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
                     "env_change" => hooks.env_change = Some(vals[idx].clone()),
                     x => {
                         return Err(ShellError::UnsupportedConfigValue(
-                            "'pre_prompt', 'pre_execution', or 'env_change'".to_string(),
+                            "'pre_prompt', 'pre_execution', or 'env_change' hook".to_string(),
                             x.to_string(),
-                            *span,
                         ));
                     }
                 }
@@ -408,25 +407,21 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
 
             Ok(hooks)
         }
-        v => match v.span() {
-            Ok(span) => Err(ShellError::UnsupportedConfigValue(
-                "record for 'hooks' config".into(),
-                "non-record value".into(),
-                span,
-            )),
-            _ => Err(ShellError::UnsupportedConfigValue(
-                "record for 'hooks' config".into(),
-                "non-record value".into(),
-                Span { start: 0, end: 0 },
-            )),
-        },
+        v => Err(ShellError::UnsupportedConfigValue(
+            "record for 'hooks' config".into(),
+            "non-record value".into(),
+        )),
     }
 }
 
 // Parses the config object to extract the strings that will compose a keybinding for reedline
-fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybinding>, ShellError> {
+fn create_keybindings(
+    value: &Value,
+    config: &Config,
+    span: &Span,
+) -> Result<Vec<ParsedKeybinding>, ShellError> {
     match value {
-        Value::Record { cols, vals, span } => {
+        Value::Record { cols, vals } => {
             // Finding the modifier value in the record
             let modifier = extract_value("modifier", cols, vals, span)?.clone();
             let keycode = extract_value("keycode", cols, vals, span)?.clone();
@@ -443,10 +438,10 @@ fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybin
             // We return a menu to be able to do recursion on the same function
             Ok(vec![keybinding])
         }
-        Value::List { vals, .. } => {
+        Value::List(vals) => {
             let res = vals
                 .iter()
-                .map(|inner_value| create_keybindings(inner_value, config))
+                .map(|inner_value| create_keybindings(inner_value, config, span))
                 .collect::<Result<Vec<Vec<ParsedKeybinding>>, ShellError>>();
 
             let res = res?
@@ -461,9 +456,13 @@ fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybin
 }
 
 // Parses the config object to extract the strings that will compose a keybinding for reedline
-pub fn create_menus(value: &Value, config: &Config) -> Result<Vec<ParsedMenu>, ShellError> {
+pub fn create_menus(
+    value: &Value,
+    config: &Config,
+    span: &Span,
+) -> Result<Vec<ParsedMenu>, ShellError> {
     match value {
-        Value::Record { cols, vals, span } => {
+        Value::Record { cols, vals } => {
             // Finding the modifier value in the record
             let name = extract_value("name", cols, vals, span)?.clone();
             let marker = extract_value("marker", cols, vals, span)?.clone();
@@ -475,7 +474,7 @@ pub fn create_menus(value: &Value, config: &Config) -> Result<Vec<ParsedMenu>, S
             // Source is an optional value
             let source = match extract_value("source", cols, vals, span) {
                 Ok(source) => source.clone(),
-                Err(_) => Value::Nothing { span: *span },
+                Err(_) => Value::Nothing,
             };
 
             let menu = ParsedMenu {
@@ -489,10 +488,10 @@ pub fn create_menus(value: &Value, config: &Config) -> Result<Vec<ParsedMenu>, S
 
             Ok(vec![menu])
         }
-        Value::List { vals, .. } => {
+        Value::List(vals) => {
             let res = vals
                 .iter()
-                .map(|inner_value| create_menus(inner_value, config))
+                .map(|inner_value| create_menus(inner_value, config, span))
                 .collect::<Result<Vec<Vec<ParsedMenu>>, ShellError>>();
 
             let res = res?.into_iter().flatten().collect::<Vec<ParsedMenu>>();

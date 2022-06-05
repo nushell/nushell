@@ -499,7 +499,9 @@ impl Value {
                             }
                         }
                         Value::Range(val) => {
-                            if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
+                            if let Some(item) =
+                                val.clone().into_range_iter(None, *origin_span)?.nth(*count)
+                            {
                                 current = item.clone();
                             } else {
                                 return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
@@ -1264,14 +1266,12 @@ impl Value {
                 }
             }
 
-            (Value::CustomValue(lhs), rhs) => lhs.operation(*span, Operator::Plus, op, rhs),
+            (Value::CustomValue(lhs), rhs) => lhs.operation(span, Operator::Plus, op, rhs),
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span()?,
             }),
         }
     }

@@ -14,17 +14,13 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check each argument's type and convert one or both as needed.
-    #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
+    #[error("Type mismatch during operation, {lhs_ty} vs {rhs_ty}")]
     OperatorMismatch {
         #[label = "type mismatch for operator"]
         op_span: Span,
         lhs_ty: Type,
-        #[label("{lhs_ty}")]
-        lhs_span: Span,
         rhs_ty: Type,
-        #[label("{rhs_ty}")]
-        rhs_span: Span,
     },
 
     /// An arithmetic operation's resulting value overflowed its possible size.
@@ -624,9 +620,9 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// ## Resolution
     ///
     /// Refer to the specific error message for details and convert values as needed.
-    #[error("Unsupported config value")]
+    #[error("Unsupported config value. Expected {0}, got {1}")]
     #[diagnostic(code(nu::shell::unsupported_config_value), url(docsrs))]
-    UnsupportedConfigValue(String, String, #[label = "expected {0}, got {1}"] Span),
+    UnsupportedConfigValue(String, String),
 
     /// An expected configuration value is not present.
     ///
