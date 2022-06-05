@@ -174,7 +174,7 @@ impl Command for Each {
                     }
                 })
                 .into_pipeline_data(ctrlc)),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..

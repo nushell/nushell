@@ -132,7 +132,7 @@ impl Command for Use {
             ));
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::new())
     }
 
     fn examples(&self) -> Vec<Example> {

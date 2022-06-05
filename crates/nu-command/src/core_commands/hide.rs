@@ -129,7 +129,7 @@ This command is a parser keyword. For details, check:
             // TODO: we may want to error in the future
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::new())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -147,7 +147,7 @@ This command is a parser keyword. For details, check:
             Example {
                 description: "Hide an environment variable",
                 example: r#"let-env HZ_ENV_ABC = 1; hide HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
-                result: Some(Value::boolean(false, Span::test_data())),
+                result: Some(Value::Bool(false)),
             },
         ]
     }

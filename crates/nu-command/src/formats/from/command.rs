@@ -25,6 +25,6 @@ impl Command for From {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::new())
     }
 }

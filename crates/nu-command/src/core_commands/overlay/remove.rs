@@ -86,7 +86,7 @@ impl Command for OverlayRemove {
             stack.remove_overlay(&overlay_name.item);
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::new())
     }
 
     fn examples(&self) -> Vec<Example> {

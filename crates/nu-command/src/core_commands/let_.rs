@@ -66,7 +66,7 @@ impl Command for Let {
         //println!("Adding: {:?} to {}", rhs, var_id);
 
         stack.add_var(var_id, rhs.into_value(call.head));
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::new())
     }
 
     fn examples(&self) -> Vec<Example> {

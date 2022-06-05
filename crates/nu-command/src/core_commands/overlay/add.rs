@@ -114,7 +114,7 @@ impl Command for OverlayAdd {
             ));
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::new())
     }
 
     fn examples(&self) -> Vec<Example> {

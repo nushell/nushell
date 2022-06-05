@@ -1317,7 +1317,7 @@ pub fn parse_use(
                 unescape_unquote_string(&import_pattern.head.name, import_pattern.head.span);
             if err.is_none() {
                 if let Some(module_path) =
-                    find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
+                    find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV, call.head)
                 {
                     let module_name = if let Some(stem) = module_path.file_stem() {
                         stem.to_string_lossy().to_string()
@@ -1982,7 +1982,7 @@ pub fn parse_overlay_add(
     // TODO: Add support for it -- needs to play well with overlay remove
     let has_prefix = false; //call.has_flag("prefix");
 
-    let cwd = working_set.get_cwd(call.head);
+    let cwd = working_set.get_cwd(spans[0]);
 
     let mut error = None;
 
@@ -2019,7 +2019,7 @@ pub fn parse_overlay_add(
                 String::from_utf8(trim_quotes(overlay_name.as_bytes()).to_vec())
             {
                 if let Some(module_path) =
-                    find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
+                    find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV, spans[0])
                 {
                     let overlay_name = if let Some(stem) = module_path.file_stem() {
                         stem.to_string_lossy().to_string()
@@ -2314,7 +2314,7 @@ pub fn parse_source(
 
     if name == b"source" {
         if let Some(decl_id) = working_set.find_decl(b"source") {
-            let cwd = working_set.get_cwd();
+            let cwd = working_set.get_cwd(spans[0]);
             // Is this the right call to be using here?
             // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
             let (call, err) = parse_internal_call(
@@ -2343,7 +2343,9 @@ pub fn parse_source(
                 let name_expr = working_set.get_span_contents(spans[1]);
                 let (filename, err) = unescape_unquote_string(name_expr, spans[1]);
                 if err.is_none() {
-                    if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_ENV) {
+                    if let Some(path) =
+                        find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_ENV, spans[0])
+                    {
                         if let Ok(contents) = std::fs::read(&path) {
                             // This will load the defs from the file into the
                             // working set, if it was a successful parse.
@@ -2428,7 +2430,7 @@ pub fn parse_register(
 ) -> (Pipeline, Option<ParseError>) {
     use nu_plugin::{get_signature, EncodingType, PluginDeclaration};
     use nu_protocol::Signature;
-    let cwd = working_set.get_cwd();
+    let cwd = working_set.get_cwd(spans[0]);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -2497,7 +2499,8 @@ pub fn parse_register(
             if let Some(err) = err {
                 Err(err)
             } else {
-                let path = if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_ENV)
+                let path = if let Some(p) =
+                    find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_ENV, spans[0])
                 {
                     p
                 } else {
@@ -2637,6 +2640,7 @@ pub fn find_in_dirs(
     working_set: &StateWorkingSet,
     cwd: &str,
     dirs_env: &str,
+    span: Span,
 ) -> Option<PathBuf> {
     if let Ok(p) = canonicalize_with(filename, cwd) {
         Some(p)
@@ -2645,9 +2649,9 @@ pub fn find_in_dirs(
 
         if path.is_relative() {
             if let Some(lib_dirs) = working_set.get_env_var(dirs_env) {
-                if let Ok(dirs) = lib_dirs.as_list() {
+                if let Ok(dirs) = lib_dirs.as_list(span) {
                     for lib_dir in dirs {
-                        if let Ok(dir) = lib_dir.as_path() {
+                        if let Ok(dir) = lib_dir.as_path(span) {
                             if let Ok(dir_abs) = canonicalize_with(&dir, cwd) {
                                 // make sure the dir is absolute path
                                 if let Ok(path) = canonicalize_with(filename, dir_abs) {

@@ -173,7 +173,7 @@ impl Command for Cd {
         //should probably be a block that loads the information from the state in the overlay
 
         stack.add_env_var("PWD".into(), path_value);
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::new())
     }
 
     fn examples(&self) -> Vec<Example> {

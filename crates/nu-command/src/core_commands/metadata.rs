@@ -79,20 +79,12 @@ impl Command for Metadata {
                             data_source: DataSource::Ls,
                         } => {
                             cols.push("source".into());
-                            vals.push(Value::String {
-                                val: "ls".into(),
-                                span: head,
-                            })
+                            vals.push(Value::String("ls".into()))
                         }
                     }
                 }
 
-                Ok(Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                }
-                .into_pipeline_data())
+                Ok(Value::Record { cols, vals }.into_pipeline_data())
             }
         }
     }
@@ -121,17 +113,7 @@ fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head:
         cols.push("span".into());
         vals.push(Value::Record {
             cols: vec!["start".into(), "end".into()],
-            vals: vec![
-                Value::Int {
-                    val: span.start as i64,
-                    span,
-                },
-                Value::Int {
-                    val: span.end as i64,
-                    span,
-                },
-            ],
-            span: head,
+            vals: vec![Value::Int(span.start as i64), Value::Int(span.end as i64)],
         });
     }
 
@@ -141,19 +123,12 @@ fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head:
                 data_source: DataSource::Ls,
             } => {
                 cols.push("source".into());
-                vals.push(Value::String {
-                    val: "ls".into(),
-                    span: head,
-                })
+                vals.push(Value::String("ls".into()))
             }
         }
     }
 
-    Value::Record {
-        cols,
-        vals,
-        span: head,
-    }
+    Value::Record { cols, vals }
 }
 
 #[cfg(test)]

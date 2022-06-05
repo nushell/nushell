@@ -49,7 +49,7 @@ This command is a parser keyword. For details, check:
 
         stack.add_overlay(name_arg.item);
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::new())
     }
 
     fn examples(&self) -> Vec<Example> {

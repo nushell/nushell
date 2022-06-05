@@ -71,7 +71,8 @@ impl Command for If {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
                             let result = eval_expression(engine_state, stack, else_expr)?;
-                            let else_block: CaptureBlock = FromValue::from_value(&result)?;
+                            let else_block: CaptureBlock =
+                                FromValue::from_value(&result, else_expr.span)?;
 
                             let mut stack = stack.captures_to_stack(&else_block.captures);
                             let block = engine_state.get_block(block_id);
@@ -104,7 +105,7 @@ impl Command for If {
                         )
                     }
                 } else {
-                    Ok(PipelineData::new(call.head))
+                    Ok(PipelineData::new())
                 }
             }
             x => Err(ShellError::CantConvert(

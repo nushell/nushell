@@ -17,7 +17,7 @@ impl Selector {
             query: String::new(),
             as_html: false,
             attribute: String::new(),
-            as_table: Value::string("".to_string(), Span::test_data()),
+            as_table: Value::String("".to_string()),
             inspect: false,
         }
     }
@@ -42,7 +42,7 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     };
     let as_table: Value = match call.get_flag("as-table")? {
         Some(v) => v,
-        None => Value::nothing(head),
+        None => Value::Nothing,
     };
 
     let inspect = call.has_flag("inspect");
@@ -64,11 +64,11 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     };
 
     match input {
-        Value::String(val) => Ok(begin_selector_query(val.to_string(), selector, *span)),
+        Value::String(val) => Ok(begin_selector_query(val.to_string(), selector, call.head)),
         _ => Err(LabeledError {
             label: "requires text input".to_string(),
             msg: "Expected text from pipeline".to_string(),
-            span: Some(input.span()?),
+            span: Some(call.head),
         }),
     }
 }
@@ -109,10 +109,10 @@ pub fn retrieve_tables(
 ) -> Value {
     let html = input_string;
     let mut cols: Vec<String> = Vec::new();
-    if let Value::List { vals, .. } = &columns {
+    if let Value::List(vals) = &columns {
         for x in vals {
             // TODO Find a way to get the Config object here
-            if let Value::String { val, .. } = x {
+            if let Value::String(val) = x {
                 cols.push(val.to_string())
             }
         }
@@ -150,10 +150,10 @@ pub fn retrieve_tables(
 
 fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
     let mut cols: Vec<String> = Vec::new();
-    if let Value::List { vals, .. } = &columns {
+    if let Value::List(vals) = &columns {
         for x in vals {
             // TODO Find a way to get the Config object here
-            if let Value::String { val, .. } = x {
+            if let Value::String(val) = x {
                 cols.push(val.to_string())
             }
         }
@@ -180,7 +180,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         for row in &table_with_no_empties {
             for (counter, cell) in row.iter().enumerate() {
                 cols.push(format!("column{}", counter));
-                vals.push(Value::string(cell.to_string(), span))
+                vals.push(Value::String(cell.to_string()))
             }
         }
         table_out.push(Value::Record { cols, vals })
@@ -197,7 +197,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
                 if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
                     at_least_one_row_filled = true;
                 }
-                vals.push(Value::string(val, span));
+                vals.push(Value::String(val));
             }
             table_out.push(Value::Record {
                 cols: record_cols.to_vec(),
@@ -229,12 +229,7 @@ fn execute_selector_query_with_attribute(
 
     let vals: Vec<Value> = doc
         .select(&css(query_string, inspect))
-        .map(|selection| {
-            Value::string(
-                selection.value().attr(attribute).unwrap_or("").to_string(),
-                span,
-            )
-        })
+        .map(|selection| Value::String(selection.value().attr(attribute).unwrap_or("").to_string()))
         .collect();
     Value::List(vals)
 }
@@ -251,16 +246,15 @@ fn execute_selector_query(
     let vals: Vec<Value> = match as_html {
         true => doc
             .select(&css(query_string, inspect))
-            .map(|selection| Value::string(selection.html(), span))
+            .map(|selection| Value::String(selection.html()))
             .collect(),
         false => doc
             .select(&css(query_string, inspect))
             .map(|selection| {
-                Value::string(
+                Value::String(
                     selection
                         .text()
                         .fold("".to_string(), |acc, x| format!("{}{}", acc, x)),
-                    span,
                 )
             })
             .collect(),

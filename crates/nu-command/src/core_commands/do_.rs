@@ -91,7 +91,7 @@ impl Command for Do {
         if ignore_errors {
             match result {
                 Ok(x) => Ok(x),
-                Err(_) => Ok(PipelineData::new(call.head)),
+                Err(_) => Ok(PipelineData::new()),
             }
         } else {
             result

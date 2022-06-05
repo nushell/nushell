@@ -86,7 +86,7 @@ prints out the list properly."#
                         use_grid_icons,
                     )?)
                 } else {
-                    Ok(PipelineData::new(call.head))
+                    Ok(PipelineData::new())
                 }
             }
             PipelineData::ListStream(stream, ..) => {
@@ -104,7 +104,7 @@ prints out the list properly."#
                     )?)
                 } else {
                     // dbg!(data);
-                    Ok(PipelineData::new(call.head))
+                    Ok(PipelineData::new())
                 }
             }
             PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {

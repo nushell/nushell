@@ -52,7 +52,7 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
         let encoding: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         match input {
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..

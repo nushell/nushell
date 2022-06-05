@@ -298,7 +298,7 @@ impl Command for Touch {
             }
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::new())
     }
 
     fn examples(&self) -> Vec<Example> {

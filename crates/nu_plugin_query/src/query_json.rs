@@ -45,7 +45,7 @@ pub fn execute_json_query(
 
     if query_contains_modifiers(query_string) {
         let json_str = val.json();
-        Ok(Value::string(json_str, Span::test_data()))
+        Ok(Value::String(json_str.to_string()))
     } else {
         Ok(convert_gjson_value_to_nu_value(&val, &call.head))
     }
@@ -81,18 +81,18 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: &Span) -> Value {
 
             Value::List(vals)
         }
-        gjson::Kind::Null => Value::nothing(*span),
-        gjson::Kind::False => Value::boolean(false, *span),
+        gjson::Kind::Null => Value::Nothing,
+        gjson::Kind::False => Value::Bool(false),
         gjson::Kind::Number => {
             let str_value = v.str();
             if str_value.contains('.') {
-                Value::float(v.f64(), *span)
+                Value::Float(v.f64())
             } else {
-                Value::int(v.i64(), *span)
+                Value::Int(v.i64())
             }
         }
-        gjson::Kind::String => Value::string(v.str(), *span),
-        gjson::Kind::True => Value::boolean(true, *span),
+        gjson::Kind::String => Value::String(v.str().to_string()),
+        gjson::Kind::True => Value::Bool(true),
         gjson::Kind::Object => {
             let mut cols = vec![];
             let mut vals = vec![];
