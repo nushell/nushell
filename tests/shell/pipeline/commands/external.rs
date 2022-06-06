@@ -306,6 +306,30 @@ mod nu_commands {
 
         assert_eq!(actual.out, "");
     }
+
+    #[test]
+    fn command_list_arg_test() {
+        let actual = nu!(cwd: ".", r#"
+        nu ['-c' 'version']
+        "#);
+
+        assert!(actual.out.contains("version"));
+        assert!(actual.out.contains("rust_version"));
+        assert!(actual.out.contains("rust_channel"));
+        assert!(actual.out.contains("pkg_version"));
+    }
+
+    #[test]
+    fn command_cell_path_arg_test() {
+        let actual = nu!(cwd: ".", r#"
+        nu ([ '-c' 'version' ])
+        "#);
+
+        assert!(actual.out.contains("version"));
+        assert!(actual.out.contains("rust_version"));
+        assert!(actual.out.contains("rust_channel"));
+        assert!(actual.out.contains("pkg_version"));
+    }
 }
 
 mod nu_script {
