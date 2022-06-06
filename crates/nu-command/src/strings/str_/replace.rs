@@ -51,6 +51,10 @@ impl Command for SubCommand {
         "Find and replace text"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["search", "shift", "switch"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

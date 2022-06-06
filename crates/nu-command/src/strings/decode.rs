@@ -19,6 +19,10 @@ impl Command for Decode {
         "Decode bytes as a string."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["text", "encoding", "decoding"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("decode")
             .required("encoding", SyntaxShape::String, "the text encoding to use")

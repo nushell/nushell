@@ -23,8 +23,20 @@ impl Command for SubCommand {
             )
             .category(Category::Strings)
     }
+
     fn usage(&self) -> &str {
         "Convert a string to snake_case"
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec![
+            "convert",
+            "style",
+            "snake",
+            "underscore",
+            "lower",
+            "convention",
+        ]
     }
 
     fn run(

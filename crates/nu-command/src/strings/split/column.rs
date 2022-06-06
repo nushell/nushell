@@ -33,6 +33,10 @@ impl Command for SubCommand {
         "Split a string into multiple columns using a separator"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["column", "separate", "divide"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

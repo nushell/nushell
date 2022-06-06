@@ -28,6 +28,10 @@ impl Command for SubCommand {
         "Convert a string to SCREAMING_SNAKE_CASE"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "style", "snake", "underscore", "convention"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

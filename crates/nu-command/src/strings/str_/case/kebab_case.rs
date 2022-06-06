@@ -29,6 +29,10 @@ impl Command for SubCommand {
         "Convert a string to kebab-case"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "style", "hyphens", "convention"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

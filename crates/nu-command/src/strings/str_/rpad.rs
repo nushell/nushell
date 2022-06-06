@@ -41,6 +41,10 @@ impl Command for SubCommand {
         "Right-pad a string to a specific length"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["append", "truncate", "padding"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

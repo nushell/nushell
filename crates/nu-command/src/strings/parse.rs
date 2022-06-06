@@ -19,6 +19,10 @@ impl Command for Parse {
         "Parse columns from string data using a simple pattern."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["pattern", "match"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("parse")
             .required(

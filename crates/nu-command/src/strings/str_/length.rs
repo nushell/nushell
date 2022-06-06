@@ -27,6 +27,10 @@ impl Command for SubCommand {
         "Output the length of any strings in the pipeline"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["len", "size", "count"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
