@@ -1196,6 +1196,7 @@ pub fn eval_variable(
             if let Some(mut config_path) = nu_path::config_dir() {
                 config_path.push("nushell");
                 let mut env_config_path = config_path.clone();
+                let mut loginshell_path = config_path.clone();
 
                 let mut history_path = config_path.clone();
 
@@ -1220,6 +1221,14 @@ pub fn eval_variable(
                 output_cols.push("env-path".into());
                 output_vals.push(Value::String {
                     val: env_config_path.to_string_lossy().to_string(),
+                    span,
+                });
+
+                loginshell_path.push("login.nu");
+
+                output_cols.push("loginshell-path".into());
+                output_vals.push(Value::String {
+                    val: loginshell_path.to_string_lossy().to_string(),
                     span,
                 });
             }

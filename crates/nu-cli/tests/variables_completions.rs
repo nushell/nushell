@@ -19,13 +19,14 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(8, suggestions.len());
+    assert_eq!(9, suggestions.len());
 
     let expected: Vec<String> = vec![
         "config-path".into(),
         "env-path".into(),
         "history-path".into(),
         "home-path".into(),
+        "loginshell-path".into(),
         "os-info".into(),
         "pid".into(),
         "scope".into(),

@@ -275,6 +275,7 @@ fn main() -> Result<()> {
                     &mut stack,
                     binary_args.config_file,
                     binary_args.env_file,
+                    binary_args.login_shell.is_some(),
                 );
                 let history_path = config_files::create_history_path();
 
@@ -296,6 +297,7 @@ fn setup_config(
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
+    is_login_shell: bool,
 ) {
     #[cfg(feature = "plugin")]
     read_plugin_file(engine_state, stack, NUSHELL_FOLDER, is_perf_true());
@@ -306,6 +308,10 @@ fn setup_config(
 
     config_files::read_config_file(engine_state, stack, env_file, is_perf_true(), true);
     config_files::read_config_file(engine_state, stack, config_file, is_perf_true(), false);
+
+    if is_login_shell {
+        config_files::read_loginshell_file(engine_state, stack, is_perf_true());
+    }
 
     // Give a warning if we see `$config` for a few releases
     {
