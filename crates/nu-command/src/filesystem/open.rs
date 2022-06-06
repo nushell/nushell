@@ -55,7 +55,7 @@ impl Command for Open {
         } else {
             // Collect a filename from the input
             match input {
-                PipelineData::Value(Value::Nothing { .. }, ..) => {
+                PipelineData::Value(Value::Nothing, ..) => {
                     return Ok(Value::String {
                         val: get_full_help(
                             &Open.signature(),

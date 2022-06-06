@@ -106,25 +106,23 @@ impl Command for Table {
 
         match input {
             PipelineData::ExternalStream { .. } => Ok(input),
-            PipelineData::Value(Value::Binary { val, .. }, ..) => {
-                Ok(PipelineData::ExternalStream {
-                    stdout: Some(RawStream::new(
-                        Box::new(
-                            vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
-                                .as_bytes()
-                                .to_vec())]
-                            .into_iter(),
-                        ),
-                        ctrlc,
-                        head,
-                    )),
-                    stderr: None,
-                    exit_code: None,
-                    span: head,
-                    metadata: None,
-                })
-            }
-            PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
+            PipelineData::Value(Value::Binary(val), ..) => Ok(PipelineData::ExternalStream {
+                stdout: Some(RawStream::new(
+                    Box::new(
+                        vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
+                            .as_bytes()
+                            .to_vec())]
+                        .into_iter(),
+                    ),
+                    ctrlc,
+                    head,
+                )),
+                stderr: None,
+                exit_code: None,
+                span: head,
+                metadata: None,
+            }),
+            PipelineData::Value(Value::List(vals), metadata) => handle_row_stream(
                 engine_state,
                 stack,
                 ListStream::from_stream(vals.into_iter(), ctrlc.clone()),
@@ -180,7 +178,7 @@ impl Command for Table {
                 let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
                 self.run(engine_state, stack, call, base_pipeline)
             }
-            PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(
+            PipelineData::Value(Value::Range(val), metadata) => handle_row_stream(
                 engine_state,
                 stack,
                 ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc.clone()),

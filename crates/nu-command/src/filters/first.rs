@@ -91,7 +91,7 @@ fn first_helper(
             Type::Binary => {
                 match &mut input_peek.next() {
                     Some(v) => match &v {
-                        Value::Binary { val, .. } => {
+                        Value::Binary(val) => {
                             let bytes = val;
                             if bytes.len() >= rows_desired {
                                 // We only want to see a certain amount of the binary
@@ -110,7 +110,7 @@ fn first_helper(
                                 bigger.extend(bytes);
                                 while bigger.len() < rows_desired {
                                     match input_peek.next() {
-                                        Some(Value::Binary { val, .. }) => bigger.extend(val),
+                                        Some(Value::Binary(val)) => bigger.extend(val),
                                         _ => {
                                             // We're at the end of our data so let's break out of this loop
                                             // and set the rows_desired to the size of our data

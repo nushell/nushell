@@ -226,7 +226,7 @@ impl ExtractedExpr {
                 let expr = ExprDb::try_from_value(&value)?.into_native();
                 Ok(ExtractedExpr::Single(expr))
             }
-            Value::List { vals, .. } => vals
+            Value::List(vals) => vals
                 .into_iter()
                 .map(Self::extract_exprs)
                 .collect::<Result<Vec<ExtractedExpr>, ShellError>>()

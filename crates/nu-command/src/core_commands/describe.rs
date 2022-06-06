@@ -36,7 +36,7 @@ impl Command for Describe {
         } else {
             let value = input.into_value(call.head);
             let description = match value {
-                Value::CustomValue { val, .. } => val.value_string(),
+                Value::CustomValue(val) => val.value_string(),
                 _ => value.get_type().to_string(),
             };
 

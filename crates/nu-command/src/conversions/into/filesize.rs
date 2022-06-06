@@ -120,7 +120,7 @@ pub fn action(input: &Value, span: Span) -> Value {
                 Ok(val) => Value::Filesize(val),
                 Err(error) => Value::Error(error),
             },
-            Value::Nothing { .. } => Value::Filesize(0),
+            Value::Nothing => Value::Filesize(0),
             _ => Value::Error(ShellError::UnsupportedInput(
                 "'into filesize' for unsupported type".into(),
                 value_span,

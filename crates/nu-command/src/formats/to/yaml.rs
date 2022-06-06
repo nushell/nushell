@@ -44,8 +44,8 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     Ok(match &v {
         Value::Bool(val) => serde_yaml::Value::Bool(*val),
         Value::Int(val) => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
-        Value::Filesize { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
-        Value::Duration { val, .. } => serde_yaml::Value::String(val.to_string()),
+        Value::Filesize(val) => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
+        Value::Duration(val) => serde_yaml::Value::String(val.to_string()),
         Value::Date(val) => serde_yaml::Value::String(val.to_string()),
         Value::Range { .. } => serde_yaml::Value::Null,
         Value::Float(val) => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
@@ -60,7 +60,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             }
             serde_yaml::Value::Mapping(m)
         }
-        Value::List { vals, .. } => {
+        Value::List(vals) => {
             let mut out = vec![];
 
             for value in vals {
@@ -70,14 +70,14 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             serde_yaml::Value::Sequence(out)
         }
         Value::Block { .. } => serde_yaml::Value::Null,
-        Value::Nothing { .. } => serde_yaml::Value::Null,
+        Value::Nothing => serde_yaml::Value::Null,
         Value::Error { error } => return Err(error.clone()),
-        Value::Binary { val, .. } => serde_yaml::Value::Sequence(
+        Value::Binary(val) => serde_yaml::Value::Sequence(
             val.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
                 .collect(),
         ),
-        Value::CellPath { val, .. } => serde_yaml::Value::Sequence(
+        Value::CellPath(val) => serde_yaml::Value::Sequence(
             val.members
                 .iter()
                 .map(|x| match &x {

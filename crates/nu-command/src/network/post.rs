@@ -218,7 +218,7 @@ fn helper(
     }
 
     match body {
-        Value::Binary { val, .. } => {
+        Value::Binary(val) => {
             request = request.body(val);
         }
         Value::String(val) => {
@@ -232,7 +232,7 @@ fn helper(
             let data = value_to_json_value(&body)?;
             request = request.form(&data);
         }
-        Value::List { vals, .. } if body_type == BodyType::Form => {
+        Value::List(vals) if body_type == BodyType::Form => {
             if vals.len() % 2 != 0 {
                 return Err(ShellError::IOError("unsupported body input".into()));
             }

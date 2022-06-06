@@ -75,21 +75,21 @@ impl Command for Find {
             Example {
                 description: "Search a char in a list of string",
                 example: r#"[moe larry curly] | find l"#,
-                result: Some(Value::List ( 
+                result: Some(Value::List(
                      vec![Value::String("larry".into()), Value::String("curly".into())],
                  ))
             },
             Example {
                 description: "Find odd values",
                 example: "[2 4 3 6 5 8] | find --predicate { |it| ($it mod 2) == 1 }",
-                result: Some(Value::List ( 
+                result: Some(Value::List(
                      vec![Value::Int(3), Value::Int(5)],
                  ))
             },
             Example {
                 description: "Find if a service is not running",
                 example: "[[version patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | find -p { |it| $it.patch }",
-                result: Some(Value::List ( 
+                result: Some(Value::List(
                      vec![Value::Record{ 
                             cols: vec!["version".into(), "patch".into()],
                             vals: vec![Value::String("0.1.1".into()), Value::Bool(true)]
@@ -99,21 +99,21 @@ impl Command for Find {
             Example {
                 description: "Find using regex",
                 example: r#"[abc bde arc abf] | find --regex "ab""#,
-                result: Some(Value::List ( 
+                result: Some(Value::List(
                      vec![Value::String("abc".into()), Value::String("abf".into())],
                  ))
             },
             Example {
                 description: "Find using regex case insensitive",
                 example: r#"[aBc bde Arc abf] | find --regex "ab" -i"#,
-                result: Some(Value::List ( 
+                result: Some(Value::List(
                      vec![Value::String("aBc".into()), Value::String("abf".into())],
                  ))
             },
             Example {
                 description: "Find value in records",
                 example: r#"[[version name]; [0.1.0 nushell] [0.1.1 fish] [0.2.0 zsh]] | find -r "nu""#,
-                result: Some(Value::List ( 
+                result: Some(Value::List(
                      vec![Value::Record{ 
                             cols: vec!["version".into(), "name".into()],
                             vals: vec![Value::String("0.1.0".into()), Value::String("nushell".into())]
@@ -193,7 +193,7 @@ fn find_with_regex(
                     .collect();
                 matches.iter().any(|b| *b)
             }
-            Value::List { vals, .. } => {
+            Value::List(vals) => {
                 let matches: Vec<bool> = vals
                     .iter()
                     .map(|v| re.is_match(v.into_string(" ", &config).as_str()) != invert)
@@ -300,7 +300,7 @@ fn find_with_rest(
                 | Value::Range { .. }
                 | Value::Float { .. }
                 | Value::Block { .. }
-                | Value::Nothing { .. }
+                | Value::Nothing
                 | Value::Error { .. } => lower_value
                     .eq(span, term, span)
                     .map_or(false, |value| value.is_true()),

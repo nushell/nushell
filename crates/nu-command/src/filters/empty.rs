@@ -82,7 +82,7 @@ fn empty(
             for column in &columns {
                 let val = val.clone();
                 match val.follow_cell_path(&column.members, false) {
-                    Ok(Value::Nothing { .. }) => {}
+                    Ok(Value::Nothing) => {}
                     Ok(_) => {
                         return Ok(Value::Bool {
                             val: false,

@@ -122,7 +122,7 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
                 Err(e) => e,
             }
         }
-        Value::Nothing { .. } => {
+        Value::Nothing => {
             let dt = Local::now();
             format_from(dt, formatter, formatter_span)
         }

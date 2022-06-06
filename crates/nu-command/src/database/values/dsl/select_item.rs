@@ -247,7 +247,7 @@ impl ExtractedSelect {
                     ))
                 }
             }
-            Value::List { vals, .. } => vals
+            Value::List(vals) => vals
                 .into_iter()
                 .map(Self::extract_selects)
                 .collect::<Result<Vec<ExtractedSelect>, ShellError>>()

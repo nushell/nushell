@@ -199,7 +199,7 @@ fn action(input: &Value, options: &Substring, head: Span) -> Value {
 
 fn process_arguments(options: &Arguments, head: Span) -> Result<(isize, isize), ShellError> {
     let search = match &options.range {
-        Value::List { vals, .. } => {
+        Value::List(vals) => {
             if vals.len() > 2 {
                 Err(ShellError::UnsupportedInput(
                     "More than two indices given".to_string(),

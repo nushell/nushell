@@ -158,7 +158,7 @@ pub fn action(input: &Value, span: Span, radix: u32) -> Value {
                 convert_int(input, span, radix)
             }
         }
-        Value::Filesize { val, .. } => Value::Int(*val),
+        Value::Filesize(val) => Value::Int(*val),
         Value::Float(val) => Value::Int(*val as i64),
         Value::String(val) => {
             if radix == 10 {

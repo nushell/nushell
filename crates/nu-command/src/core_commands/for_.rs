@@ -88,7 +88,7 @@ impl Command for For {
         let redirect_stderr = call.redirect_stderr;
 
         match values {
-            Value::List { vals, .. } => {
+            Value::List(vals) => {
                 Ok(ListStream::from_stream(vals.into_iter(), ctrlc.clone())
                     .enumerate()
                     .map(move |(idx, x)| {
@@ -129,7 +129,7 @@ impl Command for For {
                     .filter(|x| !x.is_nothing())
                     .into_pipeline_data(ctrlc))
             }
-            Value::Range { val, .. } => Ok(val
+            Value::Range(val) => Ok(val
                 .into_range_iter(ctrlc.clone())?
                 .enumerate()
                 .map(move |(idx, x)| {

@@ -219,7 +219,7 @@ fn process_range(
 
             Ok((start_index, end_index))
         }
-        Value::List { vals, .. } => {
+        Value::List(vals) => {
             if vals.len() > 2 {
                 Err(ShellError::UnsupportedInput(
                     String::from("there shouldn't be more than two indexes. too many indexes"),

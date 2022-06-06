@@ -204,7 +204,7 @@ pub fn action(
         Value::Date(val) => Value::String(val.format("%c").to_string()),
         Value::String(val) => Value::String(val.to_string()),
         Value::Filesize { val: _, .. } => Value::String(input.into_string(", ", config)),
-        Value::Nothing { .. } => Value::String("".to_string()),
+        Value::Nothing => Value::String("".to_string()),
         Value::Record {
             cols: _,
             vals: _,

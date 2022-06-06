@@ -72,7 +72,7 @@ prints out the list properly."#
         let use_grid_icons = config.use_grid_icons;
 
         match input {
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
+            PipelineData::Value(Value::List(vals), ..) => {
                 // dbg!("value::list");
                 let data = convert_to_list(vals, config, call.head);
                 if let Some(items) = data {

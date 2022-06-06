@@ -91,7 +91,7 @@ pub fn get_attributes(row: &Value, config: &Config) -> Option<IndexMap<String, S
 
 pub fn get_children(row: &Value) -> Option<Vec<Value>> {
     if let Value::Record { .. } = row {
-        if let Some(Value::List { vals, .. }) = row.get_data_by_key("children") {
+        if let Some(Value::List(vals)) = row.get_data_by_key("children") {
             return Some(vals);
         }
     }
@@ -144,7 +144,7 @@ pub fn write_xml_events<W: Write>(
                     .expect("Couldn't close XML node");
             }
         }
-        Value::List { vals, .. } => {
+        Value::List(vals) => {
             for v in vals {
                 write_xml_events(v, writer, config)?;
             }

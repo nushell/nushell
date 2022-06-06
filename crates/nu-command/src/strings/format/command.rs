@@ -197,7 +197,7 @@ fn format(
             }
         }
 
-        Value::List { vals, .. } => {
+        Value::List(vals) => {
             let mut list = vec![];
             for val in vals.iter() {
                 match val {

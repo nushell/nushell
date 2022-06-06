@@ -95,13 +95,9 @@ pub fn mode(values: &[Value], head: &Span) -> Result<Value, ShellError> {
         .iter()
         .map(|val| match val {
             Value::Int(val) => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int)),
-            Value::Duration { val, .. } => {
-                Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Duration))
-            }
+            Value::Duration(val) => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Duration)),
             Value::Float(val) => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Float)),
-            Value::Filesize { val, .. } => {
-                Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
-            }
+            Value::Filesize(val) => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize)),
             other => Err(ShellError::UnsupportedInput(
                 "Unable to give a result with this input".to_string(),
                 other.span()?,
