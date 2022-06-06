@@ -20,6 +20,10 @@ impl Command for SubCommand {
         "Split a string's characters into separate rows"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["character", "separate", "divide"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Split the string's characters into separate rows",

@@ -32,6 +32,10 @@ impl Command for SubCommand {
         "Checks if string contains pattern"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["pattern", "match", "find", "search"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

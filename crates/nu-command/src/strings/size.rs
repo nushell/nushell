@@ -24,6 +24,10 @@ impl Command for Size {
         "Gather word count statistics on the text."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["count", "word", "character", "unicode"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

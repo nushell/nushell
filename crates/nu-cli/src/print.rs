@@ -28,6 +28,10 @@ impl Command for Print {
         "Prints the values given"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["display"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

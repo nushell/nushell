@@ -19,6 +19,10 @@ impl Command for NuHighlight {
         "Syntax highlight the input string."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["syntax", "color", "convert"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

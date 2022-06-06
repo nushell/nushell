@@ -27,6 +27,10 @@ impl Command for SubCommand {
         "Capitalize first letter of text"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "style", "caps", "upper"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
