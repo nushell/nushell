@@ -36,6 +36,7 @@ impl Command for History {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
+        // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
         if let Some(config_path) = nu_path::config_dir() {
             let clear = call.has_flag("clear");
             let ctrlc = engine_state.ctrlc.clone();

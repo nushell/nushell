@@ -32,7 +32,7 @@ members = [
 ]
 
 [dependencies]
-chrono = "0.4.19"
+chrono = { version = "0.4.19", features = ["serde"] }
 crossterm = "0.23.0"
 ctrlc = "3.2.1"
 log = "0.4"
@@ -54,7 +54,6 @@ nu-term-grid = { path = "./crates/nu-term-grid", version = "0.63.1"  }
 nu-utils = { path = "./crates/nu-utils", version = "0.63.1"  }
 pretty_env_logger = "0.4.0"
 rayon = "1.5.1"
-reedline = { git = "https://github.com/nushell/reedline", branch = "main", features = ["bashisms"]}
 is_executable = "1.0.1"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]

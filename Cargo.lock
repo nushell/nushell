@@ -1362,6 +1362,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "gethostname"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1ebd34e35c46e00bb73e81363248d627782724609fe1b6396f553f68fe3862e"
+dependencies = [
+ "libc",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "getopts"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2483,7 +2493,6 @@ dependencies = [
  "pretty_assertions",
  "pretty_env_logger",
  "rayon",
- "reedline",
  "rstest",
  "serial_test",
  "tempfile",
@@ -2504,6 +2513,7 @@ dependencies = [
 name = "nu-cli"
 version = "0.63.1"
 dependencies = [
+ "chrono",
  "crossterm",
  "fuzzy-matcher",
  "is_executable",
@@ -2519,6 +2529,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "reedline",
+ "sysinfo 0.24.1",
  "thiserror",
 ]
 
@@ -2605,7 +2616,7 @@ dependencies = [
  "shadow-rs",
  "sqlparser",
  "strip-ansi-escapes",
- "sysinfo",
+ "sysinfo 0.23.13",
  "terminal_size",
  "thiserror",
  "titlecase",
@@ -2630,7 +2641,7 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
- "sysinfo",
+ "sysinfo 0.23.13",
 ]
 
 [[package]]
@@ -3795,16 +3806,20 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.6.0"
-source = "git+https://github.com/nushell/reedline?branch=main#09bbb24bfdcf4183914b671b0fc0b70d46c4b3fa"
+source = "git+https://github.com/phiresky/reedline?branch=sqlite-history-2#33b761006f18f283889e6d6a4760d5d1a757c510"
 dependencies = [
  "chrono",
  "crossterm",
  "fd-lock",
+ "gethostname",
  "nu-ansi-term",
+ "rusqlite",
  "serde",
+ "serde_json",
  "strip-ansi-escapes",
  "strum 0.24.0",
  "strum_macros 0.24.0",
+ "thiserror",
  "unicode-segmentation",
  "unicode-width",
 ]
@@ -4594,6 +4609,21 @@ name = "sysinfo"
 version = "0.23.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3977ec2e0520829be45c8a2df70db2bf364714d8a748316a10c3c35d4d2b01c9"
+dependencies = [
+ "cfg-if 1.0.0",
+ "core-foundation-sys",
+ "libc",
+ "ntapi",
+ "once_cell",
+ "rayon",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6a8e71535da31837213ac114531d31def75d7aebd133264e420a3451fa7f703"
 dependencies = [
  "cfg-if 1.0.0",
  "core-foundation-sys",
