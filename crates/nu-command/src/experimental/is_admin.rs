@@ -12,7 +12,7 @@ impl Command for IsAdmin {
     }
 
     fn usage(&self) -> &str {
-        "Check if nushell is running with administrator priveleges"
+        "Check if nushell is running with administrator or root priviliges"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -36,7 +36,7 @@ impl Command for IsAdmin {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Echo 'iamroot' if nushell is running with admin priveleges, and 'iamnotroot' if not.",
+                description: "Echo 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
                 example: r#"if is_admin { echo "iamroot" } else { echo "iamnotroot" }"#,
                 result: Some(Value::String {
                     val: "iamnotroot".to_string(),
