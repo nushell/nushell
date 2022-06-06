@@ -69,20 +69,24 @@ impl Command for External {
                 })
         }
 
-        let args = args
-            .into_iter()
-            .flat_map(|arg| match arg {
-                Value::List { vals, .. } => vals
-                    .into_iter()
-                    .map(value_as_spanned)
-                    .collect::<Vec<Result<Spanned<String>, ShellError>>>(),
-                val => vec![value_as_spanned(val)],
-            })
-            .collect::<Result<Vec<Spanned<String>>, ShellError>>()?;
+        let mut spanned_args = vec![];
+        for one_arg in args {
+            match one_arg {
+                Value::List { vals, .. } => {
+                    // turn all the strings in the array into params.
+                    // Example: one_arg may be something like ["ls" "-a"]
+                    // convert it to "ls" "-a"
+                    for v in vals {
+                        spanned_args.push(value_as_spanned(v)?)
+                    }
+                }
+                val => spanned_args.push(value_as_spanned(val)?),
+            }
+        }
 
         let command = ExternalCommand {
             name,
-            args,
+            args: spanned_args,
             redirect_stdout,
             redirect_stderr,
             env_vars: env_vars_str,
