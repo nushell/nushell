@@ -69,7 +69,7 @@ Additionally, commands can output structured data (you can think of this as a th
 Commands that work in the pipeline fit into one of three categories:
 
 -   Commands that produce a stream (e.g., `ls`)
--   Commands that filter a stream (eg, `where type == "Dir"`)
+-   Commands that filter a stream (eg, `where type == "dir"`)
 -   Commands that consume the output of the pipeline (e.g., `table`)
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
