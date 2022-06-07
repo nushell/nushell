@@ -1,21 +1,14 @@
 # Contributing
 
-Welcome to nushell!
-
-*Note: for a more complete guide see [The nu contributor book](https://www.nushell.sh/contributor-book/)*
-
-For speedy contributions open it in Gitpod, nu will be pre-installed with the latest build in a VSCode like editor all from your browser.
-
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/nushell/nushell)
+Welcome to Nushell!
 
 To get live support from the community see our [Discord](https://discordapp.com/invite/NtAbbGn), [Twitter](https://twitter.com/nu_shell) or file an issue or feature request here on [GitHub](https://github.com/nushell/nushell/issues/new/choose)!
-<!--WIP-->
 
 ## Developing
 
-### Set up
+### Setup
 
-This is no different than other Rust projects.
+Nushell requires a recent Rust toolchain and some dependencies; [refer to the Nu Book for up-to-date requirements](https://www.nushell.sh/book/installation.html#build-from-source). After installing dependencies, you should be able to clone+build Nu like any other Rust project:
 
 ```bash
 git clone https://github.com/nushell/nushell
@@ -28,24 +21,24 @@ cargo build
 - Build and run Nushell:
 
   ```shell
-  cargo build --release && cargo run --release
+  cargo run
   ```
 
 - Build and run with extra features:
   ```shell
-  cargo build --release --features=extra && cargo run --release --features=extra
+  cargo run --features=extra
   ```
 
 - Run Clippy on Nushell:
 
   ```shell
-  cargo clippy --all --features=stable
+  cargo clippy --workspace --features=extra -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
   ```
 
 - Run all tests:
 
   ```shell
-  cargo test --all --features=stable
+  cargo test --workspace --features=extra
   ```
 
 - Run all tests for a specific command
@@ -71,5 +64,5 @@ cargo build
 - To view verbose logs when developing, enable the `trace` log level.
 
   ```shell
-  cargo build --release --features=extra && cargo run --release --features=extra -- --log-level trace
+  cargo run --release --features=extra -- --log-level trace
   ```
