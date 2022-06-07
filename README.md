@@ -44,7 +44,7 @@ To quickly install Nu:
 # Linux and macOS
 brew install nushell
 # Windows
-winget install Nushell.Nushell
+winget install nushell
 ```
 
 Detailed installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html). Nu is available via many package managers:
