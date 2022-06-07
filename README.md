@@ -1,5 +1,4 @@
-# README
-
+# Nushell <!-- omit in toc -->
 [![Crates.io](https://img.shields.io/crates/v/nu.svg)](https://crates.io/crates/nu)
 ![Build Status](https://img.shields.io/github/workflow/status/nushell/nushell/continuous-integration)
 [![Discord](https://img.shields.io/discord/601130461678272522.svg?logo=discord)](https://discord.gg/NtAbbGn)
@@ -8,54 +7,70 @@
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)
 ![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)
 
-## Nushell
-
 A new type of shell.
 
 ![Example of nushell](images/nushell-autocomplete6.gif "Example of nushell")
 
+## Table of Contents <!-- omit in toc -->
+
+- [Status](#status)
+- [Learning About Nu](#learning-about-nu)
+- [Installation](#installation)
+- [Philosophy](#philosophy)
+  - [Pipelines](#pipelines)
+  - [Opening files](#opening-files)
+  - [Plugins](#plugins)
+- [Goals](#goals)
+- [Progress](#progress)
+- [Officially Supported By](#officially-supported-by)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Status
 
-This project has reached a minimum-viable-product level of quality.
-While contributors dogfood it as their daily driver, it may be unstable for some commands.
-Future releases will work to fill out missing features and improve stability.
-Nu's design is subject to change as it matures.
+This project has reached a minimum-viable-product level of quality. Many people use it as their daily driver, but it may be unstable for some commands. Nu's design is subject to change as it matures.
 
 ## Learning About Nu
 
 The [Nushell book](https://www.nushell.sh/book/) is the primary source of Nushell documentation. You can find [a full list of Nu commands in the book](https://www.nushell.sh/book/command_reference.html), and we have many examples of using Nu in our [cookbook](https://www.nushell.sh/cookbook/).
 
-
-
-
-If you're a developer who would like to contribute to Nu, we're working on a [book for developers](https://www.nushell.sh/contributor-book/) to help you get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
-
-We also have an active [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell); come and chat with us!
+We're also active on [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell); come and chat with us!
 
 ## Installation
 
-Up-to-date build+installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html). Nu is available via many package managers:
+To quickly install Nu:
+
+```bash
+# Linux and macOS
+brew install nushell
+# Windows
+winget install nu
+```
+
+Detailed installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html). Nu is available via many package managers:
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
+
+
 
 ## Philosophy
 
 Nu draws inspiration from projects like PowerShell, functional programming languages, and modern CLI tools.
-Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure.
-For example, when you list the contents of a directory, what you get back is a table of rows, where each row represents an item in that directory.
+Rather than thinking of files and data as raw streams of text, Nu looks at each input as something with structure.
+For example, when you list the contents of a directory what you get back is a table of rows, where each row represents an item in that directory.
 These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
 
 ### Pipelines
 
 In Unix, it's common to pipe between commands to split up a sophisticated command over multiple steps.
 Nu takes this a step further and builds heavily on the idea of _pipelines_.
-Just as the Unix philosophy, Nu allows commands to output to stdout and read from stdin.
+As in the Unix philosophy, Nu allows commands to output to stdout and read from stdin.
 Additionally, commands can output structured data (you can think of this as a third kind of stream).
 Commands that work in the pipeline fit into one of three categories:
 
 -   Commands that produce a stream (e.g., `ls`)
 -   Commands that filter a stream (eg, `where type == "Dir"`)
--   Commands that consume the output of the pipeline (e.g., `autoview`)
+-   Commands that consume the output of the pipeline (e.g., `table`)
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
@@ -119,7 +134,7 @@ For example, you can load a .toml file as structured data and explore it:
 ╰──────────────────┴────────────────────╯
 ```
 
-We can pipeline this into a command that gets the contents of one of the columns:
+We can pipe this into a command that gets the contents of one of the columns:
 
 ```shell
 > open Cargo.toml | get package
@@ -160,13 +175,13 @@ If the plugin is a sink, it is given the full vector of final data and is given 
 
 Nu adheres closely to a set of goals that make up its design philosophy. As features are added, they are checked against these goals.
 
--   First and foremost, Nu is cross-platform. Commands and techniques should carry between platforms and offer consistent first-class support for Windows, macOS, and Linux.
+-   First and foremost, Nu is cross-platform. Commands and techniques should work across platforms and Nu has first-class support for Windows, macOS, and Linux.
 
--   Nu ensures direct compatibility with existing platform-specific executables that make up people's workflows.
+-   Nu ensures compatibility with existing platform-specific executables.
 
--   Nu's workflow and tools should have the usability in day-to-day experience of using a shell in 2019 (and beyond).
+-   Nu's workflow and tools should have the usability expected of modern software in 2022 (and beyond).
 
--   Nu views data as both structured and unstructured. It is a structured shell like PowerShell.
+-   Nu views data as either structured or unstructured. It is a structured shell like PowerShell.
 
 -   Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
 
@@ -195,20 +210,15 @@ Nu is under heavy development and will naturally change as it matures. The chart
 
 Please submit an issue or PR to be added to this list.
 
-###   Integrations
 -   [zoxide](https://github.com/ajeetdsouza/zoxide)
 -   [starship](https://github.com/starship/starship)
 -   [oh-my-posh](https://ohmyposh.dev)
 -   [Couchbase Shell](https://couchbase.sh)
 -   [virtualenv](https://github.com/pypa/virtualenv)
-###   Mentions
--   [The Python Launcher for Unix](https://github.com/brettcannon/python-launcher#how-do-i-get-a-table-of-python-executables-in-nushell)
 
 ## Contributing
 
-See [Contributing](CONTRIBUTING.md) for details.
-
-Thanks to all the people who already contributed!
+See [Contributing](CONTRIBUTING.md) for details. Thanks to all the people who already contributed!
 
 <a href="https://github.com/nushell/nushell/graphs/contributors">
   <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=500" />
