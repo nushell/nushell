@@ -104,32 +104,25 @@ Additionally, commands can output structured data (you can think of this as a th
 Commands that work in the pipeline fit into one of three categories:
 
 -   Commands that produce a stream (e.g., `ls`)
--   Commands that filter a stream (eg, `where type == "Dir"`)
+-   Commands that filter a stream (eg, `where type == "dir"`)
 -   Commands that consume the output of the pipeline (e.g., `autoview`)
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
 ```shell
-> ls | where type == "Dir" | autoview
+> ls | where type == "dir"
 ───┬────────┬──────┬───────┬──────────────
  # │ name   │ type │ size  │ modified
 ───┼────────┼──────┼───────┼──────────────
- 0 │ assets │ Dir  │ 128 B │ 5 months ago
- 1 │ crates │ Dir  │ 704 B │ 50 mins ago
- 2 │ debian │ Dir  │ 352 B │ 5 months ago
- 3 │ docs   │ Dir  │ 192 B │ 50 mins ago
- 4 │ images │ Dir  │ 160 B │ 5 months ago
- 5 │ src    │ Dir  │ 128 B │ 1 day ago
- 6 │ target │ Dir  │ 160 B │ 5 days ago
- 7 │ tests  │ Dir  │ 192 B │ 3 months ago
+ 0 │ assets │ dir  │ 128 B │ 5 months ago
+ 1 │ crates │ dir  │ 704 B │ 50 mins ago
+ 2 │ debian │ dir  │ 352 B │ 5 months ago
+ 3 │ docs   │ dir  │ 192 B │ 50 mins ago
+ 4 │ images │ dir  │ 160 B │ 5 months ago
+ 5 │ src    │ dir  │ 128 B │ 1 day ago
+ 6 │ target │ dir  │ 160 B │ 5 days ago
+ 7 │ tests  │ dir  │ 192 B │ 3 months ago
 ───┴────────┴──────┴───────┴──────────────
-```
-
-Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed.
-We could have also written the above:
-
-```shell
-> ls | where type == Dir
 ```
 
 Being able to use the same commands and compose them differently is an important philosophy in Nu.
