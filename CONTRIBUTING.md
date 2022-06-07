@@ -24,7 +24,7 @@ cargo build
   cargo run
   ```
 
-- Build and run with extra features:
+- Build and run with extra features. Currently extra features include dataframes and sqlite database support.
   ```shell
   cargo run --features=extra
   ```
