@@ -58,12 +58,17 @@ impl NuCompleter {
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let res = find_alias(line.as_bytes(), &working_set);
-        let offset = working_set.next_span_start();
+        let (is_alias, new_line) = find_alias(line.as_bytes(), &working_set);
+        let span_offset = working_set.next_span_start();
         let initial_line = line.to_string();
         let mut line = line.to_string();
-        line.insert(pos, 'a');
-        let pos = offset + pos;
+        let mut alias_offset = 0;
+        if is_alias {
+            alias_offset = new_line.len() - line.len();
+            line = new_line;
+        }
+        line.insert(pos+alias_offset, 'a');
+        let pos = span_offset + pos;
         let (output, _err) = parse(
             &mut working_set,
             Some("completer"),
@@ -77,20 +82,20 @@ impl NuCompleter {
                 let flattened: Vec<_> = flatten_expression(&working_set, &expr);
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
-                    if pos >= flat.0.start && pos < flat.0.end {
+                    if pos >= flat.0.start - alias_offset && pos < flat.0.end - alias_offset {
                         // Context variables
                         let most_left_var =
                             most_left_variable(flat_idx, &working_set, flattened.clone());
 
                         // Create a new span
                         let new_span = Span {
-                            start: flat.0.start,
-                            end: flat.0.end - 1,
+                            start: flat.0.start - alias_offset,
+                            end: flat.0.end - 1 - alias_offset,
                         };
 
                         // Parses the prefix
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
-                        prefix.remove(pos - flat.0.start);
+                        prefix.remove(pos - (flat.0.start - alias_offset));
 
                         // Completions that depends on the previous expression (e.g: use, source)
                         if flat_idx > 0 {
@@ -109,7 +114,7 @@ impl NuCompleter {
                                         &working_set,
                                         prefix,
                                         new_span,
-                                        offset,
+                                        span_offset,
                                         pos,
                                     );
                                 }
@@ -129,7 +134,7 @@ impl NuCompleter {
                                 &working_set,
                                 prefix,
                                 new_span,
-                                offset,
+                                span_offset,
                                 pos,
                             );
                         }
@@ -143,7 +148,7 @@ impl NuCompleter {
                                 &working_set,
                                 prefix,
                                 new_span,
-                                offset,
+                                span_offset,
                                 pos,
                             );
                         }
@@ -163,7 +168,7 @@ impl NuCompleter {
                                     &working_set,
                                     prefix,
                                     new_span,
-                                    offset,
+                                    span_offset,
                                     pos,
                                 );
                             }
@@ -176,7 +181,7 @@ impl NuCompleter {
                                     &working_set,
                                     prefix,
                                     new_span,
-                                    offset,
+                                    span_offset,
                                     pos,
                                 );
                             }
@@ -194,7 +199,7 @@ impl NuCompleter {
                                     &working_set,
                                     prefix.clone(),
                                     new_span,
-                                    offset,
+                                    span_offset,
                                     pos,
                                 );
 
@@ -207,7 +212,7 @@ impl NuCompleter {
                                         &working_set,
                                         prefix,
                                         new_span,
-                                        offset,
+                                        span_offset,
                                         pos,
                                     );
                                 }
@@ -230,11 +235,24 @@ impl ReedlineCompleter for NuCompleter {
     }
 }
 
-fn find_alias<'a>(input: &'a [u8], working_set: &'a StateWorkingSet) -> Vec<&'a u8> {
-    let mut names: Vec<&[u8]> = vec![];
+// fn parse_input (){
+//             line.insert(pos, 'a');
+//             let pos = offset + pos;
+//             let (output, _err) = parse(
+//                 &mut working_set,
+//                 Some("completer"),
+//                 line.as_bytes(),
+//                 false,
+//                 &[],
+//             );
+// }
+
+fn find_alias(input: &[u8], working_set: &StateWorkingSet) -> (bool, String) {
+    let mut names: Vec<_> = vec![];
     let mut vec_alias: Vec<_> = vec![];
     let mut pos = 0;
     let mut count_of_whitespace = 0;
+    let mut is_alias = false;
     for (index, character) in input.iter().enumerate() {
         if *character == b' ' {
             let range = &input[pos..index];
@@ -246,20 +264,28 @@ fn find_alias<'a>(input: &'a [u8], working_set: &'a StateWorkingSet) -> Vec<&'a 
     for name in names {
         if let Some(alias_id) = working_set.find_alias(name) {
             let alias_span = working_set.get_alias(alias_id);
+            is_alias = true;
             for alias in alias_span {
                 let name = working_set.get_span_contents(*alias);
                 if !name.is_empty() {
-                    vec_alias.push(name);
+                    vec_alias.push(name.to_vec());
                 }
             }
+            if count_of_whitespace > 0 {
+                vec_alias.push(vec![b' ']);
+            }
         } else {
-            vec_alias.push(name);
+            vec_alias.push(name.to_vec());
+            if count_of_whitespace > 0 {
+                vec_alias.push(vec![b' ']);
+            }
         }
     }
 
     let out: Vec<_> = vec_alias.into_iter().flatten().collect();
+    let line = String::from_utf8_lossy(&out).to_string();
 
-    out
+    (is_alias, line)
 }
 
 // reads the most left variable returning it's name (e.g: $myvar)
