@@ -1177,7 +1177,7 @@ pub fn create_scope(
     let engine_state_cols = vec![
         "source_bytes".to_string(),
         "num_vars".to_string(),
-        "num_decls".to_string(),
+        "num_commands".to_string(),
         "num_aliases".to_string(),
         "num_blocks".to_string(),
         "num_modules".to_string(),
