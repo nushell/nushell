@@ -36,7 +36,7 @@ impl Command for Transpose {
             )
             .switch(
                 "as-record",
-                "transfer to record if the result is a table contains only one row",
+                "transfer to record if the result is a table and contains only one row",
                 Some('d'),
             )
             .rest(
