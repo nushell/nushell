@@ -14,6 +14,7 @@ pub struct TransposeArgs {
     rest: Vec<Spanned<String>>,
     header_row: bool,
     ignore_titles: bool,
+    as_record: bool,
 }
 
 impl Command for Transpose {
@@ -32,6 +33,11 @@ impl Command for Transpose {
                 "ignore-titles",
                 "don't transpose the column names into values",
                 Some('i'),
+            )
+            .switch(
+                "as-record",
+                "transfer to record if the result is a table and contains only one row",
+                Some('d'),
             )
             .rest(
                 "rest",
@@ -119,6 +125,15 @@ impl Command for Transpose {
                     span,
                 }),
             },
+            Example {
+                description: "Transfer back to record with -d flag",
+                example: "echo {c1: 1, c2: 2} | transpose | transpose -i -r -d",
+                result: Some(Value::Record {
+                    cols: vec!["c1".to_string(), "c2".to_string()],
+                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                    span,
+                }),
+            },
         ]
     }
 }
@@ -133,6 +148,7 @@ pub fn transpose(
     let transpose_args = TransposeArgs {
         header_row: call.has_flag("header-row"),
         ignore_titles: call.has_flag("ignore-titles"),
+        as_record: call.has_flag("as-record"),
         rest: call.rest(engine_state, stack, 0)?,
     };
 
@@ -208,39 +224,50 @@ pub fn transpose(
         descs
     };
 
-    Ok((descs.into_iter().map(move |desc| {
-        let mut column_num: usize = 0;
-        let mut cols = vec![];
-        let mut vals = vec![];
+    let mut result_data = descs
+        .into_iter()
+        .map(move |desc| {
+            let mut column_num: usize = 0;
+            let mut cols = vec![];
+            let mut vals = vec![];
 
-        if !args.ignore_titles && !args.header_row {
-            cols.push(headers[column_num].clone());
-            vals.push(Value::string(desc.clone(), name));
-            column_num += 1
-        }
-
-        for i in input.clone() {
-            match &i.get_data_by_key(&desc) {
-                Some(x) => {
-                    cols.push(headers[column_num].clone());
-                    vals.push(x.clone());
-                }
-                _ => {
-                    cols.push(headers[column_num].clone());
-                    vals.push(Value::nothing(name));
-                }
+            if !args.ignore_titles && !args.header_row {
+                cols.push(headers[column_num].clone());
+                vals.push(Value::string(desc.clone(), name));
+                column_num += 1
             }
-            column_num += 1;
-        }
 
-        Value::Record {
-            cols,
-            vals,
-            span: name,
-        }
-    }))
-    .into_pipeline_data(ctrlc)
-    .set_metadata(metadata))
+            for i in input.clone() {
+                match &i.get_data_by_key(&desc) {
+                    Some(x) => {
+                        cols.push(headers[column_num].clone());
+                        vals.push(x.clone());
+                    }
+                    _ => {
+                        cols.push(headers[column_num].clone());
+                        vals.push(Value::nothing(name));
+                    }
+                }
+                column_num += 1;
+            }
+
+            Value::Record {
+                cols,
+                vals,
+                span: name,
+            }
+        })
+        .collect::<Vec<Value>>();
+    if result_data.len() == 1 && args.as_record {
+        Ok(PipelineData::Value(
+            result_data
+                .pop()
+                .expect("already check result only contains one item"),
+            metadata,
+        ))
+    } else {
+        Ok(result_data.into_pipeline_data(ctrlc).set_metadata(metadata))
+    }
 }
 
 #[cfg(test)]
