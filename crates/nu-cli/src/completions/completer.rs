@@ -58,6 +58,7 @@ impl NuCompleter {
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
+        let res = find_alias(line.as_bytes(), &working_set);
         let offset = working_set.next_span_start();
         let initial_line = line.to_string();
         let mut line = line.to_string();
@@ -227,6 +228,38 @@ impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         self.completion_helper(line, pos)
     }
+}
+
+fn find_alias<'a>(input: &'a [u8], working_set: &'a StateWorkingSet) -> Vec<&'a u8> {
+    let mut names: Vec<&[u8]> = vec![];
+    let mut vec_alias: Vec<_> = vec![];
+    let mut pos = 0;
+    let mut count_of_whitespace = 0;
+    for (index, character) in input.iter().enumerate() {
+        if *character == b' ' {
+            let range = &input[pos..index];
+            names.push(range);
+            count_of_whitespace += 1;
+            pos = index + 1;
+        }
+    }
+    for name in names {
+        if let Some(alias_id) = working_set.find_alias(name) {
+            let alias_span = working_set.get_alias(alias_id);
+            for alias in alias_span {
+                let name = working_set.get_span_contents(*alias);
+                if !name.is_empty() {
+                    vec_alias.push(name);
+                }
+            }
+        } else {
+            vec_alias.push(name);
+        }
+    }
+
+    let out: Vec<_> = vec_alias.into_iter().flatten().collect();
+
+    out
 }
 
 // reads the most left variable returning it's name (e.g: $myvar)
