@@ -725,7 +725,7 @@ impl EngineState {
 
     #[cfg(windows)]
     pub fn get_sig_quit(&self) -> &Option<Arc<AtomicBool>> {
-        None
+        &None
     }
 
     #[cfg(not(windows))]

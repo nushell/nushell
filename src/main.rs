@@ -79,7 +79,7 @@ fn main() -> Result<()> {
         use signal_hook::consts::SIGQUIT;
         let sig_quit = Arc::new(AtomicBool::new(false));
         signal_hook::flag::register(SIGQUIT, sig_quit.clone()).expect("Error setting SIGQUIT flag");
-        engine_state.set_sig_quit(sig_quit.clone());
+        engine_state.set_sig_quit(sig_quit);
     }
     // End SIGQUIT protection section
 
