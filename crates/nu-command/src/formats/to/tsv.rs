@@ -29,7 +29,7 @@ impl Command for ToTsv {
         vec![Example {
             description: "Outputs an TSV string representing the contents of this table",
             example: "[[foo bar]; [1 2]] | to tsv",
-            result: Some(Value::test_string("foo\tbar\n1\t2\n")),
+            result: Some(Value::String("foo\tbar\n1\t2\n".into())),
         }]
     }
 

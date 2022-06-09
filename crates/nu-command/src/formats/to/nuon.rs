@@ -41,14 +41,14 @@ impl Command for ToNuon {
         vec![Example {
             description: "Outputs a nuon string representing the contents of this list",
             example: "[1 2 3] | to nuon",
-            result: Some(Value::test_string("[1, 2, 3]")),
+            result: Some(Value::String("[1, 2, 3]".into())),
         }]
     }
 }
 
 fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     match v {
-        Value::Binary { val, .. } => {
+        Value::Binary(val) => {
             let mut s = String::with_capacity(2 * val.len());
             for byte in val {
                 if write!(s, "{:02X}", byte).is_err() {
@@ -64,7 +64,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             "block not supported".into(),
             span,
         )),
-        Value::Bool { val, .. } => {
+        Value::Bool(val) => {
             if *val {
                 Ok("true".to_string())
             } else {
@@ -79,16 +79,16 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             "custom not supported".to_string(),
             span,
         )),
-        Value::Date { val, .. } => Ok(val.to_rfc3339()),
-        Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
+        Value::Date(val) => Ok(val.to_rfc3339()),
+        Value::Duration(val) => Ok(format!("{}ns", *val)),
         Value::Error { .. } => Err(ShellError::UnsupportedInput(
             "error not supported".to_string(),
             span,
         )),
-        Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
-        Value::Float { val, .. } => Ok(format!("{}", *val)),
-        Value::Int { val, .. } => Ok(format!("{}", *val)),
-        Value::List { vals, .. } => {
+        Value::Filesize(val) => Ok(format!("{}b", *val)),
+        Value::Float(val) => Ok(format!("{}", *val)),
+        Value::Int(val) => Ok(format!("{}", *val)),
+        Value::List(vals) => {
             let headers = get_columns(vals);
             if !headers.is_empty() && vals.iter().all(|x| x.columns() == headers) {
                 // Table output
@@ -120,8 +120,8 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                 Ok(format!("[{}]", collection.join(", ")))
             }
         }
-        Value::Nothing { .. } => Ok("$nothing".to_string()),
-        Value::Range { val, .. } => Ok(format!(
+        Value::Nothing => Ok("$nothing".to_string()),
+        Value::Range(val) => Ok(format!(
             "{}..{}{}",
             value_to_string(&val.from, span)?,
             if val.inclusion == RangeInclusion::RightExclusive {
@@ -138,7 +138,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             }
             Ok(format!("{{{}}}", collection.join(", ")))
         }
-        Value::String { val, .. } => Ok(escape_quote_string(val)),
+        Value::String(val) => Ok(escape_quote_string(val)),
     }
 }
 

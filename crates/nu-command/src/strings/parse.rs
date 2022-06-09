@@ -34,7 +34,7 @@ impl Command for Parse {
         let result = Value::List {
             vals: vec![Value::Record {
                 cols: vec!["foo".to_string(), "bar".to_string()],
-                vals: vec![Value::test_string("hi"), Value::test_string("there")],
+                vals: vec![Value::String("hi".into()), Value::String("there".into())],
                 span: Span::test_data(),
             }],
             span: Span::test_data(),

@@ -36,7 +36,7 @@ impl Command for Describe {
         } else {
             let value = input.into_value(call.head);
             let description = match value {
-                Value::CustomValue { val, .. } => val.value_string(),
+                Value::CustomValue(val) => val.value_string(),
                 _ => value.get_type().to_string(),
             };
 
@@ -52,7 +52,7 @@ impl Command for Describe {
         vec![Example {
             description: "Describe the type of a string",
             example: "'hello' | describe",
-            result: Some(Value::test_string("string")),
+            result: Some(Value::String("string".into())),
         }]
     }
 

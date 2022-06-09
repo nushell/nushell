@@ -52,7 +52,7 @@ impl Command for Compact {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["Hello".into(), "World".into()],
-                        vals: vec![Value::nothing(Span::test_data()), Value::test_int(3)],
+                        vals: vec![Value::nothing(Span::test_data()), Value::Int(3)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -62,7 +62,7 @@ impl Command for Compact {
                 description: "Filter out all instances of nothing from a list (Returns [1,2])",
                 example: r#"echo [1, $nothing, 2] | compact"#,
                 result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                    vals: vec![Value::Int(1), Value::Int(2)],
                     span: Span::test_data(),
                 }),
             },
@@ -83,13 +83,13 @@ pub fn compact(
             move |item| {
                 match item {
                     // Nothing is filtered out
-                    Value::Nothing { .. } => false,
+                    Value::Nothing => false,
                     Value::Record { .. } => {
                         for column in columns.iter() {
                             match item.get_data_by_key(column) {
                                 None => return false,
                                 Some(x) => {
-                                    if let Value::Nothing { .. } = x {
+                                    if let Value::Nothing = x {
                                         return false;
                                     }
                                 }

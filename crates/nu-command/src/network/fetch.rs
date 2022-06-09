@@ -174,7 +174,7 @@ impl Command for SubCommand {
                             };
 
                         match output {
-                            Value::String { val, .. } => {
+                            Value::String(val) => {
                                 if let Err(err) = file.write_all(val.as_bytes()) {
                                     return Err(ShellError::IOError(err.to_string()));
                                 } else {
@@ -183,7 +183,7 @@ impl Command for SubCommand {
 
                                 Ok(PipelineData::new(span))
                             }
-                            Value::Binary { val, .. } => {
+                            Value::Binary(val) => {
                                 if let Err(err) = file.write_all(&val) {
                                     return Err(ShellError::IOError(err.to_string()));
                                 } else {
@@ -192,7 +192,7 @@ impl Command for SubCommand {
 
                                 Ok(PipelineData::new(span))
                             }
-                            Value::List { vals, .. } => {
+                            Value::List(vals) => {
                                 let val = vals
                                     .into_iter()
                                     .map(|it| it.as_string())
@@ -228,8 +228,8 @@ impl Command for SubCommand {
                                     .try_for_each(move |result| {
                                         let buf = match result {
                                             Ok(v) => match v {
-                                                Value::String { val, .. } => val.into_bytes(),
-                                                Value::Binary { val, .. } => val,
+                                                Value::String(val) => val.into_bytes(),
+                                                Value::Binary(val) => val,
                                                 _ => {
                                                     return Err(ShellError::UnsupportedInput(
                                                         format!("{:?} not supported", v.get_type()),
@@ -248,7 +248,7 @@ impl Command for SubCommand {
                                     .map(|_| PipelineData::new(span))
                             }
                             value => match value.into_value(span) {
-                                Value::String { val, .. } => {
+                                Value::String(val) => {
                                     if let Err(err) = file.write_all(val.as_bytes()) {
                                         return Err(ShellError::IOError(err.to_string()));
                                     } else {
@@ -257,7 +257,7 @@ impl Command for SubCommand {
 
                                     Ok(PipelineData::new(span))
                                 }
-                                Value::Binary { val, .. } => {
+                                Value::Binary(val) => {
                                     if let Err(err) = file.write_all(&val) {
                                         return Err(ShellError::IOError(err.to_string()));
                                     } else {
@@ -266,7 +266,7 @@ impl Command for SubCommand {
 
                                     Ok(PipelineData::new(span))
                                 }
-                                Value::List { vals, .. } => {
+                                Value::List(vals) => {
                                     let val = vals
                                         .into_iter()
                                         .map(|it| it.as_string())

@@ -69,7 +69,7 @@ impl Command for SubCommand {
             Example {
                 description: "Get basename of a path",
                 example: "'C:\\Users\\joe\\test.txt' | path basename",
-                result: Some(Value::test_string("test.txt")),
+                result: Some(Value::String("test.txt".into())),
             },
             Example {
                 description: "Get basename of a path in a column",
@@ -82,7 +82,7 @@ impl Command for SubCommand {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["name".to_string()],
-                        vals: vec![Value::test_string("Joe")],
+                        vals: vec![Value::String("Joe".into())],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -91,7 +91,7 @@ impl Command for SubCommand {
             Example {
                 description: "Replace basename of a path",
                 example: "'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
-                result: Some(Value::test_string("C:\\Users\\joe\\spam.png")),
+                result: Some(Value::String("C:\\Users\\joe\\spam.png".into())),
             },
         ]
     }
@@ -102,7 +102,7 @@ impl Command for SubCommand {
             Example {
                 description: "Get basename of a path",
                 example: "'/home/joe/test.txt' | path basename",
-                result: Some(Value::test_string("test.txt")),
+                result: Some(Value::String("test.txt".into())),
             },
             Example {
                 description: "Get basename of a path by column",
@@ -110,7 +110,7 @@ impl Command for SubCommand {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["name".to_string()],
-                        vals: vec![Value::test_string("joe")],
+                        vals: vec![Value::String("joe".into())],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -119,7 +119,7 @@ impl Command for SubCommand {
             Example {
                 description: "Replace basename of a path",
                 example: "'/home/joe/test.txt' | path basename -r 'spam.png'",
-                result: Some(Value::test_string("/home/joe/spam.png")),
+                result: Some(Value::String("/home/joe/spam.png".into())),
             },
         ]
     }

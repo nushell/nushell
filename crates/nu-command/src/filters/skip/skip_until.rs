@@ -33,7 +33,7 @@ impl Command for SkipUntil {
             description: "Skip until the element is positive",
             example: "echo [-2 0 2 -1] | skip until $it > 0",
             result: Some(Value::List {
-                vals: vec![Value::test_int(2), Value::test_int(-1)],
+                vals: vec![Value::Int(2), Value::test_int(-1)],
                 span: Span::test_data(),
             }),
         }]

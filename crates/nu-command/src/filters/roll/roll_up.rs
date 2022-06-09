@@ -35,17 +35,17 @@ impl Command for RollUp {
                 vals: vec![
                     Value::Record {
                         cols: columns.clone(),
-                        vals: vec![Value::test_int(3), Value::test_int(4)],
+                        vals: vec![Value::Int(3), Value::Int(4)],
                         span: Span::test_data(),
                     },
                     Value::Record {
                         cols: columns.clone(),
-                        vals: vec![Value::test_int(5), Value::test_int(6)],
+                        vals: vec![Value::Int(5), Value::Int(6)],
                         span: Span::test_data(),
                     },
                     Value::Record {
                         cols: columns,
-                        vals: vec![Value::test_int(1), Value::test_int(2)],
+                        vals: vec![Value::Int(1), Value::Int(2)],
                         span: Span::test_data(),
                     },
                 ],

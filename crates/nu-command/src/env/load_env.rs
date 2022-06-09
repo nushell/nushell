@@ -88,12 +88,12 @@ impl Command for LoadEnv {
             Example {
                 description: "Load variables from an input stream",
                 example: r#"{NAME: ABE, AGE: UNKNOWN} | load-env; echo $env.NAME"#,
-                result: Some(Value::test_string("ABE")),
+                result: Some(Value::String("ABE".into())),
             },
             Example {
                 description: "Load variables from an argument",
                 example: r#"load-env {NAME: ABE, AGE: UNKNOWN}; echo $env.NAME"#,
-                result: Some(Value::test_string("ABE")),
+                result: Some(Value::String("ABE".into())),
             },
         ]
     }

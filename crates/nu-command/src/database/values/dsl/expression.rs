@@ -81,14 +81,14 @@ impl CustomValue for ExprDb {
     ) -> Result<Value, ShellError> {
         let right_expr = match right {
             Value::CustomValue { .. } => ExprDb::try_from_value(right).map(ExprDb::into_native),
-            Value::String { val, .. } => Ok(Expr::Value(
-                sqlparser::ast::Value::SingleQuotedString(val.clone()),
-            )),
-            Value::Int { val, .. } => Ok(Expr::Value(sqlparser::ast::Value::Number(
+            Value::String(val) => Ok(Expr::Value(sqlparser::ast::Value::SingleQuotedString(
+                val.clone(),
+            ))),
+            Value::Int(val) => Ok(Expr::Value(sqlparser::ast::Value::Number(
                 format!("{}", val),
                 false,
             ))),
-            Value::Bool { val, .. } => Ok(Expr::Value(sqlparser::ast::Value::Boolean(*val))),
+            Value::Bool(val) => Ok(Expr::Value(sqlparser::ast::Value::Boolean(*val))),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: Type::Custom,
@@ -143,12 +143,12 @@ impl ExprDb {
                     None,
                 )),
             },
-            Value::String { val, .. } => Ok(Expr::Identifier(Ident {
+            Value::String(val) => Ok(Expr::Identifier(Ident {
                 value: val.clone(),
                 quote_style: None,
             })
             .into()),
-            Value::Int { val, .. } => {
+            Value::Int(val) => {
                 Ok(Expr::Value(sqlparser::ast::Value::Number(format!("{}", val), false)).into())
             }
             x => Err(ShellError::CantConvert(
@@ -204,7 +204,7 @@ impl ExtractedExpr {
 
     fn extract_exprs(value: Value) -> Result<ExtractedExpr, ShellError> {
         match value {
-            Value::String { val, .. } => {
+            Value::String(val) => {
                 let expr = Expr::Identifier(Ident {
                     value: val,
                     quote_style: None,
@@ -212,12 +212,12 @@ impl ExtractedExpr {
 
                 Ok(ExtractedExpr::Single(expr))
             }
-            Value::Int { val, .. } => {
+            Value::Int(val) => {
                 let expr = Expr::Value(sqlparser::ast::Value::Number(format!("{}", val), false));
 
                 Ok(ExtractedExpr::Single(expr))
             }
-            Value::Bool { val, .. } => {
+            Value::Bool(val) => {
                 let expr = Expr::Value(sqlparser::ast::Value::Boolean(val));
 
                 Ok(ExtractedExpr::Single(expr))
@@ -226,7 +226,7 @@ impl ExtractedExpr {
                 let expr = ExprDb::try_from_value(&value)?.into_native();
                 Ok(ExtractedExpr::Single(expr))
             }
-            Value::List { vals, .. } => vals
+            Value::List(vals) => vals
                 .into_iter()
                 .map(Self::extract_exprs)
                 .collect::<Result<Vec<ExtractedExpr>, ShellError>>()

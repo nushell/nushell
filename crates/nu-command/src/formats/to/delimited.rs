@@ -92,8 +92,8 @@ fn to_string_tagged_value(v: &Value, config: &Config, span: Span) -> Result<Stri
         | Value::List { .. }
         | Value::Record { .. }
         | Value::Float { .. } => Ok(v.clone().into_abbreviated_string(config)),
-        Value::Date { val, .. } => Ok(val.to_string()),
-        Value::Nothing { .. } => Ok(String::new()),
+        Value::Date(val) => Ok(val.to_string()),
+        Value::Nothing => Ok(String::new()),
         _ => Err(ShellError::UnsupportedInput(
             "Unexpected value".to_string(),
             v.span().unwrap_or(span),

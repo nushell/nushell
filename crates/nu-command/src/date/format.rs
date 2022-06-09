@@ -113,8 +113,8 @@ where
 
 fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span: Span) -> Value {
     match value {
-        Value::Date { val, .. } => format_from(val, formatter, formatter_span),
-        Value::String { val, .. } => {
+        Value::Date(val) => format_from(val, formatter, formatter_span),
+        Value::String(val) => {
             let dt = parse_date_from_string(&val, formatter_span);
 
             match dt {
@@ -122,7 +122,7 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
                 Err(e) => e,
             }
         }
-        Value::Nothing { .. } => {
+        Value::Nothing => {
             let dt = Local::now();
             format_from(dt, formatter, formatter_span)
         }

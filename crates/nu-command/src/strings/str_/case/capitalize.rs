@@ -67,7 +67,7 @@ impl Command for SubCommand {
                                 val: "Nu_test".to_string(),
                                 span: Span::test_data(),
                             },
-                            Value::test_int(100),
+                            Value::Int(100),
                         ],
                     }],
                     span: Span::test_data(),
@@ -107,7 +107,7 @@ fn operate(
 
 fn action(input: &Value, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::String {
+        Value::String(val) => Value::String {
             val: uppercase_helper(val),
             span: head,
         },

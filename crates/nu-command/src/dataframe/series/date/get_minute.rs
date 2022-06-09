@@ -32,7 +32,7 @@ impl Command for GetMinute {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(39), Value::test_int(39)],
+                    vec![Value::Int(39), Value::Int(39)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

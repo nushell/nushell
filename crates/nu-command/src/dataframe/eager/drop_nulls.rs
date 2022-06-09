@@ -40,18 +40,9 @@ impl Command for DropNulls {
     $a | dfr drop-nulls"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(1)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(2)],
-                        ),
-                        Column::new(
-                            "res".to_string(),
-                            vec![Value::test_int(1), Value::test_int(1)],
-                        ),
+                        Column::new("a".to_string(), vec![Value::Int(1), Value::Int(1)]),
+                        Column::new("b".to_string(), vec![Value::Int(2), Value::Int(2)]),
+                        Column::new("res".to_string(), vec![Value::Int(1), Value::Int(1)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -64,12 +55,7 @@ impl Command for DropNulls {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "div_0_0".to_string(),
-                        vec![
-                            Value::test_int(1),
-                            Value::test_int(1),
-                            Value::test_int(1),
-                            Value::test_int(1),
-                        ],
+                        vec![Value::Int(1), Value::Int(1), Value::Int(1), Value::Int(1)],
                     )])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

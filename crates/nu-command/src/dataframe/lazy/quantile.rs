@@ -36,8 +36,8 @@ impl Command for LazyQuantile {
                 example: "[[a b]; [6 2] [1 4] [4 1]] | dfr to-df | dfr quantile 0.5",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new("a".to_string(), vec![Value::test_float(4.0)]),
-                        Column::new("b".to_string(), vec![Value::test_float(2.0)]),
+                        Column::new("a".to_string(), vec![Value::Float(4.0)]),
+                        Column::new("b".to_string(), vec![Value::Float(2.0)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -53,12 +53,9 @@ impl Command for LazyQuantile {
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
                             "a".to_string(),
-                            vec![Value::test_string("one"), Value::test_string("two")],
+                            vec![Value::String("one".into()), Value::String("two".into())],
                         ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_float(4.0), Value::test_float(1.0)],
-                        ),
+                        Column::new("b".to_string(), vec![Value::Float(4.0), Value::Float(1.0)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

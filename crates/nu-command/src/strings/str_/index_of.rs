@@ -66,12 +66,12 @@ impl Command for SubCommand {
             Example {
                 description: "Returns index of pattern in string",
                 example: " 'my_library.rb' | str index-of '.rb'",
-                result: Some(Value::test_int(10)),
+                result: Some(Value::Int(10)),
             },
             Example {
                 description: "Returns index of pattern in string with start index",
                 example: " '.rb.rb' | str index-of '.rb' -r '1,'",
-                result: Some(Value::test_int(3)),
+                result: Some(Value::Int(3)),
             },
             Example {
                 description: "Returns index of pattern in string with end index",
@@ -81,17 +81,17 @@ impl Command for SubCommand {
             Example {
                 description: "Returns index of pattern in string with start and end index",
                 example: " '123456' | str index-of '3' -r '1,4'",
-                result: Some(Value::test_int(2)),
+                result: Some(Value::Int(2)),
             },
             Example {
                 description: "Alternatively you can use this form",
                 example: " '123456' | str index-of '3' -r [1 4]",
-                result: Some(Value::test_int(2)),
+                result: Some(Value::Int(2)),
             },
             Example {
                 description: "Returns index of pattern in string",
                 example: " '/this/is/some/path/file.txt' | str index-of '/' -e",
-                result: Some(Value::test_int(18)),
+                result: Some(Value::Int(18)),
             },
         ]
     }
@@ -219,7 +219,7 @@ fn process_range(
 
             Ok((start_index, end_index))
         }
-        Value::List { vals, .. } => {
+        Value::List(vals) => {
             if vals.len() > 2 {
                 Err(ShellError::UnsupportedInput(
                     String::from("there shouldn't be more than two indexes. too many indexes"),
@@ -300,7 +300,7 @@ mod tests {
 
         let actual = action(&word, &options, Span::test_data());
 
-        assert_eq!(actual, Value::test_int(5));
+        assert_eq!(actual, Value::Int(5));
     }
     #[test]
     fn index_of_does_not_exist_in_string() {
@@ -344,7 +344,7 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, Value::test_int(6));
+        assert_eq!(actual, Value::Int(6));
     }
 
     #[test]
@@ -388,7 +388,7 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, Value::test_int(3));
+        assert_eq!(actual, Value::Int(3));
     }
 
     #[test]

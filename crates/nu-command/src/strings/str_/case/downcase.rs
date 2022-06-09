@@ -135,7 +135,7 @@ fn operate(
 
 fn action(input: &Value, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::String {
+        Value::String(val) => Value::String {
             val: val.to_ascii_lowercase(),
             span: head,
         },

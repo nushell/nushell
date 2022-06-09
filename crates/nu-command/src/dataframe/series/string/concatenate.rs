@@ -39,9 +39,9 @@ impl Command for Concatenate {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
                     vec![
-                        Value::test_string("abcza"),
-                        Value::test_string("abcxs"),
-                        Value::test_string("abccd"),
+                        Value::String("abcza".into()),
+                        Value::String("abcxs".into()),
+                        Value::String("abccd".into()),
                     ],
                 )])
                 .expect("simple df for test should not fail")

@@ -69,7 +69,7 @@ pub fn eval(
             )),
         }
     } else {
-        if let PipelineData::Value(Value::Nothing { .. }, ..) = input {
+        if let PipelineData::Value(Value::Nothing, ..) = input {
             return Ok(input);
         }
         input.map(

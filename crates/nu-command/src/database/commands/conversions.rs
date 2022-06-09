@@ -8,7 +8,7 @@ pub fn value_into_table_factor(
     alias: Option<TableAlias>,
 ) -> Result<TableFactor, ShellError> {
     match table {
-        Value::String { val, .. } => {
+        Value::String(val) => {
             let ident = sqlparser::ast::Ident {
                 value: val,
                 quote_style: None,

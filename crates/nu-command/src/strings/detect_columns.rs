@@ -59,9 +59,9 @@ impl Command for DetectColumns {
                             "column2".to_string(),
                         ],
                         vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
+                            Value::String("a".into()),
+                            Value::String("b".into()),
+                            Value::String("c".into()),
                         ],
                         span,
                     }],

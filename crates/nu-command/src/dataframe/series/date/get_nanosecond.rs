@@ -32,7 +32,7 @@ impl Command for GetNanosecond {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(0), Value::test_int(0)],
+                    vec![Value::Int(0), Value::Int(0)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

@@ -69,12 +69,7 @@ impl Command for Rolling {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0_rolling_sum".to_string(),
-                        vec![
-                            Value::test_int(3),
-                            Value::test_int(5),
-                            Value::test_int(7),
-                            Value::test_int(9),
-                        ],
+                        vec![Value::Int(3), Value::Int(5), Value::Int(7), Value::Int(9)],
                     )])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -86,12 +81,7 @@ impl Command for Rolling {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0_rolling_max".to_string(),
-                        vec![
-                            Value::test_int(2),
-                            Value::test_int(3),
-                            Value::test_int(4),
-                            Value::test_int(5),
-                        ],
+                        vec![Value::Int(2), Value::Int(3), Value::Int(4), Value::Int(5)],
                     )])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

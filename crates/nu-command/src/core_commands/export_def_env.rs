@@ -49,10 +49,7 @@ impl Command for ExportDefEnv {
         vec![Example {
             description: "Define a custom command that participates in the environment in a module and call it",
             example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
-            result: Some(Value::String {
-                val: "BAZ".to_string(),
-                span: Span::test_data(),
-            }),
+            result: Some(Value::String ( "BAZ".to_string() )),
         }]
     }
 }

@@ -40,8 +40,8 @@ impl Command for FilterWith {
     [[a b]; [1 2] [3 4]] | dfr to-df | dfr filter-with $mask"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new("a".to_string(), vec![Value::test_int(1)]),
-                        Column::new("b".to_string(), vec![Value::test_int(2)]),
+                        Column::new("a".to_string(), vec![Value::Int(1)]),
+                        Column::new("b".to_string(), vec![Value::Int(2)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -52,8 +52,8 @@ impl Command for FilterWith {
                 example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr filter-with ((dfr col a) > 1)",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new("a".to_string(), vec![Value::test_int(3)]),
-                        Column::new("b".to_string(), vec![Value::test_int(4)]),
+                        Column::new("a".to_string(), vec![Value::Int(3)]),
+                        Column::new("b".to_string(), vec![Value::Int(4)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

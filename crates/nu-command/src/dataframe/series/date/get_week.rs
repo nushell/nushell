@@ -32,7 +32,7 @@ impl Command for GetWeek {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(32), Value::test_int(32)],
+                    vec![Value::Int(32), Value::Int(32)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

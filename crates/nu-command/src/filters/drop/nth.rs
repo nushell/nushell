@@ -40,42 +40,46 @@ impl Command for DropNth {
             Example {
                 example: "[sam,sarah,2,3,4,5] | drop nth 0 1 2",
                 description: "Drop the first, second, and third row",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::List(vec![
+                    Value::Int(3),
+                    Value::Int(4),
+                    Value::Int(5),
+                ])),
             },
             Example {
                 example: "[0,1,2,3,4,5] | drop nth 0 1 2",
                 description: "Drop the first, second, and third row",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::List(vec![
+                    Value::Int(3),
+                    Value::Int(4),
+                    Value::Int(5),
+                ])),
             },
             Example {
                 example: "[0,1,2,3,4,5] | drop nth 0 2 4",
                 description: "Drop rows 0 2 4",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::List(vec![
+                    Value::Int(1),
+                    Value::Int(3),
+                    Value::Int(5),
+                ])),
             },
             Example {
                 example: "[0,1,2,3,4,5] | drop nth 2 0 4",
                 description: "Drop rows 2 0 4",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::List(vec![
+                    Value::Int(1),
+                    Value::Int(3),
+                    Value::Int(5),
+                ])),
             },
             Example {
                 description: "Drop range rows from second to fourth",
                 example: "echo [first second third fourth fifth] | drop nth (1..3)",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("first"), Value::test_string("fifth")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::List(vec![
+                    Value::String("first".into()),
+                    Value::String("fifth".into()),
+                ])),
             },
         ]
     }

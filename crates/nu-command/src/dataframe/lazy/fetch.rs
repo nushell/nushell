@@ -35,14 +35,8 @@ impl Command for LazyFetch {
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr to-df | dfr fetch 2",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_int(6), Value::test_int(4)],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(2), Value::test_int(2)],
-                    ),
+                    Column::new("a".to_string(), vec![Value::Int(6), Value::Int(4)]),
+                    Column::new("b".to_string(), vec![Value::Int(2), Value::Int(2)]),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

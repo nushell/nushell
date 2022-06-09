@@ -72,7 +72,7 @@ impl Command for External {
         let args = args
             .into_iter()
             .flat_map(|arg| match arg {
-                Value::List { vals, .. } => vals
+                Value::List(vals) => vals
                     .into_iter()
                     .map(value_as_spanned)
                     .collect::<Vec<Result<Spanned<String>, ShellError>>>(),
@@ -167,8 +167,8 @@ impl ExternalCommand {
                             if let Ok(input) = input {
                                 for value in input.into_iter() {
                                     let buf = match value {
-                                        Value::String { val, .. } => val.into_bytes(),
-                                        Value::Binary { val, .. } => val,
+                                        Value::String(val) => val.into_bytes(),
+                                        Value::Binary(val) => val,
                                         _ => return Err(()),
                                     };
                                     if stdin_write.write(&buf).is_err() {
@@ -371,7 +371,7 @@ impl ExternalCommand {
 
         // If there is an input from the pipeline. The stdin from the process
         // is piped so it can be used to send the input information
-        if !matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
+        if !matches!(input, PipelineData::Value(Value::Nothing, ..)) {
             process.stdin(Stdio::piped());
         }
 

@@ -31,9 +31,9 @@ impl Command for ToUpperCase {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
                     vec![
-                        Value::test_string("ABC"),
-                        Value::test_string("ABC"),
-                        Value::test_string("ABC"),
+                        Value::String("ABC".into()),
+                        Value::String("ABC".into()),
+                        Value::String("ABC".into()),
                     ],
                 )])
                 .expect("simple df for test should not fail")

@@ -71,7 +71,7 @@ impl Command for SubCommand {
                                 val: true,
                                 span: Span::test_data(),
                             },
-                            Value::test_int(100),
+                            Value::Int(100),
                         ],
                         span: Span::test_data(),
                     }],
@@ -89,7 +89,7 @@ impl Command for SubCommand {
                                 val: true,
                                 span: Span::test_data(),
                             },
-                            Value::test_int(100),
+                            Value::Int(100),
                         ],
                         span: Span::test_data(),
                     }],
@@ -214,7 +214,7 @@ fn action(
     head: Span,
 ) -> Value {
     match input {
-        Value::String { val, .. } => Value::Bool {
+        Value::String(val) => Value::Bool {
             val: match case_insensitive {
                 true => {
                     if not_contain {

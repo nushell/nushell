@@ -39,7 +39,7 @@ impl Command for Drop {
                 example: "[0,1,2,3] | drop",
                 description: "Remove the last item of a list/table",
                 result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
+                    vals: vec![Value::Int(0), Value::Int(1), Value::Int(2)],
                     span: Span::test_data(),
                 }),
             },
@@ -47,12 +47,7 @@ impl Command for Drop {
                 example: "[0,1,2,3] | drop 0",
                 description: "Remove zero item of a list/table",
                 result: Some(Value::List {
-                    vals: vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                    ],
+                    vals: vec![Value::Int(0), Value::Int(1), Value::Int(2), Value::Int(3)],
                     span: Span::test_data(),
                 }),
             },
@@ -60,7 +55,7 @@ impl Command for Drop {
                 example: "[0,1,2,3] | drop 2",
                 description: "Remove the last two items of a list/table",
                 result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(1)],
+                    vals: vec![Value::Int(0), Value::Int(1)],
                     span: Span::test_data(),
                 }),
             },

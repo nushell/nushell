@@ -39,18 +39,9 @@ impl Command for WithColumn {
     | dfr with-column ([5 6] | dfr to-df) --name c"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "c".to_string(),
-                            vec![Value::test_int(5), Value::test_int(6)],
-                        ),
+                        Column::new("a".to_string(), vec![Value::Int(1), Value::Int(3)]),
+                        Column::new("b".to_string(), vec![Value::Int(2), Value::Int(4)]),
+                        Column::new("c".to_string(), vec![Value::Int(5), Value::Int(6)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -67,22 +58,10 @@ impl Command for WithColumn {
     | dfr collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "c".to_string(),
-                            vec![Value::test_int(2), Value::test_int(6)],
-                        ),
-                        Column::new(
-                            "d".to_string(),
-                            vec![Value::test_int(3), Value::test_int(9)],
-                        ),
+                        Column::new("a".to_string(), vec![Value::Int(1), Value::Int(3)]),
+                        Column::new("b".to_string(), vec![Value::Int(2), Value::Int(4)]),
+                        Column::new("c".to_string(), vec![Value::Int(2), Value::Int(6)]),
+                        Column::new("d".to_string(), vec![Value::Int(3), Value::Int(9)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

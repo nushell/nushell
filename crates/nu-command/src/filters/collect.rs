@@ -63,7 +63,7 @@ impl Command for Collect {
         vec![Example {
             description: "Use the second value in the stream",
             example: "echo 1 2 3 | collect { |x| echo $x.1 }",
-            result: Some(Value::test_int(2)),
+            result: Some(Value::Int(2)),
         }]
     }
 }

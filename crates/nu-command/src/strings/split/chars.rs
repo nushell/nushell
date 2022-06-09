@@ -26,11 +26,11 @@ impl Command for SubCommand {
             example: "'hello' | split chars",
             result: Some(Value::List {
                 vals: vec![
-                    Value::test_string("h"),
-                    Value::test_string("e"),
-                    Value::test_string("l"),
-                    Value::test_string("l"),
-                    Value::test_string("o"),
+                    Value::String("h".into()),
+                    Value::String("e".into()),
+                    Value::String("l".into()),
+                    Value::String("l".into()),
+                    Value::String("o".into()),
                 ],
                 span: Span::test_data(),
             }),

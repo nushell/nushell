@@ -59,7 +59,7 @@ impl Command for SubCommand {
             Example {
                 description: "Show type of a filepath",
                 example: "'.' | path type",
-                result: Some(Value::test_string("dir")),
+                result: Some(Value::String("dir".into())),
             },
             Example {
                 description: "Show type of a filepath in a column",

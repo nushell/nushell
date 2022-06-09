@@ -67,27 +67,27 @@ impl Command for SubCommand {
             Example {
                 description: "Get a substring from the text",
                 example: " 'good nushell' | str substring [5 12]",
-                result: Some(Value::test_string("nushell")),
+                result: Some(Value::String("nushell".into())),
             },
             Example {
                 description: "Alternatively, you can use the form",
                 example: " 'good nushell' | str substring '5,12'",
-                result: Some(Value::test_string("nushell")),
+                result: Some(Value::String("nushell".into())),
             },
             Example {
                 description: "Drop the last `n` characters from the string",
                 example: " 'good nushell' | str substring ',-5'",
-                result: Some(Value::test_string("good nu")),
+                result: Some(Value::String("good nu".into())),
             },
             Example {
                 description: "Get the remaining characters from a starting index",
                 example: " 'good nushell' | str substring '5,'",
-                result: Some(Value::test_string("nushell")),
+                result: Some(Value::String("nushell".into())),
             },
             Example {
                 description: "Get the characters from the beginning until ending index",
                 example: " 'good nushell' | str substring ',7'",
-                result: Some(Value::test_string("good nu")),
+                result: Some(Value::String("good nu".into())),
             },
         ]
     }
@@ -199,7 +199,7 @@ fn action(input: &Value, options: &Substring, head: Span) -> Value {
 
 fn process_arguments(options: &Arguments, head: Span) -> Result<(isize, isize), ShellError> {
     let search = match &options.range {
-        Value::List { vals, .. } => {
+        Value::List(vals) => {
             if vals.len() > 2 {
                 Err(ShellError::UnsupportedInput(
                     "More than two indices given".to_string(),
@@ -210,8 +210,8 @@ fn process_arguments(options: &Arguments, head: Span) -> Result<(isize, isize), 
                     .iter()
                     .map(|v| {
                         match v {
-                            Value::Int { val, .. } => Ok(val.to_string()),
-                            Value::String { val, .. } => Ok(val.to_string()),
+                            Value::Int(val) => Ok(val.to_string()),
+                            Value::String(val) => Ok(val.to_string()),
                             _ => Err(ShellError::UnsupportedInput(
                                 "could not perform substring. Expecting a string or int"
                                     .to_string(),
@@ -243,7 +243,7 @@ fn process_arguments(options: &Arguments, head: Span) -> Result<(isize, isize), 
                 Ok(SubstringText(start, end))
             }
         }
-        Value::String { val, .. } => {
+        Value::String(val) => {
             let idx: Vec<&str> = val.split(',').collect();
 
             let start = idx

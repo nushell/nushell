@@ -47,12 +47,12 @@ impl Command for RollLeft {
                     vals: vec![
                         Value::Record {
                             cols: rotated_columns.clone(),
-                            vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(1)],
+                            vals: vec![Value::Int(2), Value::Int(3), Value::Int(1)],
                             span: Span::test_data(),
                         },
                         Value::Record {
                             cols: rotated_columns,
-                            vals: vec![Value::test_int(5), Value::test_int(6), Value::test_int(4)],
+                            vals: vec![Value::Int(5), Value::Int(6), Value::Int(4)],
                             span: Span::test_data(),
                         },
                     ],
@@ -66,12 +66,12 @@ impl Command for RollLeft {
                     vals: vec![
                         Value::Record {
                             cols: columns.clone(),
-                            vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(1)],
+                            vals: vec![Value::Int(2), Value::Int(3), Value::Int(1)],
                             span: Span::test_data(),
                         },
                         Value::Record {
                             cols: columns,
-                            vals: vec![Value::test_int(5), Value::test_int(6), Value::test_int(4)],
+                            vals: vec![Value::Int(5), Value::Int(6), Value::Int(4)],
                             span: Span::test_data(),
                         },
                     ],

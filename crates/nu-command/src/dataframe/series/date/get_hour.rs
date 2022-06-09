@@ -32,7 +32,7 @@ impl Command for GetHour {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(16), Value::test_int(16)],
+                    vec![Value::Int(16), Value::Int(16)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

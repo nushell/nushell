@@ -68,12 +68,12 @@ impl Command for Transpose {
                     vals: vec![
                         Value::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("c1"), Value::test_int(1)],
+                            vals: vec![Value::String("c1".into()), Value::Int(1)],
                             span,
                         },
                         Value::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("c2"), Value::test_int(2)],
+                            vals: vec![Value::String("c2".into()), Value::Int(2)],
                             span,
                         },
                     ],
@@ -87,12 +87,12 @@ impl Command for Transpose {
                     vals: vec![
                         Value::Record {
                             cols: vec!["key".to_string(), "val".to_string()],
-                            vals: vec![Value::test_string("c1"), Value::test_int(1)],
+                            vals: vec![Value::String("c1".into()), Value::Int(1)],
                             span,
                         },
                         Value::Record {
                             cols: vec!["key".to_string(), "val".to_string()],
-                            vals: vec![Value::test_string("c2"), Value::test_int(2)],
+                            vals: vec![Value::String("c2".into()), Value::Int(2)],
                             span,
                         },
                     ],
@@ -107,12 +107,12 @@ impl Command for Transpose {
                     vals: vec![
                         Value::Record {
                             cols: vec!["val".to_string()],
-                            vals: vec![Value::test_int(1)],
+                            vals: vec![Value::Int(1)],
                             span,
                         },
                         Value::Record {
                             cols: vec!["val".to_string()],
-                            vals: vec![Value::test_int(2)],
+                            vals: vec![Value::Int(2)],
                             span,
                         },
                     ],

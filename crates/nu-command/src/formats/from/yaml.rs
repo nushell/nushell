@@ -195,13 +195,13 @@ pub fn get_examples() -> Vec<Example> {
                 vals: vec![
                     Value::Record {
                         cols: vec!["a".to_string()],
-                        vals: vec![Value::test_int(1)],
+                        vals: vec![Value::Int(1)],
                         span: Span::test_data(),
                     },
                     Value::Record {
                         cols: vec!["b".to_string()],
                         vals: vec![Value::List {
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                            vals: vec![Value::Int(1), Value::Int(2)],
                             span: Span::test_data(),
                         }],
                         span: Span::test_data(),

@@ -70,11 +70,11 @@ lazy_command!(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
                     "a".to_string(),
-                    vec![Value::test_int(2), Value::test_int(4), Value::test_int(6),],
+                    vec![Value::Int(2), Value::Int(4), Value::Int(6),],
                 ),
                 Column::new(
                     "b".to_string(),
-                    vec![Value::test_int(2), Value::test_int(2), Value::test_int(2),],
+                    vec![Value::Int(2), Value::Int(2), Value::Int(2),],
                 ),
             ])
             .expect("simple df for test should not fail")
@@ -182,8 +182,8 @@ lazy_expr_command!(
             example: "[[a b]; [6 2] [1 4] [4 1]] | dfr to-df | dfr max",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_int(6)],),
-                    Column::new("b".to_string(), vec![Value::test_int(4)],),
+                    Column::new("a".to_string(), vec![Value::Int(6)],),
+                    Column::new("b".to_string(), vec![Value::Int(4)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -199,12 +199,9 @@ lazy_expr_command!(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
+                        vec![Value::String("one".into()), Value::String("two".into())],
                     ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(4), Value::test_int(1)],
-                    ),
+                    Column::new("b".to_string(), vec![Value::Int(4), Value::Int(1)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -227,8 +224,8 @@ lazy_expr_command!(
             example: "[[a b]; [6 2] [1 4] [4 1]] | dfr to-df | dfr min",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_int(1)],),
-                    Column::new("b".to_string(), vec![Value::test_int(1)],),
+                    Column::new("a".to_string(), vec![Value::Int(1)],),
+                    Column::new("b".to_string(), vec![Value::Int(1)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -244,12 +241,9 @@ lazy_expr_command!(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
+                        vec![Value::String("one".into()), Value::String("two".into())],
                     ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(2), Value::test_int(1)],
-                    ),
+                    Column::new("b".to_string(), vec![Value::Int(2), Value::Int(1)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -272,8 +266,8 @@ lazy_expr_command!(
             example: "[[a b]; [6 2] [1 4] [4 1]] | dfr to-df | dfr sum",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_int(11)],),
-                    Column::new("b".to_string(), vec![Value::test_int(7)],),
+                    Column::new("a".to_string(), vec![Value::Int(11)],),
+                    Column::new("b".to_string(), vec![Value::Int(7)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -289,12 +283,9 @@ lazy_expr_command!(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
+                        vec![Value::String("one".into()), Value::String("two".into())],
                     ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(6), Value::test_int(1)],
-                    ),
+                    Column::new("b".to_string(), vec![Value::Int(6), Value::Int(1)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -317,8 +308,8 @@ lazy_expr_command!(
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr to-df | dfr mean",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                    Column::new("b".to_string(), vec![Value::test_float(2.0)],),
+                    Column::new("a".to_string(), vec![Value::Float(4.0)],),
+                    Column::new("b".to_string(), vec![Value::Float(2.0)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -334,12 +325,9 @@ lazy_expr_command!(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
+                        vec![Value::String("one".into()), Value::String("two".into())],
                     ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_float(3.0), Value::test_float(1.0)],
-                    ),
+                    Column::new("b".to_string(), vec![Value::Float(3.0), Value::Float(1.0)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -362,8 +350,8 @@ lazy_expr_command!(
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr to-df | dfr median",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                    Column::new("b".to_string(), vec![Value::test_float(2.0)],),
+                    Column::new("a".to_string(), vec![Value::Float(4.0)],),
+                    Column::new("b".to_string(), vec![Value::Float(2.0)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -379,12 +367,9 @@ lazy_expr_command!(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
+                        vec![Value::String("one".into()), Value::String("two".into())],
                     ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_float(3.0), Value::test_float(1.0)],
-                    ),
+                    Column::new("b".to_string(), vec![Value::Float(3.0), Value::Float(1.0)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -407,8 +392,8 @@ lazy_expr_command!(
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr to-df | dfr std",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_float(2.0)],),
-                    Column::new("b".to_string(), vec![Value::test_float(0.0)],),
+                    Column::new("a".to_string(), vec![Value::Float(2.0)],),
+                    Column::new("b".to_string(), vec![Value::Float(0.0)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -424,12 +409,9 @@ lazy_expr_command!(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
+                        vec![Value::String("one".into()), Value::String("two".into())],
                     ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_float(0.0), Value::test_float(0.0)],
-                    ),
+                    Column::new("b".to_string(), vec![Value::Float(0.0), Value::Float(0.0)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -452,8 +434,8 @@ lazy_expr_command!(
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr to-df | dfr var",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                    Column::new("b".to_string(), vec![Value::test_float(0.0)],),
+                    Column::new("a".to_string(), vec![Value::Float(4.0)],),
+                    Column::new("b".to_string(), vec![Value::Float(0.0)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -469,12 +451,9 @@ lazy_expr_command!(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
+                        vec![Value::String("one".into()), Value::String("two".into())],
                     ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_float(0.0), Value::test_float(0.0)],
-                    ),
+                    Column::new("b".to_string(), vec![Value::Float(0.0), Value::Float(0.0)],),
                 ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

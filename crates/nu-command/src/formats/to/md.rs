@@ -38,7 +38,7 @@ impl Command for ToMd {
             Example {
                 description: "Outputs an MD string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to md",
-                result: Some(Value::test_string("|foo|bar|\n|-|-|\n|1|2|\n")),
+                result: Some(Value::String("|foo|bar|\n|-|-|\n|1|2|\n".into())),
             },
             Example {
                 description: "Optionally, output a formatted markdown string",
@@ -351,7 +351,7 @@ mod tests {
     fn render_h1() {
         let value = Value::Record {
             cols: vec!["H1".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+            vals: vec![Value::String("Ecuador".into())],
             span: Span::test_data(),
         };
 
@@ -362,7 +362,7 @@ mod tests {
     fn render_h2() {
         let value = Value::Record {
             cols: vec!["H2".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+            vals: vec![Value::String("Ecuador".into())],
             span: Span::test_data(),
         };
 
@@ -373,7 +373,7 @@ mod tests {
     fn render_h3() {
         let value = Value::Record {
             cols: vec!["H3".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+            vals: vec![Value::String("Ecuador".into())],
             span: Span::test_data(),
         };
 
@@ -384,7 +384,7 @@ mod tests {
     fn render_blockquote() {
         let value = Value::Record {
             cols: vec!["BLOCKQUOTE".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+            vals: vec![Value::String("Ecuador".into())],
             span: Span::test_data(),
         };
 
@@ -397,17 +397,17 @@ mod tests {
             vals: vec![
                 Value::Record {
                     cols: vec!["country".to_string()],
-                    vals: vec![Value::test_string("Ecuador")],
+                    vals: vec![Value::String("Ecuador".into())],
                     span: Span::test_data(),
                 },
                 Value::Record {
                     cols: vec!["country".to_string()],
-                    vals: vec![Value::test_string("New Zealand")],
+                    vals: vec![Value::String("New Zealand".into())],
                     span: Span::test_data(),
                 },
                 Value::Record {
                     cols: vec!["country".to_string()],
-                    vals: vec![Value::test_string("USA")],
+                    vals: vec![Value::String("USA".into())],
                     span: Span::test_data(),
                 },
             ],

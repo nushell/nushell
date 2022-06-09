@@ -131,8 +131,7 @@ impl Command for Lines {
             description: "Split multi-line string into lines",
             example: "echo $'two(char nl)lines' | lines",
             result: Some(Value::List {
-                vals: vec![Value::test_string("two"), Value::test_string("lines")],
-                span: Span::test_data(),
+                vec![Value::String("two".into()), Value::String("lines".into())],
             }),
         }]
     }
@@ -160,18 +159,12 @@ impl Iterator for RawStreamLinesAdapter {
                     continue;
                 }
 
-                return Some(Ok(Value::String {
-                    val: s,
-                    span: self.span,
-                }));
+                return Some(Ok(Value::String(s)));
             } else {
                 // inner is complete, feed out remaining state
                 if self.inner_complete {
                     if !self.incomplete_line.is_empty() {
-                        let r = Some(Ok(Value::String {
-                            val: self.incomplete_line.to_string(),
-                            span: self.span,
-                        }));
+                        let r = Some(Ok(Value::String(self.incomplete_line.to_string())));
                         self.incomplete_line = String::new();
                         return r;
                     }
@@ -184,7 +177,7 @@ impl Iterator for RawStreamLinesAdapter {
                     match result {
                         Ok(v) => {
                             match v {
-                                Value::String { val, span } => {
+                                Value::String(val) => {
                                     self.span = span;
 
                                     let split_char =

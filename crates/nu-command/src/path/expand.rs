@@ -93,7 +93,7 @@ impl Command for SubCommand {
             Example {
                 description: "Expand an absolute path",
                 example: "'/home/joe/foo/../bar' | path expand",
-                result: Some(Value::test_string("/home/joe/bar")),
+                result: Some(Value::String("/home/joe/bar".into())),
             },
             Example {
                 description: "Expand a path in a column",

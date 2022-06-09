@@ -36,12 +36,12 @@ impl Command for Any {
             Example {
                 description: "Find if a service is not running",
                 example: "echo [[status]; [UP] [DOWN] [UP]] | any? status == DOWN",
-                result: Some(Value::test_bool(true)),
+                result: Some(Value::Bool(true)),
             },
             Example {
                 description: "Check if any of the values is odd",
                 example: "echo [2 4 1 6 8] | any? ($it mod 2) == 1",
-                result: Some(Value::test_bool(true)),
+                result: Some(Value::Bool(true)),
             },
         ]
     }

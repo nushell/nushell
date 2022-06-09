@@ -52,47 +52,37 @@ impl Command for LazyJoin {
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
                             "a".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(1),
-                                Value::test_int(1),
-                            ],
+                            vec![Value::Int(1), Value::Int(2), Value::Int(1), Value::Int(1)],
                         ),
                         Column::new(
                             "b".to_string(),
                             vec![
-                                Value::test_string("a"),
-                                Value::test_string("b"),
-                                Value::test_string("c"),
-                                Value::test_string("c"),
+                                Value::String("a".into()),
+                                Value::String("b".into()),
+                                Value::String("c".into()),
+                                Value::String("c".into()),
                             ],
                         ),
                         Column::new(
                             "c".to_string(),
-                            vec![
-                                Value::test_int(0),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(3),
-                            ],
+                            vec![Value::Int(0), Value::Int(1), Value::Int(2), Value::Int(3)],
                         ),
                         Column::new(
                             "bar".to_string(),
                             vec![
-                                Value::test_string("a"),
-                                Value::test_string("c"),
-                                Value::test_string("a"),
-                                Value::test_string("a"),
+                                Value::String("a".into()),
+                                Value::String("c".into()),
+                                Value::String("a".into()),
+                                Value::String("a".into()),
                             ],
                         ),
                         Column::new(
                             "ham".to_string(),
                             vec![
-                                Value::test_string("let"),
-                                Value::test_string("var"),
-                                Value::test_string("let"),
-                                Value::test_string("let"),
+                                Value::String("let".into()),
+                                Value::String("var".into()),
+                                Value::String("let".into()),
+                                Value::String("let".into()),
                             ],
                         ),
                     ])
@@ -109,47 +99,37 @@ impl Command for LazyJoin {
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
                             "a".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(1),
-                                Value::test_int(1),
-                            ],
+                            vec![Value::Int(1), Value::Int(2), Value::Int(1), Value::Int(1)],
                         ),
                         Column::new(
                             "b".to_string(),
                             vec![
-                                Value::test_string("a"),
-                                Value::test_string("b"),
-                                Value::test_string("c"),
-                                Value::test_string("c"),
+                                Value::String("a".into()),
+                                Value::String("b".into()),
+                                Value::String("c".into()),
+                                Value::String("c".into()),
                             ],
                         ),
                         Column::new(
                             "c".to_string(),
-                            vec![
-                                Value::test_int(0),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(3),
-                            ],
+                            vec![Value::Int(0), Value::Int(1), Value::Int(2), Value::Int(3)],
                         ),
                         Column::new(
                             "bar".to_string(),
                             vec![
-                                Value::test_string("a"),
-                                Value::test_string("c"),
-                                Value::test_string("a"),
-                                Value::test_string("a"),
+                                Value::String("a".into()),
+                                Value::String("c".into()),
+                                Value::String("a".into()),
+                                Value::String("a".into()),
                             ],
                         ),
                         Column::new(
                             "ham".to_string(),
                             vec![
-                                Value::test_string("let"),
-                                Value::test_string("var"),
-                                Value::test_string("let"),
-                                Value::test_string("let"),
+                                Value::String("let".into()),
+                                Value::String("var".into()),
+                                Value::String("let".into()),
+                                Value::String("let".into()),
                             ],
                         ),
                     ])

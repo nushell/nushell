@@ -44,11 +44,11 @@ impl Command for LazySortBy {
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
                             "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(4), Value::test_int(6)],
+                            vec![Value::Int(1), Value::Int(4), Value::Int(6)],
                         ),
                         Column::new(
                             "b".to_string(),
-                            vec![Value::test_int(4), Value::test_int(1), Value::test_int(2)],
+                            vec![Value::Int(4), Value::Int(1), Value::Int(2)],
                         ),
                     ])
                     .expect("simple df for test should not fail")
@@ -64,19 +64,19 @@ impl Command for LazySortBy {
                         Column::new(
                             "a".to_string(),
                             vec![
-                                Value::test_int(1),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(6),
+                                Value::Int(1),
+                                Value::Int(1),
+                                Value::Int(2),
+                                Value::Int(6),
                             ],
                         ),
                         Column::new(
                             "b".to_string(),
                             vec![
-                                Value::test_int(4),
-                                Value::test_int(1),
-                                Value::test_int(4),
-                                Value::test_int(2),
+                                Value::Int(4),
+                                Value::Int(1),
+                                Value::Int(4),
+                                Value::Int(2),
                             ],
                         ),
                     ])

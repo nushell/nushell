@@ -60,12 +60,12 @@ impl Command for DropColumn {
                 vals: vec![
                     Value::Record {
                         cols: vec!["lib".into()],
-                        vals: vec![Value::test_string("nu-lib")],
+                        vals: vec![Value::String("nu-lib".into())],
                         span: Span::test_data(),
                     },
                     Value::Record {
                         cols: vec!["lib".into()],
-                        vals: vec![Value::test_string("nu-core")],
+                        vals: vec![Value::String("nu-core".into())],
                         span: Span::test_data(),
                     },
                 ],

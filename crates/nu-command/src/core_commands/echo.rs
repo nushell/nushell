@@ -59,7 +59,7 @@ impl Command for Echo {
             Example {
                 description: "Put a hello message in the pipeline",
                 example: "echo 'hello'",
-                result: Some(Value::test_string("hello")),
+                result: Some(Value::String("hello".into())),
             },
             Example {
                 description: "Print the value of the special '$nu' variable",

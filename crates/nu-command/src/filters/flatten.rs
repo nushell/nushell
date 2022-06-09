@@ -45,61 +45,59 @@ impl Command for Flatten {
             Example {
                 description: "flatten a table",
                 example: "[[N, u, s, h, e, l, l]] | flatten ",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_string("N"),
-                        Value::test_string("u"),
-                        Value::test_string("s"),
-                        Value::test_string("h"),
-                        Value::test_string("e"),
-                        Value::test_string("l"),
-                        Value::test_string("l")],
-                    span: Span::test_data()
-                })
+                result: Some(Value::List (
+                 vec![
+                        Value::String("N".into()),
+                        Value::String("u".into()),
+                        Value::String("s".into()),
+                        Value::String("h".into()),
+                        Value::String("e".into()),
+                        Value::String("l".into()),
+                        Value::String("l".into())],
+                 ))
             },
             Example {
                 description: "flatten a table, get the first item",
                 example: "[[N, u, s, h, e, l, l]] | flatten | first",
-                result: None,//Some(Value::test_string("N")),
+                result: None,//Some(Value::String("N".into())),
             },
             Example {
                 description: "flatten a column having a nested table",
                 example: "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten --all | get meal",
-                result: None,//Some(Value::test_string("arepa")),
+                result: None,//Some(Value::String("arepa".into())),
             },
             Example {
                 description: "restrict the flattening by passing column names",
                 example: "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions --all | last | get versions",
-                result: None, //Some(Value::test_string("0.22")),
+                result: None, //Some(Value::String("0.22".into())),
             },
             Example {
                 description: "Flatten inner table",
                 example: "{ a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten d --all",
-                result: Some(Value::List{
-                    vals: vec![
+                result: Some(Value::List(
+                    vec![
                         Value::Record{
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(1), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
-                            span: Span::test_data()
+                            vals: vec![Value::String("b".into()), Value::Int(1), Value::List( vec![Value::Int(4), Value::Int(3)]  )                            ],
+
                         },
                         Value::Record{
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(2), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
-                            span: Span::test_data()
+                            vals: vec![Value::String("b".into()), Value::Int(2), Value::List( vec![Value::Int(4), Value::Int(3)]  )                            ],
+
                         },
                         Value::Record{
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(3), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
-                            span: Span::test_data()
+                            vals: vec![Value::String("b".into()), Value::Int(3), Value::List( vec![Value::Int(4), Value::Int(3)]  )                            ],
+
                         },
                         Value::Record{
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(4), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
-                            span: Span::test_data()
+                            vals: vec![Value::String("b".into()), Value::Int(4), Value::List( vec![Value::Int(4), Value::Int(3)]  )                            ],
+
                         }
                     ],
-                    span: Span::test_data(),
-                }),
+                 )),
             }
         ]
     }
@@ -147,7 +145,7 @@ enum TableInside<'a> {
 fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) -> Vec<Value> {
     let tag = match item.span() {
         Ok(x) => x,
-        Err(e) => return vec![Value::Error { error: e }],
+        Err(e) => return vec![Value::Error(e)],
     };
 
     let res = {
@@ -162,18 +160,16 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                     span: _,
                 } => (cols, vals),
                 x => {
-                    return vec![Value::Error {
-                        error: ShellError::UnsupportedInput(
-                            format!("This should be a record, but instead got {}", x.get_type()),
-                            tag,
-                        ),
-                    }]
+                    return vec![Value::Error(ShellError::UnsupportedInput(
+                        format!("This should be a record, but instead got {}", x.get_type()),
+                        tag,
+                    ))]
                 }
             };
 
             let s = match item.span() {
                 Ok(x) => x,
-                Err(e) => return vec![Value::Error { error: e }],
+                Err(e) => return vec![Value::Error(e)],
             };
 
             let records_iterator = {
@@ -214,14 +210,12 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             out.insert(column.to_string(), value.clone());
                         }
                     }
-                    Value::List { vals, span: _ }
-                        if all && vals.iter().all(|f| f.as_record().is_ok()) =>
-                    {
+                    Value::List(vals) if all && vals.iter().all(|f| f.as_record().is_ok()) => {
                         if need_flatten && inner_table.is_some() {
-                            return vec![Value::Error{ error: ShellError::UnsupportedInput(
+                            return vec![Value::Error(  ShellError::UnsupportedInput(
                                     "can only flatten one inner list at the same time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
                                     s
-                                )}
+                                ) )
                             ];
                         }
                         // it's a table (a list of record, we can flatten inner record)
@@ -252,15 +246,12 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             out.insert(column.to_string(), value.clone());
                         }
                     }
-                    Value::List {
-                        vals: values,
-                        span: _,
-                    } => {
+                    Value::List(values) => {
                         if need_flatten && inner_table.is_some() {
-                            return vec![Value::Error{ error: ShellError::UnsupportedInput(
+                            return vec![Value::Error(  ShellError::UnsupportedInput(
                                     "can only flatten one inner list at the same time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
                                     s
-                                )}
+                                ) )
                             ];
                         }
 
@@ -322,7 +313,6 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                         let record = Value::Record {
                             cols: record_cols,
                             vals: record_vals,
-                            span: tag,
                         };
                         expanded.push(record);
                     }
@@ -372,7 +362,6 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                         let record = Value::Record {
                             cols: record_cols,
                             vals: record_vals,
-                            span: tag,
                         };
                         expanded.push(record);
                     }
@@ -381,14 +370,13 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                     let record = Value::Record {
                         cols: out.keys().map(|f| f.to_string()).collect::<Vec<_>>(),
                         vals: out.values().cloned().collect(),
-                        span: tag,
                     };
                     expanded.push(record);
                 }
             }
             expanded
         } else if item.as_list().is_ok() {
-            if let Value::List { vals, span: _ } = item {
+            if let Value::List(vals) = item {
                 vals.to_vec()
             } else {
                 vec![]

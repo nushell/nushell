@@ -31,13 +31,13 @@ impl Command for IsDuplicated {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_duplicated".to_string(),
                     vec![
-                        Value::test_bool(false),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
+                        Value::Bool(false),
+                        Value::Bool(true),
+                        Value::Bool(true),
+                        Value::Bool(true),
+                        Value::Bool(true),
+                        Value::Bool(true),
+                        Value::Bool(true),
                     ],
                 )])
                 .expect("simple df for test should not fail")

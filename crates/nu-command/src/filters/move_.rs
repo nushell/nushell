@@ -48,53 +48,51 @@ impl Command for Move {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name",
                 description: "Move a column before the first column",
                 result:
-                    Some(Value::List {
-                        vals: vec![
-                            Value::test_record(
-                                vec!["index", "name", "value"],
-                                vec![Value::test_int(1), Value::test_string("foo"), Value::test_string("a")],
-                            ),
-                            Value::test_record(
-                                vec!["index", "name", "value"],
-                                vec![Value::test_int(2), Value::test_string("bar"), Value::test_string("b")],
-                            ),
-                            Value::test_record(
-                                vec!["index", "name", "value"],
-                                vec![Value::test_int(3), Value::test_string("baz"), Value::test_string("c")],
-                            ),
-                        ],
-                        span: Span::test_data(),
-                    })
+                    Some(Value::List( 
+                        vec![
+                            Value::Record{ 
+                                cols: vec!["index".into(), "name".into(), "value".into()],
+                                vals: vec![Value::Int(1), Value::String("foo".into()), Value::String("a".into())],
+                             },
+                            Value::Record{ 
+                                cols: vec!["index".into(), "name".into(), "value".into()],
+                                vals: vec![Value::Int(2), Value::String("bar".into()), Value::String("b".into())],
+                             },
+                            Value::Record{ 
+                                cols: vec!["index".into(), "name".into(), "value".into()],
+                                vals: vec![Value::Int(3), Value::String("baz".into()), Value::String("c".into())],
+                             },
+                        ]
+                     ))
             },
             Example {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name --after index",
                 description: "Move multiple columns after the last column and reorder them",
                 result:
-                    Some(Value::List {
-                        vals: vec![
-                            Value::test_record(
-                                vec!["index", "value", "name"],
-                                vec![Value::test_int(1), Value::test_string("a"), Value::test_string("foo")],
-                            ),
-                            Value::test_record(
-                                vec!["index", "value", "name"],
-                                vec![Value::test_int(2), Value::test_string("b"), Value::test_string("bar")],
-                            ),
-                            Value::test_record(
-                                vec!["index", "value", "name"],
-                                vec![Value::test_int(3), Value::test_string("c"), Value::test_string("baz")],
-                            ),
-                        ],
-                        span: Span::test_data(),
-                    })
+                    Some(Value::List ( 
+                        vec![
+                            Value::Record{ 
+                                cols: vec!["index".into(), "value".into(), "name".into()],
+                                vals: vec![Value::Int(1), Value::String("a".into()), Value::String("foo".into())],
+                             },
+                            Value::Record{ 
+                                cols: vec!["index".into(), "value".into(), "name".into()],
+                              vals:   vec![Value::Int(2), Value::String("b".into()), Value::String("bar".into())],
+                             },
+                            Value::Record{ 
+                                cols: vec!["index".into(), "value".into(), "name".into()],
+                         vals:        vec![Value::Int(3), Value::String("c".into()), Value::String("baz".into())],
+                             },
+                        ]
+                     ))
             },
             Example {
                 example: "{ name: foo, value: a, index: 1 } | move name --before index",
                 description: "Move columns of a record",
-                result: Some(Value::test_record(
-                    vec!["value", "name", "index"],
-                    vec![Value::test_string("a"), Value::test_string("foo"), Value::test_int(1)],
-                ))
+                result: Some(Value::Record{ 
+                    cols: vec!["value".into(), "name".into(), "index".into()],
+                    vals: vec![Value::String("a".into()), Value::String("foo".into()), Value::Int(1)],
+                 })
             },
         ]
     }
@@ -154,9 +152,9 @@ impl Command for Move {
                         call.head,
                     ) {
                         Ok(val) => val,
-                        Err(error) => Value::Error { error },
+                        Err(error) => Value::Error(error),
                     },
-                    Err(error) => Value::Error { error },
+                    Err(error) => Value::Error(error),
                 });
 
                 if let Some(md) = metadata {
@@ -295,7 +293,6 @@ fn move_record_columns(
     Ok(Value::Record {
         cols: out_cols,
         vals: out_vals,
-        span,
     })
 }
 

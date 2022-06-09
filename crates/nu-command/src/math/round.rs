@@ -53,7 +53,7 @@ impl Command for SubCommand {
                 description: "Apply the round function to a list of numbers",
                 example: "[1.5 2.3 -3.1] | math round",
                 result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(2), Value::test_int(-3)],
+                    vals: vec![Value::Int(2), Value::Int(2), Value::test_int(-3)],
                     span: Span::test_data(),
                 }),
             },

@@ -183,7 +183,7 @@ pub fn action(
     config: &Config,
 ) -> Value {
     match input {
-        Value::Int { val, .. } => {
+        Value::Int(val) => {
             let res = if group_digits {
                 format_int(*val) // int.to_formatted_string(*locale)
             } else {
@@ -192,7 +192,7 @@ pub fn action(
 
             Value::String(res)
         }
-        Value::Float { val, .. } => {
+        Value::Float(val) => {
             if decimals {
                 let decimal_value = digits.unwrap_or(2) as usize;
                 Value::String(format!("{:.*}", decimal_value, val))
@@ -200,11 +200,11 @@ pub fn action(
                 Value::String(val.to_string())
             }
         }
-        Value::Bool { val, .. } => Value::String(val.to_string()),
-        Value::Date { val, .. } => Value::String(val.format("%c").to_string()),
-        Value::String { val, .. } => Value::String(val.to_string()),
+        Value::Bool(val) => Value::String(val.to_string()),
+        Value::Date(val) => Value::String(val.format("%c").to_string()),
+        Value::String(val) => Value::String(val.to_string()),
         Value::Filesize { val: _, .. } => Value::String(input.into_string(", ", config)),
-        Value::Nothing { .. } => Value::String("".to_string()),
+        Value::Nothing => Value::String("".to_string()),
         Value::Record {
             cols: _,
             vals: _,

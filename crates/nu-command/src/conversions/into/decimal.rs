@@ -44,22 +44,20 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to integer in table",
                 example: "[[num]; ['5.01']] | into decimal num",
-                result: Some(Value::List(
-                    vals: vec![Value::Record {
-                        cols: vec!["num".to_string()],
-                        vals: vec![Value::test_float(5.01)],
-                    }],
-                )),
+                result: Some(Value::List(vec![Value::Record {
+                    cols: vec!["num".to_string()],
+                    vals: vec![Value::Float(5.01)],
+                }])),
             },
             Example {
                 description: "Convert string to integer",
                 example: "'1.345' | into decimal",
-                result: Some(Value::test_float(1.345)),
+                result: Some(Value::Float(1.345)),
             },
             Example {
                 description: "Convert decimal to integer",
                 example: "'-5.9' | into decimal",
-                result: Some(Value::test_float(-5.9)),
+                result: Some(Value::Float(-5.9)),
             },
         ]
     }
@@ -92,6 +90,7 @@ fn operate(
             }
         },
         engine_state.ctrlc.clone(),
+        head,
     )
 }
 
@@ -105,7 +104,7 @@ fn action(input: &Value, head: Span) -> Value {
                 Err(reason) => Value::Error(ShellError::CantConvert(
                     "float".to_string(),
                     reason.to_string(),
-                    *span,
+                    head,
                     None,
                 )),
             }
@@ -139,8 +138,8 @@ mod tests {
     #[test]
     #[allow(clippy::approx_constant)]
     fn string_to_decimal() {
-        let word = Value::test_string("3.1415");
-        let expected = Value::test_float(3.1415);
+        let word = Value::String("3.1415".into());
+        let expected = Value::Float(3.1415);
 
         let actual = action(&word, Span::test_data());
         assert_eq!(actual, expected);
@@ -148,7 +147,7 @@ mod tests {
 
     #[test]
     fn communicates_parsing_error_given_an_invalid_decimallike_string() {
-        let decimal_str = Value::test_string("11.6anra");
+        let decimal_str = Value::String("11.6anra".into());
 
         let actual = action(&decimal_str, Span::test_data());
 
@@ -157,8 +156,8 @@ mod tests {
 
     #[test]
     fn int_to_decimal() {
-        let decimal_str = Value::test_int(10);
-        let expected = Value::test_float(10.0);
+        let decimal_str = Value::Int(10);
+        let expected = Value::Float(10.0);
         let actual = action(&decimal_str, Span::test_data());
 
         assert_eq!(actual, expected);

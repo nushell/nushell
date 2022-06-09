@@ -66,7 +66,7 @@ impl Command for LetEnv {
         vec![Example {
             description: "Create an environment variable and display it",
             example: "let-env MY_ENV_VAR = 1; $env.MY_ENV_VAR",
-            result: Some(Value::test_int(1)),
+            result: Some(Value::Int(1)),
         }]
     }
 }

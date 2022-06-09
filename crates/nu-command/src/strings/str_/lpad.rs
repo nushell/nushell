@@ -133,7 +133,7 @@ fn action(
     head: Span,
 ) -> Value {
     match &input {
-        Value::String { val, .. } => match length {
+        Value::String(val) => match length {
             Some(x) => {
                 let s = *x as usize;
                 if s < val.len() {

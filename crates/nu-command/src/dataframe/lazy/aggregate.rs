@@ -43,22 +43,10 @@ impl Command for LazyAggregate {
      ]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(2)],
-                        ),
-                        Column::new(
-                            "b_min".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "b_max".to_string(),
-                            vec![Value::test_int(4), Value::test_int(6)],
-                        ),
-                        Column::new(
-                            "b_sum".to_string(),
-                            vec![Value::test_int(6), Value::test_int(10)],
-                        ),
+                        Column::new("a".to_string(), vec![Value::Int(1), Value::Int(2)]),
+                        Column::new("b_min".to_string(), vec![Value::Int(2), Value::Int(4)]),
+                        Column::new("b_max".to_string(), vec![Value::Int(4), Value::Int(6)]),
+                        Column::new("b_sum".to_string(), vec![Value::Int(6), Value::Int(10)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -77,22 +65,10 @@ impl Command for LazyAggregate {
     | dfr collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(2)],
-                        ),
-                        Column::new(
-                            "b_min".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "b_max".to_string(),
-                            vec![Value::test_int(4), Value::test_int(6)],
-                        ),
-                        Column::new(
-                            "b_sum".to_string(),
-                            vec![Value::test_int(6), Value::test_int(10)],
-                        ),
+                        Column::new("a".to_string(), vec![Value::Int(1), Value::Int(2)]),
+                        Column::new("b_min".to_string(), vec![Value::Int(2), Value::Int(4)]),
+                        Column::new("b_max".to_string(), vec![Value::Int(4), Value::Int(6)]),
+                        Column::new("b_sum".to_string(), vec![Value::Int(6), Value::Int(10)]),
                     ])
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

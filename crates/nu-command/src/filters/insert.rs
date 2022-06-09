@@ -54,9 +54,9 @@ impl Command for Insert {
             result: Some(Value::Record {
                 cols: vec!["name".into(), "stars".into(), "alias".into()],
                 vals: vec![
-                    Value::test_string("nu"),
-                    Value::test_int(5),
-                    Value::test_string("Nushell"),
+                    Value::String("nu".into()),
+                    Value::Int(5),
+                    Value::String("Nushell".into()),
                 ],
                 span: Span::test_data(),
             }),

@@ -76,7 +76,7 @@ impl Command for Format {
                 description: "Print elements from some columns of a table",
                 example: "echo [[col1, col2]; [v1, v2] [v3, v4]] | format '{col2}'",
                 result: Some(Value::List {
-                    vals: vec![Value::test_string("v2"), Value::test_string("v4")],
+                    vals: vec![Value::String("v2".into()), Value::String("v4".into())],
                     span: Span::test_data(),
                 }),
             },
@@ -197,7 +197,7 @@ fn format(
             }
         }
 
-        Value::List { vals, .. } => {
+        Value::List(vals) => {
             let mut list = vec![];
             for val in vals.iter() {
                 match val {

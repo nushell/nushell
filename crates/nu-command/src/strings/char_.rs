@@ -181,22 +181,22 @@ impl Command for Char {
             Example {
                 description: "Output newline",
                 example: r#"char newline"#,
-                result: Some(Value::test_string("\n")),
+                result: Some(Value::String("\n".into())),
             },
             Example {
                 description: "Output prompt character, newline and a hamburger character",
                 example: r#"echo [(char prompt) (char newline) (char hamburger)] | str collect"#,
-                result: Some(Value::test_string("\u{25b6}\n\u{2261}")),
+                result: Some(Value::String("\u{25b6}\n\u{2261}".into())),
             },
             Example {
                 description: "Output Unicode character",
                 example: r#"char -u 1f378"#,
-                result: Some(Value::test_string("\u{1f378}")),
+                result: Some(Value::String("\u{1f378}".into())),
             },
             Example {
                 description: "Create Unicode from integer codepoint values",
                 example: r#"char -i (0x60 + 1) (0x60 + 2)"#,
-                result: Some(Value::test_string("ab")),
+                result: Some(Value::String("ab".into())),
             },
             Example {
                 description: "Output multi-byte Unicode character",

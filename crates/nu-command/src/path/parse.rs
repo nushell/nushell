@@ -85,10 +85,10 @@ On Windows, an extra 'prefix' column is added."#
                         "extension".into(),
                     ],
                     vals: vec![
-                        Value::test_string("C:"),
+                        Value::String("C:".into()),
                         Value::test_string(r"C:\Users\viking"),
-                        Value::test_string("spam"),
-                        Value::test_string("txt"),
+                        Value::String("spam".into()),
+                        Value::String("txt".into()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -109,10 +109,10 @@ On Windows, an extra 'prefix' column is added."#
                         "extension".into(),
                     ],
                     vals: vec![
-                        Value::test_string("C:"),
+                        Value::String("C:".into()),
                         Value::test_string(r"C:\Users"),
-                        Value::test_string("viking.d"),
-                        Value::test_string(""),
+                        Value::String("viking.d".into()),
+                        Value::String("".into()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -134,9 +134,9 @@ On Windows, an extra 'prefix' column is added."#
                 result: Some(Value::Record {
                     cols: vec!["parent".into(), "stem".into(), "extension".into()],
                     vals: vec![
-                        Value::test_string("/home/viking"),
-                        Value::test_string("spam"),
-                        Value::test_string("txt"),
+                        Value::String("/home/viking".into()),
+                        Value::String("spam".into()),
+                        Value::String("txt".into()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -152,9 +152,9 @@ On Windows, an extra 'prefix' column is added."#
                 result: Some(Value::Record {
                     cols: vec!["parent".into(), "stem".into(), "extension".into()],
                     vals: vec![
-                        Value::test_string("/etc"),
-                        Value::test_string("conf.d"),
-                        Value::test_string(""),
+                        Value::String("/etc".into()),
+                        Value::String("conf.d".into()),
+                        Value::String("".into()),
                     ],
                     span: Span::test_data(),
                 }),

@@ -37,7 +37,7 @@ impl Command for LazySelect {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "a".to_string(),
-                    vec![Value::test_int(6), Value::test_int(4), Value::test_int(2)],
+                    vec![Value::Int(6), Value::Int(4), Value::Int(2)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

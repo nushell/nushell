@@ -35,7 +35,7 @@ impl Command for Wrap {
         let name: String = call.req(engine_state, stack, 0)?;
 
         match input {
-            PipelineData::Value(Value::List { vals, .. }, ..) => Ok(vals
+            PipelineData::Value(Value::List(vals), ..) => Ok(vals
                 .into_iter()
                 .map(move |x| Value::Record {
                     cols: vec![name.clone()],
@@ -73,17 +73,17 @@ impl Command for Wrap {
                 vals: vec![
                     Value::Record {
                         cols: vec!["num".into()],
-                        vals: vec![Value::test_int(1)],
+                        vals: vec![Value::Int(1)],
                         span: Span::test_data(),
                     },
                     Value::Record {
                         cols: vec!["num".into()],
-                        vals: vec![Value::test_int(2)],
+                        vals: vec![Value::Int(2)],
                         span: Span::test_data(),
                     },
                     Value::Record {
                         cols: vec!["num".into()],
-                        vals: vec![Value::test_int(3)],
+                        vals: vec![Value::Int(3)],
                         span: Span::test_data(),
                     },
                 ],

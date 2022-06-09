@@ -36,15 +36,9 @@ impl Command for Debug {
         input.map(
             move |x| {
                 if raw {
-                    Value::String {
-                        val: x.debug_value(),
-                        span: head,
-                    }
+                    Value::String(x.debug_value())
                 } else {
-                    Value::String {
-                        val: x.debug_string(", ", &config),
-                        span: head,
-                    }
+                    Value::String(x.debug_string(", ", &config))
                 }
             },
             engine_state.ctrlc.clone(),
@@ -56,19 +50,16 @@ impl Command for Debug {
             Example {
                 description: "Print the value of a string",
                 example: "'hello' | debug",
-                result: Some(Value::test_string("hello")),
+                result: Some(Value::String("hello".into())),
             },
             Example {
                 description: "Print the value of a table",
                 example: "echo [[version patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | debug",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_string("{version: 0.1.0, patch: false}"),
-                        Value::test_string("{version: 0.1.1, patch: true}"),
-                        Value::test_string("{version: 0.2.0, patch: false}"),
-                    ],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::List(vec![
+                    Value::String("{version: 0.1.0, patch: false}".into()),
+                    Value::String("{version: 0.1.1, patch: true}".into()),
+                    Value::String("{version: 0.2.0, patch: false}".into()),
+                ])),
             },
         ]
     }

@@ -35,9 +35,9 @@ impl Command for StrSlice {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
                     vec![
-                        Value::test_string("bc"),
-                        Value::test_string("bc"),
-                        Value::test_string("bc"),
+                        Value::String("bc".into()),
+                        Value::String("bc".into()),
+                        Value::String("bc".into()),
                     ],
                 )])
                 .expect("simple df for test should not fail")

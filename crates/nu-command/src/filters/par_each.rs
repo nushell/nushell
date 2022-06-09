@@ -71,7 +71,7 @@ impl Command for ParEach {
         let redirect_stderr = call.redirect_stderr;
 
         match input {
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
+            PipelineData::Value(Value::Range(val), ..) => Ok(val
                 .into_range_iter(ctrlc.clone())?
                 .enumerate()
                 .par_bridge()

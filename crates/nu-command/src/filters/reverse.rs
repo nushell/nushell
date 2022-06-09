@@ -26,12 +26,7 @@ impl Command for Reverse {
             example: "[0,1,2,3] | reverse",
             description: "Reverse the items",
             result: Some(Value::List {
-                vals: vec![
-                    Value::test_int(3),
-                    Value::test_int(2),
-                    Value::test_int(1),
-                    Value::test_int(0),
-                ],
+                vals: vec![Value::Int(3), Value::Int(2), Value::Int(1), Value::Int(0)],
                 span: Span::test_data(),
             }),
         }]
