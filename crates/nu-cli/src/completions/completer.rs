@@ -58,21 +58,20 @@ impl NuCompleter {
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let (is_alias, new_line) = find_alias(line.as_bytes(), &working_set);
         let span_offset = working_set.next_span_start();
         let initial_line = line.to_string();
         let mut line = line.to_string();
         let mut alias_offset = 0;
-        if is_alias {
-            alias_offset = new_line.len() - line.len();
-            line = new_line;
-        }
+        // if is_alias {
+        //     alias_offset = new_line.len() - line.len();
+        //     // line = new_line;
+        // }
         line.insert(pos+alias_offset, 'a');
         let pos = span_offset + pos;
         let (output, _err) = parse(
             &mut working_set,
             Some("completer"),
-            line.as_bytes(),
+            line.as_bytes(), // -> &[u8]
             false,
             &[],
         );
@@ -235,26 +234,37 @@ impl ReedlineCompleter for NuCompleter {
     }
 }
 
-fn find_alias(input: &[u8], working_set: &StateWorkingSet) -> (bool, String) {
-    let mut names: Vec<_> = vec![];
+type MatchedAlias = Vec<(Vec<u8>, Vec<u8>)>;
+
+fn try_with_alias(input: &[u8], working_set: &StateWorkingSet) ->(String, Vec<i32>){
+    if let Some(matched_alias) = find_alias(input, working_set){
+
+    }
+
+    ("".to_string(), vec![])
+    
+}
+
+fn find_alias(input: &[u8], working_set: &StateWorkingSet) -> Option<MatchedAlias> {
+    let mut vec_names: Vec<_> = vec![];
     let mut vec_alias: Vec<_> = vec![];
     let mut pos = 0;
-    let mut count_of_whitespace = 0;
+    // let mut count_of_whitespace = 0;
     let mut is_alias = false;
     for (index, character) in input.iter().enumerate() {
         if *character == b' ' {
             let range = &input[pos..index];
-            names.push(range);
-            count_of_whitespace += 1;
+            vec_names.push(range.to_owned());
+            // count_of_whitespace += 1;
             pos = index + 1;
         }
     }
     if pos < input.len() 
     {
-        names.push(&input[pos..]);
+        vec_names.push(input[pos..].to_owned());
     }
 
-    for name in names {
+    for name in &vec_names {
         if let Some(alias_id) = working_set.find_alias(name) {
             let alias_span = working_set.get_alias(alias_id);
             is_alias = true;
@@ -264,23 +274,29 @@ fn find_alias(input: &[u8], working_set: &StateWorkingSet) -> (bool, String) {
                     vec_alias.push(name.to_vec());
                 }
             }
-            if count_of_whitespace > 0 {
-                vec_alias.push(vec![b' ']);
-                count_of_whitespace -=1;
-            }
+            // if count_of_whitespace > 0 {
+            //     vec_alias.push(vec![b' ']);
+            //     count_of_whitespace -=1;
+            // }
         } else {
             vec_alias.push(name.to_vec());
-            if count_of_whitespace > 0 {
-                vec_alias.push(vec![b' ']);
-                count_of_whitespace -=1;
-            }
+            // if count_of_whitespace > 0 {
+            //     vec_alias.push(vec![b' ']);
+            //     count_of_whitespace -=1;
+            // }
         }
     }
 
-    let out: Vec<_> = vec_alias.into_iter().flatten().collect();
-    let line = String::from_utf8_lossy(&out).to_string();
+    let output:Vec<_> = vec_names.clone().into_iter().zip(vec_alias).collect();
 
-    (is_alias, line)
+    // let out: Vec<_> = vec_alias.into_iter().flatten().collect();
+    // let line = String::from_utf8_lossy(&out).to_string();
+    if is_alias{
+        Some(output)
+    } else {
+        None
+    }
+
 }
 
 // reads the most left variable returning it's name (e.g: $myvar)
