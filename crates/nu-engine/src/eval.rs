@@ -1174,6 +1174,40 @@ pub fn create_scope(
         span,
     });
 
+    let engine_state_cols = vec![
+        "source_bytes".to_string(),
+        "num_vars".to_string(),
+        "num_commands".to_string(),
+        "num_aliases".to_string(),
+        "num_blocks".to_string(),
+        "num_modules".to_string(),
+        "num_env_vars".to_string(),
+    ];
+
+    let engine_state_vals = vec![
+        Value::int(engine_state.next_span_start() as i64, span),
+        Value::int(engine_state.num_vars() as i64, span),
+        Value::int(engine_state.num_decls() as i64, span),
+        Value::int(engine_state.num_aliases() as i64, span),
+        Value::int(engine_state.num_blocks() as i64, span),
+        Value::int(engine_state.num_modules() as i64, span),
+        Value::int(
+            engine_state
+                .env_vars
+                .values()
+                .map(|overlay| overlay.len() as i64)
+                .sum(),
+            span,
+        ),
+    ];
+
+    output_cols.push("engine_state".to_string());
+    output_vals.push(Value::Record {
+        cols: engine_state_cols,
+        vals: engine_state_vals,
+        span,
+    });
+
     Ok(Value::Record {
         cols: output_cols,
         vals: output_vals,

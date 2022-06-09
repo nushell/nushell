@@ -422,7 +422,10 @@ impl Iterator for Paths {
                         // FIXME (#9639): How do we handle non-utf8 filenames?
                         // Ignore them for now; ideally we'd still match them
                         // against a *
-                        None => continue,
+                        None => {
+                            println!("warning: get non-utf8 filename {path:?}, ignored.");
+                            continue;
+                        }
                         Some(x) => x,
                     }
                 },

@@ -2361,7 +2361,7 @@ pub fn format_duration(duration: i64) -> String {
     )
 }
 
-fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
+pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
     // We need to take into account config.filesize_metric so, if someone asks for KB
     // filesize_metric is true, return KiB
     format_filesize(
