@@ -95,7 +95,7 @@ impl NuCompleter {
 
                         // Parses the prefix
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
-                        prefix.remove(pos - (flat.0.start - alias_offset));
+                        prefix.remove(pos - flat.0.start);
 
                         // Completions that depends on the previous expression (e.g: use, source)
                         if flat_idx > 0 {
@@ -235,18 +235,6 @@ impl ReedlineCompleter for NuCompleter {
     }
 }
 
-// fn parse_input (){
-//             line.insert(pos, 'a');
-//             let pos = offset + pos;
-//             let (output, _err) = parse(
-//                 &mut working_set,
-//                 Some("completer"),
-//                 line.as_bytes(),
-//                 false,
-//                 &[],
-//             );
-// }
-
 fn find_alias(input: &[u8], working_set: &StateWorkingSet) -> (bool, String) {
     let mut names: Vec<_> = vec![];
     let mut vec_alias: Vec<_> = vec![];
@@ -261,6 +249,11 @@ fn find_alias(input: &[u8], working_set: &StateWorkingSet) -> (bool, String) {
             pos = index + 1;
         }
     }
+    if pos < input.len() 
+    {
+        names.push(&input[pos..]);
+    }
+
     for name in names {
         if let Some(alias_id) = working_set.find_alias(name) {
             let alias_span = working_set.get_alias(alias_id);
@@ -273,11 +266,13 @@ fn find_alias(input: &[u8], working_set: &StateWorkingSet) -> (bool, String) {
             }
             if count_of_whitespace > 0 {
                 vec_alias.push(vec![b' ']);
+                count_of_whitespace -=1;
             }
         } else {
             vec_alias.push(name.to_vec());
             if count_of_whitespace > 0 {
                 vec_alias.push(vec![b' ']);
+                count_of_whitespace -=1;
             }
         }
     }
