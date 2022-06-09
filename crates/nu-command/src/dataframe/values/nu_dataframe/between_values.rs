@@ -264,6 +264,12 @@ pub(super) fn compute_series_single_value(
             Value::Float(val) => {
                 compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::sub, Some(span))
             }
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: operator.span,
+                lhs_ty: lhs.1,
+                rhs_ty: right.get_type(),
+            }),
+        },
         Operator::Multiply => match &right {
             Value::Int(val) => compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::mul, span),
             Value::Float(val) => {
