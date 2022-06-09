@@ -1,6 +1,6 @@
 use super::{operations::Axis, NuDataFrame};
 
-use nu_protocol::{ast::Operator, span, ShellError, Span, Spanned, Value};
+use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Type, Value};
 use num::Zero;
 use polars::prelude::{
     BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
@@ -10,114 +10,147 @@ use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
 pub(super) fn between_dataframes(
     operator: Spanned<Operator>,
-    left: &Value,
     lhs: &NuDataFrame,
-    right: &Value,
-    rhs: &NuDataFrame,
+    rhs: (&NuDataFrame, Type),
+    span: Span,
 ) -> Result<Value, ShellError> {
     match operator.item {
-        Operator::Plus => match lhs.append_df(rhs, Axis::Row, operation_span) {
+        Operator::Plus => match lhs.append_df(rhs.0, Axis::Row, span) {
             Ok(df) => Ok(df.into_value()),
             Err(e) => Err(e),
         },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
-            lhs_ty: left.get_type(),
-            rhs_ty: right.get_type(),
+            lhs_ty: Type::Custom,
+            rhs_ty: rhs.1,
         }),
     }
 }
 
 pub(super) fn compute_between_series(
     operator: Spanned<Operator>,
-    left: &Value,
     lhs: &Series,
-    right: &Value,
-    rhs: &Series,
+    rhs: (&Series, Type),
+    span: Span,
 ) -> Result<Value, ShellError> {
-    let operation_span = span(&[left.span()?, right.span()?]);
     match operator.item {
         Operator::Plus => {
-            let mut res = lhs + rhs;
-            let name = format!("sum_{}_{}", lhs.name(), rhs.name());
+            let mut res = lhs.0 + rhs.0;
+            let name = format!("sum_{}_{}", lhs.0.name(), rhs.0.name());
             res.rename(&name);
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::series_to_value(res, span)
         }
         Operator::Minus => {
-            let mut res = lhs - rhs;
-            let name = format!("sub_{}_{}", lhs.name(), rhs.name());
+            let mut res = lhs.0 - rhs.0;
+            let name = format!("sub_{}_{}", lhs.0.name(), rhs.0.name());
             res.rename(&name);
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::series_to_value(res, span)
         }
         Operator::Multiply => {
-            let mut res = lhs * rhs;
-            let name = format!("mul_{}_{}", lhs.name(), rhs.name());
+            let mut res = lhs.0 * rhs.0;
+            let name = format!("mul_{}_{}", lhs.0.name(), rhs.0.name());
             res.rename(&name);
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::series_to_value(res, span)
         }
         Operator::Divide => {
-            let res = lhs.checked_div(rhs);
+            let res = lhs.0.checked_div(rhs.0);
             match res {
                 Ok(mut res) => {
-                    let name = format!("div_{}_{}", lhs.name(), rhs.name());
+                    let name = format!("div_{}_{}", lhs.0.name(), rhs.0.name());
                     res.rename(&name);
-                    NuDataFrame::series_to_value(res, operation_span)
+                    NuDataFrame::series_to_value(res, span)
                 }
                 Err(e) => Err(ShellError::GenericError(
                     "Division error".into(),
                     e.to_string(),
-                    Some(right.span()?),
+                    Some(operator.span),
                     None,
                     Vec::new(),
                 )),
             }
         }
         Operator::Equal => {
-            let name = format!("eq_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            let name = format!("eq_{}_{}", lhs.0.name(), rhs.0.name());
+            let res = compare_series(
+                lhs.0,
+                rhs.0,
+                name.as_str(),
+                Some(operator.span),
+                Series::equal,
+            )?;
+            NuDataFrame::series_to_value(res, span)
         }
         Operator::NotEqual => {
-            let name = format!("neq_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            let name = format!("neq_{}_{}", lhs.0.name(), rhs.0.name());
+            let res = compare_series(
+                lhs.0,
+                rhs.0,
+                name.as_str(),
+                Some(operator.span),
+                Series::equal,
+            )?;
+            NuDataFrame::series_to_value(res, span)
         }
         Operator::LessThan => {
-            let name = format!("lt_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            let name = format!("lt_{}_{}", lhs.0.name(), rhs.0.name());
+            let res = compare_series(
+                lhs.0,
+                rhs.0,
+                name.as_str(),
+                Some(operator.span),
+                Series::equal,
+            )?;
+            NuDataFrame::series_to_value(res, span)
         }
         Operator::LessThanOrEqual => {
-            let name = format!("lte_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            let name = format!("lte_{}_{}", lhs.0.name(), rhs.0.name());
+            let res = compare_series(
+                lhs.0,
+                rhs.0,
+                name.as_str(),
+                Some(operator.span),
+                Series::equal,
+            )?;
+            NuDataFrame::series_to_value(res, span)
         }
         Operator::GreaterThan => {
-            let name = format!("gt_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            let name = format!("gt_{}_{}", lhs.0.name(), rhs.0.name());
+            let res = compare_series(
+                lhs.0,
+                rhs.0,
+                name.as_str(),
+                Some(operator.span),
+                Series::equal,
+            )?;
+            NuDataFrame::series_to_value(res, span)
         }
         Operator::GreaterThanOrEqual => {
-            let name = format!("gte_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            let name = format!("gte_{}_{}", lhs.0.name(), rhs.0.name());
+            let res = compare_series(
+                lhs.0,
+                rhs.0,
+                name.as_str(),
+                Some(operator.span),
+                Series::equal,
+            )?;
+            NuDataFrame::series_to_value(res, span)
         }
-        Operator::And => match lhs.dtype() {
+        Operator::And => match lhs.0.dtype() {
             DataType::Boolean => {
-                let lhs_cast = lhs.bool();
-                let rhs_cast = rhs.bool();
+                let lhs_cast = lhs.0.bool();
+                let rhs_cast = rhs.0.bool();
 
                 match (lhs_cast, rhs_cast) {
                     (Ok(l), Ok(r)) => {
                         let mut res = l.bitand(r).into_series();
-                        let name = format!("and_{}_{}", lhs.name(), rhs.name());
+                        let name = format!("and_{}_{}", lhs.0.name(), rhs.0.name());
                         res.rename(&name);
-                        NuDataFrame::series_to_value(res, operation_span)
+                        NuDataFrame::series_to_value(res, span)
                     }
                     _ => Err(ShellError::GenericError(
                         "Incompatible types".into(),
                         "unable to cast to boolean".into(),
-                        Some(right.span()?),
+                        Some(operator.span),
                         None,
                         Vec::new(),
                     )),
@@ -128,25 +161,25 @@ pub(super) fn compute_between_series(
                     "Operation {} can only be done with boolean values",
                     operator.item
                 ),
-                operation_span,
+                span,
             )),
         },
-        Operator::Or => match lhs.dtype() {
+        Operator::Or => match lhs.0.dtype() {
             DataType::Boolean => {
-                let lhs_cast = lhs.bool();
-                let rhs_cast = rhs.bool();
+                let lhs_cast = lhs.0.bool();
+                let rhs_cast = rhs.0.bool();
 
                 match (lhs_cast, rhs_cast) {
                     (Ok(l), Ok(r)) => {
                         let mut res = l.bitor(r).into_series();
-                        let name = format!("or_{}_{}", lhs.name(), rhs.name());
+                        let name = format!("or_{}_{}", lhs.0.name(), rhs.0.name());
                         res.rename(&name);
-                        NuDataFrame::series_to_value(res, operation_span)
+                        NuDataFrame::series_to_value(res, span)
                     }
                     _ => Err(ShellError::GenericError(
                         "Incompatible types".into(),
                         "unable to cast to boolean".into(),
-                        Some(right.span()?),
+                        Some(operator.span),
                         None,
                         Vec::new(),
                     )),
@@ -157,15 +190,13 @@ pub(super) fn compute_between_series(
                     "Operation {} can only be done with boolean values",
                     operator.item
                 ),
-                operation_span,
+                span,
             )),
         },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
-            lhs_ty: left.get_type(),
-            lhs_span: left.span()?,
-            rhs_ty: right.get_type(),
-            rhs_span: right.span()?,
+            lhs_ty: Type::Custom,
+            rhs_ty: rhs.1,
         }),
     }
 }
@@ -198,240 +229,190 @@ where
 
 pub(super) fn compute_series_single_value(
     operator: Spanned<Operator>,
-    left: &Value,
     lhs: &NuDataFrame,
     right: &Value,
+    span: Span,
 ) -> Result<Value, ShellError> {
-    if !lhs.is_series() {
+    if !lhs.0.is_series() {
         return Err(ShellError::OperatorMismatch {
             op_span: operator.span,
-            lhs_ty: left.get_type(),
-            lhs_span: left.span()?,
+            lhs_ty: lhs.1,
             rhs_ty: right.get_type(),
-            rhs_span: right.span()?,
         });
     }
 
-    let lhs_span = left.span()?;
-    let lhs = lhs.as_series(lhs_span)?;
+    let lhs = lhs.0.as_series(span)?;
 
     match operator.item {
         Operator::Plus => match &right {
-            Value::Int { val, .. } => {
-                compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::add, lhs_span)
+            Value::Int(val) => {
+                compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::add, Some(span))
             }
-            Value::Float { val, .. } => {
-                compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::add, lhs_span)
+            Value::Float(val) => {
+                compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::add, Some(span))
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::Minus => match &right {
-            Value::Int { val, .. } => {
-                compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::sub, lhs_span)
+            Value::Int(val) => {
+                compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::sub, Some(span))
             }
-            Value::Float { val, .. } => {
-                compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::sub, lhs_span)
+            Value::Float(val) => {
+                compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::sub, Some(span))
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::Multiply => match &right {
-            Value::Int { val, .. } => {
-                compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::mul, lhs_span)
-            }
-            Value::Float { val, .. } => {
-                compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::mul, lhs_span)
+            Value::Int(val) => compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::mul, span),
+            Value::Float(val) => {
+                compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::mul, span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::Divide => match &right {
-            Value::Int { val, span } => {
+            Value::Int(val) => {
                 if *val == 0 {
                     Err(ShellError::DivisionByZero(*span))
                 } else {
-                    compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::div, lhs_span)
+                    compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::div, span)
                 }
             }
-            Value::Float { val, span } => {
+            Value::Float(val) => {
                 if val.is_zero() {
                     Err(ShellError::DivisionByZero(*span))
                 } else {
-                    compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::div, lhs_span)
+                    compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::div, span)
                 }
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::Equal => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::equal, lhs_span),
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::equal, lhs_span)
-            }
-            Value::String { val, .. } => {
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::equal, span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::equal, span),
+            Value::String(val) => {
                 let equal_pattern = format!("^{}$", regex::escape(val));
-                contains_series_pat(&lhs, &equal_pattern, lhs_span)
+                contains_series_pat(&lhs, &equal_pattern, span)
             }
-            Value::Date { val, .. } => {
-                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::equal, lhs_span)
+            Value::Date(val) => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::equal, span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::NotEqual => match &right {
-            Value::Int { val, .. } => {
-                compare_series_i64(&lhs, *val, ChunkedArray::not_equal, lhs_span)
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::not_equal, span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::not_equal, span),
+            Value::Date(val) => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::not_equal, span)
             }
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::not_equal, lhs_span)
-            }
-            Value::Date { val, .. } => compare_series_i64(
-                &lhs,
-                val.timestamp_millis(),
-                ChunkedArray::not_equal,
-                lhs_span,
-            ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::LessThan => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::lt, lhs_span),
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::lt, lhs_span)
-            }
-            Value::Date { val, .. } => {
-                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt, lhs_span)
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::lt, span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::lt, span),
+            Value::Date(val) => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt, span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::LessThanOrEqual => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::lt_eq, lhs_span),
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::lt_eq, lhs_span)
-            }
-            Value::Date { val, .. } => {
-                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt_eq, lhs_span)
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::lt_eq, span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::lt_eq, span),
+            Value::Date(val) => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt_eq, span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::GreaterThan => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::gt, lhs_span),
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::gt, lhs_span)
-            }
-            Value::Date { val, .. } => {
-                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt, lhs_span)
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::gt, span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::gt, span),
+            Value::Date(val) => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt, span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::GreaterThanOrEqual => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::gt_eq, lhs_span),
-            Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::gt_eq, lhs_span)
-            }
-            Value::Date { val, .. } => {
-                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt_eq, lhs_span)
+            Value::Int(val) => compare_series_i64(&lhs, *val, ChunkedArray::gt_eq, span),
+            Value::Float(val) => compare_series_decimal(&lhs, *val, ChunkedArray::gt_eq, span),
+            Value::Date(val) => {
+                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt_eq, span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         // TODO: update this to do a regex match instead of a simple contains?
         Operator::RegexMatch => match &right {
-            Value::String { val, .. } => contains_series_pat(&lhs, val, lhs_span),
+            Value::String(val) => contains_series_pat(&lhs, val, span),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::StartsWith => match &right {
-            Value::String { val, .. } => {
+            Value::String(val) => {
                 let starts_with_pattern = format!("^{}", regex::escape(val));
-                contains_series_pat(&lhs, &starts_with_pattern, lhs_span)
+                contains_series_pat(&lhs, &starts_with_pattern, span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         Operator::EndsWith => match &right {
-            Value::String { val, .. } => {
+            Value::String(val) => {
                 let ends_with_pattern = format!("{}$", regex::escape(val));
-                contains_series_pat(&lhs, &ends_with_pattern, lhs_span)
+                contains_series_pat(&lhs, &ends_with_pattern, span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
-                lhs_span: left.span()?,
+                lhs_ty: lhs.1,
                 rhs_ty: right.get_type(),
-                rhs_span: right.span()?,
             }),
         },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
-            lhs_ty: left.get_type(),
-            lhs_span: left.span()?,
+            lhs_ty: Type::Custom,
             rhs_ty: right.get_type(),
-            rhs_span: right.span()?,
         }),
     }
 }

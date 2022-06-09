@@ -1,5 +1,5 @@
 use super::NuDataFrame;
-use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Value};
+use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Spanned, Value};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuDataFrame {
@@ -11,16 +11,13 @@ impl CustomValue for NuDataFrame {
         unimplemented!("typetag_deserialize")
     }
 
-    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+    fn clone_value(&self) -> Value {
         let cloned = NuDataFrame {
             df: self.df.clone(),
             from_lazy: false,
         };
 
-        Value::CustomValue {
-            val: Box::new(cloned),
-            span,
-        }
+        Value::CustomValue(Box::new(cloned))
     }
 
     fn value_string(&self) -> String {
@@ -30,7 +27,7 @@ impl CustomValue for NuDataFrame {
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         let vals = self.print(span)?;
 
-        Ok(Value::List { vals, span })
+        Ok(Value::List(vals))
     }
 
     fn to_json(&self) -> nu_json::Value {
@@ -47,12 +44,12 @@ impl CustomValue for NuDataFrame {
 
     fn follow_path_string(&self, column_name: String, span: Span) -> Result<Value, ShellError> {
         let column = self.column(&column_name, span)?;
-        Ok(column.into_value(span))
+        Ok(column.into_value())
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
         match other {
-            Value::CustomValue { val, .. } => val
+            Value::CustomValue(val) => val
                 .as_any()
                 .downcast_ref::<Self>()
                 .and_then(|other| self.is_equal(other)),
@@ -62,11 +59,10 @@ impl CustomValue for NuDataFrame {
 
     fn operation(
         &self,
-        lhs_span: Span,
-        operator: Operator,
-        op: Span,
+        operator: Spanned<Operator>,
         right: &Value,
+        expr_span: Span,
     ) -> Result<Value, ShellError> {
-        self.compute_with_value(lhs_span, operator, op, right)
+        self.compute_with_value(operator, right, expr_span)
     }
 }

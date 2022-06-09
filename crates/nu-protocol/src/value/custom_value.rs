@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt};
 
-use crate::{ast::Operator, ShellError, Span, Value};
+use crate::{ast::Operator, ShellError, Span, Spanned, Value};
 
 // Trait definition for a custom value
 #[typetag::serde(tag = "type")]
@@ -50,11 +50,13 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     // The Operator enum is used to indicate the expected operation
     fn operation(
         &self,
-        _lhs_span: Span,
-        operator: Operator,
-        op: Span,
+        operator: Spanned<Operator>,
         _right: &Value,
+        _expr_span: Span,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::UnsupportedOperator(operator, op))
+        Err(ShellError::UnsupportedOperator(
+            operator.item,
+            operator.span,
+        ))
     }
 }

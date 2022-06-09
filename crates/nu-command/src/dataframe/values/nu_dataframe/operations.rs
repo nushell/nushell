@@ -1,3 +1,4 @@
+use nu_protocol::Type;
 use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Value};
 use polars::prelude::{DataFrame, Series};
 
@@ -15,80 +16,60 @@ pub enum Axis {
 impl NuDataFrame {
     pub fn compute_with_value(
         &self,
-        lhs_span: Span,
         operator: Spanned<Operator>,
-        right: Spanned<&Value>,
+        right: &Value,
+        span: Span,
     ) -> Result<Value, ShellError> {
-        match right.item {
+        match right {
             Value::CustomValue(rhs) => {
                 let rhs = rhs.as_any().downcast_ref::<NuDataFrame>().ok_or_else(|| {
-                    ShellError::DowncastNotPossible(
-                        "Unable to create dataframe".to_string(),
-                        right.span,
-                    )
+                    ShellError::DowncastNotPossible("Unable to create dataframe".to_string(), span)
                 })?;
 
                 match (self.is_series(), rhs.is_series()) {
                     (true, true) => {
                         let lhs = &self
-                            .as_series(lhs_span)
+                            .as_series(span)
                             .expect("Already checked that is a series");
                         let rhs = &rhs
-                            .as_series(right.span)
+                            .as_series(span)
                             .expect("Already checked that is a series");
 
                         if lhs.dtype() != rhs.dtype() {
                             return Err(ShellError::IncompatibleParameters {
                                 left_message: format!("datatype {}", lhs.dtype()),
-                                left_span: lhs_span,
+                                left_span: span,
                                 right_message: format!("datatype {}", lhs.dtype()),
-                                right_span: right.span,
+                                right_span: span,
                             });
                         }
 
                         if lhs.len() != rhs.len() {
                             return Err(ShellError::IncompatibleParameters {
                                 left_message: format!("len {}", lhs.len()),
-                                left_span: lhs_span,
+                                left_span: span,
                                 right_message: format!("len {}", rhs.len()),
-                                right_span: right.span,
+                                right_span: span,
                             });
                         }
 
-                        compute_between_series(
-                            operator,
-                            &NuDataFrame::default_value(),
-                            lhs,
-                            right.item,
-                            rhs,
-                        )
+                        compute_between_series(operator, lhs, (rhs, right.get_type()), span)
                     }
                     _ => {
                         if self.df.height() != rhs.df.height() {
                             return Err(ShellError::IncompatibleParameters {
                                 left_message: format!("rows {}", self.df.height()),
-                                left_span: lhs_span,
+                                left_span: span,
                                 right_message: format!("rows {}", rhs.df.height()),
-                                right_span: right.span,
+                                right_span: span,
                             });
                         }
 
-                        between_dataframes(
-                            operator,
-                            &NuDataFrame::default_value(),
-                            self,
-                            right.item,
-                            rhs,
-                        )
+                        between_dataframes(operator, self, (rhs, right.get_type()), span)
                     }
                 }
             }
-            _ => compute_series_single_value(
-                operator,
-                &NuDataFrame::default_value(),
-                self,
-                right.item,
-            ),
+            _ => compute_series_single_value(operator, self, right, span),
         }
     }
 
