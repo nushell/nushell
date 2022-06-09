@@ -2496,6 +2496,7 @@ dependencies = [
  "reedline",
  "rstest",
  "serial_test",
+ "signal-hook",
  "tempfile",
  "winres",
 ]
