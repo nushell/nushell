@@ -73,6 +73,16 @@ fn main() -> Result<()> {
     engine_state.ctrlc = Some(engine_state_ctrlc);
     // End ctrl-c protection section
 
+    // SIGQUIT protection section (only works for POSIX system)
+    #[cfg(not(windows))]
+    {
+        use signal_hook::consts::SIGQUIT;
+        let sig_quit = Arc::new(AtomicBool::new(false));
+        signal_hook::flag::register(SIGQUIT, sig_quit.clone()).expect("Error setting SIGQUIT flag");
+        engine_state.set_sig_quit(sig_quit.clone());
+    }
+    // End SIGQUIT protection section
+
     let mut args_to_nushell = vec![];
     let mut script_name = String::new();
     let mut args_to_script = vec![];

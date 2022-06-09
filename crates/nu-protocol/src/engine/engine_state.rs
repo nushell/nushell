@@ -75,6 +75,8 @@ pub struct EngineState {
     pub config: Config,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
+    #[cfg(not(windows))]
+    sig_quit: Option<Arc<AtomicBool>>,
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
@@ -106,6 +108,8 @@ impl EngineState {
             config: Config::default(),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
+            #[cfg(not(windows))]
+            sig_quit: None,
         }
     }
 
@@ -712,6 +716,21 @@ impl EngineState {
         self.files.push((filename, next_span_start, next_span_end));
 
         self.num_files() - 1
+    }
+
+    #[cfg(not(windows))]
+    pub fn get_sig_quit(&self) -> &Option<Arc<AtomicBool>> {
+        &self.sig_quit
+    }
+
+    #[cfg(windows)]
+    pub fn get_sig_quit(&self) -> &Option<Arc<AtomicBool>> {
+        None
+    }
+
+    #[cfg(not(windows))]
+    pub fn set_sig_quit(&mut self, sig_quit: Arc<AtomicBool>) {
+        self.sig_quit = Some(sig_quit)
     }
 }
 
