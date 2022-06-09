@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::{ast::Call, Span};
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::{ast::Call, Span};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, SyntaxShape, Value,
 };
@@ -20,8 +20,8 @@ impl Command for SkipIf {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .required(
-                "predicate", 
-                SyntaxShape::RowCondition, 
+                "predicate",
+                SyntaxShape::RowCondition,
                 "the predicate that skipped element must match",
             )
             .category(Category::Filters)
@@ -83,11 +83,11 @@ impl Command for SkipIf {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-                description: "Skip if the element is negative",
-                example: "echo [-2 0 2 -1] | skip if $it < 0",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(2)],
-                    span: Span::test_data(),
+            description: "Skip if the element is negative",
+            example: "echo [-2 0 2 -1] | skip if $it < 0",
+            result: Some(Value::List {
+                vals: vec![Value::test_int(0), Value::test_int(2)],
+                span: Span::test_data(),
             }),
         }]
     }
