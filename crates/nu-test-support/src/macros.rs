@@ -67,7 +67,8 @@ macro_rules! nu {
         let target_cwd = $crate::fs::in_directory(&$cwd);
 
         let mut process = match Command::new($crate::fs::executable_path())
-            .env("PWD", &target_cwd)  // setting PWD is enough to set cwd
+            .env("PWD", &target_cwd)
+            .current_dir(target_cwd)
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
             // .arg("--skip-plugins")
             // .arg("--no-history")

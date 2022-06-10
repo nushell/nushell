@@ -334,6 +334,7 @@ mod test {
             ]
             .into_iter(),
             &mut engine_state,
+            Path::new("t"),
         );
 
         let env = engine_state.render_env_vars();
