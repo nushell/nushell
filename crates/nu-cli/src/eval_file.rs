@@ -4,6 +4,7 @@ use log::trace;
 use miette::{IntoDiagnostic, Result};
 use nu_engine::convert_env_values;
 use nu_parser::parse;
+use nu_protocol::Type;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -34,7 +35,7 @@ pub fn evaluate_file(
 
     let _ = parse(&mut working_set, Some(&path), &file, false, &[]);
 
-    if working_set.find_decl(b"main").is_some() {
+    if working_set.find_decl(b"main", &Type::Any).is_some() {
         let args = format!("main {}", args.join(" "));
 
         if !eval_source(

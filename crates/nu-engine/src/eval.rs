@@ -829,7 +829,7 @@ pub fn create_scope(
         })
     }
 
-    for (command_name, decl_id) in commands_map {
+    for ((command_name, _), decl_id) in commands_map {
         if visibility.is_decl_id_visible(decl_id) {
             let mut cols = vec![];
             let mut vals = vec![];

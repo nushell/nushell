@@ -91,7 +91,7 @@ impl CustomValue for ExprDb {
             Value::Bool { val, .. } => Ok(Expr::Value(sqlparser::ast::Value::Boolean(*val))),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: Type::Custom,
+                lhs_ty: Type::Custom(self.typetag_name().into()),
                 lhs_span,
                 rhs_ty: right.get_type(),
                 rhs_span: right.span()?,
