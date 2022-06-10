@@ -235,9 +235,13 @@ impl ReedlineCompleter for NuCompleter {
     }
 }
 
-type MatchedAlias = Vec<(Vec<u8>, Vec<u8>)>;
+type MatchedAlias<'a> = Vec<(&'a [u8], &'a [u8])>;
 
+// Handler the completion when giving lines contains at least one alias. (e.g: `g checkout`)
+// that `g` is an alias of `git`
 fn try_find_alias(line: &[u8], working_set: &StateWorkingSet) -> (Vec<u8>, Vec<usize>) {
+    // An vector represents the offsets of alias
+    // e.g: the offset is 2 for the alias `g` of `git`
     let mut alias_offset = vec![];
     let mut output = vec![];
     if let Some(matched_alias) = search_alias(line, working_set) {
@@ -251,26 +255,27 @@ fn try_find_alias(line: &[u8], working_set: &StateWorkingSet) -> (Vec<u8>, Vec<u
             }
         }
     } else {
-        output = line.to_owned();
+        output = line.to_vec();
     }
 
     (output, alias_offset)
 }
 
-fn search_alias(input: &[u8], working_set: &StateWorkingSet) -> Option<MatchedAlias> {
-    let mut vec_names: Vec<_> = vec![];
-    let mut vec_alias: Vec<_> = vec![];
+fn search_alias<'a>(input: &'a [u8], working_set: &'a StateWorkingSet) -> Option<MatchedAlias<'a>> {
+    let mut vec_names = vec![];
+    let mut vec_alias = vec![];
     let mut pos = 0;
     let mut is_alias = false;
     for (index, character) in input.iter().enumerate() {
         if *character == b' ' {
             let range = &input[pos..index];
-            vec_names.push(range.to_owned());
+            vec_names.push(range);
             pos = index + 1;
         }
     }
+    // Push the rest to names vector.
     if pos < input.len() {
-        vec_names.push(input[pos..].to_owned());
+        vec_names.push(&input[pos..]);
     }
 
     for name in &vec_names {
@@ -280,15 +285,17 @@ fn search_alias(input: &[u8], working_set: &StateWorkingSet) -> Option<MatchedAl
             for alias in alias_span {
                 let name = working_set.get_span_contents(*alias);
                 if !name.is_empty() {
-                    vec_alias.push(name.to_vec());
+                    vec_alias.push(name);
                 }
             }
         } else {
-            vec_alias.push(name.to_vec());
+            vec_alias.push(name);
         }
     }
 
-    let output: Vec<_> = vec_names.clone().into_iter().zip(vec_alias).collect();
+    // Zip names and alias vectors, the original inputs and its aliases mapping.
+    // e.g:(['g'], ['g','i','t'])
+    let output = vec_names.clone().into_iter().zip(vec_alias).collect();
     if is_alias {
         Some(output)
     } else {
