@@ -726,10 +726,6 @@ mod input_types {
         ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
             todo!()
         }
-
-        fn input_type(&self) -> nu_protocol::Type {
-            Type::Any
-        }
     }
 
     #[derive(Clone)]
@@ -764,14 +760,54 @@ mod input_types {
         fn input_type(&self) -> nu_protocol::Type {
             Type::Custom
         }
+
+        fn output_type(&self) -> nu_protocol::Type {
+            Type::Custom
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct AggCustom;
+
+    impl Command for AggCustom {
+        fn name(&self) -> &str {
+            "agg"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock custom agg command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name())
+                .required("operation", SyntaxShape::String, "operation")
+                .category(Category::Custom("custom".into()))
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+
+        fn input_type(&self) -> nu_protocol::Type {
+            Type::Custom
+        }
     }
 
     fn add_declations(engine_state: &mut EngineState) {
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
+            working_set.add_decl(Box::new(Let));
+            working_set.add_decl(Box::new(AggCustom));
             working_set.add_decl(Box::new(GroupByCustom));
             working_set.add_decl(Box::new(GroupByList));
             working_set.add_decl(Box::new(LsTest));
+            working_set.add_decl(Box::new(Let));
 
             working_set.render()
         };
@@ -807,6 +843,29 @@ mod input_types {
         match &expressions[1].expr {
             Expr::Call(call) => {
                 let expected_id = working_set.find_decl(b"group-by", &Type::Custom).unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
+    fn storing_variable_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input = r#"let a = (ls | group-by name other); let b = (1+3); $a | agg sum"#;
+
+        let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 3);
+
+        let expressions = &block[2];
+        match &expressions[1].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set.find_decl(b"agg", &Type::Custom).unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),
