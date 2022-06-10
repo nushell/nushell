@@ -695,7 +695,7 @@ mod input_types {
         }
 
         fn output_type(&self) -> nu_protocol::Type {
-            Type::Custom
+            Type::Custom("custom".into())
         }
     }
 
@@ -758,11 +758,11 @@ mod input_types {
         }
 
         fn input_type(&self) -> nu_protocol::Type {
-            Type::Custom
+            Type::Custom("custom".into())
         }
 
         fn output_type(&self) -> nu_protocol::Type {
-            Type::Custom
+            Type::Custom("custom".into())
         }
     }
 
@@ -795,7 +795,7 @@ mod input_types {
         }
 
         fn input_type(&self) -> nu_protocol::Type {
-            Type::Custom
+            Type::Custom("custom".into())
         }
     }
 
@@ -842,7 +842,9 @@ mod input_types {
 
         match &expressions[1].expr {
             Expr::Call(call) => {
-                let expected_id = working_set.find_decl(b"group-by", &Type::Custom).unwrap();
+                let expected_id = working_set
+                    .find_decl(b"group-by", &Type::Custom("custom".into()))
+                    .unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),
@@ -865,7 +867,9 @@ mod input_types {
         let expressions = &block[2];
         match &expressions[1].expr {
             Expr::Call(call) => {
-                let expected_id = working_set.find_decl(b"agg", &Type::Custom).unwrap();
+                let expected_id = working_set
+                    .find_decl(b"agg", &Type::Custom("custom".into()))
+                    .unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),

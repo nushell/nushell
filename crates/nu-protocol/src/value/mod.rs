@@ -417,7 +417,7 @@ impl Value {
             Value::Error { .. } => Type::Error,
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
-            Value::CustomValue { .. } => Type::Custom,
+            Value::CustomValue { val, .. } => Type::Custom(val.typetag_name().into()),
         }
     }
 
