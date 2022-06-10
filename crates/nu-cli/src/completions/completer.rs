@@ -293,10 +293,10 @@ fn search_alias<'a>(input: &'a [u8], working_set: &'a StateWorkingSet) -> Option
         }
     }
 
-    // Zip names and alias vectors, the original inputs and its aliases mapping.
-    // e.g:(['g'], ['g','i','t'])
-    let output = vec_names.clone().into_iter().zip(vec_alias).collect();
     if is_alias {
+        // Zip names and alias vectors, the original inputs and its aliases mapping.
+        // e.g:(['g'], ['g','i','t'])
+        let output = vec_names.into_iter().zip(vec_alias).collect();
         Some(output)
     } else {
         None
