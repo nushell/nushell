@@ -60,38 +60,31 @@ fn gather_env_vars(
     }
 
     let mut fake_env_file = String::new();
-    let mut has_pwd = false;
-
     // Write all the env vars into a fake file
-    for (name, mut val) in vars {
-        if name == "PWD" {
-            has_pwd = true;
-            if let Some(p) = init_cwd.to_str() {
-                val = p.to_string()
-            }
-        }
+    for (name, val) in vars {
         put_env_to_fake_file(&name, &val, &mut fake_env_file);
     }
 
-    if !has_pwd {
-        match std::env::current_dir() {
-            Ok(cwd) => {
-                put_env_to_fake_file("PWD", &cwd.to_string_lossy(), &mut fake_env_file);
-            }
-            Err(e) => {
-                // Could not capture current working directory
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(
-                    &working_set,
-                    &ShellError::GenericError(
-                        "Current directory not found".to_string(),
-                        "".to_string(),
-                        None,
-                        Some(format!("Retrieving current directory failed: {:?}", e)),
-                        Vec::new(),
-                    ),
-                );
-            }
+    match init_cwd.to_str() {
+        Some(cwd) => {
+            put_env_to_fake_file("PWD", cwd, &mut fake_env_file);
+        }
+        None => {
+            // Could not capture current working directory
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(
+                &working_set,
+                &ShellError::GenericError(
+                    "Current directory is not a valid utf-8 path".to_string(),
+                    "".to_string(),
+                    None,
+                    Some(format!(
+                        "Retrieving current directory failed: {:?} not a valid utf-8 path",
+                        init_cwd
+                    )),
+                    Vec::new(),
+                ),
+            );
         }
     }
 
