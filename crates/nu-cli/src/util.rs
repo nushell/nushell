@@ -9,18 +9,35 @@ use nu_protocol::{
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 // This will collect environment variables from std::env and adds them to a stack.
 //
 // In order to ensure the values have spans, it first creates a dummy file, writes the collected
 // env vars into it (in a "NAME"="value" format, quite similar to the output of the Unix 'env'
 // tool), then uses the file to get the spans. The file stays in memory, no filesystem IO is done.
-pub fn gather_parent_env_vars(engine_state: &mut EngineState) {
-    gather_env_vars(std::env::vars(), engine_state);
+//
+// The "PWD" env value will be forced to `init_cwd`.
+// The reason to use `init_cwd`:
+//
+// While gathering parent env vars, the parent `PWD` may not be the same as `current working directory`.
+// Consider to the following command as the case (assume we execute command inside `/tmp`):
+//
+//     tmux split-window -v -c "#{pane_current_path}"
+//
+// Here nu execute external command `tmux`, and tmux starts a new `nushell`, with `init_cwd` value "#{pane_current_path}".
+// But at the same time `PWD` still remains to be `/tmp`.
+//
+// In this scenario, the new `nushell`'s PWD should be "#{pane_current_path}" rather init_cwd.
+pub fn gather_parent_env_vars(engine_state: &mut EngineState, init_cwd: &Path) {
+    gather_env_vars(std::env::vars(), engine_state, init_cwd);
 }
 
-fn gather_env_vars(vars: impl Iterator<Item = (String, String)>, engine_state: &mut EngineState) {
+fn gather_env_vars(
+    vars: impl Iterator<Item = (String, String)>,
+    engine_state: &mut EngineState,
+    init_cwd: &Path,
+) {
     fn report_capture_error(engine_state: &EngineState, env_str: &str, msg: &str) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
@@ -46,9 +63,12 @@ fn gather_env_vars(vars: impl Iterator<Item = (String, String)>, engine_state: &
     let mut has_pwd = false;
 
     // Write all the env vars into a fake file
-    for (name, val) in vars {
+    for (name, mut val) in vars {
         if name == "PWD" {
             has_pwd = true;
+            if let Some(p) = init_cwd.to_str() {
+                val = p.to_string()
+            }
         }
         put_env_to_fake_file(&name, &val, &mut fake_env_file);
     }
