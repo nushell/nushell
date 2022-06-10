@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{ast::Call, BlockId, Example, PipelineData, ShellError, Signature};
+use crate::{ast::Call, BlockId, Example, PipelineData, ShellError, Signature, Type};
 
 use super::{EngineState, Stack};
 
@@ -65,6 +65,16 @@ pub trait Command: Send + Sync + CommandClone {
     // Related terms to help with command search
     fn search_terms(&self) -> Vec<&str> {
         vec![]
+    }
+
+    // Command input type
+    fn input_type(&self) -> Type {
+        Type::Any
+    }
+
+    // Command output type
+    fn output_type(&self) -> Type {
+        Type::Any
     }
 }
 

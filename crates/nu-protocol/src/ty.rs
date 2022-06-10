@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 use crate::SyntaxShape;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Type {
     Int,
     Float,
