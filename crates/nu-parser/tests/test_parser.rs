@@ -662,3 +662,291 @@ mod range {
         assert!(err.is_some());
     }
 }
+
+#[cfg(test)]
+mod input_types {
+    use super::*;
+    use nu_protocol::{Category, Type};
+
+    #[derive(Clone)]
+    pub struct LsTest;
+
+    impl Command for LsTest {
+        fn name(&self) -> &str {
+            "ls"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock ls command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name()).category(Category::Default)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct GroupByList;
+
+    impl Command for GroupByList {
+        fn name(&self) -> &str {
+            "group-by"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock group-by command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name())
+                .required("column", SyntaxShape::String, "column name")
+                .category(Category::Default)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct ToCustom;
+
+    impl Command for ToCustom {
+        fn name(&self) -> &str {
+            "to-custom"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock converter command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name()).category(Category::Custom("custom".into()))
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+
+        fn input_type(&self) -> nu_protocol::Type {
+            Type::Any
+        }
+
+        fn output_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct GroupByCustom;
+
+    impl Command for GroupByCustom {
+        fn name(&self) -> &str {
+            "group-by"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock custom group-by command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name())
+                .required("column", SyntaxShape::String, "column name")
+                .required("other", SyntaxShape::String, "other value")
+                .category(Category::Custom("custom".into()))
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+
+        fn input_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+
+        fn output_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct AggCustom;
+
+    impl Command for AggCustom {
+        fn name(&self) -> &str {
+            "agg"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock custom agg command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name())
+                .required("operation", SyntaxShape::String, "operation")
+                .category(Category::Custom("custom".into()))
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+
+        fn input_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+    }
+
+    fn add_declations(engine_state: &mut EngineState) {
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            working_set.add_decl(Box::new(Let));
+            working_set.add_decl(Box::new(AggCustom));
+            working_set.add_decl(Box::new(GroupByCustom));
+            working_set.add_decl(Box::new(GroupByList));
+            working_set.add_decl(Box::new(LsTest));
+            working_set.add_decl(Box::new(ToCustom));
+            working_set.add_decl(Box::new(Let));
+
+            working_set.render()
+        };
+
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        let _ = engine_state.merge_delta(delta, None, &cwd);
+    }
+
+    #[test]
+    fn call_types_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input = r#"ls | to-custom | group-by name other"#;
+
+        let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+
+        let expressions = &block[0];
+        assert!(expressions.len() == 3);
+
+        match &expressions[0].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set.find_decl(b"ls", &Type::Any).unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+
+        match &expressions[1].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set.find_decl(b"to-custom", &Type::Any).unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+
+        match &expressions[2].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set
+                    .find_decl(b"group-by", &Type::Custom("custom".into()))
+                    .unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
+    fn storing_variable_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input =
+            r#"let a = (ls | to-custom | group-by name other); let b = (1+3); $a | agg sum"#;
+
+        let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 3);
+
+        let expressions = &block[2];
+        match &expressions[1].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set
+                    .find_decl(b"agg", &Type::Custom("custom".into()))
+                    .unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
+    fn call_non_custom_types_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input = r#"ls | group-by name"#;
+
+        let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+
+        let expressions = &block[0];
+        assert!(expressions.len() == 2);
+
+        match &expressions[0].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set.find_decl(b"ls", &Type::Any).unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+
+        match &expressions[1].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set.find_decl(b"group-by", &Type::Any).unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+}
