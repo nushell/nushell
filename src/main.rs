@@ -194,7 +194,7 @@ fn main() -> Result<()> {
             }
 
             // First, set up env vars as strings only
-            gather_parent_env_vars(&mut engine_state);
+            gather_parent_env_vars(&mut engine_state, &init_cwd);
             let mut stack = nu_protocol::engine::Stack::new();
 
             if let Some(commands) = &binary_args.commands {

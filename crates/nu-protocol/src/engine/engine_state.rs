@@ -464,9 +464,9 @@ impl EngineState {
         for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.decls.get(name) {
-                if visibility.is_decl_id_visible(decl_id) {
-                    return Some(*decl_id);
+            if let Some(decl_id) = overlay_frame.get_decl(name, &Type::Any) {
+                if visibility.is_decl_id_visible(&decl_id) {
+                    return Some(decl_id);
                 }
             }
         }
@@ -533,9 +533,9 @@ impl EngineState {
 
         for overlay_frame in self.active_overlays(&[]).iter().rev() {
             for decl in &overlay_frame.decls {
-                if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
+                if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(&decl.0 .0) {
                     let command = self.get_decl(*decl.1);
-                    output.push((decl.0.clone(), Some(command.usage().to_string())));
+                    output.push((decl.0 .0.clone(), Some(command.usage().to_string())));
                 }
             }
         }
@@ -614,7 +614,8 @@ impl EngineState {
             decls_map.extend(new_decls);
         }
 
-        let mut decls: Vec<(Vec<u8>, DeclId)> = decls_map.into_iter().collect();
+        let mut decls: Vec<(Vec<u8>, DeclId)> =
+            decls_map.into_iter().map(|(v, k)| (v.0, k)).collect();
 
         decls.sort_by(|a, b| a.0.cmp(&b.0));
         decls.into_iter().map(|(_, id)| id)
@@ -743,6 +744,9 @@ pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
     pub external_commands: Vec<Vec<u8>>,
+    // Internal commands output that the next expression in the pipe will use to select a declaration
+    // that matches the name in the found output
+    pub found_outputs: Vec<Type>,
 }
 
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
@@ -867,6 +871,7 @@ impl<'a> StateWorkingSet<'a> {
             delta: StateDelta::new(permanent_state),
             permanent_state,
             external_commands: vec![],
+            found_outputs: vec![],
         }
     }
 
@@ -918,11 +923,13 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn add_decl(&mut self, decl: Box<dyn Command>) -> DeclId {
         let name = decl.name().as_bytes().to_vec();
+        let input_type = decl.input_type();
 
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
 
-        self.last_overlay_mut().decls.insert(name, decl_id);
+        self.last_overlay_mut()
+            .insert_decl(name, input_type, decl_id);
 
         decl_id
     }
@@ -931,7 +938,7 @@ impl<'a> StateWorkingSet<'a> {
         let overlay_frame = self.last_overlay_mut();
 
         for (name, decl_id) in decls {
-            overlay_frame.decls.insert(name, decl_id);
+            overlay_frame.insert_decl(name, Type::Any, decl_id);
             overlay_frame.visibility.use_decl_id(&decl_id);
         }
     }
@@ -968,7 +975,7 @@ impl<'a> StateWorkingSet<'a> {
         let overlay_frame = self.last_overlay_mut();
 
         if let Some(decl_id) = overlay_frame.predecls.remove(name) {
-            overlay_frame.decls.insert(name.into(), decl_id);
+            overlay_frame.insert_decl(name.into(), Type::Any, decl_id);
 
             return Some(decl_id);
         }
@@ -998,11 +1005,11 @@ impl<'a> StateWorkingSet<'a> {
 
                 visibility.append(&overlay_frame.visibility);
 
-                if let Some(decl_id) = overlay_frame.decls.get(name) {
-                    if visibility.is_decl_id_visible(decl_id) {
+                if let Some(decl_id) = overlay_frame.get_decl(name, &Type::Any) {
+                    if visibility.is_decl_id_visible(&decl_id) {
                         // Hide decl only if it's not already hidden
-                        overlay_frame.visibility.hide_decl_id(decl_id);
-                        return Some(*decl_id);
+                        overlay_frame.visibility.hide_decl_id(&decl_id);
+                        return Some(decl_id);
                     }
                 }
             }
@@ -1018,11 +1025,11 @@ impl<'a> StateWorkingSet<'a> {
         {
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.decls.get(name) {
-                if visibility.is_decl_id_visible(decl_id) {
+            if let Some(decl_id) = overlay_frame.get_decl(name, &Type::Any) {
+                if visibility.is_decl_id_visible(&decl_id) {
                     // Hide decl only if it's not already hidden
-                    self.last_overlay_mut().visibility.hide_decl_id(decl_id);
-                    return Some(*decl_id);
+                    self.last_overlay_mut().visibility.hide_decl_id(&decl_id);
+                    return Some(decl_id);
                 }
             }
         }
@@ -1254,7 +1261,7 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
+    pub fn find_decl(&self, name: &[u8], input: &Type) -> Option<DeclId> {
         let mut removed_overlays = vec![];
 
         let mut visibility: Visibility = Visibility::new();
@@ -1280,9 +1287,9 @@ impl<'a> StateWorkingSet<'a> {
                     }
                 }
 
-                if let Some(decl_id) = overlay_frame.decls.get(name) {
-                    if visibility.is_decl_id_visible(decl_id) {
-                        return Some(*decl_id);
+                if let Some(decl_id) = overlay_frame.get_decl(name, input) {
+                    if visibility.is_decl_id_visible(&decl_id) {
+                        return Some(decl_id);
                     }
                 }
             }
@@ -1297,9 +1304,9 @@ impl<'a> StateWorkingSet<'a> {
         {
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.decls.get(name) {
-                if visibility.is_decl_id_visible(decl_id) {
-                    return Some(*decl_id);
+            if let Some(decl_id) = overlay_frame.get_decl(name, input) {
+                if visibility.is_decl_id_visible(&decl_id) {
+                    return Some(decl_id);
                 }
             }
         }
@@ -1384,7 +1391,7 @@ impl<'a> StateWorkingSet<'a> {
                 .rev()
             {
                 for decl in &overlay_frame.decls {
-                    if decl.0.starts_with(name) {
+                    if decl.0 .0.starts_with(name) {
                         return true;
                     }
                 }
@@ -1398,7 +1405,7 @@ impl<'a> StateWorkingSet<'a> {
             .rev()
         {
             for decl in &overlay_frame.decls {
-                if decl.0.starts_with(name) {
+                if decl.0 .0.starts_with(name) {
                     return true;
                 }
             }
@@ -1562,9 +1569,10 @@ impl<'a> StateWorkingSet<'a> {
                 let overlay_frame = scope_frame.get_overlay(*overlay_id);
 
                 for decl in &overlay_frame.decls {
-                    if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
+                    if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(&decl.0 .0)
+                    {
                         let command = self.get_decl(*decl.1);
-                        output.push((decl.0.clone(), Some(command.usage().to_string())));
+                        output.push((decl.0 .0.clone(), Some(command.usage().to_string())));
                     }
                 }
             }
@@ -1718,8 +1726,8 @@ impl<'a> StateWorkingSet<'a> {
         if let Some(overlay_id) = self.permanent_state.find_overlay(name) {
             let overlay_frame = self.permanent_state.get_overlay(overlay_id);
 
-            for (decl_name, decl_id) in &overlay_frame.decls {
-                result.insert(decl_name.to_owned(), *decl_id);
+            for (decl_key, decl_id) in &overlay_frame.decls {
+                result.insert(decl_key.0.to_owned(), *decl_id);
             }
         }
 
@@ -1727,8 +1735,8 @@ impl<'a> StateWorkingSet<'a> {
             if let Some(overlay_id) = scope_frame.find_overlay(name) {
                 let overlay_frame = scope_frame.get_overlay(overlay_id);
 
-                for (decl_name, decl_id) in &overlay_frame.decls {
-                    result.insert(decl_name.to_owned(), *decl_id);
+                for (decl_key, decl_id) in &overlay_frame.decls {
+                    result.insert(decl_key.0.to_owned(), *decl_id);
                 }
             }
         }

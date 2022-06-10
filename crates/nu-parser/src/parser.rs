@@ -739,7 +739,10 @@ pub fn parse_internal_call(
     call.decl_id = decl_id;
     call.head = command_span;
 
-    let signature = working_set.get_decl(decl_id).signature();
+    let decl = working_set.get_decl(decl_id);
+    let signature = decl.signature();
+    let output = decl.output_type();
+    working_set.found_outputs.push(output);
 
     if signature.creates_scope {
         working_set.enter_scope();
@@ -1009,7 +1012,8 @@ pub fn parse_call(
         pos += 1;
     }
 
-    let mut maybe_decl_id = working_set.find_decl(&name);
+    let input = working_set.found_outputs.last().unwrap_or(&Type::Any);
+    let mut maybe_decl_id = working_set.find_decl(&name, input);
 
     while maybe_decl_id.is_none() {
         // Find the longest command match
@@ -1031,7 +1035,7 @@ pub fn parse_call(
                 name.extend(name_part);
             }
         }
-        maybe_decl_id = working_set.find_decl(&name);
+        maybe_decl_id = working_set.find_decl(&name, input);
     }
 
     if let Some(decl_id) = maybe_decl_id {
@@ -2648,7 +2652,7 @@ pub fn parse_shape_name(
                 );
                 let command_name = trim_quotes(split[1].as_bytes());
 
-                let decl_id = working_set.find_decl(command_name);
+                let decl_id = working_set.find_decl(command_name, &Type::Any);
 
                 if let Some(decl_id) = decl_id {
                     return (SyntaxShape::Custom(Box::new(shape), decl_id), err);
@@ -4511,7 +4515,7 @@ pub fn parse_expression(
         }
     };
 
-    let with_env = working_set.find_decl(b"with-env");
+    let with_env = working_set.find_decl(b"with-env", &Type::Any);
 
     if !shorthand.is_empty() {
         if let Some(decl_id) = with_env {
@@ -4607,7 +4611,7 @@ pub fn parse_builtin_commands(
         b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => {
-            if let Some(decl_id) = working_set.find_decl(b"alias") {
+            if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
                 let (call, _) = parse_internal_call(
                     working_set,
                     lite_command.parts[0],
@@ -4818,8 +4822,9 @@ pub fn parse_block(
                 );
 
                 if idx == 0 {
-                    if let Some(let_decl_id) = working_set.find_decl(b"let") {
-                        if let Some(let_env_decl_id) = working_set.find_decl(b"let-env") {
+                    if let Some(let_decl_id) = working_set.find_decl(b"let", &Type::Any) {
+                        if let Some(let_env_decl_id) = working_set.find_decl(b"let-env", &Type::Any)
+                        {
                             for expr in pipeline.expressions.iter_mut() {
                                 if let Expression {
                                     expr: Expr::Call(call),
@@ -5136,7 +5141,7 @@ pub fn discover_captures_in_expr(
 fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) -> Expression {
     let span = expr.span;
 
-    if let Some(decl_id) = working_set.find_decl(b"collect") {
+    if let Some(decl_id) = working_set.find_decl(b"collect", &Type::Any) {
         let mut output = vec![];
 
         let var_id = working_set.next_var_id();
