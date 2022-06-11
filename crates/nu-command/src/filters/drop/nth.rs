@@ -94,6 +94,22 @@ impl Command for DropNth {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                example: "[0,1,2,3,4,5] | drop nth 1..3",
+                description: "Drop rows 2, 3, and 4",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0), Value::test_int(4), Value::test_int(5)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: "[0,1,2,3,4,5] | drop nth 1..",
+                description: "Drop all rows except first row",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0)],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 
@@ -104,6 +120,7 @@ impl Command for DropNth {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+
         let input_value = input.into_value(call.span());
         match input_value {
             Value::List { vals, span: _ } => {
