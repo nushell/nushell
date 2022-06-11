@@ -1,4 +1,3 @@
-use indexmap::IndexSet;
 use itertools::Either;
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, RangeInclusion};
@@ -71,42 +70,26 @@ impl Command for DropNth {
                 }),
             },
             Example {
-                example: "[0,1,2,3,4,5] | drop nth 1..3",
-                description: "Drop rows 2, 3, and 4",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(4), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                example: "[0,1,2,3,4,5] | drop nth 1..",
-                description: "Drop all rows except first row",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0)],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
                 description: "Drop range rows from second to fourth",
-                example: "[first second third fourth fifth] | drop nth (1..3)",
+                example: "echo [first second third fourth fifth] | drop nth (1..3)",
                 result: Some(Value::List {
                     vals: vec![Value::test_string("first"), Value::test_string("fifth")],
                     span: Span::test_data(),
                 }),
             },
             Example {
-                example: "[0,1,2,3,4,5] | drop nth 1..3",
-                description: "Drop rows 2, 3, and 4",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(4), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
                 example: "[0,1,2,3,4,5] | drop nth 1..",
                 description: "Drop all rows except first row",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(0)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: "[0,1,2,3,4,5] | drop nth 3..",
+                description: "Drop rows 3,4,5",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
                     span: Span::test_data(),
                 }),
             },
@@ -120,36 +103,72 @@ impl Command for DropNth {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let input_value = input.into_value(call.span());
-        match input_value {
-            Value::List { vals, span: _ } => {
-                let rows = rows_to_remove(engine_state, stack, call, vals.len())?;
-                let mut new_vals = vec![];
-                for (idx, e) in vals.iter().enumerate() {
-                    // don't "copy" a value whose index is one of the indexes of the values we want to drop
-                    if !rows.contains(&idx) {
-                        new_vals.push(e.clone());
-                    }
+        match input {
+            PipelineData::Value(
+                Value::List {
+                    vals: input_vals,
+                    span: _,
+                },
+                ..,
+            ) => {
+                let rows_to_remove = rows_to_remove(engine_state, stack, call, input_vals.len())?;
+                let rows = rows_to_remove
+                    .into_iter()
+                    .map(|x| x as usize)
+                    .collect::<Vec<usize>>();
+                Ok(DropNthIterator {
+                    input: Box::new(input_vals.into_iter()),
+                    rows,
+                    current: 0,
                 }
-                Ok(new_vals.into_pipeline_data(engine_state.ctrlc.clone()))
+                .into_pipeline_data(engine_state.ctrlc.clone()))
             }
-            Value::Range { val, span: _ } => {
-                let clone = val.clone();
-                let input_length = clone.into_range_iter(engine_state.ctrlc.clone())?.count();
-                let rows = rows_to_remove(engine_state, stack, call, input_length)?;
-                let new_vals = val
-                    .into_range_iter(engine_state.ctrlc.clone())?
-                    .enumerate()
-                    .filter(|(idx, ..)| !rows.contains(idx))
-                    .map(|x| x.1)
-                    .collect::<Vec<_>>();
-
-                Ok(new_vals.into_pipeline_data(engine_state.ctrlc.clone()))
+            PipelineData::Value(
+                Value::Record {
+                    cols: _,
+                    vals,
+                    span: _,
+                },
+                ..,
+            ) => {
+                let rows_to_remove = rows_to_remove(engine_state, stack, call, vals.len())?;
+                let rows = rows_to_remove
+                    .into_iter()
+                    .map(|x| x as usize)
+                    .collect::<Vec<usize>>();
+                Ok(DropNthIterator {
+                    input: Box::new(vals.into_iter()),
+                    rows,
+                    current: 0,
+                }
+                .into_pipeline_data(engine_state.ctrlc.clone()))
             }
-            _ => Err(ShellError::UnsupportedInput(
-                "Drop nth works only on lists, tables, or ranges".to_string(),
-                call.head,
-            )),
+            PipelineData::Value(Value::Range { val, span: _ }, ..) => {
+                let range_iter = val.into_range_iter(engine_state.ctrlc.clone())?;
+                let vals = range_iter.collect::<Vec<_>>();
+                let rows_to_remove = rows_to_remove(engine_state, stack, call, vals.len())?;
+                let rows = rows_to_remove
+                    .into_iter()
+                    .map(|x| x as usize)
+                    .collect::<Vec<usize>>();
+                Ok(DropNthIterator {
+                    input: Box::new(vals.into_iter()),
+                    rows,
+                    current: 0,
+                }
+                .into_pipeline_data(engine_state.ctrlc.clone()))
+            }
+            PipelineData::Value(_v, ..) => Ok(PipelineData::new(call.span())),
+            PipelineData::ListStream(_stream, ..) => {
+                todo!()
+            }
+            PipelineData::ExternalStream {
+                stdout: _,
+                stderr: _,
+                exit_code: _,
+                span: _,
+                metadata: _,
+            } => todo!(),
         }
     }
 }
@@ -159,15 +178,15 @@ fn rows_to_remove(
     stack: &mut Stack,
     call: &Call,
     input_size: usize,
-) -> Result<IndexSet<usize>, ShellError> {
+) -> Result<Vec<usize>, ShellError> {
     let number_or_range = extract_int_or_range(engine_state, stack, call)?;
+
     // get a vector of indexes to remove
     let rows = match number_or_range {
-        Either::Left(row_number) => {
-            let and_rows: Vec<Spanned<i64>> = call.rest(engine_state, stack, 1)?;
-            let mut rows: indexmap::IndexSet<_> =
-                and_rows.into_iter().map(|x| x.item as usize).collect();
-            rows.insert(row_number as usize);
+        Either::Left(_row_number) => {
+            let and_rows: Vec<Spanned<i64>> = call.rest(engine_state, stack, 0)?;
+            let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
+            rows.sort_unstable();
             rows
         }
         Either::Right(row_range) => {
@@ -183,9 +202,9 @@ fn rows_to_remove(
             };
 
             if matches!(row_range.inclusion, RangeInclusion::Inclusive) {
-                (from..=to).collect::<indexmap::IndexSet<_>>()
+                (from..=to).collect::<Vec<_>>()
             } else {
-                (from..to).collect::<indexmap::IndexSet<_>>()
+                (from..to).collect::<Vec<_>>()
             }
         }
     };
@@ -211,6 +230,34 @@ fn extract_int_or_range(
             value.span().unwrap_or_else(|_| Span::new(0, 0)),
         )
     })
+}
+
+struct DropNthIterator {
+    input: Box<dyn Iterator<Item = Value> + Send>,
+    rows: Vec<usize>,
+    current: usize,
+}
+
+impl Iterator for DropNthIterator {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(row) = self.rows.get(0) {
+                if self.current == *row {
+                    self.rows.remove(0);
+                    self.current += 1;
+                    let _ = self.input.next();
+                    continue;
+                } else {
+                    self.current += 1;
+                    return self.input.next();
+                }
+            } else {
+                return self.input.next();
+            }
+        }
+    }
 }
 
 #[cfg(test)]
