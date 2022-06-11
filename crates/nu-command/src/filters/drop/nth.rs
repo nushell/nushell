@@ -104,13 +104,7 @@ impl Command for DropNth {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         match input {
-            PipelineData::Value(
-                Value::List {
-                    vals,
-                    span: _,
-                },
-                ..,
-            ) => {
+            PipelineData::Value(Value::List { vals, span: _ }, ..) => {
                 let rows_to_remove = rows_to_remove(engine_state, stack, call, vals.len())?;
                 let rows = rows_to_remove
                     .into_iter()
