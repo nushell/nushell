@@ -17,7 +17,7 @@ use nu_cli::{
 };
 use nu_command::{create_default_context, BufferedReader};
 use nu_engine::{get_full_help, CallExt};
-use nu_parser::{escape_quote_string, escape_for_script_arg, parse};
+use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
 use nu_protocol::{
     ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},

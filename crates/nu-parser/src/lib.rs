@@ -8,7 +8,7 @@ mod parse_keywords;
 mod parser;
 mod type_check;
 
-pub use deparse::{escape_quote_string, escape_for_script_arg};
+pub use deparse::{escape_for_script_arg, escape_quote_string};
 pub use errors::ParseError;
 pub use flatten::{flatten_block, flatten_expression, flatten_pipeline, FlatShape};
 pub use known_external::KnownExternal;
