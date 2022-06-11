@@ -106,18 +106,18 @@ impl Command for DropNth {
         match input {
             PipelineData::Value(
                 Value::List {
-                    vals: input_vals,
+                    vals,
                     span: _,
                 },
                 ..,
             ) => {
-                let rows_to_remove = rows_to_remove(engine_state, stack, call, input_vals.len())?;
+                let rows_to_remove = rows_to_remove(engine_state, stack, call, vals.len())?;
                 let rows = rows_to_remove
                     .into_iter()
                     .map(|x| x as usize)
                     .collect::<Vec<usize>>();
                 Ok(DropNthIterator {
-                    input: Box::new(input_vals.into_iter()),
+                    input: Box::new(vals.into_iter()),
                     rows,
                     current: 0,
                 }
