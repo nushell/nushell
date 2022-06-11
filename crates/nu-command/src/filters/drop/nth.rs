@@ -120,7 +120,6 @@ impl Command for DropNth {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-
         let input_value = input.into_value(call.span());
         match input_value {
             Value::List { vals, span: _ } => {
