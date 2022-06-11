@@ -746,7 +746,7 @@ pub struct StateWorkingSet<'a> {
     pub external_commands: Vec<Vec<u8>>,
     // Internal commands output that the next expression in the pipe will use to select a declaration
     // that matches the name in the found output
-    pub found_outputs: Vec<Type>,
+    pub found_outputs: Vec<Vec<Type>>,
 }
 
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
@@ -1845,6 +1845,28 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn render(self) -> StateDelta {
         self.delta
+    }
+
+    pub fn get_previous_type(&self) -> &Type {
+        match self.found_outputs.last().and_then(|v| v.last()) {
+            Some(input) => input,
+            None => &Type::Any,
+        }
+    }
+
+    pub fn add_input_type(&mut self, input: Type) {
+        match self.found_outputs.last_mut() {
+            Some(v) => v.push(input),
+            None => self.found_outputs.push(vec![input]),
+        }
+    }
+
+    pub fn add_type_scope(&mut self) {
+        self.found_outputs.push(Vec::new())
+    }
+
+    pub fn remove_type_scope(&mut self) -> Option<Vec<Type>> {
+        self.found_outputs.pop()
     }
 }
 

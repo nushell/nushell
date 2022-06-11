@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::Expr;
 
@@ -12,7 +12,7 @@ pub struct ToLazyGroupBy;
 
 impl Command for ToLazyGroupBy {
     fn name(&self) -> &str {
-        "dfr group-by"
+        "group-by"
     }
 
     fn usage(&self) -> &str {
@@ -34,9 +34,9 @@ impl Command for ToLazyGroupBy {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | dfr to-df
-    | dfr group-by a
-    | dfr agg [
+    | to-df
+    | group-by a
+    | agg [
         ("b" | dfr min | dfr as "b_min")
         ("b" | dfr max | dfr as "b_max")
         ("b" | dfr sum | dfr as "b_sum")
@@ -67,14 +67,14 @@ impl Command for ToLazyGroupBy {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | dfr to-df
-    | dfr group-by a
-    | dfr agg [
+    | to-lazy
+    | group-by a
+    | agg [
         ("b" | dfr min | dfr as "b_min")
         ("b" | dfr max | dfr as "b_max")
         ("b" | dfr sum | dfr as "b_sum")
      ]
-    | dfr collect"#,
+    | collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -99,6 +99,14 @@ impl Command for ToLazyGroupBy {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

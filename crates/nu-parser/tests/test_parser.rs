@@ -666,7 +666,7 @@ mod range {
 #[cfg(test)]
 mod input_types {
     use super::*;
-    use nu_protocol::{Category, Type};
+    use nu_protocol::{ast::Argument, Category, Type};
 
     #[derive(Clone)]
     pub struct LsTest;
@@ -696,9 +696,9 @@ mod input_types {
     }
 
     #[derive(Clone)]
-    pub struct GroupByList;
+    pub struct GroupBy;
 
-    impl Command for GroupByList {
+    impl Command for GroupBy {
         fn name(&self) -> &str {
             "group-by"
         }
@@ -830,16 +830,46 @@ mod input_types {
         }
     }
 
+    #[derive(Clone)]
+    pub struct AggMin;
+
+    impl Command for AggMin {
+        fn name(&self) -> &str {
+            "min"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock custom agg command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name())
+                .required("operation", SyntaxShape::String, "operation")
+                .category(Category::Custom("custom".into()))
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+    }
+
     fn add_declations(engine_state: &mut EngineState) {
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(AggCustom));
             working_set.add_decl(Box::new(GroupByCustom));
-            working_set.add_decl(Box::new(GroupByList));
+            working_set.add_decl(Box::new(GroupBy));
             working_set.add_decl(Box::new(LsTest));
             working_set.add_decl(Box::new(ToCustom));
             working_set.add_decl(Box::new(Let));
+            working_set.add_decl(Box::new(AggMin));
 
             working_set.render()
         };
@@ -945,6 +975,56 @@ mod input_types {
             Expr::Call(call) => {
                 let expected_id = working_set.find_decl(b"group-by", &Type::Any).unwrap();
                 assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
+    fn nested_operations_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let (block, delta) = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            let input = r#"ls | to-custom | group-by name other | agg ("b" | min)"#;
+            let (block, _) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+            (block, working_set.render())
+        };
+
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        let _ = engine_state.merge_delta(delta, None, &cwd);
+
+        let expressions = &block[0];
+        match &expressions[3].expr {
+            Expr::Call(call) => {
+                let arg = &call.arguments[0];
+                match arg {
+                    Argument::Positional(a) => match &a.expr {
+                        Expr::FullCellPath(path) => match &path.head.expr {
+                            Expr::Subexpression(id) => {
+                                let block = engine_state.get_block(*id);
+
+                                let expressions = &block[0];
+                                assert!(expressions.len() == 2);
+
+                                match &expressions[1].expr {
+                                    Expr::Call(call) => {
+                                        let working_set = StateWorkingSet::new(&engine_state);
+                                        let expected_id =
+                                            working_set.find_decl(b"min", &Type::Any).unwrap();
+                                        assert_eq!(call.decl_id, expected_id)
+                                    }
+                                    _ => panic!("Expected expression Call not found"),
+                                }
+                            }
+                            _ => panic!("Expected Subexpression not found"),
+                        },
+                        _ => panic!("Expected FullCellPath not found"),
+                    },
+                    _ => panic!("Expected Argument Positional not found"),
+                }
             }
             _ => panic!("Expected expression Call not found"),
         }
