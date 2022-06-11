@@ -94,18 +94,26 @@ pub fn escape_quote_string_with_file(input: &str, file: &str) -> String {
                         }
                     }
                 }
-                if word.contains(input) || {
-                    let s: Vec<&str> = input.split('=').collect();
-                    word.contains(s[0])
-                } {
+
+                if word.contains(input) {
                     return input.to_string();
+                } else {
+                    if let Some((arg_name, arg_val)) = input.split_once('=') {
+                        if word.contains(arg_name) {
+                            if arg_val.contains(' ') {
+                                return format!("{}=`{}`", arg_name, arg_val);
+                            }
+                        }
+                    }
                 }
             }
-            let mut final_word = String::new();
-            final_word.push('"');
-            final_word.push_str(input);
-            final_word.push('"');
-            final_word
+            if input.contains(' ') {
+                format!("`{}`", input)
+            } else if input.contains('"') || input.contains('\\') {
+                escape_quote_string(input)
+            } else {
+                input.to_string()
+            }
         }
         _ => escape_quote_string_when_flags_are_unclear(input),
     }
