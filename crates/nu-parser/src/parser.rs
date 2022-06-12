@@ -1944,10 +1944,11 @@ pub fn parse_full_cell_path(
         error = error.or(err);
 
         if !tail.is_empty() {
+            let ty = head.ty.clone();
             (
                 Expression {
                     expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                    ty: Type::Any,
+                    ty,
                     span: full_cell_span,
                     custom_completion: None,
                 },
