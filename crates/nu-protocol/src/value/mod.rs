@@ -1769,12 +1769,15 @@ impl Value {
             }),
         }
     }
-    pub fn integer_div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn floor_div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
                     Ok(Value::Int {
-                        val: lhs / rhs,
+                        val: (*lhs as f64 / *rhs as f64)
+                            .max(std::i64::MIN as f64)
+                            .min(std::i64::MAX as f64)
+                            .floor() as i64,
                         span,
                     })
                 } else {
@@ -1823,7 +1826,10 @@ impl Value {
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if *rhs != 0 {
                     Ok(Value::Int {
-                        val: lhs / rhs,
+                        val: (*lhs as f64 / *rhs as f64)
+                            .max(std::i64::MIN as f64)
+                            .min(std::i64::MAX as f64)
+                            .floor() as i64,
                         span,
                     })
                 } else {
@@ -1833,7 +1839,10 @@ impl Value {
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if *rhs != 0 {
                     Ok(Value::Int {
-                        val: lhs / rhs,
+                        val: (*lhs as f64 / *rhs as f64)
+                            .max(std::i64::MIN as f64)
+                            .min(std::i64::MAX as f64)
+                            .floor() as i64,
                         span,
                     })
                 } else {

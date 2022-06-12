@@ -112,7 +112,7 @@ impl CustomValue for ExprDb {
             Operator::Multiply => Ok(BinaryOperator::Multiply),
             Operator::Divide => Ok(BinaryOperator::Divide),
             Operator::Modulo => Ok(BinaryOperator::Modulo),
-            Operator::IntegerDivision => Ok(BinaryOperator::Divide),
+            Operator::FloorDivision => Ok(BinaryOperator::Divide),
             Operator::And => Ok(BinaryOperator::And),
             Operator::Or => Ok(BinaryOperator::Or),
             Operator::In

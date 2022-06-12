@@ -166,7 +166,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::IntegerDivision => match (&lhs.ty, &rhs.ty) {
+            Operator::FloorDivision => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Int, None),
                 (Type::Int, Type::Float) => (Type::Int, None),

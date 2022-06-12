@@ -100,7 +100,7 @@ fn with_operator(
         Operator::Multiply => apply_arithmetic(left, right, lhs_span, Mul::mul),
         Operator::Divide => apply_arithmetic(left, right, lhs_span, Div::div),
         Operator::Modulo => apply_arithmetic(left, right, lhs_span, Rem::rem),
-        Operator::IntegerDivision => apply_arithmetic(left, right, lhs_span, Div::div),
+        Operator::FloorDivision => apply_arithmetic(left, right, lhs_span, Div::div),
         Operator::Equal => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::eq)

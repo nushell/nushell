@@ -33,7 +33,7 @@ impl Expression {
                     Operator::Multiply
                     | Operator::Divide
                     | Operator::Modulo
-                    | Operator::IntegerDivision => 95,
+                    | Operator::FloorDivision => 95,
                     Operator::Plus | Operator::Minus => 90,
                     Operator::NotRegexMatch
                     | Operator::RegexMatch
