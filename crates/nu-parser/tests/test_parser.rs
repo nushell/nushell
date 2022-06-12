@@ -843,8 +843,7 @@ mod input_types {
         }
 
         fn signature(&self) -> nu_protocol::Signature {
-            Signature::build(self.name())
-                .category(Category::Custom("custom".into()))
+            Signature::build(self.name()).category(Category::Custom("custom".into()))
         }
 
         fn run(
@@ -908,8 +907,7 @@ mod input_types {
         }
 
         fn signature(&self) -> nu_protocol::Signature {
-            Signature::build(self.name())
-                .category(Category::Custom("custom".into()))
+            Signature::build(self.name()).category(Category::Custom("custom".into()))
         }
 
         fn input_type(&self) -> nu_protocol::Type {
@@ -1063,9 +1061,7 @@ mod input_types {
         let expressions = &block[1];
         match &expressions[1].expr {
             Expr::Call(call) => {
-                let expected_id = working_set
-                    .find_decl(b"to-custom", &Type::Any)
-                    .unwrap();
+                let expected_id = working_set.find_decl(b"to-custom", &Type::Any).unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),
@@ -1074,9 +1070,7 @@ mod input_types {
         let expressions = &block[2];
         match &expressions[1].expr {
             Expr::Call(call) => {
-                let expected_id = working_set
-                    .find_decl(b"to-custom", &Type::Any)
-                    .unwrap();
+                let expected_id = working_set.find_decl(b"to-custom", &Type::Any).unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),
@@ -1199,6 +1193,5 @@ mod input_types {
             }
             _ => panic!("Expected expression Call not found"),
         }
-
     }
 }

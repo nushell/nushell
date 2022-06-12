@@ -21,7 +21,7 @@ impl Command for FirstDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .optional("rows", SyntaxShape::Int, "Number of rows for head")
-            .category(Category::Custom("dataframe or expression".into()))
+            .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

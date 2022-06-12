@@ -758,7 +758,10 @@ pub struct TypeScope {
 
 impl Default for TypeScope {
     fn default() -> Self {
-        Self { outputs: Vec::new(), last_output: Type::Any }
+        Self {
+            outputs: Vec::new(),
+            last_output: Type::Any,
+        }
     }
 }
 

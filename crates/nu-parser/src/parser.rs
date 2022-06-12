@@ -1868,7 +1868,9 @@ pub fn parse_full_cell_path(
             // the previous input type found in that block
             let (output, err) =
                 parse_block(working_set, &output, true, expand_aliases_denylist, true);
-            working_set.type_scope.add_type(working_set.type_scope.get_last_output());
+            working_set
+                .type_scope
+                .add_type(working_set.type_scope.get_last_output());
 
             error = error.or(err);
 

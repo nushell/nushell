@@ -1,4 +1,4 @@
-use crate::dataframe::values::{NuExpression, NuDataFrame, Column};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -30,29 +30,27 @@ impl Command for ExprQuantile {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Quantile aggregation for a group by",
-                example: r#"[[a b]; [one 2] [one 4] [two 1]]
+        vec![Example {
+            description: "Quantile aggregation for a group by",
+            example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | to-df
     | group-by a
     | agg (col b | quantile 0.5)"#,
-                result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_string("one"), Value::test_string("two")],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_float(4.0), Value::test_float(1.0)],
-                        ),
-                    ])
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-        ]
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_string("one"), Value::test_string("two")],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_float(4.0), Value::test_float(1.0)],
+                    ),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        }]
     }
 
     fn input_type(&self) -> Type {
@@ -83,7 +81,6 @@ impl Command for ExprQuantile {
             NuExpression::into_value(expr, call.head),
             None,
         ))
-
     }
 }
 

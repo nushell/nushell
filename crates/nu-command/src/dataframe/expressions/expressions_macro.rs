@@ -230,11 +230,11 @@ expr_command!(
 // Expands to a command definition for a not expression
 expr_command!(
     ExprNot,
-    "df-not",
+    "expr-not",
     "creates a not expression",
     vec![Example {
         description: "Creates a not expression",
-        example: "((col a) > 2) | df-not)",
+        example: "(col a) > 2) | expr-not",
         result: None,
     },],
     not,

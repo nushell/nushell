@@ -25,24 +25,22 @@ impl Command for NotSeries {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Inverts boolean mask",
-                example: "[true false true] | to-df | df-not",
-                result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "0".to_string(),
-                        vec![
-                            Value::test_bool(false),
-                            Value::test_bool(true),
-                            Value::test_bool(false),
-                        ],
-                    )])
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-        ]
+        vec![Example {
+            description: "Inverts boolean mask",
+            example: "[true false true] | to-df | df-not",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![Column::new(
+                    "0".to_string(),
+                    vec![
+                        Value::test_bool(false),
+                        Value::test_bool(true),
+                        Value::test_bool(false),
+                    ],
+                )])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        }]
     }
 
     fn input_type(&self) -> Type {
