@@ -171,11 +171,11 @@ pub fn math_result_type(
             Operator::IntegerDivision => {
                 match (&lhs.ty, &rhs.ty) {
                     (Type::Int, Type::Int) => (Type::Int, None),
-                    (Type::Float, Type::Int) => (Type::Float, None),
-                    (Type::Int, Type::Float) => (Type::Float, None),
-                    (Type::Float, Type::Float) => (Type::Float, None),
-                    (Type::Filesize, Type::Filesize) => (Type::Float, None),
-                    (Type::Duration, Type::Duration) => (Type::Float, None),
+                    (Type::Float, Type::Int) => (Type::Int, None),
+                    (Type::Int, Type::Float) => (Type::Int, None),
+                    (Type::Float, Type::Float) => (Type::Int, None),
+                    (Type::Filesize, Type::Filesize) => (Type::Int, None),
+                    (Type::Duration, Type::Duration) => (Type::Int, None),
 
                     (Type::Filesize, Type::Int) => (Type::Filesize, None),
                     (Type::Duration, Type::Int) => (Type::Duration, None),
