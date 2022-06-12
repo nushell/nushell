@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::{Expr, JoinType};
 
@@ -12,7 +12,7 @@ pub struct LazyJoin;
 
 impl Command for LazyJoin {
     fn name(&self) -> &str {
-        "dfr join"
+        "join"
     }
 
     fn usage(&self) -> &str {
@@ -45,9 +45,9 @@ impl Command for LazyJoin {
         vec![
             Example {
                 description: "Join two lazy dataframes",
-                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | dfr to-lazy);
-    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | dfr to-lazy);
-    $df_a | dfr join $df_b a foo | dfr collect"#,
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | to-lazy);
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | to-lazy);
+    $df_a | join $df_b a foo | collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -102,9 +102,9 @@ impl Command for LazyJoin {
             },
             Example {
                 description: "Join one eager dataframe with a lazy dataframe",
-                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | dfr to-df);
-    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | dfr to-lazy);
-    $df_a | dfr join $df_b a foo"#,
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | to-df);
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | to-lazy);
+    $df_a | join $df_b a foo"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -158,6 +158,14 @@ impl Command for LazyJoin {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

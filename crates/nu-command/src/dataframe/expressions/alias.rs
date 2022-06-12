@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -12,7 +12,7 @@ pub struct ExprAlias;
 
 impl Command for ExprAlias {
     fn name(&self) -> &str {
-        "dfr as"
+        "as"
     }
 
     fn usage(&self) -> &str {
@@ -32,7 +32,7 @@ impl Command for ExprAlias {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates and alias expression",
-            example: "dfr col a | dfr as new_a | dfr as-nu",
+            example: "col a | as new_a | as-nu",
             result: {
                 let cols = vec!["expr".into(), "value".into()];
                 let expr = Value::test_string("column");
@@ -55,6 +55,14 @@ impl Command for ExprAlias {
                 Some(record)
             },
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("expression".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("expression".into())
     }
 
     fn run(

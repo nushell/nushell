@@ -3,7 +3,7 @@ use super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::{IntoSeries, NewChunkedArray, UInt32Chunked};
 
@@ -12,7 +12,7 @@ pub struct ArgMin;
 
 impl Command for ArgMin {
     fn name(&self) -> &str {
-        "dfr arg-min"
+        "arg-min"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for ArgMin {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns index for min value",
-            example: "[1 3 2] | dfr to-df | dfr arg-min",
+            example: "[1 3 2] | to-df | arg-min",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "arg_min".to_string(),
@@ -36,6 +36,14 @@ impl Command for ArgMin {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

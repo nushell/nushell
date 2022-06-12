@@ -839,13 +839,85 @@ mod input_types {
         }
 
         fn usage(&self) -> &str {
-            "Mock custom agg command"
+            "Mock custom min command"
         }
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
-                .required("operation", SyntaxShape::String, "operation")
                 .category(Category::Custom("custom".into()))
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct WithColumn;
+
+    impl Command for WithColumn {
+        fn name(&self) -> &str {
+            "with-column"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock custom with-column command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name())
+                .rest("operation", SyntaxShape::Any, "operation")
+                .category(Category::Custom("custom".into()))
+        }
+
+        fn input_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+
+        fn output_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Collect;
+
+    impl Command for Collect {
+        fn name(&self) -> &str {
+            "collect"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock custom collect command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name())
+                .category(Category::Custom("custom".into()))
+        }
+
+        fn input_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+
+        fn output_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
         }
 
         fn run(
@@ -870,6 +942,8 @@ mod input_types {
             working_set.add_decl(Box::new(ToCustom));
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(AggMin));
+            working_set.add_decl(Box::new(Collect));
+            working_set.add_decl(Box::new(WithColumn));
 
             working_set.render()
         };
@@ -940,6 +1014,68 @@ mod input_types {
             Expr::Call(call) => {
                 let expected_id = working_set
                     .find_decl(b"agg", &Type::Custom("custom".into()))
+                    .unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
+    fn stored_variable_operation_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input = r#"let a = (ls | to-custom | group-by name other); ($a + $a) | agg sum"#;
+
+        let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 2);
+
+        let expressions = &block[1];
+        match &expressions[1].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set
+                    .find_decl(b"agg", &Type::Custom("custom".into()))
+                    .unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
+    fn multiple_stored_variable_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input = r#"
+        let a = (ls | to-custom | group-by name other); [1 2 3] | to-custom; [1 2 3] | to-custom"#;
+
+        let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 3);
+
+        let expressions = &block[1];
+        match &expressions[1].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set
+                    .find_decl(b"to-custom", &Type::Any)
+                    .unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+
+        let expressions = &block[2];
+        match &expressions[1].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set
+                    .find_decl(b"to-custom", &Type::Any)
                     .unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
@@ -1028,5 +1164,41 @@ mod input_types {
             }
             _ => panic!("Expected expression Call not found"),
         }
+    }
+
+    #[test]
+    fn call_with_list_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input = r#"[[a b]; [1 2] [3 4]] | to-custom | with-column [ ("a" | min) ("b" | min) ] | collect"#;
+
+        let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+
+        let expressions = &block[0];
+        match &expressions[2].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set
+                    .find_decl(b"with-column", &Type::Custom("custom".into()))
+                    .unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+
+        match &expressions[3].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set
+                    .find_decl(b"collect", &Type::Custom("custom".into()))
+                    .unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+
     }
 }

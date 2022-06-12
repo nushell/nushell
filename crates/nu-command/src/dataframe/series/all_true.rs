@@ -3,7 +3,7 @@ use super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct AllTrue;
 
 impl Command for AllTrue {
     fn name(&self) -> &str {
-        "dfr all-true"
+        "all-true"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for AllTrue {
         vec![
             Example {
                 description: "Returns true if all values are true",
-                example: "[true true true] | dfr to-df | dfr all-true",
+                example: "[true true true] | to-df | all-true",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_true".to_string(),
@@ -38,9 +38,9 @@ impl Command for AllTrue {
             },
             Example {
                 description: "Checks the result from a comparison",
-                example: r#"let s = ([5 6 2 8] | dfr to-df);
+                example: r#"let s = ([5 6 2 8] | to-df);
     let res = ($s > 9);
-    $res | dfr all-true"#,
+    $res | all-true"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_true".to_string(),
@@ -51,6 +51,14 @@ impl Command for AllTrue {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

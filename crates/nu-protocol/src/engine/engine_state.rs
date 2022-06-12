@@ -744,9 +744,51 @@ pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
     pub external_commands: Vec<Vec<u8>>,
-    // Internal commands output that the next expression in the pipe will use to select a declaration
-    // that matches the name in the found output
-    pub found_outputs: Vec<Vec<Type>>,
+    pub type_scope: TypeScope,
+}
+
+/// A temporary placeholder for expression types. It is used to keep track of the input types
+/// for each expression in a pipeline
+pub struct TypeScope {
+    /// Layers that map the type inputs that are found in each parsed block
+    outputs: Vec<Vec<Type>>,
+    /// The last know output from a parsed block
+    last_output: Type,
+}
+
+impl Default for TypeScope {
+    fn default() -> Self {
+        Self { outputs: Vec::new(), last_output: Type::Any }
+    }
+}
+
+impl TypeScope {
+    pub fn get_previous(&self) -> &Type {
+        match self.outputs.last().and_then(|v| v.last()) {
+            Some(input) => input,
+            None => &Type::Any,
+        }
+    }
+
+    pub fn get_last_output(&self) -> Type {
+        self.last_output.clone()
+    }
+
+    pub fn add_type(&mut self, input: Type) {
+        match self.outputs.last_mut() {
+            Some(v) => v.push(input),
+            None => self.outputs.push(vec![input]),
+        }
+    }
+
+    pub fn enter_scope(&mut self) {
+        self.outputs.push(Vec::new())
+    }
+
+    pub fn exit_scope(&mut self) -> Option<Vec<Type>> {
+        self.last_output = self.get_previous().clone();
+        self.outputs.pop()
+    }
 }
 
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
@@ -871,7 +913,7 @@ impl<'a> StateWorkingSet<'a> {
             delta: StateDelta::new(permanent_state),
             permanent_state,
             external_commands: vec![],
-            found_outputs: vec![],
+            type_scope: TypeScope::default(),
         }
     }
 
@@ -1845,28 +1887,6 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn render(self) -> StateDelta {
         self.delta
-    }
-
-    pub fn get_previous_type(&self) -> &Type {
-        match self.found_outputs.last().and_then(|v| v.last()) {
-            Some(input) => input,
-            None => &Type::Any,
-        }
-    }
-
-    pub fn add_input_type(&mut self, input: Type) {
-        match self.found_outputs.last_mut() {
-            Some(v) => v.push(input),
-            None => self.found_outputs.push(vec![input]),
-        }
-    }
-
-    pub fn add_type_scope(&mut self) {
-        self.found_outputs.push(Vec::new())
-    }
-
-    pub fn remove_type_scope(&mut self) -> Option<Vec<Type>> {
-        self.found_outputs.pop()
     }
 }
 

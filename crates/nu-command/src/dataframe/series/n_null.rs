@@ -3,7 +3,7 @@ use super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct NNull;
 
 impl Command for NNull {
     fn name(&self) -> &str {
-        "dfr count-null"
+        "count-null"
     }
 
     fn usage(&self) -> &str {
@@ -25,8 +25,8 @@ impl Command for NNull {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Counts null values",
-            example: r#"let s = ([1 1 0 0 3 3 4] | dfr to-df);
-    ($s / $s) | dfr count-null"#,
+            example: r#"let s = ([1 1 0 0 3 3 4] | to-df);
+    ($s / $s) | count-null"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "count_null".to_string(),
@@ -36,6 +36,14 @@ impl Command for NNull {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

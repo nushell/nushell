@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -12,7 +12,7 @@ pub struct LazyFetch;
 
 impl Command for LazyFetch {
     fn name(&self) -> &str {
-        "dfr fetch"
+        "fetch"
     }
 
     fn usage(&self) -> &str {
@@ -32,7 +32,7 @@ impl Command for LazyFetch {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Fetch a rows from the dataframe",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | dfr to-df | dfr fetch 2",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | to-df | fetch 2",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -48,6 +48,14 @@ impl Command for LazyFetch {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

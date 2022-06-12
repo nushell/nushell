@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::UniqueKeepStrategy;
 
@@ -14,7 +14,7 @@ pub struct DropDuplicates;
 
 impl Command for DropDuplicates {
     fn name(&self) -> &str {
-        "dfr drop-duplicates"
+        "drop-duplicates"
     }
 
     fn usage(&self) -> &str {
@@ -40,7 +40,7 @@ impl Command for DropDuplicates {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop duplicates",
-            example: "[[a b]; [1 2] [3 4] [1 2]] | dfr to-df | dfr drop-duplicates",
+            example: "[[a b]; [1 2] [3 4] [1 2]] | to-df | drop-duplicates",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -56,6 +56,14 @@ impl Command for DropDuplicates {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

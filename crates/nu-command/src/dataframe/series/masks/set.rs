@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::{ChunkSet, DataType, IntoSeries};
 
@@ -13,7 +13,7 @@ pub struct SetSeries;
 
 impl Command for SetSeries {
     fn name(&self) -> &str {
-        "dfr set"
+        "set"
     }
 
     fn usage(&self) -> &str {
@@ -35,9 +35,9 @@ impl Command for SetSeries {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Shifts the values by a given period",
-            example: r#"let s = ([1 2 2 3 3] | dfr to-df | dfr shift 2);
-    let mask = ($s | dfr is-null);
-    $s | dfr set 0 --mask $mask"#,
+            example: r#"let s = ([1 2 2 3 3] | to-df | shift 2);
+    let mask = ($s | is-null);
+    $s | set 0 --mask $mask"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
@@ -53,6 +53,14 @@ impl Command for SetSeries {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

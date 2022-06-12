@@ -3,7 +3,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::{DatetimeMethods, IntoSeries};
 
@@ -12,7 +12,7 @@ pub struct GetHour;
 
 impl Command for GetHour {
     fn name(&self) -> &str {
-        "dfr get-hour"
+        "get-hour"
     }
 
     fn usage(&self) -> &str {
@@ -27,8 +27,8 @@ impl Command for GetHour {
         vec![Example {
             description: "Returns hour from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
-    let df = ([$dt $dt] | dfr to-df);
-    $df | dfr get-hour"#,
+    let df = ([$dt $dt] | to-df);
+    $df | get-hour"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
@@ -38,6 +38,14 @@ impl Command for GetHour {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

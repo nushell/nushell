@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct ExprLit;
 
 impl Command for ExprLit {
     fn name(&self) -> &str {
-        "dfr lit"
+        "lit"
     }
 
     fn usage(&self) -> &str {
@@ -31,7 +31,7 @@ impl Command for ExprLit {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Created a literal expression and converts it to a nu object",
-            example: "dfr lit 2 | dfr as-nu",
+            example: "lit 2 | as-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![
@@ -47,6 +47,14 @@ impl Command for ExprLit {
                 span: Span::test_data(),
             }),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Any
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("expression".into())
     }
 
     fn run(

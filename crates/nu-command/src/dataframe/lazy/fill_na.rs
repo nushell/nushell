@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct LazyFillNA;
 
 impl Command for LazyFillNA {
     fn name(&self) -> &str {
-        "dfr fill-na"
+        "fill-na"
     }
 
     fn usage(&self) -> &str {
@@ -34,6 +34,14 @@ impl Command for LazyFillNA {
             example: "",
             result: None,
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

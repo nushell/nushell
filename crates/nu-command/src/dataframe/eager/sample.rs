@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 
 use super::super::values::NuDataFrame;
@@ -12,7 +12,7 @@ pub struct SampleDF;
 
 impl Command for SampleDF {
     fn name(&self) -> &str {
-        "dfr sample"
+        "sample"
     }
 
     fn usage(&self) -> &str {
@@ -47,15 +47,23 @@ impl Command for SampleDF {
         vec![
             Example {
                 description: "Sample rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr sample -n 1",
+                example: "[[a b]; [1 2] [3 4]] | to-df | sample -n 1",
                 result: None, // No expected value because sampling is random
             },
             Example {
                 description: "Shows sample row using fraction and replace",
-                example: "[[a b]; [1 2] [3 4] [5 6]] | dfr to-df | dfr sample -f 0.5 -e",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | to-df | sample -f 0.5 -e",
                 result: None, // No expected value because sampling is random
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

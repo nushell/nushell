@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::col;
 
@@ -12,7 +12,7 @@ pub struct ExprCol;
 
 impl Command for ExprCol {
     fn name(&self) -> &str {
-        "dfr col"
+        "col"
     }
 
     fn usage(&self) -> &str {
@@ -32,7 +32,7 @@ impl Command for ExprCol {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a named column expression and converts it to a nu object",
-            example: "dfr col col_a | dfr as-nu",
+            example: "col a | as-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![
@@ -41,13 +41,21 @@ impl Command for ExprCol {
                         span: Span::test_data(),
                     },
                     Value::String {
-                        val: "col_a".into(),
+                        val: "a".into(),
                         span: Span::test_data(),
                     },
                 ],
                 span: Span::test_data(),
             }),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Any
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("expression".into())
     }
 
     fn run(

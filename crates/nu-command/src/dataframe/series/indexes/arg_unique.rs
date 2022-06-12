@@ -3,7 +3,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -12,7 +12,7 @@ pub struct ArgUnique;
 
 impl Command for ArgUnique {
     fn name(&self) -> &str {
-        "dfr arg-unique"
+        "arg-unique"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for ArgUnique {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns indexes for unique values",
-            example: "[1 2 2 3 3] | dfr to-df | dfr arg-unique",
+            example: "[1 2 2 3 3] | to-df | arg-unique",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "arg_unique".to_string(),
@@ -36,6 +36,14 @@ impl Command for ArgUnique {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

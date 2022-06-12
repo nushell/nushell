@@ -1,9 +1,8 @@
 use super::super::values::{Column, NuDataFrame};
-use crate::dataframe::values::NuExpression;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,11 +10,11 @@ pub struct NUnique;
 
 impl Command for NUnique {
     fn name(&self) -> &str {
-        "dfr n-unique"
+        "n-unique"
     }
 
     fn usage(&self) -> &str {
-        "Counts unique values or creates a n-unique expression"
+        "Counts unique values"
     }
 
     fn signature(&self) -> Signature {
@@ -23,25 +22,26 @@ impl Command for NUnique {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Counts unique values",
-                example: "[1 1 2 2 3 3 4] | dfr to-df | dfr n-unique",
-                result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "count_unique".to_string(),
-                        vec![Value::test_int(4)],
-                    )])
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-            Example {
-                description: "Creates a is n-unique expression from a column",
-                example: "dfr col a | dfr n-unique",
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Counts unique values",
+            example: "[1 1 2 2 3 3 4] | to-df | n-unique",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![Column::new(
+                    "count_unique".to_string(),
+                    vec![Value::test_int(4)],
+                )])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(
@@ -51,27 +51,8 @@ impl Command for NUnique {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(call.head);
-
-        if NuExpression::can_downcast(&value) {
-            let expr = NuExpression::try_from_value(value)?;
-            let expr: NuExpression = expr.into_polars().n_unique().into();
-
-            Ok(PipelineData::Value(
-                NuExpression::into_value(expr, call.head),
-                None,
-            ))
-        } else if NuDataFrame::can_downcast(&value) {
-            let df = NuDataFrame::try_from_value(value)?;
-            command(engine_state, stack, call, df)
-        } else {
-            Err(ShellError::CantConvert(
-                "expression or query".into(),
-                value.get_type().to_string(),
-                value.span()?,
-                None,
-            ))
-        }
+        let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+        command(engine_state, stack, call, df)
     }
 }
 

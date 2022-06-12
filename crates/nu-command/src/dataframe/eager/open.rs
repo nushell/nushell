@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 
 use std::{fs::File, io::BufReader, path::PathBuf};
@@ -15,7 +15,7 @@ pub struct OpenDataFrame;
 
 impl Command for OpenDataFrame {
     fn name(&self) -> &str {
-        "dfr open"
+        "open-df"
     }
 
     fn usage(&self) -> &str {
@@ -64,9 +64,17 @@ impl Command for OpenDataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes a file name and creates a dataframe",
-            example: "dfr open test.csv",
+            example: "open test.csv",
             result: None,
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Any
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

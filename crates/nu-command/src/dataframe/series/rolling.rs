@@ -4,7 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 use polars::prelude::{DataType, IntoSeries, RollingOptions};
 
@@ -47,7 +48,7 @@ pub struct Rolling;
 
 impl Command for Rolling {
     fn name(&self) -> &str {
-        "dfr rolling"
+        "rolling"
     }
 
     fn usage(&self) -> &str {
@@ -65,7 +66,7 @@ impl Command for Rolling {
         vec![
             Example {
                 description: "Rolling sum for a series",
-                example: "[1 2 3 4 5] | dfr to-df | dfr rolling sum 2 | dfr drop-nulls",
+                example: "[1 2 3 4 5] | to-df | rolling sum 2 | drop-nulls",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0_rolling_sum".to_string(),
@@ -82,7 +83,7 @@ impl Command for Rolling {
             },
             Example {
                 description: "Rolling max for a series",
-                example: "[1 2 3 4 5] | dfr to-df | dfr rolling max 2 | dfr drop-nulls",
+                example: "[1 2 3 4 5] | to-df | rolling max 2 | drop-nulls",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0_rolling_max".to_string(),
@@ -98,6 +99,14 @@ impl Command for Rolling {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

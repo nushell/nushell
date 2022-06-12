@@ -7,6 +7,7 @@ use nu_protocol::{
 
 use super::eager::ToDataFrame;
 use super::lazy::{LazyCollect, ToLazyFrame};
+use super::expressions::ExprCol;
 use crate::Let;
 
 pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
@@ -26,6 +27,7 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
         working_set.add_decl(Box::new(ToDataFrame));
         working_set.add_decl(Box::new(ToLazyFrame));
         working_set.add_decl(Box::new(LazyCollect));
+        working_set.add_decl(Box::new(ExprCol));
 
         // Adding the command that is being tested to the working set
         for cmd in cmds {

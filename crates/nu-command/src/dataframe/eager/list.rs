@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 use crate::dataframe::values::NuDataFrame;
@@ -11,7 +11,7 @@ pub struct ListDF;
 
 impl Command for ListDF {
     fn name(&self) -> &str {
-        "dfr ls"
+        "ls"
     }
 
     fn usage(&self) -> &str {
@@ -25,10 +25,18 @@ impl Command for ListDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a new dataframe and shows it in the dataframe list",
-            example: r#"let test = ([[a b];[1 2] [3 4]] | dfr to-df);
-    dfr ls"#,
+            example: r#"let test = ([[a b];[1 2] [3 4]] | to-df);
+    ls"#,
             result: None,
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

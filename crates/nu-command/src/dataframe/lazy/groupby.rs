@@ -37,9 +37,9 @@ impl Command for ToLazyGroupBy {
     | to-df
     | group-by a
     | agg [
-        ("b" | dfr min | dfr as "b_min")
-        ("b" | dfr max | dfr as "b_max")
-        ("b" | dfr sum | dfr as "b_sum")
+        (col b | min | as "b_min")
+        (col b | max | as "b_max")
+        (col b | sum | as "b_sum")
      ]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
@@ -70,9 +70,9 @@ impl Command for ToLazyGroupBy {
     | to-lazy
     | group-by a
     | agg [
-        ("b" | dfr min | dfr as "b_min")
-        ("b" | dfr max | dfr as "b_max")
-        ("b" | dfr sum | dfr as "b_sum")
+        (col b | min | as "b_min")
+        (col b | max | as "b_max")
+        (col b | sum | as "b_sum")
      ]
     | collect"#,
                 result: Some(
@@ -151,9 +151,8 @@ impl Command for ToLazyGroupBy {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
-    use crate::dataframe::expressions::ExprAlias;
+    use crate::dataframe::expressions::{ExprAlias, ExprMax, ExprMin, ExprSum};
     use crate::dataframe::lazy::aggregate::LazyAggregate;
-    use crate::dataframe::lazy::{LazyMax, LazyMin, LazySum};
 
     #[test]
     fn test_examples() {
@@ -161,9 +160,9 @@ mod test {
             Box::new(LazyAggregate {}),
             Box::new(ToLazyGroupBy {}),
             Box::new(ExprAlias {}),
-            Box::new(LazyMin {}),
-            Box::new(LazyMax {}),
-            Box::new(LazySum {}),
+            Box::new(ExprMin {}),
+            Box::new(ExprMax {}),
+            Box::new(ExprSum {}),
         ])
     }
 }

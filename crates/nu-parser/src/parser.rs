@@ -749,7 +749,7 @@ pub fn parse_internal_call(
     let signature = decl.signature();
     let output = decl.output_type();
 
-    working_set.add_input_type(output.clone());
+    working_set.type_scope.add_type(output.clone());
 
     if signature.creates_scope {
         working_set.enter_scope();
@@ -1022,7 +1022,7 @@ pub fn parse_call(
         pos += 1;
     }
 
-    let input = working_set.get_previous_type();
+    let input = working_set.type_scope.get_previous();
     let mut maybe_decl_id = working_set.find_decl(&name, input);
 
     while maybe_decl_id.is_none() {
@@ -1864,12 +1864,13 @@ pub fn parse_full_cell_path(
             let (output, err) = lite_parse(&output);
             error = error.or(err);
 
-            working_set.add_type_scope();
+            // Creating a Type scope to parse the new block. This will keep track of
+            // the previous input type found in that block
             let (output, err) =
                 parse_block(working_set, &output, true, expand_aliases_denylist, true);
+            working_set.type_scope.add_type(working_set.type_scope.get_last_output());
+
             error = error.or(err);
-            let output_type = working_set.get_previous_type().clone();
-            working_set.remove_type_scope();
 
             let block_id = working_set.add_block(output);
             tokens.next();
@@ -1878,7 +1879,7 @@ pub fn parse_full_cell_path(
                 Expression {
                     expr: Expr::Subexpression(block_id),
                     span: head_span,
-                    ty: output_type,
+                    ty: working_set.type_scope.get_last_output(),
                     custom_completion: None,
                 },
                 true,
@@ -4596,7 +4597,7 @@ pub fn parse_variable(
     if is_variable(bytes) {
         if let Some(var_id) = working_set.find_variable(bytes) {
             let input = working_set.get_variable(var_id).ty.clone();
-            working_set.add_input_type(input);
+            working_set.type_scope.add_type(input);
 
             (Some(var_id), None)
         } else {
@@ -4777,6 +4778,7 @@ pub fn parse_block(
     if scoped {
         working_set.enter_scope();
     }
+    working_set.type_scope.enter_scope();
 
     let mut error = None;
 
@@ -4806,6 +4808,8 @@ pub fn parse_block(
                     .map(|command| {
                         let (expr, err) =
                             parse_expression(working_set, &command.parts, expand_aliases_denylist);
+
+                        working_set.type_scope.add_type(expr.ty.clone());
 
                         if error.is_none() {
                             error = err;
@@ -4890,6 +4894,7 @@ pub fn parse_block(
     if scoped {
         working_set.exit_scope();
     }
+    working_set.type_scope.exit_scope();
 
     (block, error)
 }
