@@ -1784,7 +1784,10 @@ impl Value {
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
                     Ok(Value::Int {
-                        val: (*lhs as f64 / *rhs).max(std::i64::MIN as f64).min(std::i64::MAX as f64).floor() as i64,
+                        val: (*lhs as f64 / *rhs)
+                            .max(std::i64::MIN as f64)
+                            .min(std::i64::MAX as f64)
+                            .floor() as i64,
                         span,
                     })
                 } else {
@@ -1794,7 +1797,10 @@ impl Value {
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
                     Ok(Value::Int {
-                        val: (*lhs / *rhs as f64).max(std::i64::MIN as f64).min(std::i64::MAX as f64).floor() as i64,
+                        val: (*lhs / *rhs as f64)
+                            .max(std::i64::MIN as f64)
+                            .min(std::i64::MAX as f64)
+                            .floor() as i64,
                         span,
                     })
                 } else {
@@ -1804,7 +1810,10 @@ impl Value {
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
                     Ok(Value::Int {
-                        val: (lhs / rhs).max(std::i64::MIN as f64).min(std::i64::MAX as f64).floor() as i64,
+                        val: (lhs / rhs)
+                            .max(std::i64::MIN as f64)
+                            .min(std::i64::MAX as f64)
+                            .floor() as i64,
                         span,
                     })
                 } else {
@@ -1826,7 +1835,7 @@ impl Value {
                     Ok(Value::Int {
                         val: lhs / rhs,
                         span,
-                     })
+                    })
                 } else {
                     Err(ShellError::DivisionByZero(op))
                 }
