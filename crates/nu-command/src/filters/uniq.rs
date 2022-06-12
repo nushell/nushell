@@ -62,12 +62,18 @@ impl Command for Uniq {
             Example {
                 description: "Only print duplicate lines, one for each group",
                 example: "[1 2 2] | uniq -d",
-                result: Some(Value::test_int(2)),
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Only print unique lines lines",
                 example: "[1 2 2] | uniq -u",
-                result: Some(Value::test_int(1)),
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(1)],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Ignore differences in case when comparing",
