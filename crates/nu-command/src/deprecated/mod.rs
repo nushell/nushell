@@ -21,9 +21,3 @@ pub use str_decimal::StrDecimalDeprecated;
 pub use str_find_replace::StrFindReplaceDeprecated;
 pub use str_int::StrIntDeprecated;
 pub use unalias::UnaliasDeprecated;
-
-#[cfg(feature = "dataframe")]
-mod dataframe;
-
-#[cfg(feature = "dataframe")]
-pub use dataframe::DataframeDeprecated;
