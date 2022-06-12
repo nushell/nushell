@@ -139,7 +139,36 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Divide | Operator::Modulo | Operator::IntegerDivision => {
+            Operator::Divide | Operator::Modulo => {
+                match (&lhs.ty, &rhs.ty) {
+                    (Type::Int, Type::Int) => (Type::Int, None),
+                    (Type::Float, Type::Int) => (Type::Float, None),
+                    (Type::Int, Type::Float) => (Type::Float, None),
+                    (Type::Float, Type::Float) => (Type::Float, None),
+                    (Type::Filesize, Type::Filesize) => (Type::Float, None),
+                    (Type::Duration, Type::Duration) => (Type::Float, None),
+
+                    (Type::Filesize, Type::Int) => (Type::Filesize, None),
+                    (Type::Duration, Type::Int) => (Type::Duration, None),
+
+                    (Type::Any, _) => (Type::Any, None),
+                    (_, Type::Any) => (Type::Any, None),
+                    _ => {
+                        *op = Expression::garbage(op.span);
+                        (
+                            Type::Any,
+                            Some(ParseError::UnsupportedOperation(
+                                op.span,
+                                lhs.span,
+                                lhs.ty.clone(),
+                                rhs.span,
+                                rhs.ty.clone(),
+                            )),
+                        )
+                    }
+                }
+            }
+            Operator::IntegerDivision => {
                 match (&lhs.ty, &rhs.ty) {
                     (Type::Int, Type::Int) => (Type::Int, None),
                     (Type::Float, Type::Int) => (Type::Float, None),
