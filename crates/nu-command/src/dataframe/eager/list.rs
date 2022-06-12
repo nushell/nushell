@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
 };
 
 use crate::dataframe::values::NuDataFrame;
