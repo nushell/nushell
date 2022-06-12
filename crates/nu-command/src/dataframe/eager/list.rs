@@ -11,7 +11,7 @@ pub struct ListDF;
 
 impl Command for ListDF {
     fn name(&self) -> &str {
-        "ls"
+        "ls-df"
     }
 
     fn usage(&self) -> &str {
@@ -26,17 +26,9 @@ impl Command for ListDF {
         vec![Example {
             description: "Creates a new dataframe and shows it in the dataframe list",
             example: r#"let test = ([[a b];[1 2] [3 4]] | to-df);
-    ls"#,
+    ls-df"#,
             result: None,
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(
