@@ -87,7 +87,7 @@ impl NuHelpCompleter {
 
                 let extra: Vec<String> = examples
                     .iter()
-                    .map(|example| example.example.to_string())
+                    .map(|example| example.example.replace('\n', "\r\n"))
                     .collect();
 
                 Suggestion {

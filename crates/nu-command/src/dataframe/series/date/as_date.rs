@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
 };
 use polars::prelude::{IntoSeries, Utf8Methods};
 
@@ -13,7 +13,7 @@ pub struct AsDate;
 
 impl Command for AsDate {
     fn name(&self) -> &str {
-        "dfr as-date"
+        "as-date"
     }
 
     fn usage(&self) -> &str {
@@ -37,9 +37,17 @@ impl Command for AsDate {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Converts string to date",
-            example: r#"["2021-12-30" "2021-12-31"] | dfr to-df | dfr as-datetime "%Y-%m-%d""#,
+            example: r#"["2021-12-30" "2021-12-31"] | to-df | as-datetime "%Y-%m-%d""#,
             result: None,
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

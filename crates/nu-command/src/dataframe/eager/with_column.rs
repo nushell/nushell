@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -12,7 +12,7 @@ pub struct WithColumn;
 
 impl Command for WithColumn {
     fn name(&self) -> &str {
-        "dfr with-column"
+        "with-column"
     }
 
     fn usage(&self) -> &str {
@@ -34,9 +34,9 @@ impl Command for WithColumn {
         vec![
             Example {
                 description: "Adds a series to the dataframe",
-                example: r#"[[a b]; [1 2] [3 4]] 
-    | dfr to-df 
-    | dfr with-column ([5 6] | dfr to-df) --name c"#,
+                example: r#"[[a b]; [1 2] [3 4]]
+    | to-df
+    | with-column ([5 6] | to-df) --name c"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -58,13 +58,13 @@ impl Command for WithColumn {
             },
             Example {
                 description: "Adds a series to the dataframe",
-                example: r#"[[a b]; [1 2] [3 4]] 
-    | dfr to-lazy
-    | dfr with-column [
-        ((dfr col a) * 2 | dfr as "c")
-        ((dfr col a) * 3 | dfr as "d")
+                example: r#"[[a b]; [1 2] [3 4]]
+    | to-lazy
+    | with-column [
+        ((col a) * 2 | as "c")
+        ((col a) * 3 | as "d")
       ]
-    | dfr collect"#,
+    | collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -89,6 +89,14 @@ impl Command for WithColumn {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

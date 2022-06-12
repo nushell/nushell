@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -12,7 +12,7 @@ pub struct LazySortBy;
 
 impl Command for LazySortBy {
     fn name(&self) -> &str {
-        "dfr sort-by"
+        "sort-by"
     }
 
     fn usage(&self) -> &str {
@@ -39,7 +39,7 @@ impl Command for LazySortBy {
         vec![
             Example {
                 description: "Sort dataframe by one column",
-                example: "[[a b]; [6 2] [1 4] [4 1]] | dfr to-df | dfr sort-by a",
+                example: "[[a b]; [6 2] [1 4] [4 1]] | to-df | sort-by a",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -57,8 +57,7 @@ impl Command for LazySortBy {
             },
             Example {
                 description: "Sort column using two columns",
-                example:
-                    "[[a b]; [6 2] [1 1] [1 4] [2 4]] | dfr to-df | dfr sort-by [a b] -r [false true]",
+                example: "[[a b]; [6 2] [1 1] [1 4] [2 4]] | to-df | sort-by [a b] -r [false true]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -85,6 +84,14 @@ impl Command for LazySortBy {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

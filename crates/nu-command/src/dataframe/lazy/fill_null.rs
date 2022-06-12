@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct LazyFillNull;
 
 impl Command for LazyFillNull {
     fn name(&self) -> &str {
-        "dfr fill-null"
+        "fill-null"
     }
 
     fn usage(&self) -> &str {
@@ -31,7 +31,7 @@ impl Command for LazyFillNull {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Fills the null values by 0",
-            example: "[1 2 2 3 3] | dfr to-df | dfr shift 2 | dfr fill-null 0",
+            example: "[1 2 2 3 3] | to-df | shift 2 | fill-null 0",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
@@ -47,6 +47,14 @@ impl Command for LazyFillNull {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

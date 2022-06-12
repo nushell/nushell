@@ -3,7 +3,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -12,7 +12,7 @@ pub struct StrLengths;
 
 impl Command for StrLengths {
     fn name(&self) -> &str {
-        "dfr str-lengths"
+        "str-lengths"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for StrLengths {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns string lengths",
-            example: "[a ab abc] | dfr to-df | dfr str-lengths",
+            example: "[a ab abc] | to-df | str-lengths",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
@@ -36,6 +36,14 @@ impl Command for StrLengths {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

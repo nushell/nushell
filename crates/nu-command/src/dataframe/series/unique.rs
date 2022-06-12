@@ -6,7 +6,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::{IntoSeries, UniqueKeepStrategy};
 
@@ -15,11 +15,11 @@ pub struct Unique;
 
 impl Command for Unique {
     fn name(&self) -> &str {
-        "dfr unique"
+        "unique"
     }
 
     fn usage(&self) -> &str {
-        "Returns unique values from a series"
+        "Returns unique values from a dataframe"
     }
 
     fn signature(&self) -> Signature {
@@ -40,14 +40,14 @@ impl Command for Unique {
                 "Keep the same order as the original DataFrame (lazy df)",
                 Some('k'),
             )
-            .category(Category::Custom("dataframe or expression".into()))
+            .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Returns unique values from a series",
-                example: "[2 2 2 2 2] | dfr to-df | dfr unique",
+                example: "[2 2 2 2 2] | to-df | unique",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),
@@ -59,10 +59,18 @@ impl Command for Unique {
             },
             Example {
                 description: "Creates a is unique expression from a column",
-                example: "dfr col a | dfr unique",
+                example: "col a | unique",
                 result: None,
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(
@@ -77,16 +85,9 @@ impl Command for Unique {
         if NuLazyFrame::can_downcast(&value) {
             let df = NuLazyFrame::try_from_value(value)?;
             command_lazy(engine_state, stack, call, df)
-        } else if NuDataFrame::can_downcast(&value) {
+        } else {
             let df = NuDataFrame::try_from_value(value)?;
             command_eager(engine_state, stack, call, df)
-        } else {
-            Err(ShellError::CantConvert(
-                "expression or query".into(),
-                value.get_type().to_string(),
-                value.span()?,
-                None,
-            ))
         }
     }
 }

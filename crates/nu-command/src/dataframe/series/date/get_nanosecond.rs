@@ -3,7 +3,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::{DatetimeMethods, IntoSeries};
 
@@ -12,7 +12,7 @@ pub struct GetNanosecond;
 
 impl Command for GetNanosecond {
     fn name(&self) -> &str {
-        "dfr get-nanosecond"
+        "get-nanosecond"
     }
 
     fn usage(&self) -> &str {
@@ -27,8 +27,8 @@ impl Command for GetNanosecond {
         vec![Example {
             description: "Returns nanosecond from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
-    let df = ([$dt $dt] | dfr to-df);
-    $df | dfr get-nanosecond"#,
+    let df = ([$dt $dt] | to-df);
+    $df | get-nanosecond"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
@@ -38,6 +38,14 @@ impl Command for GetNanosecond {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

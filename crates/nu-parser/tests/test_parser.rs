@@ -666,7 +666,7 @@ mod range {
 #[cfg(test)]
 mod input_types {
     use super::*;
-    use nu_protocol::{Category, Type};
+    use nu_protocol::{ast::Argument, Category, Type};
 
     #[derive(Clone)]
     pub struct LsTest;
@@ -696,9 +696,9 @@ mod input_types {
     }
 
     #[derive(Clone)]
-    pub struct GroupByList;
+    pub struct GroupBy;
 
-    impl Command for GroupByList {
+    impl Command for GroupBy {
         fn name(&self) -> &str {
             "group-by"
         }
@@ -830,16 +830,118 @@ mod input_types {
         }
     }
 
+    #[derive(Clone)]
+    pub struct AggMin;
+
+    impl Command for AggMin {
+        fn name(&self) -> &str {
+            "min"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock custom min command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name()).category(Category::Custom("custom".into()))
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct WithColumn;
+
+    impl Command for WithColumn {
+        fn name(&self) -> &str {
+            "with-column"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock custom with-column command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name())
+                .rest("operation", SyntaxShape::Any, "operation")
+                .category(Category::Custom("custom".into()))
+        }
+
+        fn input_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+
+        fn output_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Collect;
+
+    impl Command for Collect {
+        fn name(&self) -> &str {
+            "collect"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock custom collect command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name()).category(Category::Custom("custom".into()))
+        }
+
+        fn input_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+
+        fn output_type(&self) -> nu_protocol::Type {
+            Type::Custom("custom".into())
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+    }
+
     fn add_declations(engine_state: &mut EngineState) {
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(AggCustom));
             working_set.add_decl(Box::new(GroupByCustom));
-            working_set.add_decl(Box::new(GroupByList));
+            working_set.add_decl(Box::new(GroupBy));
             working_set.add_decl(Box::new(LsTest));
             working_set.add_decl(Box::new(ToCustom));
             working_set.add_decl(Box::new(Let));
+            working_set.add_decl(Box::new(AggMin));
+            working_set.add_decl(Box::new(Collect));
+            working_set.add_decl(Box::new(WithColumn));
 
             working_set.render()
         };
@@ -918,6 +1020,64 @@ mod input_types {
     }
 
     #[test]
+    fn stored_variable_operation_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input = r#"let a = (ls | to-custom | group-by name other); ($a + $a) | agg sum"#;
+
+        let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 2);
+
+        let expressions = &block[1];
+        match &expressions[1].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set
+                    .find_decl(b"agg", &Type::Custom("custom".into()))
+                    .unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
+    fn multiple_stored_variable_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input = r#"
+        let a = (ls | to-custom | group-by name other); [1 2 3] | to-custom; [1 2 3] | to-custom"#;
+
+        let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 3);
+
+        let expressions = &block[1];
+        match &expressions[1].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set.find_decl(b"to-custom", &Type::Any).unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+
+        let expressions = &block[2];
+        match &expressions[1].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set.find_decl(b"to-custom", &Type::Any).unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
     fn call_non_custom_types_test() {
         let mut engine_state = EngineState::new();
         add_declations(&mut engine_state);
@@ -944,6 +1104,91 @@ mod input_types {
         match &expressions[1].expr {
             Expr::Call(call) => {
                 let expected_id = working_set.find_decl(b"group-by", &Type::Any).unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
+    fn nested_operations_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let (block, delta) = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            let input = r#"ls | to-custom | group-by name other | agg ("b" | min)"#;
+            let (block, _) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+            (block, working_set.render())
+        };
+
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        let _ = engine_state.merge_delta(delta, None, &cwd);
+
+        let expressions = &block[0];
+        match &expressions[3].expr {
+            Expr::Call(call) => {
+                let arg = &call.arguments[0];
+                match arg {
+                    Argument::Positional(a) => match &a.expr {
+                        Expr::FullCellPath(path) => match &path.head.expr {
+                            Expr::Subexpression(id) => {
+                                let block = engine_state.get_block(*id);
+
+                                let expressions = &block[0];
+                                assert!(expressions.len() == 2);
+
+                                match &expressions[1].expr {
+                                    Expr::Call(call) => {
+                                        let working_set = StateWorkingSet::new(&engine_state);
+                                        let expected_id =
+                                            working_set.find_decl(b"min", &Type::Any).unwrap();
+                                        assert_eq!(call.decl_id, expected_id)
+                                    }
+                                    _ => panic!("Expected expression Call not found"),
+                                }
+                            }
+                            _ => panic!("Expected Subexpression not found"),
+                        },
+                        _ => panic!("Expected FullCellPath not found"),
+                    },
+                    _ => panic!("Expected Argument Positional not found"),
+                }
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
+    fn call_with_list_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input = r#"[[a b]; [1 2] [3 4]] | to-custom | with-column [ ("a" | min) ("b" | min) ] | collect"#;
+
+        let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+
+        let expressions = &block[0];
+        match &expressions[2].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set
+                    .find_decl(b"with-column", &Type::Custom("custom".into()))
+                    .unwrap();
+                assert_eq!(call.decl_id, expected_id)
+            }
+            _ => panic!("Expected expression Call not found"),
+        }
+
+        match &expressions[3].expr {
+            Expr::Call(call) => {
+                let expected_id = working_set
+                    .find_decl(b"collect", &Type::Custom("custom".into()))
+                    .unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),

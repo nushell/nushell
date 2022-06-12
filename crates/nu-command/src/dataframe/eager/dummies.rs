@@ -2,7 +2,7 @@ use super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::DataFrameOps;
 
@@ -11,7 +11,7 @@ pub struct Dummies;
 
 impl Command for Dummies {
     fn name(&self) -> &str {
-        "dfr to-dummies"
+        "to-dummies"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for Dummies {
         vec![
             Example {
                 description: "Create new dataframe with dummy variables from a dataframe",
-                example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr to-dummies",
+                example: "[[a b]; [1 2] [3 4]] | to-df | to-dummies",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -52,7 +52,7 @@ impl Command for Dummies {
             },
             Example {
                 description: "Create new dataframe with dummy variables from a series",
-                example: "[1 2 2 3 3] | dfr to-df | dfr to-dummies",
+                example: "[1 2 2 3 3] | to-df | to-dummies",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -91,6 +91,14 @@ impl Command for Dummies {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

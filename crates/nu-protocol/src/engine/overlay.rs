@@ -225,7 +225,10 @@ impl OverlayFrame {
     }
 
     pub fn get_decl(&self, name: &[u8], input: &Type) -> Option<DeclId> {
-        self.decls.get(&(name, input) as &dyn DeclKey).cloned()
+        match self.decls.get(&(name, input) as &dyn DeclKey) {
+            Some(decl) => Some(*decl),
+            None => self.decls.get(&(name, &Type::Any) as &dyn DeclKey).cloned(),
+        }
     }
 }
 

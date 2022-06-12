@@ -3,7 +3,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -12,7 +12,7 @@ pub struct ToUpperCase;
 
 impl Command for ToUpperCase {
     fn name(&self) -> &str {
-        "dfr to-uppercase"
+        "to-uppercase"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for ToUpperCase {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Modifies strings to uppercase",
-            example: "[Abc aBc abC] | dfr to-df | dfr to-uppercase",
+            example: "[Abc aBc abC] | to-df | to-uppercase",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
@@ -40,6 +40,14 @@ impl Command for ToUpperCase {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

@@ -3,7 +3,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -12,7 +12,7 @@ pub struct IsUnique;
 
 impl Command for IsUnique {
     fn name(&self) -> &str {
-        "dfr is-unique"
+        "is-unique"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for IsUnique {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create mask indicating unique values",
-            example: "[5 6 6 6 8 8 8] | dfr to-df | dfr is-unique",
+            example: "[5 6 6 6 8 8 8] | to-df | is-unique",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_unique".to_string(),
@@ -44,6 +44,14 @@ impl Command for IsUnique {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

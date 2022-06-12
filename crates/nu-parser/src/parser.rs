@@ -724,13 +724,19 @@ pub fn parse_multispan_value(
     }
 }
 
+pub struct ParsedInternalCall {
+    pub call: Box<Call>,
+    pub output: Type,
+    pub error: Option<ParseError>,
+}
+
 pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
     spans: &[Span],
     decl_id: usize,
     expand_aliases_denylist: &[usize],
-) -> (Box<Call>, Option<ParseError>) {
+) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id);
 
     let mut error = None;
@@ -742,7 +748,8 @@ pub fn parse_internal_call(
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
     let output = decl.output_type();
-    working_set.found_outputs.push(output);
+
+    working_set.type_scope.add_type(output.clone());
 
     if signature.creates_scope {
         working_set.enter_scope();
@@ -925,8 +932,11 @@ pub fn parse_internal_call(
         working_set.exit_scope();
     }
 
-    // FIXME: output type unknown
-    (Box::new(call), error)
+    ParsedInternalCall {
+        call: Box::new(call),
+        output,
+        error,
+    }
 }
 
 pub fn parse_call(
@@ -1012,7 +1022,7 @@ pub fn parse_call(
         pos += 1;
     }
 
-    let input = working_set.found_outputs.last().unwrap_or(&Type::Any);
+    let input = working_set.type_scope.get_previous();
     let mut maybe_decl_id = working_set.find_decl(&name, input);
 
     while maybe_decl_id.is_none() {
@@ -1060,21 +1070,22 @@ pub fn parse_call(
         trace!("parsing: internal call");
 
         // parse internal command
-        let (call, err) = parse_internal_call(
+        let parsed_call = parse_internal_call(
             working_set,
             span(&spans[cmd_start..pos]),
             &spans[pos..],
             decl_id,
             expand_aliases_denylist,
         );
+
         (
             Expression {
-                expr: Expr::Call(call),
+                expr: Expr::Call(parsed_call.call),
                 span: span(spans),
-                ty: Type::Any, // FIXME: calls should have known output types
+                ty: parsed_call.output,
                 custom_completion: None,
             },
-            err,
+            parsed_call.error,
         )
     } else {
         // We might be parsing left-unbounded range ("..10")
@@ -1853,8 +1864,14 @@ pub fn parse_full_cell_path(
             let (output, err) = lite_parse(&output);
             error = error.or(err);
 
+            // Creating a Type scope to parse the new block. This will keep track of
+            // the previous input type found in that block
             let (output, err) =
                 parse_block(working_set, &output, true, expand_aliases_denylist, true);
+            working_set
+                .type_scope
+                .add_type(working_set.type_scope.get_last_output());
+
             error = error.or(err);
 
             let block_id = working_set.add_block(output);
@@ -1864,7 +1881,7 @@ pub fn parse_full_cell_path(
                 Expression {
                     expr: Expr::Subexpression(block_id),
                     span: head_span,
-                    ty: Type::Any, // FIXME
+                    ty: working_set.type_scope.get_last_output(),
                     custom_completion: None,
                 },
                 true,
@@ -1929,8 +1946,8 @@ pub fn parse_full_cell_path(
         if !tail.is_empty() {
             (
                 Expression {
+                    ty: head.ty.clone(), // FIXME. How to access the last type of tail?
                     expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                    ty: Type::Any,
                     span: full_cell_span,
                     custom_completion: None,
                 },
@@ -4581,6 +4598,9 @@ pub fn parse_variable(
 
     if is_variable(bytes) {
         if let Some(var_id) = working_set.find_variable(bytes) {
+            let input = working_set.get_variable(var_id).ty.clone();
+            working_set.type_scope.add_type(input);
+
             (Some(var_id), None)
         } else {
             (None, None)
@@ -4612,19 +4632,20 @@ pub fn parse_builtin_commands(
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => {
             if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
-                let (call, _) = parse_internal_call(
+                let parsed_call = parse_internal_call(
                     working_set,
                     lite_command.parts[0],
                     &lite_command.parts[1..],
                     decl_id,
                     expand_aliases_denylist,
                 );
-                if call.has_flag("help") {
+
+                if parsed_call.call.has_flag("help") {
                     (
                         Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
+                            expr: Expr::Call(parsed_call.call),
                             span: span(&lite_command.parts),
-                            ty: Type::Any,
+                            ty: parsed_call.output,
                             custom_completion: None,
                         }]),
                         None,
@@ -4759,6 +4780,7 @@ pub fn parse_block(
     if scoped {
         working_set.enter_scope();
     }
+    working_set.type_scope.enter_scope();
 
     let mut error = None;
 
@@ -4788,6 +4810,8 @@ pub fn parse_block(
                     .map(|command| {
                         let (expr, err) =
                             parse_expression(working_set, &command.parts, expand_aliases_denylist);
+
+                        working_set.type_scope.add_type(expr.ty.clone());
 
                         if error.is_none() {
                             error = err;
@@ -4872,6 +4896,7 @@ pub fn parse_block(
     if scoped {
         working_set.exit_scope();
     }
+    working_set.type_scope.exit_scope();
 
     (block, error)
 }

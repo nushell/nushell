@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -12,7 +12,7 @@ pub struct LazyAggregate;
 
 impl Command for LazyAggregate {
     fn name(&self) -> &str {
-        "dfr agg"
+        "agg"
     }
 
     fn usage(&self) -> &str {
@@ -34,12 +34,12 @@ impl Command for LazyAggregate {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | dfr to-df
-    | dfr group-by a
-    | dfr agg [
-        ("b" | dfr min | dfr as "b_min")
-        ("b" | dfr max | dfr as "b_max")
-        ("b" | dfr sum | dfr as "b_sum")
+    | to-df
+    | group-by a
+    | agg [
+        (col b | min | as "b_min")
+        (col b | max | as "b_max")
+        (col b | sum | as "b_sum")
      ]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
@@ -67,14 +67,14 @@ impl Command for LazyAggregate {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | dfr to-lazy
-    | dfr group-by a
-    | dfr agg [
-        ("b" | dfr min | dfr as "b_min")
-        ("b" | dfr max | dfr as "b_max")
-        ("b" | dfr sum | dfr as "b_sum")
+    | to-lazy
+    | group-by a
+    | agg [
+        (col b | min | as "b_min")
+        (col b | max | as "b_max")
+        (col b | sum | as "b_sum")
      ]
-    | dfr collect"#,
+    | collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -99,6 +99,14 @@ impl Command for LazyAggregate {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(
@@ -133,9 +141,8 @@ impl Command for LazyAggregate {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
-    use crate::dataframe::expressions::ExprAlias;
+    use crate::dataframe::expressions::{ExprAlias, ExprMax, ExprMin, ExprSum};
     use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-    use crate::dataframe::lazy::{LazyMax, LazyMin, LazySum};
 
     #[test]
     fn test_examples() {
@@ -143,9 +150,9 @@ mod test {
             Box::new(LazyAggregate {}),
             Box::new(ToLazyGroupBy {}),
             Box::new(ExprAlias {}),
-            Box::new(LazyMin {}),
-            Box::new(LazyMax {}),
-            Box::new(LazySum {}),
+            Box::new(ExprMin {}),
+            Box::new(ExprMax {}),
+            Box::new(ExprSum {}),
         ])
     }
 }
