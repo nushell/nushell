@@ -139,7 +139,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Divide | Operator::Modulo => match (&lhs.ty, &rhs.ty) {
+            Operator::Divide | Operator::Modulo | Operator::IntegerDivision => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),

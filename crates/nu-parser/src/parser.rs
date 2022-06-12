@@ -4069,6 +4069,7 @@ pub fn parse_operator(
         b"-" => Operator::Minus,
         b"*" => Operator::Multiply,
         b"/" => Operator::Divide,
+        b"div" => Operator::IntegerDivision,
         b"in" => Operator::In,
         b"not-in" => Operator::NotIn,
         b"mod" => Operator::Modulo,

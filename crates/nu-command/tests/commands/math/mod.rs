@@ -164,6 +164,77 @@ fn error_zero_division_decimal_decimal() {
 }
 
 #[test]
+fn integer_division_of_ints() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            4 div 2
+        "#
+    ));
+
+    assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn integer_division_of_ints2() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            9 div 2
+        "#
+    ));
+
+    assert_eq!(actual.out, "4");
+}
+
+#[test]
+fn error_zero_integer_division_int_int() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1 div 0
+        "#
+    ));
+
+    assert!(actual.err.contains("division by zero"));
+}
+
+#[test]
+fn error_zero_integer_division_decimal_int() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1.0 div 0
+        "#
+    ));
+
+    assert!(actual.err.contains("division by zero"));
+}
+
+#[test]
+fn error_zero_integer_division_int_decimal() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1 div 0.0
+        "#
+    ));
+
+    assert!(actual.err.contains("division by zero"));
+}
+
+#[test]
+fn error_zero_integer_division_decimal_decimal() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1.0 div 0.0
+        "#
+    ));
+
+    assert!(actual.err.contains("division by zero"));
+}
+#[test]
 fn proper_precedence_history() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(

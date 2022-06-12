@@ -1769,6 +1769,101 @@ impl Value {
             }),
         }
     }
+    pub fn integer_div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Int {
+                        val: lhs / rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::Int {
+                        val: (*lhs as f64 / *rhs).max(std::i64::MIN as f64).min(std::i64::MAX as f64).floor() as i64,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Int {
+                        val: (*lhs / *rhs as f64).max(std::i64::MIN as f64).min(std::i64::MAX as f64).floor() as i64,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::Int {
+                        val: (lhs / rhs).max(std::i64::MIN as f64).min(std::i64::MAX as f64).floor() as i64,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Int {
+                        val: lhs / rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Int {
+                        val: lhs / rhs,
+                        span,
+                     })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Filesize {
+                        val: lhs / rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Duration {
+                        val: lhs / rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::Divide, op, rhs)
+            }
+
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
     pub fn lt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::LessThan, op, rhs);

@@ -30,7 +30,7 @@ impl Expression {
 
                 match operator {
                     Operator::Pow => 100,
-                    Operator::Multiply | Operator::Divide | Operator::Modulo => 95,
+                    Operator::Multiply | Operator::Divide | Operator::Modulo | Operator::IntegerDivision => 95,
                     Operator::Plus | Operator::Minus => 90,
                     Operator::NotRegexMatch
                     | Operator::RegexMatch
