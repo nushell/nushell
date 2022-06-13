@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 use crate::dataframe::values::utils::convert_columns_string;
@@ -14,7 +15,7 @@ pub struct MeltDF;
 
 impl Command for MeltDF {
     fn name(&self) -> &str {
-        "dfr melt"
+        "melt"
     }
 
     fn usage(&self) -> &str {
@@ -53,8 +54,7 @@ impl Command for MeltDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "melt dataframe",
-            example:
-                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | dfr to-df | dfr melt -c [b c] -v [a d]",
+            example: "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | to-df | melt -c [b c] -v [a d]",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -106,6 +106,14 @@ impl Command for MeltDF {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

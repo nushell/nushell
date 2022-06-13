@@ -47,6 +47,8 @@ brew install nushell
 winget install nushell
 ```
 
+To use `Nu` in Github Action, check [setup-nu](https://github.com/marketplace/actions/setup-nu) for more detail.
+
 Detailed installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html). Nu is available via many package managers:
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)

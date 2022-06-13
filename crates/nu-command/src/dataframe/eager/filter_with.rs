@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::LazyFrame;
 
@@ -15,7 +15,7 @@ pub struct FilterWith;
 
 impl Command for FilterWith {
     fn name(&self) -> &str {
-        "dfr filter-with"
+        "filter-with"
     }
 
     fn usage(&self) -> &str {
@@ -36,8 +36,8 @@ impl Command for FilterWith {
         vec![
             Example {
                 description: "Filter dataframe using a bool mask",
-                example: r#"let mask = ([true false] | dfr to-df);
-    [[a b]; [1 2] [3 4]] | dfr to-df | dfr filter-with $mask"#,
+                example: r#"let mask = ([true false] | to-df);
+    [[a b]; [1 2] [3 4]] | to-df | filter-with $mask"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("a".to_string(), vec![Value::test_int(1)]),
@@ -49,7 +49,7 @@ impl Command for FilterWith {
             },
             Example {
                 description: "Filter dataframe using an expression",
-                example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr filter-with ((dfr col a) > 1)",
+                example: "[[a b]; [1 2] [3 4]] | to-df | filter-with ((col a) > 1)",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("a".to_string(), vec![Value::test_int(3)]),
@@ -60,6 +60,14 @@ impl Command for FilterWith {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(
@@ -74,16 +82,9 @@ impl Command for FilterWith {
         if NuLazyFrame::can_downcast(&value) {
             let df = NuLazyFrame::try_from_value(value)?;
             command_lazy(engine_state, stack, call, df)
-        } else if NuDataFrame::can_downcast(&value) {
+        } else {
             let df = NuDataFrame::try_from_value(value)?;
             command_eager(engine_state, stack, call, df)
-        } else {
-            Err(ShellError::CantConvert(
-                "expression or query".into(),
-                value.get_type().to_string(),
-                value.span()?,
-                None,
-            ))
         }
     }
 }

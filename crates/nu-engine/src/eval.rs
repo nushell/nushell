@@ -422,6 +422,10 @@ pub fn eval_expression(
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.modulo(op_span, &rhs, expr.span)
                 }
+                Operator::FloorDivision => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.floor_div(op_span, &rhs, expr.span)
+                }
                 Operator::Pow => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.pow(op_span, &rhs, expr.span)

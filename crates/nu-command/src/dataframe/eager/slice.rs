@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use crate::dataframe::values::Column;
@@ -14,7 +14,7 @@ pub struct SliceDF;
 
 impl Command for SliceDF {
     fn name(&self) -> &str {
-        "dfr slice"
+        "slice"
     }
 
     fn usage(&self) -> &str {
@@ -31,7 +31,7 @@ impl Command for SliceDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe from a slice of the rows",
-            example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr slice 0 1",
+            example: "[[a b]; [1 2] [3 4]] | to-df | slice 0 1",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new("a".to_string(), vec![Value::test_int(1)]),
@@ -41,6 +41,14 @@ impl Command for SliceDF {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

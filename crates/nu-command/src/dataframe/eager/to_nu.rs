@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 use super::super::values::NuDataFrame;
@@ -12,7 +12,7 @@ pub struct ToNu;
 
 impl Command for ToNu {
     fn name(&self) -> &str {
-        "dfr to-nu"
+        "to-nu"
     }
 
     fn usage(&self) -> &str {
@@ -22,7 +22,7 @@ impl Command for ToNu {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .named(
-                "n-rows",
+                "rows",
                 SyntaxShape::Number,
                 "number of rows to be shown",
                 Some('n'),
@@ -35,15 +35,23 @@ impl Command for ToNu {
         vec![
             Example {
                 description: "Shows head rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr to-nu",
+                example: "[[a b]; [1 2] [3 4]] | to-df | to nu",
                 result: None,
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "[[a b]; [1 2] [3 4] [5 6]] | dfr to-df | dfr to-nu -t -n 1",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | to-df | to nu -t -n 1",
                 result: None,
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Any
     }
 
     fn run(

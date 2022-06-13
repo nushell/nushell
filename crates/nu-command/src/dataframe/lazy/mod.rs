@@ -1,9 +1,9 @@
-mod aggregate;
+pub mod aggregate;
 mod collect;
 mod fetch;
 mod fill_na;
 mod fill_null;
-mod groupby;
+pub mod groupby;
 mod join;
 mod macro_commands;
 mod quantile;

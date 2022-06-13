@@ -4,6 +4,7 @@ mod col;
 mod expressions_macro;
 mod lit;
 mod otherwise;
+mod quantile;
 mod when;
 
 use nu_protocol::engine::StateWorkingSet;
@@ -14,6 +15,7 @@ pub(super) use crate::dataframe::expressions::col::ExprCol;
 pub(crate) use crate::dataframe::expressions::expressions_macro::*;
 pub(super) use crate::dataframe::expressions::lit::ExprLit;
 pub(super) use crate::dataframe::expressions::otherwise::ExprOtherwise;
+pub(super) use crate::dataframe::expressions::quantile::ExprQuantile;
 pub(super) use crate::dataframe::expressions::when::ExprWhen;
 
 pub fn add_expressions(working_set: &mut StateWorkingSet) {
@@ -35,9 +37,24 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
         ExprAsNu,
         ExprWhen,
         ExprOtherwise,
+        ExprQuantile,
         ExprList,
         ExprAggGroups,
         ExprFlatten,
-        ExprExplode
+        ExprExplode,
+        ExprCount,
+        ExprFirst,
+        ExprLast,
+        ExprNUnique,
+        ExprIsNotNull,
+        ExprIsNull,
+        ExprNot,
+        ExprMax,
+        ExprMin,
+        ExprSum,
+        ExprMean,
+        ExprMedian,
+        ExprStd,
+        ExprVar
     );
 }

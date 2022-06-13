@@ -3,7 +3,7 @@ use super::super::values::{NuDataFrame, NuLazyFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Value,
+    Category, Example, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct ToLazyFrame;
 
 impl Command for ToLazyFrame {
     fn name(&self) -> &str {
-        "dfr to-lazy"
+        "to-lazy"
     }
 
     fn usage(&self) -> &str {
@@ -25,9 +25,17 @@ impl Command for ToLazyFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes a dictionary and creates a lazy dataframe",
-            example: "[[a b];[1 2] [3 4]] | dfr to-df | dfl to-lazy",
+            example: "[[a b];[1 2] [3 4]] | to-lazy",
             result: None,
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Any
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

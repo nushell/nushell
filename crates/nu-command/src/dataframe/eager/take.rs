@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::DataType;
 
@@ -15,7 +15,7 @@ pub struct TakeDF;
 
 impl Command for TakeDF {
     fn name(&self) -> &str {
-        "dfr take"
+        "take"
     }
 
     fn usage(&self) -> &str {
@@ -36,9 +36,9 @@ impl Command for TakeDF {
         vec![
             Example {
                 description: "Takes selected rows from dataframe",
-                example: r#"let df = ([[a b]; [4 1] [5 2] [4 3]] | dfr to-df);
-    let indices = ([0 2] | dfr to-df);
-    $df | dfr take $indices"#,
+                example: r#"let df = ([[a b]; [4 1] [5 2] [4 3]] | to-df);
+    let indices = ([0 2] | to-df);
+    $df | take $indices"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -56,9 +56,9 @@ impl Command for TakeDF {
             },
             Example {
                 description: "Takes selected rows from series",
-                example: r#"let series = ([4 1 5 2 4 3] | dfr to-df);
-    let indices = ([0 2] | dfr to-df);
-    $series | dfr take $indices"#,
+                example: r#"let series = ([4 1 5 2 4 3] | to-df);
+    let indices = ([0 2] | to-df);
+    $series | take $indices"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),
@@ -69,6 +69,14 @@ impl Command for TakeDF {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

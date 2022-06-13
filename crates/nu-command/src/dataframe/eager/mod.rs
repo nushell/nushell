@@ -1,6 +1,4 @@
 mod append;
-mod column;
-mod command;
 mod describe;
 mod drop;
 mod drop_duplicates;
@@ -28,8 +26,6 @@ mod with_column;
 use nu_protocol::engine::StateWorkingSet;
 
 pub use append::AppendDF;
-pub use column::ColumnDF;
-pub use command::Dataframe;
 pub use describe::DescribeDF;
 pub use drop::DropDF;
 pub use drop_duplicates::DropDuplicates;
@@ -67,8 +63,6 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
     // Dataframe commands
     bind_command!(
         AppendDF,
-        ColumnDF,
-        Dataframe,
         DataTypes,
         DescribeDF,
         DropDF,

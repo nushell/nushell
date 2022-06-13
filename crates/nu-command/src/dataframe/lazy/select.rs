@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::Expr;
 
@@ -13,7 +13,7 @@ pub struct LazySelect;
 
 impl Command for LazySelect {
     fn name(&self) -> &str {
-        "dfr select"
+        "select"
     }
 
     fn usage(&self) -> &str {
@@ -33,7 +33,7 @@ impl Command for LazySelect {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Select a column from the dataframe",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | dfr to-df | dfr select a",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | to-df | select a",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "a".to_string(),
@@ -43,6 +43,14 @@ impl Command for LazySelect {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

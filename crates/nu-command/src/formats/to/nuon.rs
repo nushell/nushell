@@ -86,7 +86,13 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             span,
         )),
         Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
-        Value::Float { val, .. } => Ok(format!("{}", *val)),
+        Value::Float { val, .. } => {
+            if &val.round() == val {
+                Ok(format!("{}.0", *val))
+            } else {
+                Ok(format!("{}", *val))
+            }
+        }
         Value::Int { val, .. } => Ok(format!("{}", *val)),
         Value::List { vals, .. } => {
             let headers = get_columns(vals);

@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct ExprOtherwise;
 
 impl Command for ExprOtherwise {
     fn name(&self) -> &str {
-        "dfr otherwise"
+        "otherwise"
     }
 
     fn usage(&self) -> &str {
@@ -32,26 +32,25 @@ impl Command for ExprOtherwise {
         vec![
             Example {
                 description: "Create a when conditions",
-                example: "dfr when ((dfr col a) > 2) 4 | dfr otherwise 5",
+                example: "when ((col a) > 2) 4 | otherwise 5",
                 result: None,
             },
             Example {
                 description: "Create a when conditions",
-                example:
-                    "dfr when ((dfr col a) > 2) 4 | dfr when ((dfr col a) < 0) 6 | dfr otherwise 0",
+                example: "when ((col a) > 2) 4 | when ((col a) < 0) 6 | otherwise 0",
                 result: None,
             },
             Example {
                 description: "Create a new column for the dataframe",
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
-   | dfr to-lazy
-   | dfr with-column (
-       dfr when ((dfr col a) > 2) 4 | dfr otherwise 5 | dfr as c
+   | to-lazy
+   | with-column (
+       when ((col a) > 2) 4 | otherwise 5 | as c
      )
-   | dfr with-column (
-       dfr when ((dfr col a) > 5) 10 | dfr when ((dfr col a) < 2) 6 | dfr otherwise 0 | dfr as d
+   | with-column (
+       when ((col a) > 5) 10 | when ((col a) < 2) 6 | otherwise 0 | as d
      )
-   | dfr collect"#,
+   | collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -76,6 +75,14 @@ impl Command for ExprOtherwise {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Any
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("expression".into())
     }
 
     fn run(

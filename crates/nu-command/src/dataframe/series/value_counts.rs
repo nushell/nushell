@@ -3,7 +3,7 @@ use super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct ValueCount;
 
 impl Command for ValueCount {
     fn name(&self) -> &str {
-        "dfr value-counts"
+        "value-counts"
     }
 
     fn usage(&self) -> &str {
@@ -25,7 +25,7 @@ impl Command for ValueCount {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Calculates value counts",
-            example: "[5 5 5 5 6 6] | dfr to-df | dfr value-counts",
+            example: "[5 5 5 5 6 6] | to-df | value-counts",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -41,6 +41,14 @@ impl Command for ValueCount {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

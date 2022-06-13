@@ -3,7 +3,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -12,7 +12,7 @@ pub struct ArgTrue;
 
 impl Command for ArgTrue {
     fn name(&self) -> &str {
-        "dfr arg-true"
+        "arg-true"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for ArgTrue {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns indexes where values are true",
-            example: "[false true false] | dfr to-df | dfr arg-true",
+            example: "[false true false] | to-df | arg-true",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "arg_true".to_string(),
@@ -36,6 +36,14 @@ impl Command for ArgTrue {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

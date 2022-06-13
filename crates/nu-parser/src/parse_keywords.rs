@@ -21,7 +21,7 @@ use crate::{
     parser::{
         check_call, check_name, garbage, garbage_pipeline, parse, parse_block_expression,
         parse_internal_call, parse_multispan_value, parse_signature, parse_string,
-        parse_var_with_opt_type, trim_quotes,
+        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
     unescape_unquote_string, ParseError,
 };
@@ -127,13 +127,18 @@ pub fn parse_for(
         }
         Some(decl_id) => {
             working_set.enter_scope();
-            let (call, mut err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 spans[0],
                 &spans[1..],
                 decl_id,
                 expand_aliases_denylist,
             );
+
             working_set.exit_scope();
 
             let call_span = span(spans);
@@ -165,7 +170,7 @@ pub fn parse_for(
                     Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     },
                     err,
@@ -296,13 +301,18 @@ pub fn parse_def(
         }
         Some(decl_id) => {
             working_set.enter_scope();
-            let (call, mut err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 spans[0],
                 &spans[1..],
                 decl_id,
                 expand_aliases_denylist,
             );
+
             working_set.exit_scope();
 
             let call_span = span(spans);
@@ -334,7 +344,7 @@ pub fn parse_def(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }]),
                     err,
@@ -439,7 +449,9 @@ pub fn parse_extern(
         }
         Some(decl_id) => {
             working_set.enter_scope();
-            let (call, err) = parse_internal_call(
+            let ParsedInternalCall {
+                call, error: err, ..
+            } = parse_internal_call(
                 working_set,
                 spans[0],
                 &spans[1..],
@@ -521,7 +533,7 @@ pub fn parse_alias(
         }
 
         if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
-            let (call, _) = parse_internal_call(
+            let ParsedInternalCall { call, output, .. } = parse_internal_call(
                 working_set,
                 spans[0],
                 &spans[1..],
@@ -534,7 +546,7 @@ pub fn parse_alias(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: span(spans),
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }]),
                     None,
@@ -1243,7 +1255,11 @@ pub fn parse_use(
 
     let (call, call_span, use_decl_id) = match working_set.find_decl(b"use", &Type::Any) {
         Some(decl_id) => {
-            let (call, mut err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 spans[0],
                 &spans[1..],
@@ -1260,7 +1276,7 @@ pub fn parse_use(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }]),
                     err,
@@ -1476,7 +1492,11 @@ pub fn parse_hide(
 
     let (call, call_span, hide_decl_id) = match working_set.find_decl(b"hide", &Type::Any) {
         Some(decl_id) => {
-            let (call, mut err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 spans[0],
                 &spans[1..],
@@ -1493,7 +1513,7 @@ pub fn parse_hide(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }]),
                     err,
@@ -1701,7 +1721,11 @@ pub fn parse_overlay(
                 // TODO: Abstract this code blob, it's repeated all over the place:
                 let call = match working_set.find_decl(b"overlay list", &Type::Any) {
                     Some(decl_id) => {
-                        let (call, mut err) = parse_internal_call(
+                        let ParsedInternalCall {
+                            call,
+                            error: mut err,
+                            output,
+                        } = parse_internal_call(
                             working_set,
                             span(&spans[..2]),
                             if spans.len() > 2 { &spans[2..] } else { &[] },
@@ -1718,7 +1742,7 @@ pub fn parse_overlay(
                                 Pipeline::from_vec(vec![Expression {
                                     expr: Expr::Call(call),
                                     span: call_span,
-                                    ty: Type::Any,
+                                    ty: output,
                                     custom_completion: None,
                                 }]),
                                 err,
@@ -1760,7 +1784,11 @@ pub fn parse_overlay(
 
     let call = match working_set.find_decl(b"overlay", &Type::Any) {
         Some(decl_id) => {
-            let (call, mut err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 spans[0],
                 &spans[1..],
@@ -1777,7 +1805,7 @@ pub fn parse_overlay(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }]),
                     err,
@@ -1825,7 +1853,11 @@ pub fn parse_overlay_new(
 
     let (call, call_span) = match working_set.find_decl(b"overlay new", &Type::Any) {
         Some(decl_id) => {
-            let (call, mut err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 span(&spans[0..2]),
                 &spans[2..],
@@ -1842,7 +1874,7 @@ pub fn parse_overlay_new(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }]),
                     err,
@@ -1916,7 +1948,11 @@ pub fn parse_overlay_add(
     // TODO: Allow full import pattern as argument (requires custom naming of module/overlay)
     let (call, call_span) = match working_set.find_decl(b"overlay add", &Type::Any) {
         Some(decl_id) => {
-            let (call, mut err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 span(&spans[0..2]),
                 &spans[2..],
@@ -1933,7 +1969,7 @@ pub fn parse_overlay_add(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }]),
                     err,
@@ -2103,7 +2139,11 @@ pub fn parse_overlay_remove(
 
     let call = match working_set.find_decl(b"overlay remove", &Type::Any) {
         Some(decl_id) => {
-            let (call, mut err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 span(&spans[0..2]),
                 &spans[2..],
@@ -2120,7 +2160,7 @@ pub fn parse_overlay_remove(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }]),
                     err,
@@ -2247,7 +2287,6 @@ pub fn parse_let(
                         error = error.or(err);
 
                         let var_id = lvalue.as_var();
-
                         let rhs_type = rvalue.ty.clone();
 
                         if let Some(var_id) = var_id {
@@ -2277,7 +2316,11 @@ pub fn parse_let(
                     }
                 }
             }
-            let (call, err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 spans[0],
                 &spans[1..],
@@ -2290,7 +2333,7 @@ pub fn parse_let(
                     expressions: vec![Expression {
                         expr: Expr::Call(call),
                         span: nu_protocol::span(spans),
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }],
                 },
@@ -2320,7 +2363,11 @@ pub fn parse_source(
             let cwd = working_set.get_cwd();
             // Is this the right call to be using here?
             // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
-            let (call, err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 spans[0],
                 &spans[1..],
@@ -2334,7 +2381,7 @@ pub fn parse_source(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: span(spans),
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }]),
                     error,
@@ -2459,7 +2506,11 @@ pub fn parse_register(
             )
         }
         Some(decl_id) => {
-            let (call, mut err) = parse_internal_call(
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
                 working_set,
                 spans[0],
                 &spans[1..],
@@ -2476,7 +2527,7 @@ pub fn parse_register(
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: call_span,
-                        ty: Type::Any,
+                        ty: output,
                         custom_completion: None,
                     }]),
                     err,

@@ -11,7 +11,7 @@ pub struct ListDF;
 
 impl Command for ListDF {
     fn name(&self) -> &str {
-        "dfr ls"
+        "ls-df"
     }
 
     fn usage(&self) -> &str {
@@ -25,8 +25,8 @@ impl Command for ListDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a new dataframe and shows it in the dataframe list",
-            example: r#"let test = ([[a b];[1 2] [3 4]] | dfr to-df);
-    dfr ls"#,
+            example: r#"let test = ([[a b];[1 2] [3 4]] | to-df);
+    ls-df"#,
             result: None,
         }]
     }

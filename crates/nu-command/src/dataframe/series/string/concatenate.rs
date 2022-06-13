@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -13,7 +13,7 @@ pub struct Concatenate;
 
 impl Command for Concatenate {
     fn name(&self) -> &str {
-        "dfr concatenate"
+        "concatenate"
     }
 
     fn usage(&self) -> &str {
@@ -33,8 +33,8 @@ impl Command for Concatenate {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Concatenate string",
-            example: r#"let other = ([za xs cd] | dfr to-df);
-    [abc abc abc] | dfr to-df | dfr concatenate $other"#,
+            example: r#"let other = ([za xs cd] | to-df);
+    [abc abc abc] | to-df | concatenate $other"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
@@ -48,6 +48,14 @@ impl Command for Concatenate {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

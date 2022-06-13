@@ -3,7 +3,7 @@ use super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct ToDataFrame;
 
 impl Command for ToDataFrame {
     fn name(&self) -> &str {
-        "dfr to-df"
+        "to-df"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for ToDataFrame {
         vec![
             Example {
                 description: "Takes a dictionary and creates a dataframe",
-                example: "[[a b];[1 2] [3 4]] | dfr to-df",
+                example: "[[a b];[1 2] [3 4]] | to-df",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -44,7 +44,7 @@ impl Command for ToDataFrame {
             },
             Example {
                 description: "Takes a list of tables and creates a dataframe",
-                example: "[[1 2 a] [3 4 b] [5 6 c]] | dfr to-df",
+                example: "[[1 2 a] [3 4 b] [5 6 c]] | to-df",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -70,7 +70,7 @@ impl Command for ToDataFrame {
             },
             Example {
                 description: "Takes a list and creates a dataframe",
-                example: "[a b c] | dfr to-df",
+                example: "[a b c] | to-df",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),
@@ -86,7 +86,7 @@ impl Command for ToDataFrame {
             },
             Example {
                 description: "Takes a list of booleans and creates a dataframe",
-                example: "[true true false] | dfr to-df",
+                example: "[true true false] | to-df",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),
@@ -101,6 +101,14 @@ impl Command for ToDataFrame {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Any
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

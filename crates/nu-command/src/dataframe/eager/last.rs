@@ -1,10 +1,9 @@
 use super::super::values::{utils::DEFAULT_ROWS, Column, NuDataFrame};
-use crate::dataframe::values::NuExpression;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -12,7 +11,7 @@ pub struct LastDF;
 
 impl Command for LastDF {
     fn name(&self) -> &str {
-        "dfr last"
+        "last"
     }
 
     fn usage(&self) -> &str {
@@ -22,29 +21,30 @@ impl Command for LastDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .optional("rows", SyntaxShape::Int, "Number of rows for tail")
-            .category(Category::Custom("dataframe or lazyframe".into()))
+            .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Create new dataframe with last rows",
-                example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr last 1",
-                result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new("a".to_string(), vec![Value::test_int(3)]),
-                        Column::new("b".to_string(), vec![Value::test_int(4)]),
-                    ])
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-            Example {
-                description: "Creates a last expression from a column",
-                example: "dfr col a | dfr last",
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Create new dataframe with last rows",
+            example: "[[a b]; [1 2] [3 4]] | to-df | last 1",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new("a".to_string(), vec![Value::test_int(3)]),
+                    Column::new("b".to_string(), vec![Value::test_int(4)]),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(
@@ -54,27 +54,8 @@ impl Command for LastDF {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(call.head);
-
-        if NuExpression::can_downcast(&value) {
-            let expr = NuExpression::try_from_value(value)?;
-            let expr: NuExpression = expr.into_polars().is_null().into();
-
-            Ok(PipelineData::Value(
-                NuExpression::into_value(expr, call.head),
-                None,
-            ))
-        } else if NuDataFrame::can_downcast(&value) {
-            let df = NuDataFrame::try_from_value(value)?;
-            command(engine_state, stack, call, df)
-        } else {
-            Err(ShellError::CantConvert(
-                "expression or query".into(),
-                value.get_type().to_string(),
-                value.span()?,
-                None,
-            ))
-        }
+        let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+        command(engine_state, stack, call, df)
     }
 }
 
