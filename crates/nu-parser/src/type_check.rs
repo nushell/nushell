@@ -181,6 +181,33 @@ pub fn math_result_type(
                     )
                 }
             },
+            Operator::FloorDivision => match (&lhs.ty, &rhs.ty) {
+                (Type::Int, Type::Int) => (Type::Int, None),
+                (Type::Float, Type::Int) => (Type::Int, None),
+                (Type::Int, Type::Float) => (Type::Int, None),
+                (Type::Float, Type::Float) => (Type::Int, None),
+                (Type::Filesize, Type::Filesize) => (Type::Int, None),
+                (Type::Duration, Type::Duration) => (Type::Int, None),
+
+                (Type::Filesize, Type::Int) => (Type::Filesize, None),
+                (Type::Duration, Type::Int) => (Type::Duration, None),
+
+                (Type::Any, _) => (Type::Any, None),
+                (_, Type::Any) => (Type::Any, None),
+                _ => {
+                    *op = Expression::garbage(op.span);
+                    (
+                        Type::Any,
+                        Some(ParseError::UnsupportedOperation(
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
+                    )
+                }
+            },
             Operator::And | Operator::Or => match (&lhs.ty, &rhs.ty) {
                 (Type::Bool, Type::Bool) => (Type::Bool, None),
 
