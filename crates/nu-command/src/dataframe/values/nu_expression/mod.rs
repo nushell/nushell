@@ -79,7 +79,7 @@ impl NuExpression {
                     None,
                 )),
             },
-            Value::String { val, .. } => Ok(col(val.as_str()).into()),
+            Value::String { val, .. } => Ok(val.lit().into()),
             Value::Int { val, .. } => Ok(val.lit().into()),
             Value::Bool { val, .. } => Ok(val.lit().into()),
             Value::Float { val, .. } => Ok(val.lit().into()),
