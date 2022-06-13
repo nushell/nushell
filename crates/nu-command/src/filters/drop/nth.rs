@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use itertools::Either;
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, RangeInclusion};
@@ -153,8 +155,68 @@ impl Command for DropNth {
                 .into_pipeline_data(engine_state.ctrlc.clone()))
             }
             PipelineData::Value(_v, ..) => Ok(PipelineData::new(call.span())),
-            PipelineData::ListStream(_stream, ..) => {
-                todo!()
+            PipelineData::ListStream(ref _stream, ..) => {
+                // check if the input gives an upper bound
+                let check = check_upper_bound(engine_state, stack, call);
+                match check {
+                    // likely a set of indices
+                    Ok(None) => {
+                        let rows_to_remove = rows_to_remove(engine_state, stack, call, 0)?;
+                        let rows = rows_to_remove
+                            .into_iter()
+                            .map(|x| x as usize)
+                            .collect::<HashSet<usize>>();
+                        return Ok(input
+                            .into_iter()
+                            .enumerate()
+                            .filter_map(move |(idx, value)| {
+                                if !rows.contains(&idx) {
+                                    Some(value)
+                                } else {
+                                    None
+                                }
+                            })
+                            .into_pipeline_data(engine_state.ctrlc.clone()));
+                    }
+                    Ok(Some(Bound {
+                        lower_bound,
+                        upper_bound: None,
+                    })) => {
+                        // we do not have an upper bound, thus we drop all the elements after first lower bound
+                        return Ok(input
+                            .into_iter()
+                            .enumerate()
+                            .filter_map(
+                                move |(idx, value)| {
+                                    if idx < lower_bound {
+                                        Some(value)
+                                    } else {
+                                        None
+                                    }
+                                },
+                            )
+                            .into_pipeline_data(engine_state.ctrlc.clone()));
+                    }
+                    Ok(Some(Bound {
+                        lower_bound,
+                        upper_bound,
+                    })) => {
+                        let upper_bnd = upper_bound.unwrap_or(lower_bound);
+
+                        return Ok(input
+                            .into_iter()
+                            .enumerate()
+                            .filter_map(move |(idx, value)| {
+                                if idx < lower_bound || idx > upper_bnd {
+                                    Some(value)
+                                } else {
+                                    None
+                                }
+                            })
+                            .into_pipeline_data(engine_state.ctrlc.clone()));
+                    }
+                    Err(e) => Err(e),
+                }
             }
             PipelineData::ExternalStream {
                 stdout: _,
@@ -163,6 +225,43 @@ impl Command for DropNth {
                 span: _,
                 metadata: _,
             } => todo!(),
+        }
+    }
+}
+
+struct Bound {
+    lower_bound: usize,
+    upper_bound: Option<usize>,
+}
+
+/// Check if the drop nth arg has an explicit upper bound
+/// Return either a None if the args is not a range, or the lower bound + upper bound (if given)
+fn check_upper_bound(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<Option<Bound>, ShellError> {
+    let number_or_range = extract_int_or_range(engine_state, stack, call)?;
+
+    match number_or_range {
+        Either::Left(_row_number) => {
+            return Ok(None);
+        }
+        Either::Right(row_range) => {
+            let from = row_range.from.as_integer()? as usize;
+            let size = row_range.to.as_integer()? as isize;
+            if isize::MAX == size {
+                return Ok(Some(Bound {
+                    lower_bound: from,
+                    upper_bound: None,
+                }));
+            } else {
+                let to = size as usize;
+                return Ok(Some(Bound {
+                    lower_bound: from,
+                    upper_bound: Some(to),
+                }));
+            }
         }
     }
 }
@@ -187,6 +286,7 @@ fn rows_to_remove(
             let from = row_range.from.as_integer()? as usize;
             let to = {
                 let size = row_range.to.as_integer()? as usize;
+
                 // if range does not have an upper bound specified, then to's value is the length of the list
                 if size > input_size {
                     input_size - 1
@@ -194,7 +294,6 @@ fn rows_to_remove(
                     size
                 }
             };
-
             if matches!(row_range.inclusion, RangeInclusion::Inclusive) {
                 (from..=to).collect::<Vec<_>>()
             } else {
