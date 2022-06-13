@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use itertools::Either;
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, RangeInclusion};
@@ -155,65 +153,42 @@ impl Command for DropNth {
                 .into_pipeline_data(engine_state.ctrlc.clone()))
             }
             PipelineData::Value(_v, ..) => Ok(PipelineData::new(call.span())),
-            PipelineData::ListStream(ref _stream, ..) => {
+            PipelineData::ListStream(stream, ..) => {
                 // check if the input gives an upper bound
                 let check = check_upper_bound(engine_state, stack, call);
                 match check {
                     // likely a set of indices
                     Ok(None) => {
                         let rows_to_remove = rows_to_remove(engine_state, stack, call, 0)?;
-                        let rows = rows_to_remove
-                            .into_iter()
-                            .map(|x| x as usize)
-                            .collect::<HashSet<usize>>();
-                        return Ok(input
-                            .into_iter()
-                            .enumerate()
-                            .filter_map(move |(idx, value)| {
-                                if !rows.contains(&idx) {
-                                    Some(value)
-                                } else {
-                                    None
-                                }
-                            })
-                            .into_pipeline_data(engine_state.ctrlc.clone()));
+                        Ok(DropNthIterator {
+                            input: Box::new(stream.into_iter()),
+                            rows: rows_to_remove,
+                            current: 0,
+                        }
+                        .into_pipeline_data(engine_state.ctrlc.clone()))
                     }
                     Ok(Some(Bound {
                         lower_bound,
                         upper_bound: None,
                     })) => {
-                        // we do not have an upper bound, thus we drop all the elements after first lower bound
-                        return Ok(input
+                        // we do not have an upper bound, thus we only take the first lower bound elements
+                        Ok(stream
                             .into_iter()
-                            .enumerate()
-                            .filter_map(
-                                move |(idx, value)| {
-                                    if idx < lower_bound {
-                                        Some(value)
-                                    } else {
-                                        None
-                                    }
-                                },
-                            )
-                            .into_pipeline_data(engine_state.ctrlc.clone()));
+                            .take(lower_bound)
+                            .into_pipeline_data(engine_state.ctrlc.clone()))
                     }
                     Ok(Some(Bound {
                         lower_bound,
                         upper_bound,
                     })) => {
                         let upper_bnd = upper_bound.unwrap_or(lower_bound);
-
-                        return Ok(input
-                            .into_iter()
-                            .enumerate()
-                            .filter_map(move |(idx, value)| {
-                                if idx < lower_bound || idx > upper_bnd {
-                                    Some(value)
-                                } else {
-                                    None
-                                }
-                            })
-                            .into_pipeline_data(engine_state.ctrlc.clone()));
+                        let rows_to_remove = rows_to_remove(engine_state, stack, call, upper_bnd)?;
+                        Ok(DropNthIterator {
+                            input: Box::new(stream.into_iter()),
+                            rows: rows_to_remove,
+                            current: 0,
+                        }
+                        .into_pipeline_data(engine_state.ctrlc.clone()))
                     }
                     Err(e) => Err(e),
                 }
