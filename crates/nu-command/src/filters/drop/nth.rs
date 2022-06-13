@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, Range, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, PipelineIterator,
+    Range, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -103,181 +103,49 @@ impl Command for DropNth {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        match input {
-            PipelineData::Value(Value::List { vals, span: _ }, ..) => {
-                let rows_to_remove = rows_to_remove(engine_state, stack, call, vals.len())?;
-                let rows = rows_to_remove
-                    .into_iter()
-                    .map(|x| x as usize)
-                    .collect::<Vec<usize>>();
-                Ok(DropNthIterator {
-                    input: Box::new(vals.into_iter()),
-                    rows,
-                    current: 0,
-                }
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+        let number_or_range = extract_int_or_range(engine_state, stack, call)?;
+        let mut lower_bound = None;
+        let rows = match number_or_range {
+            Either::Left(row_number) => {
+                let and_rows: Vec<Spanned<i64>> = call.rest(engine_state, stack, 1)?;
+
+                let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
+                rows.push(row_number as usize);
+                rows.sort_unstable();
+                rows
             }
-            PipelineData::Value(
-                Value::Record {
-                    cols: _,
-                    vals,
-                    span: _,
-                },
-                ..,
-            ) => {
-                let rows_to_remove = rows_to_remove(engine_state, stack, call, vals.len())?;
-                let rows = rows_to_remove
-                    .into_iter()
-                    .map(|x| x as usize)
-                    .collect::<Vec<usize>>();
-                Ok(DropNthIterator {
-                    input: Box::new(vals.into_iter()),
-                    rows,
-                    current: 0,
-                }
-                .into_pipeline_data(engine_state.ctrlc.clone()))
-            }
-            PipelineData::Value(Value::Range { val, span: _ }, ..) => {
-                let range_iter = val.into_range_iter(engine_state.ctrlc.clone())?;
-                let vals = range_iter.collect::<Vec<_>>();
-                let rows_to_remove = rows_to_remove(engine_state, stack, call, vals.len())?;
-                let rows = rows_to_remove
-                    .into_iter()
-                    .map(|x| x as usize)
-                    .collect::<Vec<usize>>();
-                Ok(DropNthIterator {
-                    input: Box::new(vals.into_iter()),
-                    rows,
-                    current: 0,
-                }
-                .into_pipeline_data(engine_state.ctrlc.clone()))
-            }
-            PipelineData::Value(_v, ..) => Ok(PipelineData::new(call.span())),
-            PipelineData::ListStream(stream, ..) => {
-                // check if the input gives an upper bound
-                let check = check_upper_bound(engine_state, stack, call);
-                match check {
-                    // likely a set of indices
-                    Ok(None) => {
-                        let rows_to_remove = rows_to_remove(engine_state, stack, call, 0)?;
-                        Ok(DropNthIterator {
-                            input: Box::new(stream.into_iter()),
-                            rows: rows_to_remove,
-                            current: 0,
-                        }
-                        .into_pipeline_data(engine_state.ctrlc.clone()))
-                    }
-                    Ok(Some(Bound {
-                        lower_bound,
-                        upper_bound: None,
-                    })) => {
-                        // we do not have an upper bound, thus we only take the first lower bound elements
-                        Ok(stream
-                            .into_iter()
-                            .take(lower_bound)
-                            .into_pipeline_data(engine_state.ctrlc.clone()))
-                    }
-                    Ok(Some(Bound {
-                        lower_bound,
-                        upper_bound,
-                    })) => {
-                        let upper_bnd = upper_bound.unwrap_or(lower_bound);
-                        let rows_to_remove = rows_to_remove(engine_state, stack, call, upper_bnd)?;
-                        Ok(DropNthIterator {
-                            input: Box::new(stream.into_iter()),
-                            rows: rows_to_remove,
-                            current: 0,
-                        }
-                        .into_pipeline_data(engine_state.ctrlc.clone()))
-                    }
-                    Err(e) => Err(e),
-                }
-            }
-            PipelineData::ExternalStream {
-                stdout: _,
-                stderr: _,
-                exit_code: _,
-                span: _,
-                metadata: _,
-            } => todo!(),
-        }
-    }
-}
+            Either::Right(row_range) => {
+                let from = row_range.from.as_integer()? as usize;
+                let to = row_range.to.as_integer()? as usize;
 
-struct Bound {
-    lower_bound: usize,
-    upper_bound: Option<usize>,
-}
-
-/// Check if the drop nth arg has an explicit upper bound
-/// Return either a None if the args is not a range, or the lower bound + upper bound (if given)
-fn check_upper_bound(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-) -> Result<Option<Bound>, ShellError> {
-    let number_or_range = extract_int_or_range(engine_state, stack, call)?;
-
-    match number_or_range {
-        Either::Left(_row_number) => {
-            return Ok(None);
-        }
-        Either::Right(row_range) => {
-            let from = row_range.from.as_integer()? as usize;
-            let size = row_range.to.as_integer()? as isize;
-            if isize::MAX == size {
-                return Ok(Some(Bound {
-                    lower_bound: from,
-                    upper_bound: None,
-                }));
-            } else {
-                let to = size as usize;
-                return Ok(Some(Bound {
-                    lower_bound: from,
-                    upper_bound: Some(to),
-                }));
-            }
-        }
-    }
-}
-
-fn rows_to_remove(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input_size: usize,
-) -> Result<Vec<usize>, ShellError> {
-    let number_or_range = extract_int_or_range(engine_state, stack, call)?;
-
-    // get a vector of indexes to remove
-    let rows = match number_or_range {
-        Either::Left(_row_number) => {
-            let and_rows: Vec<Spanned<i64>> = call.rest(engine_state, stack, 0)?;
-            let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
-            rows.sort_unstable();
-            rows
-        }
-        Either::Right(row_range) => {
-            let from = row_range.from.as_integer()? as usize;
-            let to = {
-                let size = row_range.to.as_integer()? as usize;
-
-                // if range does not have an upper bound specified, then to's value is the length of the list
-                if size > input_size {
-                    input_size - 1
+                // we check for equality to isize::MAX because for some reason,
+                // the parser returns isize::MAX when we provide a range without upper bound (e.g., 5.. )
+                if to > 0 && to as isize == isize::MAX {
+                    lower_bound = Some(from);
+                    vec![from]
+                } else if matches!(row_range.inclusion, RangeInclusion::Inclusive) {
+                    (from..=to).collect()
                 } else {
-                    size
+                    (from..to).collect()
                 }
-            };
-            if matches!(row_range.inclusion, RangeInclusion::Inclusive) {
-                (from..=to).collect::<Vec<_>>()
-            } else {
-                (from..to).collect::<Vec<_>>()
             }
-        }
-    };
+        };
 
-    Ok(rows)
+        if let Some(lower_bound) = lower_bound {
+            Ok(input
+                .into_iter()
+                .take(lower_bound)
+                .collect::<Vec<_>>()
+                .into_pipeline_data(engine_state.ctrlc.clone()))
+        } else {
+            Ok(DropNthIterator {
+                input: input.into_iter(),
+                rows,
+                current: 0,
+            }
+            .into_pipeline_data(engine_state.ctrlc.clone()))
+        }
+    }
 }
 
 fn extract_int_or_range(
@@ -301,7 +169,7 @@ fn extract_int_or_range(
 }
 
 struct DropNthIterator {
-    input: Box<dyn Iterator<Item = Value> + Send>,
+    input: PipelineIterator,
     rows: Vec<usize>,
     current: usize,
 }
