@@ -108,18 +108,38 @@ impl Command for DropNth {
         let rows = match number_or_range {
             Either::Left(row_number) => {
                 let and_rows: Vec<Spanned<i64>> = call.rest(engine_state, stack, 1)?;
-
                 let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
                 rows.push(row_number as usize);
                 rows.sort_unstable();
                 rows
             }
             Either::Right(row_range) => {
-                let from = row_range.from.as_integer()? as usize;
-                let to = row_range.to.as_integer()? as usize;
+                let from = row_range.from.as_integer()?; // as usize;
+                let to = row_range.to.as_integer()?; // as usize;
 
-                // we check for equality to isize::MAX because for some reason,
+                // check for negative range inputs, e.g., (2..-5)
+                if from.is_negative() || to.is_negative() {
+                    let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
+                    return Err(ShellError::UnsupportedInput(
+                        "Drop nth accepts only positive integers".to_string(),
+                        span.span,
+                    ));
+                }
+                // check if the upper bound is smaller than the lower bound, e.g., do not accept 4..2
+                if to < from {
+                    let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
+                    return Err(ShellError::UnsupportedInput(
+                        "The upper bound needs to be equal or larger to the lower bound"
+                            .to_string(),
+                        span.span,
+                    ));
+                }
+
+                // check for equality to isize::MAX because for some reason,
                 // the parser returns isize::MAX when we provide a range without upper bound (e.g., 5.. )
+                let to = to as usize;
+                let from = from as usize;
+
                 if to > 0 && to as isize == isize::MAX {
                     lower_bound = Some(from);
                     vec![from]
