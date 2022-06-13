@@ -191,7 +191,10 @@ pub fn action(input: &Value, span: Span, radix: u32) -> Value {
             span,
         },
         _ => Value::Error {
-            error: ShellError::UnsupportedInput("'into int' for unsupported type".into(), span),
+            error: ShellError::UnsupportedInput(
+                format!("'into int' for unsupported type '{}'", input.get_type()),
+                span,
+            ),
         },
     }
 }
