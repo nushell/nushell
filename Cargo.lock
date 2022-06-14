@@ -2491,6 +2491,7 @@ dependencies = [
  "pretty_assertions",
  "pretty_env_logger",
  "rayon",
+ "reedline",
  "rstest",
  "serial_test",
  "tempfile",
@@ -3804,7 +3805,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.6.0"
-source = "git+https://github.com/phiresky/reedline?branch=sqlite-history-2#6d803bb2f9d203049b389477c85687ab45ed1a64"
+source = "git+https://github.com/nushell/reedline?branch=main#12dc30ce0ae99b58cfa8f13a51b056e9b4022c2d"
 dependencies = [
  "chrono",
  "crossterm",

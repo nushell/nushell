@@ -308,15 +308,19 @@ pub fn evaluate_repl(
 
         match input {
             Ok(Signal::Success(s)) => {
-                line_editor
-                    .update_last_command_context(&|mut c| {
-                        c.start_timestamp = Some(chrono::Utc::now());
-                        c.hostname = sys.host_name();
+                let history_supports_meta =
+                    matches!(config.history_file_format, HistoryFileFormat::Sqlite);
+                if history_supports_meta {
+                    line_editor
+                        .update_last_command_context(&|mut c| {
+                            c.start_timestamp = Some(chrono::Utc::now());
+                            c.hostname = sys.host_name();
 
-                        c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
-                        c
-                    })
-                    .into_diagnostic()?; // todo: don't stop repl if error here?
+                            c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
+                            c
+                        })
+                        .into_diagnostic()?; // todo: don't stop repl if error here?
+                }
 
                 // Right before we start running the code the user gave us,
                 // fire the "pre_execution" hook
@@ -437,15 +441,17 @@ pub fn evaluate_repl(
                     engine_state.add_env_var("PWD".into(), cwd);
                 }
 
-                line_editor
-                    .update_last_command_context(&|mut c| {
-                        c.duration = Some(cmd_duration);
-                        c.exit_status = stack
-                            .get_env_var(engine_state, "LAST_EXIT_CODE")
-                            .and_then(|e| e.as_i64().ok());
-                        c
-                    })
-                    .into_diagnostic()?; // todo: don't stop repl if error here?
+                if history_supports_meta {
+                    line_editor
+                        .update_last_command_context(&|mut c| {
+                            c.duration = Some(cmd_duration);
+                            c.exit_status = stack
+                                .get_env_var(engine_state, "LAST_EXIT_CODE")
+                                .and_then(|e| e.as_i64().ok());
+                            c
+                        })
+                        .into_diagnostic()?; // todo: don't stop repl if error here?
+                }
 
                 if shell_integration {
                     // FIXME: use variant with exit code, if apropriate
