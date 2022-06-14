@@ -66,6 +66,7 @@ pub struct Config {
     pub edit_mode: String,
     pub max_history_size: i64,
     pub sync_history_on_enter: bool,
+    pub history_file_format: HistoryFileFormat,
     pub log_level: String,
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
@@ -98,6 +99,7 @@ impl Default for Config {
             edit_mode: "emacs".into(),
             max_history_size: i64::MAX,
             sync_history_on_enter: true,
+            history_file_format: HistoryFileFormat::PlainText,
             log_level: String::new(),
             keybindings: Vec::new(),
             menus: Vec::new(),
@@ -123,6 +125,14 @@ pub enum FooterMode {
     RowCount(u64),
     /// Calculate the screen height, calculate row count, if display will be bigger than screen, add the footer
     Auto,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
+pub enum HistoryFileFormat {
+    /// Store history as an SQLite database with additional context
+    Sqlite,
+    /// store history as a plain text file where every line is one command (without any context such as timestamps)
+    PlainText,
 }
 
 impl Value {
@@ -246,6 +256,23 @@ impl Value {
                             config.edit_mode = v.to_lowercase();
                         } else {
                             eprintln!("$config.edit_mode is not a string")
+                        }
+                    }
+                    "history_file_format" => {
+                        if let Ok(b) = value.as_string() {
+                            let val_str = b.to_lowercase();
+                            config.history_file_format = match val_str.as_ref() {
+                                "sqlite" => HistoryFileFormat::Sqlite,
+                                "plaintext" => HistoryFileFormat::PlainText,
+                                _ => {
+                                    eprintln!(
+                                        "unrecognized $config.history_file_format '{val_str}'"
+                                    );
+                                    HistoryFileFormat::PlainText
+                                }
+                            };
+                        } else {
+                            eprintln!("$config.history_file_format is not a string")
                         }
                     }
                     "max_history_size" => {
