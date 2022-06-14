@@ -4,7 +4,7 @@ description = "Nushell table printing"
 edition = "2021"
 license = "MIT"
 name = "nu-table"
-version = "0.63.1"
+version = "0.64.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 nu-ansi-term = "0.46.0"
-nu-protocol = { path = "../nu-protocol", version = "0.63.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.64.0" }
 regex = "1.4"
 unicode-width = "0.1.8"
 strip-ansi-escapes = "0.1.1"

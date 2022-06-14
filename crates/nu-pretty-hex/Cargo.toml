@@ -4,7 +4,7 @@ description = "Pretty hex dump of bytes slice in the common style."
 edition = "2021"
 license = "MIT"
 name = "nu-pretty-hex"
-version = "0.63.1"
+version = "0.64.0"
 
 [lib]
 doctest = false
