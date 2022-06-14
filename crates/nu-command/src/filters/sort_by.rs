@@ -254,15 +254,13 @@ pub fn sort(
                             .partial_cmp(&lowercase_right)
                             .unwrap_or(Ordering::Equal)
                     }
-                } else {
-                    if natural {
-                        match (a.as_string(), b.as_string()) {
-                            (Ok(left), Ok(right)) => compare_str(left, right),
-                            _ => Ordering::Equal,
-                        }
-                    } else {
-                        a.partial_cmp(b).unwrap_or(Ordering::Equal)
+                } else if natural {
+                    match (a.as_string(), b.as_string()) {
+                        (Ok(left), Ok(right)) => compare_str(left, right),
+                        _ => Ordering::Equal,
                     }
+                } else {
+                    a.partial_cmp(b).unwrap_or(Ordering::Equal)
                 }
             });
         }
@@ -319,15 +317,13 @@ pub fn process(
                     .partial_cmp(&lowercase_right)
                     .unwrap_or(Ordering::Equal)
             }
-        } else {
-            if natural {
-                match (left_res.as_string(), right_res.as_string()) {
-                    (Ok(left), Ok(right)) => compare_str(left, right),
-                    _ => Ordering::Equal,
-                }
-            } else {
-                left_res.partial_cmp(&right_res).unwrap_or(Ordering::Equal)
+        } else if natural {
+            match (left_res.as_string(), right_res.as_string()) {
+                (Ok(left), Ok(right)) => compare_str(left, right),
+                _ => Ordering::Equal,
             }
+        } else {
+            left_res.partial_cmp(&right_res).unwrap_or(Ordering::Equal)
         };
         if result != Ordering::Equal {
             return result;
