@@ -929,6 +929,45 @@ mod input_types {
         }
     }
 
+    #[derive(Clone)]
+    pub struct IfMocked;
+
+    impl Command for IfMocked {
+        fn name(&self) -> &str {
+            "if"
+        }
+
+        fn usage(&self) -> &str {
+            "Mock if command"
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("if")
+                .required("cond", SyntaxShape::Expression, "condition to check")
+                .required(
+                    "then_block",
+                    SyntaxShape::Block(Some(vec![])),
+                    "block to run if check succeeds",
+                )
+                .optional(
+                    "else_expression",
+                    SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Expression)),
+                    "expression or block to run if check fails",
+                )
+                .category(Category::Core)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &nu_protocol::ast::Call,
+            _input: nu_protocol::PipelineData,
+        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            todo!()
+        }
+    }
+
     fn add_declations(engine_state: &mut EngineState) {
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
@@ -942,6 +981,7 @@ mod input_types {
             working_set.add_decl(Box::new(AggMin));
             working_set.add_decl(Box::new(Collect));
             working_set.add_decl(Box::new(WithColumn));
+            working_set.add_decl(Box::new(IfMocked));
 
             working_set.render()
         };
@@ -1192,6 +1232,28 @@ mod input_types {
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),
+        }
+    }
+
+    #[test]
+    fn operations_within_blocks_test() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let inputs = vec![
+            r#"let a = 'b'; ($a == 'b') || ($a == 'b')"#,
+            r#"let a = 'b'; ($a == 'b') || ($a == 'b') && ($a == 'b')"#,
+            r#"let a = 1; ($a == 1) || ($a == 2) && ($a == 3)"#,
+            r#"let a = 'b'; if ($a == 'b') || ($a == 'b') { true } else { false }"#,
+            r#"let a = 1; if ($a == 1) || ($a > 0) { true } else { false }"#,
+        ];
+
+        for input in inputs {
+            let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+
+            assert!(err.is_none(), "testing: {}", input);
+            assert!(block.len() == 2, "testing: {}", input);
         }
     }
 }
