@@ -60,6 +60,7 @@ is_executable = "1.0.1"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
 openssl = { version = "0.10.38", features = ["vendored"], optional = true }
+signal-hook = { version = "0.3.14", default-features = false }
 
 [dev-dependencies]
 nu-test-support = { path="./crates/nu-test-support", version = "0.63.1"  }

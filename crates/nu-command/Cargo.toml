@@ -47,6 +47,7 @@ htmlescape = "0.3.1"
 ical = "0.7.0"
 indexmap = { version="1.7", features=["serde-1"] }
 Inflector = "0.11"
+is-root = "0.1.2"
 itertools = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4.14"

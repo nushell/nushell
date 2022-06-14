@@ -27,6 +27,10 @@ impl Command for SubCommand {
         "Reverse every string in the pipeline"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "inverse"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

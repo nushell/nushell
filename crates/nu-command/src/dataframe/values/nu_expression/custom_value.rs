@@ -100,6 +100,7 @@ fn with_operator(
         Operator::Multiply => apply_arithmetic(left, right, lhs_span, Mul::mul),
         Operator::Divide => apply_arithmetic(left, right, lhs_span, Div::div),
         Operator::Modulo => apply_arithmetic(left, right, lhs_span, Rem::rem),
+        Operator::FloorDivision => apply_arithmetic(left, right, lhs_span, Div::div),
         Operator::Equal => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::eq)
@@ -126,9 +127,9 @@ fn with_operator(
             .into_value(lhs_span)),
         _ => Err(ShellError::OperatorMismatch {
             op_span,
-            lhs_ty: Type::Custom,
+            lhs_ty: Type::Custom(left.typetag_name().into()),
             lhs_span,
-            rhs_ty: Type::Custom,
+            rhs_ty: Type::Custom(right.typetag_name().into()),
             rhs_span,
         }),
     }

@@ -77,6 +77,22 @@ impl Command for DropNth {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                example: "[0,1,2,3,4,5] | drop nth 1..",
+                description: "Drop all rows except first row",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: "[0,1,2,3,4,5] | drop nth 3..",
+                description: "Drop rows 3,4,5",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 
@@ -87,25 +103,47 @@ impl Command for DropNth {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // let mut rows: Vec<usize> = call.rest(engine_state, stack, 0)?;
-        // rows.sort_unstable();
-        // let pipeline_iter: PipelineIterator = input.into_iter();
-
         let number_or_range = extract_int_or_range(engine_state, stack, call)?;
+        let mut lower_bound = None;
         let rows = match number_or_range {
             Either::Left(row_number) => {
                 let and_rows: Vec<Spanned<i64>> = call.rest(engine_state, stack, 1)?;
-
                 let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
                 rows.push(row_number as usize);
                 rows.sort_unstable();
                 rows
             }
             Either::Right(row_range) => {
-                let from = row_range.from.as_integer()? as usize;
-                let to = row_range.to.as_integer()? as usize;
+                let from = row_range.from.as_integer()?; // as usize;
+                let to = row_range.to.as_integer()?; // as usize;
 
-                if matches!(row_range.inclusion, RangeInclusion::Inclusive) {
+                // check for negative range inputs, e.g., (2..-5)
+                if from.is_negative() || to.is_negative() {
+                    let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
+                    return Err(ShellError::UnsupportedInput(
+                        "Drop nth accepts only positive integers".to_string(),
+                        span.span,
+                    ));
+                }
+                // check if the upper bound is smaller than the lower bound, e.g., do not accept 4..2
+                if to < from {
+                    let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
+                    return Err(ShellError::UnsupportedInput(
+                        "The upper bound needs to be equal or larger to the lower bound"
+                            .to_string(),
+                        span.span,
+                    ));
+                }
+
+                // check for equality to isize::MAX because for some reason,
+                // the parser returns isize::MAX when we provide a range without upper bound (e.g., 5.. )
+                let to = to as usize;
+                let from = from as usize;
+
+                if to > 0 && to as isize == isize::MAX {
+                    lower_bound = Some(from);
+                    vec![from]
+                } else if matches!(row_range.inclusion, RangeInclusion::Inclusive) {
                     (from..=to).collect()
                 } else {
                     (from..to).collect()
@@ -113,12 +151,20 @@ impl Command for DropNth {
             }
         };
 
-        Ok(DropNthIterator {
-            input: input.into_iter(),
-            rows,
-            current: 0,
+        if let Some(lower_bound) = lower_bound {
+            Ok(input
+                .into_iter()
+                .take(lower_bound)
+                .collect::<Vec<_>>()
+                .into_pipeline_data(engine_state.ctrlc.clone()))
+        } else {
+            Ok(DropNthIterator {
+                input: input.into_iter(),
+                rows,
+                current: 0,
+            }
+            .into_pipeline_data(engine_state.ctrlc.clone()))
         }
-        .into_pipeline_data(engine_state.ctrlc.clone()))
     }
 }
 

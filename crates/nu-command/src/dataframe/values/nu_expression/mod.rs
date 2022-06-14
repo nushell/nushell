@@ -79,7 +79,7 @@ impl NuExpression {
                     None,
                 )),
             },
-            Value::String { val, .. } => Ok(col(val.as_str()).into()),
+            Value::String { val, .. } => Ok(val.lit().into()),
             Value::Int { val, .. } => Ok(val.lit().into()),
             Value::Bool { val, .. } => Ok(val.lit().into()),
             Value::Float { val, .. } => Ok(val.lit().into()),
@@ -174,7 +174,16 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
     let cols = vec!["expr".to_string(), "value".to_string()];
 
     match expr {
-        Expr::Not(_) => todo!(),
+        Expr::Not(expr) => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
         Expr::Alias(expr, alias) => {
             let expr = expr_to_value(expr.as_ref(), span);
             let alias = Value::String {
@@ -182,7 +191,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             };
 
-            let cols = vec!["expr".to_string(), "alias".to_string()];
+            let cols = vec!["expr".into(), "alias".into()];
 
             Value::Record {
                 cols,
@@ -192,7 +201,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         }
         Expr::Column(name) => {
             let expr_type = Value::String {
-                val: "column".into(),
+                val: "column".to_string(),
                 span,
             };
             let value = Value::String {
@@ -222,7 +231,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let vals = vec![expr_type, value];
             Value::Record { cols, vals, span }
         }
-        Expr::DtypeColumn(_) => todo!(),
         Expr::Literal(literal) => {
             let expr_type = Value::String {
                 val: "literal".into(),
@@ -245,7 +253,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             };
 
-            let cols = vec!["left".to_string(), "op".to_string(), "right".to_string()];
+            let cols = vec!["left".into(), "op".into(), "right".into()];
 
             Value::Record {
                 cols,
@@ -262,11 +270,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let truthy = expr_to_value(truthy.as_ref(), span);
             let falsy = expr_to_value(falsy.as_ref(), span);
 
-            let cols = vec![
-                "predicate".to_string(),
-                "truthy".to_string(),
-                "falsy".to_string(),
-            ];
+            let cols = vec!["predicate".into(), "truthy".into(), "falsy".into()];
 
             Value::Record {
                 cols,
@@ -289,7 +293,29 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 | AggExpr::AggGroups(expr)
                 | AggExpr::Std(expr)
                 | AggExpr::Var(expr) => expr_to_value(expr.as_ref(), span),
-                AggExpr::Quantile { .. } => todo!(),
+                AggExpr::Quantile {
+                    expr,
+                    quantile,
+                    interpol,
+                } => {
+                    let expr = expr_to_value(expr.as_ref(), span);
+                    let quantile = Value::Float {
+                        val: *quantile,
+                        span,
+                    };
+                    let interpol = Value::String {
+                        val: format!("{:?}", interpol),
+                        span,
+                    };
+
+                    let cols = vec!["expr".into(), "quantile".into(), "interpol".into()];
+
+                    Value::Record {
+                        cols,
+                        vals: vec![expr, quantile, interpol],
+                        span,
+                    }
+                }
             };
 
             let expr_type = Value::String {
@@ -300,27 +326,371 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let vals = vec![expr_type, value];
             Value::Record { cols, vals, span }
         }
-        Expr::IsNotNull(_) => todo!(),
-        Expr::IsNull(_) => todo!(),
-        Expr::Cast { .. } => todo!(),
-        Expr::Sort { .. } => todo!(),
-        Expr::Take { .. } => todo!(),
-        Expr::SortBy { .. } => todo!(),
-        Expr::Function { .. } => todo!(),
-        Expr::Shift { .. } => todo!(),
-        Expr::Reverse(_) => todo!(),
-        Expr::Duplicated(_) => todo!(),
-        Expr::IsUnique(_) => todo!(),
-        Expr::Explode(_) => todo!(),
-        Expr::Filter { .. } => todo!(),
-        Expr::Window { .. } => todo!(),
-        Expr::Wildcard => todo!(),
-        Expr::Slice { .. } => todo!(),
-        Expr::Exclude(_, _) => todo!(),
-        Expr::KeepName(_) => todo!(),
-        Expr::RenameAlias { .. } => todo!(),
-        Expr::Count => todo!(),
-        Expr::Nth(_) => todo!(),
-        Expr::AnonymousFunction { .. } => todo!(),
+        Expr::IsNotNull(expr) => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
+        Expr::IsNull(expr) => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
+        Expr::Count => {
+            let expr = Value::String {
+                val: "count".into(),
+                span,
+            };
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
+        Expr::Wildcard => {
+            let expr = Value::String {
+                val: "wildcard".into(),
+                span,
+            };
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
+        Expr::Reverse(expr) => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
+        Expr::Duplicated(expr) => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
+        Expr::IsUnique(expr) => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
+        Expr::Explode(expr) => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
+        Expr::KeepName(expr) => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
+        Expr::Nth(i) => {
+            let expr = Value::int(*i, span);
+            let cols = vec!["expr".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr],
+                span,
+            }
+        }
+        Expr::DtypeColumn(dtypes) => {
+            let vals = dtypes
+                .iter()
+                .map(|d| Value::String {
+                    val: format!("{}", d),
+                    span,
+                })
+                .collect();
+
+            Value::List { vals, span }
+        }
+        Expr::Sort { expr, options } => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let options = Value::String {
+                val: format!("{:?}", options),
+                span,
+            };
+            let cols = vec!["expr".into(), "options".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr, options],
+                span,
+            }
+        }
+        Expr::Cast {
+            expr,
+            data_type,
+            strict,
+        } => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let dtype = Value::String {
+                val: format!("{:?}", data_type),
+                span,
+            };
+            let strict = Value::Bool { val: *strict, span };
+
+            let cols = vec!["expr".into(), "dtype".into(), "strict".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr, dtype, strict],
+                span,
+            }
+        }
+        Expr::Take { expr, idx } => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let idx = expr_to_value(idx.as_ref(), span);
+
+            let cols = vec!["expr".into(), "idx".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr, idx],
+                span,
+            }
+        }
+        Expr::SortBy { expr, by, reverse } => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let by: Vec<Value> = by.iter().map(|b| expr_to_value(b, span)).collect();
+            let by = Value::List { vals: by, span };
+
+            let reverse: Vec<Value> = reverse
+                .iter()
+                .map(|r| Value::Bool { val: *r, span })
+                .collect();
+            let reverse = Value::List {
+                vals: reverse,
+                span,
+            };
+
+            let cols = vec!["expr".into(), "by".into(), "reverse".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr, by, reverse],
+                span,
+            }
+        }
+        Expr::Shift { input, periods } => {
+            let expr = expr_to_value(input.as_ref(), span);
+            let periods = Value::Int {
+                val: *periods,
+                span,
+            };
+
+            let cols = vec!["expr".into(), "periods".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr, periods],
+                span,
+            }
+        }
+        Expr::Filter { input, by } => {
+            let input = expr_to_value(input.as_ref(), span);
+            let by = expr_to_value(by.as_ref(), span);
+
+            let cols = vec!["input".into(), "by".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![input, by],
+                span,
+            }
+        }
+        Expr::Slice {
+            input,
+            offset,
+            length,
+        } => {
+            let input = expr_to_value(input.as_ref(), span);
+            let offset = expr_to_value(offset.as_ref(), span);
+            let length = expr_to_value(length.as_ref(), span);
+
+            let cols = vec!["input".into(), "offset".into(), "length".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![input, offset, length],
+                span,
+            }
+        }
+        Expr::Exclude(expr, excluded) => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let excluded = excluded
+                .iter()
+                .map(|e| Value::String {
+                    val: format!("{:?}", e),
+                    span,
+                })
+                .collect();
+            let excluded = Value::List {
+                vals: excluded,
+                span,
+            };
+
+            let cols = vec!["expr".into(), "excluded".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr, excluded],
+                span,
+            }
+        }
+        Expr::RenameAlias { expr, function } => {
+            let expr = expr_to_value(expr.as_ref(), span);
+            let function = Value::String {
+                val: format!("{:?}", function),
+                span,
+            };
+
+            let cols = vec!["expr".into(), "function".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![expr, function],
+                span,
+            }
+        }
+        Expr::AnonymousFunction {
+            input,
+            function,
+            output_type,
+            options,
+        } => {
+            let input: Vec<Value> = input.iter().map(|e| expr_to_value(e, span)).collect();
+            let input = Value::List { vals: input, span };
+
+            let function = Value::String {
+                val: format!("{:?}", function),
+                span,
+            };
+            let output_type = Value::String {
+                val: format!("{:?}", output_type),
+                span,
+            };
+            let options = Value::String {
+                val: format!("{:?}", options),
+                span,
+            };
+
+            let cols = vec![
+                "input".into(),
+                "function".into(),
+                "output_type".into(),
+                "options".into(),
+            ];
+
+            Value::Record {
+                cols,
+                vals: vec![input, function, output_type, options],
+                span,
+            }
+        }
+        Expr::Function {
+            input,
+            function,
+            options,
+        } => {
+            let input: Vec<Value> = input.iter().map(|e| expr_to_value(e, span)).collect();
+            let input = Value::List { vals: input, span };
+
+            let function = Value::String {
+                val: format!("{:?}", function),
+                span,
+            };
+            let options = Value::String {
+                val: format!("{:?}", options),
+                span,
+            };
+
+            let cols = vec!["input".into(), "function".into(), "options".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![input, function, options],
+                span,
+            }
+        }
+        Expr::Window {
+            function,
+            partition_by,
+            order_by,
+            options,
+        } => {
+            let function = expr_to_value(function, span);
+
+            let partition_by: Vec<Value> = partition_by
+                .iter()
+                .map(|e| expr_to_value(e, span))
+                .collect();
+            let partition_by = Value::List {
+                vals: partition_by,
+                span,
+            };
+
+            let order_by = order_by
+                .as_ref()
+                .map(|e| expr_to_value(e.as_ref(), span))
+                .unwrap_or_else(|| Value::nothing(span));
+
+            let options = Value::String {
+                val: format!("{:?}", options),
+                span,
+            };
+
+            let cols = vec![
+                "function".into(),
+                "partition_by".into(),
+                "order_by".into(),
+                "options".into(),
+            ];
+
+            Value::Record {
+                cols,
+                vals: vec![function, partition_by, order_by, options],
+                span,
+            }
+        }
     }
 }

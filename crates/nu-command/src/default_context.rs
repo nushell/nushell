@@ -84,6 +84,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             DropColumn,
             DropNth,
             Each,
+            EachWhile,
             Empty,
             Every,
             Find,
@@ -382,6 +383,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
         // Experimental
         bind_command! {
             ViewSource,
+            IsAdmin,
         };
 
         // Deprecated
@@ -398,9 +400,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             KeepUntilDeprecated,
             KeepWhileDeprecated,
         };
-
-        #[cfg(feature = "dataframe")]
-        bind_command!(DataframeDeprecated);
 
         #[cfg(feature = "plugin")]
         bind_command!(Register);

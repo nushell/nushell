@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -13,7 +13,7 @@ pub struct IsIn;
 
 impl Command for IsIn {
     fn name(&self) -> &str {
-        "dfr is-in"
+        "is-in"
     }
 
     fn usage(&self) -> &str {
@@ -29,8 +29,8 @@ impl Command for IsIn {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Checks if elements from a series are contained in right series",
-            example: r#"let other = ([1 3 6] | dfr to-df);
-    [5 6 6 6 8 8 8] | dfr to-df | dfr is-in $other"#,
+            example: r#"let other = ([1 3 6] | to-df);
+    [5 6 6 6 8 8 8] | to-df | is-in $other"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_in".to_string(),
@@ -48,6 +48,14 @@ impl Command for IsIn {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

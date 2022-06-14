@@ -51,6 +51,10 @@ impl Command for SubCommand {
         "Returns start index of first occurrence of pattern in string, or -1 if no match"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["pattern", "match", "find", "search", "index"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

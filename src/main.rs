@@ -17,7 +17,7 @@ use nu_cli::{
 };
 use nu_command::{create_default_context, BufferedReader};
 use nu_engine::{get_full_help, CallExt};
-use nu_parser::{escape_quote_string, escape_quote_string_with_file, parse};
+use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
 use nu_protocol::{
     ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
@@ -73,6 +73,16 @@ fn main() -> Result<()> {
     engine_state.ctrlc = Some(engine_state_ctrlc);
     // End ctrl-c protection section
 
+    // SIGQUIT protection section (only works for POSIX system)
+    #[cfg(not(windows))]
+    {
+        use signal_hook::consts::SIGQUIT;
+        let sig_quit = Arc::new(AtomicBool::new(false));
+        signal_hook::flag::register(SIGQUIT, sig_quit.clone()).expect("Error setting SIGQUIT flag");
+        engine_state.set_sig_quit(sig_quit);
+    }
+    // End SIGQUIT protection section
+
     let mut args_to_nushell = vec![];
     let mut script_name = String::new();
     let mut args_to_script = vec![];
@@ -83,7 +93,7 @@ fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         if !script_name.is_empty() {
-            args_to_script.push(escape_quote_string_with_file(&arg, &script_name));
+            args_to_script.push(escape_for_script_arg(&arg));
         } else if arg.starts_with('-') {
             // Cool, it's a flag
             let flag_value = match arg.as_ref() {
@@ -184,7 +194,7 @@ fn main() -> Result<()> {
             }
 
             // First, set up env vars as strings only
-            gather_parent_env_vars(&mut engine_state);
+            gather_parent_env_vars(&mut engine_state, &init_cwd);
             let mut stack = nu_protocol::engine::Stack::new();
 
             if let Some(commands) = &binary_args.commands {
@@ -275,6 +285,7 @@ fn main() -> Result<()> {
                     &mut stack,
                     binary_args.config_file,
                     binary_args.env_file,
+                    binary_args.login_shell.is_some(),
                 );
 
                 let ret_val = evaluate_repl(
@@ -299,6 +310,7 @@ fn setup_config(
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
+    is_login_shell: bool,
 ) {
     #[cfg(feature = "plugin")]
     read_plugin_file(engine_state, stack, NUSHELL_FOLDER, is_perf_true());
@@ -309,6 +321,10 @@ fn setup_config(
 
     config_files::read_config_file(engine_state, stack, env_file, is_perf_true(), true);
     config_files::read_config_file(engine_state, stack, config_file, is_perf_true(), false);
+
+    if is_login_shell {
+        config_files::read_loginshell_file(engine_state, stack, is_perf_true());
+    }
 
     // Give a warning if we see `$config` for a few releases
     {

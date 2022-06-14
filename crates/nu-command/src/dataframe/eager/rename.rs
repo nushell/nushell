@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use crate::dataframe::{utils::extract_strings, values::NuLazyFrame};
@@ -14,7 +14,7 @@ pub struct RenameDF;
 
 impl Command for RenameDF {
     fn name(&self) -> &str {
-        "dfr rename"
+        "rename"
     }
 
     fn usage(&self) -> &str {
@@ -40,7 +40,7 @@ impl Command for RenameDF {
         vec![
             Example {
                 description: "Renames a series",
-                example: "[5 6 7 8] | dfr to-df | dfr rename '0' new_name",
+                example: "[5 6 7 8] | to-df | rename '0' new_name",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "new_name".to_string(),
@@ -57,7 +57,7 @@ impl Command for RenameDF {
             },
             Example {
                 description: "Renames a dataframe column",
-                example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr rename a a_new",
+                example: "[[a b]; [1 2] [3 4]] | to-df | rename a a_new",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -75,7 +75,7 @@ impl Command for RenameDF {
             },
             Example {
                 description: "Renames two dataframe columns",
-                example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr rename [a b] [a_new b_new]",
+                example: "[[a b]; [1 2] [3 4]] | to-df | rename [a b] [a_new b_new]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -94,6 +94,14 @@ impl Command for RenameDF {
         ]
     }
 
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -106,16 +114,9 @@ impl Command for RenameDF {
         if NuLazyFrame::can_downcast(&value) {
             let df = NuLazyFrame::try_from_value(value)?;
             command_lazy(engine_state, stack, call, df)
-        } else if NuDataFrame::can_downcast(&value) {
+        } else {
             let df = NuDataFrame::try_from_value(value)?;
             command_eager(engine_state, stack, call, df)
-        } else {
-            Err(ShellError::CantConvert(
-                "expression or query".into(),
-                value.get_type().to_string(),
-                value.span()?,
-                None,
-            ))
         }
     }
 }

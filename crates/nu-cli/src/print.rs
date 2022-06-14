@@ -17,7 +17,7 @@ impl Command for Print {
         Signature::build("print")
             .rest("rest", SyntaxShape::Any, "the values to print")
             .switch(
-                "no_newline",
+                "no-newline",
                 "print without inserting a newline for the line ending",
                 Some('n'),
             )
@@ -28,6 +28,10 @@ impl Command for Print {
         "Prints the values given"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["display"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -36,7 +40,7 @@ impl Command for Print {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let no_newline = call.has_flag("no_newline");
+        let no_newline = call.has_flag("no-newline");
         let head = call.head;
 
         for arg in args {

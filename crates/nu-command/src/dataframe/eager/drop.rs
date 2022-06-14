@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use super::super::values::utils::convert_columns;
@@ -13,7 +13,7 @@ pub struct DropDF;
 
 impl Command for DropDF {
     fn name(&self) -> &str {
-        "dfr drop"
+        "drop"
     }
 
     fn usage(&self) -> &str {
@@ -29,7 +29,7 @@ impl Command for DropDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr drop a",
+            example: "[[a b]; [1 2] [3 4]] | to-df | drop a",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "b".to_string(),
@@ -39,6 +39,14 @@ impl Command for DropDF {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

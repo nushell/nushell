@@ -125,6 +125,10 @@ pub fn evaluate_repl(
         if let Some(ctrlc) = &mut engine_state.ctrlc {
             ctrlc.store(false, Ordering::SeqCst);
         }
+        // Reset the SIGQUIT handler
+        if let Some(sig_quit) = engine_state.get_sig_quit() {
+            sig_quit.store(false, Ordering::SeqCst);
+        }
 
         config = engine_state.get_config();
 

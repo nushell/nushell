@@ -1800,6 +1800,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879d54834c8c76457ef4293a689b2a8c59b076067ad77b15efafbb05f92a592b"
 
 [[package]]
+name = "is-root"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04a4202a60e86f1c9702706bb42270dadd333f2db7810157563c86f17af3c873"
+dependencies = [
+ "users 0.10.0",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "is_ci"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2494,6 +2504,7 @@ dependencies = [
  "reedline",
  "rstest",
  "serial_test",
+ "signal-hook",
  "tempfile",
  "winres",
 ]
@@ -2570,6 +2581,7 @@ dependencies = [
  "htmlescape",
  "ical",
  "indexmap",
+ "is-root",
  "itertools",
  "lazy_static",
  "log",
@@ -2624,7 +2636,7 @@ dependencies = [
  "umask",
  "unicode-segmentation",
  "url",
- "users",
+ "users 0.11.0",
  "uuid",
  "wax",
  "which",
@@ -4988,6 +5000,16 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
+]
+
+[[package]]
+name = "users"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa4227e95324a443c9fcb06e03d4d85e91aabe9a5a02aa818688b6918b6af486"
+dependencies = [
+ "libc",
+ "log",
 ]
 
 [[package]]

@@ -29,6 +29,10 @@ impl Command for SubCommand {
         "Convert a string to camelCase"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "style", "caps", "convention"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

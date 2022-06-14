@@ -59,37 +59,43 @@ impl NuCompleter {
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
+        let (mut new_line, alias_offset) = try_find_alias(line.as_bytes(), &working_set);
         let initial_line = line.to_string();
-        let mut line = line.to_string();
-        line.insert(pos, 'a');
+        new_line.push(b'a');
         let pos = offset + pos;
-        let (output, _err) = parse(
-            &mut working_set,
-            Some("completer"),
-            line.as_bytes(),
-            false,
-            &[],
-        );
+        let (output, _err) = parse(&mut working_set, Some("completer"), &new_line, false, &[]);
 
         for pipeline in output.pipelines.into_iter() {
             for expr in pipeline.expressions {
                 let flattened: Vec<_> = flatten_expression(&working_set, &expr);
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
-                    if pos >= flat.0.start && pos < flat.0.end {
+                    let alias = if alias_offset.is_empty() {
+                        0
+                    } else {
+                        alias_offset[flat_idx]
+                    };
+                    if pos >= flat.0.start - alias && pos < flat.0.end - alias {
                         // Context variables
                         let most_left_var =
                             most_left_variable(flat_idx, &working_set, flattened.clone());
 
                         // Create a new span
-                        let new_span = Span {
-                            start: flat.0.start,
-                            end: flat.0.end - 1,
+                        let new_span = if flat_idx == 0 {
+                            Span {
+                                start: flat.0.start,
+                                end: flat.0.end - 1 - alias,
+                            }
+                        } else {
+                            Span {
+                                start: flat.0.start - alias,
+                                end: flat.0.end - 1 - alias,
+                            }
                         };
 
                         // Parses the prefix
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
-                        prefix.remove(pos - flat.0.start);
+                        prefix.remove(pos - (flat.0.start - alias));
 
                         // Completions that depends on the previous expression (e.g: use, source)
                         if flat_idx > 0 {
@@ -226,6 +232,74 @@ impl NuCompleter {
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         self.completion_helper(line, pos)
+    }
+}
+
+type MatchedAlias<'a> = Vec<(&'a [u8], &'a [u8])>;
+
+// Handler the completion when giving lines contains at least one alias. (e.g: `g checkout`)
+// that `g` is an alias of `git`
+fn try_find_alias(line: &[u8], working_set: &StateWorkingSet) -> (Vec<u8>, Vec<usize>) {
+    // An vector represents the offsets of alias
+    // e.g: the offset is 2 for the alias `g` of `git`
+    let mut alias_offset = vec![];
+    let mut output = vec![];
+    if let Some(matched_alias) = search_alias(line, working_set) {
+        let mut lens = matched_alias.len();
+        for (input_vec, line_vec) in matched_alias {
+            alias_offset.push(line_vec.len() - input_vec.len());
+            output.extend(line_vec);
+            if lens > 1 {
+                output.push(b' ');
+                lens -= 1;
+            }
+        }
+    } else {
+        output = line.to_vec();
+    }
+
+    (output, alias_offset)
+}
+
+fn search_alias<'a>(input: &'a [u8], working_set: &'a StateWorkingSet) -> Option<MatchedAlias<'a>> {
+    let mut vec_names = vec![];
+    let mut vec_alias = vec![];
+    let mut pos = 0;
+    let mut is_alias = false;
+    for (index, character) in input.iter().enumerate() {
+        if *character == b' ' {
+            let range = &input[pos..index];
+            vec_names.push(range);
+            pos = index + 1;
+        }
+    }
+    // Push the rest to names vector.
+    if pos < input.len() {
+        vec_names.push(&input[pos..]);
+    }
+
+    for name in &vec_names {
+        if let Some(alias_id) = working_set.find_alias(name) {
+            let alias_span = working_set.get_alias(alias_id);
+            is_alias = true;
+            for alias in alias_span {
+                let name = working_set.get_span_contents(*alias);
+                if !name.is_empty() {
+                    vec_alias.push(name);
+                }
+            }
+        } else {
+            vec_alias.push(name);
+        }
+    }
+
+    if is_alias {
+        // Zip names and alias vectors, the original inputs and its aliases mapping.
+        // e.g:(['g'], ['g','i','t'])
+        let output = vec_names.into_iter().zip(vec_alias).collect();
+        Some(output)
+    } else {
+        None
     }
 }
 

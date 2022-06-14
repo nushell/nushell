@@ -10,6 +10,7 @@ use std::io::Write;
 pub(crate) const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";
 const ENV_FILE: &str = "env.nu";
+const LOGINSHELL_FILE: &str = "login.nu";
 
 pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
@@ -99,5 +100,24 @@ pub(crate) fn read_config_file(
 
     if is_perf_true {
         info!("read_config_file {}:{}:{}", file!(), line!(), column!());
+    }
+}
+pub(crate) fn read_loginshell_file(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    is_perf_true: bool,
+) {
+    // read and execute loginshell file if exists
+    if let Some(mut config_path) = nu_path::config_dir() {
+        config_path.push(NUSHELL_FOLDER);
+        config_path.push(LOGINSHELL_FILE);
+
+        if config_path.exists() {
+            eval_config_contents(config_path, engine_state, stack);
+        }
+    }
+
+    if is_perf_true {
+        info!("read_loginshell_file {}:{}:{}", file!(), line!(), column!());
     }
 }

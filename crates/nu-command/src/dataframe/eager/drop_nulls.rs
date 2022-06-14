@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use super::super::values::utils::convert_columns_string;
@@ -13,7 +13,7 @@ pub struct DropNulls;
 
 impl Command for DropNulls {
     fn name(&self) -> &str {
-        "dfr drop-nulls"
+        "drop-nulls"
     }
 
     fn usage(&self) -> &str {
@@ -34,10 +34,10 @@ impl Command for DropNulls {
         vec![
             Example {
                 description: "drop null values in dataframe",
-                example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | dfr to-df);
+                example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | to-df);
     let res = ($df.b / $df.b);
-    let a = ($df | dfr with-column $res --name res);
-    $a | dfr drop-nulls"#,
+    let a = ($df | with-column $res --name res);
+    $a | drop-nulls"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -59,8 +59,8 @@ impl Command for DropNulls {
             },
             Example {
                 description: "drop null values in dataframe",
-                example: r#"let s = ([1 2 0 0 3 4] | dfr to-df);
-    ($s / $s) | dfr drop-nulls"#,
+                example: r#"let s = ([1 2 0 0 3 4] | to-df);
+    ($s / $s) | drop-nulls"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "div_0_0".to_string(),
@@ -76,6 +76,14 @@ impl Command for DropNulls {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

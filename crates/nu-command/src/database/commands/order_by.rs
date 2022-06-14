@@ -24,7 +24,7 @@ impl Command for OrderByDb {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .switch("ascending", "Order by ascending values", Some('a'))
-            .switch("nulls_first", "Show nulls first in order", Some('n'))
+            .switch("nulls-first", "Show nulls first in order", Some('n'))
             .rest(
                 "select",
                 SyntaxShape::Any,
@@ -40,10 +40,10 @@ impl Command for OrderByDb {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "orders query by a column",
-            example: r#"db open db.mysql 
-    | db from table_a 
-    | db select a 
-    | db order-by a 
+            example: r#"db open db.mysql
+    | db from table_a
+    | db select a
+    | db order-by a
     | db describe"#,
             result: None,
         }]
@@ -57,7 +57,7 @@ impl Command for OrderByDb {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let asc = call.has_flag("ascending");
-        let nulls_first = call.has_flag("nulls_first");
+        let nulls_first = call.has_flag("nulls-first");
         let expressions: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let expressions = Value::List {
             vals: expressions,

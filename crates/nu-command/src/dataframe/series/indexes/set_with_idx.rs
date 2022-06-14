@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::{ChunkSet, DataType, IntoSeries};
 
@@ -13,7 +13,7 @@ pub struct SetWithIndex;
 
 impl Command for SetWithIndex {
     fn name(&self) -> &str {
-        "dfr set-with-idx"
+        "set-with-idx"
     }
 
     fn usage(&self) -> &str {
@@ -35,9 +35,9 @@ impl Command for SetWithIndex {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Set value in selected rows from series",
-            example: r#"let series = ([4 1 5 2 4 3] | dfr to-df);
-    let indices = ([0 2] | dfr to-df);
-    $series | dfr set-with-idx 6 -i $indices"#,
+            example: r#"let series = ([4 1 5 2 4 3] | to-df);
+    let indices = ([0 2] | to-df);
+    $series | set-with-idx 6 -i $indices"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
@@ -54,6 +54,14 @@ impl Command for SetWithIndex {
                 .into_value(Span::test_data()),
             ),
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

@@ -19,13 +19,14 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(8, suggestions.len());
+    assert_eq!(9, suggestions.len());
 
     let expected: Vec<String> = vec![
         "config-path".into(),
         "env-path".into(),
         "history-path".into(),
         "home-path".into(),
+        "loginshell-path".into(),
         "os-info".into(),
         "pid".into(),
         "scope".into(),
@@ -56,7 +57,7 @@ fn variables_completions() {
     match_suggestions(expected, suggestions);
 
     // Test completions for custom var (filtering)
-    let suggestions = completer.complete("$actor.n", 7);
+    let suggestions = completer.complete("$actor.n", 8);
 
     assert_eq!(1, suggestions.len());
 
@@ -76,7 +77,7 @@ fn variables_completions() {
     match_suggestions(expected, suggestions);
 
     // Test completions for $env
-    let suggestions = completer.complete("$env.T", 5);
+    let suggestions = completer.complete("$env.T", 6);
 
     assert_eq!(1, suggestions.len());
 

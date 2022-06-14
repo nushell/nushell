@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 use crate::SyntaxShape;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Type {
     Int,
     Float,
@@ -25,7 +25,7 @@ pub enum Type {
     Any,
     Error,
     Binary,
-    Custom,
+    Custom(String),
     Signature,
 }
 
@@ -51,7 +51,7 @@ impl Type {
             Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,
             Type::Binary => SyntaxShape::Binary,
-            Type::Custom => SyntaxShape::Any,
+            Type::Custom(_) => SyntaxShape::Any,
             Type::Signature => SyntaxShape::Signature,
         }
     }
@@ -95,7 +95,7 @@ impl Display for Type {
             Type::Any => write!(f, "any"),
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),
-            Type::Custom => write!(f, "custom"),
+            Type::Custom(custom) => write!(f, "{}", custom),
             Type::Signature => write!(f, "signature"),
         }
     }

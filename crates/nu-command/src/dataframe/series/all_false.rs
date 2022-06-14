@@ -3,7 +3,7 @@ use super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct AllFalse;
 
 impl Command for AllFalse {
     fn name(&self) -> &str {
-        "dfr all-false"
+        "all-false"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for AllFalse {
         vec![
             Example {
                 description: "Returns true if all values are false",
-                example: "[false false false] | dfr to-df | dfr all-false",
+                example: "[false false false] | to-df | all-false",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_false".to_string(),
@@ -38,9 +38,9 @@ impl Command for AllFalse {
             },
             Example {
                 description: "Checks the result from a comparison",
-                example: r#"let s = ([5 6 2 10] | dfr to-df);
+                example: r#"let s = ([5 6 2 10] | to-df);
     let res = ($s > 9);
-    $res | dfr all-false"#,
+    $res | all-false"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_false".to_string(),
@@ -51,6 +51,14 @@ impl Command for AllFalse {
                 ),
             },
         ]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("dataframe".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("dataframe".into())
     }
 
     fn run(

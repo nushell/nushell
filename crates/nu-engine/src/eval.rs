@@ -422,6 +422,10 @@ pub fn eval_expression(
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.modulo(op_span, &rhs, expr.span)
                 }
+                Operator::FloorDivision => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.floor_div(op_span, &rhs, expr.span)
+                }
                 Operator::Pow => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.pow(op_span, &rhs, expr.span)
@@ -829,7 +833,7 @@ pub fn create_scope(
         })
     }
 
-    for (command_name, decl_id) in commands_map {
+    for ((command_name, _), decl_id) in commands_map {
         if visibility.is_decl_id_visible(decl_id) {
             let mut cols = vec![];
             let mut vals = vec![];
@@ -1174,6 +1178,40 @@ pub fn create_scope(
         span,
     });
 
+    let engine_state_cols = vec![
+        "source_bytes".to_string(),
+        "num_vars".to_string(),
+        "num_commands".to_string(),
+        "num_aliases".to_string(),
+        "num_blocks".to_string(),
+        "num_modules".to_string(),
+        "num_env_vars".to_string(),
+    ];
+
+    let engine_state_vals = vec![
+        Value::int(engine_state.next_span_start() as i64, span),
+        Value::int(engine_state.num_vars() as i64, span),
+        Value::int(engine_state.num_decls() as i64, span),
+        Value::int(engine_state.num_aliases() as i64, span),
+        Value::int(engine_state.num_blocks() as i64, span),
+        Value::int(engine_state.num_modules() as i64, span),
+        Value::int(
+            engine_state
+                .env_vars
+                .values()
+                .map(|overlay| overlay.len() as i64)
+                .sum(),
+            span,
+        ),
+    ];
+
+    output_cols.push("engine_state".to_string());
+    output_vals.push(Value::Record {
+        cols: engine_state_cols,
+        vals: engine_state_vals,
+        span,
+    });
+
     Ok(Value::Record {
         cols: output_cols,
         vals: output_vals,
@@ -1196,6 +1234,7 @@ pub fn eval_variable(
             if let Some(mut config_path) = nu_path::config_dir() {
                 config_path.push("nushell");
                 let mut env_config_path = config_path.clone();
+                let mut loginshell_path = config_path.clone();
 
                 let mut history_path = config_path.clone();
 
@@ -1221,6 +1260,14 @@ pub fn eval_variable(
                 output_cols.push("env-path".into());
                 output_vals.push(Value::String {
                     val: env_config_path.to_string_lossy().to_string(),
+                    span,
+                });
+
+                loginshell_path.push("login.nu");
+
+                output_cols.push("loginshell-path".into());
+                output_vals.push(Value::String {
+                    val: loginshell_path.to_string_lossy().to_string(),
                     span,
                 });
             }

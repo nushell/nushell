@@ -29,6 +29,10 @@ impl Command for SubCommand {
         "Check if a string ends with a pattern"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["pattern", "match", "find", "search"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

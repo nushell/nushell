@@ -34,6 +34,10 @@ impl Command for Alias {
         true
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["abbr", "aka", "fn", "func", "function"]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,

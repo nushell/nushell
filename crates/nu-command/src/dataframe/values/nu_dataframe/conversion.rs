@@ -34,10 +34,6 @@ impl Column {
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
-
-    //pub fn iter(&self) -> impl Iterator<Item = &Value> {
-    //    self.values.iter()
-    //}
 }
 
 impl IntoIterator for Column {
@@ -72,6 +68,7 @@ pub enum InputType {
     Object,
     Date,
     Duration,
+    Filesize,
 }
 
 #[derive(Debug)]
@@ -616,6 +613,9 @@ pub fn insert_value(
             Value::Duration { .. } => {
                 col_val.column_type = Some(InputType::Duration);
             }
+            Value::Filesize { .. } => {
+                col_val.column_type = Some(InputType::Filesize);
+            }
             _ => col_val.column_type = Some(InputType::Object),
         }
         col_val.values.push(value);
@@ -628,6 +628,7 @@ pub fn insert_value(
             | (Value::String { .. }, Value::String { .. })
             | (Value::Bool { .. }, Value::Bool { .. })
             | (Value::Date { .. }, Value::Date { .. })
+            | (Value::Filesize { .. }, Value::Filesize { .. })
             | (Value::Duration { .. }, Value::Duration { .. }) => col_val.values.push(value),
             _ => {
                 col_val.column_type = Some(InputType::Object);
@@ -654,6 +655,12 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     df_series.push(series)
                 }
                 InputType::Integer => {
+                    let series_values: Result<Vec<_>, _> =
+                        column.values.iter().map(|v| v.as_i64()).collect();
+                    let series = Series::new(&name, series_values?);
+                    df_series.push(series)
+                }
+                InputType::Filesize => {
                     let series_values: Result<Vec<_>, _> =
                         column.values.iter().map(|v| v.as_i64()).collect();
                     let series = Series::new(&name, series_values?);
@@ -698,17 +705,10 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     df_series.push(res.into_series())
                 }
                 InputType::Duration => {
-                    let it = column.values.iter().map(|v| {
-                        if let Value::Duration { val, .. } = &v {
-                            Some(*val)
-                        } else {
-                            None
-                        }
-                    });
-
-                    let res = ChunkedArray::<Int64Type>::from_iter_options(&name, it);
-
-                    df_series.push(res.into_series())
+                    let series_values: Result<Vec<_>, _> =
+                        column.values.iter().map(|v| v.as_i64()).collect();
+                    let series = Series::new(&name, series_values?);
+                    df_series.push(series)
                 }
             }
         }

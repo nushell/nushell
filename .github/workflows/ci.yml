@@ -80,9 +80,11 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
 
-      - uses: Swatinem/rust-cache@v1
-        with:
-          key: ${{ matrix.style }}v3 # increment this to bust the cache if needed
+      # Temporarily disabled; the cache was getting huge (2.6GB compressed) on Windows and causing issues.
+      # TODO: investigate why the cache was so big
+      # - uses: Swatinem/rust-cache@v1
+      #   with:
+      #     key: ${{ matrix.style }}v3 # increment this to bust the cache if needed
 
       - name: Tests
         uses: actions-rs/cargo@v1

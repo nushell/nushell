@@ -1,8 +1,8 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, Value,
 };
 use std::cmp::Ordering;
 
@@ -95,6 +95,15 @@ impl Command for Sort {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Sort doesn't change input shape",
+                example: "{a: 3, b: 4} | sort",
+                result: Some(Value::Record {
+                    cols: vec!["a".to_string(), "b".to_string()],
+                    vals: vec![Value::test_int(3), Value::test_int(4)],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 
@@ -108,20 +117,29 @@ impl Command for Sort {
         let reverse = call.has_flag("reverse");
         let insensitive = call.has_flag("insensitive");
         let metadata = &input.metadata();
-        let mut vec: Vec<_> = input.into_iter().collect();
 
-        sort(&mut vec, call.head, insensitive)?;
-
-        if reverse {
-            vec.reverse()
-        }
-
-        let iter = vec.into_iter();
-        match &*metadata {
-            Some(m) => {
-                Ok(iter.into_pipeline_data_with_metadata(m.clone(), engine_state.ctrlc.clone()))
+        match input {
+            PipelineData::Value(v, ..)
+                if !matches!(v, Value::List { .. } | Value::Range { .. }) =>
+            {
+                Ok(v.into_pipeline_data())
             }
-            None => Ok(iter.into_pipeline_data(engine_state.ctrlc.clone())),
+            pipe_data => {
+                let mut vec: Vec<_> = pipe_data.into_iter().collect();
+
+                sort(&mut vec, call.head, insensitive)?;
+
+                if reverse {
+                    vec.reverse()
+                }
+
+                let iter = vec.into_iter();
+                match &*metadata {
+                    Some(m) => Ok(iter
+                        .into_pipeline_data_with_metadata(m.clone(), engine_state.ctrlc.clone())),
+                    None => Ok(iter.into_pipeline_data(engine_state.ctrlc.clone())),
+                }
+            }
         }
     }
 }
