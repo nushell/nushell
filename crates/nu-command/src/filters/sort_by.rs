@@ -80,6 +80,18 @@ impl Command for SortBy {
                 }),
             },
             Example {
+                example: "[test1 test11 test2] | sort-by -n",
+                description: "sort a list of alphanumeric strings naturally",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("test1"),
+                        Value::test_string("test2"),
+                        Value::test_string("test11"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "Sort strings (case-insensitive)",
                 example: "echo [airplane Truck Car] | sort-by -i",
                 result: Some(Value::List {
