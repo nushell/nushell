@@ -50,7 +50,6 @@ impl Command for History {
                     history_path.push("history.txt");
                 }
             }
-            dbg!(&history_path);
 
             if clear {
                 let _ = std::fs::remove_file(history_path);
@@ -101,7 +100,7 @@ impl Command for History {
                                 span: head,
                             })
                     })
-                    .ok_or_else(|| ShellError::FileNotFound(head))?
+                    .ok_or(ShellError::FileNotFound(head))?
                     .into_pipeline_data(ctrlc);
                 Ok(data)
             }
