@@ -44,7 +44,7 @@ impl Command for History {
             history_path.push("nushell");
             match engine_state.config.history_file_format {
                 HistoryFileFormat::Sqlite => {
-                    history_path.push("history.sqlite");
+                    history_path.push("history.sqlite3");
                 }
                 HistoryFileFormat::PlainText => {
                     history_path.push("history.txt");
