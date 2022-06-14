@@ -1239,6 +1239,7 @@ pub fn eval_variable(
                 let mut history_path = config_path.clone();
 
                 history_path.push("history.txt");
+                // let mut history_path = config_files::get_history_path(); // todo: this should use the get_history_path method but idk where to put that function
 
                 output_cols.push("history-path".into());
                 output_vals.push(Value::String {

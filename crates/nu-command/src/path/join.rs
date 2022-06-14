@@ -13,7 +13,7 @@ use super::PathSubcommandArguments;
 
 struct Arguments {
     columns: Option<Vec<String>>,
-    append: Option<Spanned<String>>,
+    append: Vec<Spanned<String>>,
 }
 
 impl PathSubcommandArguments for Arguments {
@@ -38,7 +38,7 @@ impl Command for SubCommand {
                 "Optionally operate by column path",
                 Some('c'),
             )
-            .optional("append", SyntaxShape::String, "Path to append to the input")
+            .rest("append", SyntaxShape::String, "Path to append to the input")
     }
 
     fn usage(&self) -> &str {
@@ -60,7 +60,7 @@ the output of 'path parse' and 'path split' subcommands."#
         let head = call.head;
         let args = Arguments {
             columns: call.get_flag(engine_state, stack, "columns")?,
-            append: call.opt(engine_state, stack, 0)?,
+            append: call.rest(engine_state, stack, 0)?,
         };
 
         let metadata = input.metadata();
@@ -87,6 +87,11 @@ the output of 'path parse' and 'path split' subcommands."#
                 description: "Append a filename to a path",
                 example: r"'C:\Users\viking' | path join spam.txt",
                 result: Some(Value::test_string(r"C:\Users\viking\spam.txt")),
+            },
+            Example {
+                description: "Append a filename to a path",
+                example: r"'C:\Users\viking' | path join spams this_spam.txt",
+                result: Some(Value::test_string(r"C:\Users\viking\spams\this_spam.txt")),
             },
             Example {
                 description: "Append a filename to a path inside a column",
@@ -116,6 +121,11 @@ the output of 'path parse' and 'path split' subcommands."#
                 description: "Append a filename to a path",
                 example: r"'/home/viking' | path join spam.txt",
                 result: Some(Value::test_string(r"/home/viking/spam.txt")),
+            },
+            Example {
+                description: "Append a filename to a path",
+                example: r"'/home/viking' | path join spams this_spam.txt",
+                result: Some(Value::test_string(r"/home/viking/spams/this_spam.txt")),
             },
             Example {
                 description: "Append a filename to a path inside a column",
@@ -150,13 +160,12 @@ fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
 }
 
 fn join_single(path: &Path, span: Span, args: &Arguments) -> Value {
-    let path = if let Some(ref append) = args.append {
-        path.join(Path::new(&append.item))
-    } else {
-        path.to_path_buf()
-    };
+    let mut result = path.to_path_buf();
+    for path_to_append in &args.append {
+        result.push(&path_to_append.item)
+    }
 
-    Value::string(path.to_string_lossy(), span)
+    Value::string(result.to_string_lossy(), span)
 }
 
 fn join_list(parts: &[Value], span: Span, args: &Arguments) -> Value {

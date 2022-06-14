@@ -83,7 +83,7 @@ unicode-segmentation = "1.8.0"
 url = "2.2.1"
 uuid = { version = "0.8.2", features = ["v4"] }
 which = { version = "4.2.2", optional = true }
-reedline = { git = "https://github.com/nushell/reedline", branch = "main", features = ["bashisms"]}
+reedline = { version = "0.7.0", features = ["bashisms", "sqlite"]}
 wax = { version =  "0.4.0", features = ["diagnostics"] }
 rusqlite = { version = "0.27.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.16.0", features = ["serde"], optional = true }

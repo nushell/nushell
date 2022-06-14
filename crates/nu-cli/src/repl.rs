@@ -12,12 +12,12 @@ use nu_engine::{convert_env_values, eval_block};
 use nu_parser::lex;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    BlockId, PipelineData, PositionalArg, ShellError, Span, Value,
+    BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Value,
 };
-use reedline::{DefaultHinter, Emacs, Vi};
+use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
 use std::io::{self, Write};
-use std::path::PathBuf;
 use std::{sync::atomic::Ordering, time::Instant};
+use sysinfo::SystemExt;
 
 const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
 const PRE_EXECUTE_MARKER: &str = "\x1b]133;C\x1b\\";
@@ -27,7 +27,7 @@ const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    history_path: Option<PathBuf>,
+    nushell_path: &str,
     is_perf_true: bool,
 ) -> Result<()> {
     use reedline::{FileBackedHistory, Reedline, Signal};
@@ -85,19 +85,31 @@ pub fn evaluate_repl(
         info!("setup reedline {}:{}:{}", file!(), line!(), column!());
     }
     let mut line_editor = Reedline::create();
+    let history_path = crate::config_files::get_history_path(
+        nushell_path,
+        engine_state.config.history_file_format,
+    );
     if let Some(history_path) = history_path.as_deref() {
         if is_perf_true {
             info!("setup history {}:{}:{}", file!(), line!(), column!());
         }
-        let history = Box::new(
-            FileBackedHistory::with_file(
-                config.max_history_size as usize,
-                history_path.to_path_buf(),
-            )
-            .into_diagnostic()?,
-        );
+
+        let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
+            HistoryFileFormat::PlainText => Box::new(
+                FileBackedHistory::with_file(
+                    config.max_history_size as usize,
+                    history_path.to_path_buf(),
+                )
+                .into_diagnostic()?,
+            ),
+            HistoryFileFormat::Sqlite => Box::new(
+                SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?,
+            ),
+        };
         line_editor = line_editor.with_history(history);
     };
+
+    let sys = sysinfo::System::new();
 
     loop {
         if is_perf_true {
@@ -300,6 +312,20 @@ pub fn evaluate_repl(
 
         match input {
             Ok(Signal::Success(s)) => {
+                let history_supports_meta =
+                    matches!(config.history_file_format, HistoryFileFormat::Sqlite);
+                if history_supports_meta && !s.is_empty() {
+                    line_editor
+                        .update_last_command_context(&|mut c| {
+                            c.start_timestamp = Some(chrono::Utc::now());
+                            c.hostname = sys.host_name();
+
+                            c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
+                            c
+                        })
+                        .into_diagnostic()?; // todo: don't stop repl if error here?
+                }
+
                 // Right before we start running the code the user gave us,
                 // fire the "pre_execution" hook
                 if let Some(hook) = &config.hooks.pre_execution {
@@ -401,11 +427,12 @@ pub fn evaluate_repl(
                         PipelineData::new(Span::new(0, 0)),
                     );
                 }
+                let cmd_duration = start_time.elapsed();
 
                 stack.add_env_var(
                     "CMD_DURATION_MS".into(),
                     Value::String {
-                        val: format!("{}", start_time.elapsed().as_millis()),
+                        val: format!("{}", cmd_duration.as_millis()),
                         span: Span { start: 0, end: 0 },
                     },
                 );
@@ -416,6 +443,18 @@ pub fn evaluate_repl(
                     let path = cwd.as_string()?;
                     let _ = std::env::set_current_dir(path);
                     engine_state.add_env_var("PWD".into(), cwd);
+                }
+
+                if history_supports_meta && !s.is_empty() {
+                    line_editor
+                        .update_last_command_context(&|mut c| {
+                            c.duration = Some(cmd_duration);
+                            c.exit_status = stack
+                                .get_env_var(engine_state, "LAST_EXIT_CODE")
+                                .and_then(|e| e.as_i64().ok());
+                            c
+                        })
+                        .into_diagnostic()?; // todo: don't stop repl if error here?
                 }
 
                 if shell_integration {

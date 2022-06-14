@@ -199,12 +199,19 @@ impl Completer for CommandCompletion {
             return subcommands;
         }
 
+        let config = working_set.get_config();
         let commands = if matches!(self.flat_shape, nu_parser::FlatShape::External)
             || matches!(self.flat_shape, nu_parser::FlatShape::InternalCall)
             || ((span.end - span.start) == 0)
         {
             // we're in a gap or at a command
-            self.complete_commands(working_set, span, offset, true, options.match_algorithm)
+            self.complete_commands(
+                working_set,
+                span,
+                offset,
+                config.enable_external_completion,
+                options.match_algorithm,
+            )
         } else {
             vec![]
         };
