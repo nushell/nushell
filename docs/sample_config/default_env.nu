@@ -54,12 +54,5 @@ let-env NU_PLUGIN_DIRS = [
     ($nu.config-path | path dirname | path join 'plugins')
 ]
 
-# External completion flag
-# - true means you are allowed Nu to look at your PATH to find more suggestions if necessary
-# If you use WSL(Windows Subsystem for Linux), it is recommended to set it to false
-#
-# By default, it is true
-let-env NU_ENABLE_EXTERNAL_COMPLETION = true
-
 # To add entries to PATH (on Windows you might use Path), you can use the following pattern:
 # let-env PATH = ($env.PATH | split row (char esep) | prepend '/some/path')

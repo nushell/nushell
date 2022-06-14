@@ -199,9 +199,7 @@ impl Completer for CommandCompletion {
             return subcommands;
         }
 
-        let is_external_completion_enable = working_set
-            .find_variable(b"NU_ENABLE_EXTERNAL_COMPLETION")
-            .is_some();
+        let config = working_set.get_config();
         let commands = if matches!(self.flat_shape, nu_parser::FlatShape::External)
             || matches!(self.flat_shape, nu_parser::FlatShape::InternalCall)
             || ((span.end - span.start) == 0)
@@ -211,7 +209,7 @@ impl Completer for CommandCompletion {
                 working_set,
                 span,
                 offset,
-                is_external_completion_enable,
+                config.enable_external_completion,
                 options.match_algorithm,
             )
         } else {

@@ -76,6 +76,7 @@ pub struct Config {
     pub disable_table_indexes: bool,
     pub cd_with_abbreviations: bool,
     pub case_sensitive_completions: bool,
+    pub enable_external_completion: bool,
 }
 
 impl Default for Config {
@@ -107,6 +108,7 @@ impl Default for Config {
             disable_table_indexes: false,
             cd_with_abbreviations: false,
             case_sensitive_completions: false,
+            enable_external_completion: true,
         }
     }
 }
@@ -321,6 +323,13 @@ impl Value {
                             config.case_sensitive_completions = b;
                         } else {
                             eprintln!("$config.case_sensitive_completions is not a bool")
+                        }
+                    }
+                    "enable_external_completion" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.enable_external_completion = b;
+                        } else {
+                            eprintln!("$config.enable_external_completion is not a bool")
                         }
                     }
                     x => {
