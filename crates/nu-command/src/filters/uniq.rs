@@ -2,9 +2,7 @@ use std::collections::VecDeque;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
-};
+use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Span, Value};
 
 #[derive(Clone)]
 pub struct Uniq;
@@ -62,12 +60,18 @@ impl Command for Uniq {
             Example {
                 description: "Only print duplicate lines, one for each group",
                 example: "[1 2 2] | uniq -d",
-                result: Some(Value::test_int(2)),
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Only print unique lines lines",
                 example: "[1 2 2] | uniq -u",
-                result: Some(Value::test_int(1)),
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(1)],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Ignore differences in case when comparing",
@@ -182,21 +186,12 @@ fn uniq(
         }
     }
 
-    // keeps the original Nushell semantics
-    if values_vec_deque.len() == 1 {
-        if let Some(x) = values_vec_deque.pop_front() {
-            Ok(x.into_pipeline_data().set_metadata(metadata))
-        } else {
-            Err(ShellError::NushellFailed("No input given...".to_string()))
-        }
-    } else {
-        Ok(Value::List {
-            vals: values_vec_deque.into_iter().collect(),
-            span: head,
-        }
-        .into_pipeline_data()
-        .set_metadata(metadata))
+    Ok(Value::List {
+        vals: values_vec_deque.into_iter().collect(),
+        span: head,
     }
+    .into_pipeline_data()
+    .set_metadata(metadata))
 }
 
 #[cfg(test)]
