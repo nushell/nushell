@@ -1,3 +1,4 @@
+use alphanumeric_sort::compare_str;
 use nu_engine::{column::column_does_not_exist, CallExt};
 use nu_protocol::{
     ast::Call,
@@ -23,6 +24,11 @@ impl Command for SortBy {
                 "insensitive",
                 "Sort string-based columns case-insensitively",
                 Some('i'),
+            )
+            .switch(
+                "natural",
+                "Sort alphanumeric string-based columns naturally",
+                Some('n'),
             )
             .category(Category::Filters)
     }
@@ -131,10 +137,11 @@ impl Command for SortBy {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
         let reverse = call.has_flag("reverse");
         let insensitive = call.has_flag("insensitive");
+        let natural = call.has_flag("natural");
         let metadata = &input.metadata();
         let mut vec: Vec<_> = input.into_iter().collect();
 
-        sort(&mut vec, columns, call.head, insensitive)?;
+        sort(&mut vec, columns, call.head, insensitive, natural)?;
 
         if reverse {
             vec.reverse()
@@ -155,6 +162,7 @@ pub fn sort(
     columns: Vec<String>,
     span: Span,
     insensitive: bool,
+    natural: bool,
 ) -> Result<(), ShellError> {
     if vec.is_empty() {
         return Err(ShellError::GenericError(
@@ -201,7 +209,21 @@ pub fn sort(
                     .iter()
                     .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
 
-            vec.sort_by(|a, b| process(a, b, &columns, span, should_sort_case_insensitively));
+            let should_sort_case_naturally = natural
+                && vals
+                    .iter()
+                    .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
+
+            vec.sort_by(|a, b| {
+                process(
+                    a,
+                    b,
+                    &columns,
+                    span,
+                    should_sort_case_insensitively,
+                    should_sort_case_naturally,
+                )
+            });
         }
         _ => {
             vec.sort_by(|a, b| {
@@ -222,11 +244,25 @@ pub fn sort(
                         _ => b.clone(),
                     };
 
-                    lowercase_left
-                        .partial_cmp(&lowercase_right)
-                        .unwrap_or(Ordering::Equal)
+                    if natural {
+                        match (lowercase_left.as_string(), lowercase_right.as_string()) {
+                            (Ok(left), Ok(right)) => compare_str(left, right),
+                            _ => Ordering::Equal,
+                        }
+                    } else {
+                        lowercase_left
+                            .partial_cmp(&lowercase_right)
+                            .unwrap_or(Ordering::Equal)
+                    }
                 } else {
-                    a.partial_cmp(b).unwrap_or(Ordering::Equal)
+                    if natural {
+                        match (a.as_string(), b.as_string()) {
+                            (Ok(left), Ok(right)) => compare_str(left, right),
+                            _ => Ordering::Equal,
+                        }
+                    } else {
+                        a.partial_cmp(b).unwrap_or(Ordering::Equal)
+                    }
                 }
             });
         }
@@ -240,6 +276,7 @@ pub fn process(
     columns: &[String],
     span: Span,
     insensitive: bool,
+    natural: bool,
 ) -> Ordering {
     for column in columns {
         let left_value = left.get_data_by_key(column);
@@ -272,11 +309,25 @@ pub fn process(
                 },
                 _ => right_res,
             };
-            lowercase_left
-                .partial_cmp(&lowercase_right)
-                .unwrap_or(Ordering::Equal)
+            if natural {
+                match (lowercase_left.as_string(), lowercase_right.as_string()) {
+                    (Ok(left), Ok(right)) => compare_str(left, right),
+                    _ => Ordering::Equal,
+                }
+            } else {
+                lowercase_left
+                    .partial_cmp(&lowercase_right)
+                    .unwrap_or(Ordering::Equal)
+            }
         } else {
-            left_res.partial_cmp(&right_res).unwrap_or(Ordering::Equal)
+            if natural {
+                match (left_res.as_string(), right_res.as_string()) {
+                    (Ok(left), Ok(right)) => compare_str(left, right),
+                    _ => Ordering::Equal,
+                }
+            } else {
+                left_res.partial_cmp(&right_res).unwrap_or(Ordering::Equal)
+            }
         };
         if result != Ordering::Equal {
             return result;
