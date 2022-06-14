@@ -314,7 +314,7 @@ pub fn evaluate_repl(
             Ok(Signal::Success(s)) => {
                 let history_supports_meta =
                     matches!(config.history_file_format, HistoryFileFormat::Sqlite);
-                if history_supports_meta {
+                if history_supports_meta && !s.is_empty() {
                     line_editor
                         .update_last_command_context(&|mut c| {
                             c.start_timestamp = Some(chrono::Utc::now());
@@ -445,7 +445,7 @@ pub fn evaluate_repl(
                     engine_state.add_env_var("PWD".into(), cwd);
                 }
 
-                if history_supports_meta {
+                if history_supports_meta && !s.is_empty() {
                     line_editor
                         .update_last_command_context(&|mut c| {
                             c.duration = Some(cmd_duration);
