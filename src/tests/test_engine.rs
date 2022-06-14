@@ -53,7 +53,7 @@ fn in_and_if_else() -> TestResult {
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    run_test(r#"each --help | lines | length"#, "29")
+    run_test(r#"each --help | lines | length"#, "32")
 }
 
 #[test]
