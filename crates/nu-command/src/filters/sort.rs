@@ -22,6 +22,11 @@ impl Command for Sort {
                 "Sort string-based columns case-insensitively",
                 Some('i'),
             )
+            .switch(
+                "values",
+                "If input is a single record, sort the record by values, ignored if input is not a single record",
+                Some('v'),
+            )
             .category(Category::Filters)
     }
 
@@ -96,10 +101,19 @@ impl Command for Sort {
                 }),
             },
             Example {
-                description: "Sort doesn't change input shape",
-                example: "{a: 3, b: 4} | sort",
+                description: "Sort record by key",
+                example: "{b: 3, a: 4} | sort",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
+                    vals: vec![Value::test_int(4), Value::test_int(3)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Sort record by value",
+                example: "{a: 4, b: 3} | sort",
+                result: Some(Value::Record {
+                    cols: vec!["b".to_string(), "a".to_string()],
                     vals: vec![Value::test_int(3), Value::test_int(4)],
                     span: Span::test_data(),
                 }),
@@ -119,6 +133,11 @@ impl Command for Sort {
         let metadata = &input.metadata();
 
         match input {
+            PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
+                let sort_by_value = call.has_flag("values");
+                let record = sort_record(cols, vals, span, sort_by_value);
+                Ok(record.into_pipeline_data())
+            }
             PipelineData::Value(v, ..)
                 if !matches!(v, Value::List { .. } | Value::Range { .. }) =>
             {
@@ -141,6 +160,26 @@ impl Command for Sort {
                 }
             }
         }
+    }
+}
+
+fn sort_record(cols: Vec<String>, vals: Vec<Value>, rec_span: Span, sort_by_value: bool) -> Value {
+    let mut input_pairs: Vec<(String, Value)> = cols.into_iter().zip(vals).collect();
+    if sort_by_value {
+        input_pairs.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
+    } else {
+        input_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+    }
+    let mut new_cols = Vec::with_capacity(input_pairs.len());
+    let mut new_vals = Vec::with_capacity(input_pairs.len());
+    for (col, val) in input_pairs {
+        new_cols.push(col);
+        new_vals.push(val)
+    }
+    Value::Record {
+        cols: new_cols,
+        vals: new_vals,
+        span: rec_span,
     }
 }
 
