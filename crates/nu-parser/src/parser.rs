@@ -1872,6 +1872,16 @@ pub fn parse_full_cell_path(
                 .type_scope
                 .add_type(working_set.type_scope.get_last_output());
 
+            let ty = output
+                .pipelines
+                .last()
+                .and_then(|Pipeline { expressions, .. }| expressions.last())
+                .map(|expr| match expr.expr {
+                    Expr::BinaryOp(..) => expr.ty.clone(),
+                    _ => working_set.type_scope.get_last_output(),
+                })
+                .unwrap_or_else(|| working_set.type_scope.get_last_output());
+
             error = error.or(err);
 
             let block_id = working_set.add_block(output);
@@ -1881,7 +1891,7 @@ pub fn parse_full_cell_path(
                 Expression {
                     expr: Expr::Subexpression(block_id),
                     span: head_span,
-                    ty: working_set.type_scope.get_last_output(),
+                    ty,
                     custom_completion: None,
                 },
                 true,
