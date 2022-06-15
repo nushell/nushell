@@ -4,17 +4,17 @@ description = "A converter plugin to the bson format for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_from_sqlite"
-version = "0.63.1"
+version = "0.64.0"
 
 [lib]
 doctest = false
 
 [dependencies]
 bigdecimal = { package = "bigdecimal", version = "0.3.0", features = ["serde"] }
-nu-errors = { path="../nu-errors", version = "0.63.1" }
-nu-plugin = { path="../nu-plugin", version = "0.63.1" }
-nu-protocol = { path="../nu-protocol", version = "0.63.1" }
-nu-source = { path="../nu-source", version = "0.63.1" }
+nu-errors = { path="../nu-errors", version = "0.64.0" }
+nu-plugin = { path="../nu-plugin", version = "0.64.0" }
+nu-protocol = { path="../nu-protocol", version = "0.64.0" }
+nu-source = { path="../nu-source", version = "0.64.0" }
 tempfile = "3.2.0"
 
 [dependencies.rusqlite]

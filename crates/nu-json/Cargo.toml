@@ -4,7 +4,7 @@ description = "Fork of serde-hjson"
 edition = "2021"
 license = "MIT"
 name = "nu-json"
-version = "0.63.1"
+version = "0.64.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,5 +20,5 @@ lazy_static = "1"
 linked-hash-map = { version="0.5", optional=true }
 
 [dev-dependencies]
-nu-path = { path="../nu-path", version = "0.63.1" }
+nu-path = { path="../nu-path", version = "0.64.0" }
 serde_json = "1.0"

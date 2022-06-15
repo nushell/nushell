@@ -4,14 +4,14 @@ description = "Support for writing Nushell tests"
 edition = "2018"
 license = "MIT"
 name = "nu-test-support"
-version = "0.63.1"
+version = "0.64.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-path = { path="../nu-path", version = "0.63.1"  }
-nu-glob = { path = "../nu-glob", version = "0.63.1" }
+nu-path = { path="../nu-path", version = "0.64.0"  }
+nu-glob = { path = "../nu-glob", version = "0.64.0" }
 
 getset = "0.1.1"
 num-bigint = { version="0.4.3", features=["serde"] }

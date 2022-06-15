@@ -4,15 +4,15 @@ description = "A Nushell plugin to query JSON, XML, and various web data"
 edition = "2021"
 license = "MIT"
 name = "nu_plugin_query"
-version = "0.63.1"
+version = "0.64.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-plugin = { path="../nu-plugin", version = "0.63.1" }
-nu-protocol = { path="../nu-protocol", version = "0.63.1" }
-nu-engine = { path="../nu-engine", version = "0.63.1" }
+nu-plugin = { path="../nu-plugin", version = "0.64.0" }
+nu-protocol = { path="../nu-protocol", version = "0.64.0" }
+nu-engine = { path="../nu-engine", version = "0.64.0" }
 gjson = "0.8.0"
 scraper = "0.12.0"
 sxd-document = "0.3.2"

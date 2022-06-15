@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers", "procs creators"]
 description = "Nushell system querying"
 name = "nu-system"
-version = "0.63.1"
+version = "0.64.0"
 edition = "2021"
 license = "MIT"
 
