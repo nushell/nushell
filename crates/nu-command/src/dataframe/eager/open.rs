@@ -155,7 +155,7 @@ fn from_json(
     call: &Call,
 ) -> Result<polars::prelude::DataFrame, ShellError> {
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
-    let mut file = File::open(&file.item).map_err(|e| {
+    let file = File::open(&file.item).map_err(|e| {
         ShellError::GenericError(
             "Error opening file".into(),
             e.to_string(),
@@ -165,7 +165,7 @@ fn from_json(
         )
     })?;
 
-    let buf_reader = BufReader::new(&mut file);
+    let buf_reader = BufReader::new(file);
     let reader = JsonReader::new(buf_reader);
 
     reader.finish().map_err(|e| {
