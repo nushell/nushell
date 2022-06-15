@@ -287,10 +287,13 @@ fn main() -> Result<()> {
                     binary_args.env_file,
                     binary_args.login_shell.is_some(),
                 );
-                let history_path = config_files::create_history_path();
 
-                let ret_val =
-                    evaluate_repl(&mut engine_state, &mut stack, history_path, is_perf_true());
+                let ret_val = evaluate_repl(
+                    &mut engine_state,
+                    &mut stack,
+                    config_files::NUSHELL_FOLDER,
+                    is_perf_true(),
+                );
                 if is_perf_true() {
                     info!("repl eval {}:{}:{}", file!(), line!(), column!());
                 }

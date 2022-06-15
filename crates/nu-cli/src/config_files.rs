@@ -2,11 +2,14 @@ use crate::util::{eval_source, report_error};
 #[cfg(feature = "plugin")]
 use log::info;
 use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
-use nu_protocol::{PipelineData, Span};
+use nu_protocol::{HistoryFileFormat, PipelineData, Span};
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
 const PLUGIN_FILE: &str = "plugin.nu";
+
+const HISTORY_FILE_TXT: &str = "history.txt";
+const HISTORY_FILE_SQLITE: &str = "history.sqlite3";
 
 #[cfg(feature = "plugin")]
 pub fn read_plugin_file(
@@ -83,4 +86,15 @@ pub fn eval_config_contents(
             }
         }
     }
+}
+
+pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> Option<PathBuf> {
+    nu_path::config_dir().map(|mut history_path| {
+        history_path.push(storage_path);
+        history_path.push(match mode {
+            HistoryFileFormat::PlainText => HISTORY_FILE_TXT,
+            HistoryFileFormat::Sqlite => HISTORY_FILE_SQLITE,
+        });
+        history_path
+    })
 }

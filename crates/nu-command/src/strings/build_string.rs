@@ -39,7 +39,7 @@ impl Command for BuildString {
                 }),
             },
             Example {
-                example: "build-string (1 + 2) = one ' ' plus ' ' two",
+                example: r#"build-string $"(1 + 2)" = one ' ' plus ' ' two"#,
                 description: "Builds a string from letters a b c",
                 result: Some(Value::String {
                     val: "3=one plus two".to_string(),
