@@ -3,7 +3,7 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, Operator},
     engine::{EngineState, Stack, Visibility},
-    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
+    HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
     Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
@@ -1237,8 +1237,15 @@ pub fn eval_variable(
                 let mut loginshell_path = config_path.clone();
 
                 let mut history_path = config_path.clone();
-
-                history_path.push("history.txt");
+                
+                match engine_state.config.history_file_format {
+                    HistoryFileFormat::Sqlite => {
+                        history_path.push("history.sqlite3");
+                    }
+                    HistoryFileFormat::PlainText => {
+                        history_path.push("history.txt");
+                    }
+                }
                 // let mut history_path = config_files::get_history_path(); // todo: this should use the get_history_path method but idk where to put that function
 
                 output_cols.push("history-path".into());
