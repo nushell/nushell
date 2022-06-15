@@ -40,7 +40,7 @@ impl Command for Replace {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Replaces string",
-            example: "[abc abc abc] | to-df | replace -p ab -r AB",
+            example: "[abc abc abc] | to df | replace -p ab -r AB",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
