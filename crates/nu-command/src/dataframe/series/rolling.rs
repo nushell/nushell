@@ -7,7 +7,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::{DataType, IntoSeries, RollingOptions};
+use polars::prelude::{DataType, Duration, IntoSeries, RollingOptionsImpl, SeriesOpsTime};
 
 enum RollType {
     Min,
@@ -127,7 +127,7 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let roll_type: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let window_size: usize = call.req(engine_state, stack, 1)?;
+    let window_size: i64 = call.req(engine_state, stack, 1)?;
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
@@ -144,11 +144,14 @@ fn command(
 
     let roll_type = RollType::from_str(&roll_type.item, roll_type.span)?;
 
-    let rolling_opts = RollingOptions {
-        window_size,
-        min_periods: window_size,
+    let rolling_opts = RollingOptionsImpl {
+        window_size: Duration::new(window_size),
+        min_periods: window_size as usize,
         weights: None,
         center: false,
+        by: None,
+        closed_window: None,
+        tu: None,
     };
     let res = match roll_type {
         RollType::Max => series.rolling_max(rolling_opts),

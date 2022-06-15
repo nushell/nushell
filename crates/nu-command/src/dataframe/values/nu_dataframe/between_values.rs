@@ -4,7 +4,7 @@ use nu_protocol::{ast::Operator, span, ShellError, Span, Spanned, Value};
 use num::Zero;
 use polars::prelude::{
     BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
-    NumOpsDispatchChecked, PolarsError, Series, TimeUnit,
+    NumOpsDispatchChecked, PolarsError, Series, TimeUnit, Utf8NameSpaceImpl,
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
