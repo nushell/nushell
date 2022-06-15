@@ -1,4 +1,4 @@
-name: Submit Nushell package to Windows Package Manager Community Repository 
+name: Submit Nushell package to Windows Package Manager Community Repository
 
 on:
   workflow_dispatch:
@@ -15,5 +15,5 @@ jobs:
         run: |
           iwr https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
           $github = Get-Content '${{ github.event_path }}' | ConvertFrom-Json
-          $installerUrl = $github.release.assets | Where-Object -Property name -match 'windows.msi' | Select -ExpandProperty browser_download_url -First 1
+          $installerUrl = $github.release.assets | Where-Object -Property name -match 'windows-msvc.msi' | Select -ExpandProperty browser_download_url -First 1
           .\wingetcreate.exe update Nushell.Nushell -s -v $github.release.tag_name -u $installerUrl -t ${{ secrets.NUSHELL_PAT }}
