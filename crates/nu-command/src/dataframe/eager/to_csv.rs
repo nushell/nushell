@@ -99,7 +99,7 @@ fn command(
         writer.has_header(true)
     };
 
-    let writer = match delimiter {
+    let mut writer = match delimiter {
         None => writer,
         Some(d) => {
             if d.item.len() != 1 {
