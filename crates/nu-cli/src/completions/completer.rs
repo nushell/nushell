@@ -68,9 +68,10 @@ impl NuCompleter {
         for pipeline in output.pipelines.into_iter() {
             for expr in pipeline.expressions {
                 let flattened: Vec<_> = flatten_expression(&working_set, &expr);
+                let len_alias_offset = alias_offset.len();
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
-                    let alias = if alias_offset.is_empty() {
+                    let alias = if flat_idx >= len_alias_offset || alias_offset.is_empty(){
                         0
                     } else {
                         alias_offset[flat_idx]
@@ -235,7 +236,7 @@ impl ReedlineCompleter for NuCompleter {
     }
 }
 
-type MatchedAlias<'a> = Vec<(&'a [u8], &'a [u8])>;
+type MatchedAlias = Vec<(Vec<u8>, Vec<u8>)>;
 
 // Handler the completion when giving lines contains at least one alias. (e.g: `g checkout`)
 // that `g` is an alias of `git`
@@ -261,7 +262,7 @@ fn try_find_alias(line: &[u8], working_set: &StateWorkingSet) -> (Vec<u8>, Vec<u
     (output, alias_offset)
 }
 
-fn search_alias<'a>(input: &'a [u8], working_set: &'a StateWorkingSet) -> Option<MatchedAlias<'a>> {
+fn search_alias(input: &[u8], working_set: &StateWorkingSet) -> Option<MatchedAlias> {
     let mut vec_names = vec![];
     let mut vec_alias = vec![];
     let mut pos = 0;
@@ -269,27 +270,31 @@ fn search_alias<'a>(input: &'a [u8], working_set: &'a StateWorkingSet) -> Option
     for (index, character) in input.iter().enumerate() {
         if *character == b' ' {
             let range = &input[pos..index];
-            vec_names.push(range);
+            vec_names.push(range.to_owned());
             pos = index + 1;
         }
     }
     // Push the rest to names vector.
     if pos < input.len() {
-        vec_names.push(&input[pos..]);
+        vec_names.push((&input[pos..]).to_owned());
     }
 
     for name in &vec_names {
-        if let Some(alias_id) = working_set.find_alias(name) {
+        if let Some(alias_id) = working_set.find_alias(&name[..]) {
             let alias_span = working_set.get_alias(alias_id);
+            let mut span_vec = vec![];
             is_alias = true;
             for alias in alias_span {
                 let name = working_set.get_span_contents(*alias);
                 if !name.is_empty() {
-                    vec_alias.push(name);
+                    span_vec.push(name);
                 }
             }
+            // Join span of vector together for complex alias, e.g: `f` is an alias for `git remote -v`
+            let full_aliases = span_vec.join(&[b' '][..]);
+            vec_alias.push(full_aliases);
         } else {
-            vec_alias.push(name);
+            vec_alias.push(name.to_owned());
         }
     }
 
