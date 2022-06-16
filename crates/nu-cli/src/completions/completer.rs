@@ -59,7 +59,7 @@ impl NuCompleter {
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
-        let (mut new_line, alias_offset) = try_find_alias(line.as_bytes(), &working_set);
+        let (mut new_line, mut alias_offset) = try_find_alias(line.as_bytes(), &working_set);
         let initial_line = line.to_string();
         new_line.push(b'a');
         let pos = offset + pos;
@@ -68,15 +68,23 @@ impl NuCompleter {
         for pipeline in output.pipelines.into_iter() {
             for expr in pipeline.expressions {
                 let flattened: Vec<_> = flatten_expression(&working_set, &expr);
+
+                // let span_offset = match alias_offset.pop(){
+                //     Some(bias) => bias + offset,
+                //     None => 0,
+                // };
+                //
+                let span_offest: usize = alias_offset.iter().sum();
+
                 let len_alias_offset = alias_offset.len();
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
-                    let alias = if flat_idx >= len_alias_offset || alias_offset.is_empty(){
+                    let alias = if flat_idx >= len_alias_offset || alias_offset.is_empty() {
                         0
                     } else {
                         alias_offset[flat_idx]
                     };
-                    if pos >= flat.0.start - alias && pos < flat.0.end - alias {
+                    if pos + span_offest >= flat.0.start && pos + span_offest < flat.0.end {
                         // Context variables
                         let most_left_var =
                             most_left_variable(flat_idx, &working_set, flattened.clone());
@@ -96,7 +104,7 @@ impl NuCompleter {
 
                         // Parses the prefix
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
-                        prefix.remove(pos - (flat.0.start - alias));
+                        prefix.remove(pos - (flat.0.start - span_offest));
 
                         // Completions that depends on the previous expression (e.g: use, source)
                         if flat_idx > 0 {
@@ -257,6 +265,13 @@ fn try_find_alias(line: &[u8], working_set: &StateWorkingSet) -> (Vec<u8>, Vec<u
         }
     } else {
         output = line.to_vec();
+    }
+
+    if !line.is_empty() {
+        let last = line.last().expect("input is None");
+        if last == &b' ' {
+            output.push(b' ');
+        }
     }
 
     (output, alias_offset)
