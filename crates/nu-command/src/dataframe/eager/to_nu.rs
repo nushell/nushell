@@ -12,11 +12,11 @@ pub struct ToNu;
 
 impl Command for ToNu {
     fn name(&self) -> &str {
-        "to nu"
+        "into nu"
     }
 
     fn usage(&self) -> &str {
-        "Converts a section of the dataframe to Nushell Table"
+        "Converts a section of the dataframe into nushell Table"
     }
 
     fn signature(&self) -> Signature {
@@ -47,7 +47,7 @@ impl Command for ToNu {
         vec![
             Example {
                 description: "Shows head rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | to df | to nu",
+                example: "[[a b]; [1 2] [3 4]] | into df | into nu",
                 result: Some(Value::List {
                     vals: vec![rec_1, rec_2.clone()],
                     span: Span::test_data(),
@@ -55,7 +55,7 @@ impl Command for ToNu {
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "[[a b]; [1 2] [5 6] [3 4]] | to df | to nu -t -n 1",
+                example: "[[a b]; [1 2] [5 6] [3 4]] | into df | into nu -t -n 1",
                 result: Some(Value::List {
                     vals: vec![rec_2],
                     span: Span::test_data(),

@@ -26,7 +26,7 @@ impl Command for StrLengths {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns string lengths",
-            example: "[a ab abc] | to df | str-lengths",
+            example: "[a ab abc] | into df | str-lengths",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

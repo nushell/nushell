@@ -26,7 +26,7 @@ impl Command for ToLowerCase {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Modifies strings to lowercase",
-            example: "[Abc aBc abC] | to df | lowercase",
+            example: "[Abc aBc abC] | into df | lowercase",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

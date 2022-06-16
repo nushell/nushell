@@ -26,7 +26,7 @@ impl Command for Dummies {
         vec![
             Example {
                 description: "Create new dataframe with dummy variables from a dataframe",
-                example: "[[a b]; [1 2] [3 4]] | to df | dummies",
+                example: "[[a b]; [1 2] [3 4]] | into df | dummies",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -52,7 +52,7 @@ impl Command for Dummies {
             },
             Example {
                 description: "Create new dataframe with dummy variables from a series",
-                example: "[1 2 2 3 3] | to df | dummies",
+                example: "[1 2 2 3 3] | into df | dummies",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

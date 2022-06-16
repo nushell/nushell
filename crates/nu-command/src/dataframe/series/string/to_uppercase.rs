@@ -26,7 +26,7 @@ impl Command for ToUpperCase {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Modifies strings to uppercase",
-            example: "[Abc aBc abC] | to df | uppercase",
+            example: "[Abc aBc abC] | into df | uppercase",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
