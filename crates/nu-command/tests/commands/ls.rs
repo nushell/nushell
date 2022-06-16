@@ -409,25 +409,25 @@ fn can_list_system_folder() {
 
     let file_size = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls Configuration* | where name == "Configuration" | get size.0"#
+        r#"ls -s Configuration* | where name == "Configuration" | get size.0"#
     ));
     assert!(file_size.out.trim() != "");
 
     let file_modified = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls Configuration* | where name == "Configuration" | get modified.0"#
+        r#"ls -s Configuration* | where name == "Configuration" | get modified.0"#
     ));
     assert!(file_modified.out.trim() != "");
 
     let file_accessed = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls -l Configuration* | where name == "Configuration" | get accessed.0"#
+        r#"ls -l -s Configuration* | where name == "Configuration" | get accessed.0"#
     ));
     assert!(file_accessed.out.trim() != "");
 
     let file_created = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls -l Configuration* | where name == "Configuration" | get created.0"#
+        r#"ls -l -s Configuration* | where name == "Configuration" | get created.0"#
     ));
     assert!(file_created.out.trim() != "");
 
