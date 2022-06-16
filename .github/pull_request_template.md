@@ -6,9 +6,9 @@
 
 Make sure you've done the following:
 
-- [ ] Add tests that cover your changes.
+- [ ] Add tests that cover your changes, either in the command examples or in the crate\tests folder.
 - [ ] Try to think about corner cases and various ways how your changes could break. Cover them with tests.
-- [ ] If adding tests is not possible, please, create a minimal example with reproduction steps to verify your change works.
+- [ ] If adding tests is not possible, please, document in the PR a minimal example with steps on how to reproduce so one can verify your change works.
 
 Make sure you've run and fixed any issues with these commands:
 
