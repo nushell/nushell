@@ -15,6 +15,9 @@ fn alias_of_command_and_flags() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     let suggestions = completer.complete("ll t", 4);
+    #[cfg(windows)]
+    let expected_paths: Vec<String> = vec!["test_a\\".to_string(), "test_b\\".to_string()];
+    #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec!["test_a/".to_string(), "test_b/".to_string()];
 
     match_suggestions(expected_paths, suggestions)
@@ -31,6 +34,9 @@ fn alias_of_basic_command() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     let suggestions = completer.complete("ll t", 4);
+    #[cfg(windows)]
+    let expected_paths: Vec<String> = vec!["test_a\\".to_string(), "test_b\\".to_string()];
+    #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec!["test_a/".to_string(), "test_b/".to_string()];
 
     match_suggestions(expected_paths, suggestions)
@@ -50,6 +56,9 @@ fn alias_of_another_alias() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     let suggestions = completer.complete("lf t", 4);
+    #[cfg(windows)]
+    let expected_paths: Vec<String> = vec!["test_a\\".to_string(), "test_b\\".to_string()];
+    #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec!["test_a/".to_string(), "test_b/".to_string()];
 
     match_suggestions(expected_paths, suggestions)
