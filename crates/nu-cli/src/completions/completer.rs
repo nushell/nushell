@@ -186,8 +186,7 @@ impl NuCompleter {
                                 );
                             }
                             FlatShape::Filepath | FlatShape::GlobPattern => {
-                                let mut completer =
-                                    FileCompletion::new(self.engine_state.clone());
+                                let mut completer = FileCompletion::new(self.engine_state.clone());
 
                                 return self.process_completion(
                                     &mut completer,
