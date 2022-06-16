@@ -4,6 +4,12 @@
 
 # Tests
 
+Make sure you've done the following:
+
+- [ ] Add tests that cover your changes.
+- [ ] Try to think about corner cases and various ways how your changes could break. Cover them with tests.
+- [ ] If adding tests is not possible, please, create a minimal example with reproduction steps to verify your change works.
+
 Make sure you've run and fixed any issues with these commands:
 
 - [ ] `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
