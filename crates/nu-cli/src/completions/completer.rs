@@ -97,6 +97,38 @@ impl NuCompleter {
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
                         prefix.remove(pos - (flat.0.start - alias));
 
+                        // Variables completion
+                        if prefix.starts_with(b"$") || most_left_var.is_some() {
+                            let mut completer = VariableCompletion::new(
+                                self.engine_state.clone(),
+                                self.stack.clone(),
+                                most_left_var.unwrap_or((vec![], vec![])),
+                            );
+
+                            return self.process_completion(
+                                &mut completer,
+                                &working_set,
+                                prefix,
+                                new_span,
+                                offset,
+                                pos,
+                            );
+                        }
+
+                        // Flags completion
+                        if prefix.starts_with(b"-") {
+                            let mut completer = FlagCompletion::new(expr);
+
+                            return self.process_completion(
+                                &mut completer,
+                                &working_set,
+                                prefix,
+                                new_span,
+                                offset,
+                                pos,
+                            );
+                        }
+
                         // Completions that depends on the previous expression (e.g: use, source)
                         if flat_idx > 0 {
                             if let Some(previous_expr) = flattened.get(flat_idx - 1) {
@@ -131,38 +163,6 @@ impl NuCompleter {
                                     );
                                 }
                             }
-                        }
-
-                        // Variables completion
-                        if prefix.starts_with(b"$") || most_left_var.is_some() {
-                            let mut completer = VariableCompletion::new(
-                                self.engine_state.clone(),
-                                self.stack.clone(),
-                                most_left_var.unwrap_or((vec![], vec![])),
-                            );
-
-                            return self.process_completion(
-                                &mut completer,
-                                &working_set,
-                                prefix,
-                                new_span,
-                                offset,
-                                pos,
-                            );
-                        }
-
-                        // Flags completion
-                        if prefix.starts_with(b"-") {
-                            let mut completer = FlagCompletion::new(expr);
-
-                            return self.process_completion(
-                                &mut completer,
-                                &working_set,
-                                prefix,
-                                new_span,
-                                offset,
-                                pos,
-                            );
                         }
 
                         // Match other types
