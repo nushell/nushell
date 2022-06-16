@@ -118,6 +118,19 @@ impl NuCompleter {
                                         pos,
                                     );
                                 }
+                                else if prev_expr_str == b"ls" {
+                                    let mut completer =
+                                        FileCompletion::new(self.engine_state.clone());
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
+                                }
                             }
                         }
 

@@ -40,7 +40,7 @@ impl Command for Ls {
             // Using a string instead of a glob pattern shape so it won't auto-expand
             .optional(
                 "pattern",
-                SyntaxShape::GlobPattern,
+                SyntaxShape::String,
                 "the glob pattern to use",
             )
             .switch("all", "Show hidden files", Some('a'))
