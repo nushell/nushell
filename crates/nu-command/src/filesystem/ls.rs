@@ -38,11 +38,7 @@ impl Command for Ls {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
             // Using a string instead of a glob pattern shape so it won't auto-expand
-            .optional(
-                "pattern",
-                SyntaxShape::String,
-                "the glob pattern to use",
-            )
+            .optional("pattern", SyntaxShape::String, "the glob pattern to use")
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",

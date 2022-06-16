@@ -80,7 +80,7 @@ fn from_filename() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "ls -s sample.toml | get name | into string | get 0"
+            "ls sample.toml | get name | into string | get 0"
         );
 
         assert_eq!(actual.out, "sample.toml");

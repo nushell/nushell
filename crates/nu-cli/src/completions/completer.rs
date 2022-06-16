@@ -117,8 +117,7 @@ impl NuCompleter {
                                         offset,
                                         pos,
                                     );
-                                }
-                                else if prev_expr_str == b"ls" {
+                                } else if prev_expr_str == b"ls" {
                                     let mut completer =
                                         FileCompletion::new(self.engine_state.clone());
 
