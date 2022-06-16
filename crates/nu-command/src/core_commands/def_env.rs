@@ -31,9 +31,9 @@ impl Command for DefEnv {
   https://www.nushell.sh/book/thinking_in_nushell.html
 
 === EXTRA NOTE ===
-All blocks are scoped, includes variable definition and environment variable changes.
+All blocks are scoped, including variable definition and environment variable changes.
 
-Because of this, the following doesn't works for you:
+Because of this, the following doesn't work:
 
 def-env cd_with_fallback [arg = ""] {
     let fall_back_path = "/tmp"
