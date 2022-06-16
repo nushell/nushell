@@ -403,7 +403,7 @@ fn can_list_system_folder() {
     // might return more than 1 file someday
     let file_type = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls Configuration* | where name == "Configuration" | get type.0"#
+        r#"ls -s Configuration* | where name == "Configuration" | get type.0"#
     ));
     assert_eq!(file_type.out, "dir");
 
