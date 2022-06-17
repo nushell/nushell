@@ -2685,6 +2685,7 @@ name = "nu-parser"
 version = "0.64.0"
 dependencies = [
  "chrono",
+ "itertools",
  "log",
  "miette 4.7.1",
  "nu-path",
