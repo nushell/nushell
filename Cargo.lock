@@ -3825,13 +3825,13 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f8163ab90fabf0b8978b824743bb7a384394501b4b40c198a146c0eb9670ca4"
+source = "git+https://github.com/nushell/reedline?branch=main#680bc7a162b3536dd2db7353b4714bf540f4ae62"
 dependencies = [
  "chrono",
  "crossterm",
  "fd-lock",
  "gethostname",
+ "itertools",
  "nu-ansi-term",
  "rusqlite",
  "serde",
