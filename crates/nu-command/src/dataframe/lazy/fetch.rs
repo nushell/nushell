@@ -32,7 +32,7 @@ impl Command for LazyFetch {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Fetch a rows from the dataframe",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | to-df | fetch 2",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | into df | fetch 2",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

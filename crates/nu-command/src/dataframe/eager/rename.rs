@@ -40,7 +40,7 @@ impl Command for RenameDF {
         vec![
             Example {
                 description: "Renames a series",
-                example: "[5 6 7 8] | to-df | rename '0' new_name",
+                example: "[5 6 7 8] | into df | rename '0' new_name",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "new_name".to_string(),
@@ -57,7 +57,7 @@ impl Command for RenameDF {
             },
             Example {
                 description: "Renames a dataframe column",
-                example: "[[a b]; [1 2] [3 4]] | to-df | rename a a_new",
+                example: "[[a b]; [1 2] [3 4]] | into df | rename a a_new",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -75,7 +75,7 @@ impl Command for RenameDF {
             },
             Example {
                 description: "Renames two dataframe columns",
-                example: "[[a b]; [1 2] [3 4]] | to-df | rename [a b] [a_new b_new]",
+                example: "[[a b]; [1 2] [3 4]] | into df | rename [a b] [a_new b_new]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

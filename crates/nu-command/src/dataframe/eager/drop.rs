@@ -29,7 +29,7 @@ impl Command for DropDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "[[a b]; [1 2] [3 4]] | to-df | drop a",
+            example: "[[a b]; [1 2] [3 4]] | into df | drop a",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "b".to_string(),

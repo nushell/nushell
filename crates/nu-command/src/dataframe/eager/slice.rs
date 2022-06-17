@@ -31,7 +31,7 @@ impl Command for SliceDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe from a slice of the rows",
-            example: "[[a b]; [1 2] [3 4]] | to-df | slice 0 1",
+            example: "[[a b]; [1 2] [3 4]] | into df | slice 0 1",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new("a".to_string(), vec![Value::test_int(1)]),

@@ -30,7 +30,7 @@ impl Command for GetDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns the selected column",
-            example: "[[a b]; [1 2] [3 4]] | to-df | get a",
+            example: "[[a b]; [1 2] [3 4]] | into df | get a",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "a".to_string(),

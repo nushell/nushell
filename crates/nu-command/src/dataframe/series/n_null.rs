@@ -25,7 +25,7 @@ impl Command for NNull {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Counts null values",
-            example: r#"let s = ([1 1 0 0 3 3 4] | to-df);
+            example: r#"let s = ([1 1 0 0 3 3 4] | into df);
     ($s / $s) | count-null"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(

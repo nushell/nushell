@@ -54,7 +54,8 @@ impl Command for MeltDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "melt dataframe",
-            example: "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | to-df | melt -c [b c] -v [a d]",
+            example:
+                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | into df | melt -c [b c] -v [a d]",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

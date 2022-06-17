@@ -35,8 +35,8 @@ impl Command for SetWithIndex {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Set value in selected rows from series",
-            example: r#"let series = ([4 1 5 2 4 3] | to-df);
-    let indices = ([0 2] | to-df);
+            example: r#"let series = ([4 1 5 2 4 3] | into df);
+    let indices = ([0 2] | into df);
     $series | set-with-idx 6 -i $indices"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(

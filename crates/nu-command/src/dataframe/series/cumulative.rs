@@ -62,7 +62,7 @@ impl Command for Cumulative {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Cumulative sum for a series",
-            example: "[1 2 3 4 5] | to-df | cumulative sum",
+            example: "[1 2 3 4 5] | into df | cumulative sum",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0_cumulative_sum".to_string(),

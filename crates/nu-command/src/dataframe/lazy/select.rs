@@ -33,7 +33,7 @@ impl Command for LazySelect {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Select a column from the dataframe",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | to-df | select a",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | into df | select a",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "a".to_string(),

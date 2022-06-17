@@ -46,7 +46,7 @@ impl Command for AsDateTime {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Converts string to datetime",
-            example: r#"["2021-12-30 00:00:00" "2021-12-31 00:00:00"] | to-df | as-datetime "%Y-%m-%d %H:%M:%S""#,
+            example: r#"["2021-12-30 00:00:00" "2021-12-31 00:00:00"] | into df | as-datetime "%Y-%m-%d %H:%M:%S""#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "datetime".to_string(),

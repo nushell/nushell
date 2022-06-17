@@ -27,7 +27,7 @@ impl Command for GetOrdinal {
         vec![Example {
             description: "Returns ordinal from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
-    let df = ([$dt $dt] | to-df);
+    let df = ([$dt $dt] | into df);
     $df | get-ordinal"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(

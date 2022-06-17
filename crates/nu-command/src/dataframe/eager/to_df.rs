@@ -11,7 +11,7 @@ pub struct ToDataFrame;
 
 impl Command for ToDataFrame {
     fn name(&self) -> &str {
-        "to-df"
+        "into df"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl Command for ToDataFrame {
         vec![
             Example {
                 description: "Takes a dictionary and creates a dataframe",
-                example: "[[a b];[1 2] [3 4]] | to-df",
+                example: "[[a b];[1 2] [3 4]] | into df",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -44,7 +44,7 @@ impl Command for ToDataFrame {
             },
             Example {
                 description: "Takes a list of tables and creates a dataframe",
-                example: "[[1 2 a] [3 4 b] [5 6 c]] | to-df",
+                example: "[[1 2 a] [3 4 b] [5 6 c]] | into df",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -70,7 +70,7 @@ impl Command for ToDataFrame {
             },
             Example {
                 description: "Takes a list and creates a dataframe",
-                example: "[a b c] | to-df",
+                example: "[a b c] | into df",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),
@@ -86,7 +86,7 @@ impl Command for ToDataFrame {
             },
             Example {
                 description: "Takes a list of booleans and creates a dataframe",
-                example: "[true true false] | to-df",
+                example: "[true true false] | into df",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),

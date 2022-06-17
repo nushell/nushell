@@ -33,8 +33,8 @@ impl Command for Concatenate {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Concatenate string",
-            example: r#"let other = ([za xs cd] | to-df);
-    [abc abc abc] | to-df | concatenate $other"#,
+            example: r#"let other = ([za xs cd] | into df);
+    [abc abc abc] | into df | concatenate $other"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
