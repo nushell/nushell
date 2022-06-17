@@ -97,30 +97,6 @@ impl NuCompleter {
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
                         prefix.remove(pos - (flat.0.start - alias));
 
-                        // Completions that depends on the previous expression (e.g: use, source)
-                        if flat_idx > 0 {
-                            if let Some(previous_expr) = flattened.get(flat_idx - 1) {
-                                // Read the content for the previous expression
-                                let prev_expr_str =
-                                    working_set.get_span_contents(previous_expr.0).to_vec();
-
-                                // Completion for .nu files
-                                if prev_expr_str == b"use" || prev_expr_str == b"source" {
-                                    let mut completer =
-                                        DotNuCompletion::new(self.engine_state.clone());
-
-                                    return self.process_completion(
-                                        &mut completer,
-                                        &working_set,
-                                        prefix,
-                                        new_span,
-                                        offset,
-                                        pos,
-                                    );
-                                }
-                            }
-                        }
-
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {
                             let mut completer = VariableCompletion::new(
@@ -153,6 +129,42 @@ impl NuCompleter {
                             );
                         }
 
+                        // Completions that depends on the previous expression (e.g: use, source)
+                        if flat_idx > 0 {
+                            if let Some(previous_expr) = flattened.get(flat_idx - 1) {
+                                // Read the content for the previous expression
+                                let prev_expr_str =
+                                    working_set.get_span_contents(previous_expr.0).to_vec();
+
+                                // Completion for .nu files
+                                if prev_expr_str == b"use" || prev_expr_str == b"source" {
+                                    let mut completer =
+                                        DotNuCompletion::new(self.engine_state.clone());
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
+                                } else if prev_expr_str == b"ls" {
+                                    let mut completer =
+                                        FileCompletion::new(self.engine_state.clone());
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
+                                }
+                            }
+                        }
+
                         // Match other types
                         match &flat.1 {
                             FlatShape::Custom(decl_id) => {
@@ -175,6 +187,18 @@ impl NuCompleter {
                             FlatShape::Directory => {
                                 let mut completer =
                                     DirectoryCompletion::new(self.engine_state.clone());
+
+                                return self.process_completion(
+                                    &mut completer,
+                                    &working_set,
+                                    prefix,
+                                    new_span,
+                                    offset,
+                                    pos,
+                                );
+                            }
+                            FlatShape::Filepath | FlatShape::GlobPattern => {
+                                let mut completer = FileCompletion::new(self.engine_state.clone());
 
                                 return self.process_completion(
                                     &mut completer,
