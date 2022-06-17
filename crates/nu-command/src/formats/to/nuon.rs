@@ -87,7 +87,11 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         )),
         Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
         Value::Float { val, .. } => {
-            if &val.round() == val {
+            if &val.round() == val
+                && val != &f64::NAN
+                && val != &f64::INFINITY
+                && val != &f64::NEG_INFINITY
+            {
                 Ok(format!("{}.0", *val))
             } else {
                 Ok(format!("{}", *val))
