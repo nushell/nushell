@@ -32,7 +32,7 @@ impl Command for LazyQuantile {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "quantile value from columns in a dataframe",
-            example: "[[a b]; [6 2] [1 4] [4 1]] | to-df | quantile 0.5",
+            example: "[[a b]; [6 2] [1 4] [4 1]] | into df | quantile 0.5",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new("a".to_string(), vec![Value::test_float(4.0)]),

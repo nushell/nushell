@@ -76,33 +76,128 @@ impl Command for History {
                         .ok(),
                     };
 
-                let data = history_reader
-                    .and_then(|h| {
-                        h.search(SearchQuery::everything(SearchDirection::Forward))
-                            .ok()
-                    })
-                    .map(move |entries| {
-                        entries
-                            .into_iter()
-                            .enumerate()
-                            .map(move |(idx, entry)| Value::Record {
-                                cols: vec!["command".to_string(), "index".to_string()],
-                                vals: vec![
-                                    Value::String {
-                                        val: entry.command_line,
-                                        span: head,
-                                    },
-                                    Value::Int {
-                                        val: idx as i64,
-                                        span: head,
-                                    },
-                                ],
-                                span: head,
-                            })
-                    })
-                    .ok_or(ShellError::FileNotFound(head))?
-                    .into_pipeline_data(ctrlc);
-                Ok(data)
+                match engine_state.config.history_file_format {
+                    HistoryFileFormat::PlainText => Ok(history_reader
+                        .and_then(|h| {
+                            h.search(SearchQuery::everything(SearchDirection::Forward))
+                                .ok()
+                        })
+                        .map(move |entries| {
+                            entries
+                                .into_iter()
+                                .enumerate()
+                                .map(move |(idx, entry)| Value::Record {
+                                    cols: vec!["command".to_string(), "index".to_string()],
+                                    vals: vec![
+                                        Value::String {
+                                            val: entry.command_line,
+                                            span: head,
+                                        },
+                                        Value::Int {
+                                            val: idx as i64,
+                                            span: head,
+                                        },
+                                    ],
+                                    span: head,
+                                })
+                        })
+                        .ok_or(ShellError::FileNotFound(head))?
+                        .into_pipeline_data(ctrlc)),
+                    HistoryFileFormat::Sqlite => Ok(history_reader
+                        .and_then(|h| {
+                            h.search(SearchQuery::everything(SearchDirection::Forward))
+                                .ok()
+                        })
+                        .map(move |entries| {
+                            entries
+                                .into_iter()
+                                .enumerate()
+                                .map(move |(idx, entry)| Value::Record {
+                                    cols: vec![
+                                        "item_id".into(),
+                                        "start_timestamp".into(),
+                                        "command_line".to_string(),
+                                        "session_id".into(),
+                                        "hostname".into(),
+                                        "cwd".into(),
+                                        "duration".into(),
+                                        "exit_status".into(),
+                                        "index".to_string(),
+                                    ],
+                                    vals: vec![
+                                        Value::Int {
+                                            val: match entry.id {
+                                                Some(id) => {
+                                                    let ids = id.to_string();
+                                                    match ids.parse::<i64>() {
+                                                        Ok(i) => i,
+                                                        _ => 0i64,
+                                                    }
+                                                }
+                                                None => 0i64,
+                                            },
+                                            span: head,
+                                        },
+                                        Value::String {
+                                            val: match entry.start_timestamp {
+                                                Some(time) => time.to_string(),
+                                                None => "".into(),
+                                            },
+                                            span: head,
+                                        },
+                                        Value::String {
+                                            val: entry.command_line,
+                                            span: head,
+                                        },
+                                        Value::Int {
+                                            val: match entry.session_id {
+                                                Some(sid) => {
+                                                    let sids = sid.to_string();
+                                                    match sids.parse::<i64>() {
+                                                        Ok(i) => i,
+                                                        _ => 0i64,
+                                                    }
+                                                }
+                                                None => 0i64,
+                                            },
+                                            span: head,
+                                        },
+                                        Value::String {
+                                            val: match entry.hostname {
+                                                Some(host) => host,
+                                                None => "".into(),
+                                            },
+                                            span: head,
+                                        },
+                                        Value::String {
+                                            val: match entry.cwd {
+                                                Some(cwd) => cwd,
+                                                None => "".into(),
+                                            },
+                                            span: head,
+                                        },
+                                        Value::Duration {
+                                            val: match entry.duration {
+                                                Some(d) => d.as_millis().try_into().unwrap_or(0),
+                                                None => 0,
+                                            },
+                                            span: head,
+                                        },
+                                        Value::Int {
+                                            val: entry.exit_status.unwrap_or(0),
+                                            span: head,
+                                        },
+                                        Value::Int {
+                                            val: idx as i64,
+                                            span: head,
+                                        },
+                                    ],
+                                    span: head,
+                                })
+                        })
+                        .ok_or(ShellError::FileNotFound(head))?
+                        .into_pipeline_data(ctrlc)),
+                }
             }
         } else {
             Err(ShellError::FileNotFound(head))

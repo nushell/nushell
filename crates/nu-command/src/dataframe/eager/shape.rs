@@ -27,7 +27,7 @@ impl Command for ShapeDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Shows row and column shape",
-            example: "[[a b]; [1 2] [3 4]] | to-df | shape",
+            example: "[[a b]; [1 2] [3 4]] | into df | shape",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new("rows".to_string(), vec![Value::test_int(2)]),

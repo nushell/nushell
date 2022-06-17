@@ -32,7 +32,7 @@ impl Command for ExprCol {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a named column expression and converts it to a nu object",
-            example: "col a | to-nu",
+            example: "col a | into nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![

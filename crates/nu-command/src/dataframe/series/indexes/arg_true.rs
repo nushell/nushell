@@ -26,7 +26,7 @@ impl Command for ArgTrue {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns indexes where values are true",
-            example: "[false true false] | to-df | arg-true",
+            example: "[false true false] | into df | arg-true",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "arg_true".to_string(),

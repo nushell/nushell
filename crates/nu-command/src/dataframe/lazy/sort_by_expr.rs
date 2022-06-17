@@ -39,7 +39,7 @@ impl Command for LazySortBy {
         vec![
             Example {
                 description: "Sort dataframe by one column",
-                example: "[[a b]; [6 2] [1 4] [4 1]] | to-df | sort-by a",
+                example: "[[a b]; [6 2] [1 4] [4 1]] | into df | sort-by a",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -57,7 +57,8 @@ impl Command for LazySortBy {
             },
             Example {
                 description: "Sort column using two columns",
-                example: "[[a b]; [6 2] [1 1] [1 4] [2 4]] | to-df | sort-by [a b] -r [false true]",
+                example:
+                    "[[a b]; [6 2] [1 1] [1 4] [2 4]] | into df | sort-by [a b] -r [false true]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

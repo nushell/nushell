@@ -250,7 +250,7 @@ expr_command!(
     vec![Example {
         description: "Max aggregation for a group by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | to-df
+    | into df
     | group-by a
     | agg (col b | max)"#,
         result: Some(
@@ -281,7 +281,7 @@ expr_command!(
     vec![Example {
         description: "Min aggregation for a group by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | to-df
+    | into df
     | group-by a
     | agg (col b | min)"#,
         result: Some(
@@ -312,7 +312,7 @@ expr_command!(
     vec![Example {
         description: "Sum aggregation for a group by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | to-df
+    | into df
     | group-by a
     | agg (col b | sum)"#,
         result: Some(
@@ -343,7 +343,7 @@ expr_command!(
     vec![Example {
         description: "Mean aggregation for a group by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | to-df
+    | into df
     | group-by a
     | agg (col b | mean)"#,
         result: Some(
@@ -374,7 +374,7 @@ expr_command!(
     vec![Example {
         description: "Median aggregation for a group by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | to-df
+    | into df
     | group-by a
     | agg (col b | median)"#,
         result: Some(
@@ -405,7 +405,7 @@ expr_command!(
     vec![Example {
         description: "Std aggregation for a group by",
         example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
-    | to-df
+    | into df
     | group-by a
     | agg (col b | std)"#,
         result: Some(
@@ -436,7 +436,7 @@ expr_command!(
     vec![Example {
         description: "Var aggregation for a group by",
         example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
-    | to-df
+    | into df
     | group-by a
     | agg (col b | var)"#,
         result: Some(

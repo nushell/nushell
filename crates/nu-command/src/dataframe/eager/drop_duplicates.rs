@@ -40,7 +40,7 @@ impl Command for DropDuplicates {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop duplicates",
-            example: "[[a b]; [1 2] [3 4] [1 2]] | to-df | drop-duplicates",
+            example: "[[a b]; [1 2] [3 4] [1 2]] | into df | drop-duplicates",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

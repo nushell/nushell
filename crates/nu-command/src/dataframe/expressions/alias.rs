@@ -32,7 +32,7 @@ impl Command for ExprAlias {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates and alias expression",
-            example: "col a | as new_a | to-nu",
+            example: "col a | as new_a | into nu",
             result: {
                 let cols = vec!["expr".into(), "value".into()];
                 let expr = Value::test_string("column");

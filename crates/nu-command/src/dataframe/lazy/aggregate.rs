@@ -34,7 +34,7 @@ impl Command for LazyAggregate {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | to-df
+    | into df
     | group-by a
     | agg [
         (col b | min | as "b_min")
@@ -67,7 +67,7 @@ impl Command for LazyAggregate {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | to-lazy
+    | into lazy
     | group-by a
     | agg [
         (col b | min | as "b_min")

@@ -68,14 +68,10 @@ impl NuCompleter {
         for pipeline in output.pipelines.into_iter() {
             for expr in pipeline.expressions {
                 let flattened: Vec<_> = flatten_expression(&working_set, &expr);
+                let span_offset: usize = alias_offset.iter().sum();
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
-                    let alias = if alias_offset.is_empty() {
-                        0
-                    } else {
-                        alias_offset[flat_idx]
-                    };
-                    if pos >= flat.0.start - alias && pos < flat.0.end - alias {
+                    if pos + span_offset >= flat.0.start && pos + span_offset < flat.0.end {
                         // Context variables
                         let most_left_var =
                             most_left_variable(flat_idx, &working_set, flattened.clone());
@@ -84,42 +80,18 @@ impl NuCompleter {
                         let new_span = if flat_idx == 0 {
                             Span {
                                 start: flat.0.start,
-                                end: flat.0.end - 1 - alias,
+                                end: flat.0.end - 1 - span_offset,
                             }
                         } else {
                             Span {
-                                start: flat.0.start - alias,
-                                end: flat.0.end - 1 - alias,
+                                start: flat.0.start - span_offset,
+                                end: flat.0.end - 1 - span_offset,
                             }
                         };
 
                         // Parses the prefix
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
-                        prefix.remove(pos - (flat.0.start - alias));
-
-                        // Completions that depends on the previous expression (e.g: use, source)
-                        if flat_idx > 0 {
-                            if let Some(previous_expr) = flattened.get(flat_idx - 1) {
-                                // Read the content for the previous expression
-                                let prev_expr_str =
-                                    working_set.get_span_contents(previous_expr.0).to_vec();
-
-                                // Completion for .nu files
-                                if prev_expr_str == b"use" || prev_expr_str == b"source" {
-                                    let mut completer =
-                                        DotNuCompletion::new(self.engine_state.clone());
-
-                                    return self.process_completion(
-                                        &mut completer,
-                                        &working_set,
-                                        prefix,
-                                        new_span,
-                                        offset,
-                                        pos,
-                                    );
-                                }
-                            }
-                        }
+                        prefix.remove(pos - (flat.0.start - span_offset));
 
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {
@@ -153,6 +125,42 @@ impl NuCompleter {
                             );
                         }
 
+                        // Completions that depends on the previous expression (e.g: use, source)
+                        if flat_idx > 0 {
+                            if let Some(previous_expr) = flattened.get(flat_idx - 1) {
+                                // Read the content for the previous expression
+                                let prev_expr_str =
+                                    working_set.get_span_contents(previous_expr.0).to_vec();
+
+                                // Completion for .nu files
+                                if prev_expr_str == b"use" || prev_expr_str == b"source" {
+                                    let mut completer =
+                                        DotNuCompletion::new(self.engine_state.clone());
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
+                                } else if prev_expr_str == b"ls" {
+                                    let mut completer =
+                                        FileCompletion::new(self.engine_state.clone());
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
+                                }
+                            }
+                        }
+
                         // Match other types
                         match &flat.1 {
                             FlatShape::Custom(decl_id) => {
@@ -175,6 +183,18 @@ impl NuCompleter {
                             FlatShape::Directory => {
                                 let mut completer =
                                     DirectoryCompletion::new(self.engine_state.clone());
+
+                                return self.process_completion(
+                                    &mut completer,
+                                    &working_set,
+                                    prefix,
+                                    new_span,
+                                    offset,
+                                    pos,
+                                );
+                            }
+                            FlatShape::Filepath | FlatShape::GlobPattern => {
+                                let mut completer = FileCompletion::new(self.engine_state.clone());
 
                                 return self.process_completion(
                                     &mut completer,
@@ -235,7 +255,7 @@ impl ReedlineCompleter for NuCompleter {
     }
 }
 
-type MatchedAlias<'a> = Vec<(&'a [u8], &'a [u8])>;
+type MatchedAlias = Vec<(Vec<u8>, Vec<u8>)>;
 
 // Handler the completion when giving lines contains at least one alias. (e.g: `g checkout`)
 // that `g` is an alias of `git`
@@ -254,6 +274,13 @@ fn try_find_alias(line: &[u8], working_set: &StateWorkingSet) -> (Vec<u8>, Vec<u
                 lens -= 1;
             }
         }
+
+        if !line.is_empty() {
+            let last = line.last().expect("input is empty");
+            if last == &b' ' {
+                output.push(b' ');
+            }
+        }
     } else {
         output = line.to_vec();
     }
@@ -261,7 +288,7 @@ fn try_find_alias(line: &[u8], working_set: &StateWorkingSet) -> (Vec<u8>, Vec<u
     (output, alias_offset)
 }
 
-fn search_alias<'a>(input: &'a [u8], working_set: &'a StateWorkingSet) -> Option<MatchedAlias<'a>> {
+fn search_alias(input: &[u8], working_set: &StateWorkingSet) -> Option<MatchedAlias> {
     let mut vec_names = vec![];
     let mut vec_alias = vec![];
     let mut pos = 0;
@@ -269,27 +296,31 @@ fn search_alias<'a>(input: &'a [u8], working_set: &'a StateWorkingSet) -> Option
     for (index, character) in input.iter().enumerate() {
         if *character == b' ' {
             let range = &input[pos..index];
-            vec_names.push(range);
+            vec_names.push(range.to_owned());
             pos = index + 1;
         }
     }
     // Push the rest to names vector.
     if pos < input.len() {
-        vec_names.push(&input[pos..]);
+        vec_names.push((&input[pos..]).to_owned());
     }
 
     for name in &vec_names {
-        if let Some(alias_id) = working_set.find_alias(name) {
+        if let Some(alias_id) = working_set.find_alias(&name[..]) {
             let alias_span = working_set.get_alias(alias_id);
+            let mut span_vec = vec![];
             is_alias = true;
             for alias in alias_span {
                 let name = working_set.get_span_contents(*alias);
                 if !name.is_empty() {
-                    vec_alias.push(name);
+                    span_vec.push(name);
                 }
             }
+            // Join span of vector together for complex alias, e.g: `f` is an alias for `git remote -v`
+            let full_aliases = span_vec.join(&[b' '][..]);
+            vec_alias.push(full_aliases);
         } else {
-            vec_alias.push(name);
+            vec_alias.push(name.to_owned());
         }
     }
 

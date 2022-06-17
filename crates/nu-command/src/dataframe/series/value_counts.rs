@@ -25,7 +25,7 @@ impl Command for ValueCount {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Calculates value counts",
-            example: "[5 5 5 5 6 6] | to-df | value-counts",
+            example: "[5 5 5 5 6 6] | into df | value-counts",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

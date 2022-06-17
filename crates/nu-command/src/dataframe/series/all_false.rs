@@ -26,7 +26,7 @@ impl Command for AllFalse {
         vec![
             Example {
                 description: "Returns true if all values are false",
-                example: "[false false false] | to-df | all-false",
+                example: "[false false false] | into df | all-false",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_false".to_string(),
@@ -38,7 +38,7 @@ impl Command for AllFalse {
             },
             Example {
                 description: "Checks the result from a comparison",
-                example: r#"let s = ([5 6 2 10] | to-df);
+                example: r#"let s = ([5 6 2 10] | into df);
     let res = ($s > 9);
     $res | all-false"#,
                 result: Some(

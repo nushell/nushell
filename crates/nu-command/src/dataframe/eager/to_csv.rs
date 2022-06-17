@@ -15,7 +15,7 @@ pub struct ToCSV;
 
 impl Command for ToCSV {
     fn name(&self) -> &str {
-        "to-csv"
+        "to csv"
     }
 
     fn usage(&self) -> &str {
@@ -39,12 +39,12 @@ impl Command for ToCSV {
         vec![
             Example {
                 description: "Saves dataframe to csv file",
-                example: "[[a b]; [1 2] [3 4]] | to-df | to-csv test.csv",
+                example: "[[a b]; [1 2] [3 4]] | into df | to csv test.csv",
                 result: None,
             },
             Example {
                 description: "Saves dataframe to csv file using other delimiter",
-                example: "[[a b]; [1 2] [3 4]] | to-df | to-csv test.csv -d '|'",
+                example: "[[a b]; [1 2] [3 4]] | into df | to csv test.csv -d '|'",
                 result: None,
             },
         ]

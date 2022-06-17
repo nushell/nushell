@@ -36,7 +36,7 @@ impl Command for Shift {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Shifts the values by a given period",
-            example: "[1 2 2 3 3] | to-df | shift 2 | drop-nulls",
+            example: "[1 2 2 3 3] | into df | shift 2 | drop-nulls",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

@@ -119,3 +119,6 @@ debug = false
 [[bin]]
 name = "nu"
 path = "src/main.rs"
+
+[patch.crates-io]
+reedline = { git = "https://github.com/nushell/reedline", branch = "main"}

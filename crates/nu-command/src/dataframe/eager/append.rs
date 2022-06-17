@@ -30,7 +30,7 @@ impl Command for AppendDF {
         vec![
             Example {
                 description: "Appends a dataframe as new columns",
-                example: r#"let a = ([[a b]; [1 2] [3 4]] | to-df);
+                example: r#"let a = ([[a b]; [1 2] [3 4]] | into df);
     $a | append $a"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
@@ -57,7 +57,7 @@ impl Command for AppendDF {
             },
             Example {
                 description: "Appends a dataframe merging at the end of columns",
-                example: r#"let a = ([[a b]; [1 2] [3 4]] | to-df);
+                example: r#"let a = ([[a b]; [1 2] [3 4]] | into df);
     $a | append $a --col"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![

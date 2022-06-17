@@ -26,7 +26,7 @@ impl Command for IsUnique {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create mask indicating unique values",
-            example: "[5 6 6 6 8 8 8] | to-df | is-unique",
+            example: "[5 6 6 6 8 8 8] | into df | is-unique",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_unique".to_string(),
