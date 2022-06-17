@@ -137,8 +137,15 @@ impl Command for DropNth {
 
                 // check for equality to isize::MAX because for some reason,
                 // the parser returns isize::MAX when we provide a range without upper bound (e.g., 5.. )
-                let to = to as usize;
+                let mut to = to as usize;
                 let from = from as usize;
+
+                if let PipelineData::Value(Value::List { ref vals, span: _ }, _) = input {
+                    let max = from + vals.len() - 1;
+                    if to > max {
+                        to = max;
+                    }
+                };
 
                 if to > 0 && to as isize == isize::MAX {
                     lower_bound = Some(from);

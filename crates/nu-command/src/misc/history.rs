@@ -24,7 +24,7 @@ impl Command for History {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history")
             .switch("clear", "Clears out the history entries", Some('c'))
-            .category(Category::Core)
+            .category(Category::Misc)
     }
 
     fn run(

@@ -1,0 +1,11 @@
+{
+  "profiles": [
+    {
+      "guid": "{aab79973-318f-43b6-a9bc-b4096493753f}",
+      "name": "Nushell",
+      "commandline": "nu.exe",
+      "icon": "nu.ico",
+      "startingDirectory": "%USERPROFILE%"
+    }
+  ]
+}

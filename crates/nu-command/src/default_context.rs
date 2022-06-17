@@ -36,7 +36,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             DefEnv,
             Describe,
             Do,
-            Du,
             Echo,
             ErrorMake,
             ExportAlias,
@@ -49,7 +48,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             For,
             Help,
             Hide,
-            History,
             If,
             Ignore,
             Overlay,
@@ -61,7 +59,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Metadata,
             Module,
             Source,
-            Tutor,
             Use,
             Version,
         };
@@ -133,6 +130,12 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Window,
             Wrap,
             Zip,
+        };
+
+        // Misc
+        bind_command! {
+            History,
+            Tutor,
         };
 
         // Path
@@ -221,6 +224,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             AnsiGradient,
             AnsiStrip,
             Clear,
+            Du,
             KeybindingsDefault,
             Input,
             KeybindingsListen,
