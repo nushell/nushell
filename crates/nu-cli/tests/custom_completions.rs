@@ -14,7 +14,7 @@ fn variables_completions() {
     def my-command [animal: string@animals] { print $animal }"#;
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for $nu
