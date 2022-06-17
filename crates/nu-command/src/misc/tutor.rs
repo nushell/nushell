@@ -28,7 +28,7 @@ impl Command for Tutor {
                 "Search tutorial for a phrase",
                 Some('f'),
             )
-            .category(Category::Core)
+            .category(Category::Misc)
     }
 
     fn usage(&self) -> &str {

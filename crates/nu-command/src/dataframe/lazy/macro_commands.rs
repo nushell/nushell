@@ -73,7 +73,7 @@ lazy_command!(
     "Reverses the LazyFrame",
     vec![Example {
         description: "Reverses the dataframe",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | to-df | reverse",
+        example: "[[a b]; [6 2] [4 2] [2 2]] | into df | reverse",
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -101,7 +101,7 @@ lazy_command!(
     "Caches operations in a new LazyFrame",
     vec![Example {
         description: "Caches the result into a new LazyFrame",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | to-df | reverse | cache",
+        example: "[[a b]; [6 2] [4 2] [2 2]] | into df | reverse | cache",
         result: None,
     }],
     cache,
@@ -116,7 +116,7 @@ lazy_command!(
     "Aggregates columns to their max value",
     vec![Example {
         description: "Max value from columns in a dataframe",
-        example: "[[a b]; [6 2] [1 4] [4 1]] | to-df | max",
+        example: "[[a b]; [6 2] [1 4] [4 1]] | into df | max",
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new("a".to_string(), vec![Value::test_int(6)],),
@@ -138,7 +138,7 @@ lazy_command!(
     "Aggregates columns to their min value",
     vec![Example {
         description: "Min value from columns in a dataframe",
-        example: "[[a b]; [6 2] [1 4] [4 1]] | to-df | min",
+        example: "[[a b]; [6 2] [1 4] [4 1]] | into df | min",
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new("a".to_string(), vec![Value::test_int(1)],),
@@ -160,7 +160,7 @@ lazy_command!(
     "Aggregates columns to their sum value",
     vec![Example {
         description: "Sums all columns in a dataframe",
-        example: "[[a b]; [6 2] [1 4] [4 1]] | to-df | sum",
+        example: "[[a b]; [6 2] [1 4] [4 1]] | into df | sum",
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new("a".to_string(), vec![Value::test_int(11)],),
@@ -182,7 +182,7 @@ lazy_command!(
     "Aggregates columns to their mean value",
     vec![Example {
         description: "Mean value from columns in a dataframe",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | to-df | mean",
+        example: "[[a b]; [6 2] [4 2] [2 2]] | into df | mean",
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new("a".to_string(), vec![Value::test_float(4.0)],),
@@ -204,7 +204,7 @@ lazy_command!(
     "Aggregates columns to their median value",
     vec![Example {
         description: "Median value from columns in a dataframe",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | to-df | median",
+        example: "[[a b]; [6 2] [4 2] [2 2]] | into df | median",
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new("a".to_string(), vec![Value::test_float(4.0)],),
@@ -226,7 +226,7 @@ lazy_command!(
     "Aggregates columns to their std value",
     vec![Example {
         description: "Std value from columns in a dataframe",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | to-df | std",
+        example: "[[a b]; [6 2] [4 2] [2 2]] | into df | std",
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new("a".to_string(), vec![Value::test_float(2.0)],),
@@ -248,7 +248,7 @@ lazy_command!(
     "Aggregates columns to their var value",
     vec![Example {
         description: "Var value from columns in a dataframe",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | to-df | var",
+        example: "[[a b]; [6 2] [4 2] [2 2]] | into df | var",
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new("a".to_string(), vec![Value::test_float(4.0)],),

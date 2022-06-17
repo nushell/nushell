@@ -48,7 +48,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             For,
             Help,
             Hide,
-            History,
             If,
             Ignore,
             Overlay,
@@ -60,7 +59,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Metadata,
             Module,
             Source,
-            Tutor,
             Use,
             Version,
         };
@@ -132,6 +130,12 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Window,
             Wrap,
             Zip,
+        };
+
+        // Misc
+        bind_command! {
+            History,
+            Tutor,
         };
 
         // Path

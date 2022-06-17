@@ -35,7 +35,7 @@ impl Command for SetSeries {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Shifts the values by a given period",
-            example: r#"let s = ([1 2 2 3 3] | to-df | shift 2);
+            example: r#"let s = ([1 2 2 3 3] | into df | shift 2);
     let mask = ($s | is-null);
     $s | set 0 --mask $mask"#,
             result: Some(

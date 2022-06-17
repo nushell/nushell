@@ -37,7 +37,7 @@ impl Command for AsDate {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Converts string to date",
-            example: r#"["2021-12-30" "2021-12-31"] | to-df | as-datetime "%Y-%m-%d""#,
+            example: r#"["2021-12-30" "2021-12-31"] | into df | as-datetime "%Y-%m-%d""#,
             result: None,
         }]
     }

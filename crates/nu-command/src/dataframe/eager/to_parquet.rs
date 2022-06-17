@@ -15,7 +15,7 @@ pub struct ToParquet;
 
 impl Command for ToParquet {
     fn name(&self) -> &str {
-        "to-parquet"
+        "to parquet"
     }
 
     fn usage(&self) -> &str {
@@ -31,7 +31,7 @@ impl Command for ToParquet {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Saves dataframe to parquet file",
-            example: "[[a b]; [1 2] [3 4]] | to-df | to-parquet test.parquet",
+            example: "[[a b]; [1 2] [3 4]] | into df | to parquet test.parquet",
             result: None,
         }]
     }

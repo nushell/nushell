@@ -11,11 +11,11 @@ pub struct ExprAsNu;
 
 impl Command for ExprAsNu {
     fn name(&self) -> &str {
-        "to-nu"
+        "into nu"
     }
 
     fn usage(&self) -> &str {
-        "Convert expression to a nu value for access and exploration"
+        "Convert expression into a nu value for access and exploration"
     }
 
     fn signature(&self) -> Signature {
@@ -25,7 +25,7 @@ impl Command for ExprAsNu {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Convert a col expression into a nushell value",
-            example: "col a | to-nu",
+            example: "col a | into nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![

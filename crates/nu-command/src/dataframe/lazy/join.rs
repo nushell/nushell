@@ -45,8 +45,8 @@ impl Command for LazyJoin {
         vec![
             Example {
                 description: "Join two lazy dataframes",
-                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | to-lazy);
-    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | to-lazy);
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | into lazy);
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | into lazy);
     $df_a | join $df_b a foo | collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
@@ -102,8 +102,8 @@ impl Command for LazyJoin {
             },
             Example {
                 description: "Join one eager dataframe with a lazy dataframe",
-                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | to-df);
-    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | to-lazy);
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | into df);
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | into lazy);
     $df_a | join $df_b a foo"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![

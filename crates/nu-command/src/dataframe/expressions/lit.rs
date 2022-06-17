@@ -31,7 +31,7 @@ impl Command for ExprLit {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Created a literal expression and converts it to a nu object",
-            example: "lit 2 | to-nu",
+            example: "lit 2 | into nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![

@@ -43,7 +43,7 @@ impl Command for ExprOtherwise {
             Example {
                 description: "Create a new column for the dataframe",
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
-   | to-lazy
+   | into lazy
    | with-column (
        when ((col a) > 2) 4 | otherwise 5 | as c
      )

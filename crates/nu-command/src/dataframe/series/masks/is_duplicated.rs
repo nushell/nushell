@@ -26,7 +26,7 @@ impl Command for IsDuplicated {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create mask indicating duplicated values",
-            example: "[5 6 6 6 8 8 8] | to-df | is-duplicated",
+            example: "[5 6 6 6 8 8 8] | into df | is-duplicated",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_duplicated".to_string(),

@@ -76,6 +76,15 @@
                             KeyPath='yes'/>
                     </Component>
 
+                    <Component Id='icon0' Guid='*' Win64='$(var.Win64)'>
+                        <File
+                            Id='icon0'
+                            Name='nu.ico'
+                            DiskId='1'
+                            Source='assets/nu_logo.ico'
+                            KeyPath='yes'/>
+                    </Component>
+
                     <Directory Id='Bin' Name='bin'>
                         <Component Id='Path' Guid='285921EA-6DC0-4632-B12C-D7D737F30686' Win64='$(var.Win64)' KeyPath='yes'>
                             <Environment
@@ -275,6 +284,25 @@
                     </Directory>
                 </Directory>
             </Directory>
+
+            <Directory Id='CommonAppDataFolder'>
+                <Directory Id='AppDataMicrosoftFolder' Name='Microsoft'>
+                    <Directory Id='AppDataWindowsTerminalFolder' Name='Windows Terminal'>
+                        <Directory Id='WindowsTerminalProfileFolder' Name='Fragments'>
+                            <Directory Id='WindowsTerminalProfileAppFolder' Name='nu'>
+                                <Component Id='WindowsTerminalProfile' Guid='*' Win64='$(var.Win64)'>
+                                    <File
+                                        Id='WindowsTerminalProfileFile'
+                                        Name='nu.json'
+                                        DiskId='1'
+                                        Source='wix\windows-terminal-profile.json'
+                                        KeyPath='yes'/>
+                                </Component>
+                            </Directory>
+                        </Directory>
+                    </Directory>
+                </Directory>
+            </Directory>
         </Directory>
 
         <Feature
@@ -291,6 +319,8 @@
               the license sidecar file from the installer.
             -->
             <ComponentRef Id='License'/>
+
+            <ComponentRef Id='icon0'/>
 
             <ComponentRef Id='binary0'/>
             <!-- <ComponentRef Id='binary1'/> -->
@@ -324,21 +354,42 @@
                 Absent='allow'>
                 <ComponentRef Id='Path'/>
             </Feature>
+
+            <Feature
+                Id='WindowsTerminalProfile'
+                Title='Windows Terminal Profile'
+                Description='Add [ProductName] profile to Windows Terminal.'
+                Level='1'
+                Absent='allow'>
+                <ComponentRef Id='WindowsTerminalProfile'/>
+            </Feature>
         </Feature>
 
         <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
 
-
-        <!--
-          Uncomment the following `Icon` and `Property` tags to change the product icon.
-
-          The product icon is the graphic that appears in the Add/Remove
-          Programs control panel for the application.
-        -->
-        <!--<Icon Id='ProductICO' SourceFile='wix\Product.ico'/>-->
-        <!--<Property Id='ARPPRODUCTICON' Value='ProductICO' />-->
+        <Icon Id='ProductICO' SourceFile='assets/nu_logo.ico'/>
+        <Property Id='ARPPRODUCTICON' Value='ProductICO' />
 
         <Property Id='ARPHELPLINK' Value='https://www.nushell.sh/book/'/>
+
+        <SetProperty
+            Id="ReplacePathsInWindowsTerminalProfile"
+            Sequence="execute"
+            Value="&quot;[#exe0]&quot; -c &quot;open '[#WindowsTerminalProfileFile]' | update profiles.commandline '[#exe0]' | update profiles.icon '[#icon0]' | save '[#WindowsTerminalProfileFile]'&quot;"
+            After='CostFinalize'/>
+        <CustomAction
+            Id="ReplacePathsInWindowsTerminalProfile"
+            BinaryKey="WixCA"
+            DllEntry="CAQuietExec"
+            Execute="deferred"
+            Return="check"
+            Impersonate="no"/>
+        <InstallExecuteSequence>
+            <Custom Action='ReplacePathsInWindowsTerminalProfile' Before='InstallFinalize'>
+                <!-- Run the custom action if the feature is enabled -->
+                <![CDATA[&WindowsTerminalProfile=3 OR (!WindowsTerminalProfile=3 AND REINSTALL<>"")]]>
+            </Custom>
+        </InstallExecuteSequence>
 
         <UI>
             <UIRef Id='WixUI_FeatureTree'/>

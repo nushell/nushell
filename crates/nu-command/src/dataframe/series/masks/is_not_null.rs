@@ -25,7 +25,7 @@ impl Command for IsNotNull {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create mask where values are not null",
-            example: r#"let s = ([5 6 0 8] | to-df);
+            example: r#"let s = ([5 6 0 8] | into df);
     let res = ($s / $s);
     $res | is-not-null"#,
             result: Some(

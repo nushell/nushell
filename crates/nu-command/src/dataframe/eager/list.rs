@@ -25,7 +25,7 @@ impl Command for ListDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a new dataframe and shows it in the dataframe list",
-            example: r#"let test = ([[a b];[1 2] [3 4]] | to-df);
+            example: r#"let test = ([[a b];[1 2] [3 4]] | into df);
     ls-df"#,
             result: None,
         }]

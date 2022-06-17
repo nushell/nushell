@@ -24,7 +24,7 @@ impl Command for NUnique {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Counts unique values",
-            example: "[1 1 2 2 3 3 4] | to-df | n-unique",
+            example: "[1 1 2 2 3 3 4] | into df | n-unique",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "count_unique".to_string(),
