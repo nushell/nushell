@@ -160,6 +160,22 @@ pub fn parse_binary_with_invalid_octal_format() {
 }
 
 #[test]
+pub fn parse_binary_with_multi_byte_char() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    // found using fuzzing, Rust can panic if you slice into this string
+    let contents = b"0x[\xEF\xBF\xBD]";
+    let (block, err) = parse(&mut working_set, None, contents, true, &[]);
+
+    assert!(err.is_none());
+    assert!(block.len() == 1);
+    let expressions = &block[0];
+    assert!(expressions.len() == 1);
+    assert!(!matches!(&expressions[0].expr, Expr::Binary(_)))
+}
+
+#[test]
 pub fn parse_string() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);

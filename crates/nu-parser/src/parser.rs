@@ -22,6 +22,7 @@ use crate::parse_keywords::{
     parse_use,
 };
 
+use itertools::Itertools;
 use log::trace;
 use std::{
     collections::{HashMap, HashSet},
@@ -1206,9 +1207,13 @@ fn parse_binary_with_base(
 }
 
 fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8>, ParseIntError> {
-    (0..s.len())
-        .step_by(digits_per_byte)
-        .map(|i| u8::from_str_radix(&s[i..i + digits_per_byte], base))
+    s.chars()
+        .chunks(digits_per_byte)
+        .into_iter()
+        .map(|chunk| {
+            let str: String = chunk.collect();
+            u8::from_str_radix(&str, base)
+        })
         .collect()
 }
 
