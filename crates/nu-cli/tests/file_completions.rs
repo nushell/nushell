@@ -41,7 +41,6 @@ fn file_completions() {
     match_suggestions(expected_paths, suggestions);
 }
 
-//  Basic file system commands should have path completion working without a necessary starting character
 #[test]
 fn command_ls_completion() {
     let (_, _, engine, stack) = new_engine();
@@ -56,10 +55,10 @@ fn command_ls_completion() {
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
-        "another/".to_string(),
+        "another\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
-        ".hidden_folder/".to_string(),
+        ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec![
@@ -88,10 +87,10 @@ fn command_open_completion() {
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
-        "another/".to_string(),
+        "another\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
-        ".hidden_folder/".to_string(),
+        ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec![
@@ -121,43 +120,10 @@ fn command_rm_completion() {
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
-        "another/".to_string(),
+        "another\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
-        ".hidden_folder/".to_string(),
-    ];
-    #[cfg(not(windows))]
-    let expected_paths: Vec<String> = vec![
-        "nushell".to_string(),
-        "test_a/".to_string(),
-        "test_b/".to_string(),
-        "another/".to_string(),
-        "custom_completion.nu".to_string(),
-        ".hidden_file".to_string(),
-        ".hidden_folder/".to_string(),
-    ];
-
-    match_suggestions(expected_paths, suggestions)
-}
-
-#[test]
-fn command_mv_completion() {
-    let (_, _, engine, stack) = new_engine();
-
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
-
-    let target_dir = format!("mv ");
-    let suggestions = completer.complete(&target_dir, target_dir.len());
-
-    #[cfg(windows)]
-    let expected_paths: Vec<String> = vec![
-        "nushell".to_string(),
-        "test_a\\".to_string(),
-        "test_b\\".to_string(),
-        "another/".to_string(),
-        "custom_completion.nu".to_string(),
-        ".hidden_file".to_string(),
-        ".hidden_folder/".to_string(),
+        ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec![
@@ -187,10 +153,10 @@ fn command_cp_completion() {
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
-        "another/".to_string(),
+        "another\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
-        ".hidden_folder/".to_string(),
+        ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec![
@@ -220,10 +186,10 @@ fn command_save_completion() {
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
-        "another/".to_string(),
+        "another\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
-        ".hidden_folder/".to_string(),
+        ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec![
@@ -253,10 +219,10 @@ fn command_touch_completion() {
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
-        "another/".to_string(),
+        "another\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
-        ".hidden_folder/".to_string(),
+        ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec![
@@ -273,6 +239,38 @@ fn command_touch_completion() {
 }
 
 #[test]
+fn command_glob_completion() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let target_dir = format!("glob ");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    #[cfg(windows)]
+    let expected_paths: Vec<String> = vec![
+        "nushell".to_string(),
+        "test_a\\".to_string(),
+        "test_b\\".to_string(),
+        "another\\".to_string(),
+        "custom_completion.nu".to_string(),
+        ".hidden_file".to_string(),
+        ".hidden_folder\\".to_string(),
+    ];
+    #[cfg(not(windows))]
+    let expected_paths: Vec<String> = vec![
+        "nushell".to_string(),
+        "test_a/".to_string(),
+        "test_b/".to_string(),
+        "another/".to_string(),
+        "custom_completion.nu".to_string(),
+        ".hidden_file".to_string(),
+        ".hidden_folder/".to_string(),
+    ];
+
+    match_suggestions(expected_paths, suggestions)
+}
+#[test]
 fn command_watch_completion() {
     let (_, _, engine, stack) = new_engine();
 
@@ -286,10 +284,43 @@ fn command_watch_completion() {
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
+        "another\\".to_string(),
+        "custom_completion.nu".to_string(),
+        ".hidden_file".to_string(),
+        ".hidden_folder\\".to_string(),
+    ];
+    #[cfg(not(windows))]
+    let expected_paths: Vec<String> = vec![
+        "nushell".to_string(),
+        "test_a/".to_string(),
+        "test_b/".to_string(),
         "another/".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),
+    ];
+
+    match_suggestions(expected_paths, suggestions)
+}
+
+#[test]
+fn command_util_completion() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let target_dir = format!("util ");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    #[cfg(windows)]
+    let expected_paths: Vec<String> = vec![
+        "nushell".to_string(),
+        "test_a\\".to_string(),
+        "test_b\\".to_string(),
+        "another\\".to_string(),
+        "custom_completion.nu".to_string(),
+        ".hidden_file".to_string(),
+        ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec![
