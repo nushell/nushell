@@ -1,7 +1,7 @@
 use crate::table_theme::TableTheme;
 use crate::wrap::{column_width, split_sublines, wrap, Alignment, Subline, WrappedCell};
 use crate::{StyledString, TextStyle};
-use nu_ansi_term::Style;
+use nu_ansi_term::{AnsiString, AnsiStrings, Style};
 use nu_protocol::{Config, FooterMode};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -62,7 +62,7 @@ impl WrappedTable {
         color_hm: &HashMap<String, Style>,
     ) -> String {
         let column_count = self.column_widths.len();
-        let mut output = String::new();
+        let mut output: Vec<AnsiString> = Vec::new();
         let sep_color = color_hm
             .get("separator")
             .unwrap_or(&Style::default())
@@ -72,139 +72,70 @@ impl WrappedTable {
             SeparatorPosition::Top => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        output.push_str(
-                            &sep_color
-                                .paint(&self.theme.top_left.to_string())
-                                .to_string(),
-                        );
+                        output.push(sep_color.paint(self.theme.top_left.to_string()));
                     }
 
                     for _ in 0..*column.1 {
-                        output.push_str(
-                            &sep_color
-                                .paint(&self.theme.top_horizontal.to_string())
-                                .to_string(),
-                        );
+                        output.push(sep_color.paint(self.theme.top_horizontal.to_string()));
                     }
 
-                    output.push_str(
-                        &sep_color
-                            .paint(&self.theme.top_horizontal.to_string())
-                            .to_string(),
-                    );
-                    output.push_str(
-                        &sep_color
-                            .paint(&self.theme.top_horizontal.to_string())
-                            .to_string(),
-                    );
+                    output.push(sep_color.paint(self.theme.top_horizontal.to_string()));
+                    output.push(sep_color.paint(self.theme.top_horizontal.to_string()));
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            output.push_str(
-                                &sep_color
-                                    .paint(&self.theme.top_right.to_string())
-                                    .to_string(),
-                            );
+                            output.push(sep_color.paint(self.theme.top_right.to_string()));
                         }
                     } else {
-                        output.push_str(
-                            &sep_color
-                                .paint(&self.theme.top_center.to_string())
-                                .to_string(),
-                        );
+                        output.push(sep_color.paint(self.theme.top_center.to_string()));
                     }
                 }
-                output.push('\n');
+                output.push(AnsiString::from("\n".to_string()));
             }
             SeparatorPosition::Middle => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        output.push_str(
-                            &sep_color
-                                .paint(&self.theme.middle_left.to_string())
-                                .to_string(),
-                        );
+                        output.push(sep_color.paint(self.theme.middle_left.to_string()));
                     }
 
                     for _ in 0..*column.1 {
-                        output.push_str(
-                            &sep_color
-                                .paint(&self.theme.middle_horizontal.to_string())
-                                .to_string(),
-                        );
+                        output.push(sep_color.paint(self.theme.middle_horizontal.to_string()));
                     }
 
-                    output.push_str(
-                        &sep_color
-                            .paint(&self.theme.middle_horizontal.to_string())
-                            .to_string(),
-                    );
-                    output.push_str(
-                        &sep_color
-                            .paint(&self.theme.middle_horizontal.to_string())
-                            .to_string(),
-                    );
+                    output.push(sep_color.paint(self.theme.middle_horizontal.to_string()));
+                    output.push(sep_color.paint(self.theme.middle_horizontal.to_string()));
 
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            output.push_str(
-                                &sep_color
-                                    .paint(&self.theme.middle_right.to_string())
-                                    .to_string(),
-                            );
+                            output.push(sep_color.paint(self.theme.middle_right.to_string()));
                         }
                     } else {
-                        output
-                            .push_str(&sep_color.paint(&self.theme.center.to_string()).to_string());
+                        output.push(sep_color.paint(self.theme.center.to_string()));
                     }
                 }
-                output.push('\n');
+                output.push(AnsiString::from("\n".to_string()));
             }
             SeparatorPosition::Bottom => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        output.push_str(
-                            &sep_color
-                                .paint(&self.theme.bottom_left.to_string())
-                                .to_string(),
-                        );
+                        output.push(sep_color.paint(self.theme.bottom_left.to_string()));
                     }
                     for _ in 0..*column.1 {
-                        output.push_str(
-                            &sep_color
-                                .paint(&self.theme.bottom_horizontal.to_string())
-                                .to_string(),
-                        );
+                        output.push(sep_color.paint(self.theme.bottom_horizontal.to_string()));
                     }
-                    output.push_str(
-                        &sep_color
-                            .paint(&self.theme.bottom_horizontal.to_string())
-                            .to_string(),
-                    );
-                    output.push_str(
-                        &sep_color
-                            .paint(&self.theme.bottom_horizontal.to_string())
-                            .to_string(),
-                    );
+                    output.push(sep_color.paint(self.theme.bottom_horizontal.to_string()));
+                    output.push(sep_color.paint(self.theme.bottom_horizontal.to_string()));
 
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            output.push_str(
-                                &sep_color
-                                    .paint(&self.theme.bottom_right.to_string())
-                                    .to_string(),
-                            );
+                            output.push(sep_color.paint(self.theme.bottom_right.to_string()));
                         }
                     } else {
-                        output.push_str(
-                            &sep_color
-                                .paint(&self.theme.bottom_center.to_string())
-                                .to_string(),
-                        );
+                        output.push(sep_color.paint(self.theme.bottom_center.to_string()));
                     }
                 }
             }
         }
-        output
+        AnsiStrings(&output[..]).to_string()
     }
 
     fn print_cell_contents(
