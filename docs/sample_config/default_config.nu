@@ -469,7 +469,7 @@ let-env config = {
     {
       name: commands_with_description
       modifier: control
-      keycode: char_u
+      keycode: char_s
       mode: [emacs, vi_normal, vi_insert]
       event: { send: menu name: commands_with_description }
     }
