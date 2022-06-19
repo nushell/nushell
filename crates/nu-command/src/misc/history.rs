@@ -178,7 +178,7 @@ impl Command for History {
                                         },
                                         Value::Duration {
                                             val: match entry.duration {
-                                                Some(d) => d.as_millis().try_into().unwrap_or(0),
+                                                Some(d) => d.as_nanos().try_into().unwrap_or(0),
                                                 None => 0,
                                             },
                                             span: head,
