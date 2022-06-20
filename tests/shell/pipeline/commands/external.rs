@@ -307,6 +307,7 @@ mod nu_commands {
             nu -c "cargo build; print $env.LAST_EXIT_CODE"
             "#);
 
+            // cargo for non rust project's exit code is 101.
             assert_eq!(actual.out, "101")
         })
     }
