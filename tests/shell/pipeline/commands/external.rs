@@ -287,6 +287,8 @@ mod external_words {
 }
 
 mod nu_commands {
+    use nu_test_support::playground::Playground;
+
     use super::nu;
 
     #[test]
@@ -296,6 +298,18 @@ mod nu_commands {
         "#);
 
         assert_eq!(actual.out, "foo");
+    }
+
+    #[test]
+    fn failed_with_proper_exit_code() {
+        Playground::setup("external failed", |dirs, _sandbox| {
+            let actual = nu!(cwd: dirs.test(), r#"
+            nu -c "cargo build; print $env.LAST_EXIT_CODE"
+            "#);
+
+            // cargo for non rust project's exit code is 101.
+            assert_eq!(actual.out, "101")
+        })
     }
 
     #[test]
