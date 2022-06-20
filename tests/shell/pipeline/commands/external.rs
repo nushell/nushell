@@ -1,5 +1,4 @@
 use nu_test_support::nu;
-use nu_test_support::playground::Playground;
 
 #[cfg(feature = "which-support")]
 #[test]
@@ -288,6 +287,8 @@ mod external_words {
 }
 
 mod nu_commands {
+    use nu_test_support::playground::Playground;
+
     use super::nu;
 
     #[test]
