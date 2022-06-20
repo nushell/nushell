@@ -3,22 +3,19 @@ pub mod conversions;
 
 mod alias;
 mod and;
-mod col;
 mod collect;
-mod command;
 mod describe;
 mod from;
-mod function;
 mod group_by;
 mod join;
 mod limit;
 mod open;
 mod or;
 mod order_by;
-mod over;
 mod query;
 mod schema;
 mod select;
+mod to_db;
 mod where_;
 
 // Temporal module to create Query objects
@@ -27,27 +24,24 @@ use testing::TestingDb;
 
 use nu_protocol::engine::StateWorkingSet;
 
-use alias::AliasExpr;
+use alias::AliasDb;
 use and::AndDb;
-use col::ColExpr;
 use collect::CollectDb;
-use command::Database;
-use describe::DescribeDb;
-use from::FromDb;
-use function::FunctionExpr;
+pub(crate) use describe::DescribeDb;
+pub(crate) use from::FromDb;
 use group_by::GroupByDb;
 use join::JoinDb;
 use limit::LimitDb;
 use open::OpenDb;
 use or::OrDb;
 use order_by::OrderByDb;
-use over::OverExpr;
 use query::QueryDb;
 use schema::SchemaDb;
-use select::ProjectionDb;
+pub(crate) use select::ProjectionDb;
+pub(crate) use to_db::ToDataBase;
 use where_::WhereDb;
 
-pub fn add_database_decls(working_set: &mut StateWorkingSet) {
+pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {
             ( $command:expr ) => {
                 working_set.add_decl(Box::new($command));
@@ -59,21 +53,18 @@ pub fn add_database_decls(working_set: &mut StateWorkingSet) {
 
     // Series commands
     bind_command!(
-        AliasExpr,
+        ToDataBase,
+        AliasDb,
         AndDb,
-        ColExpr,
         CollectDb,
-        Database,
         DescribeDb,
         FromDb,
-        FunctionExpr,
         GroupByDb,
         JoinDb,
         LimitDb,
         OpenDb,
         OrderByDb,
         OrDb,
-        OverExpr,
         QueryDb,
         ProjectionDb,
         SchemaDb,

@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type,
 };
 
 use super::super::SQLiteDatabase;
@@ -11,7 +11,7 @@ pub struct CollectDb;
 
 impl Command for CollectDb {
     fn name(&self) -> &str {
-        "db collect"
+        "collect"
     }
 
     fn signature(&self) -> Signature {
@@ -19,13 +19,21 @@ impl Command for CollectDb {
     }
 
     fn usage(&self) -> &str {
-        "Query a database using SQL."
+        "Collects a query from a database database connection"
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("database".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Any
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Collect from a select query",
-            example: "open foo.db | db select a | db from table_1 | db collect",
+            example: "open foo.db | into db | select a | from table_1 | collect",
             result: None,
         }]
     }

@@ -3,7 +3,7 @@ use crate::database::values::definitions::{db::Db, db_row::DbRow, db_table::DbTa
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use rusqlite::Connection;
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct SchemaDb;
 
 impl Command for SchemaDb {
     fn name(&self) -> &str {
-        "db schema"
+        "schema"
     }
 
     fn signature(&self) -> Signature {
@@ -19,13 +19,21 @@ impl Command for SchemaDb {
     }
 
     fn usage(&self) -> &str {
-        "Show database information, including its schema."
+        "Show sqlite database information, including its schema."
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("database".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Any
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Show the schema of a SQLite database",
-            example: r#"open foo.db | db schema"#,
+            example: r#"open foo.db | into db | schema"#,
             result: None,
         }]
     }

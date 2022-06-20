@@ -4,6 +4,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type,
 };
 use std::path::PathBuf;
 
@@ -12,7 +13,7 @@ pub struct OpenDb;
 
 impl Command for OpenDb {
     fn name(&self) -> &str {
-        "db open"
+        "open-db"
     }
 
     fn signature(&self) -> Signature {
@@ -31,10 +32,18 @@ impl Command for OpenDb {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Open a sqlite file",
-            example: r#"db open file.sqlite"#,
+            description: "Creates a connection to a sqlite database based on the file name",
+            example: r#"open-db file.sqlite"#,
             result: None,
         }]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Any
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("database".into())
     }
 
     fn run(

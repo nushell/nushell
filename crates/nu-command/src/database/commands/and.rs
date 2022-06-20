@@ -6,7 +6,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 use sqlparser::ast::{BinaryOperator, Expr, Query, Select, SetExpr, Statement};
 
@@ -15,11 +15,11 @@ pub struct AndDb;
 
 impl Command for AndDb {
     fn name(&self) -> &str {
-        "db and"
+        "and"
     }
 
     fn usage(&self) -> &str {
-        "Includes an AND clause for a query or expression"
+        "Includes an AND clause for a query"
     }
 
     fn signature(&self) -> Signature {
@@ -32,26 +32,63 @@ impl Command for AndDb {
         vec!["database", "where"]
     }
 
+    fn input_type(&self) -> Type {
+        Type::Custom("database".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("database".into())
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "selects a column from a database with a where clause",
-                example: r#"db open db.mysql 
-    | db select a 
-    | db from table_1 
-    | db where ((db col a) > 1) 
-    | db and ((db col b) == 1) 
-    | db describe"#,
-                result: None,
+                description: "Selects a column from a database with an AND clause",
+                example: r#"open db.mysql
+    | into db
+    | select a
+    | from table_1
+    | where ((field a) > 1)
+    | and ((field b) == 1)
+    | describe"#,
+                result: Some(Value::Record {
+                    cols: vec!["connection".into(), "query".into()],
+                    vals: vec![
+                        Value::String {
+                            val: "db.mysql".into(),
+                            span: Span::test_data(),
+                        },
+                        Value::String {
+                            val: "SELECT a FROM table_1 WHERE a > 1 AND b = 1".into(),
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
             },
             Example {
-                description: "Creates a nested where clause",
-                example: r#"db open db.mysql 
-    | db select a 
-    | db from table_1 
-    | db where ((db col a) > 1 | db and ((db col a) < 10)) 
-    | db describe"#,
-                result: None,
+                description: "Creates a AND clause combined with an expression AND",
+                example: r#"open db.mysql
+    | into db
+    | select a
+    | from table_1
+    | where ((field a) > 1 | and ((field a) < 10))
+    | and ((field b) == 1)
+    | describe"#,
+                result: Some(Value::Record {
+                    cols: vec!["connection".into(), "query".into()],
+                    vals: vec![
+                        Value::String {
+                            val: "db.mysql".into(),
+                            span: Span::test_data(),
+                        },
+                        Value::String {
+                            val: "SELECT a FROM table_1 WHERE (a > 1 AND a < 10) AND b = 1".into(),
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
             },
         ]
     }
@@ -66,51 +103,32 @@ impl Command for AndDb {
         let value: Value = call.req(engine_state, stack, 0)?;
         let expr = ExprDb::try_from_value(&value)?.into_native();
 
-        let value = input.into_value(call.head);
-        if let Ok(expression) = ExprDb::try_from_value(&value) {
-            let expression = Expr::BinaryOp {
-                left: Box::new(expression.into_native()),
-                op: BinaryOperator::And,
-                right: Box::new(expr),
-            };
-
-            let expression: ExprDb = Expr::Nested(Box::new(expression)).into();
-
-            Ok(expression.into_value(call.head).into_pipeline_data())
-        } else if let Ok(mut db) = SQLiteDatabase::try_from_value(value.clone()) {
-            match db.statement.as_mut() {
-                Some(statement) => match statement {
-                    Statement::Query(query) => modify_query(query, expr, call.head)?,
-                    s => {
-                        return Err(ShellError::GenericError(
-                            "Connection doesnt define a query".into(),
-                            format!("Expected a connection with query. Got {}", s),
-                            Some(call.head),
-                            None,
-                            Vec::new(),
-                        ))
-                    }
-                },
-                None => {
+        let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
+        match db.statement.as_mut() {
+            Some(statement) => match statement {
+                Statement::Query(query) => modify_query(query, expr, call.head)?,
+                s => {
                     return Err(ShellError::GenericError(
-                        "Connection without statement".into(),
-                        "The connection needs a statement defined".into(),
+                        "Connection doesn't define a query".into(),
+                        format!("Expected a connection with query. Got {}", s),
                         Some(call.head),
                         None,
                         Vec::new(),
                     ))
                 }
-            };
+            },
+            None => {
+                return Err(ShellError::GenericError(
+                    "Connection without statement".into(),
+                    "The connection needs a statement defined".into(),
+                    Some(call.head),
+                    None,
+                    Vec::new(),
+                ))
+            }
+        };
 
-            Ok(db.into_value(call.head).into_pipeline_data())
-        } else {
-            Err(ShellError::CantConvert(
-                "expression or query".into(),
-                value.get_type().to_string(),
-                value.span()?,
-                None,
-            ))
-        }
+        Ok(db.into_value(call.head).into_pipeline_data())
     }
 }
 
@@ -149,4 +167,24 @@ fn modify_select(select: &mut Box<Select>, expression: Expr, span: Span) -> Resu
 
     select.as_mut().selection = Some(new_expression);
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::super::expressions::{AndExpr, FieldExpr};
+    use super::super::{FromDb, ProjectionDb, WhereDb};
+    use super::*;
+    use crate::database::test_database::test_database;
+
+    #[test]
+    fn test_examples() {
+        test_database(vec![
+            Box::new(AndDb {}),
+            Box::new(ProjectionDb {}),
+            Box::new(FromDb {}),
+            Box::new(WhereDb {}),
+            Box::new(FieldExpr {}),
+            Box::new(AndExpr {}),
+        ])
+    }
 }

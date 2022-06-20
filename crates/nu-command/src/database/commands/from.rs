@@ -5,7 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 use sqlparser::ast::{Ident, Query, Select, SetExpr, Statement, TableAlias, TableWithJoins};
 
@@ -14,7 +15,7 @@ pub struct FromDb;
 
 impl Command for FromDb {
     fn name(&self) -> &str {
-        "db from"
+        "from"
     }
 
     fn usage(&self) -> &str {
@@ -41,11 +42,32 @@ impl Command for FromDb {
         vec!["database", "from"]
     }
 
+    fn input_type(&self) -> Type {
+        Type::Custom("database".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("database".into())
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Selects table from database",
-            example: "db open db.mysql | db from table_a",
-            result: None,
+            description: "Selects a table from database",
+            example: "open db.mysql | into db | from table_a | describe",
+            result: Some(Value::Record {
+                cols: vec!["connection".into(), "query".into()],
+                vals: vec![
+                    Value::String {
+                        val: "db.mysql".into(),
+                        span: Span::test_data(),
+                    },
+                    Value::String {
+                        val: "SELECT  FROM table_a".into(),
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }),
         }]
     }
 
@@ -179,4 +201,15 @@ fn create_table(
     };
 
     Ok(table)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::database::test_database::test_database;
+
+    #[test]
+    fn test_examples() {
+        test_database(vec![Box::new(FromDb {})])
+    }
 }
