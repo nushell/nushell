@@ -1,4 +1,5 @@
 use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 
 #[cfg(feature = "which-support")]
 #[test]
@@ -296,6 +297,17 @@ mod nu_commands {
         "#);
 
         assert_eq!(actual.out, "foo");
+    }
+
+    #[test]
+    fn failed_with_proper_exit_code() {
+        Playground::setup("external failed", |dirs, _sandbox| {
+            let actual = nu!(cwd: dirs.test(), r#"
+            nu -c "cargo build; print $env.LAST_EXIT_CODE"
+            "#);
+
+            assert_eq!(actual.out, "101")
+        })
     }
 
     #[test]

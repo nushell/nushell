@@ -18,7 +18,7 @@ pub fn evaluate_commands(
     input: PipelineData,
     is_perf_true: bool,
     table_mode: Option<Value>,
-) -> Result<()> {
+) -> Result<Option<i64>> {
     // Run a command (or commands) given to us by the user
     let (block, delta) = {
         if let Some(ref t_mode) = table_mode {
@@ -74,7 +74,7 @@ pub fn evaluate_commands(
         std::process::exit(1);
     }
 
-    match eval_block(engine_state, stack, &block, input, false, false) {
+    let exit_code = match eval_block(engine_state, stack, &block, input, false, false) {
         Ok(pipeline_data) => {
             crate::eval_file::print_table_or_error(engine_state, stack, pipeline_data, &mut config)
         }
@@ -84,11 +84,11 @@ pub fn evaluate_commands(
             report_error(&working_set, &err);
             std::process::exit(1);
         }
-    }
+    };
 
     if is_perf_true {
         info!("evaluate {}:{}:{}", file!(), line!(), column!());
     }
 
-    Ok(())
+    Ok(exit_code)
 }

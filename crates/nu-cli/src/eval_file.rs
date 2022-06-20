@@ -66,7 +66,7 @@ pub fn print_table_or_error(
     stack: &mut Stack,
     mut pipeline_data: PipelineData,
     config: &mut Config,
-) {
+) -> Option<i64> {
     let exit_code = match &mut pipeline_data {
         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
         _ => None,
@@ -130,6 +130,14 @@ pub fn print_table_or_error(
 
     // Make sure everything has finished
     if let Some(exit_code) = exit_code {
-        let _: Vec<_> = exit_code.into_iter().collect();
+        let mut exit_code: Vec<_> = exit_code.into_iter().collect();
+        exit_code
+            .pop()
+            .and_then(|last_exit_code| match last_exit_code {
+                Value::Int { val: code, .. } => Some(code),
+                _ => None,
+            })
+    } else {
+        None
     }
 }
