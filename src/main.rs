@@ -237,7 +237,11 @@ fn main() -> Result<()> {
                 if is_perf_true() {
                     info!("-c command execution {}:{}:{}", file!(), line!(), column!());
                 }
-                ret_val
+                match ret_val {
+                    Ok(Some(exit_code)) => std::process::exit(exit_code as i32),
+                    Ok(None) => Ok(()),
+                    Err(e) => Err(e),
+                }
             } else if !script_name.is_empty() && binary_args.interactive_shell.is_none() {
                 #[cfg(feature = "plugin")]
                 read_plugin_file(
