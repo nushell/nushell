@@ -9,5 +9,5 @@ fn row() {
             "#
     ));
 
-    assert_eq!(actual.out.matches("foo").collect(), ["foo"]);
+    assert_eq!(actual.out.matches("foo").collect::<Vec<&str>>(), ["foo"]);
 }
