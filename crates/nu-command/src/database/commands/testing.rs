@@ -13,7 +13,7 @@ pub struct TestingDb;
 
 impl Command for TestingDb {
     fn name(&self) -> &str {
-        "db testing"
+        "testing-db"
     }
 
     fn signature(&self) -> Signature {
@@ -27,7 +27,7 @@ impl Command for TestingDb {
     }
 
     fn usage(&self) -> &str {
-        "Create query object"
+        "Temporal Command: Create query object"
     }
 
     fn examples(&self) -> Vec<Example> {

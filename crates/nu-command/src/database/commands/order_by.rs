@@ -5,7 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 use sqlparser::ast::{Expr, OrderByExpr, Statement};
 
@@ -14,7 +15,7 @@ pub struct OrderByDb;
 
 impl Command for OrderByDb {
     fn name(&self) -> &str {
-        "db order-by"
+        "order-by"
     }
 
     fn usage(&self) -> &str {
@@ -34,19 +35,67 @@ impl Command for OrderByDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "select"]
+        vec!["database", "order-by"]
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Custom("database".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("database".into())
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "orders query by a column",
-            example: r#"db open db.mysql
-    | db from table_a
-    | db select a
-    | db order-by a
-    | db describe"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "orders query by a column",
+                example: r#"open db.mysql
+    | into db
+    | from table_a
+    | select a
+    | order-by a
+    | describe"#,
+                result: Some(Value::Record {
+                    cols: vec!["connection".into(), "query".into()],
+                    vals: vec![
+                        Value::String {
+                            val: "db.mysql".into(),
+                            span: Span::test_data(),
+                        },
+                        Value::String {
+                            val: "SELECT a FROM table_a ORDER BY a".into(),
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "orders query by column a ascending and by column b",
+                example: r#"open db.mysql
+    | into db
+    | from table_a
+    | select a
+    | order-by a --ascending
+    | order-by b
+    | describe"#,
+                result: Some(Value::Record {
+                    cols: vec!["connection".into(), "query".into()],
+                    vals: vec![
+                        Value::String {
+                            val: "db.mysql".into(),
+                            span: Span::test_data(),
+                        },
+                        Value::String {
+                            val: "SELECT a FROM table_a ORDER BY a ASC, b".into(),
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 
     fn run(
@@ -154,4 +203,24 @@ fn update_connection(
     };
 
     Ok(db.into_value(call.head).into_pipeline_data())
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::super::expressions::{FieldExpr, OrExpr};
+    use super::super::{FromDb, ProjectionDb, WhereDb};
+    use super::*;
+    use crate::database::test_database::test_database;
+
+    #[test]
+    fn test_examples() {
+        test_database(vec![
+            Box::new(OrderByDb {}),
+            Box::new(ProjectionDb {}),
+            Box::new(FromDb {}),
+            Box::new(WhereDb {}),
+            Box::new(FieldExpr {}),
+            Box::new(OrExpr {}),
+        ])
+    }
 }

@@ -4,7 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 use sqlparser::ast::{
     Ident, Join, JoinConstraint, JoinOperator, Select, SetExpr, Statement, TableAlias,
@@ -15,7 +16,7 @@ pub struct JoinDb;
 
 impl Command for JoinDb {
     fn name(&self) -> &str {
-        "db join"
+        "join"
     }
 
     fn usage(&self) -> &str {
@@ -47,12 +48,70 @@ impl Command for JoinDb {
         vec!["database", "join"]
     }
 
+    fn input_type(&self) -> Type {
+        Type::Custom("database".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Custom("database".into())
+    }
+
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "",
-            example: "",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "joins two tables on col_b",
+                example: r#"open db.mysql
+    | into db
+    | select col_a
+    | from table_1 --as t1
+    | join table_2 col_b --as t2
+    | describe"#,
+                result: Some(Value::Record {
+                    cols: vec!["connection".into(), "query".into()],
+                    vals: vec![
+                        Value::String {
+                            val: "db.mysql".into(),
+                            span: Span::test_data(),
+                        },
+                        Value::String {
+                            val: "SELECT col_a FROM table_1 AS t1 JOIN table_2 AS t2 ON col_b"
+                                .into(),
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "joins a table with a derived table using aliases",
+                example: r#"open db.mysql
+    | into db
+    | select col_a
+    | from table_1 --as t1
+    | join (
+        open db.mysql
+        | into db
+        | select col_c
+        | from table_2
+      ) ((field t1.col_a) == (field t2.col_c)) --as t2 --right
+    | describe"#,
+                result: Some(Value::Record {
+                    cols: vec!["connection".into(), "query".into()],
+                    vals: vec![
+                        Value::String {
+                            val: "db.mysql".into(),
+                            span: Span::test_data(),
+                        },
+                        Value::String {
+                            val: "SELECT col_a FROM table_1 AS t1 RIGHT JOIN (SELECT col_c FROM table_2) AS t2 ON t1.col_a = t2.col_c"
+                                .into(),
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 
     fn run(
@@ -174,5 +233,25 @@ fn modify_from(
             None,
             Vec::new(),
         )),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::super::expressions::{FieldExpr, OrExpr};
+    use super::super::{FromDb, ProjectionDb, WhereDb};
+    use super::*;
+    use crate::database::test_database::test_database;
+
+    #[test]
+    fn test_examples() {
+        test_database(vec![
+            Box::new(JoinDb {}),
+            Box::new(ProjectionDb {}),
+            Box::new(FromDb {}),
+            Box::new(WhereDb {}),
+            Box::new(FieldExpr {}),
+            Box::new(OrExpr {}),
+        ])
     }
 }

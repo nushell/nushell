@@ -3,6 +3,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type,
 };
 
 use super::super::SQLiteDatabase;
@@ -12,7 +13,7 @@ pub struct QueryDb;
 
 impl Command for QueryDb {
     fn name(&self) -> &str {
-        "db query"
+        "query"
     }
 
     fn signature(&self) -> Signature {
@@ -29,10 +30,18 @@ impl Command for QueryDb {
         "Query a database using SQL."
     }
 
+    fn input_type(&self) -> Type {
+        Type::Custom("database".into())
+    }
+
+    fn output_type(&self) -> Type {
+        Type::Any
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Get 1 table out of a SQLite database",
-            example: r#"db open foo.db | db query "SELECT * FROM Bar""#,
+            description: "Execute a query statement using the database connection",
+            example: r#"open foo.db | into db | query "SELECT * FROM Bar""#,
             result: None,
         }]
     }
