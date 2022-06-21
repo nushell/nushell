@@ -411,7 +411,7 @@ impl ExternalCommand {
 
         for arg in self.args.iter() {
             let mut arg = Spanned {
-                item: trim_enclosing_quotes(&arg.item),
+                item: remove_quotes(trim_enclosing_quotes(&arg.item)),
                 span: arg.span,
             };
             arg.item = nu_path::expand_to_real_path(arg.item)
@@ -518,15 +518,27 @@ fn shell_arg_escape(arg: &str) -> String {
 fn trim_enclosing_quotes(input: &str) -> String {
     let mut chars = input.chars();
 
-    let res = match (chars.next(), chars.next_back()) {
+    match (chars.next(), chars.next_back()) {
         (Some('"'), Some('"')) => chars.collect(),
         (Some('\''), Some('\'')) => chars.collect(),
         (Some('`'), Some('`')) => chars.collect(),
         _ => input.to_string(),
+    }
+}
+
+fn remove_quotes(input: String) -> String {
+    let chars = input.chars();
+
+    let replace = match chars.last() {
+        Some('"') => Some('"'),
+        Some('\'') => Some('\''),
+        _ => None,
     };
 
-    // To follow Bash convention, all externals receive their arguments without quotes
-    res.replace("\"", "")
+    match replace {
+        Some(char) => input.replace(char, ""),
+        None => input,
+    }
 }
 
 // Receiver used for the RawStream
