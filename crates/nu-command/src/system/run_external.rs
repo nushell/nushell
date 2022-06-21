@@ -410,7 +410,7 @@ impl ExternalCommand {
         let mut process = std::process::Command::new(&head);
 
         for arg in self.args.iter() {
-            let mut arg = Spanned {
+            let arg = Spanned {
                 item: trim_enclosing_quotes(&arg.item),
                 span: arg.span,
             };
