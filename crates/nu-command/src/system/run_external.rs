@@ -410,10 +410,14 @@ impl ExternalCommand {
         let mut process = std::process::Command::new(&head);
 
         for arg in self.args.iter() {
-            let arg = Spanned {
+            let mut arg = Spanned {
                 item: trim_enclosing_quotes(&arg.item),
                 span: arg.span,
             };
+
+            arg.item = nu_path::expand_tilde(arg.item)
+                .to_string_lossy()
+                .to_string();
 
             let cwd = PathBuf::from(cwd);
 
