@@ -18,7 +18,6 @@ use regex::Regex;
 
 const OUTPUT_BUFFER_SIZE: usize = 1024;
 const OUTPUT_BUFFERS_IN_FLIGHT: usize = 3;
-const EXCLUDED_PATHS: &[&str] = &["./..."];
 
 #[derive(Clone)]
 pub struct External;
@@ -415,12 +414,6 @@ impl ExternalCommand {
                 item: trim_enclosing_quotes(&arg.item),
                 span: arg.span,
             };
-
-            if EXCLUDED_PATHS.iter().all(|v| v != &arg.item) {
-                arg.item = nu_path::expand_to_real_path(arg.item)
-                    .to_string_lossy()
-                    .to_string();
-            }
 
             let cwd = PathBuf::from(cwd);
 
