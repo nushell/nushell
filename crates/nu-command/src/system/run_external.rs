@@ -527,17 +527,15 @@ fn trim_enclosing_quotes(input: &str) -> String {
 }
 
 fn remove_quotes(input: String) -> String {
-    let chars = input.chars();
+    let mut chars = input.chars();
 
-    let replace = match chars.last() {
-        Some('"') => Some('"'),
-        Some('\'') => Some('\''),
-        _ => None,
-    };
-
-    match replace {
-        Some(char) => input.replace(char, ""),
-        None => input,
+    match chars.next_back() {
+        Some('"') => chars
+            .collect::<String>()
+            .replacen('"', "", 1)
+            .replace(r#"\""#, "\""),
+        Some('\'') => chars.collect::<String>().replacen('\'', "", 1),
+        _ => input,
     }
 }
 
