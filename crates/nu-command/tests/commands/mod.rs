@@ -34,6 +34,7 @@ mod lines;
 mod ls;
 mod math;
 mod merge;
+mod transpose;
 mod mkdir;
 mod move_;
 mod open;
