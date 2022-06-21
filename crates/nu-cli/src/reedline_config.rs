@@ -875,7 +875,16 @@ fn edit_from_record(
         "moveleft" => EditCommand::MoveLeft,
         "moveright" => EditCommand::MoveRight,
         "movewordleft" => EditCommand::MoveWordLeft,
+        "movebigwordleft" => EditCommand::MoveBigWordLeft,
         "movewordright" => EditCommand::MoveWordRight,
+        "movewordrightend" => EditCommand::MoveWordRightEnd,
+        "movebigwordrightend" => EditCommand::MoveBigWordRightEnd,
+        "movewordrightstart" => EditCommand::MoveWordRightStart,
+        "movebigwordrightstart" => EditCommand::MoveBigWordRightStart,
+        "movetoposition" => {
+            let value = extract_value("value", cols, vals, span)?;
+            EditCommand::MoveToPosition(value.as_integer()? as usize)
+        }
         "insertchar" => {
             let value = extract_value("value", cols, vals, span)?;
             let char = extract_char(value, config)?;
@@ -888,6 +897,7 @@ fn edit_from_record(
         "insertnewline" => EditCommand::InsertNewline,
         "backspace" => EditCommand::Backspace,
         "delete" => EditCommand::Delete,
+        "cutchar" => EditCommand::CutChar,
         "backspaceword" => EditCommand::BackspaceWord,
         "deleteword" => EditCommand::DeleteWord,
         "clear" => EditCommand::Clear,
@@ -898,7 +908,11 @@ fn edit_from_record(
         "cuttoend" => EditCommand::CutToEnd,
         "cuttolineend" => EditCommand::CutToLineEnd,
         "cutwordleft" => EditCommand::CutWordLeft,
+        "cutbigwordleft" => EditCommand::CutBigWordLeft,
         "cutwordright" => EditCommand::CutWordRight,
+        "cutbigwordright" => EditCommand::CutBigWordRight,
+        "cutwordrighttonext" => EditCommand::CutWordRightToNext,
+        "cutbigwordrighttonext" => EditCommand::CutBigWordRightToNext,
         "pastecutbufferbefore" => EditCommand::PasteCutBufferBefore,
         "pastecutbufferafter" => EditCommand::PasteCutBufferAfter,
         "uppercaseword" => EditCommand::UppercaseWord,
