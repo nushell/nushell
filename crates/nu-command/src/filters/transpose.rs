@@ -240,12 +240,16 @@ pub fn transpose(
             for i in input.clone() {
                 match &i.get_data_by_key(&desc) {
                     Some(x) => {
-                        cols.push(headers[column_num].clone());
-                        vals.push(x.clone());
+                        if !cols.contains(&headers[column_num]) {
+                            cols.push(headers[column_num].clone());
+                            vals.push(x.clone());
+                        }
                     }
                     _ => {
-                        cols.push(headers[column_num].clone());
-                        vals.push(Value::nothing(name));
+                        if !cols.contains(&headers[column_num]) {
+                            cols.push(headers[column_num].clone());
+                            vals.push(Value::nothing(name));
+                        }
                     }
                 }
                 column_num += 1;
