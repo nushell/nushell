@@ -3,7 +3,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn row() {
     let actual = nu!(
-    cwd: dirs.test(), pipeline(
+    cwd: ".", pipeline(
     r#"
         [[key value]; [foo 1] [foo 2]] | transpose -r | debug
             "#
