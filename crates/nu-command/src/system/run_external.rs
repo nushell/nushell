@@ -518,12 +518,15 @@ fn shell_arg_escape(arg: &str) -> String {
 fn trim_enclosing_quotes(input: &str) -> String {
     let mut chars = input.chars();
 
-    match (chars.next(), chars.next_back()) {
+    let res = match (chars.next(), chars.next_back()) {
         (Some('"'), Some('"')) => chars.collect(),
         (Some('\''), Some('\'')) => chars.collect(),
         (Some('`'), Some('`')) => chars.collect(),
         _ => input.to_string(),
-    }
+    };
+
+    // To follow Bash convention, all externals receive their arguments without quotes
+    res.replace("\"", "")
 }
 
 // Receiver used for the RawStream
