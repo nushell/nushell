@@ -416,7 +416,7 @@ impl ExternalCommand {
                 span: arg.span,
             };
 
-            if EXCLUDED_PATHS.iter().any(|v| v != &arg.item) {
+            if EXCLUDED_PATHS.iter().all(|v| v != &arg.item) {
                 arg.item = nu_path::expand_to_real_path(arg.item)
                     .to_string_lossy()
                     .to_string();
