@@ -216,6 +216,10 @@ pub fn math_result_type(
 
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
+
+                // FIX ME. This is added because there is no type output for custom function
+                // definitions. As soon as that syntax is added this should be removed
+                (a, b) if a == b => (Type::Bool, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
