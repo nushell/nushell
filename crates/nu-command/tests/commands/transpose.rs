@@ -9,7 +9,7 @@ fn row() {
             "#
     ));
 
-    assert_eq!(actual.out, "{{foo: 1}}");
+    assert!(actual.out.contains("foo: 1"));
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn row_but_last() {
             "#
     ));
 
-    assert_eq!(actual.out, "{{foo: 2}}");
+    assert!(actual.out.contains("foo: 2"));
 }
 
 #[test]
@@ -33,5 +33,5 @@ fn row_but_all() {
             "#
     ));
 
-    assert_eq!(actual.out, "{{foo: [1, 2]}}");
+    assert!(actual.out.contains("foo: [1, 2]"));
 }
