@@ -48,7 +48,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "get free port between 3000 and 4000",
+                description: "get free port between 3121 and 4000",
                 example: "port 3121 4000",
                 result: Some(Value::Int {
                     val: 3121,
