@@ -41,7 +41,7 @@ impl Completer for VariableCompletion {
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let mut output = vec![];
-        let builtins = ["$nu", "$in", "$config", "$env", "$nothing"];
+        let builtins = ["$nu", "$in", "$env", "$nothing"];
         let var_str = std::str::from_utf8(&self.var_context.0)
             .unwrap_or("")
             .to_lowercase();
