@@ -34,7 +34,8 @@ fn port_with_already_usage() {
     // make sure that the thread is closed and we release the port.
     handler.join().unwrap();
 
-    assert!(actual.err.contains("Address already in use"))
+    // check for error kind str.
+    assert!(actual.err.contains("AddrInUse"))
 }
 
 #[test]
