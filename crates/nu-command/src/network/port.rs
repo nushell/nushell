@@ -28,7 +28,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Generate an available port from given range"
+        "Get a free port from system"
     }
 
     fn search_terms(&self) -> Vec<&str> {
