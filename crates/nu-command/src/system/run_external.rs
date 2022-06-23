@@ -414,7 +414,8 @@ impl ExternalCommand {
                 item: trim_enclosing_quotes(&arg.item),
                 span: arg.span,
             };
-            arg.item = nu_path::expand_to_real_path(arg.item)
+
+            arg.item = nu_path::expand_tilde(arg.item)
                 .to_string_lossy()
                 .to_string();
 
