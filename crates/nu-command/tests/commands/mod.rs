@@ -65,6 +65,7 @@ mod split_row;
 mod str_;
 mod take;
 mod touch;
+mod transpose;
 mod uniq;
 mod update;
 mod upsert;

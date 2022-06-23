@@ -15,6 +15,8 @@ pub struct TransposeArgs {
     header_row: bool,
     ignore_titles: bool,
     as_record: bool,
+    keep_last: bool,
+    keep_all: bool,
 }
 
 impl Command for Transpose {
@@ -38,6 +40,16 @@ impl Command for Transpose {
                 "as-record",
                 "transfer to record if the result is a table and contains only one row",
                 Some('d'),
+            )
+            .switch(
+                "keep-last",
+                "on repetition of record fields due to `header-row`, keep the last value obtained",
+                Some('l'),
+            )
+            .switch(
+                "keep-all",
+                "on repetition of record fields due to `header-row`, keep all the values obtained",
+                Some('a'),
             )
             .rest(
                 "rest",
@@ -149,6 +161,8 @@ pub fn transpose(
         header_row: call.has_flag("header-row"),
         ignore_titles: call.has_flag("ignore-titles"),
         as_record: call.has_flag("as-record"),
+        keep_last: call.has_flag("keep-last"),
+        keep_all: call.has_flag("keep-all"),
         rest: call.rest(engine_state, stack, 0)?,
     };
 
@@ -240,12 +254,82 @@ pub fn transpose(
             for i in input.clone() {
                 match &i.get_data_by_key(&desc) {
                     Some(x) => {
-                        cols.push(headers[column_num].clone());
-                        vals.push(x.clone());
+                        if args.keep_all && cols.contains(&headers[column_num]) {
+                            let index = cols
+                                .iter()
+                                .position(|y| y == &headers[column_num])
+                                .expect("value is contained.");
+                            let new_val = match &vals[index] {
+                                Value::List { vals, span } => {
+                                    let mut vals = vals.clone();
+                                    vals.push(x.clone());
+                                    Value::List {
+                                        vals: vals.to_vec(),
+                                        span: *span,
+                                    }
+                                }
+                                v => Value::List {
+                                    vals: vec![v.clone(), x.clone()],
+                                    span: v.span().expect("this should be a valid span"),
+                                },
+                            };
+                            cols.remove(index);
+                            vals.remove(index);
+
+                            cols.push(headers[column_num].clone());
+                            vals.push(new_val);
+                        } else if args.keep_last && cols.contains(&headers[column_num]) {
+                            let index = cols
+                                .iter()
+                                .position(|y| y == &headers[column_num])
+                                .expect("value is contained.");
+                            cols.remove(index);
+                            vals.remove(index);
+                            cols.push(headers[column_num].clone());
+                            vals.push(x.clone());
+                        } else if !cols.contains(&headers[column_num]) {
+                            cols.push(headers[column_num].clone());
+                            vals.push(x.clone());
+                        }
                     }
                     _ => {
-                        cols.push(headers[column_num].clone());
-                        vals.push(Value::nothing(name));
+                        if args.keep_all && cols.contains(&headers[column_num]) {
+                            let index = cols
+                                .iter()
+                                .position(|y| y == &headers[column_num])
+                                .expect("value is contained.");
+                            let new_val = match &vals[index] {
+                                Value::List { vals, span } => {
+                                    let mut vals = vals.clone();
+                                    vals.push(Value::nothing(name));
+                                    Value::List {
+                                        vals: vals.to_vec(),
+                                        span: *span,
+                                    }
+                                }
+                                v => Value::List {
+                                    vals: vec![v.clone(), Value::nothing(name)],
+                                    span: v.span().expect("this should be a valid span"),
+                                },
+                            };
+                            cols.remove(index);
+                            vals.remove(index);
+
+                            cols.push(headers[column_num].clone());
+                            vals.push(new_val);
+                        } else if args.keep_last && cols.contains(&headers[column_num]) {
+                            let index = cols
+                                .iter()
+                                .position(|y| y == &headers[column_num])
+                                .expect("value is contained.");
+                            cols.remove(index);
+                            vals.remove(index);
+                            cols.push(headers[column_num].clone());
+                            vals.push(Value::nothing(name));
+                        } else if !cols.contains(&headers[column_num]) {
+                            cols.push(headers[column_num].clone());
+                            vals.push(Value::nothing(name));
+                        }
                     }
                 }
                 column_num += 1;
