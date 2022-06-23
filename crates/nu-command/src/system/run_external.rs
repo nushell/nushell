@@ -411,7 +411,7 @@ impl ExternalCommand {
 
         for arg in self.args.iter() {
             let mut arg = Spanned {
-                item: trim_enclosing_quotes(&arg.item),
+                item: remove_quotes(trim_enclosing_quotes(&arg.item)),
                 span: arg.span,
             };
 
@@ -524,6 +524,19 @@ fn trim_enclosing_quotes(input: &str) -> String {
         (Some('\''), Some('\'')) => chars.collect(),
         (Some('`'), Some('`')) => chars.collect(),
         _ => input.to_string(),
+    }
+}
+
+fn remove_quotes(input: String) -> String {
+    let mut chars = input.chars();
+
+    match chars.next_back() {
+        Some('"') => chars
+            .collect::<String>()
+            .replacen('"', "", 1)
+            .replace(r#"\""#, "\""),
+        Some('\'') => chars.collect::<String>().replacen('\'', "", 1),
+        _ => input,
     }
 }
 
