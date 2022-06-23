@@ -16,7 +16,8 @@ module completions {
 
   # Download objects and refs from another repository
   export extern "git fetch" [
-    repository?: string@"nu-complete git remotes" # name of the branch to fetch
+    repository?: string@"nu-complete git remotes" # name of the repository to fetch
+    branch?: string@"nu-complete git branches" # name of the branch to fetch
     --all                                         # Fetch all remotes
     --append(-a)                                  # Append ref names and object names to .git/FETCH_HEAD
     --atomic                                      # Use an atomic transaction to update local refs.
