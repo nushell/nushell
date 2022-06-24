@@ -88,6 +88,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ansi-str"
+version = "0.1.1"
+source = "git+https://github.com/zhiburt/ansi-str?branch=master#349d52624183e3238a7fc99508a26b930d1d6e8c"
+dependencies = [
+ "ansi-parser",
+]
+
+[[package]]
+name = "ansi-str"
+version = "0.1.1"
+source = "git+https://github.com/zhiburt/ansi-str?rev=349d52624183e3238a7fc99508a26b930d1d6e8c#349d52624183e3238a7fc99508a26b930d1d6e8c"
+dependencies = [
+ "ansi-parser",
+]
+
+[[package]]
 name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -385,6 +401,12 @@ checksum = "95ebf10dda65f19ff0f42ea15572a359ed60d7fc74fdc984d90310937be0014b"
 dependencies = [
  "utf8-width",
 ]
+
+[[package]]
+name = "bytecount"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c676a478f63e9fa2dd5368a42f28bba0d6c560b775f38583c8bbaa7fcd67c9c"
 
 [[package]]
 name = "bytemuck"
@@ -2762,12 +2784,13 @@ dependencies = [
 name = "nu-table"
 version = "0.64.1"
 dependencies = [
- "ansi-str",
+ "ansi-str 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "atty",
  "nu-ansi-term",
  "nu-protocol",
  "regex",
  "strip-ansi-escapes",
+ "tabled",
  "unicode-width",
 ]
 
@@ -3088,6 +3111,17 @@ name = "owo-colors"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "decf7381921fea4dcb2549c5667eda59b3ec297ab7e2b5fc33eac69d2e7da87b"
+
+[[package]]
+name = "papergrid"
+version = "0.4.0"
+source = "git+https://github.com/zhiburt/tabled?rev=c5d88c5179acfb297ace0b3accf244635e8e72b3#c5d88c5179acfb297ace0b3accf244635e8e72b3"
+dependencies = [
+ "ansi-str 0.1.1 (git+https://github.com/zhiburt/ansi-str?rev=349d52624183e3238a7fc99508a26b930d1d6e8c)",
+ "bytecount",
+ "strip-ansi-escapes",
+ "unicode-width",
+]
 
 [[package]]
 name = "parking_lot"
@@ -4652,6 +4686,27 @@ dependencies = [
  "once_cell",
  "rayon",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "tabled"
+version = "0.7.0"
+source = "git+https://github.com/zhiburt/tabled?rev=c5d88c5179acfb297ace0b3accf244635e8e72b3#c5d88c5179acfb297ace0b3accf244635e8e72b3"
+dependencies = [
+ "ansi-str 0.1.1 (git+https://github.com/zhiburt/ansi-str?branch=master)",
+ "papergrid",
+ "tabled_derive",
+ "unicode-width",
+]
+
+[[package]]
+name = "tabled_derive"
+version = "0.3.0"
+source = "git+https://github.com/zhiburt/tabled?rev=c5d88c5179acfb297ace0b3accf244635e8e72b3#c5d88c5179acfb297ace0b3accf244635e8e72b3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

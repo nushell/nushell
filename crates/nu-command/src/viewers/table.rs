@@ -168,7 +168,8 @@ impl Command for Table {
                     theme: load_theme_from_config(config),
                 };
 
-                let result = nu_table::draw_table(&table, term_width, &color_hm, config);
+                let result = nu_table::draw_table(&table, term_width, &color_hm, config)
+                    .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
 
                 Ok(Value::String {
                     val: result,
@@ -537,7 +538,8 @@ impl Iterator for PagingTableCreator {
 
         match table {
             Ok(Some(table)) => {
-                let result = nu_table::draw_table(&table, term_width, &color_hm, &self.config);
+                let result = nu_table::draw_table(&table, term_width, &color_hm, &self.config)
+                    .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
 
                 Some(Ok(result.as_bytes().to_vec()))
             }

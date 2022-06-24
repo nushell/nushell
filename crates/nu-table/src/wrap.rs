@@ -1,17 +1,11 @@
 use crate::textstyle::TextStyle;
+use crate::{StyledString, TableTheme};
 use ansi_str::AnsiStr;
 use nu_ansi_term::Style;
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::{fmt::Display, iter::Iterator};
+use std::iter::Iterator;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
-
-#[derive(Debug, Clone, Copy)]
-pub enum Alignment {
-    Left,
-    Center,
-    Right,
-}
 
 #[derive(Debug)]
 pub struct Subline {
@@ -37,21 +31,6 @@ pub struct WrappedCell {
     pub max_width: usize,
 
     pub style: TextStyle,
-}
-
-impl Display for Line {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut first = true;
-        for subline in &self.sublines {
-            if !first {
-                write!(f, " ")?;
-            } else {
-                first = false;
-            }
-            write!(f, "{}", subline.subline)?;
-        }
-        Ok(())
-    }
 }
 
 /// Removes ANSI escape codes and some ASCII control characters
@@ -181,7 +160,7 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
     output
 }
 
-pub fn wrap(
+pub fn wrap_content(
     cell_width: usize,
     mut input: impl Iterator<Item = Subline>,
     color_hm: &HashMap<String, Style>,
@@ -317,4 +296,354 @@ pub fn wrap(
     }
 
     (output, current_max)
+}
+
+pub fn wrap(
+    headers: &[StyledString],
+    data: &[Vec<StyledString>],
+    termwidth: usize,
+    theme: &TableTheme,
+) -> Option<(Vec<String>, Vec<Vec<String>>)> {
+    // Remove the edges, if used
+    let edges_width = if theme.print_left_border && theme.print_right_border {
+        3
+    } else if theme.print_left_border || theme.print_right_border {
+        1
+    } else {
+        0
+    };
+
+    if termwidth < edges_width {
+        return None;
+    }
+
+    let termwidth = termwidth - edges_width;
+
+    let (mut headers_splited, mut data_splited) = split_lines(headers, data);
+
+    let max_per_column = get_max_column_widths(&headers_splited, &data_splited);
+
+    maybe_truncate_columns(termwidth, &mut headers_splited, &mut data_splited);
+
+    let mut headers_len = headers_splited.len();
+    if headers_len == 0 {
+        if !data.is_empty() && !data[0].is_empty() {
+            headers_len = data_splited[0].len();
+        } else {
+            return Some((Vec::new(), Vec::new()));
+        }
+    }
+
+    // Measure how big our columns need to be (accounting for separators also)
+    let max_naive_column_width = (termwidth - 3 * (headers_len - 1)) / headers_len;
+
+    let column_space = ColumnSpace::measure(&max_per_column, max_naive_column_width, headers_len);
+
+    // This gives us the max column width
+    let max_column_width = column_space.max_width(termwidth)?;
+
+    // This width isn't quite right, as we're rounding off some of our space
+    let column_space = column_space.fix_almost_column_width(
+        &max_per_column,
+        max_naive_column_width,
+        max_column_width,
+        headers_len,
+    );
+
+    // This should give us the final max column width
+    let max_column_width = column_space.max_width(termwidth)?;
+
+    let re_leading =
+        regex::Regex::new(r"(?P<beginsp>^\s+)").expect("error with leading space regex");
+    let re_trailing =
+        regex::Regex::new(r"(?P<endsp>\s+$)").expect("error with trailing space regex");
+
+    let result = wrap_cells(
+        headers_splited,
+        data_splited,
+        max_column_width,
+        &re_leading,
+        &re_trailing,
+    );
+
+    Some(result)
+}
+
+struct ContentLines {
+    pub lines: Vec<Vec<Subline>>,
+    pub style: TextStyle,
+}
+
+fn split_lines(
+    headers: &[StyledString],
+    data: &[Vec<StyledString>],
+) -> (Vec<ContentLines>, Vec<Vec<ContentLines>>) {
+    let mut splited_headers = Vec::with_capacity(headers.len());
+    for column in headers {
+        let content = clean(&column.contents);
+        let lines = split_sublines(&content);
+        splited_headers.push(ContentLines {
+            lines,
+            style: column.style,
+        });
+    }
+
+    let mut splited_data = Vec::with_capacity(data.len());
+    for row in data {
+        let mut splited_row = Vec::with_capacity(row.len());
+        for column in row {
+            let content = clean(&column.contents);
+            let lines = split_sublines(&content);
+            splited_row.push(ContentLines {
+                lines,
+                style: column.style,
+            });
+        }
+
+        splited_data.push(splited_row);
+    }
+
+    (splited_headers, splited_data)
+}
+
+fn get_max_column_widths(headers: &[ContentLines], data: &[Vec<ContentLines>]) -> Vec<usize> {
+    use std::cmp::max;
+
+    let mut max_num_columns = 0;
+
+    max_num_columns = max(max_num_columns, headers.len());
+
+    for row in data {
+        max_num_columns = max(max_num_columns, row.len());
+    }
+
+    let mut output = vec![0; max_num_columns];
+
+    for (col, content) in headers.iter().enumerate() {
+        output[col] = max(output[col], column_width(&content.lines));
+    }
+
+    for row in data {
+        for (col, content) in row.iter().enumerate() {
+            output[col] = max(output[col], column_width(&content.lines));
+        }
+    }
+
+    output
+}
+
+fn wrap_cells(
+    headers_splited: Vec<ContentLines>,
+    data_splited: Vec<Vec<ContentLines>>,
+    max_column_width: usize,
+    re_leading: &regex::Regex,
+    re_trailing: &regex::Regex,
+) -> (Vec<String>, Vec<Vec<String>>) {
+    let mut header = vec![String::new(); headers_splited.len()];
+    for (col, splited) in headers_splited.into_iter().enumerate() {
+        let mut wrapped = vec![];
+        for contents in splited.lines {
+            let (mut lines, _) = wrap_content(
+                max_column_width,
+                contents.into_iter(),
+                &HashMap::new(),
+                re_leading,
+                re_trailing,
+            );
+            wrapped.append(&mut lines);
+        }
+
+        let content = wrapped
+            .into_iter()
+            .map(|l| l.line)
+            .collect::<Vec<_>>()
+            .join("\n");
+        let content = splited
+            .style
+            .color_style
+            .map(|color| color.paint(&content).to_string())
+            .unwrap_or(content);
+
+        header[col] = content;
+    }
+
+    let mut data = vec![Vec::new(); data_splited.len()];
+    for (row, splited) in data_splited.into_iter().enumerate() {
+        for splited in splited.into_iter() {
+            let mut wrapped = vec![];
+            for contents in splited.lines {
+                let (mut lines, _) = wrap_content(
+                    max_column_width,
+                    contents.into_iter(),
+                    &HashMap::new(),
+                    re_leading,
+                    re_trailing,
+                );
+                wrapped.append(&mut lines);
+            }
+
+            let content = wrapped
+                .into_iter()
+                .map(|l| l.line)
+                .collect::<Vec<_>>()
+                .join("\n");
+            let content = splited
+                .style
+                .color_style
+                .map(|color| color.paint(&content).to_string())
+                .unwrap_or(content);
+
+            data[row].push(content);
+        }
+    }
+
+    (header, data)
+}
+
+fn maybe_truncate_columns(
+    termwidth: usize,
+    headers: &mut Vec<ContentLines>,
+    data: &mut [Vec<ContentLines>],
+) {
+    // Make sure we have enough space for the columns we have
+    let max_num_of_columns = termwidth / 10;
+
+    // If we have too many columns, truncate the table
+    if max_num_of_columns < headers.len() {
+        headers.truncate(max_num_of_columns);
+        headers.push(ContentLines {
+            lines: vec![vec![Subline {
+                subline: String::from("..."),
+                width: 3,
+            }]],
+            style: TextStyle::basic_center(),
+        });
+    }
+
+    if max_num_of_columns < headers.len() {
+        for entry in data.iter_mut() {
+            entry.truncate(max_num_of_columns);
+            entry.push(ContentLines {
+                lines: vec![vec![Subline {
+                    subline: String::from("..."),
+                    width: 3,
+                }]],
+                style: TextStyle::basic_center(),
+            });
+        }
+    }
+}
+
+struct ColumnSpace {
+    num_overages: usize,
+    underage_sum: usize,
+    overage_separator_sum: usize,
+}
+
+impl ColumnSpace {
+    /// Measure how much space we have once we subtract off the columns who are small enough
+    fn measure(
+        max_per_column: &[usize],
+        max_naive_column_width: usize,
+        headers_len: usize,
+    ) -> ColumnSpace {
+        let mut num_overages = 0;
+        let mut underage_sum = 0;
+        let mut overage_separator_sum = 0;
+        let iter = max_per_column.iter().enumerate().take(headers_len);
+
+        for (i, &column_max) in iter {
+            if column_max > max_naive_column_width {
+                num_overages += 1;
+                if i != (headers_len - 1) {
+                    overage_separator_sum += 3;
+                }
+                if i == 0 {
+                    overage_separator_sum += 1;
+                }
+            } else {
+                underage_sum += column_max;
+                // if column isn't last, add 3 for its separator
+                if i != (headers_len - 1) {
+                    underage_sum += 3;
+                }
+                if i == 0 {
+                    underage_sum += 1;
+                }
+            }
+        }
+
+        ColumnSpace {
+            num_overages,
+            underage_sum,
+            overage_separator_sum,
+        }
+    }
+
+    fn fix_almost_column_width(
+        self,
+        max_per_column: &[usize],
+        max_naive_column_width: usize,
+        max_column_width: usize,
+        headers_len: usize,
+    ) -> ColumnSpace {
+        let mut num_overages = 0;
+        let mut overage_separator_sum = 0;
+        let mut underage_sum = self.underage_sum;
+        let iter = max_per_column.iter().enumerate().take(headers_len);
+
+        for (i, &column_max) in iter {
+            if column_max > max_naive_column_width {
+                if column_max <= max_column_width {
+                    underage_sum += column_max;
+                    // if column isn't last, add 3 for its separator
+                    if i != (headers_len - 1) {
+                        underage_sum += 3;
+                    }
+                    if i == 0 {
+                        underage_sum += 1;
+                    }
+                } else {
+                    // Column is still too large, so let's count it
+                    num_overages += 1;
+                    if i != (headers_len - 1) {
+                        overage_separator_sum += 3;
+                    }
+                    if i == 0 {
+                        overage_separator_sum += 1;
+                    }
+                }
+            }
+        }
+
+        ColumnSpace {
+            num_overages,
+            underage_sum,
+            overage_separator_sum,
+        }
+    }
+
+    fn max_width(&self, termwidth: usize) -> Option<usize> {
+        let ColumnSpace {
+            num_overages,
+            underage_sum,
+            overage_separator_sum,
+        } = self;
+
+        if *num_overages > 0 {
+            termwidth
+                .checked_sub(1)?
+                .checked_sub(*underage_sum)?
+                .checked_sub(*overage_separator_sum)?
+                .checked_div(*num_overages)
+        } else {
+            Some(99999)
+        }
+    }
+}
+
+fn clean(input: &str) -> String {
+    let input = input.replace('\r', "");
+
+    input.replace('\t', "    ")
 }

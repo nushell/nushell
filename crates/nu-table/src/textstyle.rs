@@ -1,5 +1,6 @@
-use crate::wrap::Alignment;
 use nu_ansi_term::{Color, Style};
+
+pub type Alignment = tabled::AlignmentHorizontal;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TextStyle {
@@ -239,7 +240,7 @@ impl Default for TextStyle {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct StyledString {
     pub contents: String,
     pub style: TextStyle,
