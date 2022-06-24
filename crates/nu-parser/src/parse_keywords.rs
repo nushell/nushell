@@ -2292,7 +2292,7 @@ pub fn parse_let(
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
                             error = error
-                                .or_else(|| Some(ParseError::LetBuiltinVar(var_name, lvalue.span)));
+                                .or(Some(ParseError::LetBuiltinVar(var_name, lvalue.span)));
                         }
 
                         let var_id = lvalue.as_var();
