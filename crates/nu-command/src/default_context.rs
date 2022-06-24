@@ -158,6 +158,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Complete,
             Exec,
             External,
+            NuCheck,
             Ps,
             Sys,
         };
