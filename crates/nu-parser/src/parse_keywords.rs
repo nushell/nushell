@@ -2290,21 +2290,9 @@ pub fn parse_let(
                             String::from_utf8_lossy(working_set.get_span_contents(spans[1]))
                                 .to_string();
 
-                        if var_name == "in" {
+                        if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
                             error = error.or_else(|| {
-                                Some(ParseError::LetBuiltinVar("in".to_string(), spans[1]))
-                            });
-                        } else if var_name == "nu" {
-                            error = error.or_else(|| {
-                                Some(ParseError::LetBuiltinVar("nu".to_string(), spans[1]))
-                            });
-                        } else if var_name == "env" {
-                            error = error.or_else(|| {
-                                Some(ParseError::LetBuiltinVar("env".to_string(), spans[1]))
-                            });
-                        } else if var_name == "nothing" {
-                            error = error.or_else(|| {
-                                Some(ParseError::LetBuiltinVar("nothing".to_string(), spans[1]))
+                                Some(ParseError::LetBuiltinVar(var_name, lvalue.span))
                             });
                         }
 
