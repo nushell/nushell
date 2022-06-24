@@ -2287,7 +2287,7 @@ pub fn parse_let(
                         error = error.or(err);
 
                         let var_name =
-                            String::from_utf8_lossy(working_set.get_span_contents(spans[1]))
+                            String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
