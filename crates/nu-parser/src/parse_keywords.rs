@@ -2291,19 +2291,21 @@ pub fn parse_let(
                                 .to_string();
 
                         if var_name == "in" {
-                            error = error
-                                .or(Some(ParseError::LetBuiltinVar("in".to_string(), spans[1])));
+                            error = error.or_else(|| {
+                                Some(ParseError::LetBuiltinVar("in".to_string(), spans[1]))
+                            });
                         } else if var_name == "nu" {
-                            error = error
-                                .or(Some(ParseError::LetBuiltinVar("nu".to_string(), spans[1])));
+                            error = error.or_else(|| {
+                                Some(ParseError::LetBuiltinVar("nu".to_string(), spans[1]))
+                            });
                         } else if var_name == "env" {
-                            error = error
-                                .or(Some(ParseError::LetBuiltinVar("env".to_string(), spans[1])));
+                            error = error.or_else(|| {
+                                Some(ParseError::LetBuiltinVar("env".to_string(), spans[1]))
+                            });
                         } else if var_name == "nothing" {
-                            error = error.or(Some(ParseError::LetBuiltinVar(
-                                "nothing".to_string(),
-                                spans[1],
-                            )));
+                            error = error.or_else(|| {
+                                Some(ParseError::LetBuiltinVar("nothing".to_string(), spans[1]))
+                            });
                         }
 
                         let var_id = lvalue.as_var();
