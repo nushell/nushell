@@ -362,9 +362,18 @@ impl EngineState {
                     // No need to check the None option
                     let (path, encoding, shell) =
                         decl.is_plugin().expect("plugin should have file name");
-                    let file_name = path
+                    let mut file_name = path
                         .to_str()
-                        .expect("path was checked during registration as a str");
+                        .expect("path was checked during registration as a str")
+                        .to_string();
+
+                    // Fix files or folders with quotes
+                    if file_name.contains('\'')
+                        || file_name.contains('"')
+                        || file_name.contains(' ')
+                    {
+                        file_name = format!("`{}`", file_name);
+                    }
 
                     serde_json::to_string_pretty(&decl.signature())
                         .map(|signature| {
