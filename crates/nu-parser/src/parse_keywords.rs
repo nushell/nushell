@@ -2248,7 +2248,6 @@ pub fn parse_let(
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"let" {
-
         if let Some((span, err)) = check_name(working_set, spans) {
             return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
         }
@@ -2258,7 +2257,6 @@ pub fn parse_let(
             let call_signature = cmd.signature().call_signature();
 
             if spans.len() >= 4 {
-
                 // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
                 // so that the var-id created by the variable isn't visible in the expression that init it
                 for span in spans.iter().enumerate() {
@@ -2288,30 +2286,23 @@ pub fn parse_let(
                             parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx);
                         error = error.or(err);
 
-                        let var_name = String::from_utf8_lossy(working_set.get_span_contents(spans[1])).to_string();
+                        let var_name =
+                            String::from_utf8_lossy(working_set.get_span_contents(spans[1]))
+                                .to_string();
 
                         if var_name == "in" {
+                            error = error
+                                .or(Some(ParseError::LetBuiltinVar("in".to_string(), spans[1])));
+                        } else if var_name == "nu" {
+                            error = error
+                                .or(Some(ParseError::LetBuiltinVar("nu".to_string(), spans[1])));
+                        } else if var_name == "env" {
+                            error = error
+                                .or(Some(ParseError::LetBuiltinVar("env".to_string(), spans[1])));
+                        } else if var_name == "nothing" {
                             error = error.or(Some(ParseError::LetBuiltinVar(
-                                "in".to_string(), 
-                                spans[1]
-                            )));
-                        }
-                        else if var_name == "nu" {
-                            error = error.or(Some(ParseError::LetBuiltinVar(
-                                "nu".to_string(), 
-                                spans[1]
-                            )));
-                        }
-                        else if var_name == "env" {
-                            error = error.or(Some(ParseError::LetBuiltinVar(
-                                "env".to_string(), 
-                                spans[1]
-                            )));
-                        }
-                        else if var_name == "nothing" { 
-                            error = error.or(Some(ParseError::LetBuiltinVar(
-                                "nothing".to_string(), 
-                                spans[1]
+                                "nothing".to_string(),
+                                spans[1],
                             )));
                         }
 

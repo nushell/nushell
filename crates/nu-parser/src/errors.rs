@@ -92,9 +92,7 @@ pub enum ParseError {
     #[diagnostic(
         code(nu::parser::let_builtin_var),
         url(docsrs),
-        help(
-            "'{0}' is the name of a builtin Nushell variable. `let` cannot assign to it."
-        )
+        help("'{0}' is the name of a builtin Nushell variable. `let` cannot assign to it.")
     )]
     LetBuiltinVar(String, #[label("already a builtin variable")] Span),
 
