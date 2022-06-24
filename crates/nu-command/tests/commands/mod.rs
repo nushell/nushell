@@ -30,6 +30,7 @@ mod into_filesize;
 mod into_int;
 mod last;
 mod length;
+mod let_;
 mod lines;
 mod ls;
 mod math;

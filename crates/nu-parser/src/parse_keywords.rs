@@ -2286,6 +2286,15 @@ pub fn parse_let(
                             parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx);
                         error = error.or(err);
 
+                        let var_name =
+                            String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                                .to_string();
+
+                        if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
+                            error =
+                                error.or(Some(ParseError::LetBuiltinVar(var_name, lvalue.span)));
+                        }
+
                         let var_id = lvalue.as_var();
                         let rhs_type = rvalue.ty.clone();
 
