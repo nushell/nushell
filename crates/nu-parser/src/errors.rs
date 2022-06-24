@@ -88,6 +88,16 @@ pub enum ParseError {
     )]
     LetInPipeline(String, String, #[label("let in pipeline")] Span),
 
+    #[error("Let used with builtin variable name.")]
+    #[diagnostic(
+        code(nu::parser::let_builtin_var),
+        url(docsrs),
+        help(
+            "'{0}' is the name of a builtin Nushell variable. `let` cannot assign to it."
+        )
+    )]
+    LetBuiltinVar(String, #[label("already a builtin variable")] Span),
+
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), url(docsrs), help("{2}"))]
     IncorrectValue(String, #[label("unexpected {0}")] Span, String),
@@ -311,6 +321,7 @@ impl ParseError {
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::LetInPipeline(_, _, s) => *s,
+            ParseError::LetBuiltinVar(_, s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(s) => *s,
