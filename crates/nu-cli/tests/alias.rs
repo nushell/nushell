@@ -10,7 +10,7 @@ fn alias_of_command_and_flags() {
 
     // Create an alias
     let alias = r#"alias ll = ls -l"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
@@ -29,7 +29,7 @@ fn alias_of_basic_command() {
 
     // Create an alias
     let alias = r#"alias ll = ls "#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
@@ -51,7 +51,7 @@ fn alias_of_another_alias() {
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
     // Create the second alias
     let alias = r#"alias lf = ll -f"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 

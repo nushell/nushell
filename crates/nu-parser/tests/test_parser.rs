@@ -986,7 +986,7 @@ mod input_types {
 
     fn add_declations(engine_state: &mut EngineState) {
         let delta = {
-            let mut working_set = StateWorkingSet::new(&engine_state);
+            let mut working_set = StateWorkingSet::new(engine_state);
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(AggCustom));
             working_set.add_decl(Box::new(GroupByCustom));

@@ -47,8 +47,8 @@ fn command_ls_completion() {
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
-    let target_dir = format!("ls ");
-    let suggestions = completer.complete(&target_dir, target_dir.len());
+    let target_dir = "ls ";
+    let suggestions = completer.complete(target_dir, target_dir.len());
 
     #[cfg(windows)]
     let expected_paths: Vec<String> = vec![
@@ -79,8 +79,8 @@ fn command_open_completion() {
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
-    let target_dir = format!("open ");
-    let suggestions = completer.complete(&target_dir, target_dir.len());
+    let target_dir = "open ";
+    let suggestions = completer.complete(target_dir, target_dir.len());
 
     #[cfg(windows)]
     let expected_paths: Vec<String> = vec![
@@ -112,8 +112,8 @@ fn command_rm_completion() {
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
-    let target_dir = format!("rm ");
-    let suggestions = completer.complete(&target_dir, target_dir.len());
+    let target_dir = "rm ";
+    let suggestions = completer.complete(target_dir, target_dir.len());
 
     #[cfg(windows)]
     let expected_paths: Vec<String> = vec![
@@ -145,8 +145,8 @@ fn command_cp_completion() {
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
-    let target_dir = format!("cp ");
-    let suggestions = completer.complete(&target_dir, target_dir.len());
+    let target_dir = "cp ";
+    let suggestions = completer.complete(target_dir, target_dir.len());
 
     #[cfg(windows)]
     let expected_paths: Vec<String> = vec![
@@ -178,8 +178,8 @@ fn command_save_completion() {
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
-    let target_dir = format!("save ");
-    let suggestions = completer.complete(&target_dir, target_dir.len());
+    let target_dir = "save ";
+    let suggestions = completer.complete(target_dir, target_dir.len());
 
     #[cfg(windows)]
     let expected_paths: Vec<String> = vec![
@@ -211,8 +211,8 @@ fn command_touch_completion() {
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
-    let target_dir = format!("touch ");
-    let suggestions = completer.complete(&target_dir, target_dir.len());
+    let target_dir = "touch ";
+    let suggestions = completer.complete(target_dir, target_dir.len());
 
     #[cfg(windows)]
     let expected_paths: Vec<String> = vec![
@@ -244,8 +244,8 @@ fn command_watch_completion() {
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
-    let target_dir = format!("watch ");
-    let suggestions = completer.complete(&target_dir, target_dir.len());
+    let target_dir = "watch ";
+    let suggestions = completer.complete(target_dir, target_dir.len());
 
     #[cfg(windows)]
     let expected_paths: Vec<String> = vec![
