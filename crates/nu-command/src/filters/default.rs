@@ -44,6 +44,15 @@ impl Command for Default {
                 result: None,
             },
             Example {
+                description:
+                    "Get the env value of `MY_ENV` with a default value 'abc' if not present",
+                example: "$env | get -i MY_ENV | default 'abc'",
+                result: Some(Value::String {
+                    val: "abc".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "Default the `$nothing` value in a list",
                 example: "[1, 2, $nothing, 4] | default 3",
                 result: Some(Value::List {
