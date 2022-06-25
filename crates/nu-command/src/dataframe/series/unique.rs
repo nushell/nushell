@@ -40,6 +40,8 @@ impl Command for Unique {
                 "Keep the same order as the original DataFrame (lazy df)",
                 Some('k'),
             )
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
@@ -63,14 +65,6 @@ impl Command for Unique {
                 result: None,
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

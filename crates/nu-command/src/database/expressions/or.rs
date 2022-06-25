@@ -24,19 +24,13 @@ impl Command for OrExpr {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("or", SyntaxShape::Any, "OR expression")
+            .input_type(Type::Custom("db-expression".into()))
+            .output_type(Type::Custom("db-expression".into()))
             .category(Category::Custom("db-expression".into()))
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["database", "or", "expression"]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("db-expression".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("db-expression".into())
     }
 
     fn examples(&self) -> Vec<Example> {

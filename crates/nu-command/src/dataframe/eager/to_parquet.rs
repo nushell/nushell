@@ -25,6 +25,8 @@ impl Command for ToParquet {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("file", SyntaxShape::Filepath, "file path to save dataframe")
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Any)
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -34,14 +36,6 @@ impl Command for ToParquet {
             example: "[[a b]; [1 2] [3 4]] | into df | to parquet test.parquet",
             result: None,
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Any
     }
 
     fn run(

@@ -41,19 +41,13 @@ impl Command for JoinDb {
             .switch("right", "right outer join", Some('r'))
             .switch("outer", "full outer join", Some('o'))
             .switch("cross", "cross join", Some('c'))
+            .input_type(Type::Custom("database".into()))
+            .output_type(Type::Custom("database".into()))
             .category(Category::Custom("database".into()))
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["database", "join"]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("database".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("database".into())
     }
 
     fn examples(&self) -> Vec<Example> {

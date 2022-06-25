@@ -748,7 +748,7 @@ pub fn parse_internal_call(
 
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
-    let output = decl.output_type();
+    let output = signature.output_type.clone();
 
     working_set.type_scope.add_type(output.clone());
 

@@ -21,6 +21,8 @@ impl Command for FunctionExpr {
             .required("name", SyntaxShape::String, "function name")
             .switch("distinct", "distict values", Some('d'))
             .rest("arguments", SyntaxShape::Any, "function arguments")
+            .input_type(Type::Any)
+            .output_type(Type::Custom("db-expression".into()))
             .category(Category::Custom("db-expression".into()))
     }
 
@@ -87,14 +89,6 @@ impl Command for FunctionExpr {
                 }),
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Any
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("db-expression".into())
     }
 
     fn search_terms(&self) -> Vec<&str> {

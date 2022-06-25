@@ -23,6 +23,8 @@ impl Command for OverExpr {
                 SyntaxShape::Any,
                 "columns to partition the window function",
             )
+            .input_type(Type::Custom("db-expression".into()))
+            .output_type(Type::Custom("db-expression".into()))
             .category(Category::Custom("db-expression".into()))
     }
 
@@ -88,14 +90,6 @@ impl Command for OverExpr {
                 }),
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("db-expression".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("db-expression".into())
     }
 
     fn search_terms(&self) -> Vec<&str> {

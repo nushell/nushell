@@ -19,6 +19,8 @@ impl Command for AliasExpr {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("alias", SyntaxShape::String, "alias name")
+            .input_type(Type::Custom("db-expression".into()))
+            .output_type(Type::Custom("db-expression".into()))
             .category(Category::Custom("db-expression".into()))
     }
 
@@ -65,14 +67,6 @@ impl Command for AliasExpr {
                 span: Span::test_data(),
             }),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("db-expression".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("db-expression".into())
     }
 
     fn search_terms(&self) -> Vec<&str> {

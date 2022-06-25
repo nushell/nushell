@@ -23,6 +23,8 @@ impl Command for IsIn {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("other", SyntaxShape::Any, "right series")
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -48,14 +50,6 @@ impl Command for IsIn {
                 .into_value(Span::test_data()),
             ),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

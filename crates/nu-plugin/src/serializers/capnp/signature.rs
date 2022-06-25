@@ -1,5 +1,5 @@
 use crate::plugin_capnp::{argument, flag, signature, Category as PluginCategory, Shape};
-use nu_protocol::{Category, Flag, PositionalArg, ShellError, Signature, SyntaxShape};
+use nu_protocol::{Category, Flag, PositionalArg, ShellError, Signature, SyntaxShape, Type};
 
 pub(crate) fn serialize_signature(signature: &Signature, mut builder: signature::Builder) {
     builder.set_name(signature.name.as_str());
@@ -199,6 +199,8 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
         .map(deserialize_flag)
         .collect::<Result<Vec<Flag>, ShellError>>()?;
 
+    // FIXME: add input/output type to deserialize
+
     Ok(Signature {
         name: name.to_string(),
         usage: usage.to_string(),
@@ -207,6 +209,8 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
         required_positional,
         optional_positional,
         rest_positional,
+        input_type: Type::Any,
+        output_type: Type::Any,
         named,
         is_filter,
         creates_scope: false,
