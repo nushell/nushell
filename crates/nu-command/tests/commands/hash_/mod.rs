@@ -5,7 +5,7 @@ fn base64_defaults_to_encoding_with_standard_character_type() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 'username:password' | hash base64
+        echo 'username:password' | encode base64
         "#
         )
     );
@@ -18,7 +18,7 @@ fn base64_encode_characterset_binhex() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 'username:password' | hash base64 --character-set binhex --encode
+        echo 'username:password' | encode base64 --character-set binhex
         "#
         )
     );
@@ -31,7 +31,7 @@ fn error_when_invalid_character_set_given() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 'username:password' | hash base64 --character-set 'this is invalid' --encode
+        echo 'username:password' | encode base64 --character-set 'this is invalid'
         "#
         )
     );
@@ -46,7 +46,7 @@ fn base64_decode_characterset_binhex() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo "F@0NEPjJD97kE'&bEhFZEP3" | hash base64 --character-set binhex --decode
+        echo "F@0NEPjJD97kE'&bEhFZEP3" | decode base64 --character-set binhex --binary | decode utf-8
         "#
         )
     );
@@ -59,7 +59,7 @@ fn error_invalid_decode_value() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo "this should not be a valid encoded value" | hash base64 --character-set url-safe --decode
+        echo "this should not be a valid encoded value" | decode base64 --character-set url-safe
         "#
         )
     );
@@ -67,21 +67,6 @@ fn error_invalid_decode_value() {
     assert!(actual
         .err
         .contains("invalid base64 input for character set url-safe"));
-}
-
-#[test]
-fn error_use_both_flags() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        echo 'username:password' | hash base64 --encode --decode
-        "#
-        )
-    );
-
-    assert!(actual
-        .err
-        .contains("only one of --decode and --encode flags can be used"));
 }
 
 #[test]

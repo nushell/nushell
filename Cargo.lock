@@ -2621,6 +2621,7 @@ dependencies = [
  "regex",
  "reqwest",
  "roxmltree",
+ "rstest",
  "rusqlite",
  "rust-embed",
  "serde",

@@ -1035,6 +1035,13 @@ impl Value {
         }
     }
 
+    pub fn binary(val: impl Into<Vec<u8>>, span: Span) -> Value {
+        Value::Binary {
+            val: val.into(),
+            span,
+        }
+    }
+
     pub fn int(val: i64, span: Span) -> Value {
         Value::Int { val, span }
     }
