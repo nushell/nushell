@@ -29,6 +29,8 @@ impl Command for CustomOpen {
                 nu_protocol::SyntaxShape::String,
                 "the filename to use",
             )
+            .input_type(Type::Any)
+            .output_type(Type::Custom("database".into()))
             .category(Category::Custom("database".into()))
     }
 
@@ -44,14 +46,6 @@ impl Command for CustomOpen {
 
         let db = SQLiteDatabase::new(path);
         Ok(db.into_value(call.head).into_pipeline_data())
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Any
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("database".into())
     }
 }
 

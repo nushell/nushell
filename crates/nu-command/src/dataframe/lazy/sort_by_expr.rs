@@ -32,6 +32,8 @@ impl Command for LazySortBy {
                 "Reverse sorting. Default is false",
                 Some('r'),
             )
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("lazyframe".into()))
     }
 
@@ -85,14 +87,6 @@ impl Command for LazySortBy {
                 ),
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

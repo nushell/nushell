@@ -19,7 +19,10 @@ impl Command for ExprAsNu {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("db-expression".into()))
+        Signature::build(self.name())
+            .input_type(Type::Custom("db-expression".into()))
+            .output_type(Type::Any)
+            .category(Category::Custom("db-expression".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -41,14 +44,6 @@ impl Command for ExprAsNu {
                 span: Span::test_data(),
             }),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("db-expression".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Any
     }
 
     fn run(

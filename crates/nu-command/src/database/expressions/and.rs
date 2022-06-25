@@ -24,19 +24,13 @@ impl Command for AndExpr {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("and", SyntaxShape::Any, "AND expression")
+            .input_type(Type::Custom("db-expression".into()))
+            .output_type(Type::Custom("db-expression".into()))
             .category(Category::Custom("db-expression".into()))
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["database", "and", "expression"]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("db-expression".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("db-expression".into())
     }
 
     fn examples(&self) -> Vec<Example> {

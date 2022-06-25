@@ -24,6 +24,8 @@ impl Command for StrSlice {
         Signature::build(self.name())
             .required("start", SyntaxShape::Int, "start of slice")
             .named("length", SyntaxShape::Int, "optional length", Some('l'))
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -44,14 +46,6 @@ impl Command for StrSlice {
                 .into_value(Span::test_data()),
             ),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

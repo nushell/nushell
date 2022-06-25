@@ -18,6 +18,8 @@ impl Command for FieldExpr {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("name", SyntaxShape::String, "column name")
+            .input_type(Type::Any)
+            .output_type(Type::Custom("db-expression".into()))
             .category(Category::Custom("db-expression".into()))
     }
 
@@ -48,14 +50,6 @@ impl Command for FieldExpr {
                 span: Span::test_data(),
             }),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Any
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("db-expression".into())
     }
 
     fn run(

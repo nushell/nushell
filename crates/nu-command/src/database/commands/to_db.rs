@@ -19,7 +19,10 @@ impl Command for ToDataBase {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("database".into()))
+        Signature::build(self.name())
+            .input_type(Type::Any)
+            .output_type(Type::Custom("database".into()))
+            .category(Category::Custom("database".into()))
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -32,14 +35,6 @@ impl Command for ToDataBase {
             example: "open db.mysql | into db",
             result: None,
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Any
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("database".into())
     }
 
     fn run(

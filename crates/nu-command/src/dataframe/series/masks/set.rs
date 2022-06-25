@@ -29,6 +29,8 @@ impl Command for SetSeries {
                 "mask indicating insertions",
                 Some('m'),
             )
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -53,14 +55,6 @@ impl Command for SetSeries {
                 .into_value(Span::test_data()),
             ),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

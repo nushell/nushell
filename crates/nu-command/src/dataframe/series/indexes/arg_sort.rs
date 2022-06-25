@@ -23,6 +23,8 @@ impl Command for ArgSort {
         Signature::build(self.name())
             .switch("reverse", "reverse order", Some('r'))
             .switch("nulls-last", "nulls ordered last", Some('n'))
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -65,14 +67,6 @@ impl Command for ArgSort {
                 ),
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

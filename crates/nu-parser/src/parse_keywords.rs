@@ -2598,10 +2598,10 @@ pub fn parse_register(
     // the plugin is called to get the signatures or to use the given signature
     let signature = call.positional_nth(1).map(|expr| {
         let signature = working_set.get_span_contents(expr.span);
-        serde_json::from_slice::<Signature>(signature).map_err(|_| {
+        serde_json::from_slice::<Signature>(signature).map_err(|e| {
             ParseError::LabeledError(
                 "Signature deserialization error".into(),
-                "unable to deserialize signature".into(),
+                format!("unable to deserialize signature: {}", e),
                 spans[0],
             )
         })

@@ -20,7 +20,10 @@ impl Command for LazyCollect {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("lazyframe".into()))
+        Signature::build(self.name())
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
+            .category(Category::Custom("lazyframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,14 +45,6 @@ impl Command for LazyCollect {
                 .into_value(Span::test_data()),
             ),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

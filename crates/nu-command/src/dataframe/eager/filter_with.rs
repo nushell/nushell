@@ -29,6 +29,8 @@ impl Command for FilterWith {
                 SyntaxShape::Any,
                 "boolean mask used to filter data",
             )
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
@@ -60,14 +62,6 @@ impl Command for FilterWith {
                 ),
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

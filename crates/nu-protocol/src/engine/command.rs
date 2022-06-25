@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{ast::Call, BlockId, Example, PipelineData, ShellError, Signature, Type};
+use crate::{ast::Call, BlockId, Example, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack};
 
@@ -61,20 +61,6 @@ pub trait Command: Send + Sync + CommandClone {
     // Related terms to help with command search
     fn search_terms(&self) -> Vec<&str> {
         vec![]
-    }
-
-    // Command input type. The Type is used during parsing to find the
-    // correct internal command with similar names. The input type is
-    // obtained from the previous expression found in the pipeline
-    fn input_type(&self) -> Type {
-        Type::Any
-    }
-
-    // Command output type. The output type is the value from  the command
-    // It is used during parsing to find the next command in case there
-    // are commands with similar names
-    fn output_type(&self) -> Type {
-        Type::Any
     }
 }
 

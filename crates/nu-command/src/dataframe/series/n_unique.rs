@@ -18,7 +18,10 @@ impl Command for NUnique {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
+        Signature::build(self.name())
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
+            .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -34,14 +37,6 @@ impl Command for NUnique {
                 .into_value(Span::test_data()),
             ),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

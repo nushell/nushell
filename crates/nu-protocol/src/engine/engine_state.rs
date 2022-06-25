@@ -977,7 +977,7 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn add_decl(&mut self, decl: Box<dyn Command>) -> DeclId {
         let name = decl.name().as_bytes().to_vec();
-        let input_type = decl.input_type();
+        let input_type = decl.signature().input_type;
 
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
