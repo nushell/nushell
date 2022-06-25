@@ -28,21 +28,10 @@ pub fn operate(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let encode = call.has_flag("encode");
-    let decode = call.has_flag("decode");
     let character_set: Option<Spanned<String>> =
         call.get_flag(engine_state, stack, "character-set")?;
+    let binary = call.has_flag("binary");
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-
-    if encode && decode {
-        return Err(ShellError::GenericError(
-            "only one of --decode and --encode flags can be used".to_string(),
-            "conflicting flags".to_string(),
-            Some(head),
-            None,
-            Vec::new(),
-        ));
-    }
 
     // Default the character set to standard if the argument is not specified.
     let character_set = match character_set {
@@ -61,7 +50,7 @@ pub fn operate(
     input.map(
         move |v| {
             if column_paths.is_empty() {
-                match action(&v, &encoding_config, &head) {
+                match action(&v, binary, &encoding_config, &head) {
                     Ok(v) => v,
                     Err(e) => Value::Error { error: e },
                 }
@@ -73,7 +62,7 @@ pub fn operate(
 
                     let r = ret.update_cell_path(
                         &path.members,
-                        Box::new(move |old| match action(old, &config, &head) {
+                        Box::new(move |old| match action(old, binary, &config, &head) {
                             Ok(v) => v,
                             Err(e) => Value::Error { error: e },
                         }),
@@ -92,6 +81,8 @@ pub fn operate(
 
 fn action(
     input: &Value,
+    // only used for `decode` action
+    output_binary: bool,
     base64_config: &Base64Config,
     command_span: &Span,
 ) -> Result<Value, ShellError> {
@@ -126,7 +117,10 @@ fn action(
                 *command_span,
             )),
         },
-        Value::String { val, .. } => {
+        Value::String {
+            val,
+            span: value_span,
+        } => {
             match base64_config.action_type {
                 ActionType::Encode => Ok(Value::string(
                     encode_config(&val, base64_config_enum),
@@ -137,10 +131,26 @@ fn action(
                     // for decode, input val may contains invalid new line character, which is ok to omitted them by default.
                     let val = val.clone();
                     let val = val.replace("\r\n", "").replace('\n', "");
-                    let decode_result = decode_config(&val, base64_config_enum);
 
-                    match decode_result {
-                        Ok(decoded_value) => Ok(Value::binary(decoded_value, *command_span)),
+                    match decode_config(&val, base64_config_enum) {
+                        Ok(decoded_value) => {
+                            if output_binary {
+                                Ok(Value::binary(decoded_value, *command_span))
+                            } else {
+                                match String::from_utf8(decoded_value) {
+                                    Ok(string_value) => {
+                                        Ok(Value::string(string_value, *command_span))
+                                    }
+                                    Err(e) => Err(ShellError::GenericError(
+                                        "base64 payload isn't a valid utf-8 sequence".to_owned(),
+                                        e.to_string(),
+                                        Some(*value_span),
+                                        Some("consider using the `--binary` flag".to_owned()),
+                                        Vec::new(),
+                                    )),
+                                }
+                            }
+                        }
                         Err(_) => Err(ShellError::GenericError(
                             "value could not be base64 decoded".to_string(),
                             format!(
@@ -174,6 +184,7 @@ mod tests {
 
         let actual = action(
             &word,
+            true,
             &Base64Config {
                 character_set: Spanned {
                     item: "standard".to_string(),
@@ -194,6 +205,7 @@ mod tests {
 
         let actual = action(
             &word,
+            true,
             &Base64Config {
                 character_set: Spanned {
                     item: "standard-no-padding".to_string(),
@@ -214,6 +226,7 @@ mod tests {
 
         let actual = action(
             &word,
+            true,
             &Base64Config {
                 character_set: Spanned {
                     item: "url-safe".to_string(),
@@ -234,6 +247,7 @@ mod tests {
 
         let actual = action(
             &word,
+            true,
             &Base64Config {
                 character_set: Spanned {
                     item: "binhex".to_string(),
@@ -254,6 +268,7 @@ mod tests {
 
         let actual = action(
             &word,
+            true,
             &Base64Config {
                 character_set: Spanned {
                     item: "binhex".to_string(),
@@ -277,6 +292,7 @@ mod tests {
 
         let actual = action(
             &word,
+            true,
             &Base64Config {
                 character_set: Spanned {
                     item: "standard".to_string(),
@@ -299,6 +315,7 @@ mod tests {
 
         let actual = action(
             &word,
+            true,
             &Base64Config {
                 character_set: Spanned {
                     item: "standard".to_string(),

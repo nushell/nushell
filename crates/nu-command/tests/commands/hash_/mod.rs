@@ -46,7 +46,7 @@ fn base64_decode_characterset_binhex() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo "F@0NEPjJD97kE'&bEhFZEP3" | decode base64 --character-set binhex | decode utf-8
+        echo "F@0NEPjJD97kE'&bEhFZEP3" | decode base64 --character-set binhex --binary | decode utf-8
         "#
         )
     );

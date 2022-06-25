@@ -2,7 +2,7 @@ use super::base64::{operate, ActionType, CHARACTER_SET_DESC};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -56,6 +56,14 @@ impl Command for EncodeBase64 {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         operate(ActionType::Encode, engine_state, stack, call, input)
+    }
+
+    fn input_type(&self) -> Type {
+        Type::Any
+    }
+
+    fn output_type(&self) -> Type {
+        Type::String
     }
 }
 
