@@ -23,10 +23,6 @@ pub trait Command: Send + Sync + CommandClone {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError>;
 
-    fn is_binary(&self) -> bool {
-        false
-    }
-
     fn examples(&self) -> Vec<Example> {
         Vec::new()
     }
