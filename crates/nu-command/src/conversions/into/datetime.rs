@@ -261,6 +261,7 @@ fn action(
             None => {
                 // be able to convert chrono::Utc::now()
                 let dt = match ts.to_string().len() {
+                    x if x > 13 => Utc.timestamp_nanos(ts).into(),
                     x if x > 10 => Utc.timestamp_millis(ts).into(),
                     _ => Utc.timestamp(ts, 0).into(),
                 };
