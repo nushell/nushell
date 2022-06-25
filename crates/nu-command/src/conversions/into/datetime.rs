@@ -1,3 +1,4 @@
+use crate::{generate_strftime_list, parse_date_from_string};
 use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -6,9 +7,6 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
-
-use crate::generate_strftime_list;
-use crate::parse_date_from_string;
 
 struct Arguments {
     timezone: Option<Spanned<String>>,
@@ -251,10 +249,18 @@ fn action(
 
         return match timezone {
             // default to UTC
-            None => Value::Date {
-                val: Utc.timestamp(ts, 0).into(),
-                span: head,
-            },
+            None => {
+                // be able to convert chrono::Utc::now()
+                let dt = match ts.to_string().len() {
+                    x if x > 10 => Utc.timestamp_millis(ts).into(),
+                    _ => Utc.timestamp(ts, 0).into(),
+                };
+
+                Value::Date {
+                    val: dt,
+                    span: head,
+                }
+            }
             Some(Spanned { item, span }) => match item {
                 Zone::Utc => Value::Date {
                     val: Utc.timestamp(ts, 0).into(),
