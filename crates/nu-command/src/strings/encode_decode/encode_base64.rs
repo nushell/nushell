@@ -26,6 +26,7 @@ impl Command for EncodeBase64 {
                 SyntaxShape::CellPath,
                 "optionally base64 encode data by column paths",
             )
+            .output_type(Type::String)
             .category(Category::Hash)
     }
 
@@ -56,14 +57,6 @@ impl Command for EncodeBase64 {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         operate(ActionType::Encode, engine_state, stack, call, input)
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Any
-    }
-
-    fn output_type(&self) -> Type {
-        Type::String
     }
 }
 
