@@ -146,6 +146,15 @@ impl Command for SubCommand {
                 example: "1614434140 | into datetime -o +9",
                 result: None,
             },
+            Example {
+                description:
+                    "Convert timestamps like the sqlite history t",
+                example: "1656165681720 | into datetime",
+                result: Some(Value::Date {
+                    val: Utc.timestamp_millis(1656165681720).into(),
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
