@@ -1,12 +1,14 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use nu_engine::CallExt;
+use nu_engine::{current_dir, CallExt};
+use nu_path::expand_path_with;
 use nu_protocol::{engine::Command, Example, Signature, Span, SyntaxShape, Value};
 
 use super::PathSubcommandArguments;
 
 struct Arguments {
     columns: Option<Vec<String>>,
+    pwd: PathBuf,
 }
 
 impl PathSubcommandArguments for Arguments {
@@ -46,8 +48,8 @@ impl Command for SubCommand {
         let head = call.head;
         let args = Arguments {
             columns: call.get_flag(engine_state, stack, "columns")?,
+            pwd: current_dir(engine_state, stack)?,
         };
-
         input.map(
             move |value| super::operate(&exists, &args, value, head),
             engine_state.ctrlc.clone(),
@@ -93,7 +95,8 @@ impl Command for SubCommand {
     }
 }
 
-fn exists(path: &Path, span: Span, _args: &Arguments) -> Value {
+fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
+    let path = expand_path_with(path, &args.pwd);
     Value::Bool {
         val: path.exists(),
         span,
