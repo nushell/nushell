@@ -23,7 +23,7 @@ impl Command for DecodeBase64 {
             )
             .switch(
                 "binary",
-                "do not decode payload as UTF-8 and output binary",
+                "Output a binary value instead of decoding payload as UTF-8",
                 Some('b'),
             )
             .rest(

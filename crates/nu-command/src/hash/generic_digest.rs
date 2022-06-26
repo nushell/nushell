@@ -36,11 +36,17 @@ where
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).rest(
-            "rest",
-            SyntaxShape::CellPath,
-            format!("optionally {} hash data by cell path", D::name()),
-        )
+        Signature::build(self.name())
+            .switch(
+                "binary",
+                "Output binary instead of hexadecimal representation",
+                Some('b'),
+            )
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                format!("optionally {} hash data by cell path", D::name()),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -58,17 +64,20 @@ where
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let binary = call.has_flag("binary");
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
         input.map(
             move |v| {
                 if cell_paths.is_empty() {
-                    action::<D>(&v)
+                    action::<D>(binary, &v)
                 } else {
                     let mut v = v;
                     for path in &cell_paths {
-                        let ret = v
-                            .update_cell_path(&path.members, Box::new(move |old| action::<D>(old)));
+                        let ret = v.update_cell_path(
+                            &path.members,
+                            Box::new(move |old| action::<D>(binary, old)),
+                        );
                         if let Err(error) = ret {
                             return Value::Error { error };
                         }
@@ -81,7 +90,7 @@ where
     }
 }
 
-pub fn action<D>(input: &Value) -> Value
+pub fn action<D>(binary: bool, input: &Value) -> Value
 where
     D: HashDigest,
     digest::Output<D>: core::fmt::LowerHex,
@@ -108,6 +117,17 @@ where
         }
     };
 
-    let val = format!("{:x}", D::digest(bytes));
-    Value::String { val, span }
+    let digest = D::digest(bytes);
+
+    if binary {
+        Value::Binary {
+            val: digest.to_vec(),
+            span,
+        }
+    } else {
+        Value::String {
+            val: format!("{:x}", digest),
+            span,
+        }
+    }
 }
