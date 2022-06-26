@@ -52,17 +52,17 @@ impl Command for NuCheck {
                 if is_module {
                     parse_module(&mut working_set, None, contents, is_debug, span)
                 } else {
-                    parse_script(&mut working_set, contents, None, is_debug, span)
+                    parse_script(&mut working_set, None, contents, is_debug, span)
                 }
             }
             PipelineData::ListStream(stream, ..) => {
-                let list_stream = stream.into_string(" ", config);
+                let list_stream = stream.into_string("\n", config);
                 let contents = Vec::from(list_stream);
 
                 if is_module {
                     parse_module(&mut working_set, None, contents, is_debug, call.head)
                 } else {
-                    parse_script(&mut working_set, contents, None, is_debug, call.head)
+                    parse_script(&mut working_set, None, contents, is_debug, call.head)
                 }
             }
             PipelineData::ExternalStream {
@@ -80,7 +80,7 @@ impl Command for NuCheck {
                 if is_module {
                     parse_module(&mut working_set, None, contents, is_debug, call.head)
                 } else {
-                    parse_script(&mut working_set, contents, None, is_debug, call.head)
+                    parse_script(&mut working_set, None, contents, is_debug, call.head)
                 }
             }
             _ => {
@@ -94,7 +94,7 @@ impl Command for NuCheck {
                     if ext[0] != "nu" {
                         return Err(ShellError::GenericError(
                             "Cannot parse input".to_string(),
-                            "File extension must be .nu".to_string(),
+                            "File extension must be the type of .nu".to_string(),
                             Some(call.head),
                             None,
                             Vec::new(),
@@ -109,7 +109,7 @@ impl Command for NuCheck {
                 } else {
                     Err(ShellError::GenericError(
                         "Failed to execute command".to_string(),
-                        "Do not understand the input, please run 'nu-check --help' for more details".to_string(),
+                        "Please run 'nu-check --help' for more details".to_string(),
                         Some(call.head),
                         None,
                         Vec::new(),
@@ -122,27 +122,27 @@ impl Command for NuCheck {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Parse a file as script(Default)",
+                description: "Parse a input file as script(Default)",
                 example: "nu-check script.nu",
                 result: None,
             },
             Example {
-                description: "Parse a file input as module",
+                description: "Parse a input file as module",
                 example: "nu-check --as-module module.nu",
                 result: None,
             },
             Example {
-                description: "Parse a file with error message",
+                description: "Parse a input file by showing error message",
                 example: "nu-check -d script.nu",
                 result: None,
             },
             Example {
-                description: "Parse an external stream as script with more error message",
+                description: "Parse an external stream as script by showing error message",
                 example: "open foo.nu | nu-check -d script.nu",
                 result: None,
             },
             Example {
-                description: "Parse an internal stream as module with more error message",
+                description: "Parse an internal stream as module by showing error message",
                 example: "open module.nu | lines | nu-check -d --as-module module.nu",
                 result: None,
             },
@@ -219,10 +219,10 @@ fn parse_module(
                 err.expect("Unable to parse content as module")
             );
             Err(ShellError::GenericError(
-                "Failed to parse module".to_string(),
+                "Failed to parse content".to_string(),
                 msg,
                 Some(span),
-                Some("If the content is a script, please remove flag".to_string()),
+                Some("If the content is intended to be a script, please try to remove `--as-module` flag ".to_string()),
                 Vec::new(),
             ))
         } else {
@@ -235,8 +235,8 @@ fn parse_module(
 
 fn parse_script(
     working_set: &mut StateWorkingSet,
-    contents: Vec<u8>,
     filename: Option<&str>,
+    contents: Vec<u8>,
     is_debug: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -248,7 +248,7 @@ fn parse_script(
                 "Failed to parse content".to_string(),
                 msg,
                 Some(span),
-                Some("If the content is a module, please use --as-module flag".to_string()),
+                Some("If the content is intended to be a module, please consider flag of `--as-module` ".to_string()),
                 Vec::new(),
             ))
         } else {
@@ -270,8 +270,8 @@ fn parse_file_script(
         if let Ok(contents) = std::fs::read(&path) {
             parse_script(
                 working_set,
-                contents,
                 Some(filename.as_str()),
+                contents,
                 is_debug,
                 call.head,
             )
