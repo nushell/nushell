@@ -56,7 +56,7 @@ impl Command for ToNu {
                 description: "Shows head rows from dataframe",
                 example: "[[a b]; [1 2] [3 4]] | into df | into nu",
                 result: Some(Value::List {
-                    vals: vec![rec_1, rec_2.clone()],
+                    vals: vec![rec_1, rec_2],
                     span: Span::test_data(),
                 }),
             },
