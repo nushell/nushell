@@ -380,16 +380,12 @@ fn convert_to_table(
             let mut row: Vec<(String, String)> = vec![];
             if !disable_index {
                 let row_val = match &item {
-                    Value::Record { .. } => {
-                        item.get_data_by_key(INDEX_COLUMN_NAME)
-                            .and_then(|value| match value {
-                                Value::Int { val, .. } => Some(val as usize),
-                                _ => None,
-                            })
-                    }
+                    Value::Record { .. } => item
+                        .get_data_by_key(INDEX_COLUMN_NAME)
+                        .and_then(|value| Some(value.into_string("", config))),
                     _ => None,
                 }
-                .unwrap_or(row_num + row_offset);
+                .unwrap_or((row_num + row_offset).to_string());
                 row = vec![("string".to_string(), (row_val).to_string())];
             }
 
