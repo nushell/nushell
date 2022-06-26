@@ -382,10 +382,10 @@ fn convert_to_table(
                 let row_val = match &item {
                     Value::Record { .. } => item
                         .get_data_by_key(INDEX_COLUMN_NAME)
-                        .and_then(|value| Some(value.into_string("", config))),
+                        .map(|value| value.into_string("", config)),
                     _ => None,
                 }
-                .unwrap_or((row_num + row_offset).to_string());
+                .unwrap_or_else(|| (row_num + row_offset).to_string());
                 row = vec![("string".to_string(), (row_val).to_string())];
             }
 
