@@ -99,8 +99,6 @@ fn command(
         }
     };
 
-    println!("len: {}", values.len());
-
     let value = Value::List {
         vals: values,
         span: call.head,
