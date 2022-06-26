@@ -400,9 +400,15 @@ impl NuDataFrame {
 
         let values = (0..size)
             .into_iter()
-            .map(|_| {
+            .map(|i| {
                 let mut cols = vec![];
                 let mut vals = vec![];
+
+                cols.push("index".into());
+                vals.push(Value::Int {
+                    val: (i + from_row) as i64,
+                    span,
+                });
 
                 for (name, col) in &mut iterators {
                     cols.push(name.clone());

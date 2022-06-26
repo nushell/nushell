@@ -17,6 +17,7 @@ use terminal_size::{Height, Width};
 
 const STREAM_PAGE_SIZE: usize = 1000;
 const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
+const INDEX_COLUMN_NAME: &str = "index";
 
 fn get_width_param(width_param: Option<i64>) -> usize {
     if let Some(col) = width_param {
@@ -39,6 +40,10 @@ impl Command for Table {
 
     fn usage(&self) -> &str {
         "Render the table."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "If the table contains a column called 'index', this column is used as the table index instead of the usual continuous index"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -374,8 +379,26 @@ fn convert_to_table(
             // String1 = datatype, String2 = value as string
             let mut row: Vec<(String, String)> = vec![];
             if !disable_index {
-                row = vec![("string".to_string(), (row_num + row_offset).to_string())];
+                let row_val = match &item {
+                    Value::Record { .. } => {
+                        item.get_data_by_key(INDEX_COLUMN_NAME)
+                            .and_then(|value| match value {
+                                Value::Int { val, .. } => Some(val as usize),
+                                _ => None,
+                            })
+                    }
+                    _ => None,
+                }
+                .unwrap_or(row_num + row_offset);
+                row = vec![("string".to_string(), (row_val).to_string())];
             }
+
+            // The header with the INDEX is removed from the table headers since
+            // it is added to the natural table index
+            headers = headers
+                .into_iter()
+                .filter(|header| header != INDEX_COLUMN_NAME)
+                .collect();
 
             if headers.is_empty() {
                 row.push((
