@@ -80,9 +80,9 @@ dependencies = [
 
 [[package]]
 name = "ansi-str"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90cb0ceb8c444d026166795e474e9dfe54b443bdc07cc21bd6c5073f5e637482"
+checksum = "e04d04a41a1463228d6eed971b9cdadd86b5577c69c09fd2379c57fe5e159071"
 dependencies = [
  "ansi-parser",
 ]
