@@ -1,3 +1,4 @@
+mod get_type;
 mod alias;
 mod debug;
 mod def;
@@ -26,6 +27,7 @@ mod source;
 mod use_;
 mod version;
 
+pub use get_type::GetType;
 pub use alias::Alias;
 pub use debug::Debug;
 pub use def::Def;
