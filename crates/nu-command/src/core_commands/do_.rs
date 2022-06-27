@@ -128,6 +128,11 @@ impl Command for Do {
                 example: r#"do {|x| 100 + $x } 50"#,
                 result: Some(Value::test_int(150)),
             },
+            Example {
+                description: "Run the block, capturing errors",
+                example: r#"do -c {$env.use} | get-type"#,
+                result: Some(Value::test_string("error")),
+            },
         ]
     }
 }

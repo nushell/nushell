@@ -61,10 +61,10 @@ impl Command for GetType {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Echo 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
-                example: r#"if is-admin { echo "iamroot" } else { echo "iamnotroot" }"#,
+                description: "Get the type of a variable.",
+                example: r#"let var = "a"; $var | get-type"#,
                 result: Some(Value::String {
-                    val: "iamnotroot".to_string(),
+                    val: "string".to_string(),
                     span: Span::test_data(),
                 }),
             },
