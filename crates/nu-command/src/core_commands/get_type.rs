@@ -59,15 +59,13 @@ impl Command for GetType {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Get the type of a variable.",
-                example: r#"let var = "a"; $var | get-type"#,
-                result: Some(Value::String {
-                    val: "string".to_string(),
-                    span: Span::test_data(),
-                }),
-            },
-        ]
+        vec![Example {
+            description: "Get the type of a variable.",
+            example: r#"let var = "a"; $var | get-type"#,
+            result: Some(Value::String {
+                val: "string".to_string(),
+                span: Span::test_data(),
+            }),
+        }]
     }
 }
