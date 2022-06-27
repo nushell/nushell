@@ -26,68 +26,37 @@ impl Command for GetType {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         match input {
-            PipelineData::Value(v, ..) => {
-                Ok(Value::String {
-                    val: (match v {
-                        Value::Bool {..} => {
-                            "bool"
-                        },
-                        Value::Int {..} => {
-                            "int"
-                        },
-                        Value::Filesize {..} => {
-                            "filesize"  
-                        },
-                        Value::Duration {..} => {
-                            "duration"
-                        },
-                        Value::Date {..} => {
-                            "date"
-                        },
-                        Value::Range {..} => {
-                            "range"
-                        },
-                        Value::Float {..} => {
-                            "float"
-                        },
-                        Value::String {..} => {
-                            "string"
-                        },
-                        Value::Record {..} => {
-                            "record"
-                        },
-                        Value::List {..} => {
-                            "list"
-                        },
-                        Value::Block {..} => {
-                            "block"
-                        },
-                        Value::Nothing {..} => {
-                            "nothing"
-                        },
+            PipelineData::Value(v, ..) => Ok(Value::String {
+                val: (match v {
+                    Value::Bool { .. } => "bool",
+                    Value::Int { .. } => "int",
+                    Value::Filesize { .. } => "filesize",
+                    Value::Duration { .. } => "duration",
+                    Value::Date { .. } => "date",
+                    Value::Range { .. } => "range",
+                    Value::Float { .. } => "float",
+                    Value::String { .. } => "string",
+                    Value::Record { .. } => "record",
+                    Value::List { .. } => "list",
+                    Value::Block { .. } => "block",
+                    Value::Nothing { .. } => "nothing",
 
-                        Value::Error {..} => {
-                            "error"
-                        },
-                        Value::Binary {..} => {
-                            "binary"
-                        },
-                        Value::CellPath {..} => {
-                            "cellpath"
-                        },
-                        Value::CustomValue {..} => {
-                            "customvalue"
-                        },
-                    }).to_string(),
-                    span: call.head,
-                }
-                .into_pipeline_data())
-            },
-            _ => Ok(Value::String { 
+                    Value::Error { .. } => "error",
+                    Value::Binary { .. } => "binary",
+                    Value::CellPath { .. } => "cellpath",
+                    Value::CustomValue { .. } => "customvalue",
+                })
+                .to_string(),
+                span: call.head,
+            }
+            .into_pipeline_data()),
+            _ => Ok(Value::String {
                 val: "stream".to_string(),
                 span: call.head,
-            }.into_pipeline_data()),
-    }}
+            }
+            .into_pipeline_data()),
+        }
+    }
 
     fn examples(&self) -> Vec<Example> {
         vec![

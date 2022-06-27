@@ -1,4 +1,3 @@
-mod get_type;
 mod alias;
 mod debug;
 mod def;
@@ -15,6 +14,7 @@ mod export_env;
 mod export_extern;
 mod extern_;
 mod for_;
+mod get_type;
 mod help;
 mod hide;
 mod if_;
@@ -27,7 +27,6 @@ mod source;
 mod use_;
 mod version;
 
-pub use get_type::GetType;
 pub use alias::Alias;
 pub use debug::Debug;
 pub use def::Def;
@@ -44,6 +43,7 @@ pub use export_env::ExportEnv;
 pub use export_extern::ExportExtern;
 pub use extern_::Extern;
 pub use for_::For;
+pub use get_type::GetType;
 pub use help::Help;
 pub use hide::Hide;
 pub use if_::If;
