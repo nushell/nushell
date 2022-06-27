@@ -23,19 +23,13 @@ impl Command for QueryDb {
                 SyntaxShape::String,
                 "SQL to execute against the database",
             )
+            .input_type(Type::Custom("database".into()))
+            .output_type(Type::Any)
             .category(Category::Custom("database".into()))
     }
 
     fn usage(&self) -> &str {
         "Query a database using SQL."
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("database".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Any
     }
 
     fn examples(&self) -> Vec<Example> {

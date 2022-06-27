@@ -555,6 +555,12 @@ pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, span: Span) {
     let mut cols = vec![];
     let mut vals = vec![];
 
+    cols.push("index".to_string());
+    vals.push(Value::String {
+        val: "...".into(),
+        span,
+    });
+
     for name in df.get_column_names() {
         cols.push(name.to_string());
         vals.push(Value::String {

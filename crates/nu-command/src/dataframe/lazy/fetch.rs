@@ -26,6 +26,8 @@ impl Command for LazyFetch {
                 SyntaxShape::Int,
                 "number of rows to be fetched from lazyframe",
             )
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("lazyframe".into()))
     }
 
@@ -48,14 +50,6 @@ impl Command for LazyFetch {
                 .into_value(Span::test_data()),
             ),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

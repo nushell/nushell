@@ -31,6 +31,8 @@ impl Command for ExprWhen {
                 SyntaxShape::Any,
                 "expression that will be applied when predicate is true",
             )
+            .input_type(Type::Custom("expression".into()))
+            .output_type(Type::Custom("expression".into()))
             .category(Category::Custom("expression".into()))
     }
 
@@ -81,14 +83,6 @@ impl Command for ExprWhen {
                 ),
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("expression".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("expression".into())
     }
 
     fn run(

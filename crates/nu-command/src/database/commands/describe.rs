@@ -15,19 +15,14 @@ impl Command for DescribeDb {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("database".into()))
+        Signature::build(self.name())
+            .input_type(Type::Custom("database".into()))
+            .output_type(Type::Any)
+            .category(Category::Custom("database".into()))
     }
 
     fn usage(&self) -> &str {
         "Describes connection and query of the DB object"
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("database".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Any
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -1,3 +1,4 @@
+mod hash_base64;
 mod keep_;
 mod keep_until;
 mod keep_while;
@@ -10,6 +11,7 @@ mod str_find_replace;
 mod str_int;
 mod unalias;
 
+pub use hash_base64::HashBase64;
 pub use keep_::KeepDeprecated;
 pub use keep_until::KeepUntilDeprecated;
 pub use keep_while::KeepWhileDeprecated;

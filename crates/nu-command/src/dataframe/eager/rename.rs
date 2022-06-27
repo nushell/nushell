@@ -33,6 +33,8 @@ impl Command for RenameDF {
                 SyntaxShape::Any,
                 "New names for the selected column(s). A string or list of strings",
             )
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
@@ -92,14 +94,6 @@ impl Command for RenameDF {
                 ),
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

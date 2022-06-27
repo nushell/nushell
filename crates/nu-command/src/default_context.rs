@@ -158,6 +158,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Complete,
             Exec,
             External,
+            NuCheck,
             Ps,
             Sys,
         };
@@ -170,6 +171,9 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             BuildString,
             Char,
             Decode,
+            Encode,
+            DecodeBase64,
+            EncodeBase64,
             DetectColumns,
             Format,
             FileSize,
@@ -382,7 +386,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Hash,
             HashMd5::default(),
             HashSha256::default(),
-            Base64,
+            HashBase64,
         };
 
         // Experimental

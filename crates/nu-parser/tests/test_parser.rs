@@ -753,7 +753,10 @@ mod input_types {
         }
 
         fn signature(&self) -> nu_protocol::Signature {
-            Signature::build(self.name()).category(Category::Custom("custom".into()))
+            Signature::build(self.name())
+                .input_type(Type::Any)
+                .output_type(Type::Custom("custom".into()))
+                .category(Category::Custom("custom".into()))
         }
 
         fn run(
@@ -764,14 +767,6 @@ mod input_types {
             _input: nu_protocol::PipelineData,
         ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
             todo!()
-        }
-
-        fn input_type(&self) -> nu_protocol::Type {
-            Type::Any
-        }
-
-        fn output_type(&self) -> nu_protocol::Type {
-            Type::Custom("custom".into())
         }
     }
 
@@ -791,6 +786,8 @@ mod input_types {
             Signature::build(self.name())
                 .required("column", SyntaxShape::String, "column name")
                 .required("other", SyntaxShape::String, "other value")
+                .input_type(Type::Custom("custom".into()))
+                .output_type(Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -802,14 +799,6 @@ mod input_types {
             _input: nu_protocol::PipelineData,
         ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
             todo!()
-        }
-
-        fn input_type(&self) -> nu_protocol::Type {
-            Type::Custom("custom".into())
-        }
-
-        fn output_type(&self) -> nu_protocol::Type {
-            Type::Custom("custom".into())
         }
     }
 
@@ -828,6 +817,7 @@ mod input_types {
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
                 .required("operation", SyntaxShape::String, "operation")
+                .input_type(Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -839,10 +829,6 @@ mod input_types {
             _input: nu_protocol::PipelineData,
         ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
             todo!()
-        }
-
-        fn input_type(&self) -> nu_protocol::Type {
-            Type::Custom("custom".into())
         }
     }
 
@@ -888,15 +874,9 @@ mod input_types {
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
                 .rest("operation", SyntaxShape::Any, "operation")
+                .input_type(Type::Custom("custom".into()))
+                .output_type(Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
-        }
-
-        fn input_type(&self) -> nu_protocol::Type {
-            Type::Custom("custom".into())
-        }
-
-        fn output_type(&self) -> nu_protocol::Type {
-            Type::Custom("custom".into())
         }
 
         fn run(
@@ -923,15 +903,10 @@ mod input_types {
         }
 
         fn signature(&self) -> nu_protocol::Signature {
-            Signature::build(self.name()).category(Category::Custom("custom".into()))
-        }
-
-        fn input_type(&self) -> nu_protocol::Type {
-            Type::Custom("custom".into())
-        }
-
-        fn output_type(&self) -> nu_protocol::Type {
-            Type::Custom("custom".into())
+            Signature::build(self.name())
+                .input_type(Type::Custom("custom".into()))
+                .output_type(Type::Custom("custom".into()))
+                .category(Category::Custom("custom".into()))
         }
 
         fn run(
@@ -986,7 +961,7 @@ mod input_types {
 
     fn add_declations(engine_state: &mut EngineState) {
         let delta = {
-            let mut working_set = StateWorkingSet::new(&engine_state);
+            let mut working_set = StateWorkingSet::new(engine_state);
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(AggCustom));
             working_set.add_decl(Box::new(GroupByCustom));

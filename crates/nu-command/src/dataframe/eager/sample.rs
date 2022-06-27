@@ -41,6 +41,8 @@ impl Command for SampleDF {
             )
             .switch("replace", "sample with replace", Some('e'))
             .switch("shuffle", "shuffle sample", Some('u'))
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -57,14 +59,6 @@ impl Command for SampleDF {
                 result: None, // No expected value because sampling is random
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

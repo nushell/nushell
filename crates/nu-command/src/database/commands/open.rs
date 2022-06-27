@@ -19,6 +19,8 @@ impl Command for OpenDb {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("query", SyntaxShape::Filepath, "SQLite file to be opened")
+            .input_type(Type::Any)
+            .output_type(Type::Custom("database".into()))
             .category(Category::Custom("database".into()))
     }
 
@@ -36,14 +38,6 @@ impl Command for OpenDb {
             example: r#"open-db file.sqlite"#,
             result: None,
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Any
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("database".into())
     }
 
     fn run(

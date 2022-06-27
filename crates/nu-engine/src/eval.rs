@@ -1033,12 +1033,6 @@ pub fn create_scope(
                 span,
             });
 
-            cols.push("is_binary".to_string());
-            vals.push(Value::Bool {
-                val: decl.is_binary(),
-                span,
-            });
-
             cols.push("is_builtin".to_string());
             // we can only be a is_builtin or is_custom, not both
             vals.push(Value::Bool {

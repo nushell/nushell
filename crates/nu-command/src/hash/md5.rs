@@ -12,10 +12,21 @@ impl HashDigest for Md5 {
     fn examples() -> Vec<Example> {
         vec![
             Example {
-                description: "md5 encode a string",
+                description: "get a hexadecimaly encoded string of the md5 digest of a string",
                 example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash md5",
                 result: Some(Value::String {
                     val: "c3fcd3d76192e4007dfb496cca67e13b".to_owned(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "get the md5 digest of a string in binary",
+                example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash md5 --binary",
+                result: Some(Value::Binary {
+                    val: vec![
+                        0xc3, 0xfc, 0xd3, 0xd7, 0x61, 0x92, 0xe4, 0x00, 0x7d, 0xfb, 0x49, 0x6c,
+                        0xca, 0x67, 0xe1, 0x3b,
+                    ],
                     span: Span::test_data(),
                 }),
             },
@@ -48,7 +59,7 @@ mod tests {
             val: "c3fcd3d76192e4007dfb496cca67e13b".to_owned(),
             span: Span::test_data(),
         };
-        let actual = generic_digest::action::<Md5>(&binary);
+        let actual = generic_digest::action::<Md5>(false, &binary);
         assert_eq!(actual, expected);
     }
 
@@ -62,7 +73,7 @@ mod tests {
             val: "5f80e231382769b0102b1164cf722d83".to_owned(),
             span: Span::test_data(),
         };
-        let actual = generic_digest::action::<Md5>(&binary);
+        let actual = generic_digest::action::<Md5>(false, &binary);
         assert_eq!(actual, expected);
     }
 }

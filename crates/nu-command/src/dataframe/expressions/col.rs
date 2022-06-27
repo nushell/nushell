@@ -26,6 +26,8 @@ impl Command for ExprCol {
                 SyntaxShape::String,
                 "Name of column to be used",
             )
+            .input_type(Type::Any)
+            .output_type(Type::Custom("expression".into()))
             .category(Category::Custom("expression".into()))
     }
 
@@ -48,14 +50,6 @@ impl Command for ExprCol {
                 span: Span::test_data(),
             }),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Any
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("expression".into())
     }
 
     fn run(

@@ -28,6 +28,8 @@ impl Command for LimitDb {
                 SyntaxShape::Int,
                 "Number of rows to extract for query",
             )
+            .input_type(Type::Custom("database".into()))
+            .output_type(Type::Custom("database".into()))
             .category(Category::Custom("database".into()))
     }
 
@@ -59,14 +61,6 @@ impl Command for LimitDb {
                 span: Span::test_data(),
             }),
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("database".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("database".into())
     }
 
     fn run(

@@ -26,6 +26,8 @@ impl Command for LazyAggregate {
                 SyntaxShape::Any,
                 "Expression(s) that define the aggregations to be applied",
             )
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("lazyframe".into()))
     }
 
@@ -99,14 +101,6 @@ impl Command for LazyAggregate {
                 ),
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

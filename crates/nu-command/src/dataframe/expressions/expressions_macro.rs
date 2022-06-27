@@ -25,19 +25,14 @@ macro_rules! expr_command {
             }
 
             fn signature(&self) -> Signature {
-                Signature::build(self.name()).category(Category::Custom("expression".into()))
+                Signature::build(self.name())
+                    .input_type(Type::Custom("expression".into()))
+                    .output_type(Type::Custom("expression".into()))
+                    .category(Category::Custom("expression".into()))
             }
 
             fn examples(&self) -> Vec<Example> {
                 $examples
-            }
-
-            fn input_type(&self) -> Type {
-                Type::Custom("expression".into())
-            }
-
-            fn output_type(&self) -> Type {
-                Type::Custom("expression".into())
             }
 
             fn run(

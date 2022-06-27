@@ -58,6 +58,8 @@ impl Command for OpenDataFrame {
                 "Columns to be selected from csv file. CSV and Parquet file",
                 None,
             )
+            .input_type(Type::Any)
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -67,14 +69,6 @@ impl Command for OpenDataFrame {
             example: "open test.csv",
             result: None,
         }]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Any
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

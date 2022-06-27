@@ -59,6 +59,8 @@ impl Command for Rolling {
         Signature::build(self.name())
             .required("type", SyntaxShape::String, "rolling operation")
             .required("window", SyntaxShape::Int, "Window size for rolling")
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -99,14 +101,6 @@ impl Command for Rolling {
                 ),
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Custom("dataframe".into())
     }
 
     fn run(

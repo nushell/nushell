@@ -28,19 +28,26 @@ impl Command for ToNu {
                 Some('n'),
             )
             .switch("tail", "shows tail rows", Some('t'))
+            .input_type(Type::Custom("dataframe".into()))
+            .output_type(Type::Any)
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
-        let cols = vec!["a".into(), "b".into()];
+        let cols = vec!["index".into(), "a".into(), "b".into()];
         let rec_1 = Value::Record {
             cols: cols.clone(),
-            vals: vec![Value::test_int(1), Value::test_int(2)],
+            vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
             span: Span::test_data(),
         };
         let rec_2 = Value::Record {
+            cols: cols.clone(),
+            vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
+            span: Span::test_data(),
+        };
+        let rec_3 = Value::Record {
             cols,
-            vals: vec![Value::test_int(3), Value::test_int(4)],
+            vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
             span: Span::test_data(),
         };
 
@@ -49,7 +56,7 @@ impl Command for ToNu {
                 description: "Shows head rows from dataframe",
                 example: "[[a b]; [1 2] [3 4]] | into df | into nu",
                 result: Some(Value::List {
-                    vals: vec![rec_1, rec_2.clone()],
+                    vals: vec![rec_1, rec_2],
                     span: Span::test_data(),
                 }),
             },
@@ -57,19 +64,11 @@ impl Command for ToNu {
                 description: "Shows tail rows from dataframe",
                 example: "[[a b]; [1 2] [5 6] [3 4]] | into df | into nu -t -n 1",
                 result: Some(Value::List {
-                    vals: vec![rec_2],
+                    vals: vec![rec_3],
                     span: Span::test_data(),
                 }),
             },
         ]
-    }
-
-    fn input_type(&self) -> Type {
-        Type::Custom("dataframe".into())
-    }
-
-    fn output_type(&self) -> Type {
-        Type::Any
     }
 
     fn run(
@@ -104,8 +103,6 @@ fn command(
             df.head(Some(df.height()), call.head)?
         }
     };
-
-    println!("len: {}", values.len());
 
     let value = Value::List {
         vals: values,
