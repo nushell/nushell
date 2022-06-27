@@ -46,7 +46,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ExportExtern,
             Extern,
             For,
-            GetType,
             Help,
             Hide,
             If,

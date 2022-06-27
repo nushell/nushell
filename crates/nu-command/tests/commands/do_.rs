@@ -5,7 +5,7 @@ fn capture_errors_works() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        do -c {$env.use} | get-type
+        do -c {$env.use} | describe
         "#
     ));
 
