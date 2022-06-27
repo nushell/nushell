@@ -17,6 +17,6 @@ nu-protocol = { path = "../nu-protocol", version = "0.64.1" }
 regex = "1.4"
 unicode-width = "0.1.8"
 strip-ansi-escapes = "0.1.1"
-ansi-str = { git = "https://github.com/zhiburt/ansi-str" }
+ansi-str = "0.2.0"
 atty = "0.2.14"
-tabled = { git = "https://github.com/zhiburt/tabled", rev = "c5d88c5179acfb297ace0b3accf244635e8e72b3", features = ["color"] }
+tabled = { git = "https://github.com/zhiburt/tabled", rev = "28a36bcdb2dcf2400b4ca9a86999b6238eede78e", features = ["color"] }

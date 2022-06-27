@@ -5,7 +5,7 @@ use nu_protocol::{Config, FooterMode};
 use std::collections::HashMap;
 use tabled::formatting_settings::AlignmentStrategy;
 use tabled::object::{Cell, Columns, Rows};
-use tabled::style::{StyleConfig, Symbol};
+use tabled::style::StyleConfig;
 use tabled::{Alignment, Modify};
 
 #[derive(Debug)]
@@ -45,9 +45,10 @@ pub fn draw_table(
 
     let alignments = build_alignment_map(&table.data);
 
-    let style = load_theme_from_config(color_hm, &table.theme);
+    let theme = &table.theme;
 
-    let table = build_table(data, headers, Some(alignments), config, style);
+    let table = build_table(data, headers, Some(alignments), config);
+    let table = load_theme_from_config(table, color_hm, theme);
 
     print_table(table, termwidth)
 }
@@ -86,7 +87,6 @@ fn build_table(
     headers: Option<Vec<String>>,
     alignment_map: Option<Vec<Vec<Alignment>>>,
     config: &Config,
-    style: StyleConfig,
 ) -> tabled::Table {
     let count_records = data.len();
     let header_present = headers.is_some();
@@ -102,7 +102,7 @@ fn build_table(
 
     let mut table = builder.build();
 
-    table = table.with(style).with(
+    table = table.with(
         Modify::new(Rows::new(1..))
             .with(Alignment::left())
             .with(AlignmentStrategy::PerLine),
@@ -211,14 +211,20 @@ fn nu_theme_to_tabled(theme: &TableTheme) -> StyleConfig {
     t
 }
 
-fn load_theme_from_config(color_hm: &HashMap<String, Style>, theme: &TableTheme) -> StyleConfig {
-    let mut style = nu_theme_to_tabled(theme);
+fn load_theme_from_config(
+    mut table: tabled::Table,
+    color_hm: &HashMap<String, Style>,
+    theme: &TableTheme,
+) -> tabled::Table {
+    let style = nu_theme_to_tabled(theme);
+    table = table.with(style);
 
     if let Some(color) = color_hm.get("separator") {
-        style = style.try_map(|s| Symbol::ansi(color.paint(s.to_string()).to_string()).unwrap());
+        let color = color.paint(" ").to_string();
+        table = table.with(tabled::style::BorderColor::try_from(color).unwrap());
     }
 
-    style
+    table
 }
 
 fn need_footer(config: &Config, count_records: u64) -> bool {
@@ -236,12 +242,12 @@ impl tabled::TableOption for FooterStyle {
 
         let mut line = tabled::papergrid::Line::default();
 
-        let border = grid.get_border(0, 0);
+        let border = grid.get_border((0, 0));
         line.left = border.left_bottom_corner;
         line.intersection = border.right_bottom_corner;
         line.horizontal = border.bottom;
 
-        let border = grid.get_border(0, grid.count_columns() - 1);
+        let border = grid.get_border((0, grid.count_columns() - 1));
         line.right = border.right_bottom_corner;
 
         grid.set_split_line(grid.count_rows() - 1, line);
