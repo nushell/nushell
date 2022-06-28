@@ -47,8 +47,10 @@ pub fn draw_table(
 
     let theme = &table.theme;
 
-    let table = build_table(data, headers, Some(alignments), config);
-    let table = load_theme_from_config(table, color_hm, theme);
+    let with_footer = need_footer(config, data.len() as u64);
+
+    let table = build_table(data, headers, Some(alignments), config, with_footer);
+    let table = load_theme_from_config(table, color_hm, theme, with_footer);
 
     print_table(table, termwidth)
 }
@@ -87,15 +89,15 @@ fn build_table(
     headers: Option<Vec<String>>,
     alignment_map: Option<Vec<Vec<Alignment>>>,
     config: &Config,
+    need_footer: bool,
 ) -> tabled::Table {
-    let count_records = data.len();
     let header_present = headers.is_some();
     let mut builder = tabled::builder::Builder::from(data);
 
     if let Some(headers) = headers {
         builder = builder.set_columns(headers.clone());
 
-        if need_footer(config, count_records as u64) {
+        if need_footer {
             builder = builder.add_record(headers);
         }
     }
@@ -114,15 +116,6 @@ fn build_table(
 
     if header_present {
         table = table.with(Modify::new(Rows::first()).with(Alignment::center()));
-
-        if need_footer(config, count_records as u64) {
-            table = table.with(FooterStyle).with(
-                Modify::new(Rows::last())
-                    .with(Alignment::center())
-                    .with(Alignment::left())
-                    .with(AlignmentStrategy::PerCell),
-            );
-        }
     }
 
     if let Some(alignments) = alignment_map {
@@ -215,6 +208,7 @@ fn load_theme_from_config(
     mut table: tabled::Table,
     color_hm: &HashMap<String, Style>,
     theme: &TableTheme,
+    with_footer: bool,
 ) -> tabled::Table {
     let style = nu_theme_to_tabled(theme);
     table = table.with(style);
@@ -222,6 +216,15 @@ fn load_theme_from_config(
     if let Some(color) = color_hm.get("separator") {
         let color = color.paint(" ").to_string();
         table = table.with(tabled::style::BorderColor::try_from(color).unwrap());
+    }
+
+    if with_footer {
+        table = table.with(FooterStyle).with(
+            Modify::new(Rows::last())
+                .with(Alignment::center())
+                .with(Alignment::left())
+                .with(AlignmentStrategy::PerCell),
+        );
     }
 
     table

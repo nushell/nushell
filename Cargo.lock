@@ -3116,7 +3116,7 @@ checksum = "decf7381921fea4dcb2549c5667eda59b3ec297ab7e2b5fc33eac69d2e7da87b"
 [[package]]
 name = "papergrid"
 version = "0.4.0"
-source = "git+https://github.com/zhiburt/tabled?rev=28a36bcdb2dcf2400b4ca9a86999b6238eede78e#28a36bcdb2dcf2400b4ca9a86999b6238eede78e"
+source = "git+https://github.com/zhiburt/tabled?rev=ea59ed144ed3cd56378750875e55985665768219#ea59ed144ed3cd56378750875e55985665768219"
 dependencies = [
  "ansi-str 0.1.1 (git+https://github.com/zhiburt/ansi-str?rev=e0f5cfe2ee3ee8815371800ece150832e9273acb)",
  "bytecount",
@@ -4692,7 +4692,7 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.7.0"
-source = "git+https://github.com/zhiburt/tabled?rev=28a36bcdb2dcf2400b4ca9a86999b6238eede78e#28a36bcdb2dcf2400b4ca9a86999b6238eede78e"
+source = "git+https://github.com/zhiburt/tabled?rev=ea59ed144ed3cd56378750875e55985665768219#ea59ed144ed3cd56378750875e55985665768219"
 dependencies = [
  "ansi-str 0.1.1 (git+https://github.com/zhiburt/ansi-str?branch=master)",
  "papergrid",
@@ -4703,7 +4703,7 @@ dependencies = [
 [[package]]
 name = "tabled_derive"
 version = "0.3.0"
-source = "git+https://github.com/zhiburt/tabled?rev=28a36bcdb2dcf2400b4ca9a86999b6238eede78e#28a36bcdb2dcf2400b4ca9a86999b6238eede78e"
+source = "git+https://github.com/zhiburt/tabled?rev=ea59ed144ed3cd56378750875e55985665768219#ea59ed144ed3cd56378750875e55985665768219"
 dependencies = [
  "proc-macro2",
  "quote",
