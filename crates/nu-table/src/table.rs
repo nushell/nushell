@@ -47,10 +47,11 @@ pub fn draw_table(
 
     let theme = &table.theme;
 
-    let with_footer = need_footer(config, data.len() as u64);
+    let with_header = headers.is_some();
+    let with_footer = with_header && need_footer(config, data.len() as u64);
 
     let table = build_table(data, headers, Some(alignments), config, with_footer);
-    let table = load_theme_from_config(table, color_hm, theme, with_footer);
+    let table = load_theme(table, color_hm, theme, with_footer, with_header);
 
     print_table(table, termwidth)
 }
@@ -204,11 +205,12 @@ fn nu_theme_to_tabled(theme: &TableTheme) -> StyleConfig {
     t
 }
 
-fn load_theme_from_config(
+fn load_theme(
     mut table: tabled::Table,
     color_hm: &HashMap<String, Style>,
     theme: &TableTheme,
     with_footer: bool,
+    with_header: bool,
 ) -> tabled::Table {
     let style = nu_theme_to_tabled(theme);
     table = table.with(style);
@@ -224,6 +226,10 @@ fn load_theme_from_config(
                 .with(Alignment::center())
                 .with(AlignmentStrategy::PerCell),
         );
+    }
+
+    if !with_header {
+        table = table.with(RemoveHeaderLine);
     }
 
     table
