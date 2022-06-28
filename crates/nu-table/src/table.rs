@@ -222,7 +222,6 @@ fn load_theme_from_config(
         table = table.with(FooterStyle).with(
             Modify::new(Rows::last())
                 .with(Alignment::center())
-                .with(Alignment::left())
                 .with(AlignmentStrategy::PerCell),
         );
     }
