@@ -1,31 +1,31 @@
 # Git: git version 2.30.2
-# /etc/os-release: Debian: Debian GNU/Linux 11 (bullseye)
-# Kernel: Linux ec73d87a5aab 5.10.104-linuxkit #1 SMP Wed Mar 9 19:05:23 UTC 2022 x86_64 GNU/Linux
+# /etc/os-release: Alpine Linux v3.16
+# Kernel: Linux ca3abedc4fb1 5.17.15-76051715-generic #202206141358~1655919116~22.04~1db9e34 SMP PREEMPT Wed Jun 22 19 x86_64 Linux
 # Build cmd: docker build --no-cache . -t nushell-latest
-# Other tags: nushell/debian-nu:latest, nushell
-FROM debian:bullseye-slim
+# Other tags: nushell/alpine-nu:latest, nushell
+FROM alpine
 
 LABEL maintainer=nushell
 
-RUN apt update \
-    && apt upgrade -y \
-    # Need ca-certificates to make `curl -s` work
-    && apt install -y --no-install-recommends --no-install-suggests ca-certificates aria2 curl git unzip \
-    # Make /bin/sh symlink to bash instead of dash:
-    && echo "dash dash/sh boolean false" | debconf-set-selections \
-    && DEBIAN_FRONTEND=noninteractive dpkg-reconfigure dash \
-    && cd /lib; curl -s https://api.github.com/repos/nushell/nushell/releases/latest | grep browser_download_url | cut -d '"' -f 4 | grep x86_64-unknown-linux-gnu | aria2c -i - \
-    && mkdir nu-latest && tar xvf nu-*.tar.gz --directory=nu-latest \
-    && cp -aR nu-latest/* /usr/local/bin/ \
-    # Setup default config file for nushell
-    && mkdir -p /root/.config/nushell && cd /root/.config/nushell \
-    && aria2c https://raw.githubusercontent.com/nushell/nushell/main/docs/sample_config/default_env.nu -o env.nu \
-    && aria2c https://raw.githubusercontent.com/nushell/nushell/main/docs/sample_config/default_config.nu -o config.nu \
-    # Do some cleanup work
-    && cd /lib; rm -rf nu-* \
-    && rm -rf /var/lib/apt/lists/* && apt autoremove -y \
-    && echo '/usr/local/bin/nu' >> /etc/shells \
-    # Add an nushell user and create home dir
-    && useradd -m -s /usr/local/bin/nu nushell
+RUN echo '/usr/bin/nu' >> /etc/shells \
+    && adduser -D -s /usr/bin/nu nushell \
+    && mkdir -p /home/nushell/.config/nushell/ \
+    && wget -q https://raw.githubusercontent.com/nushell/nushell/main/docs/sample_config/default_config.nu -O /home/nushell/.config/nushell/config.nu \
+    && wget -q https://raw.githubusercontent.com/nushell/nushell/main/docs/sample_config/default_env.nu -O /home/nushell/.config/nushell/env.nu \
+    && cd /tmp \
+    && wget -qO - https://api.github.com/repos/nushell/nushell/releases/latest \
+    |grep browser_download_url \
+    |grep musl \
+    |cut -f4 -d '"' \
+    |xargs -I{} wget {} \
+    && tar -xzf nu* \
+    && chmod +x nu \
+    && mv nu /usr/bin/nu \
+    && chown -R nushell:nushell /home/nushell/.config/nushell \
+    && rm -rf /tmp/*
 
-CMD [ "nu" ]
+USER nushell
+
+WORKDIR /home/nushell
+
+ENTRYPOINT ["nu"]
