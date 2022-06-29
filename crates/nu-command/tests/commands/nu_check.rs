@@ -550,3 +550,150 @@ fn parse_module_success_with_complex_external_stream() {
         assert!(actual.err.is_empty());
     })
 }
+
+#[test]
+fn parse_with_flag_all_success_for_complex_external_stream() {
+    Playground::setup("nu_check_test_20", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "grep.nu",
+            r#"
+                #grep for nu
+                def grep-nu [
+                  search   #search term
+                  entrada?  #file or pipe
+                  #
+                  #Examples
+                  #grep-nu search file.txt
+                  #ls **/* | some_filter | grep-nu search 
+                  #open file.txt | grep-nu search
+                ] {
+                  if ($entrada | empty?) {
+                    if ($in | column? name) {
+                      grep -ihHn $search ($in | get name)
+                    } else {
+                      ($in | into string) | grep -ihHn $search
+                    }
+                  } else {
+                      grep -ihHn $search $entrada
+                  }
+                  | lines 
+                  | parse "{file}:{line}:{match}"
+                  | str trim
+                  | update match {|f| 
+                      $f.match 
+                      | nu-highlight
+                    }
+                  | rename "source file" "line number"
+                }
+
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open grep.nu | nu-check -ad 
+            "#
+        ));
+
+        assert!(actual.err.is_empty());
+    })
+}
+
+#[test]
+fn parse_with_flag_all_failure_for_complex_external_stream() {
+    Playground::setup("nu_check_test_21", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "grep.nu",
+            r#"
+                #grep for nu
+                def grep-nu 
+                  search   #search term
+                  entrada?  #file or pipe
+                  #
+                  #Examples
+                  #grep-nu search file.txt
+                  #ls **/* | some_filter | grep-nu search 
+                  #open file.txt | grep-nu search
+                ] {
+                  if ($entrada | empty?) {
+                    if ($in | column? name) {
+                      grep -ihHn $search ($in | get name)
+                    } else {
+                      ($in | into string) | grep -ihHn $search
+                    }
+                  } else {
+                      grep -ihHn $search $entrada
+                  }
+                  | lines 
+                  | parse "{file}:{line}:{match}"
+                  | str trim
+                  | update match {|f| 
+                      $f.match 
+                      | nu-highlight
+                    }
+                  | rename "source file" "line number"
+                }
+
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open grep.nu | nu-check -ad 
+            "#
+        ));
+
+        assert!(actual.err.contains("syntax error"));
+    })
+}
+
+#[test]
+fn parse_with_flag_all_failure_for_complex_list_stream() {
+    Playground::setup("nu_check_test_22", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "grep.nu",
+            r#"
+                #grep for nu
+                def grep-nu 
+                  search   #search term
+                  entrada?  #file or pipe
+                  #
+                  #Examples
+                  #grep-nu search file.txt
+                  #ls **/* | some_filter | grep-nu search 
+                  #open file.txt | grep-nu search
+                ] {
+                  if ($entrada | empty?) {
+                    if ($in | column? name) {
+                      grep -ihHn $search ($in | get name)
+                    } else {
+                      ($in | into string) | grep -ihHn $search
+                    }
+                  } else {
+                      grep -ihHn $search $entrada
+                  }
+                  | lines 
+                  | parse "{file}:{line}:{match}"
+                  | str trim
+                  | update match {|f| 
+                      $f.match 
+                      | nu-highlight
+                    }
+                  | rename "source file" "line number"
+                }
+
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open grep.nu | lines | nu-check -ad 
+            "#
+        ));
+
+        assert!(actual.err.contains("syntax error"));
+    })
+}
