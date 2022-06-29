@@ -725,11 +725,7 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
 }
 
 pub fn into_code(err: &ShellError) -> Option<String> {
-    if let Some(code) = err.code() {
-        Some(code.to_string())
-    } else {
-        None
-    }
+    err.code().map(|code| code.to_string())
 }
 
 pub fn did_you_mean(possibilities: &[String], tried: &str) -> Option<String> {
