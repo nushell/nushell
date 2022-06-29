@@ -171,3 +171,15 @@ fn from_nothing() {
 
     assert_eq!(actual.out, "");
 }
+
+#[test]
+fn from_error() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        do -c {$env.use} | into string
+        "#
+    ));
+
+    assert_eq!(actual.out, "nu::shell::name_not_found");
+}

@@ -92,6 +92,9 @@ pub enum SyntaxShape {
     /// A record value
     Record,
 
+    /// An error value
+    Error,
+
     /// A custom shape with custom completion logic
     Custom(Box<SyntaxShape>, DeclId),
 }
@@ -112,6 +115,7 @@ impl SyntaxShape {
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Any,
             SyntaxShape::GlobPattern => Type::String,
+            SyntaxShape::Error => Type::Error,
             SyntaxShape::ImportPattern => Type::Any,
             SyntaxShape::Int => Type::Int,
             SyntaxShape::List(x) => {
@@ -168,6 +172,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Signature => write!(f, "signature"),
             SyntaxShape::Expression => write!(f, "expression"),
             SyntaxShape::Boolean => write!(f, "bool"),
+            SyntaxShape::Error => write!(f, "error"),
             SyntaxShape::Custom(x, _) => write!(f, "custom<{}>", x),
         }
     }
