@@ -25,7 +25,14 @@ impl Command for Print {
     }
 
     fn usage(&self) -> &str {
-        "Prints the values given"
+        "Print the given values to stdout"
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"Unlike `echo`, this command does not return any value (`print | describe` will return "nothing").
+Since this command has no output, there is no point in piping it with other commands.
+
+`print` may be used inside blocks of code (e.g.: hooks) to display text during execution without interfering with the pipeline."#
     }
 
     fn search_terms(&self) -> Vec<&str> {

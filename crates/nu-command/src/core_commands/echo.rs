@@ -23,6 +23,10 @@ impl Command for Echo {
             .category(Category::Core)
     }
 
+    fn extra_usage(&self) -> &str {
+        "Unlike `print`, this command returns an actual value that will be passed to the next command of the pipeline."
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
