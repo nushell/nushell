@@ -2593,6 +2593,7 @@ dependencies = [
  "md-5",
  "meval",
  "mime",
+ "nix",
  "notify",
  "nu-ansi-term",
  "nu-color-config",
