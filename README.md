@@ -40,11 +40,14 @@ We're also active on [Discord](https://discord.gg/NtAbbGn) and [Twitter](https:/
 
 To quickly install Nu:
 
-```bash
-# Linux and macOS
-brew install nushell
-# Windows
-winget install nushell
+Linux and macOS
+```console
+$ brew install nushell
+```
+
+Windows
+```console
+$ winget install nushell
 ```
 
 To use `Nu` in Github Action, check [setup-nu](https://github.com/marketplace/actions/setup-nu) for more detail.
@@ -76,7 +79,7 @@ Commands that work in the pipeline fit into one of three categories:
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
-```shell
+```console
 > ls | where type == "dir" | table
 ╭────┬──────────┬──────┬─────────┬───────────────╮
 │ #  │   name   │ type │  size   │   modified    │
@@ -99,14 +102,14 @@ Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing lef
 Because most of the time you'll want to see the output of a pipeline, `table` is assumed.
 We could have also written the above:
 
-```shell
+```console
 > ls | where type == "dir"
 ```
 
 Being able to use the same commands and compose them differently is an important philosophy in Nu.
 For example, we could use the built-in `ps` command to get a list of the running processes, using the same `where` as above.
 
-```shell
+```console
 > ps | where cpu > 0
 ╭───┬───────┬───────────┬───────┬───────────┬───────────╮
 │ # │  pid  │   name    │  cpu  │    mem    │  virtual  │
@@ -122,7 +125,7 @@ For example, we could use the built-in `ps` command to get a list of the running
 Nu can load file and URL contents as raw text or structured data (if it recognizes the format).
 For example, you can load a .toml file as structured data and explore it:
 
-```shell
+```console
 > open Cargo.toml
 ╭──────────────────┬────────────────────╮
 │ bin              │ [table 1 row]      │
@@ -138,7 +141,7 @@ For example, you can load a .toml file as structured data and explore it:
 
 We can pipe this into a command that gets the contents of one of the columns:
 
-```shell
+```console
 > open Cargo.toml | get package
 ╭───────────────┬────────────────────────────────────╮
 │ authors       │ [list 1 item]                      │
@@ -159,7 +162,7 @@ We can pipe this into a command that gets the contents of one of the columns:
 
 And if needed we can drill down further:
 
-```shell
+```console
 > open Cargo.toml | get package.version
 0.63.1
 ```
@@ -222,9 +225,7 @@ Please submit an issue or PR to be added to this list.
 
 See [Contributing](CONTRIBUTING.md) for details. Thanks to all the people who already contributed!
 
-<a href="https://github.com/nushell/nushell/graphs/contributors">
-  <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=500" />
-</a>
+[![List of contributors](https://contributors-img.web.app/image?repo=nushell/nushell&max=500")](https://github.com/nushell/nushell/graphs/contributors)
 
 ## License
 
