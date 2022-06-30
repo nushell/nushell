@@ -2670,6 +2670,7 @@ pub fn parse_shape_name(
         b"record" => SyntaxShape::Record,
         b"list" => SyntaxShape::List(Box::new(SyntaxShape::Any)),
         b"table" => SyntaxShape::Table,
+        b"error" => SyntaxShape::Error,
         _ => {
             if bytes.contains(&b'@') {
                 let str = String::from_utf8_lossy(bytes);

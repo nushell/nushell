@@ -9,6 +9,7 @@ mod cp;
 mod date;
 mod def;
 mod default;
+mod do_;
 mod drop;
 mod each;
 mod echo;

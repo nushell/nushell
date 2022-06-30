@@ -1,7 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Do;
@@ -23,6 +25,11 @@ impl Command for Do {
                 "ignore errors as the block runs",
                 Some('i'),
             )
+            .switch(
+                "capture-errors",
+                "capture errors as the block runs and return it",
+                Some('c'),
+            )
             .rest("rest", SyntaxShape::Any, "the parameter(s) for the block")
             .category(Category::Core)
     }
@@ -37,6 +44,7 @@ impl Command for Do {
         let block: CaptureBlock = call.req(engine_state, stack, 0)?;
         let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag("ignore-errors");
+        let capture_errors = call.has_flag("capture-errors");
 
         let mut stack = stack.captures_to_stack(&block.captures);
         let block = engine_state.get_block(block.block_id);
@@ -85,13 +93,18 @@ impl Command for Do {
             block,
             input,
             call.redirect_stdout,
-            ignore_errors,
+            ignore_errors || capture_errors,
         );
 
         if ignore_errors {
             match result {
                 Ok(x) => Ok(x),
                 Err(_) => Ok(PipelineData::new(call.head)),
+            }
+        } else if capture_errors {
+            match result {
+                Ok(x) => Ok(x),
+                Err(err) => Ok((Value::Error { error: err }).into_pipeline_data()),
             }
         } else {
             result
