@@ -10,7 +10,7 @@ version = "0.64.1"
 
 [dependencies]
 nu-utils = { path = "../nu-utils", version = "0.64.1"  }
-thiserror = "1.0.29"
+thiserror = "1.0.31"
 miette = { version = "5.1.0", features = ["fancy"] }
 serde = {version = "1.0.130", features = ["derive"]}
 chrono = { version="0.4.19", features=["serde"] }
