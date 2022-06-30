@@ -76,7 +76,7 @@ shadow-rs = { version = "0.11.0", default-features = false }
 strip-ansi-escapes = "0.1.1"
 sysinfo = "0.23.5"
 terminal_size = "0.1.17"
-thiserror = "1.0.29"
+thiserror = "1.0.31"
 titlecase = "1.1.0"
 toml = "0.5.8"
 unicode-segmentation = "1.8.0"

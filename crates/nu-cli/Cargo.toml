@@ -21,7 +21,7 @@ nu-color-config = { path = "../nu-color-config", version = "0.64.1"  }
 reedline = { version = "0.7.0", features = ["bashisms", "sqlite"]}
 crossterm = "0.23.0"
 miette = { version = "5.1.0", features = ["fancy"] }
-thiserror = "1.0.29"
+thiserror = "1.0.31"
 fuzzy-matcher = "0.3.7"
 
 log = "0.4"
