@@ -90,7 +90,7 @@ fn get_documentation(
         long_desc.push_str("\nParameters:\n");
         for positional in &sig.required_positional {
             long_desc.push_str(&format!(
-                "  (optional) {} <{:?}>: {}\n",
+                "  (required) {} <{:?}>: {}\n",
                 positional.name,
                 document_shape(positional.shape.clone()),
                 positional.desc
