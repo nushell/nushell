@@ -312,16 +312,14 @@ impl ExternalCommand {
 
                 #[cfg(unix)]
                 {
-                    use nix::sys::signal::Signal;
+                    use signal_hook::low_level::signal_name;
                     use std::os::unix::process::ExitStatusExt;
                     use std::time::Duration;
 
                     // Don't block here if there's no sender
                     if let Ok(status) = exit_status_rx.recv_timeout(Duration::from_millis(100)) {
                         if status.core_dumped() {
-                            if let Some(sig) =
-                                status.signal().and_then(|n| Signal::try_from(n).ok())
-                            {
+                            if let Some(sig) = status.signal().and_then(signal_name) {
                                 return Err(ShellError::ExternalCommand(
                                     format!("{sig} (core dumped)"),
                                     "Child process core dumped".to_string(),
