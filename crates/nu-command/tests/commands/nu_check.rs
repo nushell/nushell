@@ -721,6 +721,6 @@ fn parse_failure_due_conflicted_flags() {
 
         assert!(actual
             .err
-            .contains("You could not have `--all` and `--as-module` at the same command line"));
+            .contains("You could not have both `--all` and `--as-module` at the same command line"));
     })
 }
