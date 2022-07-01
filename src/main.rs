@@ -206,6 +206,14 @@ fn main() -> Result<()> {
                     is_perf_true(),
                 );
                 // only want to load config and env if relative argument is provided.
+                config_files::read_config_file(
+                    &mut engine_state,
+                    &mut stack,
+                    binary_args.env_file,
+                    is_perf_true(),
+                    true,
+                    false,
+                );
                 if binary_args.config_file.is_some() {
                     config_files::read_config_file(
                         &mut engine_state,
@@ -213,15 +221,7 @@ fn main() -> Result<()> {
                         binary_args.config_file,
                         is_perf_true(),
                         false,
-                    );
-                }
-                if binary_args.env_file.is_some() {
-                    config_files::read_config_file(
-                        &mut engine_state,
-                        &mut stack,
-                        binary_args.env_file,
-                        is_perf_true(),
-                        true,
+                        false,
                     );
                 }
 
@@ -251,6 +251,14 @@ fn main() -> Result<()> {
                     is_perf_true(),
                 );
                 // only want to load config and env if relative argument is provided.
+                config_files::read_config_file(
+                    &mut engine_state,
+                    &mut stack,
+                    binary_args.env_file,
+                    is_perf_true(),
+                    true,
+                    false,
+                );
                 if binary_args.config_file.is_some() {
                     config_files::read_config_file(
                         &mut engine_state,
@@ -258,15 +266,7 @@ fn main() -> Result<()> {
                         binary_args.config_file,
                         is_perf_true(),
                         false,
-                    );
-                }
-                if binary_args.env_file.is_some() {
-                    config_files::read_config_file(
-                        &mut engine_state,
-                        &mut stack,
-                        binary_args.env_file,
-                        is_perf_true(),
-                        true,
+                        false,
                     );
                 }
 
@@ -323,8 +323,15 @@ fn setup_config(
         info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     }
 
-    config_files::read_config_file(engine_state, stack, env_file, is_perf_true(), true);
-    config_files::read_config_file(engine_state, stack, config_file, is_perf_true(), false);
+    config_files::read_config_file(engine_state, stack, env_file, is_perf_true(), true, true);
+    config_files::read_config_file(
+        engine_state,
+        stack,
+        config_file,
+        is_perf_true(),
+        false,
+        true,
+    );
 
     if is_login_shell {
         config_files::read_loginshell_file(engine_state, stack, is_perf_true());

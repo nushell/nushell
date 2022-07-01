@@ -18,6 +18,7 @@ pub(crate) fn read_config_file(
     config_file: Option<Spanned<String>>,
     is_perf_true: bool,
     is_env_config: bool,
+    interactive: bool,
 ) {
     // Load config startup file
     if let Some(file) = config_file {
@@ -46,7 +47,13 @@ pub(crate) fn read_config_file(
 
         config_path.push(if is_env_config { ENV_FILE } else { CONFIG_FILE });
 
-        if !config_path.exists() {
+        let config_file = if is_env_config {
+            include_str!("../docs/sample_config/default_env.nu")
+        } else {
+            include_str!("../docs/sample_config/default_config.nu")
+        };
+
+        if !config_path.exists() && interactive {
             let file_msg = if is_env_config {
                 "environment config"
             } else {
@@ -63,12 +70,6 @@ pub(crate) fn read_config_file(
             std::io::stdin()
                 .read_line(&mut answer)
                 .expect("Failed to read user input");
-
-            let config_file = if is_env_config {
-                include_str!("../docs/sample_config/default_env.nu")
-            } else {
-                include_str!("../docs/sample_config/default_config.nu")
-            };
 
             match answer.to_lowercase().trim() {
                 "y" | "" => {
@@ -93,6 +94,19 @@ pub(crate) fn read_config_file(
                     return;
                 }
             }
+        } else {
+            // Just use the contents of "default_config.nu" or "default_env.nu"
+            eval_source(
+                engine_state,
+                stack,
+                config_file.as_bytes(),
+                if is_env_config {
+                    "default_env.nu"
+                } else {
+                    "default_config.nu"
+                },
+                PipelineData::new(Span::new(0, 0)),
+            );
         }
 
         eval_config_contents(config_path, engine_state, stack);
