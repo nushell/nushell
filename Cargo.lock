@@ -2630,6 +2630,7 @@ dependencies = [
  "serde_yaml",
  "sha2 0.10.2",
  "shadow-rs",
+ "signal-hook",
  "sqlparser",
  "strip-ansi-escapes",
  "sysinfo 0.23.13",
