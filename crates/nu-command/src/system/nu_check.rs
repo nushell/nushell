@@ -19,6 +19,7 @@ impl Command for NuCheck {
             .optional("path", SyntaxShape::Filepath, "File path to parse")
             .switch("as-module", "Parse content as module", Some('m'))
             .switch("debug", "Show error messages", Some('d'))
+            .switch("all", "Parse content as script first, returns result if success, otherwise, try with module", Some('a'))
             .category(Category::Strings)
     }
 
@@ -40,29 +41,42 @@ impl Command for NuCheck {
         let path: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let is_module = call.has_flag("as-module");
         let is_debug = call.has_flag("debug");
+        let is_all = call.has_flag("all");
         let config = engine_state.get_config();
         let mut contents = vec![];
 
         // DO NOT ever try to merge the working_set in this command
         let mut working_set = StateWorkingSet::new(engine_state);
 
+        if is_all && is_module {
+            return Err(ShellError::GenericError(
+                "Detected command flags conflict".to_string(),
+                "You cannot have both `--all` and `--as-module` on the same command line, please refer to `nu-check --help` for more details".to_string(),
+                Some(call.head),
+                None, vec![]));
+        }
+
         match input {
             PipelineData::Value(Value::String { val, span }, ..) => {
                 let contents = Vec::from(val);
-                if is_module {
-                    parse_module(&mut working_set, None, contents, is_debug, span)
+                if is_all {
+                    heuristic_parse(&mut working_set, None, &contents, is_debug, call.head)
+                } else if is_module {
+                    parse_module(&mut working_set, None, &contents, is_debug, span)
                 } else {
-                    parse_script(&mut working_set, None, contents, is_debug, span)
+                    parse_script(&mut working_set, None, &contents, is_debug, span)
                 }
             }
             PipelineData::ListStream(stream, ..) => {
                 let list_stream = stream.into_string("\n", config);
                 let contents = Vec::from(list_stream);
 
-                if is_module {
-                    parse_module(&mut working_set, None, contents, is_debug, call.head)
+                if is_all {
+                    heuristic_parse(&mut working_set, None, &contents, is_debug, call.head)
+                } else if is_module {
+                    parse_module(&mut working_set, None, &contents, is_debug, call.head)
                 } else {
-                    parse_script(&mut working_set, None, contents, is_debug, call.head)
+                    parse_script(&mut working_set, None, &contents, is_debug, call.head)
                 }
             }
             PipelineData::ExternalStream {
@@ -77,10 +91,12 @@ impl Command for NuCheck {
                     };
                 }
 
-                if is_module {
-                    parse_module(&mut working_set, None, contents, is_debug, call.head)
+                if is_all {
+                    heuristic_parse(&mut working_set, None, &contents, is_debug, call.head)
+                } else if is_module {
+                    parse_module(&mut working_set, None, &contents, is_debug, call.head)
                 } else {
-                    parse_script(&mut working_set, None, contents, is_debug, call.head)
+                    parse_script(&mut working_set, None, &contents, is_debug, call.head)
                 }
             }
             _ => {
@@ -101,7 +117,9 @@ impl Command for NuCheck {
                         ));
                     }
 
-                    if is_module {
+                    if is_all {
+                        heuristic_parse_file(path, &mut working_set, call, is_debug)
+                    } else if is_module {
                         parse_file_module(path, &mut working_set, call, is_debug)
                     } else {
                         parse_file_script(path, &mut working_set, call, is_debug)
@@ -151,6 +169,16 @@ impl Command for NuCheck {
                 example: "echo $'two(char nl)lines' | nu-check ",
                 result: None,
             },
+            Example {
+                description: "Heuristically parse which begins with script first, if it sees a failure, try module afterwards",
+                example: "nu-check -a script.nu",
+                result: None,
+            },
+            Example {
+                description: "Heuristically parse by showing error message",
+                example: "open foo.nu | lines | nu-check -ad",
+                result: None,
+            },
         ]
     }
 }
@@ -195,18 +223,97 @@ fn find_path(
     Ok(path)
 }
 
+fn heuristic_parse(
+    working_set: &mut StateWorkingSet,
+    filename: Option<&str>,
+    contents: &[u8],
+    is_debug: bool,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
+    match parse_script(working_set, filename, contents, is_debug, span) {
+        Ok(v) => Ok(v),
+        Err(_) => {
+            match parse_module(
+                working_set,
+                filename.map(|f| f.to_string()),
+                contents,
+                is_debug,
+                span,
+            ) {
+                Ok(v) => Ok(v),
+                Err(_) => {
+                    if is_debug {
+                        Err(ShellError::GenericError(
+                            "Failed to parse content,tried both script and module".to_string(),
+                            "syntax error".to_string(),
+                            Some(span),
+                            Some("Run `nu-check --help` for more details".to_string()),
+                            Vec::new(),
+                        ))
+                    } else {
+                        Ok(PipelineData::Value(Value::boolean(false, span), None))
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn heuristic_parse_file(
+    path: String,
+    working_set: &mut StateWorkingSet,
+    call: &Call,
+    is_debug: bool,
+) -> Result<PipelineData, ShellError> {
+    let (filename, err) = unescape_unquote_string(path.as_bytes(), call.head);
+    if err.is_none() {
+        if let Ok(contents) = std::fs::read(&path) {
+            match parse_script(
+                working_set,
+                Some(filename.as_str()),
+                &contents,
+                is_debug,
+                call.head,
+            ) {
+                Ok(v) => Ok(v),
+                Err(_) => {
+                    match parse_module(working_set, Some(filename), &contents, is_debug, call.head)
+                    {
+                        Ok(v) => Ok(v),
+                        Err(_) => {
+                            if is_debug {
+                                Err(ShellError::GenericError(
+                                    "Failed to parse content,tried both script and module"
+                                        .to_string(),
+                                    "syntax error".to_string(),
+                                    Some(call.head),
+                                    Some("Run `nu-check --help` for more details".to_string()),
+                                    Vec::new(),
+                                ))
+                            } else {
+                                Ok(PipelineData::Value(Value::boolean(false, call.head), None))
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            Err(ShellError::IOError("Can not read input".to_string()))
+        }
+    } else {
+        Err(ShellError::NotFound(call.head))
+    }
+}
+
 fn parse_module(
     working_set: &mut StateWorkingSet,
     filename: Option<String>,
-    contents: Vec<u8>,
+    contents: &[u8],
     is_debug: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     let start = working_set.next_span_start();
-    working_set.add_file(
-        filename.unwrap_or_else(|| "empty".to_string()),
-        contents.as_ref(),
-    );
+    working_set.add_file(filename.unwrap_or_else(|| "empty".to_string()), contents);
     let end = working_set.next_span_start();
 
     let new_span = Span::new(start, end);
@@ -236,11 +343,11 @@ fn parse_module(
 fn parse_script(
     working_set: &mut StateWorkingSet,
     filename: Option<&str>,
-    contents: Vec<u8>,
+    contents: &[u8],
     is_debug: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let (_, err) = parse(working_set, filename, &contents, false, &[]);
+    let (_, err) = parse(working_set, filename, contents, false, &[]);
     if err.is_some() {
         let msg = format!(r#"Found : {}"#, err.expect("Unable to parse content"));
         if is_debug {
@@ -271,7 +378,7 @@ fn parse_file_script(
             parse_script(
                 working_set,
                 Some(filename.as_str()),
-                contents,
+                &contents,
                 is_debug,
                 call.head,
             )
@@ -292,7 +399,7 @@ fn parse_file_module(
     let (filename, err) = unescape_unquote_string(path.as_bytes(), call.head);
     if err.is_none() {
         if let Ok(contents) = std::fs::read(path) {
-            parse_module(working_set, Some(filename), contents, is_debug, call.head)
+            parse_module(working_set, Some(filename), &contents, is_debug, call.head)
         } else {
             Err(ShellError::IOError("Can not read path".to_string()))
         }
