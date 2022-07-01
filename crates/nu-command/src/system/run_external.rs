@@ -316,7 +316,7 @@ impl ExternalCommand {
                     use std::os::unix::process::ExitStatusExt;
                     use std::time::Duration;
 
-                    // Don't block here if there's no sender
+                    // The receiver will block 100ms if there's no sender
                     if let Ok(status) = exit_status_rx.recv_timeout(Duration::from_millis(100)) {
                         if status.core_dumped() {
                             if let Some(sig) = status.signal().and_then(signal_name) {
