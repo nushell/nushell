@@ -48,6 +48,14 @@ impl Command for NuCheck {
         // DO NOT ever try to merge the working_set in this command
         let mut working_set = StateWorkingSet::new(engine_state);
 
+        if is_all && is_module {
+            return Err(ShellError::GenericError(
+                "Detected command flags conflict".to_string(),
+                "You could not have both `--all` and `--as-module` at the same command line, please refer to `nu-check --help` for more details".to_string(),
+                Some(call.head),
+                None, vec![]));
+        }
+
         match input {
             PipelineData::Value(Value::String { val, span }, ..) => {
                 let contents = Vec::from(val);

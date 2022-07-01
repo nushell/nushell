@@ -697,3 +697,30 @@ fn parse_with_flag_all_failure_for_complex_list_stream() {
         assert!(actual.err.contains("syntax error"));
     })
 }
+
+#[test]
+fn parse_failure_due_conflicted_flags() {
+    Playground::setup("nu_check_test_23", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "script.nu",
+            r#"
+                greet "world"
+
+                def greet [name] {
+                  echo "hello" $name
+                }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                nu-check -a --as-module script.nu
+            "#
+        ));
+
+        assert!(actual
+            .err
+            .contains("You could not have `--all` and `--as-module` at the same command line"));
+    })
+}
