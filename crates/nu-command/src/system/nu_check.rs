@@ -51,7 +51,7 @@ impl Command for NuCheck {
         if is_all && is_module {
             return Err(ShellError::GenericError(
                 "Detected command flags conflict".to_string(),
-                "You cannot have both `--all` and `--as-module` at the same command line, please refer to `nu-check --help` for more details".to_string(),
+                "You cannot have both `--all` and `--as-module` on the same command line, please refer to `nu-check --help` for more details".to_string(),
                 Some(call.head),
                 None, vec![]));
         }
