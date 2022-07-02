@@ -2240,7 +2240,7 @@ impl Value {
         }
     }
 
-    pub fn bshl(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn bit_shl(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
                 span,
@@ -2259,7 +2259,7 @@ impl Value {
         }
     }
 
-    pub fn bshr(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn bit_shr(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
                 span,
@@ -2278,7 +2278,7 @@ impl Value {
         }
     }
 
-    pub fn bor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
                 span,
@@ -2297,7 +2297,7 @@ impl Value {
         }
     }
 
-    pub fn band(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn bit_and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
                 span,
