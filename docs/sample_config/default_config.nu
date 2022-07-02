@@ -436,6 +436,17 @@ let-env config = {
         ]
        }
     }
+    {
+      name: yank
+      modifier: control
+      keycode: char_y
+      mode: emacs
+      event: {
+        until: [
+          {edit: pastecutbufferafter}
+        ]
+      }
+    }
     # Keybindings used to trigger the user defined menus
     {
       name: commands_menu
@@ -446,8 +457,8 @@ let-env config = {
     }
     {
       name: vars_menu
-      modifier: control
-      keycode: char_y
+      modifier: alt
+      keycode: char_o
       mode: [emacs, vi_normal, vi_insert]
       event: { send: menu name: vars_menu }
     }
