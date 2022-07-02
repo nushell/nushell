@@ -4106,6 +4106,8 @@ pub fn parse_operator(
         b"in" => Operator::In,
         b"not-in" => Operator::NotIn,
         b"mod" => Operator::Modulo,
+        b"bor" => Operator::BitOr,
+        b"band" => Operator::BitAnd,
         b"bshl" => Operator::ShiftLeft,
         b"bshr" => Operator::ShiftRight,
         b"starts-with" => Operator::StartsWith,

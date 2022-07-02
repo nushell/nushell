@@ -56,6 +56,21 @@ fn or() -> TestResult {
 }
 
 #[test]
+fn band() -> TestResult {
+    run_test("2 band 4", "0")
+}
+
+#[test]
+fn bor() -> TestResult {
+    run_test("2 bor 4", "6")
+}
+
+#[test]
+fn bit_and_or() -> TestResult {
+    run_test("2 bor 4 band 1 + 2", "2")
+}
+
+#[test]
 fn pow() -> TestResult {
     run_test("3 ** 3", "27")
 }
