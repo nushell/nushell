@@ -3,7 +3,7 @@ use crate::{
     engine::{EngineState, Stack, StateWorkingSet},
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
-use nu_utils::{stdout_write_all_and_flush, stdout_write_all_as_binary_and_flush};
+use nu_utils::{stdout_write_all_and_flush, stdout_write_all_and_flush};
 use std::sync::{atomic::AtomicBool, Arc};
 
 /// The foundational abstraction for input and output to commands
@@ -436,7 +436,7 @@ impl PipelineData {
                 for s in stream {
                     let s_live = s?;
                     let bin_output = s_live.as_binary()?;
-                    stdout_write_all_as_binary_and_flush(bin_output)?
+                    stdout_write_all_and_flush(bin_output)?
                 }
             }
 

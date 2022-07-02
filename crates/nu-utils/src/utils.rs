@@ -24,19 +24,12 @@ pub fn enable_vt_processing() -> Result<()> {
     Ok(())
 }
 
-pub fn stdout_write_all_and_flush(output: String) -> Result<()> {
+pub fn stdout_write_all_and_flush<R>(output: R) -> Result<()>
+where
+    R: AsRef<[u8]>,
+{
     let stdout = std::io::stdout();
-    let ret = match stdout.lock().write_all(output.as_bytes()) {
-        Ok(_) => Ok(stdout.lock().flush()?),
-        Err(err) => Err(err),
-    };
-
-    ret
-}
-
-pub fn stdout_write_all_as_binary_and_flush(output: &[u8]) -> Result<()> {
-    let stdout = std::io::stdout();
-    let ret = match stdout.lock().write_all(output) {
+    let ret = match stdout.lock().write_all(output.as_ref()) {
         Ok(_) => Ok(stdout.lock().flush()?),
         Err(err) => Err(err),
     };
