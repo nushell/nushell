@@ -24,9 +24,12 @@ pub fn enable_vt_processing() -> Result<()> {
     Ok(())
 }
 
-pub fn stdout_write_all_and_flush(output: String) -> Result<()> {
+pub fn stdout_write_all_and_flush<T>(output: T) -> Result<()>
+where
+    T: AsRef<[u8]>,
+{
     let stdout = std::io::stdout();
-    let ret = match stdout.lock().write_all(output.as_bytes()) {
+    let ret = match stdout.lock().write_all(output.as_ref()) {
         Ok(_) => Ok(stdout.lock().flush()?),
         Err(err) => Err(err),
     };
@@ -34,10 +37,13 @@ pub fn stdout_write_all_and_flush(output: String) -> Result<()> {
     ret
 }
 
-pub fn stdout_write_all_as_binary_and_flush(output: &[u8]) -> Result<()> {
-    let stdout = std::io::stdout();
-    let ret = match stdout.lock().write_all(output) {
-        Ok(_) => Ok(stdout.lock().flush()?),
+pub fn stderr_write_all_and_flush<T>(output: T) -> Result<()>
+where
+    T: AsRef<[u8]>,
+{
+    let stderr = std::io::stderr();
+    let ret = match stderr.lock().write_all(output.as_ref()) {
+        Ok(_) => Ok(stderr.lock().flush()?),
         Err(err) => Err(err),
     };
 

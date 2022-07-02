@@ -3,7 +3,7 @@ use crate::{
     engine::{EngineState, Stack, StateWorkingSet},
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
-use nu_utils::{stdout_write_all_and_flush, stdout_write_all_as_binary_and_flush};
+use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::sync::{atomic::AtomicBool, Arc};
 
 /// The foundational abstraction for input and output to commands
@@ -414,11 +414,16 @@ impl PipelineData {
         }
     }
 
+    /// Consume and print self data immediately.
+    ///
+    /// `no_newline` controls if we need to attach newline character to output.
+    /// `to_stderr` controls if data is output to stderr, when the value is false, the data is ouput to stdout.
     pub fn print(
         self,
         engine_state: &EngineState,
         stack: &mut Stack,
         no_newline: bool,
+        to_stderr: bool,
     ) -> Result<(), ShellError> {
         // If the table function is in the declarations, then we can use it
         // to create the table value that will be printed in the terminal
@@ -436,7 +441,12 @@ impl PipelineData {
                 for s in stream {
                     let s_live = s?;
                     let bin_output = s_live.as_binary()?;
-                    stdout_write_all_as_binary_and_flush(bin_output)?
+
+                    if !to_stderr {
+                        stdout_write_all_and_flush(bin_output)?
+                    } else {
+                        stderr_write_all_and_flush(bin_output)?
+                    }
                 }
             }
 
@@ -472,7 +482,11 @@ impl PipelineData {
                         out.push('\n');
                     }
 
-                    stdout_write_all_and_flush(out)?
+                    if !to_stderr {
+                        stdout_write_all_and_flush(out)?
+                    } else {
+                        stderr_write_all_and_flush(out)?
+                    }
                 }
             }
             None => {
@@ -491,7 +505,11 @@ impl PipelineData {
                         out.push('\n');
                     }
 
-                    stdout_write_all_and_flush(out)?
+                    if !to_stderr {
+                        stdout_write_all_and_flush(out)?
+                    } else {
+                        stderr_write_all_and_flush(out)?
+                    }
                 }
             }
         };
