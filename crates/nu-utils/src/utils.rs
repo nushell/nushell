@@ -24,13 +24,26 @@ pub fn enable_vt_processing() -> Result<()> {
     Ok(())
 }
 
-pub fn stdout_write_all_and_flush<R>(output: R) -> Result<()>
+pub fn stdout_write_all_and_flush<T>(output: T) -> Result<()>
 where
-    R: AsRef<[u8]>,
+    T: AsRef<[u8]>,
 {
     let stdout = std::io::stdout();
     let ret = match stdout.lock().write_all(output.as_ref()) {
         Ok(_) => Ok(stdout.lock().flush()?),
+        Err(err) => Err(err),
+    };
+
+    ret
+}
+
+pub fn stderr_write_all_and_flush<T>(output: T) -> Result<()>
+where
+    T: AsRef<[u8]>,
+{
+    let stderr = std::io::stderr();
+    let ret = match stderr.lock().write_all(output.as_ref()) {
+        Ok(_) => Ok(stderr.lock().flush()?),
         Err(err) => Err(err),
     };
 
