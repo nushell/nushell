@@ -118,6 +118,8 @@ impl CustomValue for ExprDb {
             Operator::In
             | Operator::NotIn
             | Operator::Pow
+            | Operator::BitOr
+            | Operator::BitAnd
             | Operator::ShiftLeft
             | Operator::ShiftRight
             | Operator::StartsWith

@@ -492,25 +492,27 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::ShiftLeft | Operator::ShiftRight => match (&lhs.ty, &rhs.ty) {
-                (Type::Int, Type::Int) => (Type::Int, None),
+            Operator::ShiftLeft | Operator::ShiftRight | Operator::BitAnd | Operator::BitOr => {
+                match (&lhs.ty, &rhs.ty) {
+                    (Type::Int, Type::Int) => (Type::Int, None),
 
-                (Type::Any, _) => (Type::Any, None),
-                (_, Type::Any) => (Type::Any, None),
-                _ => {
-                    *op = Expression::garbage(op.span);
-                    (
-                        Type::Any,
-                        Some(ParseError::UnsupportedOperation(
-                            op.span,
-                            lhs.span,
-                            lhs.ty.clone(),
-                            rhs.span,
-                            rhs.ty.clone(),
-                        )),
-                    )
+                    (Type::Any, _) => (Type::Any, None),
+                    (_, Type::Any) => (Type::Any, None),
+                    _ => {
+                        *op = Expression::garbage(op.span);
+                        (
+                            Type::Any,
+                            Some(ParseError::UnsupportedOperation(
+                                op.span,
+                                lhs.span,
+                                lhs.ty.clone(),
+                                rhs.span,
+                                rhs.ty.clone(),
+                            )),
+                        )
+                    }
                 }
-            },
+            }
         },
         _ => {
             *op = Expression::garbage(op.span);
