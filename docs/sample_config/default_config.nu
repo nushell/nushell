@@ -457,7 +457,7 @@ let-env config = {
     }
     {
       name: vars_menu
-      modifier: alt
+      modifier: control
       keycode: char_o
       mode: [emacs, vi_normal, vi_insert]
       event: { send: menu name: vars_menu }
