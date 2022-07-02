@@ -26,6 +26,26 @@ fn modulo2() -> TestResult {
 }
 
 #[test]
+fn bshr() -> TestResult {
+    run_test("16 bshr 1", "8")
+}
+
+#[test]
+fn bshl() -> TestResult {
+    run_test("5 bshl 1", "10")
+}
+
+#[test]
+fn bshl_add() -> TestResult {
+    run_test("2 bshl 1 + 2", "16")
+}
+
+#[test]
+fn sub_bshr() -> TestResult {
+    run_test("10 - 2 bshr 2", "2")
+}
+
+#[test]
 fn and() -> TestResult {
     run_test("true && false", "false")
 }

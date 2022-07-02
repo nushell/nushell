@@ -438,6 +438,14 @@ pub fn eval_expression(
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.ends_with(op_span, &rhs, expr.span)
                 }
+                Operator::ShiftRight => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.bshr(op_span, &rhs, expr.span)
+                }
+                Operator::ShiftLeft => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.bshl(op_span, &rhs, expr.span)
+                }
             }
         }
         Expr::Subexpression(block_id) => {

@@ -118,6 +118,8 @@ impl CustomValue for ExprDb {
             Operator::In
             | Operator::NotIn
             | Operator::Pow
+            | Operator::ShiftLeft
+            | Operator::ShiftRight
             | Operator::StartsWith
             | Operator::EndsWith => Err(ShellError::UnsupportedOperator(operator, op)),
         }?;
