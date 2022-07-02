@@ -440,19 +440,19 @@ pub fn eval_expression(
                 }
                 Operator::BitOr => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bor(op_span, &rhs, expr.span)
+                    lhs.bit_or(op_span, &rhs, expr.span)
                 }
                 Operator::BitAnd => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.band(op_span, &rhs, expr.span)
+                    lhs.bit_and(op_span, &rhs, expr.span)
                 }
                 Operator::ShiftRight => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bshr(op_span, &rhs, expr.span)
+                    lhs.bit_shr(op_span, &rhs, expr.span)
                 }
                 Operator::ShiftLeft => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bshl(op_span, &rhs, expr.span)
+                    lhs.bit_shl(op_span, &rhs, expr.span)
                 }
             }
         }

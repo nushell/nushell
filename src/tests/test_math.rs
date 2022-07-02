@@ -26,23 +26,23 @@ fn modulo2() -> TestResult {
 }
 
 #[test]
-fn bshr() -> TestResult {
-    run_test("16 bshr 1", "8")
+fn bit_shr() -> TestResult {
+    run_test("16 bit-shr 1", "8")
 }
 
 #[test]
-fn bshl() -> TestResult {
-    run_test("5 bshl 1", "10")
+fn bit_shl() -> TestResult {
+    run_test("5 bit-shl 1", "10")
 }
 
 #[test]
-fn bshl_add() -> TestResult {
-    run_test("2 bshl 1 + 2", "16")
+fn bit_shl_add() -> TestResult {
+    run_test("2 bit-shl 1 + 2", "16")
 }
 
 #[test]
-fn sub_bshr() -> TestResult {
-    run_test("10 - 2 bshr 2", "2")
+fn sub_bit_shr() -> TestResult {
+    run_test("10 - 2 bit-shr 2", "2")
 }
 
 #[test]
@@ -56,18 +56,18 @@ fn or() -> TestResult {
 }
 
 #[test]
-fn band() -> TestResult {
-    run_test("2 band 4", "0")
+fn bit_and() -> TestResult {
+    run_test("2 bit-and 4", "0")
 }
 
 #[test]
-fn bor() -> TestResult {
-    run_test("2 bor 4", "6")
+fn bit_or() -> TestResult {
+    run_test("2 bit-or 4", "6")
 }
 
 #[test]
 fn bit_and_or() -> TestResult {
-    run_test("2 bor 4 band 1 + 2", "2")
+    run_test("2 bit-or 4 bit-and 1 + 2", "2")
 }
 
 #[test]
