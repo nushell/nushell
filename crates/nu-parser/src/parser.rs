@@ -4107,6 +4107,7 @@ pub fn parse_operator(
         b"not-in" => Operator::NotIn,
         b"mod" => Operator::Modulo,
         b"bit-or" => Operator::BitOr,
+        b"bit-xor" => Operator::BitXor,
         b"bit-and" => Operator::BitAnd,
         b"bit-shl" => Operator::ShiftLeft,
         b"bit-shr" => Operator::ShiftRight,
