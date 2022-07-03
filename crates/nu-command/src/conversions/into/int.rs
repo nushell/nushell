@@ -8,6 +8,7 @@ use nu_protocol::{
 struct Arguments {
     radix: Option<Value>,
     column_paths: Vec<CellPath>,
+    little_endian: bool,
 }
 
 #[derive(Clone)]
@@ -21,6 +22,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into int")
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
+            .switch("little-endian", "use little-endian byte decoding", None)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -114,6 +116,7 @@ fn into_int(
 
     let options = Arguments {
         radix: call.get_flag(engine_state, stack, "radix")?,
+        little_endian: call.has_flag("little-endian"),
         column_paths: call.rest(engine_state, stack, 0)?,
     };
 
@@ -135,13 +138,13 @@ fn into_int(
     input.map(
         move |v| {
             if options.column_paths.is_empty() {
-                action(&v, head, radix)
+                action(&v, head, radix, options.little_endian)
             } else {
                 let mut ret = v;
                 for path in &options.column_paths {
                     let r = ret.update_cell_path(
                         &path.members,
-                        Box::new(move |old| action(old, head, radix)),
+                        Box::new(move |old| action(old, head, radix, options.little_endian)),
                     );
                     if let Err(error) = r {
                         return Value::Error { error };
@@ -155,7 +158,7 @@ fn into_int(
     )
 }
 
-pub fn action(input: &Value, span: Span, radix: u32) -> Value {
+pub fn action(input: &Value, span: Span, radix: u32, little_endian: bool) -> Value {
     match input {
         Value::Int { val: _, .. } => {
             if radix == 10 {
@@ -190,6 +193,33 @@ pub fn action(input: &Value, span: Span, radix: u32) -> Value {
             val: val.timestamp(),
             span,
         },
+        Value::Binary { val, span } => {
+            use byteorder::{BigEndian, ByteOrder, LittleEndian};
+
+            let mut val = val.to_vec();
+
+            if little_endian {
+                while val.len() < 8 {
+                    val.push(0);
+                }
+                val.resize(8, 0);
+
+                Value::Int {
+                    val: LittleEndian::read_i64(&val),
+                    span: *span,
+                }
+            } else {
+                while val.len() < 8 {
+                    val.insert(0, 0);
+                }
+                val.resize(8, 0);
+
+                Value::Int {
+                    val: BigEndian::read_i64(&val),
+                    span: *span,
+                }
+            }
+        }
         _ => Value::Error {
             error: ShellError::UnsupportedInput(
                 format!("'into int' for unsupported type '{}'", input.get_type()),
@@ -294,21 +324,21 @@ mod test {
         let word = Value::test_string("10");
         let expected = Value::test_int(10);
 
-        let actual = action(&word, Span::test_data(), 10);
+        let actual = action(&word, Span::test_data(), 10, false);
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn turns_binary_to_integer() {
         let s = Value::test_string("0b101");
-        let actual = action(&s, Span::test_data(), 10);
+        let actual = action(&s, Span::test_data(), 10, false);
         assert_eq!(actual, Value::test_int(5));
     }
 
     #[test]
     fn turns_hex_to_integer() {
         let s = Value::test_string("0xFF");
-        let actual = action(&s, Span::test_data(), 16);
+        let actual = action(&s, Span::test_data(), 16, false);
         assert_eq!(actual, Value::test_int(255));
     }
 
@@ -316,7 +346,7 @@ mod test {
     fn communicates_parsing_error_given_an_invalid_integerlike_string() {
         let integer_str = Value::test_string("36anra");
 
-        let actual = action(&integer_str, Span::test_data(), 10);
+        let actual = action(&integer_str, Span::test_data(), 10, false);
 
         assert_eq!(actual.get_type(), Error)
     }

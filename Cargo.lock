@@ -2565,6 +2565,7 @@ dependencies = [
  "Inflector",
  "alphanumeric-sort",
  "base64",
+ "byteorder",
  "bytesize",
  "calamine",
  "chrono",

@@ -35,3 +35,15 @@ fn into_int_int() {
 
     assert!(actual.out.contains('1'));
 }
+
+#[test]
+fn into_int_binary() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo 0x[01010101] | into int
+        "#
+    ));
+
+    assert!(actual.out.contains("16843009"));
+}
