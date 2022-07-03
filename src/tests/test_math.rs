@@ -56,6 +56,16 @@ fn or() -> TestResult {
 }
 
 #[test]
+fn bit_xor() -> TestResult {
+    run_test("4 bit-xor 4", "0")
+}
+
+#[test]
+fn bit_xor_add() -> TestResult {
+    run_test("4 bit-xor 2 + 2", "0")
+}
+
+#[test]
 fn bit_and() -> TestResult {
     run_test("2 bit-and 4", "0")
 }

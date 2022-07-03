@@ -442,6 +442,10 @@ pub fn eval_expression(
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.bit_or(op_span, &rhs, expr.span)
                 }
+                Operator::BitXor => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.bit_xor(op_span, &rhs, expr.span)
+                }
                 Operator::BitAnd => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.bit_and(op_span, &rhs, expr.span)
