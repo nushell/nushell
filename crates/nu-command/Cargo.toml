@@ -28,6 +28,7 @@ nu-ansi-term = "0.46.0"
 # Potential dependencies for extras
 alphanumeric-sort = "1.4.4"
 base64 = "0.13.0"
+byteorder = "1.4.3"
 bytesize = "1.1.0"
 calamine = "0.18.0"
 chrono = { version = "0.4.19", features = ["serde"] }
