@@ -447,6 +447,28 @@ let-env config = {
         ]
       }
     }
+    {
+      name: unix-line-discard
+      modifier: control
+      keycode: char_u
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+          {edit: cutfromlinestart}
+        ]
+      }
+    }
+    {
+      name: kill-line
+      modifier: control
+      keycode: char_k
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+          {edit: cuttolineend}
+        ]
+      }
+    }
     # Keybindings used to trigger the user defined menus
     {
       name: commands_menu
@@ -465,7 +487,7 @@ let-env config = {
     {
       name: commands_with_description
       modifier: control
-      keycode: char_u
+      keycode: char_s
       mode: [emacs, vi_normal, vi_insert]
       event: { send: menu name: commands_with_description }
     }
