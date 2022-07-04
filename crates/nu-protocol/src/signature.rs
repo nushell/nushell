@@ -43,6 +43,7 @@ pub enum Category {
     Default,
     Conversions,
     Core,
+    Bytes,
     Date,
     Env,
     Experimental,
@@ -91,6 +92,7 @@ impl std::fmt::Display for Category {
             Category::Chart => "chart",
             Category::Custom(name) => name,
             Category::Deprecated => "deprecated",
+            Category::Bytes => "bytes",
         };
 
         write!(f, "{}", msg)
