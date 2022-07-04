@@ -93,18 +93,17 @@ impl Command for Skip {
                             let bytes = val.as_bytes();
                             if bytes.len() < remaining {
                                 remaining -= bytes.len();
-                                output.extend_from_slice(bytes)
+                                //output.extend_from_slice(bytes)
                             } else {
-                                output.extend_from_slice(&bytes[0..remaining]);
+                                output.extend_from_slice(&bytes[remaining..]);
                                 break;
                             }
                         }
                         Value::Binary { val: bytes, .. } => {
                             if bytes.len() < remaining {
                                 remaining -= bytes.len();
-                                output.extend_from_slice(&bytes)
                             } else {
-                                output.extend_from_slice(&bytes[0..remaining]);
+                                output.extend_from_slice(&bytes[remaining..]);
                                 break;
                             }
                         }
