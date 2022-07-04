@@ -206,26 +206,14 @@ impl NuCompleter {
                                 );
                             }
                             flat_shape => {
-                                let mut completer = CommandCompletion::new(
-                                    self.engine_state.clone(),
-                                    &working_set,
-                                    flattened.clone(),
-                                    // flat_idx,
-                                    flat_shape.clone(),
-                                );
-
-                                let out: Vec<_> = self.process_completion(
-                                    &mut completer,
-                                    &working_set,
-                                    prefix.clone(),
-                                    new_span,
-                                    offset,
-                                    pos,
-                                );
-
-                                if out.is_empty() {
-                                    let mut completer =
-                                        FileCompletion::new(self.engine_state.clone());
+                                if flat_idx == 0 {
+                                    let mut completer = CommandCompletion::new(
+                                        self.engine_state.clone(),
+                                        &working_set,
+                                        flattened.clone(),
+                                        // flat_idx,
+                                        flat_shape.clone(),
+                                    );
 
                                     return self.process_completion(
                                         &mut completer,
@@ -235,11 +223,23 @@ impl NuCompleter {
                                         offset,
                                         pos,
                                     );
-                                }
+                                } else {
+                                    let mut completer =
+                                        FileCompletion::new(self.engine_state.clone());
 
-                                return out;
+                                    let out: Vec<_> = self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix.clone(),
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
+
+                                    return out;
+                                }
                             }
-                        };
+                        }
                     }
                 }
             }
