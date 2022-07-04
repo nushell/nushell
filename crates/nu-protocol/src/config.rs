@@ -30,6 +30,7 @@ pub struct Hooks {
     pub pre_prompt: Option<Value>,
     pub pre_execution: Option<Value>,
     pub env_change: Option<Value>,
+    pub env_change_str: Option<Value>,
 }
 
 impl Hooks {
@@ -38,6 +39,7 @@ impl Hooks {
             pre_prompt: None,
             pre_execution: None,
             env_change: None,
+            env_change_str: None,
         }
     }
 }
@@ -432,6 +434,7 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
                     "pre_prompt" => hooks.pre_prompt = Some(vals[idx].clone()),
                     "pre_execution" => hooks.pre_execution = Some(vals[idx].clone()),
                     "env_change" => hooks.env_change = Some(vals[idx].clone()),
+                    "env_change_str" => hooks.env_change_str = Some(vals[idx].clone()),
                     x => {
                         return Err(ShellError::UnsupportedConfigValue(
                             "'pre_prompt', 'pre_execution', or 'env_change'".to_string(),
