@@ -18,6 +18,7 @@ use nu_protocol::{
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
 use std::io::{self, Write};
 use std::{sync::atomic::Ordering, time::Instant};
+use std::collections::HashMap;
 use sysinfo::SystemExt;
 
 const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
@@ -249,8 +250,6 @@ pub fn evaluate_repl(
         if let Some(hook) = config.hooks.env_change_str.clone() {
             let span = hook.span().unwrap_or_else(|_| Span::test_data()); // TODO: Handle error
 
-            println!("got hook");
-
             match hook {
                 Value::Record {
                     cols: env_names,
@@ -269,8 +268,6 @@ pub fn evaluate_repl(
                             .unwrap_or_default();
 
                         if before != after {
-                            println!("before: {:?}, after: {:?}", before, after);
-
                             if let Err(err) = eval_hook(
                                 engine_state,
                                 stack,
@@ -296,8 +293,6 @@ pub fn evaluate_repl(
                     )
                 }
             }
-        } else {
-            println!("not hook");
         }
 
         // Next, check all the environment variables they ask for
@@ -598,9 +593,6 @@ pub fn eval_hook(
             Ok(())
         }
         Value::Record { cols, vals, span } => {
-            // eval_hook_block(engine_state, stack, *block_id, arguments, *span),
-            println!("eval hook block");
-
             let do_run_hook =
                 if let Ok(condition) = value.clone().follow_cell_path(&[condition_path], false) {
                     match condition {
@@ -612,7 +604,8 @@ pub fn eval_hook(
                             let block = engine_state.get_block(block_id);
                             let input = PipelineData::new(*span);
 
-                            match eval_block(engine_state, stack, block, input, false, false) {
+                            let mut stack = stack.captures_to_stack(&HashMap::new());
+                            match eval_block(engine_state, &mut stack, block, input, false, false) {
                                 Ok(pipeline_data) => {
                                     match pipeline_data.into_value(*span) {
                                         Value::Bool { val, span } => val,
@@ -643,27 +636,9 @@ pub fn eval_hook(
                     true
                 };
 
-            println!("should run hook: {}", do_run_hook);
-
             if do_run_hook {
                 match value.clone().follow_cell_path(&[code_path], false)? {
                     Value::String { val, span } => {
-                        // let mut working_set = StateWorkingSet::new(engine_state);
-                        // let before_id =
-                        //     working_set.add_variable(b"$before".to_vec(), span, Type::Any);
-                        // let after_id =
-                        //     working_set.add_variable(b"$after".to_vec(), span, Type::Any);
-
-                        // let (output, err) = parse(
-                        //     &mut working_set,
-                        //     None, // TODO: Maybe a nice name for a hook?
-                        //     val.as_bytes(),
-                        //     false,
-                        //     &[],
-                        // );
-
-                        println!("got code");
-
                         let (block, delta, before_id, after_id) = {
                             let mut working_set = StateWorkingSet::new(engine_state);
 
@@ -705,6 +680,9 @@ pub fn eval_hook(
                             Ok(_) => {}
                             Err(err) => { report_error_new(&engine_state, &err); }
                         }
+
+                        stack.vars.remove(&before_id);
+                        stack.vars.remove(&after_id);
                     }
                     Value::Block {
                         val: block_id,
