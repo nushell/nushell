@@ -2,8 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -16,7 +15,7 @@ impl Command for ErrorMake {
 
     fn signature(&self) -> Signature {
         Signature::build("error make")
-            .optional("error_struct", SyntaxShape::Record, "the error to create")
+            .required("error_struct", SyntaxShape::Record, "the error to create")
             .category(Category::Core)
     }
 
@@ -33,43 +32,20 @@ impl Command for ErrorMake {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let span = call.head;
-        let ctrlc = engine_state.ctrlc.clone();
-        let arg: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let arg: Value = call.req(engine_state, stack, 0)?;
 
-        if let Some(arg) = arg {
-            Ok(make_error(&arg, span)
-                .map(|err| Value::Error { error: err })
-                .unwrap_or_else(|| Value::Error {
-                    error: ShellError::GenericError(
-                        "Creating error value not supported.".into(),
-                        "unsupported error format".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ),
-                })
-                .into_pipeline_data())
-        } else {
-            input.map(
-                move |value| {
-                    make_error(&value, span)
-                        .map(|err| Value::Error { error: err })
-                        .unwrap_or_else(|| Value::Error {
-                            error: ShellError::GenericError(
-                                "Creating error value not supported.".into(),
-                                "unsupported error format".into(),
-                                Some(span),
-                                None,
-                                Vec::new(),
-                            ),
-                        })
-                },
-                ctrlc,
+        Err(make_error(&arg, span).unwrap_or_else(|| {
+            ShellError::GenericError(
+                "Creating error value not supported.".into(),
+                "unsupported error format".into(),
+                Some(span),
+                None,
+                Vec::new(),
             )
-        }
+        }))
     }
 
     fn examples(&self) -> Vec<Example> {

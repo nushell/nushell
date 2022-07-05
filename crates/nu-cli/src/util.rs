@@ -247,7 +247,7 @@ pub fn eval_source(
                 set_last_exit_code(stack, 0);
             }
 
-            if let Err(err) = pipeline_data.print(engine_state, stack, false) {
+            if let Err(err) = pipeline_data.print(engine_state, stack, false, false) {
                 let working_set = StateWorkingSet::new(engine_state);
 
                 report_error(&working_set, &err);

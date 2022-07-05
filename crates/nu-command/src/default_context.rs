@@ -207,6 +207,12 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             StrUpcase
         };
 
+        // Bytes
+        bind_command! {
+            BytesLen,
+            BytesStartsWith
+        }
+
         // FileSystem
         bind_command! {
             Cd,

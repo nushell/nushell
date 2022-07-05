@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    into_code, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature,
+    Span, SyntaxShape, Value,
 };
 
 // TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
@@ -245,6 +245,15 @@ pub fn action(
 
         Value::Filesize { val: _, .. } => Value::String {
             val: input.into_string(", ", config),
+            span,
+        },
+        Value::Error { error } => Value::String {
+            val: {
+                match into_code(error) {
+                    Some(code) => code,
+                    None => "".to_string(),
+                }
+            },
             span,
         },
         Value::Nothing { .. } => Value::String {

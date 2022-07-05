@@ -2240,6 +2240,101 @@ impl Value {
         }
     }
 
+    pub fn bit_shl(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
+                span,
+                val: *lhs << rhs,
+            }),
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::ShiftLeft, op, rhs)
+            }
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
+    pub fn bit_shr(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
+                span,
+                val: *lhs >> rhs,
+            }),
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::ShiftRight, op, rhs)
+            }
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
+    pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
+                span,
+                val: *lhs | rhs,
+            }),
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::BitOr, op, rhs)
+            }
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
+    pub fn bit_xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
+                span,
+                val: *lhs ^ rhs,
+            }),
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::BitXor, op, rhs)
+            }
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
+    pub fn bit_and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
+                span,
+                val: *lhs & rhs,
+            }),
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::BitAnd, op, rhs)
+            }
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
     pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {

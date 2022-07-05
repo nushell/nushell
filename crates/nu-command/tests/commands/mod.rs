@@ -9,6 +9,7 @@ mod cp;
 mod date;
 mod def;
 mod default;
+mod do_;
 mod drop;
 mod each;
 mod echo;
@@ -43,6 +44,7 @@ mod open;
 mod parse;
 mod path;
 mod prepend;
+mod print;
 #[cfg(feature = "database")]
 mod query;
 mod random;

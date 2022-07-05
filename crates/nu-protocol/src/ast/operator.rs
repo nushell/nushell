@@ -26,6 +26,11 @@ pub enum Operator {
     Pow,
     StartsWith,
     EndsWith,
+    BitOr,
+    BitXor,
+    BitAnd,
+    ShiftLeft,
+    ShiftRight,
 }
 
 impl Display for Operator {
@@ -48,6 +53,11 @@ impl Display for Operator {
             Operator::And => write!(f, "&&"),
             Operator::Or => write!(f, "||"),
             Operator::Pow => write!(f, "**"),
+            Operator::BitOr => write!(f, "bit-or"),
+            Operator::BitXor => write!(f, "bit-xor"),
+            Operator::BitAnd => write!(f, "bit-and"),
+            Operator::ShiftLeft => write!(f, "bit-shl"),
+            Operator::ShiftRight => write!(f, "bit-shr"),
             Operator::LessThanOrEqual => write!(f, "<="),
             Operator::GreaterThanOrEqual => write!(f, ">="),
             Operator::StartsWith => write!(f, "starts-with"),

@@ -436,6 +436,39 @@ let-env config = {
         ]
        }
     }
+    {
+      name: yank
+      modifier: control
+      keycode: char_y
+      mode: emacs
+      event: {
+        until: [
+          {edit: pastecutbufferafter}
+        ]
+      }
+    }
+    {
+      name: unix-line-discard
+      modifier: control
+      keycode: char_u
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+          {edit: cutfromlinestart}
+        ]
+      }
+    }
+    {
+      name: kill-line
+      modifier: control
+      keycode: char_k
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+          {edit: cuttolineend}
+        ]
+      }
+    }
     # Keybindings used to trigger the user defined menus
     {
       name: commands_menu
@@ -446,15 +479,15 @@ let-env config = {
     }
     {
       name: vars_menu
-      modifier: control
-      keycode: char_y
+      modifier: alt
+      keycode: char_o
       mode: [emacs, vi_normal, vi_insert]
       event: { send: menu name: vars_menu }
     }
     {
       name: commands_with_description
       modifier: control
-      keycode: char_u
+      keycode: char_s
       mode: [emacs, vi_normal, vi_insert]
       event: { send: menu name: commands_with_description }
     }

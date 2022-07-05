@@ -1,3 +1,4 @@
+mod bytes;
 mod charting;
 mod conversions;
 mod core_commands;
@@ -24,6 +25,7 @@ mod strings;
 mod system;
 mod viewers;
 
+pub use bytes::*;
 pub use charting::*;
 pub use conversions::*;
 pub use core_commands::*;

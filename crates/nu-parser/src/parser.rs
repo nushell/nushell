@@ -2670,6 +2670,7 @@ pub fn parse_shape_name(
         b"record" => SyntaxShape::Record,
         b"list" => SyntaxShape::List(Box::new(SyntaxShape::Any)),
         b"table" => SyntaxShape::Table,
+        b"error" => SyntaxShape::Error,
         _ => {
             if bytes.contains(&b'@') {
                 let str = String::from_utf8_lossy(bytes);
@@ -4105,6 +4106,11 @@ pub fn parse_operator(
         b"in" => Operator::In,
         b"not-in" => Operator::NotIn,
         b"mod" => Operator::Modulo,
+        b"bit-or" => Operator::BitOr,
+        b"bit-xor" => Operator::BitXor,
+        b"bit-and" => Operator::BitAnd,
+        b"bit-shl" => Operator::ShiftLeft,
+        b"bit-shr" => Operator::ShiftRight,
         b"starts-with" => Operator::StartsWith,
         b"ends-with" => Operator::EndsWith,
         b"&&" | b"and" => Operator::And,

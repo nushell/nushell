@@ -216,7 +216,7 @@ impl Command for Watch {
 
                     match eval_result {
                         Ok(val) => {
-                            val.print(engine_state, stack, false)?;
+                            val.print(engine_state, stack, false, false)?;
                         }
                         Err(err) => {
                             let working_set = StateWorkingSet::new(engine_state);

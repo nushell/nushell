@@ -54,6 +54,11 @@ impl Command for ToMd {
                     "# Welcome to Nushell\n| foo | bar |\n| --- | --- |\n| 1   | 2   |",
                 )),
             },
+            Example {
+                description: "Render a list",
+                example: "[0 1 2] | to md --pretty",
+                result: Some(Value::test_string("0\n1\n2")),
+            },
         ]
     }
 
@@ -291,7 +296,7 @@ fn get_output_string(
         }
 
         for i in 0..row.len() {
-            if pretty {
+            if pretty && column_widths.get(i).is_some() {
                 output_string.push(' ');
                 output_string.push_str(&get_padded_string(row[i].clone(), column_widths[i], ' '));
                 output_string.push(' ');

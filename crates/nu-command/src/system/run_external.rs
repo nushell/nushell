@@ -194,6 +194,9 @@ impl ExternalCommand {
                 let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
                 let (exit_code_tx, exit_code_rx) = mpsc::channel();
 
+                #[cfg(unix)]
+                let (exit_status_tx, exit_status_rx) = mpsc::channel();
+
                 std::thread::spawn(move || {
                     // If this external is not the last expression, then its output is piped to a channel
                     // and we create a ListStream that can be consumed
@@ -283,6 +286,9 @@ impl ExternalCommand {
                             span,
                         )),
                         Ok(x) => {
+                            #[cfg(unix)]
+                            let _ = exit_status_tx.send(x);
+
                             if let Some(code) = x.code() {
                                 let _ = exit_code_tx.send(Value::Int {
                                     val: code as i64,
@@ -303,6 +309,26 @@ impl ExternalCommand {
                 let stdout_receiver = ChannelReceiver::new(stdout_rx);
                 let stderr_receiver = ChannelReceiver::new(stderr_rx);
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
+
+                #[cfg(unix)]
+                {
+                    use signal_hook::low_level::signal_name;
+                    use std::os::unix::process::ExitStatusExt;
+                    use std::time::Duration;
+
+                    // The receiver will block 100ms if there's no sender
+                    if let Ok(status) = exit_status_rx.recv_timeout(Duration::from_millis(100)) {
+                        if status.core_dumped() {
+                            if let Some(sig) = status.signal().and_then(signal_name) {
+                                return Err(ShellError::ExternalCommand(
+                                    format!("{sig} (core dumped)"),
+                                    "Child process core dumped".to_string(),
+                                    span,
+                                ));
+                            }
+                        }
+                    }
+                }
 
                 Ok(PipelineData::ExternalStream {
                     stdout: if redirect_stdout {
