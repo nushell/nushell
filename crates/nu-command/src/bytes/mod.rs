@@ -1,10 +1,13 @@
+mod bytes_;
 mod length;
 mod starts_with;
+
 use nu_protocol::ast::CellPath;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+pub use bytes_::Bytes;
 pub use length::BytesLen;
 pub use starts_with::BytesStartsWith;
 
