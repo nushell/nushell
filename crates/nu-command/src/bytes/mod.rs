@@ -12,6 +12,7 @@ trait BytesArgument {
     fn take_column_paths(&mut self) -> Option<Vec<CellPath>>;
 }
 
+/// map input pipeline data, for each elements, if it's Binary, invoke relative `cmd` with `arg`.
 fn operate<C, A>(
     cmd: C,
     mut arg: A,
