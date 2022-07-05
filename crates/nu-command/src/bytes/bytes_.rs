@@ -38,7 +38,7 @@ impl Command for Bytes {
 
 #[cfg(test)]
 mod test {
-    use crate::Str;
+    use crate::Bytes;
 
     #[test]
     fn test_examples() {
