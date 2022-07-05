@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, SyntaxShape, Value, Span,
+    Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -235,14 +235,16 @@ impl Command for Where {
                 description: "Get all numbers above 3 with an existing block condition",
                 example: "let a = {$in > 3}; [1, 2, 5, 6] | where -b $a",
                 result: Some(Value::List {
-                    vals: vec![Value::Int {
-                        val: 5,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                         val: 6,
-                      span: Span::test_data(),
-                     }],
+                    vals: vec![
+                        Value::Int {
+                            val: 5,
+                            span: Span::test_data(),
+                        },
+                        Value::Int {
+                            val: 6,
+                            span: Span::test_data(),
+                        },
+                    ],
                     span: Span::test_data(),
                 }),
             },
