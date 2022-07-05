@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, SyntaxShape, Value,
+    Signature, SyntaxShape, Value, Span,
 };
 
 #[derive(Clone)]
@@ -230,6 +230,21 @@ impl Command for Where {
                 description: "List all files that were modified in the last two weeks",
                 example: "ls | where modified >= (date now) - 2wk",
                 result: None,
+            },
+            Example {
+                description: "Get all numbers above 3 with an existing block condition",
+                example: "let a = {$in > 3}; [1, 2, 5, 6] | where -b $a",
+                result: Some(Value::List {
+                    vals: vec![Value::Int {
+                        val: 5,
+                        span: Span::test_data(),
+                    },
+                    Value::Int {
+                         val: 6,
+                      span: Span::test_data(),
+                     }],
+                    span: Span::test_data(),
+                }),
             },
         ]
     }
