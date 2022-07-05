@@ -1,3 +1,4 @@
+use super::{operate, BytesArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -7,6 +8,16 @@ use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShap
 
 #[derive(Clone)]
 pub struct BytesLen;
+
+struct Arguments {
+    column_paths: Option<Vec<CellPath>>,
+}
+
+impl BytesArgument for Arguments {
+    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.column_paths.take()
+    }
+}
 
 impl Command for BytesLen {
     fn name(&self) -> &str {
@@ -38,7 +49,14 @@ impl Command for BytesLen {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input)
+        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let column_paths = if column_paths.is_empty() {
+            None
+        } else {
+            Some(column_paths)
+        };
+        let arg = Arguments { column_paths };
+        operate(length, arg, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -60,48 +78,10 @@ impl Command for BytesLen {
     }
 }
 
-fn operate(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    if column_paths.is_empty() {
-        input.map(move |v| action(&v, head), engine_state.ctrlc.clone())
-    } else {
-        input.map(
-            move |mut v| {
-                for path in &column_paths {
-                    let r =
-                        v.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-                v
-            },
-            engine_state.ctrlc.clone(),
-        )
-    }
-}
-
-fn action(input: &Value, head: Span) -> Value {
-    match input {
-        Value::Binary { val, .. } => Value::Int {
-            val: val.len() as i64,
-            span: head,
-        },
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with bytes.",
-                    other.get_type()
-                ),
-                head,
-            ),
-        },
+fn length(input: &[u8], _arg: &Arguments, span: Span) -> Value {
+    Value::Int {
+        val: input.len() as i64,
+        span,
     }
 }
 
