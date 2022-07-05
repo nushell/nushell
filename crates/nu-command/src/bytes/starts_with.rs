@@ -54,7 +54,7 @@ impl Command for BytesStartsWith {
     ) -> Result<PipelineData, ShellError> {
         let pattern: Vec<u8> = call.req(engine_state, stack, 0)?;
         let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let column_paths = if column_paths.len() == 0 {
+        let column_paths = if column_paths.is_empty() {
             None
         } else {
             Some(column_paths)
@@ -63,7 +63,13 @@ impl Command for BytesStartsWith {
             pattern,
             column_paths,
         };
-        operate(action, arg, input, call.head, engine_state.ctrlc.clone())
+        operate(
+            starts_with,
+            arg,
+            input,
+            call.head,
+            engine_state.ctrlc.clone(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -96,24 +102,10 @@ impl Command for BytesStartsWith {
     }
 }
 
-fn action(input: &Value, Arguments { pattern, .. }: &Arguments, head: Span) -> Value {
-    match input {
-        Value::Binary { val: s, .. } => {
-            let starts_with = s.starts_with(pattern);
-            Value::Bool {
-                val: starts_with,
-                span: head,
-            }
-        }
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
-                head,
-            ),
-        },
+fn starts_with(input: &[u8], Arguments { pattern, .. }: &Arguments, span: Span) -> Value {
+    Value::Bool {
+        val: input.starts_with(pattern),
+        span,
     }
 }
 

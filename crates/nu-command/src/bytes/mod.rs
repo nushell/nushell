@@ -21,10 +21,27 @@ fn operate<C, A>(
 ) -> Result<PipelineData, ShellError>
 where
     A: BytesArgument + Send + Sync + 'static,
-    C: Fn(&Value, &A, Span) -> Value + Send + Sync + 'static + Clone + Copy,
+    C: Fn(&[u8], &A, Span) -> Value + Send + Sync + 'static + Clone + Copy,
 {
     match arg.take_column_paths() {
-        None => input.map(move |v| cmd(&v, &arg, span), ctrlc),
+        None => input.map(
+            move |v| match v {
+                Value::Binary {
+                    val,
+                    span: val_span,
+                } => cmd(&val, &arg, val_span),
+                other => Value::Error {
+                    error: ShellError::UnsupportedInput(
+                        format!(
+                            "Input's type is {}. This command only works with bytes.",
+                            other.get_type()
+                        ),
+                        span,
+                    ),
+                },
+            },
+            ctrlc,
+        ),
         Some(column_paths) => {
             let arg = Arc::new(arg);
             input.map(
@@ -33,7 +50,18 @@ where
                         let opt = arg.clone();
                         let r = v.update_cell_path(
                             &path.members,
-                            Box::new(move |old| cmd(old, &opt, span)),
+                            Box::new(move |old| {
+                                match old {
+                                    Value::Binary {val, span: val_span} => cmd(val, &opt, *val_span),
+                                    other => Value::Error {
+                                    error: ShellError::UnsupportedInput(
+                                        format!(
+                                            "Input's type is {}. This command only works with bytes.",
+                                            other.get_type()
+                                        ),
+                                        span,
+                                 ),
+                            }}}),
                         );
                         if let Err(error) = r {
                             return Value::Error { error };
