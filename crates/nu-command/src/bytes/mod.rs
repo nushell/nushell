@@ -1,5 +1,7 @@
 mod bytes_;
+mod ends_with;
 mod length;
+mod reverse;
 mod starts_with;
 
 use nu_protocol::ast::CellPath;
@@ -8,7 +10,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 pub use bytes_::Bytes;
+pub use ends_with::BytesEndsWith;
 pub use length::BytesLen;
+pub use reverse::BytesReverse;
 pub use starts_with::BytesStartsWith;
 
 trait BytesArgument {

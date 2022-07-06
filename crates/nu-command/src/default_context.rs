@@ -211,7 +211,9 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
         bind_command! {
             Bytes,
             BytesLen,
-            BytesStartsWith
+            BytesStartsWith,
+            BytesEndsWith,
+            BytesReverse
         }
 
         // FileSystem
