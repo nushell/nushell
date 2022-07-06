@@ -6,9 +6,6 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
 
-#[derive(Clone)]
-pub struct BytesLen;
-
 struct Arguments {
     column_paths: Option<Vec<CellPath>>,
 }
@@ -19,27 +16,31 @@ impl BytesArgument for Arguments {
     }
 }
 
-impl Command for BytesLen {
+#[derive(Clone)]
+
+pub struct BytesReverse;
+
+impl Command for BytesReverse {
     fn name(&self) -> &str {
-        "bytes length"
+        "bytes reverse"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("bytes length")
+        Signature::build("bytes reverse")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally find length of binary by column paths",
+                "optionally matches prefix of text by column paths",
             )
             .category(Category::Bytes)
     }
 
     fn usage(&self) -> &str {
-        "Output the length of any bytes in the pipeline"
+        "Reverse every bytes in the pipeline"
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["len", "size", "count"]
+        vec!["convert", "inverse"]
     }
 
     fn run(
@@ -49,24 +50,27 @@ impl Command for BytesLen {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let column_paths = (!column_paths.is_empty()).then_some(column_paths);
         let arg = Arguments { column_paths };
-        operate(length, arg, input, call.head, engine_state.ctrlc.clone())
+        operate(reverse, arg, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Return the lengths of multiple strings",
-                example: "0x[1F FF AA AB] | bytes length",
-                result: Some(Value::test_int(4)),
+                description: "Reverse bytes `0x[1F FF AA AA]`",
+                example: "0x[1F FF AA AA] | bytes reverse",
+                result: Some(Value::Binary {
+                    val: vec![0xAA, 0xAA, 0xFF, 0x1F],
+                    span: Span::test_data(),
+                }),
             },
             Example {
-                description: "Return the lengths of multiple strings",
-                example: "[0x[1F FF AA AB] 0x[1F]] | bytes length",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(1)],
+                description: "Reverse bytes `0x[FF AA AA]`",
+                example: "0x[FF AA AA] | bytes reverse",
+                result: Some(Value::Binary {
+                    val: vec![0xAA, 0xAA, 0xFF],
                     span: Span::test_data(),
                 }),
             },
@@ -74,21 +78,23 @@ impl Command for BytesLen {
     }
 }
 
-fn length(input: &[u8], _arg: &Arguments, span: Span) -> Value {
-    Value::Int {
-        val: input.len() as i64,
+fn reverse(input: &[u8], _args: &Arguments, span: Span) -> Value {
+    let mut reversed_input = input.to_vec();
+    reversed_input.reverse();
+    Value::Binary {
+        val: reversed_input,
         span,
     }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(BytesLen {})
+        test_examples(BytesReverse {})
     }
 }

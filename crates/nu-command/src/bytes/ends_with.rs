@@ -19,15 +19,15 @@ impl BytesArgument for Arguments {
 
 #[derive(Clone)]
 
-pub struct BytesStartsWith;
+pub struct BytesEndsWith;
 
-impl Command for BytesStartsWith {
+impl Command for BytesEndsWith {
     fn name(&self) -> &str {
-        "bytes starts-with"
+        "bytes ends-with"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("bytes starts-with")
+        Signature::build("bytes ends-with")
             .required("pattern", SyntaxShape::Binary, "the pattern to match")
             .rest(
                 "rest",
@@ -38,7 +38,7 @@ impl Command for BytesStartsWith {
     }
 
     fn usage(&self) -> &str {
-        "Check if bytes starts with a pattern"
+        "Check if bytes ends with a pattern"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -59,36 +59,30 @@ impl Command for BytesStartsWith {
             pattern,
             column_paths,
         };
-        operate(
-            starts_with,
-            arg,
-            input,
-            call.head,
-            engine_state.ctrlc.clone(),
-        )
+        operate(ends_with, arg, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Checks if binary starts with `0x[1F FF AA]`",
-                example: "0x[1F FF AA AA] | bytes starts-with 0x[1F FF AA]",
+                description: "Checks if binary ends with `0x[AA]`",
+                example: "0x[1F FF AA AA] | bytes ends-with 0x[AA]",
                 result: Some(Value::Bool {
                     val: true,
                     span: Span::test_data(),
                 }),
             },
             Example {
-                description: "Checks if binary starts with `0x[1F]`",
-                example: "0x[1F FF AA AA] | bytes starts-with 0x[1F]",
+                description: "Checks if binary ends with `0x[FF AA AA]`",
+                example: "0x[1F FF AA AA] | bytes ends-with 0x[FF AA AA]",
                 result: Some(Value::Bool {
                     val: true,
                     span: Span::test_data(),
                 }),
             },
             Example {
-                description: "Checks if binary starts with `0x[1F]`",
-                example: "0x[1F FF AA AA] | bytes starts-with 0x[11]",
+                description: "Checks if binary ends with `0x[11]`",
+                example: "0x[1F FF AA AA] | bytes ends-with 0x[11]",
                 result: Some(Value::Bool {
                     val: false,
                     span: Span::test_data(),
@@ -98,9 +92,9 @@ impl Command for BytesStartsWith {
     }
 }
 
-fn starts_with(input: &[u8], Arguments { pattern, .. }: &Arguments, span: Span) -> Value {
+fn ends_with(input: &[u8], Arguments { pattern, .. }: &Arguments, span: Span) -> Value {
     Value::Bool {
-        val: input.starts_with(pattern),
+        val: input.ends_with(pattern),
         span,
     }
 }
@@ -113,6 +107,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(BytesStartsWith {})
+        test_examples(BytesEndsWith {})
     }
 }
