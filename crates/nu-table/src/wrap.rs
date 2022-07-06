@@ -305,9 +305,9 @@ pub fn wrap(
     theme: &TableTheme,
 ) -> Option<(Vec<String>, Vec<Vec<String>>)> {
     // Remove the edges, if used
-    let edges_width = if theme.print_left_border && theme.print_right_border {
+    let edges_width = if theme.is_left_set && theme.is_right_set {
         3
-    } else if theme.print_left_border || theme.print_right_border {
+    } else if theme.is_left_set || theme.is_right_set {
         1
     } else {
         0

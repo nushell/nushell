@@ -5,7 +5,6 @@ use nu_protocol::{Config, FooterMode};
 use std::collections::HashMap;
 use tabled::formatting_settings::AlignmentStrategy;
 use tabled::object::{Cell, Columns, Rows};
-use tabled::style::StyleConfig;
 use tabled::{Alignment, Modify};
 
 #[derive(Debug)]
@@ -141,70 +140,6 @@ fn apply_alignments(
     table
 }
 
-fn nu_theme_to_tabled(theme: &TableTheme) -> StyleConfig {
-    let mut t: StyleConfig = tabled::style::Style::blank()
-        .top(theme.top_horizontal)
-        .bottom(theme.bottom_horizontal)
-        .left(theme.left_vertical)
-        .right(theme.right_vertical)
-        .horizontal(theme.middle_horizontal)
-        .header(theme.middle_horizontal)
-        .vertical(theme.center_vertical)
-        .inner_intersection(theme.center)
-        .header_intersection(theme.center)
-        .top_intersection(theme.top_center)
-        .top_left_corner(theme.top_left)
-        .top_right_corner(theme.top_right)
-        .bottom_intersection(theme.bottom_center)
-        .bottom_left_corner(theme.bottom_left)
-        .bottom_right_corner(theme.bottom_right)
-        .left_intersection(theme.middle_left)
-        .right_intersection(theme.middle_right)
-        .into();
-
-    if !theme.separate_rows {
-        t.set_horizontal(None);
-    }
-
-    if !theme.separate_header {
-        t.set_header(None);
-    }
-
-    if !theme.print_top_border {
-        t.set_top(None);
-    }
-
-    if !theme.print_bottom_border {
-        t.set_bottom(None);
-    }
-
-    if !theme.print_left_border {
-        t.set_left(None);
-
-        if !theme.print_top_border {
-            t.set_top_left(None);
-        }
-
-        if !theme.print_bottom_border {
-            t.set_bottom_left(None);
-        }
-    }
-
-    if !theme.print_right_border {
-        t.set_right(None);
-
-        if !theme.print_top_border {
-            t.set_top_right(None);
-        }
-
-        if !theme.print_bottom_border {
-            t.set_bottom_right(None);
-        }
-    }
-
-    t
-}
-
 fn load_theme(
     mut table: tabled::Table,
     color_hm: &HashMap<String, Style>,
@@ -212,8 +147,7 @@ fn load_theme(
     with_footer: bool,
     with_header: bool,
 ) -> tabled::Table {
-    let style = nu_theme_to_tabled(theme);
-    table = table.with(style);
+    table = table.with(theme.theme.clone());
 
     if let Some(color) = color_hm.get("separator") {
         let color = color.paint(" ").to_string();
@@ -259,14 +193,6 @@ impl tabled::TableOption for FooterStyle {
         line.right = border.right_bottom_corner;
 
         grid.set_split_line(grid.count_rows() - 1, line);
-    }
-}
-
-struct CalculateTableWidth(usize);
-
-impl tabled::TableOption for CalculateTableWidth {
-    fn change(&mut self, grid: &mut tabled::papergrid::Grid) {
-        self.0 = grid.total_width();
     }
 }
 
