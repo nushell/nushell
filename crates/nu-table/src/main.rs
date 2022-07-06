@@ -29,7 +29,8 @@ fn main() {
     // get the default config
     let config = Config::default();
     // Capture the table as a string
-    let output_table = draw_table(&table, width, &color_hm, &config);
+    let output_table = draw_table(&table, width, &color_hm, &config)
+        .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", width));
     // Draw the table
     println!("{}", output_table)
 }

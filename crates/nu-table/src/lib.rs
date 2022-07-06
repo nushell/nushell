@@ -5,5 +5,4 @@ mod wrap;
 
 pub use table::{draw_table, Table};
 pub use table_theme::TableTheme;
-pub use textstyle::{StyledString, TextStyle};
-pub use wrap::Alignment;
+pub use textstyle::{Alignment, StyledString, TextStyle};
