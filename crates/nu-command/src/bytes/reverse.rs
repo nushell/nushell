@@ -51,11 +51,7 @@ impl Command for BytesReverse {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let column_paths = if column_paths.is_empty() {
-            None
-        } else {
-            Some(column_paths)
-        };
+        let column_paths = (!column_paths.is_empty()).then_some(column_paths);
         let arg = Arguments { column_paths };
         operate(reverse, arg, input, call.head, engine_state.ctrlc.clone())
     }

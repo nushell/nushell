@@ -1,0 +1,167 @@
+use super::{operate, BytesArgument};
+use nu_engine::CallExt;
+use nu_protocol::{
+    ast::{Call, CellPath},
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
+
+struct Arguments {
+    find: Vec<u8>,
+    replace: Vec<u8>,
+    column_paths: Option<Vec<CellPath>>,
+    all: bool,
+}
+
+impl BytesArgument for Arguments {
+    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.column_paths.take()
+    }
+}
+
+#[derive(Clone)]
+pub struct BytesReplace;
+
+impl Command for BytesReplace {
+    fn name(&self) -> &str {
+        "bytes replace"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bytes replace")
+            .required("find", SyntaxShape::Binary, "the pattern to find")
+            .required("replace", SyntaxShape::Binary, "the replacement pattern")
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "optionally find and replace text by column paths",
+            )
+            .switch("all", "replace all occurrences of find binary", Some('a'))
+            .category(Category::Bytes)
+    }
+
+    fn usage(&self) -> &str {
+        "Find and replace binary"
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["search", "shift", "switch"]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
+        let column_paths = (!column_paths.is_empty()).then_some(column_paths);
+        let find = call.req::<Vec<u8>>(engine_state, stack, 0)?;
+        if find.is_empty() {
+            return Err(ShellError::UnsupportedInput(
+                "the pattern to find cannot be empty".to_string(),
+                call.head,
+            ));
+        }
+
+        let arg = Arguments {
+            find,
+            replace: call.req::<Vec<u8>>(engine_state, stack, 1)?,
+            column_paths,
+            all: call.has_flag("all"),
+        };
+
+        operate(replace, arg, input, call.head, engine_state.ctrlc.clone())
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Find and replace contents",
+                example: "0x[10 AA FF AA FF] | bytes replace 0x[10 AA] 0x[FF]",
+                result: Some(Value::Binary {
+                    val: vec![0xFF, 0xFF, 0xAA, 0xFF],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Find and replace all occurrences of find binary",
+                example: "0x[10 AA 10 BB 10] | bytes replace -a 0x[10] 0x[A0]",
+                result: Some(Value::Binary {
+                    val: vec![0xA0, 0xAA, 0xA0, 0xBB, 0xA0],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Find and replace all occurrences of find binary in table",
+                example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes replace -a 0x[11] 0x[13] ColA ColC",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
+                        vals: vec![
+                            Value::Binary {
+                                val: vec![0x13, 0x12, 0x13],
+                                span: Span::test_data(),
+                            },
+                            Value::Binary {
+                                val: vec![0x14, 0x15, 0x16],
+                                span: Span::test_data(),
+                            },
+                            Value::Binary {
+                                val: vec![0x17, 0x18, 0x19],
+                                span: Span::test_data(),
+                            },
+                        ],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
+    }
+}
+
+fn replace(input: &[u8], arg: &Arguments, span: Span) -> Value {
+    let mut replaced = vec![];
+    let replace_all = arg.all;
+
+    // doing find-and-replace stuff.
+    let (mut left, mut right) = (0, arg.find.len());
+    let input_len = input.len();
+    let pattern_len = arg.find.len();
+    while right <= input_len {
+        if input[left..right] == arg.find {
+            let mut to_replace = arg.replace.clone();
+            replaced.append(&mut to_replace);
+            left += pattern_len;
+            right += pattern_len;
+            if !replace_all {
+                break;
+            }
+        } else {
+            replaced.push(input[left]);
+            left += 1;
+            right += 1;
+        }
+    }
+
+    let mut remain = input[left..].to_vec();
+    replaced.append(&mut remain);
+    Value::Binary {
+        val: replaced,
+        span,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(BytesReplace {})
+    }
+}

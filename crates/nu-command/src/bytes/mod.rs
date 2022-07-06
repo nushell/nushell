@@ -1,6 +1,7 @@
 mod bytes_;
 mod ends_with;
 mod length;
+mod replace;
 mod reverse;
 mod starts_with;
 
@@ -12,6 +13,7 @@ use std::sync::Arc;
 pub use bytes_::Bytes;
 pub use ends_with::BytesEndsWith;
 pub use length::BytesLen;
+pub use replace::BytesReplace;
 pub use reverse::BytesReverse;
 pub use starts_with::BytesStartsWith;
 
