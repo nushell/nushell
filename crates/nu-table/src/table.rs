@@ -3,9 +3,14 @@ use crate::StyledString;
 use nu_ansi_term::Style;
 use nu_protocol::{Config, FooterMode};
 use std::collections::HashMap;
-use tabled::formatting_settings::AlignmentStrategy;
-use tabled::object::{Cell, Columns, Rows};
-use tabled::{Alignment, Modify};
+use tabled::{
+    builder::Builder,
+    formatting_settings::AlignmentStrategy,
+    object::{Cell, Columns, Rows},
+    papergrid,
+    style::BorderColor,
+    Alignment, Modify, TableOption,
+};
 
 #[derive(Debug)]
 pub struct Table {
@@ -58,11 +63,7 @@ pub fn draw_table(
 fn print_table(table: tabled::Table, term_width: usize) -> Option<String> {
     let s = table.to_string();
 
-    let width = s
-        .lines()
-        .next()
-        .map(tabled::papergrid::string_width)
-        .unwrap_or(0);
+    let width = s.lines().next().map(papergrid::string_width).unwrap_or(0);
     if width > term_width {
         return None;
     }
@@ -92,7 +93,7 @@ fn build_table(
     need_footer: bool,
 ) -> tabled::Table {
     let header_present = headers.is_some();
-    let mut builder = tabled::builder::Builder::from(data);
+    let mut builder = Builder::from(data);
 
     if let Some(headers) = headers {
         builder = builder.set_columns(headers.clone());
@@ -151,7 +152,9 @@ fn load_theme(
 
     if let Some(color) = color_hm.get("separator") {
         let color = color.paint(" ").to_string();
-        table = table.with(tabled::style::BorderColor::try_from(color).unwrap());
+        if let Ok(color) = BorderColor::try_from(color) {
+            table = table.with(color);
+        }
     }
 
     if with_footer {
@@ -176,13 +179,13 @@ fn need_footer(config: &Config, count_records: u64) -> bool {
 
 struct FooterStyle;
 
-impl tabled::TableOption for FooterStyle {
-    fn change(&mut self, grid: &mut tabled::papergrid::Grid) {
+impl TableOption for FooterStyle {
+    fn change(&mut self, grid: &mut papergrid::Grid) {
         if grid.count_columns() == 0 || grid.count_rows() == 0 {
             return;
         }
 
-        let mut line = tabled::papergrid::Line::default();
+        let mut line = papergrid::Line::default();
 
         let border = grid.get_border((0, 0));
         line.left = border.left_bottom_corner;
@@ -198,8 +201,8 @@ impl tabled::TableOption for FooterStyle {
 
 struct RemoveHeaderLine;
 
-impl tabled::TableOption for RemoveHeaderLine {
-    fn change(&mut self, grid: &mut tabled::papergrid::Grid) {
-        grid.set_split_line(1, tabled::papergrid::Line::default());
+impl TableOption for RemoveHeaderLine {
+    fn change(&mut self, grid: &mut papergrid::Grid) {
+        grid.set_split_line(1, papergrid::Line::default());
     }
 }

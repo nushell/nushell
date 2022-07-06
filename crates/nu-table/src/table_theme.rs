@@ -1,8 +1,8 @@
-use tabled::Style;
+use tabled::{style::StyleConfig, Style};
 
 #[derive(Debug, Clone)]
 pub struct TableTheme {
-    pub(crate) theme: tabled::style::StyleConfig,
+    pub(crate) theme: StyleConfig,
     pub(crate) is_left_set: bool,
     pub(crate) is_right_set: bool,
 }
