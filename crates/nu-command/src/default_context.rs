@@ -214,7 +214,8 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             BytesStartsWith,
             BytesEndsWith,
             BytesReverse,
-            BytesReplace
+            BytesReplace,
+            BytesAdd
         }
 
         // FileSystem

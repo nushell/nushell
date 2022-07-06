@@ -1,3 +1,4 @@
+mod add;
 mod bytes_;
 mod ends_with;
 mod length;
@@ -10,6 +11,7 @@ use nu_protocol::{PipelineData, ShellError, Span, Value};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+pub use add::BytesAdd;
 pub use bytes_::Bytes;
 pub use ends_with::BytesEndsWith;
 pub use length::BytesLen;
