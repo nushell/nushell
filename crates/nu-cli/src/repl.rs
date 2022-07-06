@@ -13,18 +13,71 @@ use nu_parser::{lex, parse};
 use nu_protocol::{
     ast::PathMember,
     engine::{EngineState, Stack, StateWorkingSet},
-    BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value,
+    BlockId, Config, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
+use std::collections::HashMap;
 use std::io::{self, Write};
 use std::{sync::atomic::Ordering, time::Instant};
-use std::collections::HashMap;
 use sysinfo::SystemExt;
 
 const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
 const PRE_EXECUTE_MARKER: &str = "\x1b]133;C\x1b\\";
 const CMD_FINISHED_MARKER: &str = "\x1b]133;D\x1b\\";
 const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
+
+pub fn eval_env_change_hooks(
+    env_change_hook: Option<Value>,
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+) -> Result<(), ShellError> {
+    if let Some(hook) = env_change_hook {
+        let span = hook.span().unwrap_or_else(|_| Span::test_data()); // TODO: Handle error
+
+        match hook {
+            Value::Record {
+                cols: env_names,
+                vals: hooks,
+                ..
+            } => {
+                for (idx, env_name) in env_names.iter().enumerate() {
+                    let before = engine_state
+                        .previous_env_vars
+                        .get(env_name)
+                        .cloned()
+                        .unwrap_or_default();
+
+                    let after = stack
+                        .get_env_var(engine_state, env_name)
+                        .unwrap_or_default();
+
+                    if before != after {
+                        if let Err(err) = eval_hook(
+                            engine_state,
+                            stack,
+                            vec![before, after.clone()],
+                            &hooks[idx],
+                        ) {
+                            // TODO: Handle error
+                        }
+
+                        engine_state
+                            .previous_env_vars
+                            .insert(env_name.to_string(), after);
+                    }
+                }
+            }
+            x => {
+                return Err(ShellError::TypeMismatch(
+                    "record for 'env_change' hook".to_string(),
+                    x.span().unwrap_or_else(|_| Span::new(0, 0)), // TODO: Handle error
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
 
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
@@ -247,52 +300,10 @@ pub fn evaluate_repl(
 
         // Next, check all the environment variables they ask for
         // fire the "env_change" hook
-        if let Some(hook) = config.hooks.env_change_str.clone() {
-            let span = hook.span().unwrap_or_else(|_| Span::test_data()); // TODO: Handle error
-
-            match hook {
-                Value::Record {
-                    cols: env_names,
-                    vals: hooks,
-                    ..
-                } => {
-                    for (idx, env_name) in env_names.iter().enumerate() {
-                        let before = engine_state
-                            .previous_env_vars
-                            .get(env_name)
-                            .cloned()
-                            .unwrap_or_default();
-
-                        let after = stack
-                            .get_env_var(engine_state, env_name)
-                            .unwrap_or_default();
-
-                        if before != after {
-                            if let Err(err) = eval_hook(
-                                engine_state,
-                                stack,
-                                vec![before, after.clone()],
-                                &hooks[idx],
-                            ) {
-                                // TODO: Handle error
-                            }
-
-                            engine_state
-                                .previous_env_vars
-                                .insert(env_name.to_string(), after);
-                        }
-                    }
-                }
-                x => {
-                    report_error_new(
-                        &engine_state,
-                        &ShellError::TypeMismatch(
-                            "record for 'env_change' hook".to_string(),
-                            x.span().unwrap_or_else(|_| Span::new(0, 0)), // TODO: Handle error
-                        ),
-                    )
-                }
-            }
+        if let Err(error) =
+            eval_env_change_hooks(config.hooks.env_change_str.clone(), engine_state, stack)
+        {
+            report_error_new(&engine_state, &error)
         }
 
         // Next, check all the environment variables they ask for
@@ -678,7 +689,9 @@ pub fn eval_hook(
 
                         match eval_block(engine_state, stack, &block, input, false, false) {
                             Ok(_) => {}
-                            Err(err) => { report_error_new(&engine_state, &err); }
+                            Err(err) => {
+                                report_error_new(&engine_state, &err);
+                            }
                         }
 
                         stack.vars.remove(&before_id);
