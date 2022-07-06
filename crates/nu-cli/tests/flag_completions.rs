@@ -14,15 +14,17 @@ fn flag_completions() {
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("ls -", 4);
 
-    assert_eq!(12, suggestions.len());
+    assert_eq!(14, suggestions.len());
 
     let expected: Vec<String> = vec![
         "--all".into(),
+        "--directory".into(),
         "--du".into(),
         "--full-paths".into(),
         "--help".into(),
         "--long".into(),
         "--short-names".into(),
+        "-D".into(),
         "-a".into(),
         "-d".into(),
         "-f".into(),
