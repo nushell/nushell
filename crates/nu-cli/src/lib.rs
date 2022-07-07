@@ -13,6 +13,7 @@ mod syntax_highlight;
 mod util;
 mod validation;
 
+pub use repl::eval_env_change_hooks;
 pub use commands::evaluate_commands;
 pub use completions::{FileCompletion, NuCompleter};
 pub use config_files::eval_config_contents;

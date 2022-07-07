@@ -1,3 +1,4 @@
+use nu_cli::eval_env_change_hooks;
 use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
@@ -70,10 +71,18 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
         }
 
         let input = PipelineData::new(Span::test_data());
-        let config = engine_state.get_config();
+        let config = engine_state.get_config().clone();
+
+        if let Err(error) = eval_env_change_hooks(
+            config.hooks.env_change_str.clone(),
+            &mut engine_state,
+            &mut stack,
+        ) {
+            return outcome_err(format!("{:?}", error));
+        }
 
         match eval_block(&engine_state, &mut stack, &block, input, false, false) {
-            Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
+            Ok(pipeline_data) => match pipeline_data.collect_string("", &config) {
                 Ok(s) => last_output = s,
                 Err(err) => return outcome_err(format!("{:?}", err)),
             },
