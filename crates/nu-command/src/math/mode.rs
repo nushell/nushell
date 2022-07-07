@@ -44,7 +44,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["common", "often", "average"]
+        vec!["common", "often"]
     }
 
     fn run(
