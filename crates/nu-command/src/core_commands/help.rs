@@ -1,12 +1,11 @@
+use nu_ansi_term::Color::{Red, White};
+use nu_engine::{get_full_help, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, Spanned, SyntaxShape, Value,
 };
-
-use nu_engine::{get_full_help, CallExt};
-
 use std::borrow::Borrow;
 
 #[derive(Clone)]
@@ -85,6 +84,7 @@ fn help(
     let commands = engine_state.get_decl_ids_sorted(false);
 
     if let Some(f) = find {
+        let replace_string = White.on(Red).paint(f.item.clone()).to_string();
         let search_string = f.item.to_lowercase();
         let mut found_cmds_vec = Vec::new();
 
@@ -106,13 +106,16 @@ fn help(
                 false
             };
 
-            if key.to_lowercase().contains(&search_string)
-                || usage.to_lowercase().contains(&search_string)
-                || matches_term
-            {
+            let key_match = key.to_lowercase().contains(&search_string);
+            let use_match = usage.to_lowercase().contains(&search_string);
+            if key_match || use_match || matches_term {
                 cols.push("name".into());
                 vals.push(Value::String {
-                    val: key,
+                    val: if key_match {
+                        key.as_str().replace(&key, &replace_string)
+                    } else {
+                        key
+                    },
                     span: head,
                 });
 
@@ -142,7 +145,11 @@ fn help(
 
                 cols.push("usage".into());
                 vals.push(Value::String {
-                    val: usage,
+                    val: if use_match {
+                        usage.as_str().replace(&usage, &replace_string)
+                    } else {
+                        usage
+                    },
                     span: head,
                 });
 
@@ -151,7 +158,21 @@ fn help(
                     Value::nothing(head)
                 } else {
                     Value::String {
-                        val: search_terms.join(", "),
+                        val: if matches_term {
+                            search_terms
+                                .iter()
+                                .map(|term| {
+                                    if term.to_lowercase().contains(&search_string) {
+                                        term.replace(term, &replace_string.clone())
+                                    } else {
+                                        term.clone()
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        } else {
+                            search_terms.join(", ")
+                        },
                         span: head,
                     }
                 });
