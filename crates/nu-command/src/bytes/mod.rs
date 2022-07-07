@@ -1,4 +1,5 @@
 mod add;
+mod at;
 mod bytes_;
 mod ends_with;
 mod length;
@@ -12,6 +13,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 pub use add::BytesAdd;
+pub use at::BytesAt;
 pub use bytes_::Bytes;
 pub use ends_with::BytesEndsWith;
 pub use length::BytesLen;
