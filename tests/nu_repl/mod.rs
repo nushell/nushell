@@ -43,6 +43,18 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
     let mut last_output = String::new();
 
     for (i, line) in source_lines.iter().enumerate() {
+        // Check for env change hook
+        let config = engine_state.get_config();
+
+        if let Err(error) = eval_env_change_hooks(
+            config.hooks.env_change_str.clone(),
+            &mut engine_state,
+            &mut stack,
+        ) {
+            return outcome_err(format!("{:?}", error));
+        }
+
+        // Eval teh REPL line
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
             let (block, err) = parse(
@@ -71,18 +83,10 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
         }
 
         let input = PipelineData::new(Span::test_data());
-        let config = engine_state.get_config().clone();
-
-        if let Err(error) = eval_env_change_hooks(
-            config.hooks.env_change_str.clone(),
-            &mut engine_state,
-            &mut stack,
-        ) {
-            return outcome_err(format!("{:?}", error));
-        }
+        let config = engine_state.get_config();
 
         match eval_block(&engine_state, &mut stack, &block, input, false, false) {
-            Ok(pipeline_data) => match pipeline_data.collect_string("", &config) {
+            Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                 Ok(s) => last_output = s,
                 Err(err) => return outcome_err(format!("{:?}", err)),
             },

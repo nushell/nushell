@@ -13,7 +13,6 @@ mod syntax_highlight;
 mod util;
 mod validation;
 
-pub use repl::eval_env_change_hooks;
 pub use commands::evaluate_commands;
 pub use completions::{FileCompletion, NuCompleter};
 pub use config_files::eval_config_contents;
@@ -22,6 +21,7 @@ pub use menus::{DescriptionMenu, NuHelpCompleter};
 pub use nu_highlight::NuHighlight;
 pub use print::Print;
 pub use prompt::NushellPrompt;
+pub use repl::eval_env_change_hooks;
 pub use repl::evaluate_repl;
 pub use syntax_highlight::NuHighlighter;
 pub use util::{eval_source, gather_parent_env_vars, get_init_cwd, report_error};
