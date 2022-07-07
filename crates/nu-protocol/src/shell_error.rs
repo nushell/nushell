@@ -269,6 +269,22 @@ pub enum ShellError {
         #[help] Option<String>,
     ),
 
+    /// Failed to convert a value of one type into a different type. Includes hint for what the first value is.
+    ///
+    /// ## Resolution
+    ///
+    /// Not all values can be coerced this way. Check the supported type(s) and try again.
+    #[error("Can't convert {1} `{2}` to {0}.")]
+    #[diagnostic(code(nu::shell::cant_convert_with_value), url(docsrs))]
+    CantConvertWithValue(
+        String,
+        String,
+        String,
+        #[label("can't be converted to {0}")] Span,
+        #[label("this {1} value...")] Span,
+        #[help] Option<String>,
+    ),
+
     /// An environment variable cannot be represented as a string.
     ///
     /// ## Resolution

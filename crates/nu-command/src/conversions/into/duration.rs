@@ -136,7 +136,7 @@ fn into_duration(
     )
 }
 
-fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
+fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, ShellError> {
     if let Some(expression) = parse_duration_bytes(s.as_bytes(), span) {
         if let Expr::ValueWithUnit(value, unit) = expression.expr {
             if let Expr::Int(x) = value.expr {
@@ -155,10 +155,12 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
         }
     }
 
-    Err(ShellError::CantConvert(
+    Err(ShellError::CantConvertWithValue(
         "duration".to_string(),
         "string".to_string(),
+        s.to_string(),
         span,
+        value_span,
         Some("supported units are ns, us, ms, sec, min, hr, day, and wk".to_string()),
     ))
 }
@@ -166,7 +168,10 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
 fn action(input: &Value, span: Span) -> Value {
     match input {
         Value::Duration { .. } => input.clone(),
-        Value::String { val, .. } => match string_to_duration(val, span) {
+        Value::String {
+            val,
+            span: value_span,
+        } => match string_to_duration(val, span, *value_span) {
             Ok(val) => Value::Duration { val, span },
             Err(error) => Value::Error { error },
         },
