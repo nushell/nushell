@@ -326,6 +326,12 @@ impl ExternalCommand {
                                     span,
                                 ));
                             }
+                        } else if let Some(sig) = status.signal().and_then(signal_name) {
+                            return Err(ShellError::ExternalCommand(
+                                format!("{sig} (signal)"),
+                                "Child process terminated by signal".to_string(),
+                                span,
+                            ));
                         }
                     }
                 }
