@@ -14,6 +14,7 @@ use nu_protocol::{
     ast::PathMember,
     engine::{EngineState, Stack, StateWorkingSet},
     BlockId, Config, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value,
+    VarId,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
 use std::collections::HashMap;
@@ -55,7 +56,7 @@ pub fn eval_env_change_hook(
                         if let Err(err) = eval_hook(
                             engine_state,
                             stack,
-                            vec![before, after.clone()],
+                            vec![("$before".into(), before), ("$after".into(), after.clone())],
                             &hooks[idx],
                         ) {
                             // TODO: Handle error
@@ -185,7 +186,7 @@ pub fn evaluate_repl(
             sig_quit.store(false, Ordering::SeqCst);
         }
 
-        config = engine_state.get_config();
+        let config = engine_state.get_config();
 
         if is_perf_true {
             info!("setup colors {}:{}:{}", file!(), line!(), column!());
@@ -291,8 +292,8 @@ pub fn evaluate_repl(
 
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
-        if let Some(hook) = &config.hooks.pre_prompt {
-            if let Err(err) = run_hook(engine_state, stack, vec![], hook) {
+        if let Some(hook) = config.hooks.pre_prompt.clone() {
+            if let Err(err) = eval_hook(engine_state, stack, vec![], &hook) {
                 let working_set = StateWorkingSet::new(engine_state);
                 report_error(&working_set, &err);
             }
@@ -300,6 +301,7 @@ pub fn evaluate_repl(
 
         // Next, check all the environment variables they ask for
         // fire the "env_change" hook
+        let config = engine_state.get_config();
         if let Err(error) =
             eval_env_change_hook(config.hooks.env_change_str.clone(), engine_state, stack)
         {
@@ -350,7 +352,7 @@ pub fn evaluate_repl(
         //     }
         // }
 
-        config = engine_state.get_config();
+        let config = engine_state.get_config();
 
         let shell_integration = config.shell_integration;
         if shell_integration {
@@ -391,8 +393,8 @@ pub fn evaluate_repl(
 
                 // Right before we start running the code the user gave us,
                 // fire the "pre_execution" hook
-                if let Some(hook) = &config.hooks.pre_execution {
-                    if let Err(err) = run_hook(engine_state, stack, vec![], hook) {
+                if let Some(hook) = config.hooks.pre_execution.clone() {
+                    if let Err(err) = eval_hook(engine_state, stack, vec![], &hook) {
                         let working_set = StateWorkingSet::new(engine_state);
                         report_error(&working_set, &err);
                     }
@@ -581,7 +583,7 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
 pub fn eval_hook(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    arguments: Vec<Value>,
+    arguments: Vec<(String, Value)>,
     value: &Value,
 ) -> Result<(), ShellError> {
     let span = value.span()?;
@@ -658,13 +660,27 @@ pub fn eval_hook(
             if do_run_hook {
                 match value.clone().follow_cell_path(&[code_path], false)? {
                     Value::String { val, span } => {
-                        let (block, delta, before_id, after_id) = {
+                        let (block, delta, vars) = {
                             let mut working_set = StateWorkingSet::new(engine_state);
 
-                            let before_id =
-                                working_set.add_variable(b"$before".to_vec(), span, Type::Any);
-                            let after_id =
-                                working_set.add_variable(b"$after".to_vec(), span, Type::Any);
+                            let vars: Vec<(VarId, Value)> = arguments
+                                .into_iter()
+                                .map(|(name, val)| {
+                                    (
+                                        working_set.add_variable(
+                                            name.as_bytes().to_vec(),
+                                            span,
+                                            Type::Any,
+                                        ),
+                                        val,
+                                    )
+                                })
+                                .collect();
+
+                            // let before_id =
+                            //     working_set.add_variable(b"$before".to_vec(), span, Type::Any);
+                            // let after_id =
+                            //     working_set.add_variable(b"$after".to_vec(), span, Type::Any);
 
                             let (output, err) = parse(
                                 &mut working_set,
@@ -678,7 +694,7 @@ pub fn eval_hook(
                                 // report_error(&working_set, &err);
                             }
 
-                            (output, working_set.render(), before_id, after_id)
+                            (output, working_set.render(), vars)
                         };
 
                         let cwd = match nu_engine::env::current_dir(engine_state, stack) {
@@ -692,8 +708,17 @@ pub fn eval_hook(
 
                         let _ = engine_state.merge_delta(delta, Some(stack), &cwd);
                         let input = PipelineData::new(span);
-                        stack.add_var(before_id, arguments[0].clone());
-                        stack.add_var(after_id, arguments[1].clone());
+
+                        let var_ids: Vec<VarId> = vars
+                            .into_iter()
+                            .map(|(var_id, val)| {
+                                stack.add_var(var_id, val);
+                                var_id
+                            })
+                            .collect();
+
+                        // stack.add_var(before_id, arguments[0].clone());
+                        // stack.add_var(after_id, arguments[1].clone());
 
                         match eval_block(engine_state, stack, &block, input, false, false) {
                             Ok(_) => {}
@@ -702,8 +727,12 @@ pub fn eval_hook(
                             }
                         }
 
-                        stack.vars.remove(&before_id);
-                        stack.vars.remove(&after_id);
+                        for var_id in var_ids.iter() {
+                            stack.vars.remove(var_id);
+                        }
+
+                        // stack.vars.remove(&before_id);
+                        // stack.vars.remove(&after_id);
                     }
                     Value::Block {
                         val: block_id,
@@ -765,42 +794,42 @@ pub fn eval_hook_record(
     }
 }
 
-pub fn run_hook(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    arguments: Vec<Value>,
-    value: &Value,
-) -> Result<(), ShellError> {
-    match value {
-        Value::List { vals, .. } => {
-            for val in vals {
-                run_hook(engine_state, stack, arguments.clone(), val)?
-            }
-            Ok(())
-        }
-        Value::Block {
-            val: block_id,
-            span,
-            ..
-        } => run_hook_block(engine_state, stack, *block_id, arguments, *span),
-        x => match x.span() {
-            Ok(span) => Err(ShellError::MissingConfigValue(
-                "block for hook in config".into(),
-                span,
-            )),
-            _ => Err(ShellError::MissingConfigValue(
-                "block for hook in config".into(),
-                Span { start: 0, end: 0 },
-            )),
-        },
-    }
-}
+// pub fn run_hook(
+//     engine_state: &EngineState,
+//     stack: &mut Stack,
+//     arguments: Vec<Value>,
+//     value: &Value,
+// ) -> Result<(), ShellError> {
+//     match value {
+//         Value::List { vals, .. } => {
+//             for val in vals {
+//                 run_hook(engine_state, stack, arguments.clone(), val)?
+//             }
+//             Ok(())
+//         }
+//         Value::Block {
+//             val: block_id,
+//             span,
+//             ..
+//         } => run_hook_block(engine_state, stack, *block_id, arguments, *span),
+//         x => match x.span() {
+//             Ok(span) => Err(ShellError::MissingConfigValue(
+//                 "block for hook in config".into(),
+//                 span,
+//             )),
+//             _ => Err(ShellError::MissingConfigValue(
+//                 "block for hook in config".into(),
+//                 Span { start: 0, end: 0 },
+//             )),
+//         },
+//     }
+// }
 
 pub fn run_hook_block(
     engine_state: &EngineState,
     stack: &mut Stack,
     block_id: BlockId,
-    arguments: Vec<Value>,
+    arguments: Vec<(String, Value)>,
     span: Span,
 ) -> Result<(), ShellError> {
     let block = engine_state.get_block(block_id);
@@ -813,7 +842,7 @@ pub fn run_hook_block(
         block.signature.required_positional.iter().enumerate()
     {
         if let Some(var_id) = var_id {
-            callee_stack.add_var(*var_id, arguments[idx].clone())
+            callee_stack.add_var(*var_id, arguments[idx].1.clone())
         }
     }
 
@@ -836,6 +865,7 @@ pub fn run_hook_block(
                 for (var, value) in callee_stack.get_stack_env_vars() {
                     stack.add_env_var(var, value);
                 }
+
                 Ok(())
             }
         },
