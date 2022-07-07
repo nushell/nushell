@@ -85,6 +85,7 @@ fn help(
 
     if let Some(f) = find {
         let replace_string = White.on(Red).paint(f.item.clone()).to_string();
+        let org_search_string = f.item.clone();
         let search_string = f.item.to_lowercase();
         let mut found_cmds_vec = Vec::new();
 
@@ -112,7 +113,7 @@ fn help(
                 cols.push("name".into());
                 vals.push(Value::String {
                     val: if key_match {
-                        key.as_str().replace(&key, &replace_string)
+                        key.as_str().replace(&org_search_string, &replace_string)
                     } else {
                         key
                     },
@@ -146,7 +147,7 @@ fn help(
                 cols.push("usage".into());
                 vals.push(Value::String {
                     val: if use_match {
-                        usage.as_str().replace(&usage, &replace_string)
+                        usage.as_str().replace(&org_search_string, &replace_string)
                     } else {
                         usage
                     },
@@ -163,7 +164,7 @@ fn help(
                                 .iter()
                                 .map(|term| {
                                     if term.to_lowercase().contains(&search_string) {
-                                        term.replace(term, &replace_string.clone())
+                                        term.replace(&org_search_string, &replace_string.clone())
                                     } else {
                                         term.clone()
                                     }
