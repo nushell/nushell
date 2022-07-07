@@ -1,4 +1,4 @@
-use nu_cli::eval_env_change_hooks;
+use nu_cli::eval_env_change_hook;
 use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
@@ -46,7 +46,7 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
         // Check for env change hook
         let config = engine_state.get_config();
 
-        if let Err(error) = eval_env_change_hooks(
+        if let Err(error) = eval_env_change_hook(
             config.hooks.env_change_str.clone(),
             &mut engine_state,
             &mut stack,

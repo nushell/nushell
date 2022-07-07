@@ -26,7 +26,7 @@ const PRE_EXECUTE_MARKER: &str = "\x1b]133;C\x1b\\";
 const CMD_FINISHED_MARKER: &str = "\x1b]133;D\x1b\\";
 const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
-pub fn eval_env_change_hooks(
+pub fn eval_env_change_hook(
     env_change_hook: Option<Value>,
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -301,7 +301,7 @@ pub fn evaluate_repl(
         // Next, check all the environment variables they ask for
         // fire the "env_change" hook
         if let Err(error) =
-            eval_env_change_hooks(config.hooks.env_change_str.clone(), engine_state, stack)
+            eval_env_change_hook(config.hooks.env_change_str.clone(), engine_state, stack)
         {
             report_error_new(&engine_state, &error)
         }
@@ -615,8 +615,16 @@ pub fn eval_hook(
                             let block = engine_state.get_block(block_id);
                             let input = PipelineData::new(*span);
 
-                            let mut stack = stack.captures_to_stack(&HashMap::new());
-                            match eval_block(engine_state, &mut stack, block, input, false, false) {
+                            let mut callee_stack = stack.gather_captures(&block.captures);
+
+                            match eval_block(
+                                engine_state,
+                                &mut callee_stack,
+                                block,
+                                input,
+                                false,
+                                false,
+                            ) {
                                 Ok(pipeline_data) => {
                                     match pipeline_data.into_value(*span) {
                                         Value::Bool { val, span } => val,
@@ -701,7 +709,7 @@ pub fn eval_hook(
                         val: block_id,
                         captures,
                         span,
-                    } => {}
+                    } => run_hook_block(&engine_state, stack, block_id, arguments, span)?,
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
                             "block or string".to_string(),
@@ -796,6 +804,7 @@ pub fn run_hook_block(
     span: Span,
 ) -> Result<(), ShellError> {
     let block = engine_state.get_block(block_id);
+
     let input = PipelineData::new(span);
 
     let mut callee_stack = stack.gather_captures(&block.captures);
@@ -811,7 +820,24 @@ pub fn run_hook_block(
     match eval_block(engine_state, &mut callee_stack, block, input, false, false) {
         Ok(pipeline_data) => match pipeline_data.into_value(span) {
             Value::Error { error } => Err(error),
-            _ => Ok(()),
+            _ => {
+                // If all went fine, preserve the environment of the called block
+                let caller_env_vars = stack.get_env_var_names(engine_state);
+
+                // remove env vars that are present in the caller but not in the callee
+                // (the callee hid them)
+                for var in caller_env_vars.iter() {
+                    if !callee_stack.has_env_var(engine_state, var) {
+                        stack.remove_env_var(engine_state, var);
+                    }
+                }
+
+                // add new env vars from callee to caller
+                for (var, value) in callee_stack.get_stack_env_vars() {
+                    stack.add_env_var(var, value);
+                }
+                Ok(())
+            }
         },
         Err(err) => Err(err),
     }

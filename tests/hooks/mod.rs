@@ -71,3 +71,17 @@ fn env_change_define_alias() {
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
 }
+
+#[test]
+fn env_change_block_preserve_env_var() {
+    let inp = &[
+        &hook_env_with_code(r#"{ let-env SPAM = "spam" }"#),
+        "let-env FOO = 1",
+        "$env.SPAM",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert_eq!(actual_repl.err, "");
+    assert_eq!(actual_repl.out, "spam");
+}
