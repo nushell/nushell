@@ -116,7 +116,7 @@ impl Command for History {
                                     cols: vec![
                                         "item_id".into(),
                                         "start_timestamp".into(),
-                                        "command_line".to_string(),
+                                        "command".to_string(),
                                         "session_id".into(),
                                         "hostname".into(),
                                         "cwd".into(),
