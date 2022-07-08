@@ -57,18 +57,7 @@ pub fn draw_table(
     let table = build_table(data, headers, Some(alignments), config, with_footer);
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
 
-    print_table(table, termwidth)
-}
-
-fn print_table(table: tabled::Table, term_width: usize) -> Option<String> {
-    let s = table.to_string();
-
-    let width = s.lines().next().map(papergrid::string_width).unwrap_or(0);
-    if width > term_width {
-        return None;
-    }
-
-    Some(s)
+    Some(table.to_string())
 }
 
 fn build_alignment_map(data: &[Vec<StyledString>]) -> Vec<Vec<Alignment>> {
