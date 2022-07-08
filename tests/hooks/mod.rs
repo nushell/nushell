@@ -363,8 +363,10 @@ fn env_change_block_dont_preserve_command() {
 
     let actual_repl = nu_repl("tests/hooks", inp);
 
-    assert!(!actual_repl.err.is_empty());
-    assert!(actual_repl.out.is_empty());
+    #[cfg(windows)]
+    assert!(actual_repl.out != "foo");
+    #[cfg(not(windows))]
+    assert!(actual_repl.err.contains("ExternalCommand"));
 }
 
 #[test]
