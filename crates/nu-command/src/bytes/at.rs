@@ -3,7 +3,9 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
 use std::cmp::Ordering;
 
 #[derive(Clone)]
@@ -22,7 +24,7 @@ impl BytesArgument for Arguments {
     }
 }
 
-/// ensure given `range` is valid, and returns [start, end] pair.
+/// ensure given `range` is valid, and returns [start, end, val_span] pair.
 fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellError> {
     let (start, end, span) = match range {
         Value::List { mut vals, span } => {
@@ -119,6 +121,7 @@ impl Command for BytesAt {
                 SyntaxShape::CellPath,
                 "optionally get bytes by column paths",
             )
+            .category(Category::Bytes)
     }
 
     fn usage(&self) -> &str {
