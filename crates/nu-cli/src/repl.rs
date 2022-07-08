@@ -303,7 +303,7 @@ pub fn evaluate_repl(
         // fire the "env_change" hook
         let config = engine_state.get_config();
         if let Err(error) =
-            eval_env_change_hook(config.hooks.env_change_str.clone(), engine_state, stack)
+            eval_env_change_hook(config.hooks.env_change.clone(), engine_state, stack)
         {
             report_error_new(&engine_state, &error)
         }

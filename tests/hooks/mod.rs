@@ -4,7 +4,7 @@ fn env_change_hook_code(code: &str) -> String {
     format!(
         r#"let-env config = {{
             hooks: {{
-                env_change_str: {{
+                env_change: {{
                     FOO : [
                         {{
                             code: {code}
