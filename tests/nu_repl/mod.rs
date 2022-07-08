@@ -2,15 +2,22 @@ use nu_cli::{eval_env_change_hook, eval_hook};
 use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_protocol::engine::{Stack, StateDelta, StateWorkingSet};
-use nu_protocol::{PipelineData, Span, Value};
+use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
+use nu_protocol::{CliError, PipelineData, Span, Value};
 use nu_test_support::fs::in_directory;
 use nu_test_support::Outcome;
 
-fn outcome_err(msg: String) -> Outcome {
+fn outcome_err(
+    engine_state: &EngineState,
+    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
+) -> Outcome {
+    let working_set = StateWorkingSet::new(&engine_state);
+
+    eprintln!("{}", format!("Error: {:?}", CliError(error, &working_set)));
+
     Outcome {
         out: String::new(),
-        err: msg,
+        err: format!("{:?}", error),
     }
 }
 
@@ -37,7 +44,7 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
 
     let delta = StateDelta::new(&engine_state);
     if let Err(err) = engine_state.merge_delta(delta, Some(&mut stack), cwd) {
-        return outcome_err(format!("{:?}", &err));
+        return outcome_err(&engine_state, &err);
     }
 
     let mut last_output = String::new();
@@ -50,14 +57,14 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
             &mut engine_state,
             &mut stack,
         ) {
-            return outcome_err(format!("{:?}", err));
+            return outcome_err(&engine_state, &err);
         }
 
         // Check for pre_execution hook
         let config = engine_state.get_config();
         if let Some(hook) = config.hooks.pre_execution.clone() {
             if let Err(err) = eval_hook(&mut engine_state, &mut stack, vec![], &hook) {
-                return outcome_err(format!("{:?}", err));
+                return outcome_err(&engine_state, &err);
             }
         }
 
@@ -73,7 +80,7 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
             );
 
             if let Some(err) = err {
-                return outcome_err(format!("{:?}", err));
+                return outcome_err(&engine_state, &err);
             }
             (block, working_set.render())
         };
@@ -81,12 +88,12 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
         let cwd = match nu_engine::env::current_dir(&engine_state, &stack) {
             Ok(p) => p,
             Err(e) => {
-                return outcome_err(format!("{:?}", &e));
+                return outcome_err(&engine_state, &e);
             }
         };
 
         if let Err(err) = engine_state.merge_delta(delta, Some(&mut stack), &cwd) {
-            return outcome_err(format!("{:?}", err));
+            return outcome_err(&engine_state, &err);
         }
 
         let input = PipelineData::new(Span::test_data());
@@ -95,15 +102,15 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
         match eval_block(&engine_state, &mut stack, &block, input, false, false) {
             Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                 Ok(s) => last_output = s,
-                Err(err) => return outcome_err(format!("{:?}", err)),
+                Err(err) => return outcome_err(&engine_state, &err),
             },
-            Err(err) => return outcome_err(format!("{:?}", err)),
+            Err(err) => return outcome_err(&engine_state, &err),
         }
 
         if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
             let path = match cwd.as_string() {
                 Ok(p) => p,
-                Err(err) => return outcome_err(format!("{:?}", err)),
+                Err(err) => return outcome_err(&engine_state, &err),
             };
             let _ = std::env::set_current_dir(path);
             engine_state.add_env_var("PWD".into(), cwd);
@@ -114,7 +121,7 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
         let config = engine_state.get_config();
         if let Some(hook) = config.hooks.pre_prompt.clone() {
             if let Err(err) = eval_hook(&mut engine_state, &mut stack, vec![], &hook) {
-                return outcome_err(format!("{:?}", err));
+                return outcome_err(&engine_state, &err);
             }
         }
     }
