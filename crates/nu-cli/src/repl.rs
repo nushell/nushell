@@ -53,7 +53,7 @@ pub fn eval_env_change_hook(
                             engine_state,
                             stack,
                             vec![("$before".into(), before), ("$after".into(), after.clone())],
-                            &hook_value,
+                            hook_value,
                         )?;
 
                         engine_state
@@ -299,7 +299,7 @@ pub fn evaluate_repl(
         if let Err(error) =
             eval_env_change_hook(config.hooks.env_change.clone(), engine_state, stack)
         {
-            report_error_new(&engine_state, &error)
+            report_error_new(engine_state, &error)
         }
 
         let config = engine_state.get_config();
@@ -565,7 +565,7 @@ pub fn eval_hook(
                             ..
                         } => {
                             match run_hook_block(
-                                &engine_state,
+                                engine_state,
                                 stack,
                                 block_id,
                                 arguments.clone(),
@@ -658,7 +658,7 @@ pub fn eval_hook(
                         match eval_block(engine_state, stack, &block, input, false, false) {
                             Ok(_) => {}
                             Err(err) => {
-                                report_error_new(&engine_state, &err);
+                                report_error_new(engine_state, &err);
                             }
                         }
 
@@ -672,7 +672,7 @@ pub fn eval_hook(
                         ..
                     } => {
                         let _ =
-                            run_hook_block(&engine_state, stack, block_id, arguments, block_span)?;
+                            run_hook_block(engine_state, stack, block_id, arguments, block_span)?;
                     }
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
