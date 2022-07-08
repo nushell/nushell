@@ -25,55 +25,6 @@ const PRE_EXECUTE_MARKER: &str = "\x1b]133;C\x1b\\";
 const CMD_FINISHED_MARKER: &str = "\x1b]133;D\x1b\\";
 const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
-pub fn eval_env_change_hook(
-    env_change_hook: Option<Value>,
-    engine_state: &mut EngineState,
-    stack: &mut Stack,
-) -> Result<(), ShellError> {
-    if let Some(hook) = env_change_hook {
-        match hook {
-            Value::Record {
-                cols: env_names,
-                vals: hook_values,
-                ..
-            } => {
-                for (env_name, hook_value) in env_names.iter().zip(hook_values.iter()) {
-                    let before = engine_state
-                        .previous_env_vars
-                        .get(env_name)
-                        .cloned()
-                        .unwrap_or_default();
-
-                    let after = stack
-                        .get_env_var(engine_state, env_name)
-                        .unwrap_or_default();
-
-                    if before != after {
-                        eval_hook(
-                            engine_state,
-                            stack,
-                            vec![("$before".into(), before), ("$after".into(), after.clone())],
-                            hook_value,
-                        )?;
-
-                        engine_state
-                            .previous_env_vars
-                            .insert(env_name.to_string(), after);
-                    }
-                }
-            }
-            x => {
-                return Err(ShellError::TypeMismatch(
-                    "record for 'env_change' hook".to_string(),
-                    x.span()?,
-                ));
-            }
-        }
-    }
-
-    Ok(())
-}
-
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -506,28 +457,53 @@ pub fn evaluate_repl(
     Ok(())
 }
 
-fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
-    match io::stdout().write_all(seq.as_bytes()) {
-        Ok(it) => it,
-        Err(err) => {
-            return Err(ShellError::GenericError(
-                "Error writing ansi sequence".into(),
-                err.to_string(),
-                Some(Span { start: 0, end: 0 }),
-                None,
-                Vec::new(),
-            ));
+pub fn eval_env_change_hook(
+    env_change_hook: Option<Value>,
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+) -> Result<(), ShellError> {
+    if let Some(hook) = env_change_hook {
+        match hook {
+            Value::Record {
+                cols: env_names,
+                vals: hook_values,
+                ..
+            } => {
+                for (env_name, hook_value) in env_names.iter().zip(hook_values.iter()) {
+                    let before = engine_state
+                        .previous_env_vars
+                        .get(env_name)
+                        .cloned()
+                        .unwrap_or_default();
+
+                    let after = stack
+                        .get_env_var(engine_state, env_name)
+                        .unwrap_or_default();
+
+                    if before != after {
+                        eval_hook(
+                            engine_state,
+                            stack,
+                            vec![("$before".into(), before), ("$after".into(), after.clone())],
+                            hook_value,
+                        )?;
+
+                        engine_state
+                            .previous_env_vars
+                            .insert(env_name.to_string(), after);
+                    }
+                }
+            }
+            x => {
+                return Err(ShellError::TypeMismatch(
+                    "record for 'env_change' hook".to_string(),
+                    x.span()?,
+                ));
+            }
         }
-    };
-    io::stdout().flush().map_err(|e| {
-        ShellError::GenericError(
-            "Error flushing stdio".into(),
-            e.to_string(),
-            Some(Span { start: 0, end: 0 }),
-            None,
-            Vec::new(),
-        )
-    })
+    }
+
+    Ok(())
 }
 
 pub fn eval_hook(
@@ -687,13 +663,7 @@ pub fn eval_hook(
             span: block_span,
             ..
         } => {
-            run_hook_block(
-                engine_state,
-                stack,
-                *block_id,
-                arguments,
-                *block_span,
-            )?;
+            run_hook_block(engine_state, stack, *block_id, arguments, *block_span)?;
         }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
@@ -760,4 +730,28 @@ pub fn run_hook_block(
         },
         Err(err) => Err(err),
     }
+}
+
+fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
+    match io::stdout().write_all(seq.as_bytes()) {
+        Ok(it) => it,
+        Err(err) => {
+            return Err(ShellError::GenericError(
+                "Error writing ansi sequence".into(),
+                err.to_string(),
+                Some(Span { start: 0, end: 0 }),
+                None,
+                Vec::new(),
+            ));
+        }
+    };
+    io::stdout().flush().map_err(|e| {
+        ShellError::GenericError(
+            "Error flushing stdio".into(),
+            e.to_string(),
+            Some(Span { start: 0, end: 0 }),
+            None,
+            Vec::new(),
+        )
+    })
 }
