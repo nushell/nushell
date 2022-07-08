@@ -241,7 +241,7 @@ fn env_change_block_condition_pwd() {
         &env_change_hook_code_condition(
             "PWD",
             r#"{ |before, after| ($after | path basename) == samples }"#,
-            r#"{ let-env SPAM = "spam" }"#,
+            r#"'source .nu-env'"#,
         ),
         "cd samples",
         "$env.SPAM",
