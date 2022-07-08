@@ -7,6 +7,7 @@ mod length;
 mod replace;
 mod reverse;
 mod starts_with;
+mod to_str;
 
 use nu_protocol::ast::CellPath;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
@@ -22,6 +23,7 @@ pub use length::BytesLen;
 pub use replace::BytesReplace;
 pub use reverse::BytesReverse;
 pub use starts_with::BytesStartsWith;
+pub use to_str::BytesToStr;
 
 trait BytesArgument {
     fn take_column_paths(&mut self) -> Option<Vec<CellPath>>;
