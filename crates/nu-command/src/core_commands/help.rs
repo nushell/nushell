@@ -1,10 +1,13 @@
-use nu_ansi_term::Color::{Red, White};
+use nu_ansi_term::{
+    Color::{Red, White},
+    Style,
+};
 use nu_engine::{get_full_help, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Spanned, SyntaxShape, Value,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 use std::borrow::Borrow;
 
@@ -80,11 +83,9 @@ fn help(
     let head = call.head;
     let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-
     let commands = engine_state.get_decl_ids_sorted(false);
 
     if let Some(f) = find {
-        let replace_string = White.on(Red).paint(f.item.clone()).to_string();
         let org_search_string = f.item.clone();
         let search_string = f.item.to_lowercase();
         let mut found_cmds_vec = Vec::new();
@@ -92,13 +93,12 @@ fn help(
         for decl_id in commands {
             let mut cols = vec![];
             let mut vals = vec![];
-
             let decl = engine_state.get_decl(decl_id);
             let sig = decl.signature().update_from_command(decl.borrow());
-
             let key = sig.name;
             let usage = sig.usage;
             let search_terms = sig.search_terms;
+
             let matches_term = if !search_terms.is_empty() {
                 search_terms
                     .iter()
@@ -113,7 +113,7 @@ fn help(
                 cols.push("name".into());
                 vals.push(Value::String {
                     val: if key_match {
-                        key.as_str().replace(&org_search_string, &replace_string)
+                        highlight_search_string(&key, &org_search_string)?
                     } else {
                         key
                     },
@@ -147,7 +147,7 @@ fn help(
                 cols.push("usage".into());
                 vals.push(Value::String {
                     val: if use_match {
-                        usage.as_str().replace(&org_search_string, &replace_string)
+                        highlight_search_string(&usage, &org_search_string)?
                     } else {
                         usage
                     },
@@ -164,7 +164,10 @@ fn help(
                                 .iter()
                                 .map(|term| {
                                     if term.to_lowercase().contains(&search_string) {
-                                        term.replace(&org_search_string, &replace_string.clone())
+                                        match highlight_search_string(term, &org_search_string) {
+                                            Ok(s) => s,
+                                            Err(_) => term.to_string(),
+                                        }
                                     } else {
                                         term.clone()
                                     }
@@ -324,4 +327,41 @@ You can also learn more at https://www.nushell.sh/book/"#;
         }
         .into_pipeline_data())
     }
+}
+
+// Highlight the search string using ANSI escape sequences and regular expressions.
+fn highlight_search_string(haystack: &str, needle: &str) -> Result<String, ShellError> {
+    let regex_string = format!("(?i){}", needle);
+    let regex = match regex::Regex::new(&regex_string) {
+        Ok(regex) => regex,
+        Err(err) => {
+            return Err(ShellError::GenericError(
+                "Could not compile regex".into(),
+                err.to_string(),
+                Some(Span::test_data()),
+                None,
+                Vec::new(),
+            ));
+        }
+    };
+    let mut last_match_end = 0;
+    let style = Style::new().fg(White).on(Red);
+    let mut highlighted = String::new();
+
+    for cap in regex.captures_iter(haystack) {
+        let start = match cap.get(0) {
+            Some(cap) => cap.start(),
+            None => 0,
+        };
+        let end = match cap.get(0) {
+            Some(cap) => cap.end(),
+            None => 0,
+        };
+        highlighted.push_str(&haystack[last_match_end..start]);
+        highlighted.push_str(&style.paint(&haystack[start..end]).to_string());
+        last_match_end = end;
+    }
+
+    highlighted.push_str(&haystack[last_match_end..]);
+    Ok(highlighted)
 }
