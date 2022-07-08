@@ -31,7 +31,9 @@ impl std::fmt::Debug for CliError<'_> {
             .terminal_links(ansi_support)
             .build();
 
-        miette_handler.debug(self, f)?;
+        // Ignore error to prevent format! panics. This can happen if span points at some
+        // inaccessible location, for example by calling `report_error()` with wrong working set.
+        let _ = miette_handler.debug(self, f);
 
         Ok(())
     }
