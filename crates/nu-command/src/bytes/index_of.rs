@@ -94,10 +94,7 @@ fn index_of(input: &[u8], arg: &Arguments, span: Span) -> Value {
         Value::Int {
             val: iter
                 .rev()
-                .position(|sub_bytes| {
-                    println!("debug: sub bytes: {:?}", sub_bytes);
-                    sub_bytes == arg.pattern
-                })
+                .position(|sub_bytes| sub_bytes == arg.pattern)
                 .map(|x| (input.len() - arg.pattern.len() - x) as i64)
                 .unwrap_or(-1),
             span,
