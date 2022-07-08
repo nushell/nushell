@@ -748,66 +748,6 @@ pub fn eval_hook(
     }
 }
 
-pub fn eval_hook_record(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block_id: BlockId,
-    arguments: Vec<Value>,
-    span: Span,
-) -> Result<(), ShellError> {
-    let block = engine_state.get_block(block_id);
-    let input = PipelineData::new(span);
-
-    let mut callee_stack = stack.gather_captures(&block.captures);
-
-    for (idx, PositionalArg { var_id, .. }) in
-        block.signature.required_positional.iter().enumerate()
-    {
-        if let Some(var_id) = var_id {
-            callee_stack.add_var(*var_id, arguments[idx].clone())
-        }
-    }
-
-    match eval_block(engine_state, &mut callee_stack, block, input, false, false) {
-        Ok(pipeline_data) => match pipeline_data.into_value(span) {
-            Value::Error { error } => Err(error),
-            _ => Ok(()),
-        },
-        Err(err) => Err(err),
-    }
-}
-
-// pub fn run_hook(
-//     engine_state: &EngineState,
-//     stack: &mut Stack,
-//     arguments: Vec<Value>,
-//     value: &Value,
-// ) -> Result<(), ShellError> {
-//     match value {
-//         Value::List { vals, .. } => {
-//             for val in vals {
-//                 run_hook(engine_state, stack, arguments.clone(), val)?
-//             }
-//             Ok(())
-//         }
-//         Value::Block {
-//             val: block_id,
-//             span,
-//             ..
-//         } => run_hook_block(engine_state, stack, *block_id, arguments, *span),
-//         x => match x.span() {
-//             Ok(span) => Err(ShellError::MissingConfigValue(
-//                 "block for hook in config".into(),
-//                 span,
-//             )),
-//             _ => Err(ShellError::MissingConfigValue(
-//                 "block for hook in config".into(),
-//                 Span { start: 0, end: 0 },
-//             )),
-//         },
-//     }
-// }
-
 pub fn run_hook_block(
     engine_state: &EngineState,
     stack: &mut Stack,
