@@ -553,7 +553,6 @@ pub fn eval_hook(
             for val in vals {
                 eval_hook(engine_state, stack, arguments.clone(), val)?
             }
-            Ok(())
         }
         Value::Record { .. } => {
             let do_run_hook =
@@ -671,8 +670,7 @@ pub fn eval_hook(
                         span: block_span,
                         ..
                     } => {
-                        let _ =
-                            run_hook_block(engine_state, stack, block_id, arguments, block_span)?;
+                        run_hook_block(engine_state, stack, block_id, arguments, block_span)?;
                     }
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
@@ -683,17 +681,30 @@ pub fn eval_hook(
                     }
                 }
             }
-
-            Ok(())
+        }
+        Value::Block {
+            val: block_id,
+            span: block_span,
+            ..
+        } => {
+            run_hook_block(
+                engine_state,
+                stack,
+                *block_id,
+                arguments,
+                *block_span,
+            )?;
         }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
-                "record or list of records".into(),
+                "block, record, or list of records".into(),
                 format!("{}", other.get_type()),
                 other.span()?,
             ));
         }
     }
+
+    Ok(())
 }
 
 pub fn run_hook_block(

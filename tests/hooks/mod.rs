@@ -22,6 +22,18 @@ fn env_change_hook_code_list(name: &str, code_list: &[&str]) -> String {
     )
 }
 
+fn env_change_hook(name: &str, code: &str) -> String {
+    format!(
+        r#"let-env config = {{
+            hooks: {{
+                env_change: {{
+                    {name} : {code}
+                }}
+            }}
+        }}"#
+    )
+}
+
 fn env_change_hook_code(name: &str, code: &str) -> String {
     format!(
         r#"let-env config = {{
@@ -51,6 +63,16 @@ fn env_change_hook_code_condition(name: &str, condition: &str, code: &str) -> St
     )
 }
 
+fn pre_prompt_hook(code: &str) -> String {
+    format!(
+        r#"let-env config = {{
+            hooks: {{
+                pre_prompt: {code}
+            }}
+        }}"#
+    )
+}
+
 fn pre_prompt_hook_code(code: &str) -> String {
     format!(
         r#"let-env config = {{
@@ -58,6 +80,16 @@ fn pre_prompt_hook_code(code: &str) -> String {
                 pre_prompt: {{
                     code: {code}
                 }}
+            }}
+        }}"#
+    )
+}
+
+fn pre_execution_hook(code: &str) -> String {
+    format!(
+        r#"let-env config = {{
+            hooks: {{
+                pre_execution: {code}
             }}
         }}"#
     )
@@ -132,6 +164,40 @@ fn env_change_define_alias() {
 }
 
 #[test]
+fn env_change_simple_block_preserve_env_var() {
+    let inp = &[
+        &env_change_hook("FOO", r#"{ let-env SPAM = "spam" }"#),
+        "let-env FOO = 1",
+        "$env.SPAM",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert_eq!(actual_repl.err, "");
+    assert_eq!(actual_repl.out, "spam");
+}
+
+#[test]
+fn env_change_simple_block_list_shadow_env_var() {
+    let inp = &[
+        &env_change_hook(
+            "FOO",
+            r#"[
+            { let-env SPAM = "foo" }
+            { let-env SPAM = "spam" }
+        ]"#,
+        ),
+        "let-env FOO = 1",
+        "$env.SPAM",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert_eq!(actual_repl.err, "");
+    assert_eq!(actual_repl.out, "spam");
+}
+
+#[test]
 fn env_change_block_preserve_env_var() {
     let inp = &[
         &env_change_hook_code("FOO", r#"{ let-env SPAM = "spam" }"#),
@@ -160,6 +226,39 @@ fn pre_prompt_define_command() {
 }
 
 #[test]
+fn pre_prompt_simple_block_preserve_env_var() {
+    let inp = &[
+        &pre_prompt_hook(r#"{ let-env SPAM = "spam" }"#),
+        "",
+        "$env.SPAM",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert_eq!(actual_repl.err, "");
+    assert_eq!(actual_repl.out, "spam");
+}
+
+#[test]
+fn pre_prompt_simple_block_list_shadow_env_var() {
+    let inp = &[
+        &pre_prompt_hook(
+            r#"[
+            { let-env SPAM = "foo" }
+            { let-env SPAM = "spam" }
+        ]"#,
+        ),
+        "",
+        "$env.SPAM",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert_eq!(actual_repl.err, "");
+    assert_eq!(actual_repl.out, "spam");
+}
+
+#[test]
 fn pre_prompt_block_preserve_env_var() {
     let inp = &[
         &pre_prompt_hook_code(r#"{ let-env SPAM = "spam" }"#),
@@ -185,6 +284,39 @@ fn pre_execution_define_command() {
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "got foo!");
+}
+
+#[test]
+fn pre_execution_simple_block_preserve_env_var() {
+    let inp = &[
+        &pre_execution_hook(r#"{ let-env SPAM = "spam" }"#),
+        "",
+        "$env.SPAM",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert_eq!(actual_repl.err, "");
+    assert_eq!(actual_repl.out, "spam");
+}
+
+#[test]
+fn pre_execution_simple_block_list_shadow_env_var() {
+    let inp = &[
+        &pre_execution_hook(
+            r#"[
+            { let-env SPAM = "foo" }
+            { let-env SPAM = "spam" }
+        ]"#,
+        ),
+        "",
+        "$env.SPAM",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert_eq!(actual_repl.err, "");
+    assert_eq!(actual_repl.out, "spam");
 }
 
 #[test]
