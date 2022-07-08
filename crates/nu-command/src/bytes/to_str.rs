@@ -43,14 +43,41 @@ impl Command for BytesToStr {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Decode from bytes to utf-8 str",
-            example: r#"0x[61 73 64 66] | bytes to-str"#,
-            result: Some(Value::String {
-                val: "asdf".to_owned(),
-                span: Span::test_data(),
-            }),
-        }]
+        vec![
+            Example {
+                description: "Decode from bytes to utf-8 str",
+                example: r#"0x[61 73 64 66] | bytes to-str"#,
+                result: Some(Value::String {
+                    val: "asdf".to_owned(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Decode from bytes to utf-8 str for specific columns",
+                example: r#" [[ColA ColB ColC]; [0x[61 73 64 66] 0x[67 68 69 66] 0x[71 77 65 72]]] | bytes to-str ColA ColC"#,
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
+                        vals: vec![
+                            Value::String {
+                                val: "asdf".to_string(),
+                                span: Span::test_data(),
+                            },
+                            Value::Binary {
+                                val: vec![0x67, 0x68, 0x69, 0x66],
+                                span: Span::test_data(),
+                            },
+                            Value::String {
+                                val: "qwer".to_string(),
+                                span: Span::test_data(),
+                            },
+                        ],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 
     fn run(

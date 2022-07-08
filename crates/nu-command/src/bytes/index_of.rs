@@ -84,6 +84,25 @@ impl Command for BytesIndexOf {
                 example: " 0x[33 44 55 10 01 13 44 55] | bytes index-of -e 0x[44 55]",
                 result: Some(Value::test_int(6)),
             },
+            Example {
+                description: "Returns index of pattern for specific column",
+                example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes index-of 0x[11] ColA ColC"#,
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
+                        vals: vec![
+                            Value::test_int(0),
+                            Value::Binary {
+                                val: vec![0x14, 0x15, 0x16],
+                                span: Span::test_data(),
+                            },
+                            Value::test_int(-1),
+                        ],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
