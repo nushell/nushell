@@ -392,6 +392,74 @@ fn list_all_columns() {
     });
 }
 
+#[test]
+fn lists_with_directory_flag() {
+    Playground::setup("ls_test_flag_directory_1", |dirs, sandbox| {
+        sandbox
+            .within("dir_files")
+            .with_files(vec![EmptyFile("nushell.json")])
+            .within("dir_empty");
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                cd dir_empty;
+                ['.' '././.' '..' '../dir_files' '../dir_files/*']
+                | each { |it| ls --directory $it }
+                | flatten
+                | get name
+                | to text
+            "#
+        ));
+        let expected = [".", ".", "..", "../dir_files", "../dir_files/nushell.json"].join("");
+        #[cfg(windows)]
+        let expected = expected.replace("/", "\\");
+        assert_eq!(
+            actual.out, expected,
+            "column names are incorrect for ls --directory (-D)"
+        );
+    });
+}
+
+#[test]
+fn lists_with_directory_flag_without_argument() {
+    Playground::setup("ls_test_flag_directory_2", |dirs, sandbox| {
+        sandbox
+            .within("dir_files")
+            .with_files(vec![EmptyFile("nushell.json")])
+            .within("dir_empty");
+        // Test if there are some files in the current directory
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                cd dir_files;
+                ls --directory
+                | get name
+                | to text
+            "#
+        ));
+        let expected = ".";
+        assert_eq!(
+            actual.out, expected,
+            "column names are incorrect for ls --directory (-D)"
+        );
+        // Test if there is no file in the current directory
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                cd dir_empty;
+                ls -D
+                | get name
+                | to text
+            "#
+        ));
+        let expected = ".";
+        assert_eq!(
+            actual.out, expected,
+            "column names are incorrect for ls --directory (-D)"
+        );
+    });
+}
+
 /// Rust's fs::metadata function is unable to read info for certain system files on Windows,
 /// like the `C:\Windows\System32\Configuration` folder. https://github.com/rust-lang/rust/issues/96980
 /// This test confirms that Nu can work around this successfully.

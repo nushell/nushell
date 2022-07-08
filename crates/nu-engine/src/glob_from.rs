@@ -1,5 +1,3 @@
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
 use nu_glob::MatchOptions;
@@ -48,39 +46,7 @@ pub fn glob_from(
         } else {
             return Err(ShellError::DirectoryNotFound(pattern.span, None));
         };
-
-        if path.is_dir() {
-            if permission_denied(&path) {
-                #[cfg(unix)]
-                let error_msg = format!(
-                    "The permissions of {:o} do not allow access for this user",
-                    path.metadata()
-                        .expect("this shouldn't be called since we already know there is a dir")
-                        .permissions()
-                        .mode()
-                        & 0o0777
-                );
-
-                #[cfg(not(unix))]
-                let error_msg = String::from("Permission denied");
-
-                return Err(ShellError::GenericError(
-                    "Permission denied".into(),
-                    error_msg,
-                    Some(pattern.span),
-                    None,
-                    Vec::new(),
-                ));
-            }
-
-            if is_empty_dir(&path) {
-                return Ok((Some(path), Box::new(vec![].into_iter())));
-            }
-
-            (Some(path.clone()), path.join("*"))
-        } else {
-            (path.parent().map(|parent| parent.to_path_buf()), path)
-        }
+        (path.parent().map(|parent| parent.to_path_buf()), path)
     };
 
     let pattern = pattern.to_string_lossy().to_string();
@@ -109,18 +75,4 @@ pub fn glob_from(
             )),
         })),
     ))
-}
-
-fn permission_denied(dir: impl AsRef<Path>) -> bool {
-    match dir.as_ref().read_dir() {
-        Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
-        Ok(_) => false,
-    }
-}
-
-fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
-    match dir.as_ref().read_dir() {
-        Err(_) => true,
-        Ok(mut s) => s.next().is_none(),
-    }
 }
