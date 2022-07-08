@@ -125,7 +125,7 @@ impl Command for BytesAt {
     }
 
     fn usage(&self) -> &str {
-        "Get part of a bytes. Note that the start is included but the end is excluded, and that the first byte is index 0."
+        "Get bytes defined by a range. Note that the start is included but the end is excluded, and that the first byte is index 0."
     }
 
     fn search_terms(&self) -> Vec<&str> {
