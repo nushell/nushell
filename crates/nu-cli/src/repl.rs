@@ -302,50 +302,6 @@ pub fn evaluate_repl(
             report_error_new(&engine_state, &error)
         }
 
-        // Next, check all the environment variables they ask for
-        // fire the "env_change" hook
-        // if let Some(hook) = config.hooks.env_change.clone() {
-        //     match hook {
-        //         Value::Record {
-        //             cols, vals: blocks, ..
-        //         } => {
-        //             for (idx, env_var) in cols.iter().enumerate() {
-        //                 let before = engine_state
-        //                     .previous_env_vars
-        //                     .get(env_var)
-        //                     .cloned()
-        //                     .unwrap_or_default();
-        //                 let after = stack.get_env_var(engine_state, env_var).unwrap_or_default();
-        //                 if before != after {
-        //                     if let Err(err) = run_hook(
-        //                         engine_state,
-        //                         stack,
-        //                         vec![before, after.clone()],
-        //                         &blocks[idx],
-        //                     ) {
-        //                         let working_set = StateWorkingSet::new(engine_state);
-        //                         report_error(&working_set, &err);
-        //                     }
-
-        //                     engine_state
-        //                         .previous_env_vars
-        //                         .insert(env_var.to_string(), after);
-        //                 }
-        //             }
-        //         }
-        //         x => {
-        //             let working_set = StateWorkingSet::new(engine_state);
-        //             report_error(
-        //                 &working_set,
-        //                 &ShellError::TypeMismatch(
-        //                     "record for 'env_change' hook".to_string(),
-        //                     x.span().unwrap_or_else(|_| Span::new(0, 0)),
-        //                 ),
-        //             )
-        //         }
-        //     }
-        // }
-
         let config = engine_state.get_config();
 
         let shell_integration = config.shell_integration;
