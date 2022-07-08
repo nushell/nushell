@@ -53,14 +53,12 @@ pub fn eval_env_change_hook(
                         .unwrap_or_default();
 
                     if before != after {
-                        if let Err(err) = eval_hook(
+                        eval_hook(
                             engine_state,
                             stack,
                             vec![("$before".into(), before), ("$after".into(), after.clone())],
                             &hooks[idx],
-                        ) {
-                            // TODO: Handle error
-                        }
+                        )?;
 
                         engine_state
                             .previous_env_vars
@@ -614,21 +612,15 @@ pub fn eval_hook(
                             span: block_span,
                             ..
                         } => {
-                            let block = engine_state.get_block(block_id);
-                            let input = PipelineData::new(*span);
-
-                            let mut callee_stack = stack.gather_captures(&block.captures);
-
-                            match eval_block(
-                                engine_state,
-                                &mut callee_stack,
-                                block,
-                                input,
-                                false,
-                                false,
+                            match run_hook_block(
+                                &engine_state,
+                                stack,
+                                block_id,
+                                arguments.clone(),
+                                block_span,
                             ) {
-                                Ok(pipeline_data) => {
-                                    match pipeline_data.into_value(*span) {
+                                Ok(value) => {
+                                    match value {
                                         Value::Bool { val, span } => val,
                                         other => {
                                             return Err(ShellError::UnsupportedConfigValue(
@@ -677,11 +669,6 @@ pub fn eval_hook(
                                 })
                                 .collect();
 
-                            // let before_id =
-                            //     working_set.add_variable(b"$before".to_vec(), span, Type::Any);
-                            // let after_id =
-                            //     working_set.add_variable(b"$after".to_vec(), span, Type::Any);
-
                             let (output, err) = parse(
                                 &mut working_set,
                                 None, // TODO: Maybe a nice name for a hook?
@@ -717,9 +704,6 @@ pub fn eval_hook(
                             })
                             .collect();
 
-                        // stack.add_var(before_id, arguments[0].clone());
-                        // stack.add_var(after_id, arguments[1].clone());
-
                         match eval_block(engine_state, stack, &block, input, false, false) {
                             Ok(_) => {}
                             Err(err) => {
@@ -730,15 +714,14 @@ pub fn eval_hook(
                         for var_id in var_ids.iter() {
                             stack.vars.remove(var_id);
                         }
-
-                        // stack.vars.remove(&before_id);
-                        // stack.vars.remove(&after_id);
                     }
                     Value::Block {
                         val: block_id,
                         captures,
                         span,
-                    } => run_hook_block(&engine_state, stack, block_id, arguments, span)?,
+                    } => {
+                        let _ = run_hook_block(&engine_state, stack, block_id, arguments, span)?;
+                    }
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
                             "block or string".to_string(),
@@ -831,7 +814,7 @@ pub fn run_hook_block(
     block_id: BlockId,
     arguments: Vec<(String, Value)>,
     span: Span,
-) -> Result<(), ShellError> {
+) -> Result<Value, ShellError> {
     let block = engine_state.get_block(block_id);
 
     let input = PipelineData::new(span);
@@ -842,14 +825,21 @@ pub fn run_hook_block(
         block.signature.required_positional.iter().enumerate()
     {
         if let Some(var_id) = var_id {
-            callee_stack.add_var(*var_id, arguments[idx].1.clone())
+            if let Some(arg) = arguments.get(idx) {
+                callee_stack.add_var(*var_id, arg.1.clone())
+            } else {
+                return Err(ShellError::IncompatibleParametersSingle(
+                    "This hook block has too many parameters".into(),
+                    span,
+                ));
+            }
         }
     }
 
     match eval_block(engine_state, &mut callee_stack, block, input, false, false) {
         Ok(pipeline_data) => match pipeline_data.into_value(span) {
             Value::Error { error } => Err(error),
-            _ => {
+            val => {
                 // If all went fine, preserve the environment of the called block
                 let caller_env_vars = stack.get_env_var_names(engine_state);
 
@@ -866,7 +856,7 @@ pub fn run_hook_block(
                     stack.add_env_var(var, value);
                 }
 
-                Ok(())
+                Ok(val)
             }
         },
         Err(err) => Err(err),
