@@ -1,8 +1,7 @@
-use crate::table_theme::TableTheme;
-use crate::StyledString;
+use std::collections::HashMap;
+
 use nu_ansi_term::Style;
 use nu_protocol::{Config, FooterMode};
-use std::collections::HashMap;
 use tabled::{
     builder::Builder,
     formatting_settings::AlignmentStrategy,
@@ -10,6 +9,12 @@ use tabled::{
     papergrid,
     style::BorderColor,
     Alignment, Modify, TableOption, Width,
+};
+
+use crate::{
+    table_theme::TableTheme,
+    width_control::{estimate_max_column_width, maybe_truncate_columns},
+    StyledString,
 };
 
 #[derive(Debug)]
@@ -41,14 +46,10 @@ pub fn draw_table(
 ) -> Option<String> {
     let mut headers = table.headers.clone();
     let mut data = table.data.clone();
-    crate::wrap::maybe_truncate_columns(termwidth, &mut headers, &mut data);
+    maybe_truncate_columns(termwidth, &mut headers, &mut data);
 
-    let max_column_width = crate::wrap::estimate_max_column_width(
-        &table.headers,
-        &table.data,
-        termwidth,
-        &table.theme,
-    )?;
+    let max_column_width =
+        estimate_max_column_width(&table.headers, &table.data, termwidth, &table.theme)?;
 
     let alignments = build_alignment_map(&table.data);
 
