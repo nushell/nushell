@@ -9,6 +9,7 @@ use nu_protocol::{
 struct Arguments {
     pattern: Vec<u8>,
     end: bool,
+    all: bool,
     column_paths: Option<Vec<CellPath>>,
 }
 
@@ -38,6 +39,7 @@ impl Command for BytesIndexOf {
                 SyntaxShape::CellPath,
                 "optionally returns index of pattern in string by column paths",
             )
+            .switch("all", "returns all matched index", Some('a'))
             .switch("end", "search from the end of the binary", Some('e'))
             .category(Category::Bytes)
     }
@@ -67,6 +69,7 @@ impl Command for BytesIndexOf {
         let arg = Arguments {
             pattern,
             end: call.has_flag("end"),
+            all: call.has_flag("all"),
             column_paths,
         };
         operate(index_of, arg, input, call.head, engine_state.ctrlc.clone())
@@ -83,6 +86,14 @@ impl Command for BytesIndexOf {
                 description: "Returns index of pattern, search from end",
                 example: " 0x[33 44 55 10 01 13 44 55] | bytes index-of -e 0x[44 55]",
                 result: Some(Value::test_int(6)),
+            },
+            Example {
+                description: "Returns all matched index",
+                example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of -a 0x[33 44]",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0), Value::test_int(5), Value::test_int(7)],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Returns index of pattern for specific column",
@@ -108,23 +119,47 @@ impl Command for BytesIndexOf {
 }
 
 fn index_of(input: &[u8], arg: &Arguments, span: Span) -> Value {
-    let mut iter = input.windows(arg.pattern.len());
-    if arg.end {
-        Value::Int {
-            val: iter
-                .rev()
-                .position(|sub_bytes| sub_bytes == arg.pattern)
-                .map(|x| (input.len() - arg.pattern.len() - x) as i64)
-                .unwrap_or(-1),
-            span,
+    // currently, `--all` flag doesn't support finding from end.
+    if arg.all {
+        let mut result = vec![];
+        // doing find stuff.
+        let (mut left, mut right) = (0, arg.pattern.len());
+        let input_len = input.len();
+        let pattern_len = arg.pattern.len();
+        while right <= input_len {
+            if input[left..right] == arg.pattern {
+                result.push(Value::Int {
+                    val: left as i64,
+                    span,
+                });
+                left += pattern_len;
+                right += pattern_len;
+            } else {
+                left += 1;
+                right += 1;
+            }
         }
+        Value::List { vals: result, span }
     } else {
-        Value::Int {
-            val: iter
-                .position(|sub_bytes| sub_bytes == arg.pattern)
-                .map(|x| x as i64)
-                .unwrap_or(-1),
-            span,
+        let mut iter = input.windows(arg.pattern.len());
+
+        if arg.end {
+            Value::Int {
+                val: iter
+                    .rev()
+                    .position(|sub_bytes| sub_bytes == arg.pattern)
+                    .map(|x| (input.len() - arg.pattern.len() - x) as i64)
+                    .unwrap_or(-1),
+                span,
+            }
+        } else {
+            Value::Int {
+                val: iter
+                    .position(|sub_bytes| sub_bytes == arg.pattern)
+                    .map(|x| x as i64)
+                    .unwrap_or(-1),
+                span,
+            }
         }
     }
 }
