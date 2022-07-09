@@ -9,7 +9,7 @@ use tabled::{
     object::{Cell, Columns, Rows},
     papergrid,
     style::BorderColor,
-    Alignment, Modify, TableOption,
+    Alignment, Modify, TableOption, Width,
 };
 
 #[derive(Debug)]
@@ -39,25 +39,84 @@ pub fn draw_table(
     color_hm: &HashMap<String, Style>,
     config: &Config,
 ) -> Option<String> {
-    // Remove the edges, if used
-    let (headers, data) = crate::wrap::wrap(&table.headers, &table.data, termwidth, &table.theme)?;
+    let mut headers = table.headers.clone();
+    let mut data = table.data.clone();
+    crate::wrap::maybe_truncate_columns(termwidth, &mut headers, &mut data);
+
+    let max_column_width = crate::wrap::estimate_max_column_width(
+        &table.headers,
+        &table.data,
+        termwidth,
+        &table.theme,
+    )?;
+
+    let alignments = build_alignment_map(&table.data);
+
+    let headers = table_header_to_strings(headers);
+    let data = table_data_to_strings(data, headers.len());
+
     let headers = if headers.is_empty() {
         None
     } else {
         Some(headers)
     };
 
-    let alignments = build_alignment_map(&table.data);
-
     let theme = &table.theme;
-
     let with_header = headers.is_some();
     let with_footer = with_header && need_footer(config, data.len() as u64);
 
     let table = build_table(data, headers, Some(alignments), config, with_footer);
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
 
+    let (count_columns, table) = count_columns_on_table(table);
+
+    let table = wrap_table_columns(table, count_columns, max_column_width);
+
     print_table(table, termwidth)
+}
+
+fn count_columns_on_table(mut table: tabled::Table) -> (usize, tabled::Table) {
+    let mut c = CountColumns(0);
+    table = table.with(&mut c);
+
+    (c.0, table)
+}
+
+fn table_data_to_strings(
+    table_data: Vec<Vec<StyledString>>,
+    count_headers: usize,
+) -> Vec<Vec<String>> {
+    let mut data = vec![Vec::with_capacity(count_headers); table_data.len()];
+    for (row, row_data) in table_data.into_iter().enumerate() {
+        for cell in row_data {
+            let colored_text = cell
+                .style
+                .color_style
+                .as_ref()
+                .map(|color| color.paint(&cell.contents).to_string())
+                .unwrap_or(cell.contents);
+
+            data[row].push(colored_text)
+        }
+    }
+
+    data
+}
+
+fn table_header_to_strings(table_headers: Vec<StyledString>) -> Vec<String> {
+    let mut headers = Vec::with_capacity(table_headers.len());
+    for cell in table_headers {
+        let colored_text = cell
+            .style
+            .color_style
+            .as_ref()
+            .map(|color| color.paint(&cell.contents).to_string())
+            .unwrap_or(cell.contents);
+
+        headers.push(colored_text)
+    }
+
+    headers
 }
 
 fn print_table(table: tabled::Table, term_width: usize) -> Option<String> {
@@ -205,4 +264,25 @@ impl TableOption for RemoveHeaderLine {
     fn change(&mut self, grid: &mut papergrid::Grid) {
         grid.set_split_line(1, papergrid::Line::default());
     }
+}
+
+struct CountColumns(usize);
+
+impl TableOption for &mut CountColumns {
+    fn change(&mut self, grid: &mut papergrid::Grid) {
+        self.0 = grid.count_columns();
+    }
+}
+
+fn wrap_table_columns(
+    mut table: tabled::Table,
+    count_columns: usize,
+    column_max_width: usize,
+) -> tabled::Table {
+    for column in 0..count_columns {
+        table =
+            table.with(Modify::new(Columns::single(column)).with(Width::wrap(column_max_width)));
+    }
+
+    table
 }
