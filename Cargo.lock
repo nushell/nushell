@@ -79,7 +79,7 @@ dependencies = [
 [[package]]
 name = "ansi_rs"
 version = "0.1.0"
-source = "git+https://gitlab.com/zhiburt/ansi_rs#f45b8378e5ac7bafc0ca2d2748505fe92e2af6d6"
+source = "git+https://gitlab.com/zhiburt/ansi_rs#16173ad4a2812a2b0dc9faf1552d5985db4ee310"
 dependencies = [
  "nom 7.1.1",
 ]

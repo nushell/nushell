@@ -73,7 +73,7 @@ pub fn draw_table(
 
     let table = wrap_table_columns(table, count_columns, max_column_width);
 
-    print_table(table, termwidth)
+    Some(table.to_string())
 }
 
 fn count_columns_on_table(mut table: tabled::Table) -> (usize, tabled::Table) {
@@ -118,17 +118,6 @@ fn table_header_to_strings(table_headers: Vec<StyledString>) -> Vec<String> {
     }
 
     headers
-}
-
-fn print_table(table: tabled::Table, term_width: usize) -> Option<String> {
-    let s = table.to_string();
-
-    let width = s.lines().next().map(papergrid::string_width).unwrap_or(0);
-    if width > term_width {
-        return None;
-    }
-
-    Some(s)
 }
 
 fn build_alignment_map(data: &[Vec<StyledString>]) -> Vec<Vec<Alignment>> {

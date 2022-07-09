@@ -1,6 +1,8 @@
 mod add;
+mod at;
 mod bytes_;
 mod ends_with;
+mod index_of;
 mod length;
 mod replace;
 mod reverse;
@@ -12,8 +14,10 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 pub use add::BytesAdd;
+pub use at::BytesAt;
 pub use bytes_::Bytes;
 pub use ends_with::BytesEndsWith;
+pub use index_of::BytesIndexOf;
 pub use length::BytesLen;
 pub use replace::BytesReplace;
 pub use reverse::BytesReverse;
