@@ -254,8 +254,12 @@ pub fn wrap_content(
 
         for subline in line.sublines {
             if !first {
-                current_line_width += 1 + subline.width;
-                current_line.push(' ');
+                current_line_width += subline.width;
+
+                if current_line_width + 1 < cell_width {
+                    current_line_width += 1;
+                    current_line.push(' ');
+                }
             } else {
                 first = false;
                 current_line_width = subline.width;
