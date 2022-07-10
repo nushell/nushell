@@ -81,6 +81,10 @@ impl CommandCompletion {
         match_algorithm: MatchAlgorithm,
     ) -> Vec<Suggestion> {
         let partial = working_set.get_span_contents(span);
+        if partial.is_empty()
+        {
+            return Vec::new()
+        }
 
         let filter_predicate = |command: &[u8]| match_algorithm.matches_u8(command, partial);
 

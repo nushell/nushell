@@ -577,8 +577,7 @@ impl EngineState {
                 return &contents[(span.start - start)..(span.end - start)];
             }
         }
-
-        panic!("internal error: span missing in file contents cache")
+        &[0u8; 0]
     }
 
     pub fn get_config(&self) -> &Config {
