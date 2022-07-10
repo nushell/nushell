@@ -1,5 +1,5 @@
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 use std::fs;
 
 #[test]
@@ -17,4 +17,16 @@ def e [arg] {echo $arg}
 
         assert!(actual.out.contains("My echo\\n\\n"));
     });
+}
+
+#[test]
+fn def_errors_with_multiple_short_flags() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-command [ --long(-l)(-o) ] {}
+        "#
+    ));
+
+    assert!(actual.err.contains("expected one short flag"));
 }
