@@ -37,7 +37,9 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
         working_set.render()
     };
 
-    engine_state.merge_delta(delta).unwrap();
+    engine_state
+        .merge_delta(delta)
+        .expect("Error merging delta");
 
     for example in examples {
         // Skip tests that don't have results to compare to
@@ -63,7 +65,9 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
             (output, working_set.render())
         };
 
-        engine_state.merge_delta(delta).unwrap();
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
 
         let mut stack = Stack::new();
 

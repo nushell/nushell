@@ -977,7 +977,9 @@ mod input_types {
             working_set.render()
         };
 
-        engine_state.merge_delta(delta).unwrap();
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
     }
 
     #[test]
@@ -998,7 +1000,9 @@ mod input_types {
 
         match &expressions[0].expr {
             Expr::Call(call) => {
-                let expected_id = working_set.find_decl(b"ls", &Type::Any).unwrap();
+                let expected_id = working_set
+                    .find_decl(b"ls", &Type::Any)
+                    .expect("Error merging delta");
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),

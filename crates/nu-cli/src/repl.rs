@@ -122,12 +122,6 @@ pub fn evaluate_repl(
             );
         }
 
-        // if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-        //     let path = cwd.as_string()?;
-        //     let _ = std::env::set_current_dir(path);
-        //     engine_state.add_env_var("PWD".into(), cwd);
-        // }
-
         let cwd = get_guaranteed_cwd(engine_state, stack);
 
         // Before doing anything, merge the environment from the previous REPL iteration into the
@@ -421,14 +415,6 @@ pub fn evaluate_repl(
                         span: Span { start: 0, end: 0 },
                     },
                 );
-
-                // FIXME: permanent state changes like this hopefully in time can be removed
-                // and be replaced by just passing the cwd in where needed
-                // if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-                //     let path = cwd.as_string()?;
-                //     let _ = std::env::set_current_dir(path);
-                //     engine_state.add_env_var("PWD".into(), cwd);
-                // }
 
                 if history_supports_meta && !s.is_empty() {
                     line_editor

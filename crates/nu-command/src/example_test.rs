@@ -58,7 +58,9 @@ pub fn test_examples(cmd: impl Command + 'static) {
 
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
 
-    engine_state.merge_delta(delta).unwrap();
+    engine_state
+        .merge_delta(delta)
+        .expect("Error merging delta");
 
     for example in examples {
         // Skip tests that don't have results to compare to
@@ -78,7 +80,9 @@ pub fn test_examples(cmd: impl Command + 'static) {
             },
         );
 
-        engine_state.merge_env(&mut stack, &cwd).unwrap();
+        engine_state
+            .merge_env(&mut stack, &cwd)
+            .expect("Error merging environment");
 
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&*engine_state);
@@ -97,7 +101,9 @@ pub fn test_examples(cmd: impl Command + 'static) {
             (output, working_set.render())
         };
 
-        engine_state.merge_delta(delta).unwrap();
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
 
         let mut stack = Stack::new();
 
