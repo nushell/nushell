@@ -1914,12 +1914,6 @@ impl Default for ScopeFrame {
     }
 }
 
-// impl Default for OverlayFrame {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
-
 impl Default for EngineState {
     fn default() -> Self {
         Self::new()
