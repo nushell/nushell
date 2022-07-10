@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use nu_ansi_term::Style;
-use nu_protocol::{Config, FooterMode};
+use nu_protocol::{Config, FooterMode, TrimStrategy};
 use tabled::{
     builder::Builder,
     formatting_settings::AlignmentStrategy,
@@ -71,7 +71,12 @@ pub fn draw_table(
 
     let (count_columns, table) = count_columns_on_table(table);
 
-    let table = wrap_table_columns(table, count_columns, max_column_width);
+    let table = table_trim_columns(
+        table,
+        count_columns,
+        max_column_width,
+        &config.trim_strategy,
+    );
 
     Some(table.to_string())
 }
@@ -264,15 +269,72 @@ impl TableOption for &mut CountColumns {
     }
 }
 
-fn wrap_table_columns(
+fn table_trim_columns(
     mut table: tabled::Table,
     count_columns: usize,
     column_max_width: usize,
+    trim_strategy: &TrimStrategy,
 ) -> tabled::Table {
+    let trim = TrimStrategyModifier::new(column_max_width, trim_strategy);
+
     for column in 0..count_columns {
-        table =
-            table.with(Modify::new(Columns::single(column)).with(Width::wrap(column_max_width)));
+        table = table.with(Modify::new(Columns::single(column)).with(&trim));
     }
 
     table
+}
+
+pub struct TrimStrategyModifier<'a> {
+    width: usize,
+    strategy: &'a TrimStrategy,
+    use_suffix: bool,
+}
+
+impl<'a> TrimStrategyModifier<'a> {
+    pub fn new(mut width: usize, strategy: &'a TrimStrategy) -> Self {
+        let mut use_suffix = false;
+        if let TrimStrategy::Truncate {
+            suffix: Some(suffix),
+        } = strategy
+        {
+            let suffix_length = tabled::papergrid::string_width(suffix);
+            if suffix_length > width {
+                use_suffix = false;
+            } else {
+                width -= suffix_length;
+                use_suffix = true;
+            }
+        }
+
+        Self {
+            width,
+            strategy,
+            use_suffix,
+        }
+    }
+}
+
+impl tabled::CellOption for &TrimStrategyModifier<'_> {
+    fn change_cell(&mut self, grid: &mut papergrid::Grid, entity: tabled::object::Entity) {
+        match self.strategy {
+            TrimStrategy::Wrap { try_to_keep_words } => {
+                let mut w = Width::wrap(self.width);
+                if *try_to_keep_words {
+                    w = w.keep_words();
+                }
+
+                w.change_cell(grid, entity)
+            }
+            TrimStrategy::Truncate { suffix } => {
+                let mut w = Width::truncate(self.width);
+                if self.use_suffix {
+                    if let Some(suffix) = suffix {
+                        w = w.suffix(suffix);
+                    }
+                }
+
+                w.change_cell(grid, entity);
+            }
+        };
+    }
 }
