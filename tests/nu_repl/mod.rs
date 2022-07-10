@@ -50,6 +50,14 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
     let mut last_output = String::new();
 
     for (i, line) in source_lines.iter().enumerate() {
+        // Check for pre_prompt hook
+        let config = engine_state.get_config();
+        if let Some(hook) = config.hooks.pre_prompt.clone() {
+            if let Err(err) = eval_hook(&mut engine_state, &mut stack, vec![], &hook) {
+                return outcome_err(&engine_state, &err);
+            }
+        }
+
         // Check for env change hook
         let config = engine_state.get_config();
         if let Err(err) = eval_env_change_hook(
@@ -114,15 +122,6 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
             };
             let _ = std::env::set_current_dir(path);
             engine_state.add_env_var("PWD".into(), cwd);
-        }
-
-        // Check for pre_prompt hook (it's at the end since we don't have an actual prompt as in
-        // the REPL)
-        let config = engine_state.get_config();
-        if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(&mut engine_state, &mut stack, vec![], &hook) {
-                return outcome_err(&engine_state, &err);
-            }
         }
     }
 
