@@ -1,6 +1,7 @@
 mod add;
 mod at;
 mod bytes_;
+mod collect;
 mod ends_with;
 mod index_of;
 mod length;
@@ -16,6 +17,7 @@ use std::sync::Arc;
 pub use add::BytesAdd;
 pub use at::BytesAt;
 pub use bytes_::Bytes;
+pub use collect::BytesCollect;
 pub use ends_with::BytesEndsWith;
 pub use index_of::BytesIndexOf;
 pub use length::BytesLen;
