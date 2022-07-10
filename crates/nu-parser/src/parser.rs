@@ -3126,6 +3126,10 @@ pub fn parse_signature_helper(
                                         var_id: Some(var_id),
                                         default_value: None,
                                     }));
+                                } else if flags.len() >= 3 {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected("one short flag".into(), span))
+                                    });
                                 } else {
                                     let short_flag = &flags[1];
                                     let short_flag = if !short_flag.starts_with(b"-")
