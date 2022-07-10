@@ -374,7 +374,7 @@ fn env_change_block_condition_pwd() {
     let inp = &[
         &env_change_hook_code_condition(
             "PWD",
-            r#"{ |before, after| ($after | path basename) == samples }"#,
+            r#"{|before, after| ($after | path basename) == samples }"#,
             r#"'source .nu-env'"#,
         ),
         "cd samples",
@@ -385,6 +385,26 @@ fn env_change_block_condition_pwd() {
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
+}
+
+#[test]
+fn env_change_block_condition_correct_args() {
+    let inp = &[
+        r#"let-env FOO = 1"#,
+        &env_change_hook_code_condition(
+            "FOO",
+            r#"{|before, after| $before == 1 and $after == 2}"#,
+            r#"{|before, after| let-env SPAM = ($before == 1 and $after == 2) }"#,
+        ),
+        "",
+        r#"let-env FOO = 2"#,
+        "$env.SPAM",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert_eq!(actual_repl.err, "");
+    assert_eq!(actual_repl.out, "true");
 }
 
 #[test]
@@ -527,4 +547,18 @@ fn err_hook_parse_error() {
 
     assert!(actual_repl.err.contains("UnsupportedConfigValue"));
     assert_eq!(actual_repl.out, "");
+}
+
+#[test]
+fn err_hook_dont_allow_string() {
+    let inp = &[
+        &pre_prompt_hook(r#"'def foo [] { "got foo!" }'"#),
+        "",
+        "foo",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert!(actual_repl.out.is_empty());
+    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
 }
