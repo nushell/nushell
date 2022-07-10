@@ -977,8 +977,7 @@ mod input_types {
             working_set.render()
         };
 
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let _ = engine_state.merge_delta(delta, None, &cwd);
+        engine_state.merge_delta(delta).unwrap();
     }
 
     #[test]
@@ -1154,8 +1153,7 @@ mod input_types {
             (block, working_set.render())
         };
 
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let _ = engine_state.merge_delta(delta, None, &cwd);
+        engine_state.merge_delta(delta).unwrap();
 
         let expressions = &block[0];
         match &expressions[3].expr {

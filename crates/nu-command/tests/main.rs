@@ -13,8 +13,7 @@ fn quickcheck_parse(data: String) -> bool {
     let (lite_block, err2) = nu_parser::lite_parse(&tokens);
 
     if err.is_none() && err2.is_none() {
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let context = create_default_context(cwd);
+        let context = create_default_context();
         {
             let mut working_set = StateWorkingSet::new(&context);
             working_set.add_file("quickcheck".into(), data.as_bytes());

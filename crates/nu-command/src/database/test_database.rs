@@ -75,8 +75,7 @@ pub fn test_database(cmds: Vec<Box<dyn Command + 'static>>) {
         working_set.render()
     };
 
-    let cwd = std::env::current_dir().expect("Could not get current working directory.");
-    let _ = engine_state.merge_delta(delta, None, &cwd);
+    engine_state.merge_delta(delta).unwrap();
 
     for example in examples {
         // Skip tests that don't have results to compare to
@@ -102,7 +101,7 @@ pub fn test_database(cmds: Vec<Box<dyn Command + 'static>>) {
             (output, working_set.render())
         };
 
-        let _ = engine_state.merge_delta(delta, None, &cwd);
+        engine_state.merge_delta(delta).unwrap();
 
         let mut stack = Stack::new();
 

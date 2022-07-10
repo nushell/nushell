@@ -2,7 +2,7 @@ use crate::{
     completions::NuCompleter,
     prompt_update,
     reedline_config::{add_menus, create_keybindings, KeybindingsMode},
-    util::{eval_source, get_init_cwd, report_error, report_error_new},
+    util::{eval_source, get_guaranteed_cwd, report_error, report_error_new},
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use log::{info, trace};
@@ -120,6 +120,20 @@ pub fn evaluate_repl(
                 line!(),
                 column!()
             );
+        }
+
+        // if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+        //     let path = cwd.as_string()?;
+        //     let _ = std::env::set_current_dir(path);
+        //     engine_state.add_env_var("PWD".into(), cwd);
+        // }
+
+        let cwd = get_guaranteed_cwd(engine_state, stack);
+
+        // Before doing anything, merge the environment from the previous REPL iteration into the
+        // permanent state.
+        if let Err(err) = engine_state.merge_env(stack, cwd) {
+            report_error_new(engine_state, &err);
         }
 
         //Reset the ctrl-c handler
@@ -410,11 +424,11 @@ pub fn evaluate_repl(
 
                 // FIXME: permanent state changes like this hopefully in time can be removed
                 // and be replaced by just passing the cwd in where needed
-                if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-                    let path = cwd.as_string()?;
-                    let _ = std::env::set_current_dir(path);
-                    engine_state.add_env_var("PWD".into(), cwd);
-                }
+                // if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+                //     let path = cwd.as_string()?;
+                //     let _ = std::env::set_current_dir(path);
+                //     engine_state.add_env_var("PWD".into(), cwd);
+                // }
 
                 if history_supports_meta && !s.is_empty() {
                     line_editor
@@ -615,15 +629,7 @@ pub fn eval_hook(
                             (output, working_set.render(), vars)
                         };
 
-                        let cwd = match nu_engine::env::current_dir(engine_state, stack) {
-                            Ok(p) => p,
-                            Err(e) => {
-                                report_error_new(engine_state, &e);
-                                get_init_cwd()
-                            }
-                        };
-
-                        let _ = engine_state.merge_delta(delta, Some(stack), &cwd);
+                        engine_state.merge_delta(delta)?;
                         let input = PipelineData::new(value_span);
 
                         let var_ids: Vec<VarId> = vars
@@ -644,6 +650,9 @@ pub fn eval_hook(
                         for var_id in var_ids.iter() {
                             stack.vars.remove(var_id);
                         }
+
+                        let cwd = get_guaranteed_cwd(engine_state, stack);
+                        engine_state.merge_env(stack, cwd)?;
                     }
                     Value::Block {
                         val: block_id,
@@ -651,6 +660,8 @@ pub fn eval_hook(
                         ..
                     } => {
                         run_hook_block(engine_state, stack, block_id, arguments, block_span)?;
+                        let cwd = get_guaranteed_cwd(engine_state, stack);
+                        engine_state.merge_env(stack, cwd)?;
                     }
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
