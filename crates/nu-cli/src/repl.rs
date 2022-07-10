@@ -239,8 +239,7 @@ pub fn evaluate_repl(
         // fire the "pre_prompt" hook
         if let Some(hook) = config.hooks.pre_prompt.clone() {
             if let Err(err) = eval_hook(engine_state, stack, vec![], &hook) {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &err);
+                report_error_new(engine_state, &err);
             }
         }
 
@@ -296,8 +295,7 @@ pub fn evaluate_repl(
                 // fire the "pre_execution" hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
                     if let Err(err) = eval_hook(engine_state, stack, vec![], &hook) {
-                        let working_set = StateWorkingSet::new(engine_state);
-                        report_error(&working_set, &err);
+                        report_error_new(engine_state, &err);
                     }
                 }
 
@@ -496,7 +494,7 @@ pub fn eval_env_change_hook(
             }
             x => {
                 return Err(ShellError::TypeMismatch(
-                    "record for 'env_change' hook".to_string(),
+                    "record for the 'env_change' hook".to_string(),
                     x.span()?,
                 ));
             }
@@ -613,8 +611,7 @@ pub fn eval_hook(
                         let cwd = match nu_engine::env::current_dir(engine_state, stack) {
                             Ok(p) => p,
                             Err(e) => {
-                                let working_set = StateWorkingSet::new(engine_state);
-                                report_error(&working_set, &e);
+                                report_error_new(engine_state, &e);
                                 get_init_cwd()
                             }
                         };

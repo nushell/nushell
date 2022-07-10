@@ -400,3 +400,131 @@ fn env_change_dont_panic_with_many_args() {
     assert!(actual_repl.err.contains("IncompatibleParametersSingle"));
     assert_eq!(actual_repl.out, "");
 }
+
+#[test]
+fn err_hook_wrong_env_type_1() {
+    let inp = &[
+        r#"let-env config = {
+            hooks: {
+                env_change: {
+                    FOO : 1
+                }
+            }
+        }"#,
+        "let-env FOO = 1",
+        "",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert_eq!(actual_repl.out, "");
+}
+
+#[test]
+fn err_hook_wrong_env_type_2() {
+    let inp = &[
+        r#"let-env config = {
+            hooks: {
+                env_change: "print spam"
+            }
+        }"#,
+        "",
+        "",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert!(actual_repl.err.contains("TypeMismatch"));
+    assert_eq!(actual_repl.out, "");
+}
+
+#[test]
+fn err_hook_wrong_env_type_3() {
+    let inp = &[
+        r#"let-env config = {
+            hooks: {
+                env_change: {
+                    FOO : {
+                        code: 1
+                    }
+                }
+            }
+        }"#,
+        "let-env FOO = 1",
+        "",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert_eq!(actual_repl.out, "");
+}
+
+#[test]
+fn err_hook_non_boolean_condition_output() {
+    let inp = &[
+        r#"let-env config = {
+            hooks: {
+                env_change: {
+                    FOO : {
+                        condition: { "foo" }
+                        code: "print spam"
+                    }
+                }
+            }
+        }"#,
+        "let-env FOO = 1",
+        "",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert_eq!(actual_repl.out, "");
+}
+
+#[test]
+fn err_hook_non_condition_not_a_block() {
+    let inp = &[
+        r#"let-env config = {
+            hooks: {
+                env_change: {
+                    FOO : {
+                        condition: "foo"
+                        code: "print spam"
+                    }
+                }
+            }
+        }"#,
+        "let-env FOO = 1",
+        "",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert_eq!(actual_repl.out, "");
+}
+
+#[test]
+fn err_hook_parse_error() {
+    let inp = &[
+        r#"let-env config = {
+            hooks: {
+                env_change: {
+                    FOO : {
+                        code: "def foo { 'foo' }"
+                    }
+                }
+            }
+        }"#,
+        "let-env FOO = 1",
+        "",
+    ];
+
+    let actual_repl = nu_repl("tests/hooks", inp);
+
+    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert_eq!(actual_repl.out, "");
+}
