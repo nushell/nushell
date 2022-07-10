@@ -21,9 +21,15 @@ impl Command for OverlayRemove {
         Signature::build("overlay remove")
             .optional("name", SyntaxShape::String, "Overlay to remove")
             .switch(
-                "keep-custom",
-                "Keep newly added symbols within the next activated overlay",
+                "keep-all",
+                "Keep all newly added symbols within the next activated overlay",
                 Some('k'),
+            )
+            .named(
+                "keep-env",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "List of environment variables to keep from the removed overlay",
+                Some('e'),
             )
             .category(Category::Core)
     }
@@ -53,6 +59,9 @@ impl Command for OverlayRemove {
             }
         };
 
+        let keep_env: Option<Vec<Spanned<String>>> =
+            call.get_flag(engine_state, stack, "keep-env")?;
+
         if !stack.is_overlay_active(&overlay_name.item) {
             return Err(ShellError::OverlayNotFoundAtRuntime(
                 overlay_name.item,
@@ -60,7 +69,7 @@ impl Command for OverlayRemove {
             ));
         }
 
-        if call.has_flag("keep-custom") {
+        if call.has_flag("keep-all") {
             if let Some(overlay_id) = engine_state.find_overlay(overlay_name.item.as_bytes()) {
                 let overlay_frame = engine_state.get_overlay(overlay_id);
                 let origin_module = engine_state.get_module(overlay_frame.origin);
@@ -81,6 +90,19 @@ impl Command for OverlayRemove {
                     overlay_name.item,
                     overlay_name.span,
                 ));
+            }
+        } else if let Some(env_var_names_to_keep) = keep_env {
+            let mut env_vars_to_keep = vec![];
+
+            for name in env_var_names_to_keep.into_iter() {
+                match stack.get_env_var(engine_state, &name.item) {
+                    Some(val) => env_vars_to_keep.push((name.item, val.clone())),
+                    None => return Err(ShellError::EnvVarNotFoundAtRuntime(name.item, name.span)),
+                }
+            }
+
+            for (name, val) in env_vars_to_keep {
+                stack.add_env_var(name, val);
             }
         } else {
             stack.remove_overlay(&overlay_name.item);
@@ -110,6 +132,13 @@ impl Command for OverlayRemove {
                 example: r#"module spam { export env FOO { "foo" } }
     overlay add spam
     overlay remove"#,
+                result: None,
+            },
+            Example {
+                description: "Keep the current working directory when removing an overlay",
+                example: r#"overlay new spam
+    cd some-dir
+    overlay remove --keep-env [ PWD ] spam"#,
                 result: None,
             },
         ]
