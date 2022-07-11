@@ -431,11 +431,11 @@ fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrateg
             }
         }
         TrimStrategy::Truncate { suffix } => {
-            if let Some(value) = map.get("truncatting_suffix") {
+            if let Some(value) = map.get("truncating_suffix") {
                 if let Ok(v) = value.as_string() {
                     *suffix = Some(v);
                 } else {
-                    eprintln!("$config.table_trim.truncatting_suffix is not a string")
+                    eprintln!("$config.table_trim.truncating_suffix is not a string")
                 }
             }
         }
