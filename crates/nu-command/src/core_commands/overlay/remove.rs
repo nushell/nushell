@@ -103,6 +103,8 @@ impl Command for OverlayRemove {
                 }
             }
 
+            stack.remove_overlay(&overlay_name.item);
+
             for (name, val) in env_vars_to_keep {
                 stack.add_env_var(name, val);
             }

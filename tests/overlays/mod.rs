@@ -520,6 +520,6 @@ fn overlay_keep_pwd() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu_repl("tests/overlays", inp);
 
-    assert_eq!(actual.out, "overlay");
-    assert_eq!(actual_repl.out, "overlay");
+    assert_eq!(actual.out, "samples");
+    assert_eq!(actual_repl.out, "samples");
 }
