@@ -1,9 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
 
 #[derive(Clone)]
 pub struct OverlayRemove;
@@ -59,9 +57,6 @@ impl Command for OverlayRemove {
             }
         };
 
-        let keep_env: Option<Vec<Spanned<String>>> =
-            call.get_flag(engine_state, stack, "keep-env")?;
-
         if !stack.is_overlay_active(&overlay_name.item) {
             return Err(ShellError::OverlayNotFoundAtRuntime(
                 overlay_name.item,
@@ -69,22 +64,19 @@ impl Command for OverlayRemove {
             ));
         }
 
-        if call.has_flag("keep-custom") {
+        let keep_env: Option<Vec<Spanned<String>>> =
+            call.get_flag(engine_state, stack, "keep-env")?;
+
+        let env_vars_to_keep = if call.has_flag("keep-custom") {
             if let Some(overlay_id) = engine_state.find_overlay(overlay_name.item.as_bytes()) {
                 let overlay_frame = engine_state.get_overlay(overlay_id);
                 let origin_module = engine_state.get_module(overlay_frame.origin);
 
-                let env_vars_to_keep: Vec<(String, Value)> = stack
+                stack
                     .get_overlay_env_vars(engine_state, &overlay_name.item)
                     .into_iter()
                     .filter(|(name, _)| !origin_module.has_env_var(name.as_bytes()))
-                    .collect();
-
-                stack.remove_overlay(&overlay_name.item);
-
-                for (name, val) in env_vars_to_keep {
-                    stack.add_env_var(name, val);
-                }
+                    .collect()
             } else {
                 return Err(ShellError::OverlayNotFoundAtRuntime(
                     overlay_name.item,
@@ -97,19 +89,19 @@ impl Command for OverlayRemove {
             for name in env_var_names_to_keep.into_iter() {
                 match stack.get_env_var(engine_state, &name.item) {
                     Some(val) => env_vars_to_keep.push((name.item, val.clone())),
-                    None => {
-                        return Err(ShellError::EnvVarNotFoundAtRuntime(name.item, name.span))
-                    }
+                    None => return Err(ShellError::EnvVarNotFoundAtRuntime(name.item, name.span)),
                 }
             }
 
-            stack.remove_overlay(&overlay_name.item);
-
-            for (name, val) in env_vars_to_keep {
-                stack.add_env_var(name, val);
-            }
+            env_vars_to_keep
         } else {
-            stack.remove_overlay(&overlay_name.item);
+            vec![]
+        };
+
+        stack.remove_overlay(&overlay_name.item);
+
+        for (name, val) in env_vars_to_keep {
+            stack.add_env_var(name, val);
         }
 
         Ok(PipelineData::new(call.head))
