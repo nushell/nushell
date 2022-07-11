@@ -1,5 +1,6 @@
+#[cfg(windows)]
+use nu_utils::enable_vt_processing;
 use reedline::DefaultPrompt;
-
 use {
     reedline::{
         Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
@@ -86,6 +87,11 @@ impl NushellPrompt {
 
 impl Prompt for NushellPrompt {
     fn render_prompt_left(&self) -> Cow<str> {
+        #[cfg(windows)]
+        {
+            let _ = enable_vt_processing();
+        }
+
         if let Some(prompt_string) = &self.left_prompt_string {
             prompt_string.replace('\n', "\r\n").into()
         } else {
