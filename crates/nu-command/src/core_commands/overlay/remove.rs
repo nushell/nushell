@@ -21,7 +21,7 @@ impl Command for OverlayRemove {
         Signature::build("overlay remove")
             .optional("name", SyntaxShape::String, "Overlay to remove")
             .switch(
-                "keep-all",
+                "keep-custom",
                 "Keep all newly added symbols within the next activated overlay",
                 Some('k'),
             )
@@ -69,7 +69,7 @@ impl Command for OverlayRemove {
             ));
         }
 
-        if call.has_flag("keep-all") {
+        if call.has_flag("keep-custom") {
             if let Some(overlay_id) = engine_state.find_overlay(overlay_name.item.as_bytes()) {
                 let overlay_frame = engine_state.get_overlay(overlay_id);
                 let origin_module = engine_state.get_module(overlay_frame.origin);
@@ -97,7 +97,9 @@ impl Command for OverlayRemove {
             for name in env_var_names_to_keep.into_iter() {
                 match stack.get_env_var(engine_state, &name.item) {
                     Some(val) => env_vars_to_keep.push((name.item, val.clone())),
-                    None => return Err(ShellError::EnvVarNotFoundAtRuntime(name.item, name.span)),
+                    None => {
+                        return Err(ShellError::EnvVarNotFoundAtRuntime(name.item, name.span))
+                    }
                 }
             }
 

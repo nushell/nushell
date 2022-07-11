@@ -312,7 +312,7 @@ fn remove_overlay_keep_decl() {
     let inp = &[
         r#"overlay add samples/spam.nu"#,
         r#"def bagr [] { "bagr" }"#,
-        r#"overlay remove --keep-all spam"#,
+        r#"overlay remove --keep-custom spam"#,
         r#"bagr"#,
     ];
 
@@ -328,7 +328,7 @@ fn remove_overlay_keep_alias() {
     let inp = &[
         r#"overlay add samples/spam.nu"#,
         r#"alias bagr = "bagr""#,
-        r#"overlay remove --keep-all spam"#,
+        r#"overlay remove --keep-custom spam"#,
         r#"bagr"#,
     ];
 
@@ -344,7 +344,7 @@ fn remove_overlay_keep_env() {
     let inp = &[
         r#"overlay add samples/spam.nu"#,
         r#"let-env BAGR = "bagr""#,
-        r#"overlay remove --keep-all spam"#,
+        r#"overlay remove --keep-custom spam"#,
         r#"$env.BAGR"#,
     ];
 
@@ -360,7 +360,7 @@ fn remove_overlay_keep_discard_overwritten_decl() {
     let inp = &[
         r#"overlay add samples/spam.nu"#,
         r#"def foo [] { 'bar' }"#,
-        r#"overlay remove --keep-all spam"#,
+        r#"overlay remove --keep-custom spam"#,
         r#"foo"#,
     ];
 
@@ -379,7 +379,7 @@ fn remove_overlay_keep_discard_overwritten_alias() {
     let inp = &[
         r#"overlay add samples/spam.nu"#,
         r#"alias bar = 'baz'"#,
-        r#"overlay remove --keep-all spam"#,
+        r#"overlay remove --keep-custom spam"#,
         r#"bar"#,
     ];
 
@@ -398,7 +398,7 @@ fn remove_overlay_keep_discard_overwritten_env() {
     let inp = &[
         r#"overlay add samples/spam.nu"#,
         r#"let-env BAZ = "bagr""#,
-        r#"overlay remove --keep-all spam"#,
+        r#"overlay remove --keep-custom spam"#,
         r#"$env.BAZ"#,
     ];
 
@@ -416,7 +416,7 @@ fn remove_overlay_keep_decl_in_latest_overlay() {
         r#"def bagr [] { 'bagr' }"#,
         r#"module eggs { }"#,
         r#"overlay add eggs"#,
-        r#"overlay remove --keep-all spam"#,
+        r#"overlay remove --keep-custom spam"#,
         r#"bagr"#,
     ];
 
@@ -434,7 +434,7 @@ fn remove_overlay_keep_alias_in_latest_overlay() {
         r#"alias bagr = 'bagr'"#,
         r#"module eggs { }"#,
         r#"overlay add eggs"#,
-        r#"overlay remove --keep-all spam"#,
+        r#"overlay remove --keep-custom spam"#,
         r#"bagr"#,
     ];
 
@@ -452,7 +452,7 @@ fn remove_overlay_keep_env_in_latest_overlay() {
         r#"let-env BAGR = "bagr""#,
         r#"module eggs { }"#,
         r#"overlay add eggs"#,
-        r#"overlay remove --keep-all spam"#,
+        r#"overlay remove --keep-custom spam"#,
         r#"$env.BAGR"#,
     ];
 
