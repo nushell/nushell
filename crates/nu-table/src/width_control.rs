@@ -3,9 +3,9 @@ use crate::{StyledString, TableTheme};
 use std::iter::Iterator;
 
 pub(crate) fn maybe_truncate_columns(
-    termwidth: usize,
     headers: &mut Vec<StyledString>,
     data: &mut [Vec<StyledString>],
+    termwidth: usize,
 ) {
     // Make sure we have enough space for the columns we have
     let max_num_of_columns = termwidth / 10;
@@ -34,34 +34,10 @@ pub(crate) fn estimate_max_column_width(
     headers: &[StyledString],
     data: &[Vec<StyledString>],
     termwidth: usize,
-    theme: &TableTheme,
 ) -> Option<usize> {
-    // Remove the edges, if used
-    let edges_width = if theme.is_left_set && theme.is_right_set {
-        3
-    } else if theme.is_left_set || theme.is_right_set {
-        1
-    } else {
-        0
-    };
-
-    if termwidth < edges_width {
-        return None;
-    }
-
-    let termwidth = termwidth - edges_width;
-
     let max_per_column = get_max_column_widths(headers, data);
 
-    let mut headers_len = headers.len();
-    if headers_len == 0 {
-        if !data.is_empty() && !data[0].is_empty() {
-            headers_len = data[0].len();
-        } else {
-            return Some(0);
-        }
-    }
-
+    let headers_len = headers.len();
     // Measure how big our columns need to be (accounting for separators also)
     let max_naive_column_width = (termwidth - 3 * (headers_len - 1)) / headers_len;
 
@@ -82,6 +58,22 @@ pub(crate) fn estimate_max_column_width(
     let max_column_width = column_space.max_width(termwidth)?;
 
     Some(max_column_width)
+}
+
+pub(crate) fn fix_termwidth(termwidth: usize, theme: &TableTheme) -> Option<usize> {
+    let edges_width = if theme.is_left_set && theme.is_right_set {
+        3
+    } else if theme.is_left_set || theme.is_right_set {
+        1
+    } else {
+        0
+    };
+
+    if termwidth < edges_width {
+        return None;
+    }
+
+    Some(termwidth - edges_width - 1)
 }
 
 fn get_max_column_widths(headers: &[StyledString], data: &[Vec<StyledString>]) -> Vec<usize> {

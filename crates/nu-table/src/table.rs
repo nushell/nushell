@@ -13,7 +13,7 @@ use tabled::{
 
 use crate::{
     table_theme::TableTheme,
-    width_control::{estimate_max_column_width, maybe_truncate_columns},
+    width_control::{estimate_max_column_width, fix_termwidth, maybe_truncate_columns},
     StyledString,
 };
 
@@ -44,10 +44,13 @@ pub fn draw_table(
     color_hm: &HashMap<String, Style>,
     config: &Config,
 ) -> Option<String> {
-    let (mut headers, mut data) = table_fix_lengths(&table.headers, &table.data);
-    maybe_truncate_columns(termwidth, &mut headers, &mut data);
+    let termwidth = fix_termwidth(termwidth, &table.theme)?;
 
-    let max_column_width = estimate_max_column_width(&headers, &data, termwidth, &table.theme)?;
+    let (mut headers, mut data) = table_fix_lengths(&table.headers, &table.data);
+
+    maybe_truncate_columns(&mut headers, &mut data, termwidth);
+
+    let max_column_width = estimate_max_column_width(&headers, &data, termwidth)?;
 
     let alignments = build_alignment_map(&table.data);
 
@@ -72,6 +75,7 @@ pub fn draw_table(
     let table = table_trim_columns(
         table,
         count_columns,
+        termwidth,
         max_column_width,
         &config.trim_strategy,
     );
@@ -268,70 +272,48 @@ impl TableOption for &mut CountColumns {
 }
 
 fn table_trim_columns(
-    mut table: tabled::Table,
+    table: tabled::Table,
     count_columns: usize,
-    column_max_width: usize,
+    termwidth: usize,
+    max_column_width: usize,
     trim_strategy: &TrimStrategy,
 ) -> tabled::Table {
-    let trim = TrimStrategyModifier::new(column_max_width, trim_strategy);
-
-    for column in 0..count_columns {
-        table = table.with(Modify::new(Columns::single(column)).with(&trim));
+    let mut table_width = max_column_width * count_columns;
+    if table_width > termwidth {
+        table_width = termwidth;
     }
 
-    table
+    table.with(&TrimStrategyModifier {
+        termwidth: table_width,
+        trim_strategy,
+    })
 }
 
 pub struct TrimStrategyModifier<'a> {
-    width: usize,
-    strategy: &'a TrimStrategy,
-    use_suffix: bool,
+    termwidth: usize,
+    trim_strategy: &'a TrimStrategy,
 }
 
-impl<'a> TrimStrategyModifier<'a> {
-    pub fn new(mut width: usize, strategy: &'a TrimStrategy) -> Self {
-        let mut use_suffix = false;
-        if let TrimStrategy::Truncate {
-            suffix: Some(suffix),
-        } = strategy
-        {
-            let suffix_length = tabled::papergrid::string_width(suffix);
-            if suffix_length > width {
-                use_suffix = false;
-            } else {
-                width -= suffix_length;
-                use_suffix = true;
-            }
-        }
-
-        Self {
-            width,
-            strategy,
-            use_suffix,
-        }
-    }
-}
-
-impl tabled::CellOption for &TrimStrategyModifier<'_> {
-    fn change_cell(&mut self, grid: &mut papergrid::Grid, entity: tabled::object::Entity) {
-        match self.strategy {
+impl tabled::TableOption for &TrimStrategyModifier<'_> {
+    fn change(&mut self, grid: &mut papergrid::Grid) {
+        match self.trim_strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
-                let mut w = Width::wrap(self.width);
+                let mut w = Width::wrap(self.termwidth);
                 if *try_to_keep_words {
                     w = w.keep_words();
                 }
+                let mut w = w.priority::<tabled::width::PriorityMax>();
 
-                w.change_cell(grid, entity)
+                w.change(grid)
             }
             TrimStrategy::Truncate { suffix } => {
-                let mut w = Width::truncate(self.width);
-                if self.use_suffix {
-                    if let Some(suffix) = suffix {
-                        w = w.suffix(suffix);
-                    }
+                let mut w =
+                    Width::truncate(self.termwidth).priority::<tabled::width::PriorityMax>();
+                if let Some(suffix) = suffix {
+                    w = w.suffix(suffix);
                 }
 
-                w.change_cell(grid, entity);
+                w.change(grid);
             }
         };
     }
@@ -345,11 +327,13 @@ fn table_fix_lengths(
 
     let mut headers_fixed = Vec::with_capacity(length);
     headers_fixed.extend(headers.iter().cloned());
+    headers_fixed.extend(std::iter::repeat(StyledString::default()).take(length - headers.len()));
 
     let mut data_fixed = Vec::with_capacity(data.len());
     for row in data {
         let mut row_fixed = Vec::with_capacity(length);
         row_fixed.extend(row.iter().cloned());
+        row_fixed.extend(std::iter::repeat(StyledString::default()).take(length - row.len()));
         data_fixed.push(row_fixed);
     }
 
