@@ -305,8 +305,8 @@ pub fn parse_external_call(
             error = error.or(err);
             args.push(arg);
         } else {
-            let (contents, err) = unescape_unquote_string(contents, *span);
-            error = error.or(err);
+            // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
+            let contents = String::from_utf8_lossy(contents).to_string();
 
             args.push(Expression {
                 expr: Expr::String(contents),
