@@ -1,6 +1,6 @@
-use nu_test_support::{nu, pipeline};
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn better_empty_redirection() {
@@ -35,4 +35,3 @@ fn explicit_glob() {
         assert_eq!(actual.out, "2");
     })
 }
-
