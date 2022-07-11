@@ -127,7 +127,6 @@ impl Command for BytesIndexOf {
 }
 
 fn index_of(input: &[u8], arg: &Arguments, span: Span) -> Value {
-    // currently, `--all` flag doesn't support finding from end.
     if arg.all {
         search_all_index(input, &arg.pattern, arg.end, span)
     } else {
