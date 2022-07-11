@@ -40,7 +40,7 @@ impl Command for SubCommand {
 
 fn uuid(call: &Call) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let uuid_4 = Uuid::new_v4().to_hyphenated().to_string();
+    let uuid_4 = Uuid::new_v4().hyphenated().to_string();
 
     Ok(PipelineData::Value(
         Value::String { val: uuid_4, span },
