@@ -15,7 +15,7 @@ impl Command for BytesBuild {
     }
 
     fn usage(&self) -> &str {
-        "Create a string from the arguments."
+        "Create bytes from the arguments."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -31,7 +31,7 @@ impl Command for BytesBuild {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             example: "bytes build 0x[01 02] 0x[03] 0x[04]",
-            description: "Builds a binary data from 0x[01 02], 0x[03], 0x[04]",
+            description: "Builds binary data from 0x[01 02], 0x[03], 0x[04]",
             result: Some(Value::Binary {
                 val: vec![0x01, 0x02, 0x03, 0x04],
                 span: Span::test_data(),
