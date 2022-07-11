@@ -96,6 +96,14 @@ impl Command for BytesIndexOf {
                 }),
             },
             Example {
+                description: "Returns all matched index, searching from end",
+                example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of -a -e 0x[33 44]",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(7), Value::test_int(5), Value::test_int(0)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "Returns index of pattern for specific column",
                 example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes index-of 0x[11] ColA ColC"#,
                 result: Some(Value::List {
@@ -121,25 +129,7 @@ impl Command for BytesIndexOf {
 fn index_of(input: &[u8], arg: &Arguments, span: Span) -> Value {
     // currently, `--all` flag doesn't support finding from end.
     if arg.all {
-        let mut result = vec![];
-        // doing find stuff.
-        let (mut left, mut right) = (0, arg.pattern.len());
-        let input_len = input.len();
-        let pattern_len = arg.pattern.len();
-        while right <= input_len {
-            if input[left..right] == arg.pattern {
-                result.push(Value::Int {
-                    val: left as i64,
-                    span,
-                });
-                left += pattern_len;
-                right += pattern_len;
-            } else {
-                left += 1;
-                right += 1;
-            }
-        }
-        Value::List { vals: result, span }
+        search_all_index(input, &arg.pattern, arg.end, span)
     } else {
         let mut iter = input.windows(arg.pattern.len());
 
@@ -161,6 +151,50 @@ fn index_of(input: &[u8], arg: &Arguments, span: Span) -> Value {
                 span,
             }
         }
+    }
+}
+
+fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) -> Value {
+    let mut result = vec![];
+    if from_end {
+        let (mut left, mut right) = (
+            input.len() as isize - pattern.len() as isize,
+            input.len() as isize,
+        );
+        while left >= 0 {
+            if &input[left as usize..right as usize] == pattern {
+                result.push(Value::Int {
+                    val: left as i64,
+                    span,
+                });
+                left -= pattern.len() as isize;
+                right -= pattern.len() as isize;
+            } else {
+                left -= 1;
+                right -= 1;
+            }
+        }
+        Value::List { vals: result, span }
+    } else {
+        // doing find stuff.
+        let (mut left, mut right) = (0, pattern.len());
+        let input_len = input.len();
+        let pattern_len = pattern.len();
+        while right <= input_len {
+            if &input[left..right] == pattern {
+                result.push(Value::Int {
+                    val: left as i64,
+                    span,
+                });
+                left += pattern_len;
+                right += pattern_len;
+            } else {
+                left += 1;
+                right += 1;
+            }
+        }
+
+        Value::List { vals: result, span }
     }
 }
 
