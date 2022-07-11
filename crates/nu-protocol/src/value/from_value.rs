@@ -404,6 +404,27 @@ impl FromValue for Vec<u8> {
     }
 }
 
+impl FromValue for Spanned<Vec<u8>> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Binary { val, span } => Ok(Spanned {
+                item: val.clone(),
+                span: *span,
+            }),
+            Value::String { val, span } => Ok(Spanned {
+                item: val.bytes().collect(),
+                span: *span,
+            }),
+            v => Err(ShellError::CantConvert(
+                "binary data".into(),
+                v.get_type().to_string(),
+                v.span()?,
+                None,
+            )),
+        }
+    }
+}
+
 impl FromValue for Spanned<PathBuf> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
