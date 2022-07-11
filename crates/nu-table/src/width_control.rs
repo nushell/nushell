@@ -87,15 +87,7 @@ pub(crate) fn estimate_max_column_width(
 fn get_max_column_widths(headers: &[StyledString], data: &[Vec<StyledString>]) -> Vec<usize> {
     use std::cmp::max;
 
-    let mut max_num_columns = 0;
-
-    max_num_columns = max(max_num_columns, headers.len());
-
-    for row in data {
-        max_num_columns = max(max_num_columns, row.len());
-    }
-
-    let mut output = vec![0; max_num_columns];
+    let mut output = vec![0; headers.len()];
 
     for (col, content) in headers.iter().enumerate() {
         let content = clean(&content.contents);

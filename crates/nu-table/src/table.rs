@@ -44,12 +44,10 @@ pub fn draw_table(
     color_hm: &HashMap<String, Style>,
     config: &Config,
 ) -> Option<String> {
-    let mut headers = table.headers.clone();
-    let mut data = table.data.clone();
+    let (mut headers, mut data) = table_fix_lengths(&table.headers, &table.data);
     maybe_truncate_columns(termwidth, &mut headers, &mut data);
 
-    let max_column_width =
-        estimate_max_column_width(&table.headers, &table.data, termwidth, &table.theme)?;
+    let max_column_width = estimate_max_column_width(&headers, &data, termwidth, &table.theme)?;
 
     let alignments = build_alignment_map(&table.data);
 
@@ -337,4 +335,32 @@ impl tabled::CellOption for &TrimStrategyModifier<'_> {
             }
         };
     }
+}
+
+fn table_fix_lengths(
+    headers: &[StyledString],
+    data: &[Vec<StyledString>],
+) -> (Vec<StyledString>, Vec<Vec<StyledString>>) {
+    let length = table_find_max_length(headers, data);
+
+    let mut headers_fixed = Vec::with_capacity(length);
+    headers_fixed.extend(headers.iter().cloned());
+
+    let mut data_fixed = Vec::with_capacity(data.len());
+    for row in data {
+        let mut row_fixed = Vec::with_capacity(length);
+        row_fixed.extend(row.iter().cloned());
+        data_fixed.push(row_fixed);
+    }
+
+    (headers_fixed, data_fixed)
+}
+
+fn table_find_max_length(headers: &[StyledString], data: &[Vec<StyledString>]) -> usize {
+    let mut length = headers.len();
+    for row in data {
+        length = std::cmp::max(length, row.len());
+    }
+
+    length
 }
