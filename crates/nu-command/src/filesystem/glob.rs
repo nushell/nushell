@@ -6,7 +6,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
     SyntaxShape, Value,
 };
-use wax::Glob as WaxGlob;
+use wax::{Glob as WaxGlob, WalkBehavior};
 
 #[derive(Clone)]
 pub struct Glob;
@@ -120,7 +120,13 @@ impl Command for Glob {
 
         #[allow(clippy::needless_collect)]
         let glob_results: Vec<Value> = glob
-            .walk(path, folder_depth)
+            .walk_with_behavior(
+                path,
+                WalkBehavior {
+                    depth: folder_depth,
+                    ..Default::default()
+                },
+            )
             .flatten()
             .map(|entry| Value::String {
                 val: entry.into_path().to_string_lossy().to_string(),

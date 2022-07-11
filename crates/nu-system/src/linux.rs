@@ -6,14 +6,17 @@ use std::time::{Duration, Instant};
 
 pub enum ProcessTask {
     Process(Process),
-    Task { stat: Stat, owner: u32 },
+    Task { stat: Box<Stat>, owner: u32 },
 }
 
 impl ProcessTask {
-    pub fn stat(&self) -> &Stat {
+    pub fn stat(&self) -> Result<Stat, ProcError> {
         match self {
-            ProcessTask::Process(x) => &x.stat,
-            ProcessTask::Task { stat: x, owner: _ } => x,
+            ProcessTask::Process(x) => match x.stat() {
+                Ok(it) => Ok(it),
+                Err(err) => Err(err),
+            },
+            ProcessTask::Task { stat: x, owner: _ } => Ok(*x.clone()),
         }
     }
 
@@ -33,7 +36,13 @@ impl ProcessTask {
 
     pub fn fd(&self) -> Result<Vec<FDInfo>, ProcError> {
         match self {
-            ProcessTask::Process(x) => x.fd(),
+            ProcessTask::Process(x) => {
+                let fds = match x.fd() {
+                    Ok(f) => f,
+                    Err(e) => return Err(e),
+                };
+                fds.collect()
+            }
             _ => Err(ProcError::Other("not supported".to_string())),
         }
     }
@@ -47,7 +56,7 @@ impl ProcessTask {
 
     pub fn owner(&self) -> u32 {
         match self {
-            ProcessTask::Process(x) => x.owner,
+            ProcessTask::Process(x) => x.uid().unwrap_or(0),
             ProcessTask::Task { stat: _, owner: x } => *x,
         }
     }
@@ -77,32 +86,54 @@ pub fn collect_proc(interval: Duration, with_thread: bool) -> Vec<ProcessInfo> {
     let mut ret = Vec::new();
 
     if let Ok(all_proc) = procfs::process::all_processes() {
-        for proc in all_proc {
+        for proc in all_proc.flatten() {
             let io = proc.io().ok();
             let time = Instant::now();
             if with_thread {
                 if let Ok(iter) = proc.tasks() {
                     collect_task(iter, &mut base_tasks);
                 }
+                base_procs.push((proc.pid(), proc, io, time));
             }
-            base_procs.push((proc.pid(), proc, io, time));
+            // match proc {
+            //     Ok(p) => {
+            //         let io = p.io().ok();
+            //         let time = Instant::now();
+            //         if with_thread {
+            //             if let Ok(iter) = p.tasks() {
+            //                 collect_task(iter, &mut base_tasks);
+            //             }
+            //         }
+            //         base_procs.push((p.pid(), p, io, time));
+            //     }
+            //     Err(_) => {}
+            // }
         }
     }
 
     thread::sleep(interval);
 
     for (pid, prev_proc, prev_io, prev_time) in base_procs {
-        let curr_proc = if let Ok(proc) = Process::new(pid) {
-            proc
-        } else {
-            prev_proc.clone()
+        let curr_proc_pid = pid;
+        let prev_proc_pid = prev_proc.pid();
+        let curr_proc = match Process::new(curr_proc_pid) {
+            Ok(p) => p,
+            Err(_) => return Vec::<ProcessInfo>::new(),
         };
+        let prev_proc = match Process::new(prev_proc_pid) {
+            Ok(p) => p,
+            Err(_) => return Vec::<ProcessInfo>::new(),
+        };
+
         let curr_io = curr_proc.io().ok();
         let curr_status = curr_proc.status().ok();
         let curr_time = Instant::now();
         let interval = curr_time - prev_time;
-        let ppid = curr_proc.stat.ppid;
-        let owner = curr_proc.owner;
+        let ppid = match curr_proc.stat() {
+            Ok(p) => p.ppid,
+            Err(_) => 0,
+        };
+        let owner = curr_proc.uid().unwrap_or(0);
 
         let mut curr_tasks = HashMap::new();
         if with_thread {
@@ -133,11 +164,11 @@ pub fn collect_proc(interval: Duration, with_thread: bool) -> Vec<ProcessInfo> {
                     pid: tid,
                     ppid: pid,
                     curr_proc: ProcessTask::Task {
-                        stat: curr_stat,
+                        stat: Box::new(curr_stat),
                         owner,
                     },
                     prev_proc: ProcessTask::Task {
-                        stat: prev_stat,
+                        stat: Box::new(prev_stat),
                         owner,
                     },
                     curr_io,
@@ -196,35 +227,50 @@ impl ProcessInfo {
             if !cmd.is_empty() {
                 cmd.join(" ").replace('\n', " ").replace('\t', " ")
             } else {
-                self.curr_proc.stat().comm.clone()
+                match self.curr_proc.stat() {
+                    Ok(p) => p.comm,
+                    Err(_) => "".to_string(),
+                }
             }
         } else {
-            self.curr_proc.stat().comm.clone()
+            match self.curr_proc.stat() {
+                Ok(p) => p.comm,
+                Err(_) => "".to_string(),
+            }
         }
     }
 
     /// Get the status of the process
     pub fn status(&self) -> String {
-        match self.curr_proc.stat().state {
-            'S' => "Sleeping".into(),
-            'R' => "Running".into(),
-            'D' => "Disk sleep".into(),
-            'Z' => "Zombie".into(),
-            'T' => "Stopped".into(),
-            't' => "Tracing".into(),
-            'X' => "Dead".into(),
-            'x' => "Dead".into(),
-            'K' => "Wakekill".into(),
-            'W' => "Waking".into(),
-            'P' => "Parked".into(),
-            _ => "Unknown".into(),
+        match self.curr_proc.stat() {
+            Ok(p) => match p.state {
+                'S' => "Sleeping".into(),
+                'R' => "Running".into(),
+                'D' => "Disk sleep".into(),
+                'Z' => "Zombie".into(),
+                'T' => "Stopped".into(),
+                't' => "Tracing".into(),
+                'X' => "Dead".into(),
+                'x' => "Dead".into(),
+                'K' => "Wakekill".into(),
+                'W' => "Waking".into(),
+                'P' => "Parked".into(),
+                _ => "Unknown".into(),
+            },
+            Err(_) => "Unknown".into(),
         }
     }
 
     /// CPU usage as a percent of total
     pub fn cpu_usage(&self) -> f64 {
-        let curr_time = self.curr_proc.stat().utime + self.curr_proc.stat().stime;
-        let prev_time = self.prev_proc.stat().utime + self.prev_proc.stat().stime;
+        let curr_time = match self.curr_proc.stat() {
+            Ok(c) => c.utime + c.stime,
+            Err(_) => 0,
+        };
+        let prev_time = match self.prev_proc.stat() {
+            Ok(c) => c.utime + c.stime,
+            Err(_) => 0,
+        };
         let usage_ms =
             (curr_time - prev_time) * 1000 / procfs::ticks_per_second().unwrap_or(100) as u64;
         let interval_ms = self.interval.as_secs() * 1000 + u64::from(self.interval.subsec_millis());
@@ -233,11 +279,17 @@ impl ProcessInfo {
 
     /// Memory size in number of bytes
     pub fn mem_size(&self) -> u64 {
-        self.curr_proc.stat().rss_bytes().unwrap_or(0) as u64
+        match self.curr_proc.stat() {
+            Ok(p) => p.rss_bytes().unwrap_or(0),
+            Err(_) => 0,
+        }
     }
 
     /// Virtual memory size in bytes
     pub fn virtual_size(&self) -> u64 {
-        self.curr_proc.stat().vsize
+        match self.curr_proc.stat() {
+            Ok(p) => p.vsize,
+            Err(_) => 0u64,
+        }
     }
 }
