@@ -1,6 +1,7 @@
+#[cfg(windows)]
+use nu_utils::enable_vt_processing;
 use reedline::DefaultPrompt;
 use {
-    nu_utils::enable_vt_processing,
     reedline::{
         Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
     },
