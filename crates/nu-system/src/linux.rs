@@ -6,17 +6,17 @@ use std::time::{Duration, Instant};
 
 pub enum ProcessTask {
     Process(Process),
-    Task { stat: Stat, owner: u32 },
+    Task { stat: Box<Stat>, owner: u32 },
 }
 
 impl ProcessTask {
     pub fn stat(&self) -> Result<Stat, ProcError> {
         match self {
             ProcessTask::Process(x) => match x.stat() {
-                Ok(it) => Ok(it.clone()),
-                Err(err) => return Err(err),
+                Ok(it) => Ok(it),
+                Err(err) => Err(err),
             },
-            ProcessTask::Task { stat: x, owner: _ } => Ok(x.clone()),
+            ProcessTask::Task { stat: x, owner: _ } => Ok(*x.clone()),
         }
     }
 
@@ -56,10 +56,7 @@ impl ProcessTask {
 
     pub fn owner(&self) -> u32 {
         match self {
-            ProcessTask::Process(x) => match x.uid() {
-                Ok(n) => n,
-                Err(_) => 0,
-            },
+            ProcessTask::Process(x) => x.uid().unwrap_or(0),
             ProcessTask::Task { stat: _, owner: x } => *x,
         }
     }
@@ -89,20 +86,28 @@ pub fn collect_proc(interval: Duration, with_thread: bool) -> Vec<ProcessInfo> {
     let mut ret = Vec::new();
 
     if let Ok(all_proc) = procfs::process::all_processes() {
-        for proc in all_proc {
-            match proc {
-                Ok(p) => {
-                    let io = p.io().ok();
-                    let time = Instant::now();
-                    if with_thread {
-                        if let Ok(iter) = p.tasks() {
-                            collect_task(iter, &mut base_tasks);
-                        }
-                    }
-                    base_procs.push((p.pid(), p, io, time));
+        for proc in all_proc.flatten() {
+            let io = proc.io().ok();
+            let time = Instant::now();
+            if with_thread {
+                if let Ok(iter) = proc.tasks() {
+                    collect_task(iter, &mut base_tasks);
                 }
-                Err(_) => {}
+                base_procs.push((proc.pid(), proc, io, time));
             }
+            // match proc {
+            //     Ok(p) => {
+            //         let io = p.io().ok();
+            //         let time = Instant::now();
+            //         if with_thread {
+            //             if let Ok(iter) = p.tasks() {
+            //                 collect_task(iter, &mut base_tasks);
+            //             }
+            //         }
+            //         base_procs.push((p.pid(), p, io, time));
+            //     }
+            //     Err(_) => {}
+            // }
         }
     }
 
@@ -128,10 +133,7 @@ pub fn collect_proc(interval: Duration, with_thread: bool) -> Vec<ProcessInfo> {
             Ok(p) => p.ppid,
             Err(_) => 0,
         };
-        let owner = match curr_proc.uid() {
-            Ok(u) => u,
-            Err(_) => 0,
-        };
+        let owner = curr_proc.uid().unwrap_or(0);
 
         let mut curr_tasks = HashMap::new();
         if with_thread {
@@ -162,11 +164,11 @@ pub fn collect_proc(interval: Duration, with_thread: bool) -> Vec<ProcessInfo> {
                     pid: tid,
                     ppid: pid,
                     curr_proc: ProcessTask::Task {
-                        stat: curr_stat,
+                        stat: Box::new(curr_stat),
                         owner,
                     },
                     prev_proc: ProcessTask::Task {
-                        stat: prev_stat,
+                        stat: Box::new(prev_stat),
                         owner,
                     },
                     curr_io,
@@ -226,13 +228,13 @@ impl ProcessInfo {
                 cmd.join(" ").replace('\n', " ").replace('\t', " ")
             } else {
                 match self.curr_proc.stat() {
-                    Ok(p) => p.comm.clone(),
+                    Ok(p) => p.comm,
                     Err(_) => "".to_string(),
                 }
             }
         } else {
             match self.curr_proc.stat() {
-                Ok(p) => p.comm.clone(),
+                Ok(p) => p.comm,
                 Err(_) => "".to_string(),
             }
         }
@@ -278,10 +280,7 @@ impl ProcessInfo {
     /// Memory size in number of bytes
     pub fn mem_size(&self) -> u64 {
         match self.curr_proc.stat() {
-            Ok(p) => match p.rss_bytes() {
-                Ok(b) => b,
-                Err(_) => 0,
-            },
+            Ok(p) => p.rss_bytes().unwrap_or(0),
             Err(_) => 0,
         }
     }
