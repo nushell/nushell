@@ -5,7 +5,7 @@ use std::collections::HashMap;
 const ANIMATE_PROMPT_DEFAULT: bool = true;
 
 const TRIM_STRATEGY_DEFAULT: TrimStrategy = TrimStrategy::Wrap {
-    try_to_keep_words: false,
+    try_to_keep_words: true,
 };
 
 /// Definition of a parsed keybinding from the config object
