@@ -13,7 +13,7 @@ use nu_parser::{lex, parse};
 use nu_protocol::{
     ast::PathMember,
     engine::{EngineState, Stack, StateWorkingSet},
-    BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
+    BlockId, Config, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
 use std::io::{self, Write};
