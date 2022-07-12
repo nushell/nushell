@@ -13,7 +13,7 @@ use nu_parser::{lex, parse};
 use nu_protocol::{
     ast::PathMember,
     engine::{EngineState, Stack, StateWorkingSet},
-    BlockId, Config, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
+    BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
 use std::io::{self, Write};
@@ -347,18 +347,16 @@ pub fn evaluate_repl(
                         let path = nu_path::canonicalize_with(path, &cwd)
                             .expect("internal error: cannot canonicalize known path");
                         (path.to_string_lossy().to_string(), tokens.0[0].span)
-                    };                    
+                    };
+
                     stack.add_env_var(
                         "OLDPWD".into(),
                         Value::String {
-                            val: if let Some(pwd) = stack.get_env_var(engine_state, "PWD".into()) {
-                                pwd.into_string("", &Config::default())
-                            } else {
-                                ".".into()
-                            },
+                            val: cwd.clone(),
                             span: Span { start: 0, end: 0 },
                         },
-                    );               
+                    );
+
                     //FIXME: this only changes the current scope, but instead this environment variable
                     //should probably be a block that loads the information from the state in the overlay
                     stack.add_env_var(
