@@ -16,6 +16,11 @@ impl Command for ErrorMake {
     fn signature(&self) -> Signature {
         Signature::build("error make")
             .required("error_struct", SyntaxShape::Record, "the error to create")
+            .switch(
+                "unspanned",
+                "remove the origin label from the error",
+                Some('u'),
+            )
             .category(Category::Core)
     }
 
@@ -36,16 +41,29 @@ impl Command for ErrorMake {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let span = call.head;
         let arg: Value = call.req(engine_state, stack, 0)?;
+        let unspanned = call.has_flag("unspanned");
 
-        Err(make_error(&arg, span).unwrap_or_else(|| {
-            ShellError::GenericError(
-                "Creating error value not supported.".into(),
-                "unsupported error format".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
-        }))
+        if unspanned {
+            Err(make_error(&arg, None).unwrap_or_else(|| {
+                ShellError::GenericError(
+                    "Creating error value not supported.".into(),
+                    "unsupported error format".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )
+            }))
+        } else {
+            Err(make_error(&arg, Some(span)).unwrap_or_else(|| {
+                ShellError::GenericError(
+                    "Creating error value not supported.".into(),
+                    "unsupported error format".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )
+            }))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -69,7 +87,7 @@ impl Command for ErrorMake {
     }
 }
 
-fn make_error(value: &Value, throw_span: Span) -> Option<ShellError> {
+fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
     if let Value::Record { .. } = &value {
         let msg = value.get_data_by_key("msg");
         let label = value.get_data_by_key("label");
@@ -106,7 +124,7 @@ fn make_error(value: &Value, throw_span: Span) -> Option<ShellError> {
                     ) => Some(ShellError::GenericError(
                         message,
                         label_text,
-                        Some(throw_span),
+                        throw_span,
                         None,
                         Vec::new(),
                     )),
@@ -116,7 +134,7 @@ fn make_error(value: &Value, throw_span: Span) -> Option<ShellError> {
             (Some(Value::String { val: message, .. }), None) => Some(ShellError::GenericError(
                 message,
                 "originates from here".to_string(),
-                Some(throw_span),
+                throw_span,
                 None,
                 Vec::new(),
             )),
