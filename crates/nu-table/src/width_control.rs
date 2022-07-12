@@ -3,23 +3,26 @@ use crate::{StyledString, TableTheme};
 use std::iter::Iterator;
 
 pub(crate) fn maybe_truncate_columns(
-    headers: &mut Vec<StyledString>,
+    headers: &mut Option<Vec<StyledString>>,
     data: &mut [Vec<StyledString>],
+    length: usize,
     termwidth: usize,
 ) {
     // Make sure we have enough space for the columns we have
     let max_num_of_columns = termwidth / 10;
 
     // If we have too many columns, truncate the table
-    if max_num_of_columns < headers.len() {
-        headers.truncate(max_num_of_columns);
-        headers.push(StyledString::new(
-            String::from("..."),
-            TextStyle::basic_center(),
-        ));
+    if let Some(headers) = headers {
+        if max_num_of_columns < length {
+            headers.truncate(max_num_of_columns);
+            headers.push(StyledString::new(
+                String::from("..."),
+                TextStyle::basic_center(),
+            ));
+        }
     }
 
-    if max_num_of_columns < headers.len() {
+    if max_num_of_columns < length {
         for entry in data.iter_mut() {
             entry.truncate(max_num_of_columns);
             entry.push(StyledString::new(
@@ -31,17 +34,17 @@ pub(crate) fn maybe_truncate_columns(
 }
 
 pub(crate) fn estimate_max_column_width(
-    headers: &[StyledString],
+    headers: Option<&Vec<StyledString>>,
     data: &[Vec<StyledString>],
+    count_columns: usize,
     termwidth: usize,
 ) -> Option<usize> {
-    let max_per_column = get_max_column_widths(headers, data);
+    let max_per_column = get_max_column_widths(headers, data, count_columns);
 
-    let headers_len = headers.len();
     // Measure how big our columns need to be (accounting for separators also)
-    let max_naive_column_width = (termwidth - 3 * (headers_len - 1)) / headers_len;
+    let max_naive_column_width = (termwidth - 3 * (count_columns - 1)) / count_columns;
 
-    let column_space = ColumnSpace::measure(&max_per_column, max_naive_column_width, headers_len);
+    let column_space = ColumnSpace::measure(&max_per_column, max_naive_column_width, count_columns);
 
     // This gives us the max column width
     let max_column_width = column_space.max_width(termwidth)?;
@@ -51,7 +54,7 @@ pub(crate) fn estimate_max_column_width(
         &max_per_column,
         max_naive_column_width,
         max_column_width,
-        headers_len,
+        count_columns,
     );
 
     // This should give us the final max column width
@@ -76,15 +79,21 @@ pub(crate) fn fix_termwidth(termwidth: usize, theme: &TableTheme) -> Option<usiz
     Some(termwidth - edges_width - 1)
 }
 
-fn get_max_column_widths(headers: &[StyledString], data: &[Vec<StyledString>]) -> Vec<usize> {
+fn get_max_column_widths(
+    headers: Option<&Vec<StyledString>>,
+    data: &[Vec<StyledString>],
+    count_columns: usize,
+) -> Vec<usize> {
     use std::cmp::max;
 
-    let mut output = vec![0; headers.len()];
+    let mut output = vec![0; count_columns];
 
-    for (col, content) in headers.iter().enumerate() {
-        let content = clean(&content.contents);
-        let content_width = tabled::papergrid::string_width_multiline(&content);
-        output[col] = max(output[col], content_width);
+    if let Some(headers) = headers {
+        for (col, content) in headers.iter().enumerate() {
+            let content = clean(&content.contents);
+            let content_width = tabled::papergrid::string_width_multiline(&content);
+            output[col] = max(output[col], content_width);
+        }
     }
 
     for row in data {

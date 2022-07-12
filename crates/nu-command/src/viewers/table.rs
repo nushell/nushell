@@ -168,7 +168,7 @@ impl Command for Table {
                 }
 
                 let table = nu_table::Table {
-                    headers: vec![],
+                    headers: None,
                     data: output,
                     theme: load_theme_from_config(config),
                 };
@@ -430,16 +430,18 @@ fn convert_to_table(
         }
 
         Ok(Some(nu_table::Table {
-            headers: headers
-                .into_iter()
-                .map(|x| StyledString {
-                    contents: x,
-                    style: TextStyle {
-                        alignment: nu_table::Alignment::Center,
-                        color_style: Some(color_hm["header"]),
-                    },
-                })
-                .collect(),
+            headers: Some(
+                headers
+                    .into_iter()
+                    .map(|x| StyledString {
+                        contents: x,
+                        style: TextStyle {
+                            alignment: nu_table::Alignment::Center,
+                            color_style: Some(color_hm["header"]),
+                        },
+                    })
+                    .collect(),
+            ),
             data: data
                 .into_iter()
                 .map(|x| {
