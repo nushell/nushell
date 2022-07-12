@@ -2,6 +2,10 @@ use crate::{ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+const TRIM_STRATEGY_DEFAULT: TrimStrategy = TrimStrategy::Wrap {
+    try_to_keep_words: true,
+};
+
 /// Definition of a parsed keybinding from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedKeybinding {
@@ -75,6 +79,7 @@ pub struct Config {
     pub cd_with_abbreviations: bool,
     pub case_sensitive_completions: bool,
     pub enable_external_completion: bool,
+    pub trim_strategy: TrimStrategy,
 }
 
 impl Default for Config {
@@ -107,6 +112,7 @@ impl Default for Config {
             cd_with_abbreviations: false,
             case_sensitive_completions: false,
             enable_external_completion: true,
+            trim_strategy: TRIM_STRATEGY_DEFAULT,
         }
     }
 }
@@ -129,6 +135,30 @@ pub enum HistoryFileFormat {
     Sqlite,
     /// store history as a plain text file where every line is one command (without any context such as timestamps)
     PlainText,
+}
+
+/// A Table view configuration, for a situation where
+/// we need to limit cell width in order to adjust for a terminal size.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum TrimStrategy {
+    /// Wrapping strategy.
+    ///
+    /// It it's simmilar to original nu_table, strategy.
+    Wrap {
+        /// A flag which indicates whether is it necessary to try
+        /// to keep word bounderies.
+        try_to_keep_words: bool,
+    },
+    /// Truncating strategy, where we just cut the string.
+    /// And append the suffix if applicable.
+    Truncate {
+        /// Suffix which can be appended to a truncated string after being cut.
+        ///
+        /// It will be applied only when there's enough room for it.
+        /// For example in case where a cell width must be 12 chars, but
+        /// the suffix takes 13 chars it won't be used.
+        suffix: Option<String>,
+    },
 }
 
 impl Value {
@@ -348,6 +378,7 @@ impl Value {
                             eprintln!("$config.enable_external_completion is not a bool")
                         }
                     }
+                    "table_trim" => config.trim_strategy = try_parse_trim_strategy(value, &config)?,
                     x => {
                         eprintln!("$config.{} is an unknown config setting", x)
                     }
@@ -359,6 +390,64 @@ impl Value {
 
         Ok(config)
     }
+}
+
+fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrategy, ShellError> {
+    let map = create_map(value, config).map_err(|e| {
+        eprintln!("$config.table_trim is not a record");
+        e
+    })?;
+
+    let mut methodology = match map.get("methodology") {
+        Some(value) => match try_parse_trim_methodology(value) {
+            Some(methodology) => methodology,
+            None => return Ok(TRIM_STRATEGY_DEFAULT),
+        },
+        None => {
+            eprintln!("$config.table_trim.methodology was not provided");
+            return Ok(TRIM_STRATEGY_DEFAULT);
+        }
+    };
+
+    match &mut methodology {
+        TrimStrategy::Wrap { try_to_keep_words } => {
+            if let Some(value) = map.get("wrapping_try_keep_words") {
+                if let Ok(b) = value.as_bool() {
+                    *try_to_keep_words = b;
+                } else {
+                    eprintln!("$config.table_trim.wrap_try_keep_words is not a bool");
+                }
+            }
+        }
+        TrimStrategy::Truncate { suffix } => {
+            if let Some(value) = map.get("truncating_suffix") {
+                if let Ok(v) = value.as_string() {
+                    *suffix = Some(v);
+                } else {
+                    eprintln!("$config.table_trim.truncating_suffix is not a string")
+                }
+            }
+        }
+    }
+
+    Ok(methodology)
+}
+
+fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
+    match value.as_string() {
+        Ok(value) => match value.to_lowercase().as_str() {
+            "wrapping" => {
+                return Some(TrimStrategy::Wrap {
+                    try_to_keep_words: false,
+                });
+            }
+            "truncating" => return Some(TrimStrategy::Truncate { suffix: None }),
+            _ => eprintln!("unrecognized $config.trim_methodology value; expected values ['truncating', 'wrapping']"),
+        },
+        Err(_) => eprintln!("$config.trim_methodology is not a string"),
+    }
+
+    None
 }
 
 fn create_map(value: &Value, config: &Config) -> Result<HashMap<String, Value>, ShellError> {

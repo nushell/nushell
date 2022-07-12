@@ -257,6 +257,15 @@ let-env config = {
   case_sensitive_completions: false # set to true to enable case-sensitive completions
   enable_external_completion: true # set to false to prevent nushell looking into $env.PATH to find more suggestions, `false` recommended for WSL users as this look up my be very slow
 
+  # A strategy of managing table view in case of limited space.
+  table_trim: {
+    methodology: wrapping, # truncating
+    # A strategy which will be used by 'wrapping' methodology
+    wrapping_try_keep_words: true,
+    # A suffix which will be used with 'truncating' methodology
+    # truncating_suffix: "..."
+  }
+
   hooks: {
     pre_prompt: [{
       $nothing  # replace with source code to run before the prompt is shown

@@ -1,7 +1,7 @@
 mod table;
 mod table_theme;
 mod textstyle;
-mod wrap;
+mod width_control;
 
 pub use table::{draw_table, Table};
 pub use table_theme::TableTheme;

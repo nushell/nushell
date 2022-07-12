@@ -1,15 +1,20 @@
-use crate::table_theme::TableTheme;
-use crate::StyledString;
-use nu_ansi_term::Style;
-use nu_protocol::{Config, FooterMode};
 use std::collections::HashMap;
+
+use nu_ansi_term::Style;
+use nu_protocol::{Config, FooterMode, TrimStrategy};
 use tabled::{
     builder::Builder,
     formatting_settings::AlignmentStrategy,
     object::{Cell, Columns, Rows},
     papergrid,
     style::BorderColor,
-    Alignment, Modify, TableOption,
+    Alignment, Modify, TableOption, Width,
+};
+
+use crate::{
+    table_theme::TableTheme,
+    width_control::{estimate_max_column_width, fix_termwidth, maybe_truncate_columns},
+    StyledString,
 };
 
 #[derive(Debug)]
@@ -39,25 +44,87 @@ pub fn draw_table(
     color_hm: &HashMap<String, Style>,
     config: &Config,
 ) -> Option<String> {
-    // Remove the edges, if used
-    let (headers, data) = crate::wrap::wrap(&table.headers, &table.data, termwidth, &table.theme)?;
+    let termwidth = fix_termwidth(termwidth, &table.theme)?;
+
+    let (mut headers, mut data) = table_fix_lengths(&table.headers, &table.data);
+
+    maybe_truncate_columns(&mut headers, &mut data, termwidth);
+
+    let max_column_width = estimate_max_column_width(&headers, &data, termwidth)?;
+
+    let alignments = build_alignment_map(&table.data);
+
+    let headers = table_header_to_strings(headers);
+    let data = table_data_to_strings(data, headers.len());
+
     let headers = if headers.is_empty() {
         None
     } else {
         Some(headers)
     };
 
-    let alignments = build_alignment_map(&table.data);
-
     let theme = &table.theme;
-
     let with_header = headers.is_some();
     let with_footer = with_header && need_footer(config, data.len() as u64);
 
     let table = build_table(data, headers, Some(alignments), config, with_footer);
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
 
+    let (count_columns, table) = count_columns_on_table(table);
+
+    let table = table_trim_columns(
+        table,
+        count_columns,
+        termwidth,
+        max_column_width,
+        &config.trim_strategy,
+    );
+
     Some(table.to_string())
+}
+
+fn count_columns_on_table(mut table: tabled::Table) -> (usize, tabled::Table) {
+    let mut c = CountColumns(0);
+    table = table.with(&mut c);
+
+    (c.0, table)
+}
+
+fn table_data_to_strings(
+    table_data: Vec<Vec<StyledString>>,
+    count_headers: usize,
+) -> Vec<Vec<String>> {
+    let mut data = vec![Vec::with_capacity(count_headers); table_data.len()];
+    for (row, row_data) in table_data.into_iter().enumerate() {
+        for cell in row_data {
+            let colored_text = cell
+                .style
+                .color_style
+                .as_ref()
+                .map(|color| color.paint(&cell.contents).to_string())
+                .unwrap_or(cell.contents);
+
+            data[row].push(colored_text)
+        }
+    }
+
+    data
+}
+
+fn table_header_to_strings(table_headers: Vec<StyledString>) -> Vec<String> {
+    let mut headers = Vec::with_capacity(table_headers.len());
+    for cell in table_headers {
+        let colored_text = cell
+            .style
+            .color_style
+            .as_ref()
+            .map(|color| color.paint(&cell.contents).to_string())
+            .unwrap_or(cell.contents);
+
+        headers.push(colored_text)
+    }
+
+    headers
 }
 
 fn build_alignment_map(data: &[Vec<StyledString>]) -> Vec<Vec<Alignment>> {
@@ -194,4 +261,90 @@ impl TableOption for RemoveHeaderLine {
     fn change(&mut self, grid: &mut papergrid::Grid) {
         grid.set_split_line(1, papergrid::Line::default());
     }
+}
+
+struct CountColumns(usize);
+
+impl TableOption for &mut CountColumns {
+    fn change(&mut self, grid: &mut papergrid::Grid) {
+        self.0 = grid.count_columns();
+    }
+}
+
+fn table_trim_columns(
+    table: tabled::Table,
+    count_columns: usize,
+    termwidth: usize,
+    max_column_width: usize,
+    trim_strategy: &TrimStrategy,
+) -> tabled::Table {
+    let mut table_width = max_column_width * count_columns;
+    if table_width > termwidth {
+        table_width = termwidth;
+    }
+
+    table.with(&TrimStrategyModifier {
+        termwidth: table_width,
+        trim_strategy,
+    })
+}
+
+pub struct TrimStrategyModifier<'a> {
+    termwidth: usize,
+    trim_strategy: &'a TrimStrategy,
+}
+
+impl tabled::TableOption for &TrimStrategyModifier<'_> {
+    fn change(&mut self, grid: &mut papergrid::Grid) {
+        match self.trim_strategy {
+            TrimStrategy::Wrap { try_to_keep_words } => {
+                let mut w = Width::wrap(self.termwidth);
+                if *try_to_keep_words {
+                    w = w.keep_words();
+                }
+                let mut w = w.priority::<tabled::width::PriorityMax>();
+
+                w.change(grid)
+            }
+            TrimStrategy::Truncate { suffix } => {
+                let mut w =
+                    Width::truncate(self.termwidth).priority::<tabled::width::PriorityMax>();
+                if let Some(suffix) = suffix {
+                    w = w.suffix(suffix);
+                }
+
+                w.change(grid);
+            }
+        };
+    }
+}
+
+fn table_fix_lengths(
+    headers: &[StyledString],
+    data: &[Vec<StyledString>],
+) -> (Vec<StyledString>, Vec<Vec<StyledString>>) {
+    let length = table_find_max_length(headers, data);
+
+    let mut headers_fixed = Vec::with_capacity(length);
+    headers_fixed.extend(headers.iter().cloned());
+    headers_fixed.extend(std::iter::repeat(StyledString::default()).take(length - headers.len()));
+
+    let mut data_fixed = Vec::with_capacity(data.len());
+    for row in data {
+        let mut row_fixed = Vec::with_capacity(length);
+        row_fixed.extend(row.iter().cloned());
+        row_fixed.extend(std::iter::repeat(StyledString::default()).take(length - row.len()));
+        data_fixed.push(row_fixed);
+    }
+
+    (headers_fixed, data_fixed)
+}
+
+fn table_find_max_length(headers: &[StyledString], data: &[Vec<StyledString>]) -> usize {
+    let mut length = headers.len();
+    for row in data {
+        length = std::cmp::max(length, row.len());
+    }
+
+    length
 }
