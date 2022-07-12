@@ -16,7 +16,11 @@ impl Command for ErrorMake {
     fn signature(&self) -> Signature {
         Signature::build("error make")
             .required("error_struct", SyntaxShape::Record, "the error to create")
-            .switch("unspanned", "remove the origin label from the error", Some('u'))
+            .switch(
+                "unspanned",
+                "remove the origin label from the error",
+                Some('u'),
+            )
             .category(Category::Core)
     }
 
@@ -40,26 +44,25 @@ impl Command for ErrorMake {
         let unspanned = call.has_flag("unspanned");
 
         if unspanned {
-        Err(make_error(&arg, None).unwrap_or_else(|| {
-            ShellError::GenericError(
-                "Creating error value not supported.".into(),
-                "unsupported error format".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
-        }
-        ))
+            Err(make_error(&arg, None).unwrap_or_else(|| {
+                ShellError::GenericError(
+                    "Creating error value not supported.".into(),
+                    "unsupported error format".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )
+            }))
         } else {
-        Err(make_error(&arg, Some(span)).unwrap_or_else(|| {
-            ShellError::GenericError(
-                "Creating error value not supported.".into(),
-                "unsupported error format".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
-        }))
+            Err(make_error(&arg, Some(span)).unwrap_or_else(|| {
+                ShellError::GenericError(
+                    "Creating error value not supported.".into(),
+                    "unsupported error format".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )
+            }))
         }
     }
 
