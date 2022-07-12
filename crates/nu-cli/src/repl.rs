@@ -148,7 +148,6 @@ pub fn evaluate_repl(
                 engine_state: engine_state.clone(),
                 config: config.clone(),
             }))
-            .with_animation(config.animate_prompt)
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_state.clone(),
             }))
