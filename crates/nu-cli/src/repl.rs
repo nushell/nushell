@@ -349,6 +349,14 @@ pub fn evaluate_repl(
                         (path.to_string_lossy().to_string(), tokens.0[0].span)
                     };
 
+                    stack.add_env_var(
+                        "OLDPWD".into(),
+                        Value::String {
+                            val: cwd.clone(),
+                            span: Span { start: 0, end: 0 },
+                        },
+                    );
+
                     //FIXME: this only changes the current scope, but instead this environment variable
                     //should probably be a block that loads the information from the state in the overlay
                     stack.add_env_var(
