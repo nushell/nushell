@@ -52,7 +52,7 @@ is-root = "0.1.2"
 itertools = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
-lscolors = { version = "0.9.0", features = ["crossterm"]}
+lscolors = { version = "0.10.0", features = ["crossterm"]}
 md5 = { package = "md-5", version = "0.10.0" }
 meval = "0.2.0"
 mime = "0.3.16"
@@ -60,7 +60,7 @@ notify = "4.0.17"
 num = { version = "0.4.0", optional = true }
 pathdiff = "0.2.1"
 powierza-coefficient = "1.0"
-quick-xml = "0.22"
+quick-xml = "0.23.0"
 rand = "0.8"
 rayon = "1.5.1"
 regex = "1.5.4"
@@ -73,19 +73,19 @@ serde_urlencoded = "0.7.0"
 serde_yaml = "0.8.16"
 sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
-shadow-rs = { version = "0.11.0", default-features = false }
+shadow-rs = { version = "0.12.0", default-features = false }
 strip-ansi-escapes = "0.1.1"
-sysinfo = "0.23.5"
-terminal_size = "0.1.17"
+sysinfo = "0.24.6"
+terminal_size = "0.2.1"
 thiserror = "1.0.31"
-titlecase = "1.1.0"
+titlecase = "2.0.0"
 toml = "0.5.8"
 unicode-segmentation = "1.8.0"
 url = "2.2.1"
-uuid = { version = "0.8.2", features = ["v4"] }
+uuid = { version = "1.1.2", features = ["v4"] }
 which = { version = "4.2.2", optional = true }
-reedline = { version = "0.8.0", features = ["bashisms", "sqlite"]}
-wax = { version =  "0.4.0", features = ["diagnostics"] }
+reedline = { git = "https://github.com/nushell/reedline.git", features = ["bashisms", "sqlite"]}
+wax = { version =  "0.5.0", features = ["diagnostics"] }
 rusqlite = { version = "0.27.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.16.0", features = ["serde"], optional = true }
 
@@ -126,11 +126,11 @@ dataframe = ["polars", "num"]
 database = ["sqlparser", "rusqlite"]
 
 [build-dependencies]
-shadow-rs = { version = "0.11.0", default-features = false }
+shadow-rs = { version = "0.12.0", default-features = false }
 
 [dev-dependencies]
 hamcrest2 = "0.3.0"
 dirs-next = "2.0.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
-rstest = "0.12.0"
+rstest = "0.15.0"

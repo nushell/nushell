@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 struct Arguments {
@@ -61,16 +61,16 @@ impl Command for BytesReplace {
         } else {
             Some(column_paths)
         };
-        let find = call.req::<Vec<u8>>(engine_state, stack, 0)?;
-        if find.is_empty() {
+        let find = call.req::<Spanned<Vec<u8>>>(engine_state, stack, 0)?;
+        if find.item.is_empty() {
             return Err(ShellError::UnsupportedInput(
                 "the pattern to find cannot be empty".to_string(),
-                call.head,
+                find.span,
             ));
         }
 
         let arg = Arguments {
-            find,
+            find: find.item,
             replace: call.req::<Vec<u8>>(engine_state, stack, 1)?,
             column_paths,
             all: call.has_flag("all"),

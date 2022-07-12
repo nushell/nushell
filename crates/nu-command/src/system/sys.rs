@@ -6,7 +6,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
 };
 use std::time::{Duration, UNIX_EPOCH};
-use sysinfo::{ComponentExt, DiskExt, NetworkExt, ProcessorExt, System, SystemExt, UserExt};
+use sysinfo::{ComponentExt, CpuExt, DiskExt, NetworkExt, System, SystemExt, UserExt};
 
 #[derive(Clone)]
 pub struct Sys;
@@ -199,7 +199,7 @@ pub fn cpu(sys: &mut System, span: Span) -> Option<Value> {
     sys.refresh_cpu();
 
     let mut output = vec![];
-    for cpu in sys.processors() {
+    for cpu in sys.cpus() {
         let mut cols = vec![];
         let mut vals = vec![];
 

@@ -2,8 +2,6 @@ use crate::{ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-const ANIMATE_PROMPT_DEFAULT: bool = true;
-
 const TRIM_STRATEGY_DEFAULT: TrimStrategy = TrimStrategy::Wrap {
     try_to_keep_words: true,
 };
@@ -60,7 +58,6 @@ pub struct Config {
     pub color_config: HashMap<String, Value>,
     pub use_grid_icons: bool,
     pub footer_mode: FooterMode,
-    pub animate_prompt: bool,
     pub float_precision: i64,
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
@@ -94,7 +91,6 @@ impl Default for Config {
             color_config: HashMap::new(),
             use_grid_icons: false,
             footer_mode: FooterMode::RowCount(25),
-            animate_prompt: ANIMATE_PROMPT_DEFAULT,
             float_precision: 4,
             filesize_format: "auto".into(),
             use_ansi_coloring: true,
@@ -223,13 +219,6 @@ impl Value {
                             };
                         } else {
                             eprintln!("$config.footer_mode is not a string")
-                        }
-                    }
-                    "animate_prompt" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.animate_prompt = b;
-                        } else {
-                            eprintln!("$config.animate_prompt is not a bool")
                         }
                     }
                     "float_precision" => {

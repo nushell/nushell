@@ -238,6 +238,35 @@ impl FromValue for Vec<String> {
     }
 }
 
+impl FromValue for Vec<Spanned<String>> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        // FIXME: we may want to fail a little nicer here
+        match v {
+            Value::List { vals, .. } => vals
+                .iter()
+                .map(|val| match val {
+                    Value::String { val, span } => Ok(Spanned {
+                        item: val.clone(),
+                        span: *span,
+                    }),
+                    c => Err(ShellError::CantConvert(
+                        "string".into(),
+                        c.get_type().to_string(),
+                        c.span()?,
+                        None,
+                    )),
+                })
+                .collect::<Result<Vec<Spanned<String>>, ShellError>>(),
+            v => Err(ShellError::CantConvert(
+                "string".into(),
+                v.get_type().to_string(),
+                v.span()?,
+                None,
+            )),
+        }
+    }
+}
+
 impl FromValue for Vec<bool> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
@@ -394,6 +423,27 @@ impl FromValue for Vec<u8> {
         match v {
             Value::Binary { val, .. } => Ok(val.clone()),
             Value::String { val, .. } => Ok(val.bytes().collect()),
+            v => Err(ShellError::CantConvert(
+                "binary data".into(),
+                v.get_type().to_string(),
+                v.span()?,
+                None,
+            )),
+        }
+    }
+}
+
+impl FromValue for Spanned<Vec<u8>> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Binary { val, span } => Ok(Spanned {
+                item: val.clone(),
+                span: *span,
+            }),
+            Value::String { val, span } => Ok(Spanned {
+                item: val.bytes().collect(),
+                span: *span,
+            }),
             v => Err(ShellError::CantConvert(
                 "binary data".into(),
                 v.get_type().to_string(),

@@ -507,3 +507,19 @@ fn overlay_new() {
     assert_eq!(actual.out, "spam");
     assert_eq!(actual_repl.out, "spam");
 }
+
+#[test]
+fn overlay_keep_pwd() {
+    let inp = &[
+        r#"overlay new spam"#,
+        r#"cd samples"#,
+        r#"overlay remove --keep-env [ PWD ] spam"#,
+        r#"$env.PWD | path basename"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu_repl("tests/overlays", inp);
+
+    assert_eq!(actual.out, "samples");
+    assert_eq!(actual_repl.out, "samples");
+}
