@@ -19,14 +19,14 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Table {
-    pub headers: Vec<StyledString>,
+    pub headers: Option<Vec<StyledString>>,
     pub data: Vec<Vec<StyledString>>,
     pub theme: TableTheme,
 }
 
 impl Table {
     pub fn new(
-        headers: Vec<StyledString>,
+        headers: Option<Vec<StyledString>>,
         data: Vec<Vec<StyledString>>,
         theme: TableTheme,
     ) -> Table {
@@ -46,22 +46,18 @@ pub fn draw_table(
 ) -> Option<String> {
     let termwidth = fix_termwidth(termwidth, &table.theme)?;
 
-    let (mut headers, mut data) = table_fix_lengths(&table.headers, &table.data);
+    let (mut headers, mut data, count_columns) =
+        table_fix_lengths(table.headers.as_ref(), &table.data);
 
-    maybe_truncate_columns(&mut headers, &mut data, termwidth);
+    maybe_truncate_columns(&mut headers, &mut data, count_columns, termwidth);
 
-    let max_column_width = estimate_max_column_width(&headers, &data, termwidth)?;
+    let max_column_width =
+        estimate_max_column_width(headers.as_ref(), &data, count_columns, termwidth)?;
 
     let alignments = build_alignment_map(&table.data);
 
     let headers = table_header_to_strings(headers);
-    let data = table_data_to_strings(data, headers.len());
-
-    let headers = if headers.is_empty() {
-        None
-    } else {
-        Some(headers)
-    };
+    let data = table_data_to_strings(data, count_columns);
 
     let theme = &table.theme;
     let with_header = headers.is_some();
@@ -111,20 +107,22 @@ fn table_data_to_strings(
     data
 }
 
-fn table_header_to_strings(table_headers: Vec<StyledString>) -> Vec<String> {
-    let mut headers = Vec::with_capacity(table_headers.len());
-    for cell in table_headers {
-        let colored_text = cell
-            .style
-            .color_style
-            .as_ref()
-            .map(|color| color.paint(&cell.contents).to_string())
-            .unwrap_or(cell.contents);
+fn table_header_to_strings(table_headers: Option<Vec<StyledString>>) -> Option<Vec<String>> {
+    table_headers.map(|table_headers| {
+        let mut headers = Vec::with_capacity(table_headers.len());
+        for cell in table_headers {
+            let colored_text = cell
+                .style
+                .color_style
+                .as_ref()
+                .map(|color| color.paint(&cell.contents).to_string())
+                .unwrap_or(cell.contents);
 
-        headers.push(colored_text)
-    }
+            headers.push(colored_text)
+        }
 
-    headers
+        headers
+    })
 }
 
 fn build_alignment_map(data: &[Vec<StyledString>]) -> Vec<Vec<Alignment>> {
@@ -320,14 +318,17 @@ impl tabled::TableOption for &TrimStrategyModifier<'_> {
 }
 
 fn table_fix_lengths(
-    headers: &[StyledString],
+    headers: Option<&Vec<StyledString>>,
     data: &[Vec<StyledString>],
-) -> (Vec<StyledString>, Vec<Vec<StyledString>>) {
+) -> (Option<Vec<StyledString>>, Vec<Vec<StyledString>>, usize) {
     let length = table_find_max_length(headers, data);
 
-    let mut headers_fixed = Vec::with_capacity(length);
-    headers_fixed.extend(headers.iter().cloned());
-    headers_fixed.extend(std::iter::repeat(StyledString::default()).take(length - headers.len()));
+    let headers_fixed = headers.map(|h| {
+        let mut headers_fixed = Vec::with_capacity(length);
+        headers_fixed.extend(h.iter().cloned());
+        headers_fixed.extend(std::iter::repeat(StyledString::default()).take(length - h.len()));
+        headers_fixed
+    });
 
     let mut data_fixed = Vec::with_capacity(data.len());
     for row in data {
@@ -337,11 +338,11 @@ fn table_fix_lengths(
         data_fixed.push(row_fixed);
     }
 
-    (headers_fixed, data_fixed)
+    (headers_fixed, data_fixed, length)
 }
 
-fn table_find_max_length(headers: &[StyledString], data: &[Vec<StyledString>]) -> usize {
-    let mut length = headers.len();
+fn table_find_max_length(headers: Option<&Vec<StyledString>>, data: &[Vec<StyledString>]) -> usize {
+    let mut length = headers.map_or(0, |h| h.len());
     for row in data {
         length = std::cmp::max(length, row.len());
     }
