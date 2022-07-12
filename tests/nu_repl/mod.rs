@@ -11,9 +11,9 @@ fn outcome_err(
     engine_state: &EngineState,
     error: &(dyn miette::Diagnostic + Send + Sync + 'static),
 ) -> Outcome {
-    let working_set = StateWorkingSet::new(&engine_state);
+    let working_set = StateWorkingSet::new(engine_state);
 
-    eprintln!("{}", format!("Error: {:?}", CliError(error, &working_set)));
+    eprintln!("Error: {:?}", CliError(error, &working_set));
 
     Outcome {
         out: String::new(),
