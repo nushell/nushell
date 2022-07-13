@@ -81,7 +81,23 @@ pub fn draw_table(
         &config.trim_strategy,
     );
 
-    Some(table.to_string())
+    Some(print_table(table, config))
+}
+
+fn print_table(table: tabled::Table, config: &Config) -> String {
+    let output = table.to_string();
+
+    // the atty is for when people do ls from vim, there should be no coloring there
+    if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
+        // Draw the table without ansi colors
+        match strip_ansi_escapes::strip(&output) {
+            Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
+            Err(_) => output, // we did our best; so return at least something
+        }
+    } else {
+        // Draw the table with ansi colors
+        output
+    }
 }
 
 fn count_columns_on_table(mut table: tabled::Table) -> (usize, tabled::Table) {
