@@ -90,7 +90,7 @@ impl Command for Open {
             #[cfg(unix)]
             let error_msg = match path.metadata() {
                 Ok(md) => format!(
-                    "The permissions of {:o} do not allow access for this user",
+                    "The permissions of {:o} does not allow access for this user",
                     md.permissions().mode() & 0o0777
                 ),
                 Err(e) => e.to_string(),
