@@ -1,10 +1,10 @@
+use chrono::{Local, SecondsFormat};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature,
 };
 use std::io::Write;
-use std::time::SystemTime;
 
 #[derive(Clone)]
 pub struct ConfigReset;
@@ -66,10 +66,7 @@ impl Command for ConfigReset {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!(
                     "oldconfig-{}.nu",
-                    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-                        Ok(n) => n.as_secs().to_string(),
-                        Err(_) => "time error".to_string(),
-                    }
+                    Local::now().to_rfc3339_opts(SecondsFormat::Secs, true),
                 ));
                 if std::fs::rename(nu_config.clone(), backup_path).is_err() {
                     return Err(ShellError::FileNotFoundCustom(
@@ -95,10 +92,7 @@ impl Command for ConfigReset {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!(
                     "oldenv-{}.nu",
-                    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-                        Ok(n) => n.as_secs().to_string(),
-                        Err(_) => "time error".to_string(),
-                    }
+                    Local::now().to_rfc3339_opts(SecondsFormat::Secs, true),
                 ));
                 if std::fs::rename(env_config.clone(), backup_path).is_err() {
                     return Err(ShellError::FileNotFoundCustom(
