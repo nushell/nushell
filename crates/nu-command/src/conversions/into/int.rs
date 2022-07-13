@@ -291,7 +291,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                 };
             Ok(num)
         }
-        _ => match a_string.parse::<i64>() {
+        _ => match trimmed.parse::<i64>() {
             Ok(n) => Ok(n),
             Err(_) => match a_string.parse::<f64>() {
                 Ok(f) => Ok(f as i64),
@@ -299,7 +299,10 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                     "int".to_string(),
                     "string".to_string(),
                     span,
-                    None,
+                    Some(format!(
+                        r#"string "{}" does not represent a valid integer"#,
+                        trimmed
+                    )),
                 )),
             },
         },
