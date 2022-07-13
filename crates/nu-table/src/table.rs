@@ -11,11 +11,7 @@ use tabled::{
     Alignment, Modify, TableOption, Width,
 };
 
-use crate::{
-    table_theme::TableTheme,
-    width_control::{estimate_max_column_width, fix_termwidth, maybe_truncate_columns},
-    StyledString,
-};
+use crate::{table_theme::TableTheme, width_control::maybe_truncate_columns, StyledString};
 
 #[derive(Debug)]
 pub struct Table {
@@ -49,15 +45,10 @@ pub fn draw_table(
     color_hm: &HashMap<String, Style>,
     config: &Config,
 ) -> Option<String> {
-    let termwidth = fix_termwidth(termwidth, &table.theme)?;
-
     let (mut headers, mut data, count_columns) =
         table_fix_lengths(table.headers.as_ref(), &table.data);
 
     maybe_truncate_columns(&mut headers, &mut data, count_columns, termwidth);
-
-    let max_column_width =
-        estimate_max_column_width(headers.as_ref(), &data, count_columns, termwidth)?;
 
     let alignments = build_alignment_map(&table.data);
 
@@ -71,15 +62,7 @@ pub fn draw_table(
     let table = build_table(data, headers, Some(alignments), config, with_footer);
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
 
-    let (count_columns, table) = count_columns_on_table(table);
-
-    let table = table_trim_columns(
-        table,
-        count_columns,
-        termwidth,
-        max_column_width,
-        &config.trim_strategy,
-    );
+    let table = table_trim_columns(table, termwidth, &config.trim_strategy);
 
     Some(print_table(table, config))
 }
@@ -98,13 +81,6 @@ fn print_table(table: tabled::Table, config: &Config) -> String {
         // Draw the table with ansi colors
         output
     }
-}
-
-fn count_columns_on_table(mut table: tabled::Table) -> (usize, tabled::Table) {
-    let mut c = CountColumns(0);
-    table = table.with(&mut c);
-
-    (c.0, table)
 }
 
 fn table_data_to_strings(
@@ -292,18 +268,11 @@ impl TableOption for &mut CountColumns {
 
 fn table_trim_columns(
     table: tabled::Table,
-    count_columns: usize,
     termwidth: usize,
-    max_column_width: usize,
     trim_strategy: &TrimStrategy,
 ) -> tabled::Table {
-    let mut table_width = max_column_width * count_columns;
-    if table_width > termwidth {
-        table_width = termwidth;
-    }
-
     table.with(&TrimStrategyModifier {
-        termwidth: table_width,
+        termwidth,
         trim_strategy,
     })
 }
