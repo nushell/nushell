@@ -169,7 +169,32 @@ pub fn action(input: &Value, span: Span, radix: u32, little_endian: bool) -> Val
         }
         Value::Filesize { val, .. } => Value::Int { val: *val, span },
         Value::Float { val, .. } => Value::Int {
-            val: *val as i64,
+            val: {
+                if radix == 10 {
+                    *val as i64
+                } else {
+                    match convert_int(
+                        &Value::Int {
+                            val: *val as i64,
+                            span,
+                        },
+                        span,
+                        radix,
+                    )
+                    .as_i64()
+                    {
+                        Ok(v) => v,
+                        _ => {
+                            return Value::Error {
+                                error: ShellError::UnsupportedInput(
+                                    "Could not convert float to integer".to_string(),
+                                    span,
+                                ),
+                            }
+                        }
+                    }
+                }
+            },
             span,
         },
         Value::String { val, .. } => {
