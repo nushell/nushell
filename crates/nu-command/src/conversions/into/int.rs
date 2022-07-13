@@ -169,7 +169,32 @@ pub fn action(input: &Value, span: Span, radix: u32, little_endian: bool) -> Val
         }
         Value::Filesize { val, .. } => Value::Int { val: *val, span },
         Value::Float { val, .. } => Value::Int {
-            val: *val as i64,
+            val: {
+                if radix == 10 {
+                    *val as i64
+                } else {
+                    match convert_int(
+                        &Value::Int {
+                            val: *val as i64,
+                            span,
+                        },
+                        span,
+                        radix,
+                    )
+                    .as_i64()
+                    {
+                        Ok(v) => v,
+                        _ => {
+                            return Value::Error {
+                                error: ShellError::UnsupportedInput(
+                                    "Could not convert float to integer".to_string(),
+                                    span,
+                                ),
+                            }
+                        }
+                    }
+                }
+            },
             span,
         },
         Value::String { val, .. } => {
@@ -291,7 +316,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                 };
             Ok(num)
         }
-        _ => match a_string.parse::<i64>() {
+        _ => match trimmed.parse::<i64>() {
             Ok(n) => Ok(n),
             Err(_) => match a_string.parse::<f64>() {
                 Ok(f) => Ok(f as i64),
@@ -299,7 +324,10 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                     "int".to_string(),
                     "string".to_string(),
                     span,
-                    None,
+                    Some(format!(
+                        r#"string "{}" does not represent a valid integer"#,
+                        trimmed
+                    )),
                 )),
             },
         },

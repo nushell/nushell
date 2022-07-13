@@ -148,7 +148,6 @@ pub fn evaluate_repl(
                 engine_state: engine_state.clone(),
                 config: config.clone(),
             }))
-            .with_animation(config.animate_prompt)
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_state.clone(),
             }))
@@ -349,6 +348,14 @@ pub fn evaluate_repl(
                             .expect("internal error: cannot canonicalize known path");
                         (path.to_string_lossy().to_string(), tokens.0[0].span)
                     };
+
+                    stack.add_env_var(
+                        "OLDPWD".into(),
+                        Value::String {
+                            val: cwd.clone(),
+                            span: Span { start: 0, end: 0 },
+                        },
+                    );
 
                     //FIXME: this only changes the current scope, but instead this environment variable
                     //should probably be a block that loads the information from the state in the overlay

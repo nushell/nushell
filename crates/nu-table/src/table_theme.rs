@@ -3,32 +3,24 @@ use tabled::{style::StyleConfig, Style};
 #[derive(Debug, Clone)]
 pub struct TableTheme {
     pub(crate) theme: StyleConfig,
-    pub(crate) is_left_set: bool,
-    pub(crate) is_right_set: bool,
 }
 
 impl TableTheme {
     pub fn basic() -> TableTheme {
         Self {
             theme: Style::ascii().into(),
-            is_left_set: true,
-            is_right_set: true,
         }
     }
 
     pub fn thin() -> TableTheme {
         Self {
             theme: Style::modern().into(),
-            is_left_set: true,
-            is_right_set: true,
         }
     }
 
     pub fn light() -> TableTheme {
         Self {
             theme: Style::blank().header('─').into(),
-            is_left_set: false,
-            is_right_set: false,
         }
     }
 
@@ -39,8 +31,6 @@ impl TableTheme {
                 .right_off()
                 .horizontal_off()
                 .into(),
-            is_left_set: false,
-            is_right_set: false,
         }
     }
 
@@ -52,8 +42,6 @@ impl TableTheme {
                 .bottom('❤')
                 .vertical('❤')
                 .into(),
-            is_left_set: false,
-            is_right_set: false,
         }
     }
 
@@ -68,16 +56,12 @@ impl TableTheme {
                 .bottom_intersection('╩')
                 .header_intersection('╬')
                 .into(),
-            is_left_set: false,
-            is_right_set: false,
         }
     }
 
     pub fn rounded() -> TableTheme {
         Self {
             theme: Style::rounded().into(),
-            is_left_set: true,
-            is_right_set: true,
         }
     }
 
@@ -90,8 +74,6 @@ impl TableTheme {
                 .bottom_right_corner('┛')
                 .horizontal_off()
                 .into(),
-            is_left_set: true,
-            is_right_set: true,
         }
     }
 
@@ -115,16 +97,12 @@ impl TableTheme {
                 .header_intersection('╋')
                 .horizontal_off()
                 .into(),
-            is_left_set: true,
-            is_right_set: true,
         }
     }
 
     pub fn none() -> TableTheme {
         Self {
             theme: Style::blank().into(),
-            is_left_set: false,
-            is_right_set: false,
         }
     }
 }

@@ -88,14 +88,14 @@ impl Command for Open {
 
         if permission_denied(&path) {
             #[cfg(unix)]
-            let error_msg = format!(
-                "The permissions of {:o} do not allow access for this user",
-                path.metadata()
-                    .expect("this shouldn't be called since we already know there is a dir")
-                    .permissions()
-                    .mode()
-                    & 0o0777
-            );
+            let error_msg = match path.metadata() {
+                Ok(md) => format!(
+                    "The permissions of {:o} does not allow access for this user",
+                    md.permissions().mode() & 0o0777
+                ),
+                Err(e) => e.to_string(),
+            };
+
             #[cfg(not(unix))]
             let error_msg = String::from("Permission denied");
             Err(ShellError::GenericError(

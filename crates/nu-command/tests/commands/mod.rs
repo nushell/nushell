@@ -15,6 +15,7 @@ mod each;
 mod echo;
 mod empty;
 mod enter;
+mod error_make;
 mod every;
 mod find;
 mod first;

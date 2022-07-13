@@ -1,30 +1,36 @@
-use crate::table_theme::TableTheme;
-use crate::StyledString;
-use nu_ansi_term::Style;
-use nu_protocol::{Config, FooterMode};
 use std::collections::HashMap;
+
+use nu_ansi_term::Style;
+use nu_protocol::{Config, FooterMode, TrimStrategy};
 use tabled::{
     builder::Builder,
     formatting_settings::AlignmentStrategy,
     object::{Cell, Columns, Rows},
     papergrid,
     style::BorderColor,
-    Alignment, Modify, TableOption,
+    Alignment, Modify, TableOption, Width,
 };
+
+use crate::{table_theme::TableTheme, width_control::maybe_truncate_columns, StyledString};
 
 #[derive(Debug)]
 pub struct Table {
-    pub headers: Vec<StyledString>,
-    pub data: Vec<Vec<StyledString>>,
-    pub theme: TableTheme,
+    headers: Option<Vec<StyledString>>,
+    data: Vec<Vec<StyledString>>,
+    theme: TableTheme,
 }
 
 impl Table {
     pub fn new(
-        headers: Vec<StyledString>,
+        headers: Option<Vec<StyledString>>,
         data: Vec<Vec<StyledString>>,
         theme: TableTheme,
     ) -> Table {
+        let headers = match headers {
+            Some(headers) if headers.is_empty() => None,
+            headers => headers,
+        };
+
         Table {
             headers,
             data,
@@ -39,25 +45,81 @@ pub fn draw_table(
     color_hm: &HashMap<String, Style>,
     config: &Config,
 ) -> Option<String> {
-    // Remove the edges, if used
-    let (headers, data) = crate::wrap::wrap(&table.headers, &table.data, termwidth, &table.theme)?;
-    let headers = if headers.is_empty() {
-        None
-    } else {
-        Some(headers)
-    };
+    let (mut headers, mut data, count_columns) =
+        table_fix_lengths(table.headers.as_ref(), &table.data);
+
+    maybe_truncate_columns(&mut headers, &mut data, count_columns, termwidth);
 
     let alignments = build_alignment_map(&table.data);
 
-    let theme = &table.theme;
+    let headers = table_header_to_strings(headers);
+    let data = table_data_to_strings(data, count_columns);
 
+    let theme = &table.theme;
     let with_header = headers.is_some();
     let with_footer = with_header && need_footer(config, data.len() as u64);
 
     let table = build_table(data, headers, Some(alignments), config, with_footer);
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
 
-    Some(table.to_string())
+    let table = table_trim_columns(table, termwidth, &config.trim_strategy);
+
+    Some(print_table(table, config))
+}
+
+fn print_table(table: tabled::Table, config: &Config) -> String {
+    let output = table.to_string();
+
+    // the atty is for when people do ls from vim, there should be no coloring there
+    if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
+        // Draw the table without ansi colors
+        match strip_ansi_escapes::strip(&output) {
+            Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
+            Err(_) => output, // we did our best; so return at least something
+        }
+    } else {
+        // Draw the table with ansi colors
+        output
+    }
+}
+
+fn table_data_to_strings(
+    table_data: Vec<Vec<StyledString>>,
+    count_headers: usize,
+) -> Vec<Vec<String>> {
+    let mut data = vec![Vec::with_capacity(count_headers); table_data.len()];
+    for (row, row_data) in table_data.into_iter().enumerate() {
+        for cell in row_data {
+            let colored_text = cell
+                .style
+                .color_style
+                .as_ref()
+                .map(|color| color.paint(&cell.contents).to_string())
+                .unwrap_or(cell.contents);
+
+            data[row].push(colored_text)
+        }
+    }
+
+    data
+}
+
+fn table_header_to_strings(table_headers: Option<Vec<StyledString>>) -> Option<Vec<String>> {
+    table_headers.map(|table_headers| {
+        let mut headers = Vec::with_capacity(table_headers.len());
+        for cell in table_headers {
+            let colored_text = cell
+                .style
+                .color_style
+                .as_ref()
+                .map(|color| color.paint(&cell.contents).to_string())
+                .unwrap_or(cell.contents);
+
+            headers.push(colored_text)
+        }
+
+        headers
+    })
 }
 
 fn build_alignment_map(data: &[Vec<StyledString>]) -> Vec<Vec<Alignment>> {
@@ -194,4 +256,86 @@ impl TableOption for RemoveHeaderLine {
     fn change(&mut self, grid: &mut papergrid::Grid) {
         grid.set_split_line(1, papergrid::Line::default());
     }
+}
+
+struct CountColumns(usize);
+
+impl TableOption for &mut CountColumns {
+    fn change(&mut self, grid: &mut papergrid::Grid) {
+        self.0 = grid.count_columns();
+    }
+}
+
+fn table_trim_columns(
+    table: tabled::Table,
+    termwidth: usize,
+    trim_strategy: &TrimStrategy,
+) -> tabled::Table {
+    table.with(&TrimStrategyModifier {
+        termwidth,
+        trim_strategy,
+    })
+}
+
+pub struct TrimStrategyModifier<'a> {
+    termwidth: usize,
+    trim_strategy: &'a TrimStrategy,
+}
+
+impl tabled::TableOption for &TrimStrategyModifier<'_> {
+    fn change(&mut self, grid: &mut papergrid::Grid) {
+        match self.trim_strategy {
+            TrimStrategy::Wrap { try_to_keep_words } => {
+                let mut w = Width::wrap(self.termwidth);
+                if *try_to_keep_words {
+                    w = w.keep_words();
+                }
+                let mut w = w.priority::<tabled::width::PriorityMax>();
+
+                w.change(grid)
+            }
+            TrimStrategy::Truncate { suffix } => {
+                let mut w = Width::truncate(self.termwidth);
+                if let Some(suffix) = suffix {
+                    w = w.suffix(suffix);
+                }
+                let mut w = w.priority::<tabled::width::PriorityMax>();
+
+                w.change(grid);
+            }
+        };
+    }
+}
+
+fn table_fix_lengths(
+    headers: Option<&Vec<StyledString>>,
+    data: &[Vec<StyledString>],
+) -> (Option<Vec<StyledString>>, Vec<Vec<StyledString>>, usize) {
+    let length = table_find_max_length(headers, data);
+
+    let headers_fixed = headers.map(|h| {
+        let mut headers_fixed = Vec::with_capacity(length);
+        headers_fixed.extend(h.iter().cloned());
+        headers_fixed.extend(std::iter::repeat(StyledString::default()).take(length - h.len()));
+        headers_fixed
+    });
+
+    let mut data_fixed = Vec::with_capacity(data.len());
+    for row in data {
+        let mut row_fixed = Vec::with_capacity(length);
+        row_fixed.extend(row.iter().cloned());
+        row_fixed.extend(std::iter::repeat(StyledString::default()).take(length - row.len()));
+        data_fixed.push(row_fixed);
+    }
+
+    (headers_fixed, data_fixed, length)
+}
+
+fn table_find_max_length(headers: Option<&Vec<StyledString>>, data: &[Vec<StyledString>]) -> usize {
+    let mut length = headers.map_or(0, |h| h.len());
+    for row in data {
+        length = std::cmp::max(length, row.len());
+    }
+
+    length
 }
