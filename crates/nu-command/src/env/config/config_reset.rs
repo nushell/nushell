@@ -1,4 +1,4 @@
-use chrono::{Local, SecondsFormat};
+use chrono::Local;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -66,7 +66,7 @@ impl Command for ConfigReset {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!(
                     "oldconfig-{}.nu",
-                    Local::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+                    Local::now().format("%F-%H-%M-%S"),
                 ));
                 if std::fs::rename(nu_config.clone(), backup_path).is_err() {
                     return Err(ShellError::FileNotFoundCustom(
@@ -90,10 +90,7 @@ impl Command for ConfigReset {
             let config_file = include_str!("../../../../../docs/sample_config/default_env.nu");
             if !no_backup {
                 let mut backup_path = config_path.clone();
-                backup_path.push(format!(
-                    "oldenv-{}.nu",
-                    Local::now().to_rfc3339_opts(SecondsFormat::Secs, true),
-                ));
+                backup_path.push(format!("oldenv-{}.nu", Local::now().format("%F-%H-%M-%S"),));
                 if std::fs::rename(env_config.clone(), backup_path).is_err() {
                     return Err(ShellError::FileNotFoundCustom(
                         "env.nu could not be backed up".into(),
