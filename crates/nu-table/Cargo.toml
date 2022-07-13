@@ -19,4 +19,4 @@ unicode-width = "0.1.8"
 strip-ansi-escapes = "0.1.1"
 ansi-str = { git = "https://github.com/zhiburt/ansi-str", rev = "655cd8125a032286082794690c2cc6dc835345b4" }
 atty = "0.2.14"
-tabled = { git = "https://github.com/zhiburt/tabled", rev = "a7f05c18aa9e5edc004a984051659d0d05b6e594", features = ["color"] }
+tabled = { git = "https://github.com/zhiburt/tabled", branch = "master", features = ["color"] }
