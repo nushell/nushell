@@ -167,11 +167,7 @@ impl Command for Table {
                     ])
                 }
 
-                let table = nu_table::Table {
-                    headers: None,
-                    data: output,
-                    theme: load_theme_from_config(config),
-                };
+                let table = nu_table::Table::new(None, output, load_theme_from_config(config));
 
                 let result = nu_table::draw_table(&table, term_width, &color_hm, config)
                     .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
@@ -429,8 +425,8 @@ fn convert_to_table(
             data.push(row);
         }
 
-        Ok(Some(nu_table::Table {
-            headers: Some(
+        Ok(Some(nu_table::Table::new(
+            Some(
                 headers
                     .into_iter()
                     .map(|x| StyledString {
@@ -442,8 +438,7 @@ fn convert_to_table(
                     })
                     .collect(),
             ),
-            data: data
-                .into_iter()
+            data.into_iter()
                 .map(|x| {
                     x.into_iter()
                         .enumerate()
@@ -477,8 +472,8 @@ fn convert_to_table(
                         .collect::<Vec<StyledString>>()
                 })
                 .collect(),
-            theme: load_theme_from_config(config),
-        }))
+            load_theme_from_config(config),
+        )))
     } else {
         Ok(None)
     }

@@ -19,9 +19,9 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Table {
-    pub headers: Option<Vec<StyledString>>,
-    pub data: Vec<Vec<StyledString>>,
-    pub theme: TableTheme,
+    headers: Option<Vec<StyledString>>,
+    data: Vec<Vec<StyledString>>,
+    theme: TableTheme,
 }
 
 impl Table {
@@ -30,6 +30,11 @@ impl Table {
         data: Vec<Vec<StyledString>>,
         theme: TableTheme,
     ) -> Table {
+        let headers = match headers {
+            Some(headers) if headers.is_empty() => None,
+            headers => headers,
+        };
+
         Table {
             headers,
             data,
