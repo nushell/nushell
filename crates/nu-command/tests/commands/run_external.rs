@@ -168,28 +168,6 @@ fn bare_word_expand_path_glob_windows() {
 
 #[cfg(windows)]
 #[test]
-fn backtick_expand_path_glob_windows() {
-    Playground::setup("backtick should do the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("D&D_volume_1.txt"),
-            EmptyFile("D&D_volume_2.txt"),
-            EmptyFile("foo.sh"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ^dir `*.txt`
-            "#
-        ));
-
-        assert!(actual.out.contains("D&D_volume_1.txt"));
-        assert!(actual.out.contains("D&D_volume_2.txt"));
-    })
-}
-
-#[cfg(windows)]
-#[test]
 fn single_quote_does_not_expand_path_glob_windows() {
     Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
         sandbox.with_files(vec![
@@ -202,27 +180,6 @@ fn single_quote_does_not_expand_path_glob_windows() {
             cwd: dirs.test(), pipeline(
             r#"
                 ^dir '*.txt'
-            "#
-        ));
-
-        assert!(actual.err.contains("File Not Found"));
-    })
-}
-
-#[cfg(windows)]
-#[test]
-fn double_quote_does_not_expand_path_glob_windows() {
-    Playground::setup("double quote do not run the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("D&D_volume_1.txt"),
-            EmptyFile("D&D_volume_2.txt"),
-            EmptyFile("foo.sh"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ^dir "*.txt"
             "#
         ));
 
