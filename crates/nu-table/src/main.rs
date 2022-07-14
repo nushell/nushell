@@ -1,5 +1,5 @@
 use nu_protocol::Config;
-use nu_table::{draw_table, StyledString, Table, TableTheme, TextStyle};
+use nu_table::{Alignments, StyledString, Table, TableTheme, TextStyle};
 use std::collections::HashMap;
 
 fn main() {
@@ -23,13 +23,14 @@ fn main() {
     // The table rows
     let rows = vec_of_str_to_vec_of_styledstr(&row_data, false);
     // The table itself
-    let table = Table::new(Some(headers), vec![rows; 3], TableTheme::rounded());
+    let table = Table::new(headers, vec![rows; 3], TableTheme::rounded());
     // FIXME: Config isn't available from here so just put these here to compile
     let color_hm: HashMap<String, nu_ansi_term::Style> = HashMap::new();
     // get the default config
     let config = Config::default();
     // Capture the table as a string
-    let output_table = draw_table(&table, width, &color_hm, &config)
+    let output_table = table
+        .draw_table(&config, &color_hm, Alignments::default(), width)
         .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", width));
     // Draw the table
     println!("{}", output_table)
