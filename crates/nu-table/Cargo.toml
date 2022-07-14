@@ -14,9 +14,6 @@ path = "src/main.rs"
 [dependencies]
 nu-ansi-term = "0.46.0"
 nu-protocol = { path = "../nu-protocol", version = "0.65.1" }
-regex = "1.4"
-unicode-width = "0.1.8"
 strip-ansi-escapes = "0.1.1"
-ansi-str = { git = "https://github.com/zhiburt/ansi-str", rev = "655cd8125a032286082794690c2cc6dc835345b4" }
 atty = "0.2.14"
 tabled = { git = "https://github.com/zhiburt/tabled", branch = "master", features = ["color"] }
