@@ -93,6 +93,8 @@ fn single_quote_does_not_expand_path_glob() {
                 ^ls '*.txt'
             "#
         ));
+        println!("Debug MacOS -> error {}", actual.err);
+        println!("Debug MacOS -> output {}", actual.out);
 
         assert!(actual
             .err
@@ -115,6 +117,8 @@ fn double_quote_does_not_expand_path_glob() {
                 ^ls "*.txt"
             "#
         ));
+        println!("Debug MacOS -> error {}", actual.err);
+        println!("Debug MacOS -> output {}", actual.out);
 
         assert!(actual
             .err
