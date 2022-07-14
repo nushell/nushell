@@ -13,7 +13,7 @@ use miette::Result;
 use nu_cli::read_plugin_file;
 use nu_cli::{
     evaluate_commands, evaluate_file, evaluate_repl, gather_parent_env_vars, get_init_cwd,
-    report_error,
+    report_error, report_error_new,
 };
 use nu_command::{create_default_context, BufferedReader};
 use nu_engine::{get_full_help, CallExt};
@@ -28,7 +28,6 @@ use nu_utils::stdout_write_all_and_flush;
 use std::cell::RefCell;
 use std::{
     io::BufReader,
-    path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -47,7 +46,7 @@ fn main() -> Result<()> {
 
     // Get initial current working directory.
     let init_cwd = get_init_cwd();
-    let mut engine_state = create_default_context(&init_cwd);
+    let mut engine_state = create_default_context();
 
     // Custom additions
     let delta = {
@@ -57,7 +56,10 @@ fn main() -> Result<()> {
 
         working_set.render()
     };
-    let _ = engine_state.merge_delta(delta, None, &init_cwd);
+
+    if let Err(err) = engine_state.merge_delta(delta) {
+        report_error_new(&engine_state, &err);
+    }
 
     // TODO: make this conditional in the future
     // Ctrl-c protection section
@@ -120,8 +122,7 @@ fn main() -> Result<()> {
 
     let nushell_commandline_args = args_to_nushell.join(" ");
 
-    let parsed_nu_cli_args =
-        parse_commandline_args(&nushell_commandline_args, &init_cwd, &mut engine_state);
+    let parsed_nu_cli_args = parse_commandline_args(&nushell_commandline_args, &mut engine_state);
 
     match parsed_nu_cli_args {
         Ok(binary_args) => {
@@ -195,6 +196,7 @@ fn main() -> Result<()> {
 
             // First, set up env vars as strings only
             gather_parent_env_vars(&mut engine_state, &init_cwd);
+
             let mut stack = nu_protocol::engine::Stack::new();
 
             if let Some(commands) = &binary_args.commands {
@@ -235,7 +237,6 @@ fn main() -> Result<()> {
 
                 let ret_val = evaluate_commands(
                     commands,
-                    &init_cwd,
                     &mut engine_state,
                     &mut stack,
                     input,
@@ -357,7 +358,6 @@ fn setup_config(
 
 fn parse_commandline_args(
     commandline_args: &str,
-    init_cwd: &Path,
     engine_state: &mut EngineState,
 ) -> Result<NushellCliArgs, ShellError> {
     let (block, delta) = {
@@ -381,7 +381,7 @@ fn parse_commandline_args(
         (output, working_set.render())
     };
 
-    let _ = engine_state.merge_delta(delta, None, init_cwd);
+    engine_state.merge_delta(delta)?;
 
     let mut stack = Stack::new();
 

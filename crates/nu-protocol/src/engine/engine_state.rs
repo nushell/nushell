@@ -120,12 +120,7 @@ impl EngineState {
     ///
     /// When we want to preserve what the parser has created, we can take its output (the `StateDelta`) and
     /// use this function to merge it into the global state.
-    pub fn merge_delta(
-        &mut self,
-        mut delta: StateDelta,
-        stack: Option<&mut Stack>,
-        cwd: impl AsRef<Path>,
-    ) -> Result<(), ShellError> {
+    pub fn merge_delta(&mut self, mut delta: StateDelta) -> Result<(), ShellError> {
         // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
@@ -199,28 +194,34 @@ impl EngineState {
             return result;
         }
 
-        if let Some(stack) = stack {
-            for mut scope in stack.env_vars.drain(..) {
-                for (overlay_name, mut env) in scope.drain() {
-                    if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
-                        // Updating existing overlay
-                        for (k, v) in env.drain() {
-                            if k == "config" {
-                                self.config = v.clone().into_config().unwrap_or_default();
-                            }
+        Ok(())
+    }
 
-                            env_vars.insert(k, v);
+    /// Merge the environment from the runtime Stack into the engine state
+    pub fn merge_env(
+        &mut self,
+        stack: &mut Stack,
+        cwd: impl AsRef<Path>,
+    ) -> Result<(), ShellError> {
+        for mut scope in stack.env_vars.drain(..) {
+            for (overlay_name, mut env) in scope.drain() {
+                if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
+                    // Updating existing overlay
+                    for (k, v) in env.drain() {
+                        if k == "config" {
+                            self.config = v.clone().into_config().unwrap_or_default();
                         }
-                    } else {
-                        // Pushing a new overlay
-                        self.env_vars.insert(overlay_name, env);
+
+                        env_vars.insert(k, v);
                     }
+                } else {
+                    // Pushing a new overlay
+                    self.env_vars.insert(overlay_name, env);
                 }
             }
         }
 
-        // FIXME: permanent state changes like this hopefully in time can be removed
-        // and be replaced by just passing the cwd in where needed
+        // TODO: better error
         std::env::set_current_dir(cwd)?;
 
         Ok(())
@@ -1914,12 +1915,6 @@ impl Default for ScopeFrame {
     }
 }
 
-// impl Default for OverlayFrame {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
-
 impl Default for EngineState {
     fn default() -> Self {
         Self::new()
@@ -2042,8 +2037,7 @@ mod engine_state_tests {
             working_set.render()
         };
 
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.merge_delta(delta, None, &cwd)?;
+        engine_state.merge_delta(delta)?;
 
         assert_eq!(engine_state.num_files(), 2);
         assert_eq!(&engine_state.files[0].0, "test.nu");

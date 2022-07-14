@@ -1,10 +1,8 @@
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
-use std::path::Path;
-
 use crate::*;
 
-pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
+pub fn create_default_context() -> EngineState {
     let mut engine_state = EngineState::new();
 
     let delta = {
@@ -433,7 +431,9 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
         working_set.render()
     };
 
-    let _ = engine_state.merge_delta(delta, None, &cwd);
+    if let Err(err) = engine_state.merge_delta(delta) {
+        eprintln!("Error creating default context: {:?}", err);
+    }
 
     engine_state
 }

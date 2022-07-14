@@ -977,8 +977,9 @@ mod input_types {
             working_set.render()
         };
 
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let _ = engine_state.merge_delta(delta, None, &cwd);
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
     }
 
     #[test]
@@ -999,7 +1000,9 @@ mod input_types {
 
         match &expressions[0].expr {
             Expr::Call(call) => {
-                let expected_id = working_set.find_decl(b"ls", &Type::Any).unwrap();
+                let expected_id = working_set
+                    .find_decl(b"ls", &Type::Any)
+                    .expect("Error merging delta");
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),
@@ -1154,8 +1157,7 @@ mod input_types {
             (block, working_set.render())
         };
 
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let _ = engine_state.merge_delta(delta, None, &cwd);
+        engine_state.merge_delta(delta).unwrap();
 
         let expressions = &block[0];
         match &expressions[3].expr {

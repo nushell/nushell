@@ -5,21 +5,27 @@ use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
 use nu_protocol::engine::Stack;
 use nu_protocol::{
-    engine::{EngineState, StateDelta, StateWorkingSet},
+    engine::{EngineState, StateWorkingSet},
     PipelineData, Spanned, Value,
 };
-use std::path::Path;
 
+/// Run a command (or commands) given to us by the user
 pub fn evaluate_commands(
     commands: &Spanned<String>,
-    init_cwd: &Path,
     engine_state: &mut EngineState,
     stack: &mut Stack,
     input: PipelineData,
     is_perf_true: bool,
     table_mode: Option<Value>,
 ) -> Result<Option<i64>> {
-    // Run a command (or commands) given to us by the user
+    // Translate environment variables from Strings to Values
+    if let Some(e) = convert_env_values(engine_state, stack) {
+        let working_set = StateWorkingSet::new(engine_state);
+        report_error(&working_set, &e);
+        std::process::exit(1);
+    }
+
+    // Parse the source code
     let (block, delta) = {
         if let Some(ref t_mode) = table_mode {
             let mut config = engine_state.get_config().clone();
@@ -39,43 +45,19 @@ pub fn evaluate_commands(
         (output, working_set.render())
     };
 
-    if let Err(err) = engine_state.merge_delta(delta, None, init_cwd) {
+    // Update permanent state
+    if let Err(err) = engine_state.merge_delta(delta) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &err);
     }
 
-    let mut config = engine_state.get_config().clone();
-    if let Some(t_mode) = table_mode {
-        config.table_mode = t_mode.as_string()?;
-    }
-
-    // Merge the delta in case env vars changed in the config
-    match nu_engine::env::current_dir(engine_state, stack) {
-        Ok(cwd) => {
-            if let Err(e) =
-                engine_state.merge_delta(StateDelta::new(engine_state), Some(stack), cwd)
-            {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
-                std::process::exit(1);
-            }
-        }
-        Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
-            std::process::exit(1);
-        }
-    }
-
-    // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, stack) {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, &e);
-        std::process::exit(1);
-    }
-
+    // Run the block
     let exit_code = match eval_block(engine_state, stack, &block, input, false, false) {
         Ok(pipeline_data) => {
+            let mut config = engine_state.get_config().clone();
+            if let Some(t_mode) = table_mode {
+                config.table_mode = t_mode.as_string()?;
+            }
             crate::eval_file::print_table_or_error(engine_state, stack, pipeline_data, &mut config)
         }
         Err(err) => {

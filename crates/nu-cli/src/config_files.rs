@@ -1,7 +1,7 @@
 use crate::util::{eval_source, report_error};
 #[cfg(feature = "plugin")]
 use log::info;
-use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{HistoryFileFormat, PipelineData, Span};
 use std::path::PathBuf;
 
@@ -69,12 +69,10 @@ pub fn eval_config_contents(
                 PipelineData::new(Span::new(0, 0)),
             );
 
-            // Merge the delta in case env vars changed in the config
+            // Merge the environment in case env vars changed in the config
             match nu_engine::env::current_dir(engine_state, stack) {
                 Ok(cwd) => {
-                    if let Err(e) =
-                        engine_state.merge_delta(StateDelta::new(engine_state), Some(stack), cwd)
-                    {
+                    if let Err(e) = engine_state.merge_env(stack, cwd) {
                         let working_set = StateWorkingSet::new(engine_state);
                         report_error(&working_set, &e);
                     }

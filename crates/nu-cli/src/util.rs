@@ -224,16 +224,11 @@ pub fn eval_source(
         (output, working_set.render())
     };
 
-    let cwd = match nu_engine::env::current_dir(engine_state, stack) {
-        Ok(p) => p,
-        Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
-            get_init_cwd()
-        }
-    };
-
-    let _ = engine_state.merge_delta(delta, Some(stack), &cwd);
+    if let Err(err) = engine_state.merge_delta(delta) {
+        set_last_exit_code(stack, 1);
+        report_error_new(engine_state, &err);
+        return false;
+    }
 
     match eval_block(engine_state, stack, &block, input, false, false) {
         Ok(mut pipeline_data) => {
@@ -316,6 +311,17 @@ pub fn get_init_cwd() -> PathBuf {
                 None => PathBuf::new(),
             },
         },
+    }
+}
+
+pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
+    match nu_engine::env::current_dir(engine_state, stack) {
+        Ok(p) => p,
+        Err(e) => {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(&working_set, &e);
+            get_init_cwd()
+        }
     }
 }
 

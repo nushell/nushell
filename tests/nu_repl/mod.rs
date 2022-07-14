@@ -2,7 +2,7 @@ use nu_cli::{eval_env_change_hook, eval_hook};
 use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{CliError, PipelineData, Span, Value};
 use nu_test_support::fs::in_directory;
 use nu_test_support::Outcome;
@@ -31,7 +31,7 @@ fn outcome_ok(msg: String) -> Outcome {
 pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
     let cwd = in_directory(cwd);
 
-    let mut engine_state = create_default_context(&cwd);
+    let mut engine_state = create_default_context();
     let mut stack = Stack::new();
 
     stack.add_env_var(
@@ -42,14 +42,22 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
         },
     );
 
-    let delta = StateDelta::new(&engine_state);
-    if let Err(err) = engine_state.merge_delta(delta, Some(&mut stack), cwd) {
-        return outcome_err(&engine_state, &err);
-    }
-
     let mut last_output = String::new();
 
     for (i, line) in source_lines.iter().enumerate() {
+        let cwd = match nu_engine::env::current_dir(&engine_state, &stack) {
+            Ok(d) => d,
+            Err(err) => {
+                return outcome_err(&engine_state, &err);
+            }
+        };
+
+        // Before doing anything, merge the environment from the previous REPL iteration into the
+        // permanent state.
+        if let Err(err) = engine_state.merge_env(&mut stack, &cwd) {
+            return outcome_err(&engine_state, &err);
+        }
+
         // Check for pre_prompt hook
         let config = engine_state.get_config();
         if let Some(hook) = config.hooks.pre_prompt.clone() {
@@ -93,14 +101,7 @@ pub fn nu_repl(cwd: &str, source_lines: &[&str]) -> Outcome {
             (block, working_set.render())
         };
 
-        let cwd = match nu_engine::env::current_dir(&engine_state, &stack) {
-            Ok(p) => p,
-            Err(e) => {
-                return outcome_err(&engine_state, &e);
-            }
-        };
-
-        if let Err(err) = engine_state.merge_delta(delta, Some(&mut stack), &cwd) {
+        if let Err(err) = engine_state.merge_delta(delta) {
             return outcome_err(&engine_state, &err);
         }
 
