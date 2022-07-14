@@ -106,7 +106,12 @@ fn draw_table(
     );
     let table = table_trim_columns(table, termwidth, &config.trim_strategy);
 
-    Some(print_table(table, config))
+    let table = print_table(table, config);
+    if table_width(&table) > termwidth {
+        None
+    } else {
+        Some(table)
+    }
 }
 
 fn print_table(table: tabled::Table, config: &Config) -> String {
@@ -123,6 +128,10 @@ fn print_table(table: tabled::Table, config: &Config) -> String {
         // Draw the table with ansi colors
         output
     }
+}
+
+fn table_width(table: &str) -> usize {
+    table.lines().next().map_or(0, papergrid::string_width)
 }
 
 fn colorize_data(table_data: &[Vec<StyledString>], count_columns: usize) -> Vec<Vec<String>> {
