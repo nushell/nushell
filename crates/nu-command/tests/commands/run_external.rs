@@ -94,7 +94,9 @@ fn single_quote_does_not_expand_path_glob() {
             "#
         ));
 
-        assert!(actual.err.contains("ls: cannot access '*.txt': No such file or directory"));
+        assert!(actual
+            .err
+            .contains("ls: cannot access '*.txt': No such file or directory"));
     })
 }
 
@@ -114,6 +116,8 @@ fn double_quote_does_not_expand_path_glob() {
             "#
         ));
 
-        assert!(actual.err.contains("ls: cannot access '*.txt': No such file or directory"));
+        assert!(actual
+            .err
+            .contains("ls: cannot access '*.txt': No such file or directory"));
     })
 }
