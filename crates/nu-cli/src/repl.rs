@@ -16,6 +16,7 @@ use nu_protocol::{
     BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
+#[cfg(windows)]
 use regex::Regex;
 use std::io::{self, Write};
 use std::{sync::atomic::Ordering, time::Instant};
