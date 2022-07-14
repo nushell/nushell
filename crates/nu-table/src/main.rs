@@ -1,5 +1,5 @@
 use nu_protocol::Config;
-use nu_table::{StyledString, Table, TableTheme, TextStyle};
+use nu_table::{Alignments, StyledString, Table, TableTheme, TextStyle};
 use std::collections::HashMap;
 
 fn main() {
@@ -30,7 +30,7 @@ fn main() {
     let config = Config::default();
     // Capture the table as a string
     let output_table = table
-        .draw_table(&config, &color_hm, width)
+        .draw_table(&config, &color_hm, Alignments::default(), width)
         .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", width));
     // Draw the table
     println!("{}", output_table)

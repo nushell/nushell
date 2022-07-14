@@ -7,7 +7,7 @@ use nu_protocol::{
     format_error, Category, Config, DataSource, Example, IntoPipelineData, ListStream,
     PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use nu_table::{StyledString, TableTheme, TextStyle};
+use nu_table::{Alignments, StyledString, TableTheme, TextStyle};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -171,7 +171,7 @@ impl Command for Table {
                     nu_table::Table::new(Vec::new(), output, load_theme_from_config(config));
 
                 let result = table
-                    .draw_table(config, &color_hm, term_width)
+                    .draw_table(config, &color_hm, Alignments::default(), term_width)
                     .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
 
                 Ok(Value::String {
@@ -555,7 +555,7 @@ impl Iterator for PagingTableCreator {
         match table {
             Ok(Some(table)) => {
                 let result = table
-                    .draw_table(&self.config, &color_hm, term_width)
+                    .draw_table(&self.config, &color_hm, Alignments::default(), term_width)
                     .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
 
                 Some(Ok(result.as_bytes().to_vec()))

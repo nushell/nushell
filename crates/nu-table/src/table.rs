@@ -5,10 +5,10 @@ use nu_protocol::{Config, FooterMode, TrimStrategy};
 use tabled::{
     builder::Builder,
     formatting_settings::AlignmentStrategy,
-    object::{Cell, Columns, Rows},
+    object::{Cell, Columns, Rows, Segment},
     papergrid,
     style::BorderColor,
-    Alignment, Modify, TableOption, Width,
+    Alignment, AlignmentHorizontal, Modify, ModifyObject, TableOption, Width,
 };
 
 use crate::{table_theme::TableTheme, width_control::maybe_truncate_columns, StyledString};
@@ -19,6 +19,23 @@ pub struct Table {
     headers: Option<Vec<StyledString>>,
     data: Vec<Vec<StyledString>>,
     theme: TableTheme,
+}
+
+#[derive(Debug)]
+pub struct Alignments {
+    data: AlignmentHorizontal,
+    index: AlignmentHorizontal,
+    header: AlignmentHorizontal,
+}
+
+impl Default for Alignments {
+    fn default() -> Self {
+        Self {
+            data: AlignmentHorizontal::Center,
+            index: AlignmentHorizontal::Right,
+            header: AlignmentHorizontal::Center,
+        }
+    }
 }
 
 impl Table {
@@ -50,9 +67,10 @@ impl Table {
         &self,
         config: &Config,
         color_hm: &HashMap<String, Style>,
+        alignments: Alignments,
         termwidth: usize,
     ) -> Option<String> {
-        draw_table(self, config, color_hm, termwidth)
+        draw_table(self, config, color_hm, alignments, termwidth)
     }
 }
 
@@ -60,6 +78,7 @@ fn draw_table(
     table: &Table,
     config: &Config,
     color_hm: &HashMap<String, Style>,
+    alignments: Alignments,
     termwidth: usize,
 ) -> Option<String> {
     let mut headers = colorize_headers(table.headers.as_deref());
@@ -69,15 +88,22 @@ fn draw_table(
 
     maybe_truncate_columns(&mut headers, &mut data, count_columns, termwidth);
 
-    let alignments = build_alignment_map(&table.data, count_columns);
-
+    let table_data = &table.data;
     let theme = &table.theme;
     let with_header = headers.is_some();
     let with_footer = with_header && need_footer(config, data.len() as u64);
+    let with_index = !config.disable_table_indexes;
 
-    let table = build_table(data, headers, Some(alignments), config, with_footer);
+    let table = build_table(data, headers, with_footer);
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
-
+    let table = align_table(
+        table,
+        alignments,
+        with_index,
+        with_header,
+        with_footer,
+        table_data,
+    );
     let table = table_trim_columns(table, termwidth, &config.trim_strategy);
 
     Some(print_table(table, config))
@@ -135,32 +161,11 @@ fn colorize_headers(headers: Option<&[StyledString]>) -> Option<Vec<String>> {
     })
 }
 
-fn build_alignment_map(data: &[Vec<StyledString>], count_columns: usize) -> Vec<Vec<Alignment>> {
-    let mut v = vec![Vec::new(); data.len()];
-    for (i, row) in data.iter().enumerate() {
-        let mut row_alignments = Vec::with_capacity(count_columns);
-        for col in row {
-            row_alignments.push(Alignment::Horizontal(col.style.alignment));
-        }
-
-        for _ in row.len()..count_columns {
-            row_alignments.push(Alignment::center());
-        }
-
-        v[i] = row_alignments;
-    }
-
-    v
-}
-
 fn build_table(
     data: Vec<Vec<String>>,
     headers: Option<Vec<String>>,
-    alignment_map: Option<Vec<Vec<Alignment>>>,
-    config: &Config,
     need_footer: bool,
 ) -> tabled::Table {
-    let header_present = headers.is_some();
     let mut builder = Builder::from(data);
 
     if let Some(headers) = headers {
@@ -171,38 +176,65 @@ fn build_table(
         }
     }
 
-    let mut table = builder.build();
+    builder.build()
+}
 
+fn align_table(
+    mut table: tabled::Table,
+    alignments: Alignments,
+    with_index: bool,
+    with_header: bool,
+    with_footer: bool,
+    data: &[Vec<StyledString>],
+) -> tabled::Table {
     table = table.with(
-        Modify::new(Rows::new(1..))
-            .with(Alignment::left())
+        Modify::new(Segment::all())
+            .with(Alignment::Horizontal(alignments.data))
             .with(AlignmentStrategy::PerLine),
     );
 
-    if !config.disable_table_indexes {
-        table = table.with(Modify::new(Columns::first()).with(Alignment::right()));
+    if with_index {
+        table =
+            table.with(Modify::new(Columns::first()).with(Alignment::Horizontal(alignments.index)));
     }
 
-    if header_present {
-        table = table.with(Modify::new(Rows::first()).with(Alignment::center()));
+    if with_header {
+        let alignment = Alignment::Horizontal(alignments.header);
+        table = table.with(Modify::new(Rows::first()).with(alignment.clone()));
+
+        if with_footer {
+            table = table.with(Modify::new(Rows::last()).with(alignment));
+        }
     }
 
-    if let Some(alignments) = alignment_map {
-        table = apply_alignments(table, alignments, header_present);
-    }
+    table = override_alignments(table, data, with_header, with_index, alignments);
 
     table
 }
 
-fn apply_alignments(
+fn override_alignments(
     mut table: tabled::Table,
-    alignment: Vec<Vec<Alignment>>,
+    data: &[Vec<StyledString>],
     header_present: bool,
+    index_present: bool,
+    alignments: Alignments,
 ) -> tabled::Table {
     let offset = if header_present { 1 } else { 0 };
-    for (row, alignments) in alignment.into_iter().enumerate() {
-        for (col, alignment) in alignments.into_iter().enumerate() {
-            table = table.with(Modify::new(Cell(row + offset, col)).with(alignment));
+    for (row, rows) in data.iter().enumerate() {
+        for (col, s) in rows.iter().enumerate() {
+            if index_present && col == 0 && s.style.alignment == alignments.index {
+                continue;
+            }
+
+            if s.style.alignment == alignments.data {
+                continue;
+            }
+
+            table = table.with(
+                Cell(row + offset, col)
+                    .modify()
+                    .with(Alignment::Horizontal(s.style.alignment)),
+            );
         }
     }
 
