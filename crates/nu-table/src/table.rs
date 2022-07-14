@@ -13,6 +13,7 @@ use tabled::{
 
 use crate::{table_theme::TableTheme, width_control::maybe_truncate_columns, StyledString};
 
+/// Table represent a table view.
 #[derive(Debug)]
 pub struct Table {
     headers: Option<Vec<StyledString>>,
@@ -21,14 +22,18 @@ pub struct Table {
 }
 
 impl Table {
+    /// Creates a [Table] instance.
+    ///
+    /// If `headers.is_empty` then no headers will be rendered.
     pub fn new(
-        headers: Option<Vec<StyledString>>,
+        headers: Vec<StyledString>,
         data: Vec<Vec<StyledString>>,
         theme: TableTheme,
     ) -> Table {
-        let headers = match headers {
-            Some(headers) if headers.is_empty() => None,
-            headers => headers,
+        let headers = if headers.is_empty() {
+            None
+        } else {
+            Some(headers)
         };
 
         Table {
@@ -37,13 +42,25 @@ impl Table {
             theme,
         }
     }
+
+    /// Draws a trable on a String.
+    ///
+    /// It returns None in case where table cannot be fit to a terminal width.
+    pub fn draw_table(
+        &self,
+        config: &Config,
+        color_hm: &HashMap<String, Style>,
+        termwidth: usize,
+    ) -> Option<String> {
+        draw_table(self, config, color_hm, termwidth)
+    }
 }
 
-pub fn draw_table(
+fn draw_table(
     table: &Table,
-    termwidth: usize,
-    color_hm: &HashMap<String, Style>,
     config: &Config,
+    color_hm: &HashMap<String, Style>,
+    termwidth: usize,
 ) -> Option<String> {
     let (mut headers, mut data, count_columns) =
         table_fix_lengths(table.headers.as_ref(), &table.data);

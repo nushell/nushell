@@ -167,9 +167,11 @@ impl Command for Table {
                     ])
                 }
 
-                let table = nu_table::Table::new(None, output, load_theme_from_config(config));
+                let table =
+                    nu_table::Table::new(Vec::new(), output, load_theme_from_config(config));
 
-                let result = nu_table::draw_table(&table, term_width, &color_hm, config)
+                let result = table
+                    .draw_table(config, &color_hm, term_width)
                     .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
 
                 Ok(Value::String {
@@ -426,18 +428,16 @@ fn convert_to_table(
         }
 
         Ok(Some(nu_table::Table::new(
-            Some(
-                headers
-                    .into_iter()
-                    .map(|x| StyledString {
-                        contents: x,
-                        style: TextStyle {
-                            alignment: nu_table::Alignment::Center,
-                            color_style: Some(color_hm["header"]),
-                        },
-                    })
-                    .collect(),
-            ),
+            headers
+                .into_iter()
+                .map(|x| StyledString {
+                    contents: x,
+                    style: TextStyle {
+                        alignment: nu_table::Alignment::Center,
+                        color_style: Some(color_hm["header"]),
+                    },
+                })
+                .collect(),
             data.into_iter()
                 .map(|x| {
                     x.into_iter()
@@ -554,7 +554,8 @@ impl Iterator for PagingTableCreator {
 
         match table {
             Ok(Some(table)) => {
-                let result = nu_table::draw_table(&table, term_width, &color_hm, &self.config)
+                let result = table
+                    .draw_table(&self.config, &color_hm, term_width)
                     .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
 
                 Some(Ok(result.as_bytes().to_vec()))
