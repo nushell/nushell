@@ -165,24 +165,3 @@ fn bare_word_expand_path_glob_windows() {
         assert!(actual.out.contains("D&D_volume_2.txt"));
     })
 }
-
-#[cfg(windows)]
-#[test]
-fn single_quote_does_not_expand_path_glob_windows() {
-    Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("D&D_volume_1.txt"),
-            EmptyFile("D&D_volume_2.txt"),
-            EmptyFile("foo.sh"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ^dir '*.txt'
-            "#
-        ));
-
-        assert!(actual.err.contains("File Not Found"));
-    })
-}
