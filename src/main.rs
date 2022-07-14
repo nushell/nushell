@@ -215,6 +215,12 @@ fn main() -> Result<()> {
                         is_perf_true(),
                         true,
                     );
+                } else {
+                    config_files::read_default_env_file(
+                        &mut engine_state,
+                        &mut stack,
+                        is_perf_true(),
+                    )
                 }
 
                 if binary_args.config_file.is_some() {
@@ -262,6 +268,12 @@ fn main() -> Result<()> {
                         is_perf_true(),
                         true,
                     );
+                } else {
+                    config_files::read_default_env_file(
+                        &mut engine_state,
+                        &mut stack,
+                        is_perf_true(),
+                    )
                 }
 
                 if binary_args.config_file.is_some() {
