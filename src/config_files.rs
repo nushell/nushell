@@ -2,7 +2,7 @@ use log::info;
 use nu_cli::{eval_config_contents, eval_source, report_error};
 use nu_parser::ParseError;
 use nu_path::canonicalize_with;
-use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{PipelineData, Span, Spanned};
 use std::fs::File;
 use std::io::Write;
@@ -155,11 +155,11 @@ pub(crate) fn read_default_env_file(
     if is_perf_true {
         info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     }
-    // Merge the delta in case env vars changed in the config
+    // Merge the environment in case env vars changed in the config
     match nu_engine::env::current_dir(engine_state, stack) {
         Ok(cwd) => {
             if let Err(e) =
-                engine_state.merge_delta(StateDelta::new(engine_state), Some(stack), cwd)
+                engine_state.merge_env(stack, cwd)
             {
                 let working_set = StateWorkingSet::new(engine_state);
                 report_error(&working_set, &e);
