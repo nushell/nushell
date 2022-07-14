@@ -95,22 +95,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ansi-str"
-version = "0.2.0"
-source = "git+https://github.com/zhiburt/ansi-str?rev=655cd8125a032286082794690c2cc6dc835345b4#655cd8125a032286082794690c2cc6dc835345b4"
-dependencies = [
- "ansi_rs",
-]
-
-[[package]]
-name = "ansi_rs"
-version = "0.1.0"
-source = "git+https://gitlab.com/zhiburt/ansi_rs#16173ad4a2812a2b0dc9faf1552d5985db4ee310"
-dependencies = [
- "nom 7.1.1",
-]
-
-[[package]]
 name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1842,9 +1826,9 @@ dependencies = [
 
 [[package]]
 name = "inventory"
-version = "0.3.0"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0257e268c91daba296499206db5dd5a058875936bec3d8429b5f3e20ec9dc9a"
+checksum = "84344c6e0b90a9e2b6f3f9abe5cc74402684e348df7b32adca28747e0cef091a"
 dependencies = [
  "ctor",
  "ghost",
@@ -2856,14 +2840,11 @@ dependencies = [
 name = "nu-table"
 version = "0.65.1"
 dependencies = [
- "ansi-str 0.2.0 (git+https://github.com/zhiburt/ansi-str?rev=655cd8125a032286082794690c2cc6dc835345b4)",
  "atty",
  "nu-ansi-term",
  "nu-protocol",
- "regex",
  "strip-ansi-escapes",
  "tabled",
- "unicode-width",
 ]
 
 [[package]]
@@ -3187,7 +3168,7 @@ checksum = "decf7381921fea4dcb2549c5667eda59b3ec297ab7e2b5fc33eac69d2e7da87b"
 [[package]]
 name = "papergrid"
 version = "0.4.0"
-source = "git+https://github.com/zhiburt/tabled?branch=master#a17e76783422de7db213ef07e81ed1ef78ca599e"
+source = "git+https://github.com/zhiburt/tabled?rev=cca285b1fc0eac48b8a386c8884092d894d0e7ae#cca285b1fc0eac48b8a386c8884092d894d0e7ae"
 dependencies = [
  "ansi-str 0.1.1",
  "bytecount",
@@ -4805,9 +4786,9 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.7.0"
-source = "git+https://github.com/zhiburt/tabled?branch=master#a17e76783422de7db213ef07e81ed1ef78ca599e"
+source = "git+https://github.com/zhiburt/tabled?rev=cca285b1fc0eac48b8a386c8884092d894d0e7ae#cca285b1fc0eac48b8a386c8884092d894d0e7ae"
 dependencies = [
- "ansi-str 0.2.0 (git+https://github.com/zhiburt/ansi-str?branch=master)",
+ "ansi-str 0.2.0",
  "papergrid",
  "tabled_derive",
  "unicode-width",
@@ -4816,7 +4797,7 @@ dependencies = [
 [[package]]
 name = "tabled_derive"
 version = "0.3.0"
-source = "git+https://github.com/zhiburt/tabled?branch=master#a17e76783422de7db213ef07e81ed1ef78ca599e"
+source = "git+https://github.com/zhiburt/tabled?rev=cca285b1fc0eac48b8a386c8884092d894d0e7ae#cca285b1fc0eac48b8a386c8884092d894d0e7ae"
 dependencies = [
  "heck 0.4.0",
  "proc-macro-error",
@@ -5089,9 +5070,9 @@ checksum = "dcf81ac59edc17cc8697ff311e8f5ef2d99fcbd9817b34cec66f90b6c3dfd987"
 
 [[package]]
 name = "typetag"
-version = "0.2.1"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62a3f3e32f68a8a611e8b98a14e058954f1b81d6eb6af50e2349bf322ae4062b"
+checksum = "4080564c5b2241b5bff53ab610082234e0c57b0417f4bd10596f183001505b8a"
 dependencies = [
  "erased-serde",
  "inventory",
@@ -5102,9 +5083,9 @@ dependencies = [
 
 [[package]]
 name = "typetag-impl"
-version = "0.2.1"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "762400b16d1815702b6a22e71764f5936ef5d2c4dcff95497f874c53594d59fd"
+checksum = "e60147782cc30833c05fba3bab1d9b5771b2685a2557672ac96fa5d154099c0e"
 dependencies = [
  "proc-macro2",
  "quote",
