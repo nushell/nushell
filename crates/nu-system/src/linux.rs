@@ -93,8 +93,8 @@ pub fn collect_proc(interval: Duration, with_thread: bool) -> Vec<ProcessInfo> {
                 if let Ok(iter) = proc.tasks() {
                     collect_task(iter, &mut base_tasks);
                 }
-                base_procs.push((proc.pid(), proc, io, time));
             }
+            base_procs.push((proc.pid(), proc, io, time));
             // match proc {
             //     Ok(p) => {
             //         let io = p.io().ok();
