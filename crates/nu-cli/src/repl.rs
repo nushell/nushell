@@ -16,6 +16,7 @@ use nu_protocol::{
     BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
+use regex::Regex;
 use std::io::{self, Write};
 use std::{sync::atomic::Ordering, time::Instant};
 use sysinfo::SystemExt;
@@ -335,13 +336,7 @@ pub fn evaluate_repl(
 
                 let orig = s.clone();
 
-                if (orig.starts_with('.')
-                    || orig.starts_with('~')
-                    || orig.starts_with('/')
-                    || orig.starts_with('\\'))
-                    && path.is_dir()
-                    && tokens.0.len() == 1
-                {
+                if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
                     // We have an auto-cd
                     let (path, span) = {
                         if !path.exists() {
@@ -755,4 +750,32 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
             Vec::new(),
         )
     })
+}
+
+// A best-effort "does this string look kinda like a path?" function to determine whether to auto-cd
+fn looks_like_path(orig: &str) -> bool {
+    #[cfg(windows)]
+    {
+        // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
+        if let Ok(drive_path_regex) = Regex::new(r"^[a-zA-Z]:[/\\]?") {
+            if drive_path_regex.is_match(orig) {
+                return true;
+            }
+        }
+    }
+
+    orig.starts_with('.')
+        || orig.starts_with('~')
+        || orig.starts_with('/')
+        || orig.starts_with('\\')
+}
+
+#[test]
+fn looks_like_path_windows_drive_path_works() {
+    let on_windows = cfg!(windows);
+    assert_eq!(looks_like_path("C:"), on_windows);
+    assert_eq!(looks_like_path("D:\\"), on_windows);
+    assert_eq!(looks_like_path("E:/"), on_windows);
+    assert_eq!(looks_like_path("F:\\some_dir"), on_windows);
+    assert_eq!(looks_like_path("G:/some_dir"), on_windows);
 }

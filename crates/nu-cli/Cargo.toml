@@ -27,6 +27,7 @@ fuzzy-matcher = "0.3.7"
 log = "0.4"
 is_executable = "1.0.1"
 chrono = "0.4.19"
+regex = "1.5.4"
 sysinfo = "0.24.1"
 
 [features]
