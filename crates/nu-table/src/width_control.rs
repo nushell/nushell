@@ -1,9 +1,6 @@
-use crate::textstyle::TextStyle;
-use crate::StyledString;
-
 pub(crate) fn maybe_truncate_columns(
-    headers: &mut Option<Vec<StyledString>>,
-    data: &mut [Vec<StyledString>],
+    headers: &mut Option<Vec<String>>,
+    data: &mut [Vec<String>],
     length: usize,
     termwidth: usize,
 ) {
@@ -14,20 +11,14 @@ pub(crate) fn maybe_truncate_columns(
     if let Some(headers) = headers {
         if max_num_of_columns < length {
             headers.truncate(max_num_of_columns);
-            headers.push(StyledString::new(
-                String::from("..."),
-                TextStyle::basic_center(),
-            ));
+            headers.push(String::from("..."));
         }
     }
 
     if max_num_of_columns < length {
         for entry in data.iter_mut() {
             entry.truncate(max_num_of_columns);
-            entry.push(StyledString::new(
-                String::from("..."),
-                TextStyle::basic_center(),
-            ));
+            entry.push(String::from("..."));
         }
     }
 }

@@ -62,15 +62,14 @@ fn draw_table(
     color_hm: &HashMap<String, Style>,
     termwidth: usize,
 ) -> Option<String> {
-    let (mut headers, mut data, count_columns) =
-        table_fix_lengths(table.headers.as_ref(), &table.data);
+    let mut headers = colorize_headers(table.headers.as_deref());
+    let mut data = colorize_data(&table.data, table.headers.as_ref().map_or(0, |h| h.len()));
+
+    let count_columns = table_fix_lengths(headers.as_mut(), &mut data);
 
     maybe_truncate_columns(&mut headers, &mut data, count_columns, termwidth);
 
-    let alignments = build_alignment_map(&table.data);
-
-    let headers = table_header_to_strings(headers);
-    let data = table_data_to_strings(data, count_columns);
+    let alignments = build_alignment_map(&table.data, count_columns);
 
     let theme = &table.theme;
     let with_header = headers.is_some();
@@ -100,19 +99,16 @@ fn print_table(table: tabled::Table, config: &Config) -> String {
     }
 }
 
-fn table_data_to_strings(
-    table_data: Vec<Vec<StyledString>>,
-    count_headers: usize,
-) -> Vec<Vec<String>> {
-    let mut data = vec![Vec::with_capacity(count_headers); table_data.len()];
-    for (row, row_data) in table_data.into_iter().enumerate() {
+fn colorize_data(table_data: &[Vec<StyledString>], count_columns: usize) -> Vec<Vec<String>> {
+    let mut data = vec![Vec::with_capacity(count_columns); table_data.len()];
+    for (row, row_data) in table_data.iter().enumerate() {
         for cell in row_data {
             let colored_text = cell
                 .style
                 .color_style
                 .as_ref()
                 .map(|color| color.paint(&cell.contents).to_string())
-                .unwrap_or(cell.contents);
+                .unwrap_or_else(|| cell.contents.clone());
 
             data[row].push(colored_text)
         }
@@ -121,8 +117,8 @@ fn table_data_to_strings(
     data
 }
 
-fn table_header_to_strings(table_headers: Option<Vec<StyledString>>) -> Option<Vec<String>> {
-    table_headers.map(|table_headers| {
+fn colorize_headers(headers: Option<&[StyledString]>) -> Option<Vec<String>> {
+    headers.map(|table_headers| {
         let mut headers = Vec::with_capacity(table_headers.len());
         for cell in table_headers {
             let colored_text = cell
@@ -130,7 +126,7 @@ fn table_header_to_strings(table_headers: Option<Vec<StyledString>>) -> Option<V
                 .color_style
                 .as_ref()
                 .map(|color| color.paint(&cell.contents).to_string())
-                .unwrap_or(cell.contents);
+                .unwrap_or_else(|| cell.contents.clone());
 
             headers.push(colored_text)
         }
@@ -139,12 +135,16 @@ fn table_header_to_strings(table_headers: Option<Vec<StyledString>>) -> Option<V
     })
 }
 
-fn build_alignment_map(data: &[Vec<StyledString>]) -> Vec<Vec<Alignment>> {
+fn build_alignment_map(data: &[Vec<StyledString>], count_columns: usize) -> Vec<Vec<Alignment>> {
     let mut v = vec![Vec::new(); data.len()];
     for (i, row) in data.iter().enumerate() {
-        let mut row_alignments = Vec::with_capacity(row.len());
+        let mut row_alignments = Vec::with_capacity(count_columns);
         for col in row {
             row_alignments.push(Alignment::Horizontal(col.style.alignment));
+        }
+
+        for _ in row.len()..count_columns {
+            row_alignments.push(Alignment::center());
         }
 
         v[i] = row_alignments;
@@ -324,31 +324,21 @@ impl tabled::TableOption for &TrimStrategyModifier<'_> {
     }
 }
 
-fn table_fix_lengths(
-    headers: Option<&Vec<StyledString>>,
-    data: &[Vec<StyledString>],
-) -> (Option<Vec<StyledString>>, Vec<Vec<StyledString>>, usize) {
-    let length = table_find_max_length(headers, data);
+fn table_fix_lengths(headers: Option<&mut Vec<String>>, data: &mut [Vec<String>]) -> usize {
+    let length = table_find_max_length(headers.as_deref(), data);
 
-    let headers_fixed = headers.map(|h| {
-        let mut headers_fixed = Vec::with_capacity(length);
-        headers_fixed.extend(h.iter().cloned());
-        headers_fixed.extend(std::iter::repeat(StyledString::default()).take(length - h.len()));
-        headers_fixed
-    });
-
-    let mut data_fixed = Vec::with_capacity(data.len());
-    for row in data {
-        let mut row_fixed = Vec::with_capacity(length);
-        row_fixed.extend(row.iter().cloned());
-        row_fixed.extend(std::iter::repeat(StyledString::default()).take(length - row.len()));
-        data_fixed.push(row_fixed);
+    if let Some(headers) = headers {
+        headers.extend(std::iter::repeat(String::default()).take(length - headers.len()));
     }
 
-    (headers_fixed, data_fixed, length)
+    for row in data {
+        row.extend(std::iter::repeat(String::default()).take(length - row.len()));
+    }
+
+    length
 }
 
-fn table_find_max_length(headers: Option<&Vec<StyledString>>, data: &[Vec<StyledString>]) -> usize {
+fn table_find_max_length<T>(headers: Option<&Vec<T>>, data: &[Vec<T>]) -> usize {
     let mut length = headers.map_or(0, |h| h.len());
     for row in data {
         length = std::cmp::max(length, row.len());
