@@ -5,6 +5,7 @@ use crate::{
     util::{eval_source, get_guaranteed_cwd, report_error, report_error_new},
     NuHighlighter, NuValidator, NushellPrompt,
 };
+use lazy_static::lazy_static;
 use log::{info, trace};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::get_color_config;
@@ -753,15 +754,19 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
     })
 }
 
+#[cfg(windows)]
+lazy_static! {
+    // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
+    static ref DRIVE_PATH_REGEX: Regex =
+        Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation");
+}
+
 // A best-effort "does this string look kinda like a path?" function to determine whether to auto-cd
 fn looks_like_path(orig: &str) -> bool {
     #[cfg(windows)]
     {
-        // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
-        if let Ok(drive_path_regex) = Regex::new(r"^[a-zA-Z]:[/\\]?") {
-            if drive_path_regex.is_match(orig) {
-                return true;
-            }
+        if DRIVE_PATH_REGEX.is_match(orig) {
+            return true;
         }
     }
 

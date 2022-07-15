@@ -2607,6 +2607,7 @@ dependencies = [
  "crossterm",
  "fuzzy-matcher",
  "is_executable",
+ "lazy_static",
  "log",
  "miette 5.1.0",
  "nu-ansi-term",
