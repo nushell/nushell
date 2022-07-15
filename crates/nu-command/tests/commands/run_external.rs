@@ -207,3 +207,4 @@ fn single_quote_does_not_expand_path_glob_windows() {
         assert!(!actual.err.is_empty());
     })
 }
+
