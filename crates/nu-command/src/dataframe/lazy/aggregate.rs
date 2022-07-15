@@ -120,9 +120,9 @@ impl Command for LazyAggregate {
 
         let group_by = NuLazyGroupBy::try_from_pipeline(input, call.head)?;
 
-        for expr in &expressions {
-            if let Some(name) = get_col_name(expr) {
-                if let Some(schema) = &group_by.schema {
+        if let Some(schema) = &group_by.schema {
+            for expr in &expressions {
+                if let Some(name) = get_col_name(expr) {
                     let dtype = schema.get(name.as_str());
 
                     if matches!(dtype, Some(DataType::Object(..))) {
