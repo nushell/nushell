@@ -102,6 +102,21 @@ impl Command for SubCommand {
                 example: "'FF' |  into int -r 16",
                 result: Some(Value::test_int(255)),
             },
+            Example {
+                description: "Convert octal string to integer",
+                example: "'0o10132' | into int",
+                result: Some(Value::test_int(4186)),
+            },
+            Example {
+                description: "Convert 0 padded string to integer",
+                example: "'0010132' | into int",
+                result: Some(Value::test_int(10132)),
+            },
+            Example {
+                description: "Convert 0 padded string to integer with radix",
+                example: "'0010132' | into int -r 8",
+                result: Some(Value::test_int(4186)),
+            },
         ]
     }
 }
@@ -258,10 +273,29 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     let i = match input {
         Value::Int { val, .. } => val.to_string(),
         Value::String { val, .. } => {
-            if val.starts_with("0x") || val.starts_with("0b") {
+            if val.starts_with("0x") // hex
+                || val.starts_with("0b") // binary
+                || val.starts_with("0o")
+            // octal
+            {
                 match int_from_string(val, head) {
                     Ok(x) => return Value::Int { val: x, span: head },
                     Err(e) => return Value::Error { error: e },
+                }
+            } else if val.starts_with("00") {
+                // It's a padded string
+                match i64::from_str_radix(val, radix) {
+                    Ok(n) => return Value::Int { val: n, span: head },
+                    Err(e) => {
+                        return Value::Error {
+                            error: ShellError::CantConvert(
+                                "string".to_string(),
+                                "int".to_string(),
+                                head,
+                                Some(e.to_string()),
+                            ),
+                        }
+                    }
                 }
             }
             val.to_string()
@@ -314,6 +348,20 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                         ),
                     )),
                 };
+            Ok(num)
+        }
+        o if o.starts_with("0o") => {
+            let num = match i64::from_str_radix(o.trim_start_matches("0o"), 8) {
+                Ok(n) => n,
+                Err(_reason) => {
+                    return Err(ShellError::CantConvert(
+                        "int".to_string(),
+                        "string".to_string(),
+                        span,
+                        Some(r#"octal digits following "0o" should be in 0-7"#.to_string()),
+                    ))
+                }
+            };
             Ok(num)
         }
         _ => match trimmed.parse::<i64>() {
