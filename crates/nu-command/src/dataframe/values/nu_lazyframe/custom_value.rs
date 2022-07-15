@@ -15,6 +15,7 @@ impl CustomValue for NuLazyFrame {
         let cloned = NuLazyFrame {
             lazy: self.lazy.clone(),
             from_eager: self.from_eager,
+            schema: self.schema.clone(),
         };
 
         Value::CustomValue {

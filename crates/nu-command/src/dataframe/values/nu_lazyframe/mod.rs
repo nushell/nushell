@@ -3,7 +3,7 @@ mod custom_value;
 use super::{NuDataFrame, NuExpression};
 use core::fmt;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
-use polars::prelude::{Expr, IntoLazy, LazyFrame};
+use polars::prelude::{Expr, IntoLazy, LazyFrame, Schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // Lazyframe wrapper for Nushell operations
@@ -12,6 +12,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[derive(Default)]
 pub struct NuLazyFrame {
     pub lazy: Option<LazyFrame>,
+    pub schema: Option<Schema>,
     pub from_eager: bool,
 }
 
@@ -63,6 +64,7 @@ impl From<LazyFrame> for NuLazyFrame {
         Self {
             lazy: Some(lazy_frame),
             from_eager: false,
+            schema: None,
         }
     }
 }
@@ -72,6 +74,7 @@ impl NuLazyFrame {
         Self {
             lazy: Some(lazy),
             from_eager,
+            schema: None,
         }
     }
 
@@ -80,6 +83,7 @@ impl NuLazyFrame {
         Self {
             lazy: Some(lazy),
             from_eager: true,
+            schema: Some(df.as_ref().schema()),
         }
     }
 
@@ -148,6 +152,7 @@ impl NuLazyFrame {
                 Some(expr) => Ok(Self {
                     lazy: expr.lazy.clone(),
                     from_eager: false,
+                    schema: None,
                 }),
                 None => Err(ShellError::CantConvert(
                     "lazy frame".into(),
@@ -184,6 +189,7 @@ impl NuLazyFrame {
         Self {
             from_eager: self.from_eager,
             lazy: Some(new_frame),
+            schema: None,
         }
     }
 }

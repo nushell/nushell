@@ -2,7 +2,7 @@ mod custom_value;
 
 use core::fmt;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
-use polars::prelude::LazyGroupBy;
+use polars::prelude::{LazyGroupBy, Schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // Lazyframe wrapper for Nushell operations
@@ -11,6 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[derive(Default)]
 pub struct NuLazyGroupBy {
     pub group_by: Option<LazyGroupBy>,
+    pub schema: Option<Schema>,
     pub from_eager: bool,
 }
 
@@ -66,6 +67,7 @@ impl From<LazyGroupBy> for NuLazyGroupBy {
         Self {
             group_by: Some(group_by),
             from_eager: false,
+            schema: None,
         }
     }
 }
@@ -88,6 +90,7 @@ impl NuLazyGroupBy {
                 match val.as_any().downcast_ref::<NuLazyGroupBy>() {
                     Some(group) => Ok(Self {
                         group_by: group.group_by.clone(),
+                        schema: group.schema.clone(),
                         from_eager: group.from_eager,
                     }),
                     None => Err(ShellError::CantConvert(
