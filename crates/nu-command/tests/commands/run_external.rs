@@ -183,6 +183,9 @@ fn double_quote_does_not_expand_path_glob_windows() {
             "#
         ));
 
+        println!("output is {}", actual.out);
+        println!("error is {}", actual.err);
+
         assert!(!actual.err.is_empty());
     })
 }
@@ -203,6 +206,8 @@ fn single_quote_does_not_expand_path_glob_windows() {
                 dir '*.txt'
             "#
         ));
+        println!("output is {}", actual.out);
+        println!("error is {}", actual.err);
 
         assert!(!actual.err.is_empty());
     })
