@@ -212,3 +212,25 @@ fn single_quote_does_not_expand_path_glob_windows() {
         assert!(!actual.err.is_empty());
     })
 }
+
+#[cfg(windows)]
+#[test]
+fn test_touch() {
+    Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
+        nu!(
+            cwd: dirs.test(),
+            "touch foo.txt"
+        );
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                dir '*.txt'
+            "#
+        ));
+        println!("output is {}", actual.out);
+        println!("error is {}", actual.err);
+
+        assert!(!actual.err.is_empty());
+    })
+}
