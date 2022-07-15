@@ -102,6 +102,21 @@ impl Command for SubCommand {
                 example: "'FF' |  into int -r 16",
                 result: Some(Value::test_int(255)),
             },
+            Example {
+                description: "Convert octal string to integer",
+                example: "'0o10132' | into int",
+                result: Some(Value::test_int(4186)),
+            },
+            Example {
+                description: "Convert 0 padded string to integer",
+                example: "'0010132' | into int",
+                result: Some(Value::test_int(10132)),
+            },
+            Example {
+                description: "Convert 0 padded string to integer with radix",
+                example: "'0010132' | into int -r 8",
+                result: Some(Value::test_int(4186)),
+            },
         ]
     }
 }
