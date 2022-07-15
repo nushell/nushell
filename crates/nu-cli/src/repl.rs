@@ -17,7 +17,6 @@ use nu_protocol::{
     BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
-#[cfg(windows)]
 use regex::Regex;
 use std::io::{self, Write};
 use std::{sync::atomic::Ordering, time::Instant};
@@ -754,7 +753,6 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
     })
 }
 
-#[cfg(windows)]
 lazy_static! {
     // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
     static ref DRIVE_PATH_REGEX: Regex =
