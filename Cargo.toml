@@ -124,3 +124,4 @@ path = "src/main.rs"
 [patch.crates-io]
 reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
 lscolors = { git = "https://github.com/sharkdp/lscolors.git", branch = "master" }
+pretty_env_logger = { git = "https://github.com/seanmonstar/pretty-env-logger", rev = "f9e35b6dbbf06de55222c944c9e1e176ce73b3a7" }

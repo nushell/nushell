@@ -4,9 +4,11 @@ use log::Level;
 use log::LevelFilter;
 use nu_protocol::ShellError;
 use pretty_env_logger::env_logger::fmt::Color;
-use pretty_env_logger::env_logger::Builder;
+use pretty_env_logger::env_logger::{Builder, Target};
+use std::fs::File;
 use std::io::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{env, process};
 
 pub fn logger(f: impl FnOnce(&mut Builder) -> Result<(), ShellError>) -> Result<(), ShellError> {
     let mut builder = my_formatted_timed_builder();
@@ -42,7 +44,11 @@ pub fn my_formatted_timed_builder() -> Builder {
     builder
 }
 
-pub fn configure(level: &str, logger: &mut Builder) -> Result<(), ShellError> {
+pub fn configure(
+    level: &str,
+    target: Option<String>,
+    logger: &mut Builder,
+) -> Result<(), ShellError> {
     let level = match level {
         "error" => LevelFilter::Error,
         "warn" => LevelFilter::Warn,
@@ -58,7 +64,38 @@ pub fn configure(level: &str, logger: &mut Builder) -> Result<(), ShellError> {
         logger.parse_filters(&s);
     }
 
+    custom_log_target(target, logger);
+
     Ok(())
+}
+
+fn custom_log_target(target: Option<String>, logger: &mut Builder) {
+    let mut msg = "<stderr>".to_string();
+
+    if let Some(target) = target {
+        if target.eq("file") {
+            let mut path = env::temp_dir();
+            path.push(format!("nu-{}.log", process::id()));
+
+            match File::create(&path) {
+                Ok(file) => {
+                    // TODO: `is_test(true)` will be removed when upstream fix
+                    // https://github.com/env-logger-rs/env_logger/issues/208
+                    logger.target(Target::Pipe(Box::new(file))).is_test(true);
+                    msg = format!("\"{}\"", path.display());
+                }
+                Err(e) => {
+                    eprintln!("failed to set log target to \"{}\": {}", path.display(), e);
+                    eprintln!("use default log target instead");
+                }
+            }
+        } else if target.eq("stdout") {
+            logger.target(Target::Stdout);
+            msg = format!("<{target}>");
+        }
+    }
+
+    println!("log target: {}", msg);
 }
 
 // pub fn trace_filters(app: &App, logger: &mut Builder) -> Result<(), ShellError> {
