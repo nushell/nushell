@@ -1,7 +1,8 @@
 use nu_ansi_term::{
-    Color::{Red, White},
+    Color::{Default, Red, White},
     Style,
 };
+use nu_color_config::get_color_config;
 use nu_engine::{get_full_help, CallExt};
 use nu_protocol::{
     ast::Call,
@@ -84,6 +85,13 @@ fn help(
     let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
     let commands = engine_state.get_decl_ids_sorted(false);
+    let config = engine_state.get_config();
+    let color_hm = get_color_config(config);
+    let default_style = Style::new().fg(Default).on(Default);
+    let string_style = match color_hm.get("string") {
+        Some(style) => style,
+        None => &default_style,
+    };
 
     if let Some(f) = find {
         let org_search_string = f.item.clone();
@@ -108,12 +116,12 @@ fn help(
             };
 
             let key_match = key.to_lowercase().contains(&search_string);
-            let use_match = usage.to_lowercase().contains(&search_string);
-            if key_match || use_match || matches_term {
+            let usage_match = usage.to_lowercase().contains(&search_string);
+            if key_match || usage_match || matches_term {
                 cols.push("name".into());
                 vals.push(Value::String {
                     val: if key_match {
-                        highlight_search_string(&key, &org_search_string)?
+                        highlight_search_string(&key, &org_search_string, string_style)?
                     } else {
                         key
                     },
@@ -146,8 +154,8 @@ fn help(
 
                 cols.push("usage".into());
                 vals.push(Value::String {
-                    val: if use_match {
-                        highlight_search_string(&usage, &org_search_string)?
+                    val: if usage_match {
+                        highlight_search_string(&usage, &org_search_string, string_style)?
                     } else {
                         usage
                     },
@@ -164,12 +172,18 @@ fn help(
                                 .iter()
                                 .map(|term| {
                                     if term.to_lowercase().contains(&search_string) {
-                                        match highlight_search_string(term, &org_search_string) {
+                                        match highlight_search_string(
+                                            term,
+                                            &org_search_string,
+                                            string_style,
+                                        ) {
                                             Ok(s) => s,
-                                            Err(_) => term.to_string(),
+                                            Err(_) => {
+                                                string_style.paint(term.to_string()).to_string()
+                                            }
                                         }
                                     } else {
-                                        term.clone()
+                                        string_style.paint(term.to_string()).to_string()
                                     }
                                 })
                                 .collect::<Vec<_>>()
@@ -330,7 +344,11 @@ You can also learn more at https://www.nushell.sh/book/"#;
 }
 
 // Highlight the search string using ANSI escape sequences and regular expressions.
-fn highlight_search_string(haystack: &str, needle: &str) -> Result<String, ShellError> {
+fn highlight_search_string(
+    haystack: &str,
+    needle: &str,
+    string_style: &Style,
+) -> Result<String, ShellError> {
     let regex_string = format!("(?i){}", needle);
     let regex = match regex::Regex::new(&regex_string) {
         Ok(regex) => regex,
@@ -357,11 +375,15 @@ fn highlight_search_string(haystack: &str, needle: &str) -> Result<String, Shell
             Some(cap) => cap.end(),
             None => 0,
         };
-        highlighted.push_str(&haystack[last_match_end..start]);
+        highlighted.push_str(
+            &string_style
+                .paint(&haystack[last_match_end..start])
+                .to_string(),
+        );
         highlighted.push_str(&style.paint(&haystack[start..end]).to_string());
         last_match_end = end;
     }
 
-    highlighted.push_str(&haystack[last_match_end..]);
+    highlighted.push_str(&string_style.paint(&haystack[last_match_end..]).to_string());
     Ok(highlighted)
 }
