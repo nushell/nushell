@@ -25,7 +25,7 @@ impl Command for Length {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["count", "len", "size"]
+        vec!["count", "len", "size", "wc"]
     }
 
     fn run(
