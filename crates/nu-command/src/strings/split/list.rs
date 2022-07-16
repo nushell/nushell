@@ -14,7 +14,7 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split row")
+        Signature::build("split list")
             .required(
                 "separator",
                 SyntaxShape::Any,
