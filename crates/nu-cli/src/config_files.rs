@@ -1,8 +1,10 @@
 use crate::util::{eval_source, report_error};
 #[cfg(feature = "plugin")]
 use log::info;
+use nu_parser::ParseError;
+use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{HistoryFileFormat, PipelineData, Span};
+use nu_protocol::{HistoryFileFormat, PipelineData, Span, Spanned};
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
@@ -15,12 +17,13 @@ const HISTORY_FILE_SQLITE: &str = "history.sqlite3";
 pub fn read_plugin_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
+    plugin_file: Option<Spanned<String>>,
     storage_path: &str,
     is_perf_true: bool,
 ) {
     // Reading signatures from signature file
     // The plugin.nu file stores the parsed signature collected from each registered plugin
-    add_plugin_file(engine_state, storage_path);
+    add_plugin_file(engine_state, plugin_file, storage_path);
 
     let plugin_path = engine_state.plugin_signatures.clone();
     if let Some(plugin_path) = plugin_path {
@@ -43,8 +46,23 @@ pub fn read_plugin_file(
 }
 
 #[cfg(feature = "plugin")]
-pub fn add_plugin_file(engine_state: &mut EngineState, storage_path: &str) {
-    if let Some(mut plugin_path) = nu_path::config_dir() {
+pub fn add_plugin_file(
+    engine_state: &mut EngineState,
+    plugin_file: Option<Spanned<String>>,
+    storage_path: &str,
+) {
+    if let Some(plugin_file) = plugin_file {
+        let working_set = StateWorkingSet::new(engine_state);
+        let cwd = working_set.get_cwd();
+
+        match canonicalize_with(&plugin_file.item, cwd) {
+            Ok(path) => engine_state.plugin_signatures = Some(path),
+            Err(_) => {
+                let e = ParseError::FileNotFound(plugin_file.item, plugin_file.span);
+                report_error(&working_set, &e);
+            }
+        }
+    } else if let Some(mut plugin_path) = nu_path::config_dir() {
         // Path to store plugins signatures
         plugin_path.push(storage_path);
         plugin_path.push(PLUGIN_FILE);

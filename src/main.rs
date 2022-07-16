@@ -102,7 +102,9 @@ fn main() -> Result<()> {
                 "--commands" | "-c" | "--table-mode" | "-m" => {
                     args.next().map(|a| escape_quote_string(&a))
                 }
-                "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
+                "--plugin" | "--config" | "--env-config" => {
+                    args.next().map(|a| escape_quote_string(&a))
+                }
                 "--log-level" | "--testbin" | "--threads" | "-t" => args.next(),
                 _ => None,
             };
@@ -204,6 +206,7 @@ fn main() -> Result<()> {
                 read_plugin_file(
                     &mut engine_state,
                     &mut stack,
+                    binary_args.plugin_file,
                     NUSHELL_FOLDER,
                     is_perf_true(),
                 );
@@ -256,6 +259,7 @@ fn main() -> Result<()> {
                 read_plugin_file(
                     &mut engine_state,
                     &mut stack,
+                    binary_args.plugin_file,
                     NUSHELL_FOLDER,
                     is_perf_true(),
                 );
@@ -304,6 +308,7 @@ fn main() -> Result<()> {
                 setup_config(
                     &mut engine_state,
                     &mut stack,
+                    binary_args.plugin_file,
                     binary_args.config_file,
                     binary_args.env_file,
                     binary_args.login_shell.is_some(),
@@ -329,12 +334,19 @@ fn main() -> Result<()> {
 fn setup_config(
     engine_state: &mut EngineState,
     stack: &mut Stack,
+    plugin_file: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
     is_login_shell: bool,
 ) {
     #[cfg(feature = "plugin")]
-    read_plugin_file(engine_state, stack, NUSHELL_FOLDER, is_perf_true());
+    read_plugin_file(
+        engine_state,
+        stack,
+        plugin_file,
+        NUSHELL_FOLDER,
+        is_perf_true(),
+    );
 
     if is_perf_true() {
         info!("read_config_file {}:{}:{}", file!(), line!(), column!());
@@ -398,6 +410,7 @@ fn parse_commandline_args(
             let commands: Option<Expression> = call.get_flag_expr("commands");
             let testbin: Option<Expression> = call.get_flag_expr("testbin");
             let perf = call.has_flag("perf");
+            let plugin_file: Option<Expression> = call.get_flag_expr("plugin");
             let config_file: Option<Expression> = call.get_flag_expr("config");
             let env_file: Option<Expression> = call.get_flag_expr("env-config");
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
@@ -425,6 +438,7 @@ fn parse_commandline_args(
 
             let commands = extract_contents(commands)?;
             let testbin = extract_contents(testbin)?;
+            let plugin_file = extract_contents(plugin_file)?;
             let config_file = extract_contents(config_file)?;
             let env_file = extract_contents(env_file)?;
             let log_level = extract_contents(log_level)?;
@@ -455,6 +469,7 @@ fn parse_commandline_args(
                 interactive_shell,
                 commands,
                 testbin,
+                plugin_file,
                 config_file,
                 env_file,
                 log_level,
@@ -478,6 +493,7 @@ struct NushellCliArgs {
     interactive_shell: Option<Spanned<String>>,
     commands: Option<Spanned<String>>,
     testbin: Option<Spanned<String>>,
+    plugin_file: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
     log_level: Option<Spanned<String>>,
@@ -517,6 +533,12 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "run the given commands and then exit",
                 Some('c'),
+            )
+            .named(
+                "plugin",
+                SyntaxShape::String,
+                "start with an alternate plugin signature file",
+                None,
             )
             .named(
                 "config",
