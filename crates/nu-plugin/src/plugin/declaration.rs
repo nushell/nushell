@@ -1,13 +1,13 @@
 use crate::{EncodingType, EvaluatedCall};
 
 use super::{create_command, OUTPUT_BUFFER_SIZE};
-use crate::protocol::{CallInfo, PluginCall, PluginResponse};
+use crate::protocol::{CallInfo, PluginCall, PluginCustomValue, PluginResponse};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, Signature};
-use nu_protocol::{PipelineData, ShellError};
+use nu_protocol::{PipelineData, ShellError, Value};
 
 #[derive(Clone)]
 pub struct PluginDeclaration {
@@ -109,6 +109,15 @@ impl Command for PluginDeclaration {
                 Ok(PluginResponse::Value(value)) => {
                     Ok(PipelineData::Value(value.as_ref().clone(), None))
                 }
+                Ok(PluginResponse::PluginData(plugin_data)) => Ok(PipelineData::Value(
+                    Value::CustomValue {
+                        val: Box::new(PluginCustomValue {
+                            data: plugin_data.data,
+                        }),
+                        span: plugin_data.span,
+                    },
+                    None,
+                )),
                 Ok(PluginResponse::Error(err)) => Err(err.into()),
                 Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError(
                     "Plugin missing value".into(),

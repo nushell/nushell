@@ -172,6 +172,7 @@ mod tests {
         match returned {
             PluginResponse::Error(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
+            PluginResponse::PluginData(..) => panic!("returned wrong call type"),
             PluginResponse::Signature(returned_signature) => {
                 assert!(returned_signature.len() == 1);
                 assert_eq!(signature.name, returned_signature[0].name);
@@ -226,6 +227,7 @@ mod tests {
         match returned {
             PluginResponse::Error(_) => panic!("returned wrong call type"),
             PluginResponse::Signature(_) => panic!("returned wrong call type"),
+            PluginResponse::PluginData(..) => panic!("returned wrong call type"),
             PluginResponse::Value(returned_value) => {
                 assert_eq!(&value, returned_value.as_ref())
             }
@@ -254,6 +256,7 @@ mod tests {
             PluginResponse::Error(msg) => assert_eq!(error, msg),
             PluginResponse::Signature(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
+            PluginResponse::PluginData(..) => panic!("returned wrong call type"),
         }
     }
 
@@ -279,6 +282,7 @@ mod tests {
             PluginResponse::Error(msg) => assert_eq!(error, msg),
             PluginResponse::Signature(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
+            PluginResponse::PluginData(..) => panic!("returned wrong call type"),
         }
     }
 }
