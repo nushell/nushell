@@ -128,13 +128,11 @@ impl Command for ToLazyGroupBy {
             ));
         }
 
-        let value = input.into_value(call.head);
-        let lazy = NuLazyFrame::try_from_value(value)?;
-        let from_eager = lazy.from_eager;
-
+        let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
         let group_by = NuLazyGroupBy {
+            schema: lazy.schema.clone(),
+            from_eager: lazy.from_eager,
             group_by: Some(lazy.into_polars().groupby(&expressions)),
-            from_eager,
         };
 
         Ok(PipelineData::Value(group_by.into_value(call.head), None))

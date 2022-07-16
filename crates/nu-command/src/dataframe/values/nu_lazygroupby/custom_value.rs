@@ -14,6 +14,7 @@ impl CustomValue for NuLazyGroupBy {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
         let cloned = NuLazyGroupBy {
             group_by: self.group_by.clone(),
+            schema: self.schema.clone(),
             from_eager: self.from_eager,
         };
 
