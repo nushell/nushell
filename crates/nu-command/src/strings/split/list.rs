@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Signature, Span, SyntaxShape, Value, IntoPipelineData,
+    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -48,8 +48,22 @@ impl Command for SubCommand {
                 example: "[a, b, c, d, e, f, g] | split list d",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::List{ vals: vec![Value::test_string("a"),Value::test_string("b"),Value::test_string("c"),], span: Span::test_data(),},
-                        Value::List{ vals: vec![Value::test_string("e"),Value::test_string("f"),Value::test_string("g"),], span: Span::test_data(),},
+                        Value::List {
+                            vals: vec![
+                                Value::test_string("a"),
+                                Value::test_string("b"),
+                                Value::test_string("c"),
+                            ],
+                            span: Span::test_data(),
+                        },
+                        Value::List {
+                            vals: vec![
+                                Value::test_string("e"),
+                                Value::test_string("f"),
+                                Value::test_string("g"),
+                            ],
+                            span: Span::test_data(),
+                        },
                     ],
                     span: Span::test_data(),
                 }),
@@ -59,8 +73,20 @@ impl Command for SubCommand {
                 example: "[[1,2], [2,3], [3,4]] | split list [2,3]",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::List{ vals: vec![Value::List{vals: vec![Value::test_int(1),Value::test_int(2),], span: Span::test_data()},], span: Span::test_data(),},
-                        Value::List{ vals: vec![Value::List{vals: vec![Value::test_int(3),Value::test_int(4),], span: Span::test_data()},], span: Span::test_data(),},
+                        Value::List {
+                            vals: vec![Value::List {
+                                vals: vec![Value::test_int(1), Value::test_int(2)],
+                                span: Span::test_data(),
+                            }],
+                            span: Span::test_data(),
+                        },
+                        Value::List {
+                            vals: vec![Value::List {
+                                vals: vec![Value::test_int(3), Value::test_int(4)],
+                                span: Span::test_data(),
+                            }],
+                            span: Span::test_data(),
+                        },
                     ],
                     span: Span::test_data(),
                 }),
@@ -81,15 +107,24 @@ fn split_list(
     let iter = input.into_interruptible_iter(engine_state.ctrlc.clone());
     for val in iter {
         if val == separator && !temp_list.is_empty() {
-            returned_list.push(Value::List { vals: temp_list.clone(), span: call.head, });
+            returned_list.push(Value::List {
+                vals: temp_list.clone(),
+                span: call.head,
+            });
             temp_list = Vec::new();
-        }
-        else {
+        } else {
             temp_list.push(val);
         }
     }
     if !temp_list.is_empty() {
-        returned_list.push(Value::List { vals: temp_list.clone(), span: call.head, });
+        returned_list.push(Value::List {
+            vals: temp_list.clone(),
+            span: call.head,
+        });
     }
-    Ok(Value::List { vals: returned_list, span: call.head }.into_pipeline_data())
+    Ok(Value::List {
+        vals: returned_list,
+        span: call.head,
+    }
+    .into_pipeline_data())
 }
