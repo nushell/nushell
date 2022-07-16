@@ -215,17 +215,18 @@ fn single_quote_does_not_expand_path_glob_windows() {
 
 #[cfg(windows)]
 #[test]
-fn test_touch() {
-    Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
-        nu!(
-            cwd: dirs.test(),
-            "touch foo.txt"
-        );
+fn test_ls() {
+    Playground::setup("test ls", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("D&D_volume_1.txt"),
+            EmptyFile("D&D_volume_2.txt"),
+            EmptyFile("foo.sh"),
+        ]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                dir '*.txt'
+                ls
             "#
         ));
         println!("output is {}", actual.out);

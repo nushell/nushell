@@ -411,9 +411,16 @@ impl ExternalCommand {
 
         for arg in self.args.iter() {
             let (trimmed_args, run_glob_expansion) = trim_enclosing_quotes(&arg.item);
-            let mut arg = Spanned {
-                item: remove_quotes(trimmed_args),
-                span: arg.span,
+            let mut arg = if cfg!(windows) {
+                Spanned {
+                    item: arg.item.clone(),
+                    span: arg.span,
+                }
+            } else {
+                Spanned {
+                    item: remove_quotes(trimmed_args),
+                    span: arg.span,
+                }
             };
 
             arg.item = nu_path::expand_tilde(arg.item)
@@ -520,12 +527,21 @@ fn shell_arg_escape(arg: &str) -> String {
 fn trim_enclosing_quotes(input: &str) -> (String, bool) {
     let mut chars = input.chars();
 
+    // if cfg!(windows) {
+    //     match (chars.next(), chars.next_back()) {
+    //         (Some('"'), Some('"')) => (input.to_string(), false),
+    //         (Some('\''), Some('\'')) => (input.to_string(), false),
+    //         (Some('`'), Some('`')) => (chars.collect(), true),
+    //         _ => (input.to_string(), true),
+    //     }
+    // } else {
     match (chars.next(), chars.next_back()) {
         (Some('"'), Some('"')) => (chars.collect(), false),
         (Some('\''), Some('\'')) => (chars.collect(), false),
         (Some('`'), Some('`')) => (chars.collect(), true),
         _ => (input.to_string(), true),
     }
+    // }
 }
 
 fn remove_quotes(input: String) -> String {
