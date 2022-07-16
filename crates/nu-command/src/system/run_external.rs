@@ -412,8 +412,8 @@ impl ExternalCommand {
         for arg in self.args.iter() {
             let (trimmed_args, run_glob_expansion) = trim_enclosing_quotes(&arg.item);
             let mut arg = Spanned {
-                    item: remove_quotes(trimmed_args),
-                    span: arg.span,
+                item: remove_quotes(trimmed_args),
+                span: arg.span,
             };
 
             arg.item = nu_path::expand_tilde(arg.item)
