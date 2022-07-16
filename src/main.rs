@@ -102,9 +102,9 @@ fn main() -> Result<()> {
                 "--commands" | "-c" | "--table-mode" | "-m" => {
                     args.next().map(|a| escape_quote_string(&a))
                 }
-                "--plugin" | "--config" | "--env-config" => {
-                    args.next().map(|a| escape_quote_string(&a))
-                }
+                "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
+                #[cfg(feature = "plugin")]
+                "--plugin" => args.next().map(|a| escape_quote_string(&a)),
                 "--log-level" | "--testbin" | "--threads" | "-t" => args.next(),
                 _ => None,
             };
@@ -308,6 +308,7 @@ fn main() -> Result<()> {
                 setup_config(
                     &mut engine_state,
                     &mut stack,
+                    #[cfg(feature = "plugin")]
                     binary_args.plugin_file,
                     binary_args.config_file,
                     binary_args.env_file,
@@ -334,7 +335,7 @@ fn main() -> Result<()> {
 fn setup_config(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    plugin_file: Option<Spanned<String>>,
+    #[cfg(feature = "plugin")] plugin_file: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
     is_login_shell: bool,
@@ -410,6 +411,7 @@ fn parse_commandline_args(
             let commands: Option<Expression> = call.get_flag_expr("commands");
             let testbin: Option<Expression> = call.get_flag_expr("testbin");
             let perf = call.has_flag("perf");
+            #[cfg(feature = "plugin")]
             let plugin_file: Option<Expression> = call.get_flag_expr("plugin");
             let config_file: Option<Expression> = call.get_flag_expr("config");
             let env_file: Option<Expression> = call.get_flag_expr("env-config");
@@ -438,6 +440,7 @@ fn parse_commandline_args(
 
             let commands = extract_contents(commands)?;
             let testbin = extract_contents(testbin)?;
+            #[cfg(feature = "plugin")]
             let plugin_file = extract_contents(plugin_file)?;
             let config_file = extract_contents(config_file)?;
             let env_file = extract_contents(env_file)?;
@@ -469,6 +472,7 @@ fn parse_commandline_args(
                 interactive_shell,
                 commands,
                 testbin,
+                #[cfg(feature = "plugin")]
                 plugin_file,
                 config_file,
                 env_file,
@@ -493,6 +497,7 @@ struct NushellCliArgs {
     interactive_shell: Option<Spanned<String>>,
     commands: Option<Spanned<String>>,
     testbin: Option<Spanned<String>>,
+    #[cfg(feature = "plugin")]
     plugin_file: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
@@ -511,7 +516,7 @@ impl Command for Nu {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("nu")
+        let signature = Signature::build("nu")
             .usage("The nushell language and shell.")
             .switch("stdin", "redirect the stdin", None)
             .switch("login", "start as a login shell", Some('l'))
@@ -533,12 +538,6 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "run the given commands and then exit",
                 Some('c'),
-            )
-            .named(
-                "plugin",
-                SyntaxShape::String,
-                "start with an alternate plugin signature file",
-                None,
             )
             .named(
                 "config",
@@ -580,7 +579,22 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "parameters to the script file",
             )
-            .category(Category::System)
+            .category(Category::System);
+
+        #[cfg(feature = "plugin")]
+        {
+            signature.named(
+                "plugin",
+                SyntaxShape::String,
+                "start with an alternate plugin signature file",
+                None,
+            )
+        }
+
+        #[cfg(not(feature = "plugin"))]
+        {
+            signature
+        }
     }
 
     fn usage(&self) -> &str {

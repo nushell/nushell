@@ -1,10 +1,14 @@
 use crate::util::{eval_source, report_error};
 #[cfg(feature = "plugin")]
 use log::info;
+#[cfg(feature = "plugin")]
 use nu_parser::ParseError;
+#[cfg(feature = "plugin")]
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{HistoryFileFormat, PipelineData, Span, Spanned};
+#[cfg(feature = "plugin")]
+use nu_protocol::Spanned;
+use nu_protocol::{HistoryFileFormat, PipelineData, Span};
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
