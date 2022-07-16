@@ -119,6 +119,7 @@ pub fn create_default_context() -> EngineState {
             SkipWhile,
             Sort,
             SortBy,
+            SplitList,
             Transpose,
             Uniq,
             Upsert,
