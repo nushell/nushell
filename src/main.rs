@@ -104,7 +104,7 @@ fn main() -> Result<()> {
                 }
                 "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
                 #[cfg(feature = "plugin")]
-                "--plugin" => args.next().map(|a| escape_quote_string(&a)),
+                "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
                 "--log-level" | "--testbin" | "--threads" | "-t" => args.next(),
                 _ => None,
             };
@@ -412,7 +412,7 @@ fn parse_commandline_args(
             let testbin: Option<Expression> = call.get_flag_expr("testbin");
             let perf = call.has_flag("perf");
             #[cfg(feature = "plugin")]
-            let plugin_file: Option<Expression> = call.get_flag_expr("plugin");
+            let plugin_file: Option<Expression> = call.get_flag_expr("plugin-config");
             let config_file: Option<Expression> = call.get_flag_expr("config");
             let env_file: Option<Expression> = call.get_flag_expr("env-config");
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
@@ -584,7 +584,7 @@ impl Command for Nu {
         #[cfg(feature = "plugin")]
         {
             signature.named(
-                "plugin",
+                "plugin-config",
                 SyntaxShape::String,
                 "start with an alternate plugin signature file",
                 None,
