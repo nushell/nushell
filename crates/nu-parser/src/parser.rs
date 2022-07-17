@@ -791,7 +791,18 @@ pub fn parse_internal_call(
             &signature,
         );
 
-        if let Some(short_flags) = short_flags {
+        if let Some(mut short_flags) = short_flags {
+            if short_flags.is_empty() {
+                short_flags.push(Flag {
+                    long: "".to_string(),
+                    short: Some('a'),
+                    arg: None,
+                    required: false,
+                    desc: "".to_string(),
+                    var_id: None,
+                    default_value: None,
+                })
+            }
             error = error.or(err);
             for flag in short_flags {
                 if let Some(arg_shape) = flag.arg {

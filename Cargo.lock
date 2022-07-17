@@ -2621,6 +2621,7 @@ dependencies = [
  "nu-utils",
  "reedline",
  "regex",
+ "rstest 0.12.0",
  "sysinfo",
  "thiserror",
 ]
