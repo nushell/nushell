@@ -168,6 +168,17 @@ fn bare_word_expand_path_glob_windows() {
 
 #[cfg(windows)]
 #[test]
+// This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
+//
+// Test command 1 - `dir * `
+// Test command 2 - `dir '*'`
+// Test command 3 - `dir "*"`
+//
+// In CMD, command 2 and 3 will give you an error of 'File Not Found'
+// In Poweshell, all three commands will do the path expansion with any errors whatsoever
+//
+// With current Windows CI build(Microsoft Windows 2022 with version 10.0.20348),
+// the unit test runs agaisnt PowerShell
 fn double_quote_does_not_expand_path_glob_windows() {
     Playground::setup("double quote do not run the expansion", |dirs, sandbox| {
         sandbox.with_files(vec![
@@ -189,6 +200,17 @@ fn double_quote_does_not_expand_path_glob_windows() {
 
 #[cfg(windows)]
 #[test]
+// This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
+//
+// Test command 1 - `dir * `
+// Test command 2 - `dir '*'`
+// Test command 3 - `dir "*"`
+//
+// In CMD, command 2 and 3 will give you an error of 'File Not Found'
+// In Poweshell, all three commands will do the path expansion with any errors whatsoever
+//
+// With current Windows CI build(Microsoft Windows 2022 with version 10.0.20348),
+// the unit test runs agaisnt PowerShell
 fn single_quote_does_not_expand_path_glob_windows() {
     Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
         sandbox.with_files(vec![
@@ -203,5 +225,7 @@ fn single_quote_does_not_expand_path_glob_windows() {
                 dir '*.txt'
             "#
         ));
-    })
+    });
+    assert!(actual.out.contains("D&D_volume_1.txt"));
+    assert!(actual.out.contains("D&D_volume_2.txt"));
 }
