@@ -402,7 +402,7 @@ impl ExternalCommand {
 
     /// Spawn a command without shelling out to an external shell
     pub fn spawn_simple_command(&self, cwd: &str) -> Result<std::process::Command, ShellError> {
-        let head = trim_enclosing_quotes(&self.name.item);
+        let (head, _) = trim_enclosing_quotes(&self.name.item);
         let head = nu_path::expand_to_real_path(head)
             .to_string_lossy()
             .to_string();
@@ -410,8 +410,9 @@ impl ExternalCommand {
         let mut process = std::process::Command::new(&head);
 
         for arg in self.args.iter() {
+            let (trimmed_args, run_glob_expansion) = trim_enclosing_quotes(&arg.item);
             let mut arg = Spanned {
-                item: remove_quotes(trim_enclosing_quotes(&arg.item)),
+                item: remove_quotes(trimmed_args),
                 span: arg.span,
             };
 
@@ -421,7 +422,7 @@ impl ExternalCommand {
 
             let cwd = PathBuf::from(cwd);
 
-            if arg.item.contains('*') {
+            if arg.item.contains('*') && run_glob_expansion {
                 if let Ok((prefix, matches)) =
                     nu_engine::glob_from(&arg, &cwd, self.name.span, None)
                 {
@@ -516,14 +517,14 @@ fn shell_arg_escape(arg: &str) -> String {
     }
 }
 
-fn trim_enclosing_quotes(input: &str) -> String {
+fn trim_enclosing_quotes(input: &str) -> (String, bool) {
     let mut chars = input.chars();
 
     match (chars.next(), chars.next_back()) {
-        (Some('"'), Some('"')) => chars.collect(),
-        (Some('\''), Some('\'')) => chars.collect(),
-        (Some('`'), Some('`')) => chars.collect(),
-        _ => input.to_string(),
+        (Some('"'), Some('"')) => (chars.collect(), false),
+        (Some('\''), Some('\'')) => (chars.collect(), false),
+        (Some('`'), Some('`')) => (chars.collect(), true),
+        _ => (input.to_string(), true),
     }
 }
 
