@@ -7,7 +7,7 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
 
-use nu_protocol::ShellError;
+use nu_protocol::{CustomValue, ShellError};
 use nu_protocol::{Signature, Value};
 
 use super::EvaluatedCall;
@@ -188,7 +188,18 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                         .encode_response(&response, &mut std::io::stdout())
                         .expect("Error encoding response");
                 }
-                PluginCall::CollapseCustomValue(_) => todo!(),
+                PluginCall::CollapseCustomValue(plugin_data) => {
+                    let response = serde_json::from_value::<Box<dyn CustomValue>>(plugin_data.data)
+                        .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+                        .and_then(|val| val.to_base_value(plugin_data.span))
+                        .map(Box::new)
+                        .map_err(LabeledError::from)
+                        .map_or_else(PluginResponse::Error, PluginResponse::Value);
+
+                    encoder
+                        .encode_response(&response, &mut std::io::stdout())
+                        .expect("Error encoding response");
+                }
             }
         }
     }
