@@ -16,4 +16,4 @@ nu-ansi-term = "0.46.0"
 nu-protocol = { path = "../nu-protocol", version = "0.65.1" }
 strip-ansi-escapes = "0.1.1"
 atty = "0.2.14"
-tabled = { git = "https://github.com/zhiburt/tabled", rev = "9c831d5bc5bcd5a7b7a349ce63f746a64bf1c278", features = ["color"] }
+tabled = { git = "https://github.com/zhiburt/tabled", rev = "0ac6b7b7b89b56b23ba479d1b1cfe1976b71fd62", features = ["color"] }
