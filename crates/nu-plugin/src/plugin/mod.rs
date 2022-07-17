@@ -1,7 +1,7 @@
 mod declaration;
 pub use declaration::PluginDeclaration;
 
-use crate::protocol::{LabeledError, PluginCall, PluginResponse};
+use crate::protocol::{LabeledError, PluginCall, PluginData, PluginResponse};
 use crate::EncodingType;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -175,6 +175,12 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     let value = plugin.run(&call_info.name, &call_info.call, &call_info.input);
 
                     let response = match value {
+                        Ok(Value::CustomValue { val, span }) => match serde_json::to_value(val) {
+                            Ok(data) => PluginResponse::PluginData(PluginData { data, span }),
+                            Err(err) => PluginResponse::Error(
+                                ShellError::PluginFailedToEncode(err.to_string()).into(),
+                            ),
+                        },
                         Ok(value) => PluginResponse::Value(Box::new(value)),
                         Err(err) => PluginResponse::Error(err),
                     };
