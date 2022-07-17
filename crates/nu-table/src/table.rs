@@ -352,7 +352,8 @@ impl tabled::TableOption for &TrimStrategyModifier<'_> {
                 w.change(grid)
             }
             TrimStrategy::Truncate { suffix } => {
-                let mut w = Width::truncate(self.termwidth).priority::<tabled::width::PriorityMax>();
+                let mut w =
+                    Width::truncate(self.termwidth).priority::<tabled::width::PriorityMax>();
                 if let Some(suffix) = suffix {
                     w = w.suffix(suffix).suffix_try_color(true);
                 }
