@@ -1,2 +1,2 @@
-#[cfg(features = "inc")]
+#[cfg(feature = "plugin")]
 mod core_inc;
