@@ -182,11 +182,8 @@ fn double_quote_does_not_expand_path_glob_windows() {
                 dir "*.txt"
             "#
         ));
-
-        println!("output is {}", actual.out);
-        println!("error is {}", actual.err);
-
-        assert!(!actual.err.is_empty());
+        assert!(actual.out.contains("D&D_volume_1.txt"));
+        assert!(actual.out.contains("D&D_volume_2.txt"));
     })
 }
 
@@ -206,32 +203,5 @@ fn single_quote_does_not_expand_path_glob_windows() {
                 dir '*.txt'
             "#
         ));
-        println!("output is {}", actual.out);
-        println!("error is {}", actual.err);
-
-        assert!(!actual.err.is_empty());
-    })
-}
-
-#[cfg(windows)]
-#[test]
-fn test_ls() {
-    Playground::setup("test ls", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("D&D_volume_1.txt"),
-            EmptyFile("D&D_volume_2.txt"),
-            EmptyFile("foo.sh"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ls
-            "#
-        ));
-        println!("output is {}", actual.out);
-        println!("error is {}", actual.err);
-
-        assert!(!actual.err.is_empty());
     })
 }

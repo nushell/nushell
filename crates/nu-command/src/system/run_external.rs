@@ -520,21 +520,12 @@ fn shell_arg_escape(arg: &str) -> String {
 fn trim_enclosing_quotes(input: &str) -> (String, bool) {
     let mut chars = input.chars();
 
-    // if cfg!(windows) {
-    //     match (chars.next(), chars.next_back()) {
-    //         (Some('"'), Some('"')) => (input.to_string(), false),
-    //         (Some('\''), Some('\'')) => (input.to_string(), false),
-    //         (Some('`'), Some('`')) => (chars.collect(), true),
-    //         _ => (input.to_string(), true),
-    //     }
-    // } else {
     match (chars.next(), chars.next_back()) {
         (Some('"'), Some('"')) => (chars.collect(), false),
         (Some('\''), Some('\'')) => (chars.collect(), false),
         (Some('`'), Some('`')) => (chars.collect(), true),
         _ => (input.to_string(), true),
     }
-    // }
 }
 
 fn remove_quotes(input: String) -> String {
