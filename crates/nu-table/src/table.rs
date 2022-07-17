@@ -344,20 +344,18 @@ impl tabled::TableOption for &TrimStrategyModifier<'_> {
     fn change(&mut self, grid: &mut papergrid::Grid) {
         match self.trim_strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
-                let mut w = Width::wrap(self.termwidth);
+                let mut w = Width::wrap(self.termwidth).priority::<tabled::width::PriorityMax>();
                 if *try_to_keep_words {
                     w = w.keep_words();
                 }
-                let mut w = w.priority::<tabled::width::PriorityMax>();
 
                 w.change(grid)
             }
             TrimStrategy::Truncate { suffix } => {
-                let mut w = Width::truncate(self.termwidth);
+                let mut w = Width::truncate(self.termwidth).priority::<tabled::width::PriorityMax>();
                 if let Some(suffix) = suffix {
-                    w = w.suffix(suffix);
+                    w = w.suffix(suffix).suffix_try_color(true);
                 }
-                let mut w = w.priority::<tabled::width::PriorityMax>();
 
                 w.change(grid);
             }
