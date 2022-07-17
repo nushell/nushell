@@ -173,13 +173,20 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 }
                 PluginCall::CallInfo(call_info) => {
                     let input = match call_info.input {
-                        CallInput::Value(value) => Ok::<_, ()>(value),
-                        CallInput::Data(_) => todo!(),
+                        CallInput::Value(value) => Ok(value),
+                        CallInput::Data(plugin_data) => {
+                            serde_json::from_value::<Box<dyn CustomValue>>(plugin_data.data)
+                                .map(|custom_value| Value::CustomValue {
+                                    val: custom_value,
+                                    span: plugin_data.span,
+                                })
+                                .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+                        }
                     };
 
                     let value = match input {
                         Ok(input) => plugin.run(&call_info.name, &call_info.call, &input),
-                        Err(()) => todo!(),
+                        Err(err) => Err(err.into()),
                     };
 
                     let response = match value {
