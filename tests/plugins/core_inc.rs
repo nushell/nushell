@@ -3,16 +3,23 @@ use nu_test_support::nu_with_plugins;
 use nu_test_support::playground::Playground;
 
 #[test]
-fn can_only_apply_one() {
+fn chooses_highest_increment_if_given_more_than_one() {
     let actual = nu_with_plugins!(
         cwd: "tests/fixtures/formats",
         plugin: ("json", "nu_plugin_inc"),
-        "open cargo_sample.toml | first 1 | inc package.version --major --minor"
+        "open cargo_sample.toml | first 1 | inc package.version --major --minor | get package.version"
     );
 
-    assert!(actual
-        .err
-        .contains("Usage: inc field [--major|--minor|--patch]"));
+    assert_eq!(actual.out, "1.0.0");
+
+    let actual = nu_with_plugins!(
+        cwd: "tests/fixtures/formats",
+        plugin: ("json", "nu_plugin_inc"),
+        // Regardless of order of arguments
+        "open cargo_sample.toml | first 1 | inc package.version --minor --major | get package.version"
+    );
+
+    assert_eq!(actual.out, "1.0.0");
 }
 
 #[test]
