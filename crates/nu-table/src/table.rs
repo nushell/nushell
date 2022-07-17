@@ -178,10 +178,10 @@ fn build_table(
     let mut builder = Builder::from(data);
 
     if let Some(headers) = headers {
-        builder = builder.set_columns(headers.clone());
+        builder.set_columns(headers.clone());
 
         if need_footer {
-            builder = builder.add_record(headers);
+            builder.add_record(headers);
         }
     }
 
