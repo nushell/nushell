@@ -188,6 +188,7 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                         .encode_response(&response, &mut std::io::stdout())
                         .expect("Error encoding response");
                 }
+                PluginCall::CollapseCustomValue(_) => todo!(),
             }
         }
     }

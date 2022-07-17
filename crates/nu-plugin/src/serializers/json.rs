@@ -63,6 +63,7 @@ mod tests {
         match returned {
             PluginCall::Signature => {}
             PluginCall::CallInfo(_) => panic!("decoded into wrong value"),
+            PluginCall::CollapseCustomValue(_) => panic!("decoded into wrong value"),
         }
     }
 
@@ -141,6 +142,7 @@ mod tests {
                         }
                     });
             }
+            PluginCall::CollapseCustomValue(_) => panic!("returned wrong call type"),
         }
     }
 

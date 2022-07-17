@@ -38,6 +38,7 @@ pub fn encode_call(
 
             value::serialize_value(&call_info.input, value_builder);
         }
+        PluginCall::CollapseCustomValue(_) => todo!(),
     };
 
     serialize::write_message(writer, &message)
@@ -217,6 +218,7 @@ mod tests {
         match returned {
             PluginCall::Signature => {}
             PluginCall::CallInfo(_) => panic!("decoded into wrong value"),
+            PluginCall::CollapseCustomValue(_) => panic!("decoded into wrong value"),
         }
     }
 
@@ -290,6 +292,7 @@ mod tests {
                         }
                     });
             }
+            PluginCall::CollapseCustomValue(_) => panic!("returned wrong call type"),
         }
     }
 

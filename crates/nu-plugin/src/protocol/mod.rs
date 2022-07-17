@@ -20,6 +20,7 @@ pub struct CallInfo {
 pub enum PluginCall {
     Signature,
     CallInfo(Box<CallInfo>),
+    CollapseCustomValue(PluginData),
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
