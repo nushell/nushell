@@ -225,7 +225,7 @@ fn single_quote_does_not_expand_path_glob_windows() {
                 dir '*.txt'
             "#
         ));
+        assert!(actual.out.contains("D&D_volume_1.txt"));
+        assert!(actual.out.contains("D&D_volume_2.txt"));
     });
-    assert!(actual.out.contains("D&D_volume_1.txt"));
-    assert!(actual.out.contains("D&D_volume_2.txt"));
 }
