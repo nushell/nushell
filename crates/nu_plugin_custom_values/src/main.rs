@@ -1,3 +1,6 @@
+mod cool_custom_value;
+
+use cool_custom_value::CoolCustomValue;
 use nu_plugin::{serve_plugin, JsonSerializer, Plugin};
 use nu_plugin::{EvaluatedCall, LabeledError};
 use nu_protocol::{Category, Signature, Value};
@@ -35,8 +38,8 @@ impl Plugin for CustomValuePlugin {
 }
 
 impl CustomValuePlugin {
-    fn generate(&mut self, _call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
-        todo!()
+    fn generate(&mut self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
+        Ok(CoolCustomValue::new("abc").into_value(call.head))
     }
 
     fn update(&mut self, _call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
