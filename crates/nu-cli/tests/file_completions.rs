@@ -30,8 +30,8 @@ fn file_completions() {
     // Match the results
     match_suggestions(expected_paths, suggestions);
 
-    // Test completions for the completions/another folder
-    let target_dir = format!("cd {}", folder(dir.join("another")));
+    // Test completions for a file
+    let target_dir = format!("cp {}", folder(dir.join("another")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values

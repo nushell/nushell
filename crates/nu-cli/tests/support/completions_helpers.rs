@@ -59,6 +59,15 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
 
 // match a list of suggestions with the expected values
 pub fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
+    let expected_len = expected.len();
+    let suggestions_len = suggestions.len();
+    if expected_len != suggestions_len {
+        panic!(
+            "\nexpected {expected_len} suggestions but got {suggestions_len}: \n\
+            Suggestions: {suggestions:#?} \n\
+            Expected: {expected:#?}\n"
+        )
+    }
     expected.iter().zip(suggestions).for_each(|it| {
         assert_eq!(it.0, &it.1.value);
     });
