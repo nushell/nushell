@@ -104,21 +104,21 @@ macro_rules! nu {
 
 #[macro_export]
 macro_rules! nu_with_plugins {
-    (cwd: $cwd:expr, plugin: ($format:expr, $plugin_name:expr), $path:expr, $($plugins:expr),*) => {{
+    (cwd: $cwd:expr, plugin: ($format:expr, $plugin_name:expr), $command:expr, $($plugins:expr),*) => {{
         use $crate::fs::DisplayPath;
 
-        let path = format!($path, $(
+        let command = format!($path, $(
             $plugins.display_path()
         ),*);
 
-        nu_with_plugins!($cwd, $format, $plugin_name, &path)
+        nu_with_plugins!($cwd, $format, $plugin_name, &command)
     }};
 
-    (cwd: $cwd:expr, plugin: ($format:expr, $plugin_name:expr), $path:expr) => {{
-        nu_with_plugins!($cwd, $format, $plugin_name, $path)
+    (cwd: $cwd:expr, plugin: ($format:expr, $plugin_name:expr), $command:expr) => {{
+        nu_with_plugins!($cwd, $format, $plugin_name, $command)
     }};
 
-    ($cwd:expr, $format:expr, $plugin_name:expr, $path:expr) => {{
+    ($cwd:expr, $format:expr, $plugin_name:expr, $command:expr) => {{
         pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
@@ -142,7 +142,7 @@ macro_rules! nu_with_plugins {
             "--commands \"register -e {} {};{}\" --plugin-config {}",
             $format,
             $crate::fs::DisplayPath::display_path(&test_bins.join($plugin_name)),
-            $crate::fs::DisplayPath::display_path($path),
+            $crate::fs::DisplayPath::display_path($command),
             $crate::fs::DisplayPath::display_path(&temp_plugin_file)
         );
 
