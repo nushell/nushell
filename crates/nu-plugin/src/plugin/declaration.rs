@@ -1,7 +1,9 @@
 use crate::{EncodingType, EvaluatedCall};
 
 use super::{create_command, OUTPUT_BUFFER_SIZE};
-use crate::protocol::{CallInfo, CallInput, PluginCall, PluginCustomValue, PluginResponse};
+use crate::protocol::{
+    CallInfo, CallInput, PluginCall, PluginCustomValue, PluginData, PluginResponse,
+};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
@@ -78,10 +80,26 @@ impl Command for PluginDeclaration {
         // send call to plugin asking for signature
         if let Some(mut stdin_writer) = child.stdin.take() {
             let encoding_clone = self.encoding.clone();
+            let input = match input {
+                Value::CustomValue { val, span } => {
+                    match val.as_any().downcast_ref::<PluginCustomValue>() {
+                        Some(plugin_data) => CallInput::Data(PluginData {
+                            data: plugin_data.data.clone(),
+                            span,
+                        }),
+                        // TODO: sending random custom values to plugins is probably never the right
+                        // thing to do, we should probably just collapse them here and send base values
+                        // For example what will a plugin do with an SQLiteDatabase?
+                        None => CallInput::Value(Value::CustomValue { val, span }),
+                    }
+                }
+                value => CallInput::Value(value),
+            };
+
             let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
                 name: self.name.clone(),
                 call: EvaluatedCall::try_from_call(call, engine_state, stack)?,
-                input: CallInput::Value(input),
+                input,
             }));
             std::thread::spawn(move || {
                 // PluginCall information
