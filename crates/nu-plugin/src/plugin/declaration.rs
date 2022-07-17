@@ -1,7 +1,7 @@
 use crate::{EncodingType, EvaluatedCall};
 
 use super::{create_command, OUTPUT_BUFFER_SIZE};
-use crate::protocol::{CallInfo, PluginCall, PluginCustomValue, PluginResponse};
+use crate::protocol::{CallInfo, CallInput, PluginCall, PluginCustomValue, PluginResponse};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
@@ -81,7 +81,7 @@ impl Command for PluginDeclaration {
             let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
                 name: self.name.clone(),
                 call: EvaluatedCall::try_from_call(call, engine_state, stack)?,
-                input,
+                input: CallInput::Value(input),
             }));
             std::thread::spawn(move || {
                 // PluginCall information

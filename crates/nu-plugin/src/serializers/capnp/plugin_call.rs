@@ -1,7 +1,7 @@
 use super::signature::deserialize_signature;
 use super::{call, signature, value};
 use crate::plugin_capnp::{plugin_call, plugin_response};
-use crate::protocol::{CallInfo, LabeledError, PluginCall, PluginResponse};
+use crate::protocol::{CallInfo, CallInput, LabeledError, PluginCall, PluginResponse};
 use capnp::serialize;
 use nu_protocol::{ShellError, Signature, Span};
 
@@ -36,7 +36,10 @@ pub fn encode_call(
                 .get_input()
                 .map_err(|e| ShellError::PluginFailedToEncode(e.to_string()))?;
 
-            value::serialize_value(&call_info.input, value_builder);
+            match &call_info.input {
+                CallInput::Value(value) => value::serialize_value(value, value_builder),
+                CallInput::Data(_) => todo!(),
+            };
         }
         PluginCall::CollapseCustomValue(_) => todo!(),
     };
@@ -71,6 +74,7 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, She
 
             let call = call::deserialize_call(call_reader)?;
 
+            // TODO: Make reader.get_input return proper type
             let input_reader = reader
                 .get_input()
                 .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
@@ -80,7 +84,7 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, She
             Ok(PluginCall::CallInfo(Box::new(CallInfo {
                 name: name.to_string(),
                 call,
-                input,
+                input: CallInput::Value(input),
             })))
         }
     }
@@ -258,7 +262,8 @@ mod tests {
         let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
             name: name.clone(),
             call: call.clone(),
-            input: input.clone(),
+            // TODO: Make another test for callinfo_with_data_input test
+            input: CallInput::Value(input.clone()),
         }));
 
         let mut buffer: Vec<u8> = Vec::new();
@@ -269,7 +274,7 @@ mod tests {
             PluginCall::Signature => panic!("returned wrong call type"),
             PluginCall::CallInfo(call_info) => {
                 assert_eq!(name, call_info.name);
-                assert_eq!(input, call_info.input);
+                assert_eq!(CallInput::Value(input), call_info.input);
                 assert_eq!(call.head, call_info.call.head);
                 assert_eq!(call.positional.len(), call_info.call.positional.len());
 

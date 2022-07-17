@@ -12,7 +12,13 @@ use serde::{Deserialize, Serialize};
 pub struct CallInfo {
     pub name: String,
     pub call: EvaluatedCall,
-    pub input: Value,
+    pub input: CallInput,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub enum CallInput {
+    Value(Value),
+    Data(PluginData),
 }
 
 // Information sent to the plugin

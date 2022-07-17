@@ -44,7 +44,9 @@ impl PluginEncoder for JsonSerializer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{CallInfo, EvaluatedCall, LabeledError, PluginCall, PluginResponse};
+    use crate::protocol::{
+        CallInfo, CallInput, EvaluatedCall, LabeledError, PluginCall, PluginResponse,
+    };
     use nu_protocol::{Signature, Span, Spanned, SyntaxShape, Value};
 
     #[test]
@@ -103,7 +105,8 @@ mod tests {
         let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
             name: name.clone(),
             call: call.clone(),
-            input: input.clone(),
+            // TODO: Make another test for callinfo_with_data_input test
+            input: CallInput::Value(input.clone()),
         }));
 
         let encoder = JsonSerializer {};
@@ -119,7 +122,7 @@ mod tests {
             PluginCall::Signature => panic!("returned wrong call type"),
             PluginCall::CallInfo(call_info) => {
                 assert_eq!(name, call_info.name);
-                assert_eq!(input, call_info.input);
+                assert_eq!(CallInput::Value(input), call_info.input);
                 assert_eq!(call.head, call_info.call.head);
                 assert_eq!(call.positional.len(), call_info.call.positional.len());
 
