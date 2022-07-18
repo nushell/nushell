@@ -257,7 +257,12 @@ fn load_theme(
     with_footer: bool,
     with_header: bool,
 ) -> tabled::Table {
-    table = table.with(theme.theme.clone());
+    let mut theme = theme.theme.clone();
+    if !with_header {
+        theme.set_lines(HashMap::default());
+    }
+
+    table = table.with(theme);
 
     if let Some(color) = color_hm.get("separator") {
         let color = color.paint(" ").to_string();
@@ -272,10 +277,6 @@ fn load_theme(
                 .with(Alignment::center())
                 .with(AlignmentStrategy::PerCell),
         );
-    }
-
-    if !with_header {
-        table = table.with(RemoveHeaderLine);
     }
 
     table

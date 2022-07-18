@@ -1,4 +1,4 @@
-use tabled::{papergrid::Line, style::RawStyle, Style};
+use tabled::style::{Line, RawStyle, Style};
 
 #[derive(Debug, Clone)]
 pub struct TableTheme {
@@ -20,7 +20,9 @@ impl TableTheme {
 
     pub fn light() -> TableTheme {
         Self {
-            theme: Style::blank().lines([(1, Line::short('─', '─'))]).into(),
+            theme: Style::blank()
+                .lines([(1, Line::new(Some('─'), Some('─'), None, None))])
+                .into(),
         }
     }
 
@@ -41,7 +43,7 @@ impl TableTheme {
                 .top('❤')
                 .bottom('❤')
                 .vertical('❤')
-                .lines([(1, Line::short('❤', '❤'))])
+                .lines([(1, Line::new(Some('❤'), Some('❤'), None, None))])
                 .into(),
         }
     }
