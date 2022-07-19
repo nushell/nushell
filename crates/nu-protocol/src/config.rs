@@ -251,7 +251,7 @@ impl Value {
                             eprintln!("$config.partial_completions is not a bool")
                         }
                     }
-                    "max_external_command_completions" => {
+                    "max_external_completions" => {
                         if let Ok(i) = value.as_integer() {
                             config.max_external_command_completions = i;
                         } else {
