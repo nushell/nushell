@@ -3,8 +3,8 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, Operator},
     engine::{EngineState, Stack, Visibility},
-    HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range,
-    ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
+    HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream, PipelineData,
+    Range, ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::cmp::Ordering;
@@ -228,7 +228,51 @@ fn eval_external(
         ))
     }
 
-    command.run(engine_state, stack, &call, input)
+    // when the external command doesn't redirect output, we eagerly check the result
+    // and convert exteral commands result to `Result::Err` if we can, so commands after this external
+    // command will not be evaluated.
+    let result = command.run(engine_state, stack, &call, input)?;
+    if let PipelineData::ExternalStream {
+        stdout: None,
+        stderr,
+        mut exit_code,
+        span,
+        metadata,
+    } = result
+    {
+        let exit_code = exit_code.take();
+        match exit_code {
+            Some(exit_code_stream) => {
+                let ctrlc = exit_code_stream.ctrlc.clone();
+                let exit_code: Vec<Value> = exit_code_stream.into_iter().collect();
+                if let Some(Value::Int { val: code, .. }) = exit_code.last() {
+                    // if exit_code is not 0, it indicates error occured, return back Err.
+                    if *code != 0 {
+                        return Err(ShellError::ExternalCommandRunsToFailed(
+                            *code as u8,
+                            head.span,
+                        ));
+                    }
+                }
+                Ok(PipelineData::ExternalStream {
+                    stdout: None,
+                    stderr,
+                    exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
+                    span,
+                    metadata,
+                })
+            }
+            None => Ok(PipelineData::ExternalStream {
+                stdout: None,
+                stderr,
+                exit_code: None,
+                span,
+                metadata,
+            }),
+        }
+    } else {
+        Ok(result)
+    }
 }
 
 pub fn eval_expression(
