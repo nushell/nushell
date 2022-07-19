@@ -43,7 +43,8 @@ impl CommandCompletion {
 
                     if let Ok(mut contents) = std::fs::read_dir(path) {
                         while let Some(Ok(item)) = contents.next() {
-                            if !executables.contains(
+                            if executables.len() < self.engine_state.config.max_external_command_completions as usize
+                            && !executables.contains(
                                 &item
                                     .path()
                                     .file_name()

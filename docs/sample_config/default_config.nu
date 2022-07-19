@@ -256,6 +256,7 @@ let-env config = {
   cd_with_abbreviations: false # set to true to allow you to do things like cd s/o/f and nushell expand it to cd some/other/folder
   case_sensitive_completions: false # set to true to enable case-sensitive completions
   enable_external_completion: true # set to false to prevent nushell looking into $env.PATH to find more suggestions, `false` recommended for WSL users as this look up my be very slow
+  max_external_command_completions: 100
 
   # A strategy of managing table view in case of limited space.
   table_trim: {
