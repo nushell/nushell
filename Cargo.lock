@@ -2816,6 +2816,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "serde",
+ "typetag",
 ]
 
 [[package]]

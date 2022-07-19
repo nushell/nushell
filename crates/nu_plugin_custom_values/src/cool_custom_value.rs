@@ -1,9 +1,9 @@
 use nu_protocol::{CustomValue, ShellError, Span, Value};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CoolCustomValue {
-    cool: String,
+    pub(crate) cool: String,
 }
 
 impl CoolCustomValue {
@@ -19,8 +19,29 @@ impl CoolCustomValue {
             span,
         }
     }
+
+    pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
+        match value {
+            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+                Some(cool) => Ok(cool.clone()),
+                None => Err(ShellError::CantConvert(
+                    "cool".into(),
+                    "non-cool".into(),
+                    *span,
+                    None,
+                )),
+            },
+            x => Err(ShellError::CantConvert(
+                "cool".into(),
+                x.get_type().to_string(),
+                x.span()?,
+                None,
+            )),
+        }
+    }
 }
 
+#[typetag::serde]
 impl CustomValue for CoolCustomValue {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
         Value::CustomValue {
@@ -42,13 +63,5 @@ impl CustomValue for CoolCustomValue {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
-    }
-
-    fn typetag_name(&self) -> &'static str {
-        "FirestoreDatabase"
-    }
-
-    fn typetag_deserialize(&self) {
-        unimplemented!("typetag_deserialize")
     }
 }
