@@ -12,7 +12,23 @@ fn known_external_runs() -> TestResult {
 fn known_external_unknown_flag() -> TestResult {
     fail_test(
         r#"extern "cargo version" []; cargo version --no-such-flag"#,
-        "command doesn't have flag",
+        "Found argument '--no-such-flag' which wasn't expected, or isn't valid in this context",
+    )
+}
+
+#[test]
+fn known_external_not_defined_flag() -> TestResult {
+    run_test_contains(
+        r#"extern "cargo version" []; cargo version --help"#,
+        "Show version information",
+    )
+}
+
+#[test]
+fn known_external_is_custom() -> TestResult {
+    run_test_contains(
+        r#"extern "cargo version" []; help commands | where is_custom == true | get name"#,
+        "cargo version",
     )
 }
 
