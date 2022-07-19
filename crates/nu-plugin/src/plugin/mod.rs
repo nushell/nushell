@@ -12,7 +12,7 @@ use nu_protocol::{Signature, Value};
 
 use super::EvaluatedCall;
 
-const OUTPUT_BUFFER_SIZE: usize = 8192;
+pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
 pub trait PluginEncoder: Clone {
     fn encode_call(
@@ -35,7 +35,7 @@ pub trait PluginEncoder: Clone {
     ) -> Result<PluginResponse, ShellError>;
 }
 
-fn create_command(path: &Path, shell: &Option<PathBuf>) -> CommandSys {
+pub(crate) fn create_command(path: &Path, shell: &Option<PathBuf>) -> CommandSys {
     let mut process = match (path.extension(), shell) {
         (_, Some(shell)) => {
             let mut process = std::process::Command::new(shell);

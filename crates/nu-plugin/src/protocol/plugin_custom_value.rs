@@ -1,9 +1,14 @@
-use std::path::PathBuf;
+use std::{io::BufReader, path::PathBuf};
 
-use nu_protocol::{CustomValue, Value};
+use nu_protocol::{CustomValue, ShellError, Value};
 use serde::Serialize;
 
-use crate::EncodingType;
+use crate::{
+    plugin::{create_command, OUTPUT_BUFFER_SIZE},
+    EncodingType,
+};
+
+use super::{PluginCall, PluginData, PluginResponse};
 
 /// An opaque container for a custom value that is handled fully by a plugin
 ///
@@ -44,9 +49,80 @@ impl CustomValue for PluginCustomValue {
 
     fn to_base_value(
         &self,
-        _span: nu_protocol::Span,
+        span: nu_protocol::Span,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        todo!()
+        let mut plugin_cmd = create_command(&self.filename, &self.shell);
+
+        let mut child = plugin_cmd.spawn().map_err(|err| {
+            ShellError::GenericError(
+                format!(
+                    "Unable to spawn plugin for {} to get base value",
+                    self.source
+                ),
+                format!("{}", err),
+                Some(span),
+                None,
+                Vec::new(),
+            )
+        })?;
+
+        if let Some(mut stdin_writer) = child.stdin.take() {
+            let encoding_clone = self.encoding.clone();
+            let plugin_call = PluginCall::CollapseCustomValue(PluginData {
+                data: self.data.clone(),
+                span,
+            });
+            std::thread::spawn(move || {
+                // PluginCall information
+                encoding_clone.encode_call(&plugin_call, &mut stdin_writer)
+            });
+        }
+
+        // Deserialize response from plugin to extract the resulting value
+        let value = if let Some(stdout_reader) = &mut child.stdout {
+            let reader = stdout_reader;
+            let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
+
+            let response = self.encoding.decode_response(&mut buf_read).map_err(|err| {
+                ShellError::GenericError(
+                    format!(
+                        "Unable to decode call for {} to get base value",
+                        self.source
+                    ),
+                    format!("{}", err),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )
+            });
+
+            match response {
+                Ok(PluginResponse::Value(value)) => Ok(*value),
+                Ok(PluginResponse::PluginData(..)) => todo!(),
+                Ok(PluginResponse::Error(err)) => Err(err.into()),
+                Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError(
+                    "Plugin missing value".into(),
+                    "Received a signature from plugin instead of value".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )),
+                Err(err) => Err(err),
+            }
+        } else {
+            Err(ShellError::GenericError(
+                "Error with stdout reader".into(),
+                "no stdout reader".into(),
+                Some(span),
+                None,
+                Vec::new(),
+            ))
+        };
+
+        // We need to call .wait() on the child, or we'll risk summoning the zombie horde
+        let _ = child.wait();
+
+        value
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
