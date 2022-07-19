@@ -86,7 +86,10 @@ fn draw_table(
 
     let count_columns = table_fix_lengths(headers.as_mut(), &mut data);
 
-    maybe_truncate_columns(&mut headers, &mut data, count_columns, termwidth);
+    let is_empty = maybe_truncate_columns(&mut headers, &mut data, count_columns, termwidth);
+    if is_empty {
+        return None;
+    }
 
     let table_data = &table.data;
     let theme = &table.theme;
@@ -295,33 +298,9 @@ impl TableOption for FooterStyle {
             return;
         }
 
-        let mut line = papergrid::Line::default();
-
-        let border = grid.get_border((0, 0));
-        line.left = border.left_bottom_corner;
-        line.intersection = border.right_bottom_corner;
-        line.horizontal = border.bottom;
-
-        let border = grid.get_border((0, grid.count_columns() - 1));
-        line.right = border.right_bottom_corner;
-
-        grid.set_split_line(grid.count_rows() - 1, line);
-    }
-}
-
-struct RemoveHeaderLine;
-
-impl TableOption for RemoveHeaderLine {
-    fn change(&mut self, grid: &mut papergrid::Grid) {
-        grid.set_split_line(1, papergrid::Line::default());
-    }
-}
-
-struct CountColumns(usize);
-
-impl TableOption for &mut CountColumns {
-    fn change(&mut self, grid: &mut papergrid::Grid) {
-        self.0 = grid.count_columns();
+        if let Some(line) = grid.get_split_line(1) {
+            grid.set_split_line(grid.count_rows() - 1, line.clone());
+        }
     }
 }
 

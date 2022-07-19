@@ -3,9 +3,12 @@ pub(crate) fn maybe_truncate_columns(
     data: &mut [Vec<String>],
     length: usize,
     termwidth: usize,
-) {
+) -> bool {
     // Make sure we have enough space for the columns we have
     let max_num_of_columns = termwidth / 10;
+    if max_num_of_columns == 0 {
+        return true;
+    }
 
     // If we have too many columns, truncate the table
     if let Some(headers) = headers {
@@ -21,4 +24,6 @@ pub(crate) fn maybe_truncate_columns(
             entry.push(String::from("..."));
         }
     }
+
+    false
 }
