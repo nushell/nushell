@@ -35,6 +35,12 @@ impl Plugin for Example {
                 .named("named", SyntaxShape::String, "named string", Some('n'))
                 .rest("rest", SyntaxShape::String, "rest value string")
                 .category(Category::Experimental),
+            Signature::build("nu-example-4")
+                .usage("Signature test 4 for plugin. Returns plugin data")
+                .category(Category::Experimental),
+            Signature::build("nu-example-5")
+                .usage("Signature test 5 for plugin. Receives plugin data as input")
+                .category(Category::Experimental),
         ]
     }
 
@@ -49,6 +55,8 @@ impl Plugin for Example {
             "nu-example-1" => self.test1(call, input),
             "nu-example-2" => self.test2(call, input),
             "nu-example-3" => self.test3(call, input),
+            "nu-example-4" => self.test4(call, input),
+            "nu-example-5" => self.test5(call, input),
             _ => Err(LabeledError {
                 label: "Plugin call with wrong name signature".into(),
                 msg: "the signature used to call the plugin does not match any name in the plugin signature vector".into(),

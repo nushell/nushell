@@ -8,7 +8,28 @@ use serde::{Deserialize, Serialize};
 pub struct CallInfo {
     pub name: String,
     pub call: EvaluatedCall,
-    pub input: Value,
+    pub input: CallInput,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum CallInput {
+    Value(Value),
+    Data(Vec<u8>),
+}
+
+impl CallInput {
+    pub fn into_value(self) -> Value {
+        match self {
+            Self::Value(value) => value,
+            Self::Data(_) => todo!(),
+        }
+    }
+}
+
+impl From<Value> for CallInput {
+    fn from(value: Value) -> Self {
+        CallInput::Value(value)
+    }
 }
 
 // Information sent to the plugin
@@ -88,4 +109,5 @@ pub enum PluginResponse {
     Error(LabeledError),
     Signature(Vec<Signature>),
     Value(Box<Value>),
+    PluginData(Vec<u8>),
 }

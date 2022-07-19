@@ -1,8 +1,10 @@
 mod declaration;
-pub use declaration::PluginDeclaration;
+pub mod plugin_data;
 
-use crate::protocol::{LabeledError, PluginCall, PluginResponse};
+use crate::protocol::{CallInput, LabeledError, PluginCall, PluginResponse};
 use crate::EncodingType;
+pub use declaration::PluginDeclaration;
+use plugin_data::PluginData;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
@@ -172,10 +174,28 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                         .expect("Error encoding response");
                 }
                 PluginCall::CallInfo(call_info) => {
-                    let value = plugin.run(&call_info.name, &call_info.call, &call_info.input);
+                    let input = match call_info.input {
+                        CallInput::Value(value) => value,
+                        CallInput::Data(data) => {
+                            let plugin_data = PluginData::new(data);
+
+                            plugin_data.into_value(call_info.call.head)
+                        }
+                    };
+
+                    let value = plugin.run(&call_info.name, &call_info.call, &input);
 
                     let response = match value {
-                        Ok(value) => PluginResponse::Value(Box::new(value)),
+                        Ok(value) => {
+                            if PluginData::can_downcast(&value) {
+                                match PluginData::try_from_value(value) {
+                                    Ok(data) => PluginResponse::PluginData(data.into_data()),
+                                    Err(err) => PluginResponse::Error(err.into()),
+                                }
+                            } else {
+                                PluginResponse::Value(Box::new(value))
+                            }
+                        }
                         Err(err) => PluginResponse::Error(err),
                     };
                     encoder

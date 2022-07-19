@@ -36,7 +36,8 @@ pub fn encode_call(
                 .get_input()
                 .map_err(|e| ShellError::PluginFailedToEncode(e.to_string()))?;
 
-            value::serialize_value(&call_info.input, value_builder);
+            let value = call_info.input.clone().into_value();
+            value::serialize_value(&value, value_builder);
         }
     };
 
@@ -79,7 +80,7 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, She
             Ok(PluginCall::CallInfo(Box::new(CallInfo {
                 name: name.to_string(),
                 call,
-                input,
+                input: input.into(),
             })))
         }
     }
@@ -118,6 +119,7 @@ pub fn encode_response(
             let value_builder = builder.reborrow().init_value();
             value::serialize_value(val, value_builder);
         }
+        _ => todo!(),
     };
 
     serialize::write_message(writer, &message)
@@ -202,7 +204,7 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{EvaluatedCall, LabeledError, PluginCall, PluginResponse};
+    use crate::protocol::{CallInput, EvaluatedCall, LabeledError, PluginCall, PluginResponse};
     use nu_protocol::{Signature, Span, Spanned, SyntaxShape, Value};
 
     #[test]
@@ -255,7 +257,7 @@ mod tests {
         let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
             name: name.clone(),
             call: call.clone(),
-            input: input.clone(),
+            input: input.clone().into(),
         }));
 
         let mut buffer: Vec<u8> = Vec::new();
@@ -266,7 +268,7 @@ mod tests {
             PluginCall::Signature => panic!("returned wrong call type"),
             PluginCall::CallInfo(call_info) => {
                 assert_eq!(name, call_info.name);
-                assert_eq!(input, call_info.input);
+                assert_eq!(CallInput::Value(input), call_info.input);
                 assert_eq!(call.head, call_info.call.head);
                 assert_eq!(call.positional.len(), call_info.call.positional.len());
 
@@ -346,6 +348,7 @@ mod tests {
                     returned_signature[0].rest_positional,
                 );
             }
+            _ => todo!(),
         }
     }
 
@@ -369,6 +372,7 @@ mod tests {
             PluginResponse::Value(returned_value) => {
                 assert_eq!(&value, returned_value.as_ref())
             }
+            _ => todo!(),
         }
     }
 
@@ -390,6 +394,7 @@ mod tests {
             PluginResponse::Error(msg) => assert_eq!(error, msg),
             PluginResponse::Signature(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
+            _ => todo!(),
         }
     }
 
@@ -411,6 +416,7 @@ mod tests {
             PluginResponse::Error(msg) => assert_eq!(error, msg),
             PluginResponse::Signature(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
+            _ => todo!(),
         }
     }
 }

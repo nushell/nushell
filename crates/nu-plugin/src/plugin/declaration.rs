@@ -1,7 +1,8 @@
 use crate::{EncodingType, EvaluatedCall};
 
+use super::plugin_data::PluginData;
 use super::{create_command, OUTPUT_BUFFER_SIZE};
-use crate::protocol::{CallInfo, PluginCall, PluginResponse};
+use crate::protocol::{CallInfo, CallInput, PluginCall, PluginResponse};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
@@ -74,10 +75,19 @@ impl Command for PluginDeclaration {
 
         let input = input.into_value(call.head);
 
-        // Create message to plugin to indicate that signature is required and
-        // send call to plugin asking for signature
+        // Create message to plugin to indicate that a value is required and
+        // send call to plugin asking for it
         if let Some(mut stdin_writer) = child.stdin.take() {
             let encoding_clone = self.encoding.clone();
+
+            let input = if PluginData::can_downcast(&input) {
+                let plugin_data = PluginData::try_from_value(input)?;
+
+                CallInput::Data(plugin_data.into_data())
+            } else {
+                CallInput::Value(input)
+            };
+
             let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
                 name: self.name.clone(),
                 call: EvaluatedCall::try_from_call(call, engine_state, stack)?,
@@ -108,6 +118,10 @@ impl Command for PluginDeclaration {
             match response {
                 Ok(PluginResponse::Value(value)) => {
                     Ok(PipelineData::Value(value.as_ref().clone(), None))
+                }
+                Ok(PluginResponse::PluginData(data)) => {
+                    let plugin_data = PluginData::new(data);
+                    Ok(PipelineData::Value(plugin_data.into_value(call.head), None))
                 }
                 Ok(PluginResponse::Error(err)) => Err(err.into()),
                 Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError(

@@ -1,4 +1,4 @@
-use nu_plugin::{EvaluatedCall, LabeledError};
+use nu_plugin::{EvaluatedCall, LabeledError, PluginData};
 use nu_protocol::Value;
 pub struct Example;
 
@@ -90,5 +90,16 @@ impl Example {
             msg: "error message pointing to call head span".into(),
             span: Some(call.head),
         })
+    }
+
+    pub fn test4(&self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
+        let data = PluginData::new(vec![0, 0, 0, 1]);
+        Ok(data.into_value(call.head))
+    }
+
+    pub fn test5(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+        eprintln!("input: {:?}", input);
+
+        Ok(Value::Nothing { span: call.head })
     }
 }
