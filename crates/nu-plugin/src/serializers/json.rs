@@ -2,7 +2,7 @@ use nu_protocol::ShellError;
 
 use crate::{plugin::PluginEncoder, protocol::PluginResponse};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct JsonSerializer;
 
 impl PluginEncoder for JsonSerializer {

@@ -131,6 +131,10 @@ impl Command for PluginDeclaration {
                     Value::CustomValue {
                         val: Box::new(PluginCustomValue {
                             data: plugin_data.data,
+                            filename: self.filename.clone(),
+                            shell: self.shell.clone(),
+                            encoding: self.encoding.clone(),
+                            source: engine_state.get_decl(call.decl_id).name().to_owned(),
                         }),
                         span: plugin_data.span,
                     },

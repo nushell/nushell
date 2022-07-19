@@ -1,9 +1,25 @@
+use std::path::PathBuf;
+
 use nu_protocol::{CustomValue, Value};
 use serde::Serialize;
+
+use crate::EncodingType;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct PluginCustomValue {
     pub data: serde_json::Value,
+    pub filename: PathBuf,
+
+    // PluginCustomValue must implement Serialize because all CustomValues must implement Serialize
+    // However, the main place where values are serialized and deserialized is when they are being
+    // sent between plugins and nushell's main engine. PluginCustomValue is never meant to be sent
+    // between that boundary
+    #[serde(skip)]
+    pub shell: Option<PathBuf>,
+    #[serde(skip)]
+    pub encoding: EncodingType,
+    #[serde(skip)]
+    pub source: String,
 }
 
 impl CustomValue for PluginCustomValue {

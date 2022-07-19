@@ -7,7 +7,7 @@ use nu_protocol::ShellError;
 
 use crate::{plugin::PluginEncoder, protocol::PluginResponse};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CapnpSerializer;
 
 impl PluginEncoder for CapnpSerializer {
