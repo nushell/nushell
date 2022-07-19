@@ -253,8 +253,8 @@ impl Value {
                     }
                     "max_external_command_completions" => {
                         if let Ok(i) = value.as_integer() {
-                            config.max_external_command_completions= i;
-                        } else { 
+                            config.max_external_command_completions = i;
+                        } else {
                             eprintln!("$config.max_external_command_completions is not an integer")
                         }
                     }

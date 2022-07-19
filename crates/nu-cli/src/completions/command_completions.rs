@@ -43,20 +43,21 @@ impl CommandCompletion {
 
                     if let Ok(mut contents) = std::fs::read_dir(path) {
                         while let Some(Ok(item)) = contents.next() {
-                            if executables.len() < self.engine_state.config.max_external_command_completions as usize
-                            && !executables.contains(
-                                &item
-                                    .path()
-                                    .file_name()
-                                    .map(|x| x.to_string_lossy().to_string())
-                                    .unwrap_or_default(),
-                            ) && matches!(
-                                item.path()
-                                    .file_name()
-                                    .map(|x| match_algorithm
+                            if executables.len()
+                                < self.engine_state.config.max_external_command_completions as usize
+                                && !executables.contains(
+                                    &item
+                                        .path()
+                                        .file_name()
+                                        .map(|x| x.to_string_lossy().to_string())
+                                        .unwrap_or_default(),
+                                )
+                                && matches!(
+                                    item.path().file_name().map(|x| match_algorithm
                                         .matches_str(&x.to_string_lossy(), prefix)),
-                                Some(true)
-                            ) && is_executable::is_executable(&item.path())
+                                    Some(true)
+                                )
+                                && is_executable::is_executable(&item.path())
                             {
                                 if let Ok(name) = item.file_name().into_string() {
                                     executables.push(name);
