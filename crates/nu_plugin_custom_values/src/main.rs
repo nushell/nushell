@@ -42,8 +42,12 @@ impl CustomValuePlugin {
         Ok(CoolCustomValue::new("abc").into_value(call.head))
     }
 
-    fn update(&mut self, _call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
-        todo!()
+    fn update(&mut self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+        let mut cool = CoolCustomValue::try_from_value(input)?;
+
+        cool.cool += "xyz";
+
+        Ok(cool.into_value(call.head))
     }
 }
 
