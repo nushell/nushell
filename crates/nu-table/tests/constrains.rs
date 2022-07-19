@@ -39,59 +39,38 @@ fn termwidth_too_small() {
     let table = Table::new(row(3), vec![row(5); 2], theme::heavy());
     let cfg = Config::default();
 
-    assert!(draw_table(&table, 4, &cfg).is_some());
-
-    for i in 0..4 {
+    for i in 0..10 {
         assert!(draw_table(&table, i, &cfg).is_none());
     }
+
+    assert!(draw_table(&table, 11, &cfg).is_some());
 
     let cfg = Config {
         trim_strategy: TrimStrategy::Truncate { suffix: None },
         ..Default::default()
     };
 
-    assert!(draw_table(&table, 4, &cfg).is_some());
-    for i in 0..4 {
+    for i in 0..10 {
         assert!(draw_table(&table, i, &cfg).is_none());
     }
+
+    assert!(draw_table(&table, 11, &cfg).is_some());
 }
 
 #[test]
 fn wrap_test() {
-    let table = Table::new(
-        vec![
-            styled_str("123 45678"),
-            styled_str("qweqw eqwe"),
-            styled_str("xxx xx xx x xx x xx xx"),
-            styled_str("qqq qqq qqqq qqq qq"),
-            styled_str("qw"),
-        ],
-        vec![row(5); 2],
-        theme::heavy(),
-    );
     let cfg = Config {
         trim_strategy: TrimStrategy::Wrap {
             try_to_keep_words: false,
         },
         ..Default::default()
     };
+    let table = table_with_data();
 
-    assert_eq!(
-        draw_table(&table, 4, &cfg).unwrap(),
-        "┏━━┓\n┃  ┃\n┣━━┫\n┃  ┃\n┃  ┃\n┗━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 5, &cfg).unwrap(),
-        "┏━━━┓\n┃ . ┃\n┃ . ┃\n┃ . ┃\n┣━━━┫\n┃ . ┃\n┃ . ┃\n┃ . ┃\n┃ . ┃\n┃ . ┃\n┃ . ┃\n┗━━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 6, &cfg).unwrap(),
-        "┏━━━━┓\n┃ .. ┃\n┃  . ┃\n┣━━━━┫\n┃ .. ┃\n┃ .  ┃\n┃ .. ┃\n┃ .  ┃\n┗━━━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 9, &cfg).unwrap(),
-        "┏━━━━━┓\n┃ ... ┃\n┣━━━━━┫\n┃ ... ┃\n┃ ... ┃\n┗━━━━━┛"
-    );
+    for i in 0..10 {
+        assert!(draw_table(&table, i, &cfg).is_none());
+    }
+
     assert_eq!(draw_table(&table, 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 3  ┃ . ┃\n┃ 45 ┃ . ┃\n┃ 67 ┃   ┃\n┃  8 ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
     assert_eq!(
         draw_table(&table, 21, &cfg).unwrap(),
@@ -109,40 +88,18 @@ fn wrap_test() {
 
 #[test]
 fn wrap_keep_words_test() {
-    let table = Table::new(
-        vec![
-            styled_str("123 45678"),
-            styled_str("qweqw eqwe"),
-            styled_str("xxx xx xx x xx x xx xx"),
-            styled_str("qqq qqq qqqq qqq qq"),
-            styled_str("qw"),
-        ],
-        vec![row(5); 2],
-        theme::heavy(),
-    );
     let cfg = Config {
         trim_strategy: TrimStrategy::Wrap {
             try_to_keep_words: true,
         },
         ..Default::default()
     };
+    let table = table_with_data();
 
-    assert_eq!(
-        draw_table(&table, 4, &cfg).unwrap(),
-        "┏━━┓\n┃  ┃\n┣━━┫\n┃  ┃\n┃  ┃\n┗━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 5, &cfg).unwrap(),
-        "┏━━━┓\n┃ . ┃\n┃ . ┃\n┃ . ┃\n┣━━━┫\n┃ . ┃\n┃ . ┃\n┃ . ┃\n┃ . ┃\n┃ . ┃\n┃ . ┃\n┗━━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 6, &cfg).unwrap(),
-        "┏━━━━┓\n┃ .. ┃\n┃ .  ┃\n┣━━━━┫\n┃ .. ┃\n┃ .  ┃\n┃ .. ┃\n┃ .  ┃\n┗━━━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 9, &cfg).unwrap(),
-        "┏━━━━━┓\n┃ ... ┃\n┣━━━━━┫\n┃ ... ┃\n┃ ... ┃\n┗━━━━━┛"
-    );
+    for i in 0..10 {
+        assert!(draw_table(&table, i, &cfg).is_none());
+    }
+
     assert_eq!(draw_table(&table, 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 34 ┃ . ┃\n┃ 56 ┃ . ┃\n┃ 78 ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
     assert_eq!(
         draw_table(&table, 21, &cfg).unwrap(),
@@ -160,38 +117,16 @@ fn wrap_keep_words_test() {
 
 #[test]
 fn truncate_test() {
-    let table = Table::new(
-        vec![
-            styled_str("123 45678"),
-            styled_str("qweqw eqwe"),
-            styled_str("xxx xx xx x xx x xx xx"),
-            styled_str("qqq qqq qqqq qqq qq"),
-            styled_str("qw"),
-        ],
-        vec![row(5); 2],
-        theme::heavy(),
-    );
     let cfg = Config {
         trim_strategy: TrimStrategy::Truncate { suffix: None },
         ..Default::default()
     };
+    let table = table_with_data();
 
-    assert_eq!(
-        draw_table(&table, 4, &cfg).unwrap(),
-        "┏━━┓\n┃  ┃\n┣━━┫\n┃  ┃\n┃  ┃\n┗━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 5, &cfg).unwrap(),
-        "┏━━━┓\n┃ . ┃\n┣━━━┫\n┃ . ┃\n┃ . ┃\n┗━━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 6, &cfg).unwrap(),
-        "┏━━━━┓\n┃ .. ┃\n┣━━━━┫\n┃ .. ┃\n┃ .. ┃\n┗━━━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 9, &cfg).unwrap(),
-        "┏━━━━━┓\n┃ ... ┃\n┣━━━━━┫\n┃ ... ┃\n┃ ... ┃\n┗━━━━━┛"
-    );
+    for i in 0..10 {
+        assert!(draw_table(&table, i, &cfg).is_none());
+    }
+
     assert_eq!(
         draw_table(&table, 10, &cfg).unwrap(),
         "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃ 0  ┃ . ┃\n┗━━━━┻━━━┛"
@@ -212,40 +147,18 @@ fn truncate_test() {
 
 #[test]
 fn truncate_with_suffix_test() {
-    let table = Table::new(
-        vec![
-            styled_str("123 45678"),
-            styled_str("qweqw eqwe"),
-            styled_str("xxx xx xx x xx x xx xx"),
-            styled_str("qqq qqq qqqq qqq qq"),
-            styled_str("qw"),
-        ],
-        vec![row(5); 2],
-        theme::heavy(),
-    );
     let cfg = Config {
         trim_strategy: TrimStrategy::Truncate {
             suffix: Some(String::from("...")),
         },
         ..Default::default()
     };
+    let table = table_with_data();
 
-    assert_eq!(
-        draw_table(&table, 4, &cfg).unwrap(),
-        "┏━━┓\n┃  ┃\n┣━━┫\n┃  ┃\n┃  ┃\n┗━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 5, &cfg).unwrap(),
-        "┏━━━┓\n┃ . ┃\n┣━━━┫\n┃ . ┃\n┃ . ┃\n┗━━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 6, &cfg).unwrap(),
-        "┏━━━━┓\n┃ .. ┃\n┣━━━━┫\n┃ .. ┃\n┃ .. ┃\n┗━━━━┛"
-    );
-    assert_eq!(
-        draw_table(&table, 9, &cfg).unwrap(),
-        "┏━━━━━┓\n┃ ... ┃\n┣━━━━━┫\n┃ ... ┃\n┃ ... ┃\n┗━━━━━┛"
-    );
+    for i in 0..10 {
+        assert!(draw_table(&table, i, &cfg).is_none());
+    }
+
     assert_eq!(
         draw_table(&table, 10, &cfg).unwrap(),
         "┏━━━━┳━━━┓\n┃ .. ┃ . ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃ 0  ┃ . ┃\n┗━━━━┻━━━┛"
@@ -282,4 +195,18 @@ fn row(count_columns: usize) -> Vec<StyledString> {
 
 fn styled_str(s: &str) -> StyledString {
     StyledString::new(s.to_string(), TextStyle::default())
+}
+
+fn table_with_data() -> Table {
+    Table::new(
+        vec![
+            styled_str("123 45678"),
+            styled_str("qweqw eqwe"),
+            styled_str("xxx xx xx x xx x xx xx"),
+            styled_str("qqq qqq qqqq qqq qq"),
+            styled_str("qw"),
+        ],
+        vec![row(5); 2],
+        theme::heavy(),
+    )
 }
