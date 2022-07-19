@@ -1,6 +1,6 @@
 mod plugin;
 mod protocol;
-pub mod serializers;
+mod serializers;
 
 #[allow(dead_code)]
 mod plugin_capnp;
