@@ -59,7 +59,7 @@ pub struct Config {
     pub use_grid_icons: bool,
     pub footer_mode: FooterMode,
     pub float_precision: i64,
-    pub max_external_command_completions: i64,
+    pub max_external_completion_results: i64,
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
@@ -93,7 +93,7 @@ impl Default for Config {
             use_grid_icons: false,
             footer_mode: FooterMode::RowCount(25),
             float_precision: 4,
-            max_external_command_completions: 100,
+            max_external_completion_results: 100,
             filesize_format: "auto".into(),
             use_ansi_coloring: true,
             quick_completions: true,
@@ -251,11 +251,11 @@ impl Value {
                             eprintln!("$config.partial_completions is not a bool")
                         }
                     }
-                    "max_external_completions" => {
+                    "max_external_completion_results" => {
                         if let Ok(i) = value.as_integer() {
-                            config.max_external_command_completions = i;
+                            config.max_external_completion_results = i;
                         } else {
-                            eprintln!("$config.max_external_command_completions is not an integer")
+                            eprintln!("$config.max_external_completion_results is not an integer")
                         }
                     }
                     "completion_algorithm" => {

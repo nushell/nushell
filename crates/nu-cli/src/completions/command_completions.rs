@@ -43,7 +43,7 @@ impl CommandCompletion {
 
                     if let Ok(mut contents) = std::fs::read_dir(path) {
                         while let Some(Ok(item)) = contents.next() {
-                            if self.engine_state.config.max_external_command_completions
+                            if self.engine_state.config.max_external_completion_results
                                 > executables.len() as i64
                                 && !executables.contains(
                                     &item
