@@ -92,6 +92,7 @@ impl Command for If {
                                 call.redirect_stdout,
                                 call.redirect_stderr,
                             )
+                            .map(|res| res.0)
                         }
                     } else {
                         eval_expression_with_input(
@@ -102,6 +103,7 @@ impl Command for If {
                             call.redirect_stdout,
                             call.redirect_stderr,
                         )
+                        .map(|res| res.0)
                     }
                 } else {
                     Ok(PipelineData::new(call.head))

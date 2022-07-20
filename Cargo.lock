@@ -35,7 +35,7 @@ checksum = "fcb51a0695d8f838b1ee009b3fbf66bda078cd64590202a864a8f3e8c4315c47"
 dependencies = [
  "getrandom 0.2.6",
  "once_cell",
- "version_check 0.9.4",
+ "version_check",
 ]
 
 [[package]]
@@ -69,29 +69,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77e9c9abb82613923ec78d7a461595d52491ba7240f3c64c0bbe0e6d98e0fce0"
 
 [[package]]
-name = "ansi-parser"
-version = "0.8.0"
+name = "ansi-str"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcb2392079bf27198570d6af79ecbd9ec7d8f16d3ec6b60933922fdb66287127"
+checksum = "e50acdf02a3ac61856d5c8d576a8b5fb452a6549f667ca29fefaa18c2cd05135"
 dependencies = [
- "heapless 0.5.6",
- "nom 4.2.3",
-]
-
-[[package]]
-name = "ansi-str"
-version = "0.1.1"
-source = "git+https://github.com/zhiburt/ansi-str?rev=e0f5cfe2ee3ee8815371800ece150832e9273acb#e0f5cfe2ee3ee8815371800ece150832e9273acb"
-dependencies = [
- "ansi-parser",
-]
-
-[[package]]
-name = "ansi-str"
-version = "0.2.0"
-source = "git+https://github.com/zhiburt/ansi-str?branch=master#e1ee42abb46374ebd8403a8fc2c8c88e8f9cedc6"
-dependencies = [
- "ansi-parser",
+ "ansitok",
 ]
 
 [[package]]
@@ -101,6 +84,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
 dependencies = [
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "ansitok"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2c6eb31f539d8fc1df948eb26452d6c781be4c9883663e7acb258644b71d5b1"
+dependencies = [
+ "nom 7.1.1",
 ]
 
 [[package]]
@@ -169,18 +161,6 @@ dependencies = [
  "simdutf8",
  "streaming-iterator",
  "strength_reduce",
-]
-
-[[package]]
-name = "as-slice"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45403b49e3954a4b8428a0ac21a4b7afadccf92bfd96273f1a58cd4812496ae0"
-dependencies = [
- "generic-array 0.12.4",
- "generic-array 0.13.3",
- "generic-array 0.14.5",
- "stable_deref_trait",
 ]
 
 [[package]]
@@ -343,7 +323,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
 dependencies = [
- "generic-array 0.14.5",
+ "generic-array",
 ]
 
 [[package]]
@@ -352,7 +332,7 @@ version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bf7fe51849ea569fd452f37822f606a5cabb684dc918707a0193fd4664ff324"
 dependencies = [
- "generic-array 0.14.5",
+ "generic-array",
 ]
 
 [[package]]
@@ -776,7 +756,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57952ca27b5e3606ff4dd79b0020231aaf9d6aa76dc05fd30137538c50bd3ce8"
 dependencies = [
- "generic-array 0.14.5",
+ "generic-array",
  "typenum",
 ]
 
@@ -908,7 +888,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
 dependencies = [
- "generic-array 0.14.5",
+ "generic-array",
 ]
 
 [[package]]
@@ -1389,30 +1369,12 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffdf9f34f1447443d37393cc6c2b8313aebddcd96906caf34e54c68d8e57d7bd"
-dependencies = [
- "typenum",
-]
-
-[[package]]
-name = "generic-array"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f797e67af32588215eaaab8327027ee8e71b9dd0b2b26996aedf20c030fce309"
-dependencies = [
- "typenum",
-]
-
-[[package]]
-name = "generic-array"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd48d33ec7f05fbfa152300fdad764757cbded343c1aa1cff2fbaf4134851803"
 dependencies = [
  "typenum",
- "version_check 0.9.4",
+ "version_check",
 ]
 
 [[package]]
@@ -1543,15 +1505,6 @@ dependencies = [
 
 [[package]]
 name = "hash32"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4041af86e63ac4298ce40e5cca669066e75b6f1aa3390fe2561ffa5e1d9f4cc"
-dependencies = [
- "byteorder",
-]
-
-[[package]]
-name = "hash32"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0c35f58762feb77d74ebe43bdbc3210f09be9fe6742234d573bacc26ed92b67"
@@ -1595,24 +1548,12 @@ dependencies = [
 
 [[package]]
 name = "heapless"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74911a68a1658cfcfb61bc0ccfbd536e3b6e906f8c2f7883ee50157e3e2184f1"
-dependencies = [
- "as-slice",
- "generic-array 0.13.3",
- "hash32 0.1.1",
- "stable_deref_trait",
-]
-
-[[package]]
-name = "heapless"
 version = "0.7.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a08e755adbc0ad283725b29f4a4883deee15336f372d5f61fae59efec40f983"
 dependencies = [
  "atomic-polyfill",
- "hash32 0.2.1",
+ "hash32",
  "rustc_version 0.4.0",
  "spin",
  "stable_deref_trait",
@@ -2490,16 +2431,6 @@ checksum = "a5b8c256fd9471521bcb84c3cdba98921497f1a331cbc15b8030fc63b82050ce"
 
 [[package]]
 name = "nom"
-version = "4.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ad2a91a8e869eeb30b9cb3119ae87773a8f4ae617f41b1eb9c154b2905f7bd6"
-dependencies = [
- "memchr",
- "version_check 0.1.5",
-]
-
-[[package]]
-name = "nom"
 version = "7.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8903e5a29a317527874d0402f867152a3d21c908bb0b933e416c65e301d4c36"
@@ -2800,7 +2731,7 @@ dependencies = [
 name = "nu-pretty-hex"
 version = "0.65.1"
 dependencies = [
- "heapless 0.7.13",
+ "heapless",
  "nu-ansi-term",
  "rand 0.8.5",
 ]
@@ -3172,9 +3103,9 @@ checksum = "decf7381921fea4dcb2549c5667eda59b3ec297ab7e2b5fc33eac69d2e7da87b"
 [[package]]
 name = "papergrid"
 version = "0.4.0"
-source = "git+https://github.com/zhiburt/tabled?rev=5ac9aa53196cd5bbf570daa5357a76aa238722c1#5ac9aa53196cd5bbf570daa5357a76aa238722c1"
+source = "git+https://github.com/zhiburt/tabled?rev=f24b945bdd3a1152d52561b70b0c88c2581ac5ff#f24b945bdd3a1152d52561b70b0c88c2581ac5ff"
 dependencies = [
- "ansi-str 0.1.1",
+ "ansi-str",
  "bytecount",
  "strip-ansi-escapes",
  "unicode-width",
@@ -3638,7 +3569,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "version_check 0.9.4",
+ "version_check",
 ]
 
 [[package]]
@@ -3649,7 +3580,7 @@ checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
 dependencies = [
  "proc-macro2",
  "quote",
- "version_check 0.9.4",
+ "version_check",
 ]
 
 [[package]]
@@ -4790,9 +4721,9 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.7.0"
-source = "git+https://github.com/zhiburt/tabled?rev=5ac9aa53196cd5bbf570daa5357a76aa238722c1#5ac9aa53196cd5bbf570daa5357a76aa238722c1"
+source = "git+https://github.com/zhiburt/tabled?rev=f24b945bdd3a1152d52561b70b0c88c2581ac5ff#f24b945bdd3a1152d52561b70b0c88c2581ac5ff"
 dependencies = [
- "ansi-str 0.2.0",
+ "ansi-str",
  "papergrid",
  "tabled_derive",
  "unicode-width",
@@ -4801,7 +4732,7 @@ dependencies = [
 [[package]]
 name = "tabled_derive"
 version = "0.3.0"
-source = "git+https://github.com/zhiburt/tabled?rev=5ac9aa53196cd5bbf570daa5357a76aa238722c1#5ac9aa53196cd5bbf570daa5357a76aa238722c1"
+source = "git+https://github.com/zhiburt/tabled?rev=f24b945bdd3a1152d52561b70b0c88c2581ac5ff#f24b945bdd3a1152d52561b70b0c88c2581ac5ff"
 dependencies = [
  "heck 0.4.0",
  "proc-macro-error",
@@ -5114,7 +5045,7 @@ version = "0.9.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09b01702b0fd0b3fadcf98e098780badda8742d4f4a7676615cad90e8ac73622"
 dependencies = [
- "version_check 0.9.4",
+ "version_check",
 ]
 
 [[package]]
@@ -5241,12 +5172,6 @@ name = "vec1"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fc1631c774f0f9570797191e01247cbefde789eebfbf128074cb934115a6133"
-
-[[package]]
-name = "version_check"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "914b1a6776c4c929a602fafd8bc742e06365d4bcbe48c30f9cca5824f70dc9dd"
 
 [[package]]
 name = "version_check"

@@ -123,6 +123,21 @@ fn double_quote_does_not_expand_path_glob() {
     })
 }
 
+#[cfg(not(windows))]
+#[test]
+fn failed_command_with_semicolon_will_not_execute_following_cmds() {
+    Playground::setup("external failed command with semicolon", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^ls *.abc; echo done
+            "#
+        ));
+
+        assert!(!actual.out.contains("done"));
+    })
+}
+
 #[cfg(windows)]
 #[test]
 fn explicit_glob_windows() {
@@ -163,6 +178,21 @@ fn bare_word_expand_path_glob_windows() {
 
         assert!(actual.out.contains("D&D_volume_1.txt"));
         assert!(actual.out.contains("D&D_volume_2.txt"));
+    })
+}
+
+#[cfg(windows)]
+#[test]
+fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
+    Playground::setup("external failed command with semicolon", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^cargo asdf; echo done
+            "#
+        ));
+
+        assert!(!actual.out.contains("done"));
     })
 }
 
