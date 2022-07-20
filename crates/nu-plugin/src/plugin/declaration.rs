@@ -96,11 +96,11 @@ impl Command for PluginDeclaration {
                 value => CallInput::Value(value),
             };
 
-            let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
+            let plugin_call = PluginCall::CallInfo(CallInfo {
                 name: self.name.clone(),
                 call: EvaluatedCall::try_from_call(call, engine_state, stack)?,
                 input,
-            }));
+            });
             std::thread::spawn(move || {
                 // PluginCall information
                 encoding_clone.encode_call(&plugin_call, &mut stdin_writer)

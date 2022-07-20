@@ -25,7 +25,7 @@ pub enum CallInput {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum PluginCall {
     Signature,
-    CallInfo(Box<CallInfo>),
+    CallInfo(CallInfo),
     CollapseCustomValue(PluginData),
 }
 

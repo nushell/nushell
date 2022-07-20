@@ -102,12 +102,12 @@ mod tests {
             )],
         };
 
-        let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
+        let plugin_call = PluginCall::CallInfo(CallInfo {
             name: name.clone(),
             call: call.clone(),
             // TODO: Make another test for callinfo_with_data_input test
             input: CallInput::Value(input.clone()),
-        }));
+        });
 
         let encoder = JsonSerializer {};
         let mut buffer: Vec<u8> = Vec::new();

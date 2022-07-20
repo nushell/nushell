@@ -81,11 +81,11 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, She
 
             let input = value::deserialize_value(input_reader, call.head)?;
 
-            Ok(PluginCall::CallInfo(Box::new(CallInfo {
+            Ok(PluginCall::CallInfo(CallInfo {
                 name: name.to_string(),
                 call,
                 input: CallInput::Value(input),
-            })))
+            }))
         }
     }
 }
@@ -259,12 +259,12 @@ mod tests {
             )],
         };
 
-        let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
+        let plugin_call = PluginCall::CallInfo(CallInfo {
             name: name.clone(),
             call: call.clone(),
             // TODO: Make another test for callinfo_with_data_input test
             input: CallInput::Value(input.clone()),
-        }));
+        });
 
         let mut buffer: Vec<u8> = Vec::new();
         encode_call(&plugin_call, &mut buffer).expect("unable to serialize message");
