@@ -12,6 +12,7 @@ name = "utils"
 path = "src/main.rs"
 
 [dependencies]
+lscolors = { version = "0.10.0", features = ["crossterm"]}
 
 [target.'cfg(windows)'.dependencies]
 crossterm_winapi = "0.9.0"
