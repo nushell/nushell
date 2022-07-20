@@ -657,7 +657,7 @@ pub fn eval_expression(
 /// Otherwise, invokes the expression
 ///
 /// It returns PipelineData with a boolean flag, indicate that if the external runs to failed.
-/// The bollean flag **only can be true** for external call.
+/// The bollean flag **only may be true** for external call, for internal call, it always to be false.
 pub fn eval_expression_with_input(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -740,6 +740,7 @@ pub fn eval_block(
             input = eval_result.0;
             // external command may runs to failed
             // make early return so remaining commands will not be executed.
+            // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
             if eval_result.1 {
                 return Ok(input);
             }
