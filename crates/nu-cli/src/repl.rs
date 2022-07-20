@@ -22,9 +22,14 @@ use std::io::{self, Write};
 use std::{sync::atomic::Ordering, time::Instant};
 use sysinfo::SystemExt;
 
-const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
+// According to Daniel Imms @Tyriar, we need to do these this way:
+// <133 A><prompt><133 B><command><133 C><command output>
+// These first two have been moved to prompt_update to get as close as possible to the prompt.
+// const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
+// const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
 const PRE_EXECUTE_MARKER: &str = "\x1b]133;C\x1b\\";
-const CMD_FINISHED_MARKER: &str = "\x1b]133;D\x1b\\";
+// This one is in get_command_finished_marker() now so we can capture the exit codes properly.
+// const CMD_FINISHED_MARKER: &str = "\x1b]133;D;{}\x1b\\";
 const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 pub fn evaluate_repl(
@@ -262,12 +267,6 @@ pub fn evaluate_repl(
         }
 
         let config = engine_state.get_config();
-
-        let shell_integration = config.shell_integration;
-        if shell_integration {
-            run_ansi_sequence(PRE_PROMPT_MARKER)?;
-        }
-
         let prompt =
             prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt, is_perf_true);
 
@@ -283,6 +282,7 @@ pub fn evaluate_repl(
         }
 
         let input = line_editor.read_line(prompt);
+        let shell_integration = config.shell_integration;
 
         match input {
             Ok(Signal::Success(s)) => {
@@ -425,20 +425,19 @@ pub fn evaluate_repl(
                 }
 
                 if shell_integration {
-                    // FIXME: use variant with exit code, if apropriate
-                    run_ansi_sequence(CMD_FINISHED_MARKER)?;
+                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                 }
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
                 if shell_integration {
-                    run_ansi_sequence(CMD_FINISHED_MARKER)?;
+                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                 }
             }
             Ok(Signal::CtrlD) => {
                 // When exiting clear to a new line
                 if shell_integration {
-                    run_ansi_sequence(CMD_FINISHED_MARKER)?;
+                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                 }
                 println!();
                 break;
@@ -449,13 +448,21 @@ pub fn evaluate_repl(
                     println!("Error: {:?}", err);
                 }
                 if shell_integration {
-                    run_ansi_sequence(CMD_FINISHED_MARKER)?;
+                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                 }
             }
         }
     }
 
     Ok(())
+}
+
+pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
+    let exit_code = stack
+        .get_env_var(engine_state, "LAST_EXIT_CODE")
+        .and_then(|e| e.as_i64().ok());
+
+    format!("\x1b]133;D;{}\x1b\\", exit_code.unwrap_or(0))
 }
 
 pub fn eval_env_change_hook(
