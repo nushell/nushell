@@ -183,6 +183,21 @@ fn bare_word_expand_path_glob_windows() {
 
 #[cfg(windows)]
 #[test]
+fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
+    Playground::setup("external failed command with semicolon", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^cargo asdf; echo done
+            "#
+        ));
+
+        assert!(!actual.out.contains("done"));
+    })
+}
+
+#[cfg(windows)]
+#[test]
 // This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
 //
 // Test command 1 - `dir * `
