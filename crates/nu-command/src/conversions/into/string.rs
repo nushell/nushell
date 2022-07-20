@@ -220,7 +220,9 @@ pub fn action(
                 format_int(*val) // int.to_formatted_string(*locale)
             } else if let Some(dig) = digits {
                 let mut val_with_trailing_zeroes = val.to_string();
-                val_with_trailing_zeroes.push('.');
+                if dig != 0 {
+                    val_with_trailing_zeroes.push('.');
+                }
                 for _ in 0..dig {
                     val_with_trailing_zeroes.push('0');
                 }
