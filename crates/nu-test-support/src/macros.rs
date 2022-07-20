@@ -104,11 +104,14 @@ macro_rules! nu {
 
 #[macro_export]
 macro_rules! nu_with_plugins {
+    (cwd: $cwd:expr, plugins: [$(($format:expr, $plugin_name:expr)),+$(,)?], $command:expr) => {{
+        nu_with_plugins!($cwd, [$(($format, $plugin_name)),+], $command)
+    }};
     (cwd: $cwd:expr, plugin: ($format:expr, $plugin_name:expr), $command:expr) => {{
-        nu_with_plugins!($cwd, $format, $plugin_name, $command)
+        nu_with_plugins!($cwd, [($format, $plugin_name)], $command)
     }};
 
-    ($cwd:expr, $format:expr, $plugin_name:expr, $command:expr) => {{
+    ($cwd:expr, [$(($format:expr, $plugin_name:expr)),+$(,)?], $command:expr) => {{
         pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
@@ -129,10 +132,19 @@ macro_rules! nu_with_plugins {
         std::fs::File::create(&temp_plugin_file).expect("couldn't create temporary plugin file");
 
         let commands = &*format!(
-            "--commands \"register -e {} {};{}\" --plugin-config {}",
-            $format,
-            $crate::fs::DisplayPath::display_path(&test_bins.join($plugin_name)),
-            $crate::fs::DisplayPath::display_path($command),
+            concat!(
+                "--commands \"",
+                $(concat!(
+                    "register -e ",
+                    $format,
+                    " {};",
+                )),+,
+                "{}",
+                "\"",
+                " --plugin-config {}",
+            ),
+            $($crate::fs::DisplayPath::display_path(&test_bins.join($plugin_name))),+,
+            $command,
             $crate::fs::DisplayPath::display_path(&temp_plugin_file)
         );
 
