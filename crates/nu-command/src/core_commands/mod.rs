@@ -14,7 +14,7 @@ mod export_env;
 mod export_extern;
 mod extern_;
 mod for_;
-mod help;
+pub mod help;
 mod hide;
 mod if_;
 mod ignore;

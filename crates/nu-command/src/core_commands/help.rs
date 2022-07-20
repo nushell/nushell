@@ -344,7 +344,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
 }
 
 // Highlight the search string using ANSI escape sequences and regular expressions.
-fn highlight_search_string(
+pub fn highlight_search_string(
     haystack: &str,
     needle: &str,
     string_style: &Style,

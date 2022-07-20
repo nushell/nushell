@@ -2875,6 +2875,7 @@ name = "nu-utils"
 version = "0.65.1"
 dependencies = [
  "crossterm_winapi",
+ "lscolors",
 ]
 
 [[package]]
