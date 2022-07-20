@@ -183,6 +183,9 @@ pub fn eval_call(
     }
 }
 
+/// Eval extarnal expression
+///
+/// It returns PipelineData with a boolean flag, indicate that if the external runs to failed.
 fn eval_external(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -191,7 +194,7 @@ fn eval_external(
     input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
-) -> Result<PipelineData, ShellError> {
+) -> Result<(PipelineData, bool), ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
         .ok_or(ShellError::ExternalNotSupported(head.span))?;
@@ -229,8 +232,8 @@ fn eval_external(
     }
 
     // when the external command doesn't redirect output, we eagerly check the result
-    // and convert exteral commands result to `Result::Err` if we can, so commands after this external
-    // command will not be evaluated.
+    // and find if the command runs to failed.
+    let mut runs_to_failed = false;
     let result = command.run(engine_state, stack, &call, input)?;
     if let PipelineData::ExternalStream {
         stdout: None,
@@ -248,30 +251,33 @@ fn eval_external(
                 if let Some(Value::Int { val: code, .. }) = exit_code.last() {
                     // if exit_code is not 0, it indicates error occured, return back Err.
                     if *code != 0 {
-                        return Err(ShellError::ExternalCommandRunsToFailed(
-                            *code as u8,
-                            head.span,
-                        ));
+                        runs_to_failed = true;
                     }
                 }
-                Ok(PipelineData::ExternalStream {
+                Ok((
+                    PipelineData::ExternalStream {
+                        stdout: None,
+                        stderr,
+                        exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
+                        span,
+                        metadata,
+                    },
+                    runs_to_failed,
+                ))
+            }
+            None => Ok((
+                PipelineData::ExternalStream {
                     stdout: None,
                     stderr,
-                    exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
+                    exit_code: None,
                     span,
                     metadata,
-                })
-            }
-            None => Ok(PipelineData::ExternalStream {
-                stdout: None,
-                stderr,
-                exit_code: None,
-                span,
-                metadata,
-            }),
+                },
+                runs_to_failed,
+            )),
         }
     } else {
-        Ok(result)
+        Ok((result, runs_to_failed))
     }
 }
 
@@ -361,6 +367,7 @@ pub fn eval_expression(
                 false,
                 false,
             )?
+            .0
             .into_value(span))
         }
         Expr::DateTime(dt) => Ok(Value::Date {
@@ -648,6 +655,9 @@ pub fn eval_expression(
 /// Checks the expression to see if it's a internal or external call. If so, passes the input
 /// into the call and gets out the result
 /// Otherwise, invokes the expression
+///
+/// It returns PipelineData with a boolean flag, indicate that if the external runs to failed.
+/// The bollean flag **only can be true** for external call.
 pub fn eval_expression_with_input(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -655,7 +665,8 @@ pub fn eval_expression_with_input(
     mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
-) -> Result<PipelineData, ShellError> {
+) -> Result<(PipelineData, bool), ShellError> {
+    let mut external_failed = false;
     match expr {
         Expression {
             expr: Expr::Call(call),
@@ -675,7 +686,7 @@ pub fn eval_expression_with_input(
             expr: Expr::ExternalCall(head, args),
             ..
         } => {
-            input = eval_external(
+            let external_result = eval_external(
                 engine_state,
                 stack,
                 head,
@@ -684,6 +695,8 @@ pub fn eval_expression_with_input(
                 redirect_stdout,
                 redirect_stderr,
             )?;
+            input = external_result.0;
+            external_failed = external_result.1
         }
 
         Expression {
@@ -701,7 +714,7 @@ pub fn eval_expression_with_input(
         }
     }
 
-    Ok(input)
+    Ok((input, external_failed))
 }
 
 pub fn eval_block(
@@ -715,14 +728,21 @@ pub fn eval_block(
     let num_pipelines = block.len();
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         for (i, elem) in pipeline.expressions.iter().enumerate() {
-            input = eval_expression_with_input(
+            // if eval internal command failed, it can just make early return with `Err(ShellError)`.
+            let eval_result = eval_expression_with_input(
                 engine_state,
                 stack,
                 elem,
                 input,
                 redirect_stdout || (i != pipeline.expressions.len() - 1),
                 redirect_stderr,
-            )?
+            )?;
+            input = eval_result.0;
+            // external command may runs to failed
+            // make early return so remaining commands will not be executed.
+            if eval_result.1 {
+                return Ok(input);
+            }
         }
 
         if pipeline_idx < (num_pipelines) - 1 {
@@ -833,7 +853,7 @@ pub fn eval_subexpression(
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
         for expr in pipeline.expressions.iter() {
-            input = eval_expression_with_input(engine_state, stack, expr, input, true, false)?
+            input = eval_expression_with_input(engine_state, stack, expr, input, true, false)?.0
         }
     }
 

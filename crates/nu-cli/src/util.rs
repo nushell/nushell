@@ -257,13 +257,7 @@ pub fn eval_source(
             }
         }
         Err(err) => {
-            // The error may caused by external command runs failed, in this case
-            // set the exit code from external command.
-            if let ShellError::ExternalCommandRunsToFailed(exit_code, _) = err {
-                set_last_exit_code(stack, exit_code as i64);
-            } else {
-                set_last_exit_code(stack, 1);
-            }
+            set_last_exit_code(stack, 1);
 
             let working_set = StateWorkingSet::new(engine_state);
 

@@ -61,7 +61,8 @@ impl Command for Let {
             input,
             call.redirect_stdout,
             call.redirect_stderr,
-        )?;
+        )?
+        .0;
 
         //println!("Adding: {:?} to {}", rhs, var_id);
 

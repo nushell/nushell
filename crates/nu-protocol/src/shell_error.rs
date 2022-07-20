@@ -393,15 +393,6 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::external_command), url(docsrs), help("{1}"))]
     ExternalCommand(String, String, #[label("{0}")] Span),
 
-    /// An error happened while external command runs to failed.
-    ///
-    /// ## Resolution
-    ///
-    /// This error should only be used when external command is started successfully, but runs into failed.
-    #[error("External command runs to failed with non zero exit code")]
-    #[diagnostic(code(nu::shell::external_command_runs_to_failed), url(docsrs))]
-    ExternalCommandRunsToFailed(u8, #[label("exit code: {0}")] Span),
-
     /// An operation was attempted with an input unsupported for some reason.
     ///
     /// ## Resolution
