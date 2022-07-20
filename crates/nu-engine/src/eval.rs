@@ -3,8 +3,8 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, Operator},
     engine::{EngineState, Stack, Visibility},
-    HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range,
-    ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
+    HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream, PipelineData,
+    Range, ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::cmp::Ordering;
@@ -183,6 +183,9 @@ pub fn eval_call(
     }
 }
 
+/// Eval extarnal expression
+///
+/// It returns PipelineData with a boolean flag, indicate that if the external runs to failed.
 fn eval_external(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -191,7 +194,7 @@ fn eval_external(
     input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
-) -> Result<PipelineData, ShellError> {
+) -> Result<(PipelineData, bool), ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
         .ok_or(ShellError::ExternalNotSupported(head.span))?;
@@ -228,7 +231,54 @@ fn eval_external(
         ))
     }
 
-    command.run(engine_state, stack, &call, input)
+    // when the external command doesn't redirect output, we eagerly check the result
+    // and find if the command runs to failed.
+    let mut runs_to_failed = false;
+    let result = command.run(engine_state, stack, &call, input)?;
+    if let PipelineData::ExternalStream {
+        stdout: None,
+        stderr,
+        mut exit_code,
+        span,
+        metadata,
+    } = result
+    {
+        let exit_code = exit_code.take();
+        match exit_code {
+            Some(exit_code_stream) => {
+                let ctrlc = exit_code_stream.ctrlc.clone();
+                let exit_code: Vec<Value> = exit_code_stream.into_iter().collect();
+                if let Some(Value::Int { val: code, .. }) = exit_code.last() {
+                    // if exit_code is not 0, it indicates error occured, return back Err.
+                    if *code != 0 {
+                        runs_to_failed = true;
+                    }
+                }
+                Ok((
+                    PipelineData::ExternalStream {
+                        stdout: None,
+                        stderr,
+                        exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
+                        span,
+                        metadata,
+                    },
+                    runs_to_failed,
+                ))
+            }
+            None => Ok((
+                PipelineData::ExternalStream {
+                    stdout: None,
+                    stderr,
+                    exit_code: None,
+                    span,
+                    metadata,
+                },
+                runs_to_failed,
+            )),
+        }
+    } else {
+        Ok((result, runs_to_failed))
+    }
 }
 
 pub fn eval_expression(
@@ -317,6 +367,7 @@ pub fn eval_expression(
                 false,
                 false,
             )?
+            .0
             .into_value(span))
         }
         Expr::DateTime(dt) => Ok(Value::Date {
@@ -604,6 +655,9 @@ pub fn eval_expression(
 /// Checks the expression to see if it's a internal or external call. If so, passes the input
 /// into the call and gets out the result
 /// Otherwise, invokes the expression
+///
+/// It returns PipelineData with a boolean flag, indicate that if the external runs to failed.
+/// The boolean flag **may only be true** for external calls, for internal calls, it always to be false.
 pub fn eval_expression_with_input(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -611,7 +665,8 @@ pub fn eval_expression_with_input(
     mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
-) -> Result<PipelineData, ShellError> {
+) -> Result<(PipelineData, bool), ShellError> {
+    let mut external_failed = false;
     match expr {
         Expression {
             expr: Expr::Call(call),
@@ -631,7 +686,7 @@ pub fn eval_expression_with_input(
             expr: Expr::ExternalCall(head, args),
             ..
         } => {
-            input = eval_external(
+            let external_result = eval_external(
                 engine_state,
                 stack,
                 head,
@@ -640,6 +695,8 @@ pub fn eval_expression_with_input(
                 redirect_stdout,
                 redirect_stderr,
             )?;
+            input = external_result.0;
+            external_failed = external_result.1
         }
 
         Expression {
@@ -657,7 +714,7 @@ pub fn eval_expression_with_input(
         }
     }
 
-    Ok(input)
+    Ok((input, external_failed))
 }
 
 pub fn eval_block(
@@ -671,14 +728,22 @@ pub fn eval_block(
     let num_pipelines = block.len();
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         for (i, elem) in pipeline.expressions.iter().enumerate() {
-            input = eval_expression_with_input(
+            // if eval internal command failed, it can just make early return with `Err(ShellError)`.
+            let eval_result = eval_expression_with_input(
                 engine_state,
                 stack,
                 elem,
                 input,
                 redirect_stdout || (i != pipeline.expressions.len() - 1),
                 redirect_stderr,
-            )?
+            )?;
+            input = eval_result.0;
+            // external command may runs to failed
+            // make early return so remaining commands will not be executed.
+            // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
+            if eval_result.1 {
+                return Ok(input);
+            }
         }
 
         if pipeline_idx < (num_pipelines) - 1 {
@@ -789,7 +854,7 @@ pub fn eval_subexpression(
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
         for expr in pipeline.expressions.iter() {
-            input = eval_expression_with_input(engine_state, stack, expr, input, true, false)?
+            input = eval_expression_with_input(engine_state, stack, expr, input, true, false)?.0
         }
     }
 
