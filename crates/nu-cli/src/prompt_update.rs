@@ -15,6 +15,10 @@ pub(crate) const PROMPT_INDICATOR: &str = "PROMPT_INDICATOR";
 pub(crate) const PROMPT_INDICATOR_VI_INSERT: &str = "PROMPT_INDICATOR_VI_INSERT";
 pub(crate) const PROMPT_INDICATOR_VI_NORMAL: &str = "PROMPT_INDICATOR_VI_NORMAL";
 pub(crate) const PROMPT_MULTILINE_INDICATOR: &str = "PROMPT_MULTILINE_INDICATOR";
+// According to Daniel Imms @Tyriar, we need to do these this way:
+// <133 A><prompt><133 B><command><133 C><command output>
+const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
+const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
 
 fn get_prompt_string(
     prompt: &str,
@@ -97,6 +101,20 @@ pub(crate) fn update_prompt<'prompt>(
         &mut stack,
         is_perf_true,
     );
+
+    // Now that we have the prompt string lets ansify it.
+    // <133 A><prompt><133 B><command><133 C><command output>
+    let left_prompt_string = if config.shell_integration {
+        match left_prompt_string {
+            Some(prompt_string) => Some(format!(
+                "{}{}{}",
+                PRE_PROMPT_MARKER, prompt_string, POST_PROMPT_MARKER
+            )),
+            None => left_prompt_string,
+        }
+    } else {
+        left_prompt_string
+    };
 
     let right_prompt_string = get_prompt_string(
         PROMPT_COMMAND_RIGHT,
