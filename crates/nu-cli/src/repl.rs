@@ -425,19 +425,19 @@ pub fn evaluate_repl(
                 }
 
                 if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(&stack, &engine_state))?;
+                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                 }
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
                 if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(&stack, &engine_state))?;
+                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                 }
             }
             Ok(Signal::CtrlD) => {
                 // When exiting clear to a new line
                 if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(&stack, &engine_state))?;
+                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                 }
                 println!();
                 break;
@@ -448,7 +448,7 @@ pub fn evaluate_repl(
                     println!("Error: {:?}", err);
                 }
                 if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(&stack, &engine_state))?;
+                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                 }
             }
         }
