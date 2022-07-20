@@ -54,6 +54,14 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
+                description: "convert integer to string and append three decimal places",
+                example: "5 | into string -d 3",
+                result: Some(Value::String {
+                    val: "5.000".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "convert decimal to string and round to nearest integer",
                 example: "1.7 | into string -d 0",
                 result: Some(Value::String {
@@ -210,6 +218,13 @@ pub fn action(
         Value::Int { val, .. } => {
             let res = if group_digits {
                 format_int(*val) // int.to_formatted_string(*locale)
+            } else if let Some(dig) = digits {
+                let mut val_with_trailing_zeroes = val.to_string();
+                val_with_trailing_zeroes.push('.');
+                for _ in 0..dig {
+                    val_with_trailing_zeroes.push('0');
+                }
+                val_with_trailing_zeroes
             } else {
                 val.to_string()
             };
