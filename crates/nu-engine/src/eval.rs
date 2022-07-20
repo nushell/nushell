@@ -657,7 +657,7 @@ pub fn eval_expression(
 /// Otherwise, invokes the expression
 ///
 /// It returns PipelineData with a boolean flag, indicate that if the external runs to failed.
-/// The bollean flag **only may be true** for external call, for internal call, it always to be false.
+/// The boolean flag **may only be true** for external calls, for internal calls, it always to be false.
 pub fn eval_expression_with_input(
     engine_state: &EngineState,
     stack: &mut Stack,
