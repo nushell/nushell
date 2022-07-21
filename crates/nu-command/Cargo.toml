@@ -105,8 +105,8 @@ features = [
 	"default", "to_dummies", "parquet", "json", "serde", "serde-lazy",
 	"object", "checked_arithmetic", "strings", "cum_agg", "is_in",
 	"rolling_window", "strings", "rows", "random",
-  "dtype-datetime", "dtype-struct", "lazy", "cross_join",
-	"dynamic_groupby", "dtype-categorical"
+    "dtype-datetime", "dtype-struct", "lazy", "cross_join",
+	"dynamic_groupby", "dtype-categorical", "concat_str"
 ]
 
 [target.'cfg(windows)'.dependencies.windows]
