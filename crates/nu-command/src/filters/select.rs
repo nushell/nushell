@@ -29,6 +29,10 @@ impl Command for Select {
         "Down-select table to only these columns."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["pick", "choose", "get"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
