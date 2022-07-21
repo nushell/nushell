@@ -26,6 +26,10 @@ impl Command for Skip {
         "Skip the first n elements of the input."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["ignore", "remove"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

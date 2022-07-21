@@ -40,7 +40,7 @@ impl Command for BytesReverse {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "inverse"]
+        vec!["convert", "inverse", "flip"]
     }
 
     fn run(

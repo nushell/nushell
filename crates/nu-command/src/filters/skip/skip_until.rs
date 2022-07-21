@@ -28,6 +28,10 @@ impl Command for SkipUntil {
         "Skip elements of the input until a predicate is true."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["ignore"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Skip until the element is positive",

@@ -35,6 +35,10 @@ impl Command for Let {
         true
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["set", "const"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

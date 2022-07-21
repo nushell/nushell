@@ -29,6 +29,10 @@ impl Command for Ps {
         "View information about system processes."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["procedures", "operations", "tasks", "ops"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

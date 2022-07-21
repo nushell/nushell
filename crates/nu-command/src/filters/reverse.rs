@@ -21,6 +21,10 @@ impl Command for Reverse {
         "Reverses the table."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert, inverse, flip"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             example: "[0,1,2,3] | reverse",
