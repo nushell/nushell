@@ -226,6 +226,7 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::add, lhs_span)
             }
+            Value::String { val, .. } => add_string_to_series(&lhs, val, lhs_span),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type(),
@@ -748,6 +749,25 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, 
                     Vec::new(),
                 )),
             }
+        }
+        Err(e) => Err(ShellError::GenericError(
+            "Unable to cast to string".into(),
+            e.to_string(),
+            Some(span),
+            None,
+            Vec::new(),
+        )),
+    }
+}
+
+fn add_string_to_series(series: &Series, pat: &str, span: Span) -> Result<Value, ShellError> {
+    let casted = series.utf8();
+    match casted {
+        Ok(casted) => {
+            let res = casted + pat;
+            let res = res.into_series();
+
+            NuDataFrame::series_to_value(res, span)
         }
         Err(e) => Err(ShellError::GenericError(
             "Unable to cast to string".into(),
