@@ -37,6 +37,16 @@ pub trait Command: Send + Sync + CommandClone {
         false
     }
 
+    // This is an enhanced method to determine if a command is custom command or not
+    // since extern "foo" [] and def "foo" [] behaves differently
+    fn is_custom_command(&self) -> bool {
+        if self.get_block_id().is_some() {
+            true
+        } else {
+            self.is_known_external()
+        }
+    }
+
     // Is a sub command
     fn is_sub(&self) -> bool {
         self.name().contains(' ')

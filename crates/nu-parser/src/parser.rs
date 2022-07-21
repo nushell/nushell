@@ -1079,26 +1079,32 @@ pub fn parse_call(
             }
         }
 
-        trace!("parsing: internal call");
+        let decl = working_set.get_decl(decl_id);
+        if decl.is_builtin() {
+            trace!("parsing: internal call");
 
-        // parse internal command
-        let parsed_call = parse_internal_call(
-            working_set,
-            span(&spans[cmd_start..pos]),
-            &spans[pos..],
-            decl_id,
-            expand_aliases_denylist,
-        );
+            // parse internal command
+            let parsed_call = parse_internal_call(
+                working_set,
+                span(&spans[cmd_start..pos]),
+                &spans[pos..],
+                decl_id,
+                expand_aliases_denylist,
+            );
 
-        (
-            Expression {
-                expr: Expr::Call(parsed_call.call),
-                span: span(spans),
-                ty: parsed_call.output,
-                custom_completion: None,
-            },
-            parsed_call.error,
-        )
+            (
+                Expression {
+                    expr: Expr::Call(parsed_call.call),
+                    span: span(spans),
+                    ty: parsed_call.output,
+                    custom_completion: None,
+                },
+                parsed_call.error,
+            )
+        } else {
+            trace!("parsing: `extern` custom command as external call");
+            parse_external_call(working_set, spans, expand_aliases_denylist)
+        }
     } else {
         // We might be parsing left-unbounded range ("..10")
         let bytes = working_set.get_span_contents(spans[0]);
