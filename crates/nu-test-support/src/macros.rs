@@ -131,6 +131,8 @@ macro_rules! nu_with_plugins {
         let temp_plugin_file = temp.path().join("plugin.nu");
         std::fs::File::create(&temp_plugin_file).expect("couldn't create temporary plugin file");
 
+        $($crate::commands::ensure_binary_present($plugin_name);)+
+
         let commands = &*format!(
             concat!(
                 "--commands \"",
