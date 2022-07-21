@@ -473,14 +473,57 @@ fn find_with_rest_and_highlight(
             .into_pipeline_data(ctrlc)
             .set_metadata(meta))
         }
-        // PipelineData::ExternalStream {
-        //     stdout,
-        //     stderr,
-        //     exit_code,
-        //     span,
-        //     metadata,
-        // } => todo!(),
-        _ => todo!(), // not sure what to do here
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(span)),
+        PipelineData::ExternalStream {
+            stdout: Some(stream),
+            ..
+        } => {
+            let mut output: Vec<Value> = vec![];
+            for filter_val in stream {
+                match filter_val {
+                    Ok(value) => match value {
+                        Value::String { val, span } => {
+                            let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
+
+                            for line in val.split(split_char) {
+                                for term in lower_terms.iter() {
+                                    let term_str = term.into_string("", &filter_config);
+                                    let lower_val = line.to_lowercase();
+                                    if lower_val
+                                        .contains(&term.into_string("", &config).to_lowercase())
+                                    {
+                                        output.push(Value::String {
+                                            val: highlight_search_string(
+                                                line,
+                                                &term_str,
+                                                &string_style,
+                                            )?,
+                                            span,
+                                        })
+                                    }
+                                }
+                            }
+                        }
+                        _ => {
+                            return Err(ShellError::UnsupportedInput(
+                                format!(
+                                    "Unsupport value type '{}' from raw stream",
+                                    value.get_type()
+                                ),
+                                span,
+                            ))
+                        }
+                    },
+                    _ => {
+                        return Err(ShellError::UnsupportedInput(
+                            "Unsupport type from raw stream".to_string(),
+                            span,
+                        ))
+                    }
+                };
+            }
+            Ok(output.into_pipeline_data(ctrlc))
+        }
     }
 }
 
