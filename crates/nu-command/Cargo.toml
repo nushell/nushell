@@ -59,7 +59,7 @@ mime = "0.3.16"
 notify = "4.0.17"
 num = { version = "0.4.0", optional = true }
 pathdiff = "0.2.1"
-powierza-coefficient = "1.0"
+powierza-coefficient = "1.0.1"
 quick-xml = "0.23.0"
 rand = "0.8"
 rayon = "1.5.1"

@@ -3496,9 +3496,9 @@ dependencies = [
 
 [[package]]
 name = "powierza-coefficient"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9caa43783252cf8c4c66dd1cc381a5929cc95f6530da7abd1f9cdb97e2065842"
+checksum = "64e2c03bca73af2a7a2c021a6b3b4991658b760b2e0a84e3e425a9c9eda2ba7f"
 
 [[package]]
 name = "ppv-lite86"
