@@ -89,12 +89,12 @@ impl Command for Ls {
 
         let mut shell_errors: Vec<ShellError> = vec![];
         let pattern_args: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-        let glob_results = if pattern_args.len() > 0 {
+        let glob_results = if !pattern_args.is_empty() {
             pattern_args
                 .into_iter()
                 .flat_map(|pattern_arg| {
                     let mut path = expand_to_real_path(pattern_arg.clone().item);
-                    let p_tag = pattern_arg.clone().span;
+                    let p_tag = pattern_arg.span;
                     let cwd = cwd.clone();
                     let ctrl_c = ctrl_c.clone();
 
@@ -147,7 +147,7 @@ impl Command for Ls {
                         Some(glob_options)
                     };
                     let (prefix, paths) =
-                        nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options).unwrap();
+                        nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options).expect("glob failure");
 
                     let mut paths_peek = paths.peekable();
                     if paths_peek.peek().is_none() {
@@ -388,16 +388,13 @@ impl Command for Ls {
                 .collect_vec()
         };
 
-        if shell_errors.len() > 0 {
-            return Err(shell_errors.pop().unwrap());
+        if !shell_errors.is_empty() {
+            return Err(shell_errors.pop().expect("Vec pop error"));
         }
 
         Ok(glob_results
             .into_iter()
-            .filter(|result| match result {
-                Value::Nothing { .. } => false,
-                _ => true,
-            })
+            .filter(|result| !matches!(result, Value::Nothing{..}))
             .into_pipeline_data_with_metadata(
                 PipelineMetadata {
                     data_source: DataSource::Ls,
