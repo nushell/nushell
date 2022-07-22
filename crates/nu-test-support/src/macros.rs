@@ -103,6 +103,20 @@ macro_rules! nu {
 }
 
 #[macro_export]
+macro_rules! with_exe {
+    ($name:literal) => {{
+        #[cfg(windows)]
+        {
+            concat!($name, ".exe")
+        }
+        #[cfg(not(windows))]
+        {
+            $name
+        }
+    }};
+}
+
+#[macro_export]
 macro_rules! nu_with_plugins {
     (cwd: $cwd:expr, plugins: [$(($format:expr, $plugin_name:expr)),+$(,)?], $command:expr) => {{
         nu_with_plugins!($cwd, [$(($format, $plugin_name)),+], $command)
@@ -116,7 +130,7 @@ macro_rules! nu_with_plugins {
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
         pub use tempfile::tempdir;
-        pub use $crate::NATIVE_PATH_ENV_VAR;
+        pub use $crate::{NATIVE_PATH_ENV_VAR, with_exe};
 
         let test_bins = $crate::fs::binaries();
         let test_bins = nu_path::canonicalize_with(&test_bins, ".").unwrap_or_else(|e| {
@@ -133,28 +147,26 @@ macro_rules! nu_with_plugins {
 
         $($crate::commands::ensure_binary_present($plugin_name);)+
 
-        let commands = &*format!(
-            concat!(
-                "--commands \"",
-                $(concat!(
-                    "register -e ",
-                    $format,
-                    " {};",
-                )),+,
-                "{}",
-                "\"",
-                " --plugin-config {}",
-            ),
-            $($crate::fs::DisplayPath::display_path(&test_bins.join($plugin_name))),+,
-            $command,
-            $crate::fs::DisplayPath::display_path(&temp_plugin_file)
+        let registrations = format!(
+            concat!($(concat!("register -e ", $format, " {};")),+),
+            $(
+                nu_path::canonicalize_with(with_exe!($plugin_name), &test_bins)
+                    .unwrap_or_else(|e| {
+                        panic!("failed to canonicalize plugin {} path", $plugin_name)
+                    })
+                    .display()
+            ),+
         );
+        let commands = format!("{registrations}{}", $command);
 
         let target_cwd = $crate::fs::in_directory(&$cwd);
         let mut process = match Command::new($crate::fs::executable_path())
             .current_dir(&target_cwd)
             .env("PWD", &target_cwd) // setting PWD is enough to set cwd
+            .arg("--commands")
             .arg(commands)
+            .arg("--plugin-config")
+            .arg(temp_plugin_file)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
