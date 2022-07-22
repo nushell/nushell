@@ -103,36 +103,37 @@ macro_rules! nu {
 }
 
 #[macro_export]
+macro_rules! with_exe {
+    ($name:literal) => {{
+        #[cfg(windows)]
+        {
+            concat!($name, ".exe")
+        }
+        #[cfg(not(windows))]
+        {
+            $name
+        }
+    }};
+}
+
+#[macro_export]
 macro_rules! nu_with_plugins {
-    (cwd: $cwd:expr, $path:expr, $($part:expr),*) => {{
-        use $crate::fs::DisplayPath;
-
-        let path = format!($path, $(
-            $part.display_path()
-        ),*);
-
-        nu_with_plugins!($cwd, &path)
+    (cwd: $cwd:expr, plugins: [$(($format:expr, $plugin_name:expr)),+$(,)?], $command:expr) => {{
+        nu_with_plugins!($cwd, [$(($format, $plugin_name)),+], $command)
+    }};
+    (cwd: $cwd:expr, plugin: ($format:expr, $plugin_name:expr), $command:expr) => {{
+        nu_with_plugins!($cwd, [($format, $plugin_name)], $command)
     }};
 
-    (cwd: $cwd:expr, $path:expr) => {{
-        nu_with_plugins!($cwd, $path)
-    }};
-
-    ($cwd:expr, $path:expr) => {{
+    ($cwd:expr, [$(($format:expr, $plugin_name:expr)),+$(,)?], $command:expr) => {{
         pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
-        pub use $crate::NATIVE_PATH_ENV_VAR;
-
-        let commands = &*format!(
-            "
-                            {}
-                            exit",
-            $crate::fs::DisplayPath::display_path(&$path)
-        );
+        pub use tempfile::tempdir;
+        pub use $crate::{NATIVE_PATH_ENV_VAR, with_exe};
 
         let test_bins = $crate::fs::binaries();
-        let test_bins = nu_path::canonicalize(&test_bins).unwrap_or_else(|e| {
+        let test_bins = nu_path::canonicalize_with(&test_bins, ".").unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize dummy binaries path {}: {:?}",
                 test_bins.display(),
@@ -140,34 +141,39 @@ macro_rules! nu_with_plugins {
             )
         });
 
-        let mut paths = $crate::shell_os_paths();
-        paths.insert(0, test_bins);
+        let temp = tempdir().expect("couldn't create a temporary directory");
+        let temp_plugin_file = temp.path().join("plugin.nu");
+        std::fs::File::create(&temp_plugin_file).expect("couldn't create temporary plugin file");
 
-        let paths_joined = match std::env::join_paths(paths) {
-            Ok(all) => all,
-            Err(_) => panic!("Couldn't join paths for PATH var."),
-        };
+        $($crate::commands::ensure_binary_present($plugin_name);)+
+
+        let registrations = format!(
+            concat!($(concat!("register -e ", $format, " {};")),+),
+            $(
+                nu_path::canonicalize_with(with_exe!($plugin_name), &test_bins)
+                    .unwrap_or_else(|e| {
+                        panic!("failed to canonicalize plugin {} path", $plugin_name)
+                    })
+                    .display()
+            ),+
+        );
+        let commands = format!("{registrations}{}", $command);
 
         let target_cwd = $crate::fs::in_directory(&$cwd);
-
         let mut process = match Command::new($crate::fs::executable_path())
-            .env("PWD", &target_cwd)  // setting PWD is enough to set cwd
-            .env(NATIVE_PATH_ENV_VAR, paths_joined)
+            .current_dir(&target_cwd)
+            .env("PWD", &target_cwd) // setting PWD is enough to set cwd
+            .arg("--commands")
+            .arg(commands)
+            .arg("--plugin-config")
+            .arg(temp_plugin_file)
             .stdout(Stdio::piped())
-            .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
         {
             Ok(child) => child,
             Err(why) => panic!("Can't run test {}", why.to_string()),
         };
-
-        let stdin = process.stdin.as_mut().expect("couldn't open stdin");
-        stdin
-            .write_all(commands.as_bytes())
-            .expect("couldn't write to stdin");
-
-        stdin.flush()?
 
         let output = process
             .wait_with_output()
@@ -176,9 +182,9 @@ macro_rules! nu_with_plugins {
         let out = $crate::macros::read_std(&output.stdout);
         let err = String::from_utf8_lossy(&output.stderr);
 
-            println!("=== stderr\n{}", err);
+        println!("=== stderr\n{}", err);
 
-        $crate::Outcome::new(out,err.into_owned())
+        $crate::Outcome::new(out, err.into_owned())
     }};
 }
 

@@ -3,15 +3,23 @@ use nu_test_support::nu_with_plugins;
 use nu_test_support::playground::Playground;
 
 #[test]
-fn can_only_apply_one() {
+fn chooses_highest_increment_if_given_more_than_one() {
     let actual = nu_with_plugins!(
         cwd: "tests/fixtures/formats",
-        "open cargo_sample.toml | first 1 | inc package.version --major --minor"
+        plugin: ("json", "nu_plugin_inc"),
+        "open cargo_sample.toml | first 1 | inc package.version --major --minor | get package.version"
     );
 
-    assert!(actual
-        .err
-        .contains("Usage: inc field [--major|--minor|--patch]"));
+    assert_eq!(actual.out, "1.0.0");
+
+    let actual = nu_with_plugins!(
+        cwd: "tests/fixtures/formats",
+        plugin: ("json", "nu_plugin_inc"),
+        // Regardless of order of arguments
+        "open cargo_sample.toml | first 1 | inc package.version --minor --major | get package.version"
+    );
+
+    assert_eq!(actual.out, "1.0.0");
 }
 
 #[test]
@@ -27,6 +35,7 @@ fn by_one_with_field_passed() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
+            plugin: ("json", "nu_plugin_inc"),
             "open sample.toml | inc package.edition | get package.edition"
         );
 
@@ -47,6 +56,7 @@ fn by_one_with_no_field_passed() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
+            plugin: ("json", "nu_plugin_inc"),
             "open sample.toml | get package.contributors | inc"
         );
 
@@ -67,6 +77,7 @@ fn semversion_major_inc() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
+            plugin: ("json", "nu_plugin_inc"),
             "open sample.toml | inc package.version -M | get package.version"
         );
 
@@ -87,6 +98,7 @@ fn semversion_minor_inc() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
+            plugin: ("json", "nu_plugin_inc"),
             "open sample.toml | inc package.version --minor | get package.version"
         );
 
@@ -107,6 +119,7 @@ fn semversion_patch_inc() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
+            plugin: ("json", "nu_plugin_inc"),
             "open sample.toml | inc package.version --patch | get package.version"
         );
 
@@ -127,6 +140,7 @@ fn semversion_without_passing_field() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
+            plugin: ("json", "nu_plugin_inc"),
             "open sample.toml | get package.version | inc --patch"
         );
 
