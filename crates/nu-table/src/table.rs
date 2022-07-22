@@ -7,7 +7,7 @@ use tabled::{
     formatting_settings::AlignmentStrategy,
     object::{Cell, Columns, Rows, Segment},
     papergrid,
-    style::BorderColor,
+    style::Color,
     Alignment, AlignmentHorizontal, Modify, ModifyObject, TableOption, Width,
 };
 
@@ -205,18 +205,18 @@ fn align_table(
             .with(AlignmentStrategy::PerLine),
     );
 
+    if with_header {
+        let alignment = Alignment::Horizontal(alignments.header);
+        if with_footer {
+            table = table.with(Modify::new(Rows::last()).with(alignment.clone()));
+        }
+
+        table = table.with(Modify::new(Rows::first()).with(alignment));
+    }
+
     if with_index {
         table =
             table.with(Modify::new(Columns::first()).with(Alignment::Horizontal(alignments.index)));
-    }
-
-    if with_header {
-        let alignment = Alignment::Horizontal(alignments.header);
-        table = table.with(Modify::new(Rows::first()).with(alignment.clone()));
-
-        if with_footer {
-            table = table.with(Modify::new(Rows::last()).with(alignment));
-        }
     }
 
     table = override_alignments(table, data, with_header, with_index, alignments);
@@ -269,7 +269,7 @@ fn load_theme(
 
     if let Some(color) = color_hm.get("separator") {
         let color = color.paint(" ").to_string();
-        if let Ok(color) = BorderColor::try_from(color) {
+        if let Ok(color) = Color::try_from(color) {
             table = table.with(color);
         }
     }
