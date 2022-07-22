@@ -1,6 +1,8 @@
 use std::io;
 use std::str;
 
+use num_traits::ToPrimitive;
+
 use super::error::{Error, ErrorCode, Result};
 
 pub struct StringReader<Iter: Iterator<Item = u8>> {
@@ -207,18 +209,19 @@ impl<Iter: Iterator<Item = u8>> ParseNumber<Iter> {
                             }
                         }
 
-                        if is_float {
-                            Ok(Number::F64(
-                                res.parse::<f64>().expect("Internal error: json parsing"),
-                            ))
-                        } else if res.starts_with('-') {
-                            Ok(Number::I64(
-                                res.parse::<i64>().expect("Internal error: json parsing"),
-                            ))
-                        } else {
-                            Ok(Number::U64(
-                                res.parse::<u64>().expect("Internal error: json parsing"),
-                            ))
+                        if !is_float {
+                            if let Ok(n) = res.parse::<i64>() { 
+                                if res.starts_with('-') { 
+                                    return Ok(Number::I64(n)); 
+                                } else { 
+                                    return Ok(Number::U64(n as u64)); 
+                                } 
+                            }
+                        }
+                        
+                        match res.parse::<f64>() {
+                            Ok(n) => Ok(Number::F64(n)),
+                            _ => Err(Error::Syntax(ErrorCode::InvalidNumber, 0, 0)),
                         }
                     }
                     _ => Err(Error::Syntax(ErrorCode::InvalidNumber, 0, 0)),
