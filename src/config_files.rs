@@ -86,8 +86,11 @@ pub(crate) fn read_config_file(
                             return;
                         }
                     },
-                    Err(e) => {
-                        eprintln!("Unable to create {}: {}", config_file, e);
+                    Err(_) => {
+                        eprintln!(
+                            "Unable to create {}, sourcing default file instead",
+                            config_file
+                        );
                         eval_default_config(engine_state, stack, config_file, is_env_config);
                         return;
                     }
