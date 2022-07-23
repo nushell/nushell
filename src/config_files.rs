@@ -76,43 +76,24 @@ pub(crate) fn read_config_file(
                         Ok(_) => {
                             println!("Config file created at: {}", config_path.to_string_lossy())
                         }
-                        Err(e) => eprintln!(
-                            "Unable to write to {}: {}",
-                            config_path.to_string_lossy(),
-                            e
-                        ),
+                        Err(e) => {
+                            eprintln!(
+                                "Unable to write to {}: {}",
+                                config_path.to_string_lossy(),
+                                e
+                            );
+                            eval_default_config(engine_state, stack, config_file, is_env_config);
+                            return;
+                        }
                     },
-                    Err(e) => eprintln!("Unable to create {}: {}", config_file, e),
+                    Err(e) => {
+                        eprintln!("Unable to create {}: {}", config_file, e);
+                        eval_default_config(engine_state, stack, config_file, is_env_config);
+                        return;
+                    }
                 },
                 _ => {
-                    println!("Continuing without config file");
-                    // Just use the contents of "default_config.nu" or "default_env.nu"
-                    eval_source(
-                        engine_state,
-                        stack,
-                        config_file.as_bytes(),
-                        if is_env_config {
-                            "default_env.nu"
-                        } else {
-                            "default_config.nu"
-                        },
-                        PipelineData::new(Span::new(0, 0)),
-                    );
-
-                    // Merge the environment in case env vars changed in the config
-                    match nu_engine::env::current_dir(engine_state, stack) {
-                        Ok(cwd) => {
-                            if let Err(e) = engine_state.merge_env(stack, cwd) {
-                                let working_set = StateWorkingSet::new(engine_state);
-                                report_error(&working_set, &e);
-                            }
-                        }
-                        Err(e) => {
-                            let working_set = StateWorkingSet::new(engine_state);
-                            report_error(&working_set, &e);
-                        }
-                    }
-
+                    eval_default_config(engine_state, stack, config_file, is_env_config);
                     return;
                 }
             }
@@ -163,6 +144,41 @@ pub(crate) fn read_default_env_file(
     if is_perf_true {
         info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     }
+    // Merge the environment in case env vars changed in the config
+    match nu_engine::env::current_dir(engine_state, stack) {
+        Ok(cwd) => {
+            if let Err(e) = engine_state.merge_env(stack, cwd) {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(&working_set, &e);
+            }
+        }
+        Err(e) => {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(&working_set, &e);
+        }
+    }
+}
+
+fn eval_default_config(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    config_file: &str,
+    is_env_config: bool,
+) {
+    println!("Continuing without config file");
+    // Just use the contents of "default_config.nu" or "default_env.nu"
+    eval_source(
+        engine_state,
+        stack,
+        config_file.as_bytes(),
+        if is_env_config {
+            "default_env.nu"
+        } else {
+            "default_config.nu"
+        },
+        PipelineData::new(Span::new(0, 0)),
+    );
+
     // Merge the environment in case env vars changed in the config
     match nu_engine::env::current_dir(engine_state, stack) {
         Ok(cwd) => {
