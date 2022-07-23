@@ -1,7 +1,7 @@
 use super::signature::deserialize_signature;
-use super::{call, signature, value};
+use super::{call, call_input, signature, value};
 use crate::plugin_capnp::{plugin_call, plugin_response};
-use crate::protocol::{CallInfo, CallInput, LabeledError, PluginCall, PluginResponse};
+use crate::protocol::{CallInfo, LabeledError, PluginCall, PluginResponse};
 use capnp::serialize;
 use nu_protocol::{ShellError, Signature, Span};
 
@@ -31,15 +31,12 @@ pub fn encode_call(
                 .map_err(|e| ShellError::PluginFailedToEncode(e.to_string()))?;
 
             // Serializing the input value from the call info
-            let value_builder = call_info_builder
+            let call_input_builder = call_info_builder
                 .reborrow()
                 .get_input()
                 .map_err(|e| ShellError::PluginFailedToEncode(e.to_string()))?;
 
-            match &call_info.input {
-                CallInput::Value(value) => value::serialize_value(value, value_builder),
-                CallInput::Data(_) => todo!(),
-            };
+            call_input::serialize_call_input(&call_info.input, call_input_builder);
         }
         PluginCall::CollapseCustomValue(_) => todo!(),
     };
@@ -74,17 +71,16 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, She
 
             let call = call::deserialize_call(call_reader)?;
 
-            // TODO: Make reader.get_input return proper type
             let input_reader = reader
                 .get_input()
                 .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
-            let input = value::deserialize_value(input_reader, call.head)?;
+            let input = call_input::deserialize_call_input(input_reader, call.head)?;
 
             Ok(PluginCall::CallInfo(CallInfo {
                 name: name.to_string(),
                 call,
-                input: CallInput::Value(input),
+                input,
             }))
         }
     }
@@ -208,7 +204,7 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{EvaluatedCall, LabeledError, PluginCall, PluginResponse};
+    use crate::protocol::{CallInput, EvaluatedCall, LabeledError, PluginCall, PluginResponse};
     use nu_protocol::{Signature, Span, Spanned, SyntaxShape, Value};
 
     #[test]
