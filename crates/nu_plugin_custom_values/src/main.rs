@@ -1,9 +1,11 @@
 mod cool_custom_value;
+mod second_custom_value;
 
 use cool_custom_value::CoolCustomValue;
 use nu_plugin::{serve_plugin, JsonSerializer, Plugin};
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Category, Signature, Value};
+use nu_protocol::{Category, ShellError, Signature, Value};
+use second_custom_value::SecondCustomValue;
 
 struct CustomValuePlugin;
 
@@ -12,6 +14,9 @@ impl Plugin for CustomValuePlugin {
         vec![
             Signature::build("custom-value generate")
                 .usage("Signature for a plugin that generates a custom value")
+                .category(Category::Experimental),
+            Signature::build("custom-value generate2")
+                .usage("Signature for a plugin that generates a different custom value")
                 .category(Category::Experimental),
             Signature::build("custom-value update")
                 .usage("Signature for a plugin that updates a custom value")
@@ -27,6 +32,7 @@ impl Plugin for CustomValuePlugin {
     ) -> Result<Value, LabeledError> {
         match name {
             "custom-value generate" => self.generate(call, input),
+            "custom-value generate2" => self.generate2(call, input),
             "custom-value update" => self.update(call, input),
             _ => Err(LabeledError {
                 label: "Plugin call with wrong name signature".into(),
@@ -42,12 +48,28 @@ impl CustomValuePlugin {
         Ok(CoolCustomValue::new("abc").into_value(call.head))
     }
 
+    fn generate2(&mut self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
+        Ok(SecondCustomValue::new("xyz").into_value(call.head))
+    }
+
     fn update(&mut self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-        let mut cool = CoolCustomValue::try_from_value(input)?;
+        if let Ok(mut value) = CoolCustomValue::try_from_value(input) {
+            value.cool += "xyz";
+            return Ok(value.into_value(call.head));
+        }
 
-        cool.cool += "xyz";
+        if let Ok(mut value) = SecondCustomValue::try_from_value(input) {
+            value.something += "abc";
+            return Ok(value.into_value(call.head));
+        }
 
-        Ok(cool.into_value(call.head))
+        Err(ShellError::CantConvert(
+            "cool or second".into(),
+            "non-cool and non-second".into(),
+            call.head,
+            None,
+        )
+        .into())
     }
 }
 
