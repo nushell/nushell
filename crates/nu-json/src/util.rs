@@ -208,11 +208,14 @@ impl<Iter: Iterator<Item = u8>> ParseNumber<Iter> {
                         }
 
                         if !is_float {
-                            if let Ok(n) = res.parse::<i64>() {
-                                if res.starts_with('-') {
+                            if res.starts_with('-') {
+                                if let Ok(n) = res.parse::<i64>() {
                                     return Ok(Number::I64(n));
-                                } else {
-                                    return Ok(Number::U64(n as u64));
+                                }
+                            }
+                            else {
+                                if let Ok(n) = res.parse::<u64>() {
+                                    return Ok(Number::U64(n));
                                 }
                             }
                         }
