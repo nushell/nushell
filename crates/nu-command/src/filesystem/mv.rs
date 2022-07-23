@@ -5,6 +5,7 @@ use itertools::Itertools;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_glob::GlobResult;
+use nu_path::dots::expand_ndots;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -77,7 +78,6 @@ impl Command for Mv {
             call.req(engine_state, stack, spanned_sources.len() - 1)?;
         // don't read destination argument
         spanned_sources.pop();
-        dbg!(spanned_destination.clone().item);
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
         // let force = call.has_flag("force");
@@ -93,7 +93,7 @@ impl Command for Mv {
             .flat_map(move |spanned_source| {
                 let path = path.clone();
                 let source = path.join(spanned_source.item.as_str());
-                let destination = path.join(spanned_destination.item.as_str());
+                let destination = expand_ndots(path.join(spanned_destination.item.as_str()));
 
                 let mut sources: Vec<GlobResult> =
                     nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
@@ -163,6 +163,7 @@ impl Command for Mv {
                     .into_iter()
                     .flatten()
                     .filter_map(move |entry| {
+                        let entry = expand_ndots(entry);
                         let result = move_file(
                             Spanned {
                                 item: entry.clone(),
