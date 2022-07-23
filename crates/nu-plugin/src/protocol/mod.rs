@@ -99,5 +99,5 @@ pub enum PluginResponse {
     Error(LabeledError),
     Signature(Vec<Signature>),
     Value(Box<Value>),
-    PluginData(PluginData),
+    PluginData(String, PluginData),
 }

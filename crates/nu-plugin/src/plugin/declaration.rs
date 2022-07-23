@@ -127,9 +127,10 @@ impl Command for PluginDeclaration {
                 Ok(PluginResponse::Value(value)) => {
                     Ok(PipelineData::Value(value.as_ref().clone(), None))
                 }
-                Ok(PluginResponse::PluginData(plugin_data)) => Ok(PipelineData::Value(
+                Ok(PluginResponse::PluginData(name, plugin_data)) => Ok(PipelineData::Value(
                     Value::CustomValue {
                         val: Box::new(PluginCustomValue {
+                            name,
                             data: plugin_data.data,
                             filename: self.filename.clone(),
                             shell: self.shell.clone(),

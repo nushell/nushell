@@ -20,6 +20,8 @@ use super::{PluginCall, PluginData, PluginResponse};
 /// sent to the plugin with a request to collapse it into a base value
 #[derive(Clone, Debug, Serialize)]
 pub struct PluginCustomValue {
+    /// The name of the custom value as defined by the plugin
+    pub name: String,
     pub data: serde_json::Value,
     pub filename: PathBuf,
 
@@ -44,7 +46,7 @@ impl CustomValue for PluginCustomValue {
     }
 
     fn value_string(&self) -> String {
-        self.typetag_name().to_string()
+        self.name.clone()
     }
 
     fn to_base_value(
@@ -130,8 +132,6 @@ impl CustomValue for PluginCustomValue {
     }
 
     fn typetag_name(&self) -> &'static str {
-        // TODO: Is this a good idea? I'd love to be able to get the name of the data type itself
-        // but I don't think there's a way to get a &'static str without leaking which isn't ideal
         "PluginCustomValue"
     }
 

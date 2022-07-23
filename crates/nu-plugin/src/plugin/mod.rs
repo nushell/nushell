@@ -190,12 +190,16 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     };
 
                     let response = match value {
-                        Ok(Value::CustomValue { val, span }) => match serde_json::to_value(val) {
-                            Ok(data) => PluginResponse::PluginData(PluginData { data, span }),
-                            Err(err) => PluginResponse::Error(
-                                ShellError::PluginFailedToEncode(err.to_string()).into(),
-                            ),
-                        },
+                        Ok(Value::CustomValue { val, span }) => {
+                            match (val.value_string(), serde_json::to_value(val)) {
+                                (name, Ok(data)) => {
+                                    PluginResponse::PluginData(name, PluginData { data, span })
+                                }
+                                (_, Err(err)) => PluginResponse::Error(
+                                    ShellError::PluginFailedToEncode(err.to_string()).into(),
+                                ),
+                            }
+                        }
                         Ok(value) => PluginResponse::Value(Box::new(value)),
                         Err(err) => PluginResponse::Error(err),
                     };
