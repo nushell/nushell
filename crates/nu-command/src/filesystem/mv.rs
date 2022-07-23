@@ -1,8 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use super::util::try_interaction;
+use itertools::Itertools;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
+use nu_glob::GlobResult;
+use nu_path::dots::expand_ndots;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -36,11 +39,16 @@ impl Command for Mv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
-            .required(
-                "source",
-                SyntaxShape::GlobPattern,
-                "the location to move files/directories from",
+            .rest(
+                "source(s)",
+                SyntaxShape::String,
+                "the location(s) to move files/directories from",
             )
+            // .required(
+            //     "source",
+            //     SyntaxShape::GlobPattern,
+            //     "the location to move files/directories from",
+            // )
             .required(
                 "destination",
                 SyntaxShape::Filepath,
@@ -64,114 +72,132 @@ impl Command for Mv {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
-        let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
+        let mut spanned_sources: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
+        // read destination as final argument
+        let spanned_destination: Spanned<String> =
+            call.req(engine_state, stack, spanned_sources.len() - 1)?;
+        // don't read destination argument
+        spanned_sources.pop();
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
         // let force = call.has_flag("force");
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let path = current_dir(engine_state, stack)?;
-        let source = path.join(spanned_source.item.as_str());
-        let destination = path.join(spanned_destination.item.as_str());
-
-        let mut sources = nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
-            .map_or_else(|_| Vec::new(), Iterator::collect);
-
-        if sources.is_empty() {
-            return Err(ShellError::GenericError(
-                "Invalid file or pattern".into(),
-                "invalid file or pattern".into(),
-                Some(spanned_source.span),
-                None,
-                Vec::new(),
-            ));
-        }
-
-        // We have two possibilities.
-        //
-        // First, the destination exists.
-        //  - If a directory, move everything into that directory, otherwise
-        //  - if only a single source, overwrite the file, otherwise
-        //  - error.
-        //
-        // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
-        // it's an error.
-
-        if (destination.exists() && !destination.is_dir() && sources.len() > 1)
-            || (!destination.exists() && sources.len() > 1)
-        {
-            return Err(ShellError::GenericError(
-                "Can only move multiple sources if destination is a directory".into(),
-                "destination must be a directory when multiple sources".into(),
-                Some(spanned_destination.span),
-                None,
-                Vec::new(),
-            ));
-        }
-
-        let some_if_source_is_destination = sources
-            .iter()
-            .find(|f| matches!(f, Ok(f) if destination.starts_with(f)));
-        if destination.exists() && destination.is_dir() && sources.len() == 1 {
-            if let Some(Ok(filename)) = some_if_source_is_destination {
-                return Err(ShellError::GenericError(
-                    format!(
-                        "Not possible to move {:?} to itself",
-                        filename.file_name().expect("Invalid file name")
-                    ),
-                    "cannot move to itself".into(),
-                    Some(spanned_destination.span),
-                    None,
-                    Vec::new(),
-                ));
-            }
-        }
-
-        if let Some(Ok(_filename)) = some_if_source_is_destination {
-            sources = sources
-                .into_iter()
-                .filter(|f| matches!(f, Ok(f) if !destination.starts_with(f)))
-                .collect();
-        }
+        let path = current_dir(engine_state, stack).expect("Failed current_dir");
 
         let span = call.head;
-        Ok(sources
+
+        Ok(spanned_sources
             .into_iter()
-            .flatten()
-            .filter_map(move |entry| {
-                let result = move_file(
-                    Spanned {
-                        item: entry.clone(),
-                        span: spanned_source.span,
-                    },
-                    Spanned {
-                        item: destination.clone(),
-                        span: spanned_destination.span,
-                    },
-                    interactive,
-                );
-                if let Err(error) = result {
-                    Some(Value::Error { error })
-                } else if verbose {
-                    let val = if result.expect("Error value when unwrapping mv result") {
-                        format!(
-                            "moved {:} to {:}",
-                            entry.to_string_lossy(),
-                            destination.to_string_lossy()
-                        )
-                    } else {
-                        format!(
-                            "{:} not moved to {:}",
-                            entry.to_string_lossy(),
-                            destination.to_string_lossy()
-                        )
-                    };
-                    Some(Value::String { val, span })
-                } else {
-                    None
+            .flat_map(move |spanned_source| {
+                let path = path.clone();
+                let source = path.join(spanned_source.item.as_str());
+                let destination = expand_ndots(path.join(spanned_destination.item.as_str()));
+
+                let mut sources: Vec<GlobResult> =
+                    nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
+                        .map_or_else(|_| Vec::new(), Iterator::collect);
+
+                if sources.is_empty() {
+                    let err = ShellError::GenericError(
+                        "Invalid file or pattern".into(),
+                        "invalid file or pattern".into(),
+                        Some(spanned_source.span),
+                        None,
+                        Vec::new(),
+                    );
+                    return Vec::from([Value::Error { error: err }]).into_iter();
                 }
+
+                // We have two possibilities.
+                //
+                // First, the destination exists.
+                //  - If a directory, move everything into that directory, otherwise
+                //  - if only a single source, overwrite the file, otherwise
+                //  - error.
+                //
+                // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
+                // it's an error.
+
+                if (destination.exists() && !destination.is_dir() && sources.len() > 1)
+                    || (!destination.exists() && sources.len() > 1)
+                {
+                    let err = ShellError::GenericError(
+                        "Can only move multiple sources if destination is a directory".into(),
+                        "destination must be a directory when multiple sources".into(),
+                        Some(spanned_destination.span),
+                        None,
+                        Vec::new(),
+                    );
+                    return Vec::from([Value::Error { error: err }]).into_iter();
+                }
+
+                let some_if_source_is_destination = sources
+                    .iter()
+                    .find(|f| matches!(f, Ok(f) if destination.starts_with(f)));
+                if destination.exists() && destination.is_dir() && sources.len() == 1 {
+                    if let Some(Ok(filename)) = some_if_source_is_destination {
+                        let err = ShellError::GenericError(
+                            format!(
+                                "Not possible to move {:?} to itself",
+                                filename.file_name().expect("Invalid file name")
+                            ),
+                            "cannot move to itself".into(),
+                            Some(spanned_destination.span),
+                            None,
+                            Vec::new(),
+                        );
+                        return Vec::from([Value::Error { error: err }]).into_iter();
+                    }
+                }
+
+                if let Some(Ok(_filename)) = some_if_source_is_destination {
+                    sources = sources
+                        .into_iter()
+                        .filter(|f| matches!(f, Ok(f) if !destination.starts_with(f)))
+                        .collect();
+                }
+
+                sources
+                    .into_iter()
+                    .flatten()
+                    .filter_map(move |entry| {
+                        let entry = expand_ndots(entry);
+                        let result = move_file(
+                            Spanned {
+                                item: entry.clone(),
+                                span: spanned_source.span,
+                            },
+                            Spanned {
+                                item: destination.clone(),
+                                span: spanned_destination.span,
+                            },
+                            interactive,
+                        );
+                        if let Err(error) = result {
+                            Some(Value::Error { error })
+                        } else if verbose {
+                            let val = if result.expect("Error value when unwrapping mv result") {
+                                format!(
+                                    "moved {:} to {:}",
+                                    entry.to_string_lossy(),
+                                    destination.to_string_lossy()
+                                )
+                            } else {
+                                format!(
+                                    "{:} not moved to {:}",
+                                    entry.to_string_lossy(),
+                                    destination.to_string_lossy()
+                                )
+                            };
+                            Some(Value::String { val, span })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect_vec()
+                    .into_iter()
             })
             .into_pipeline_data(ctrlc))
     }

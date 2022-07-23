@@ -1,4 +1,4 @@
-mod dots;
+pub mod dots;
 mod expansions;
 mod helpers;
 mod tilde;
