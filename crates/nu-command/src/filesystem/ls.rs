@@ -147,7 +147,8 @@ impl Command for Ls {
                         Some(glob_options)
                     };
                     let (prefix, paths) =
-                        nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options).expect("glob failure");
+                        nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options)
+                            .expect("glob failure");
 
                     let mut paths_peek = paths.peekable();
                     if paths_peek.peek().is_none() {
@@ -394,7 +395,7 @@ impl Command for Ls {
 
         Ok(glob_results
             .into_iter()
-            .filter(|result| !matches!(result, Value::Nothing{..}))
+            .filter(|result| !matches!(result, Value::Nothing { .. }))
             .into_pipeline_data_with_metadata(
                 PipelineMetadata {
                     data_source: DataSource::Ls,
