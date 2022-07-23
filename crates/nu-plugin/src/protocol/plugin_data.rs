@@ -3,6 +3,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct PluginData {
-    pub data: serde_json::Value,
+    pub data: Vec<u8>,
     pub span: Span,
 }

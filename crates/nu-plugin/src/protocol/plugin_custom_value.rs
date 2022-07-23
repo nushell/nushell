@@ -22,7 +22,7 @@ use super::{PluginCall, PluginData, PluginResponse};
 pub struct PluginCustomValue {
     /// The name of the custom value as defined by the plugin
     pub name: String,
-    pub data: serde_json::Value,
+    pub data: Vec<u8>,
     pub filename: PathBuf,
 
     // PluginCustomValue must implement Serialize because all CustomValues must implement Serialize

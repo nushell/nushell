@@ -175,7 +175,7 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     let input = match call_info.input {
                         CallInput::Value(value) => Ok(value),
                         CallInput::Data(plugin_data) => {
-                            serde_json::from_value::<Box<dyn CustomValue>>(plugin_data.data)
+                            bincode::deserialize::<Box<dyn CustomValue>>(&plugin_data.data)
                                 .map(|custom_value| Value::CustomValue {
                                     val: custom_value,
                                     span: plugin_data.span,
@@ -190,16 +190,15 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     };
 
                     let response = match value {
-                        Ok(Value::CustomValue { val, span }) => {
-                            match (val.value_string(), serde_json::to_value(val)) {
-                                (name, Ok(data)) => {
-                                    PluginResponse::PluginData(name, PluginData { data, span })
-                                }
-                                (_, Err(err)) => PluginResponse::Error(
-                                    ShellError::PluginFailedToEncode(err.to_string()).into(),
-                                ),
+                        Ok(Value::CustomValue { val, span }) => match bincode::serialize(&val) {
+                            Ok(data) => {
+                                let name = val.value_string();
+                                PluginResponse::PluginData(name, PluginData { data, span })
                             }
-                        }
+                            Err(err) => PluginResponse::Error(
+                                ShellError::PluginFailedToEncode(err.to_string()).into(),
+                            ),
+                        },
                         Ok(value) => PluginResponse::Value(Box::new(value)),
                         Err(err) => PluginResponse::Error(err),
                     };
@@ -208,7 +207,7 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                         .expect("Error encoding response");
                 }
                 PluginCall::CollapseCustomValue(plugin_data) => {
-                    let response = serde_json::from_value::<Box<dyn CustomValue>>(plugin_data.data)
+                    let response = bincode::deserialize::<Box<dyn CustomValue>>(&plugin_data.data)
                         .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
                         .and_then(|val| val.to_base_value(plugin_data.span))
                         .map(Box::new)
