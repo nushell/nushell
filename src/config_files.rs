@@ -71,11 +71,19 @@ pub(crate) fn read_config_file(
             };
 
             match answer.to_lowercase().trim() {
-                "y" | "" => {
-                    let mut output = File::create(&config_path).expect("Unable to create file");
-                    write!(output, "{}", config_file).expect("Unable to write to config file");
-                    println!("Config file created at: {}", config_path.to_string_lossy());
-                }
+                "y" | "" => match File::create(&config_path) {
+                    Ok(mut output) => match write!(output, "{}", config_file) {
+                        Ok(_) => {
+                            println!("Config file created at: {}", config_path.to_string_lossy())
+                        }
+                        Err(e) => eprintln!(
+                            "Unable to write to {}: {}",
+                            config_path.to_string_lossy(),
+                            e
+                        ),
+                    },
+                    Err(e) => eprintln!("Unable to create {}: {}", config_file, e),
+                },
                 _ => {
                     println!("Continuing without config file");
                     // Just use the contents of "default_config.nu" or "default_env.nu"
