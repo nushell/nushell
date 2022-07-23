@@ -75,7 +75,7 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, She
                 .get_input()
                 .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
-            let input = call_input::deserialize_call_input(input_reader, call.head)?;
+            let input = call_input::deserialize_call_input(input_reader)?;
 
             Ok(PluginCall::CallInfo(CallInfo {
                 name: name.to_string(),

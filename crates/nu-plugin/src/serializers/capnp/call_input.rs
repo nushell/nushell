@@ -11,10 +11,7 @@ pub(crate) fn serialize_call_input(call_input: &CallInput, builder: call_input::
     };
 }
 
-pub(crate) fn deserialize_call_input(
-    reader: call_input::Reader,
-    head: Span,
-) -> Result<CallInput, ShellError> {
+pub(crate) fn deserialize_call_input(reader: call_input::Reader) -> Result<CallInput, ShellError> {
     match reader.which() {
         Err(capnp::NotInSchema(_)) => Err(ShellError::PluginFailedToDecode(
             "value not in schema".into(),
@@ -23,9 +20,18 @@ pub(crate) fn deserialize_call_input(
             let value_reader =
                 value_reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
+            let span_reader = value_reader
+                .get_span()
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let span = Span {
+                start: span_reader.get_start() as usize,
+                end: span_reader.get_end() as usize,
+            };
+
             Ok(CallInput::Value(value::deserialize_value(
                 value_reader,
-                head,
+                span,
             )?))
         }
         Ok(call_input::PluginData(_)) => todo!(),
