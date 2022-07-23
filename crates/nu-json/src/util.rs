@@ -207,18 +207,19 @@ impl<Iter: Iterator<Item = u8>> ParseNumber<Iter> {
                             }
                         }
 
-                        if is_float {
-                            Ok(Number::F64(
-                                res.parse::<f64>().expect("Internal error: json parsing"),
-                            ))
-                        } else if res.starts_with('-') {
-                            Ok(Number::I64(
-                                res.parse::<i64>().expect("Internal error: json parsing"),
-                            ))
-                        } else {
-                            Ok(Number::U64(
-                                res.parse::<u64>().expect("Internal error: json parsing"),
-                            ))
+                        if !is_float {
+                            if res.starts_with('-') {
+                                if let Ok(n) = res.parse::<i64>() {
+                                    return Ok(Number::I64(n));
+                                }
+                            } else if let Ok(n) = res.parse::<u64>() {
+                                return Ok(Number::U64(n));
+                            }
+                        }
+
+                        match res.parse::<f64>() {
+                            Ok(n) => Ok(Number::F64(n)),
+                            _ => Err(Error::Syntax(ErrorCode::InvalidNumber, 0, 0)),
                         }
                     }
                     _ => Err(Error::Syntax(ErrorCode::InvalidNumber, 0, 0)),
