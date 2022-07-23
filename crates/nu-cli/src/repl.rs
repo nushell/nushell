@@ -6,7 +6,7 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use lazy_static::lazy_static;
-use log::{info, trace};
+use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::get_color_config;
 use nu_engine::{convert_env_values, eval_block};
@@ -216,7 +216,10 @@ pub fn evaluate_repl(
             if is_perf_true {
                 info!("sync history {}:{}:{}", file!(), line!(), column!());
             }
-            line_editor.sync_history().into_diagnostic()?;
+
+            if let Err(e) = line_editor.sync_history() {
+                warn!("Failed to sync history: {}", e);
+            }
         }
 
         if is_perf_true {
