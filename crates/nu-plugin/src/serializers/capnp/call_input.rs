@@ -1,4 +1,4 @@
-use super::value;
+use super::{plugin_data, value};
 use crate::{plugin_capnp::call_input, protocol::CallInput};
 use nu_protocol::{ShellError, Span};
 
@@ -7,7 +7,11 @@ pub(crate) fn serialize_call_input(call_input: &CallInput, builder: call_input::
         CallInput::Value(value) => {
             value::serialize_value(value, builder.init_value());
         }
-        CallInput::Data(_) => todo!(),
+        CallInput::Data(plugin_data) => {
+            let builder = builder.init_plugin_data();
+
+            plugin_data::serialize_plugin_data(plugin_data, builder);
+        }
     };
 }
 
@@ -34,14 +38,21 @@ pub(crate) fn deserialize_call_input(reader: call_input::Reader) -> Result<CallI
                 span,
             )?))
         }
-        Ok(call_input::PluginData(_)) => todo!(),
+        Ok(call_input::PluginData(plugin_data_reader)) => {
+            let plugin_data_reader =
+                plugin_data_reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let plugin_data = plugin_data::deserialize_plugin_data(plugin_data_reader)?;
+
+            Ok(CallInput::Data(plugin_data))
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::CallInput;
+    use crate::protocol::{CallInput, PluginData};
     use capnp::serialize;
     use nu_protocol::{Span, Value};
 
@@ -74,6 +85,21 @@ mod tests {
     fn callinput_value_round_trip() {
         let call_input = CallInput::Value(Value::String {
             val: "abc".to_string(),
+            span: Span { start: 1, end: 20 },
+        });
+
+        let mut buffer: Vec<u8> = Vec::new();
+        write_buffer(&call_input, &mut buffer).expect("unable to serialize message");
+        let returned_call_input =
+            read_buffer(&mut buffer.as_slice()).expect("unable to deserialize message");
+
+        assert_eq!(call_input, returned_call_input)
+    }
+
+    #[test]
+    fn callinput_data_round_trip() {
+        let call_input = CallInput::Data(PluginData {
+            data: vec![1, 2, 3, 4, 5, 6, 7],
             span: Span { start: 1, end: 20 },
         });
 

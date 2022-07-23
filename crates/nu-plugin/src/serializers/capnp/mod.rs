@@ -1,6 +1,7 @@
 mod call;
 mod call_input;
 mod plugin_call;
+mod plugin_data;
 mod signature;
 mod value;
 

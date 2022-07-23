@@ -204,7 +204,9 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{CallInput, EvaluatedCall, LabeledError, PluginCall, PluginResponse};
+    use crate::protocol::{
+        CallInput, EvaluatedCall, LabeledError, PluginCall, PluginData, PluginResponse,
+    };
     use nu_protocol::{Signature, Span, Spanned, SyntaxShape, Value};
 
     #[test]
@@ -226,10 +228,10 @@ mod tests {
     fn callinfo_round_trip_callinfo() {
         let name = "test".to_string();
 
-        let input = Value::Bool {
+        let input = CallInput::Value(Value::Bool {
             val: false,
             span: Span { start: 1, end: 20 },
-        };
+        });
 
         let call = EvaluatedCall {
             head: Span { start: 0, end: 10 },
@@ -258,8 +260,14 @@ mod tests {
         let plugin_call = PluginCall::CallInfo(CallInfo {
             name: name.clone(),
             call: call.clone(),
-            // TODO: Make another test for callinfo_with_data_input test
-            input: CallInput::Value(input.clone()),
+            // Avoiding having to implement Clone on CallInput just for tests
+            input: match &input {
+                CallInput::Value(value) => CallInput::Value(value.clone()),
+                CallInput::Data(plugin_data) => CallInput::Data(PluginData {
+                    data: plugin_data.data.clone(),
+                    span: plugin_data.span,
+                }),
+            },
         });
 
         let mut buffer: Vec<u8> = Vec::new();
@@ -270,7 +278,7 @@ mod tests {
             PluginCall::Signature => panic!("returned wrong call type"),
             PluginCall::CallInfo(call_info) => {
                 assert_eq!(name, call_info.name);
-                assert_eq!(CallInput::Value(input), call_info.input);
+                assert_eq!(&input, &call_info.input);
                 assert_eq!(call.head, call_info.call.head);
                 assert_eq!(call.positional.len(), call_info.call.positional.len());
 
