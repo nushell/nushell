@@ -273,6 +273,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     let i = match input {
         Value::Int { val, .. } => val.to_string(),
         Value::String { val, .. } => {
+            let val = val.trim();
             if val.starts_with("0x") // hex
                 || val.starts_with("0b") // binary
                 || val.starts_with("0o")
@@ -309,10 +310,10 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
             }
         }
     };
-    match i64::from_str_radix(&i, radix) {
+    match i64::from_str_radix(i.trim(), radix) {
         Ok(n) => Value::Int { val: n, span: head },
         Err(_reason) => Value::Error {
-            error: ShellError::CantConvert("int".to_string(), "string".to_string(), head, None),
+            error: ShellError::CantConvert("string".to_string(), "int".to_string(), head, None),
         },
     }
 }
