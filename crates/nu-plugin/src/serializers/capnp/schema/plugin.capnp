@@ -153,6 +153,12 @@ struct PluginResponse {
 		error @0 :LabeledError;
 		signature @1 :List(Signature);
 		value @2 :Value;
+		pluginData @3 :PluginDataResponse;
+	}
+
+	struct PluginDataResponse {
+		name @0 :Text;
+		data @1 :PluginData;
 	}
 }
 
