@@ -299,6 +299,16 @@ fn main() -> Result<()> {
                     input,
                     is_perf_true(),
                 );
+
+                let last_exit_code = stack.get_env_var(&engine_state, "LAST_EXIT_CODE");
+                if let Some(last_exit_code) = last_exit_code {
+                    let value = last_exit_code.as_integer();
+                    if let Ok(value) = value {
+                        if value != 0 {
+                            std::process::exit(value as i32);
+                        }
+                    }
+                }
                 if is_perf_true() {
                     info!("eval_file execution {}:{}:{}", file!(), line!(), column!());
                 }
