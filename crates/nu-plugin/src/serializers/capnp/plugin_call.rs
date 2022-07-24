@@ -130,7 +130,12 @@ pub fn encode_response(
             let value_builder = builder.reborrow().init_value();
             value::serialize_value(val, value_builder);
         }
-        PluginResponse::PluginData(..) => todo!(),
+        PluginResponse::PluginData(name, plugin_data) => {
+            let mut plugin_data_builder = builder.reborrow().init_plugin_data();
+
+            plugin_data_builder.set_name(name);
+            plugin_data::serialize_plugin_data(plugin_data, plugin_data_builder.init_data());
+        }
     };
 
     serialize::write_message(writer, &message)
@@ -208,6 +213,20 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
             .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
             Ok(PluginResponse::Value(Box::new(val)))
+        }
+        Ok(plugin_response::PluginData(reader)) => {
+            let reader = reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let name = reader
+                .get_name()
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let plugin_data_reader = reader
+                .get_data()
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+            let plugin_data = plugin_data::deserialize_plugin_data(plugin_data_reader)?;
+
+            Ok(PluginResponse::PluginData(name.to_string(), plugin_data))
         }
     }
 }
@@ -418,6 +437,38 @@ mod tests {
             PluginResponse::PluginData(..) => panic!("returned wrong call type"),
             PluginResponse::Value(returned_value) => {
                 assert_eq!(&value, returned_value.as_ref())
+            }
+        }
+    }
+
+    #[test]
+    fn response_round_trip_plugin_data() {
+        let name = "test".to_string();
+
+        let data = vec![1, 2, 3, 4, 5];
+        let span = Span { start: 2, end: 30 };
+
+        let response = PluginResponse::PluginData(
+            name.clone(),
+            PluginData {
+                data: data.clone(),
+                span,
+            },
+        );
+
+        let mut buffer: Vec<u8> = Vec::new();
+        encode_response(&response, &mut buffer).expect("unable to serialize message");
+        let returned =
+            decode_response(&mut buffer.as_slice()).expect("unable to deserialize message");
+
+        match returned {
+            PluginResponse::Error(_) => panic!("returned wrong call type"),
+            PluginResponse::Signature(_) => panic!("returned wrong call type"),
+            PluginResponse::Value(_) => panic!("returned wrong call type"),
+            PluginResponse::PluginData(returned_name, returned_plugin_data) => {
+                assert_eq!(name, returned_name);
+                assert_eq!(data, returned_plugin_data.data);
+                assert_eq!(span, returned_plugin_data.span);
             }
         }
     }
