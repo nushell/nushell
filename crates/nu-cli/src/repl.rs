@@ -314,22 +314,22 @@ pub fn evaluate_repl(
                 if shell_integration {
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
                     run_ansi_sequence(PRE_EXECUTE_MARKER)?;
-                    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-                        let path = cwd.as_string()?;
-                        // Try to abbreviate string for windows title
-                        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-                            path.replace(&p.as_path().display().to_string(), "~")
-                        } else {
-                            path
-                        };
+                    // if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+                    //     let path = cwd.as_string()?;
+                    //     // Try to abbreviate string for windows title
+                    //     let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                    //         path.replace(&p.as_path().display().to_string(), "~")
+                    //     } else {
+                    //         path
+                    //     };
 
-                        // Set window title too
-                        // https://tldp.org/HOWTO/Xterm-Title-3.html
-                        // ESC]0;stringBEL -- Set icon name and window title to string
-                        // ESC]1;stringBEL -- Set icon name to string
-                        // ESC]2;stringBEL -- Set window title to string
-                        run_ansi_sequence(&format!("\x1b]2;{}\x07", maybe_abbrev_path))?;
-                    }
+                    //     // Set window title too
+                    //     // https://tldp.org/HOWTO/Xterm-Title-3.html
+                    //     // ESC]0;stringBEL -- Set icon name and window title to string
+                    //     // ESC]1;stringBEL -- Set icon name to string
+                    //     // ESC]2;stringBEL -- Set window title to string
+                    //     run_ansi_sequence(&format!("\x1b]2;{}\x07", maybe_abbrev_path))?;
+                    // }
                 }
 
                 let start_time = Instant::now();
@@ -429,6 +429,22 @@ pub fn evaluate_repl(
 
                 if shell_integration {
                     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+                    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+                        let path = cwd.as_string()?;
+                        // Try to abbreviate string for windows title
+                        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                            path.replace(&p.as_path().display().to_string(), "~")
+                        } else {
+                            path
+                        };
+
+                        // Set window title too
+                        // https://tldp.org/HOWTO/Xterm-Title-3.html
+                        // ESC]0;stringBEL -- Set icon name and window title to string
+                        // ESC]1;stringBEL -- Set icon name to string
+                        // ESC]2;stringBEL -- Set window title to string
+                        run_ansi_sequence(&format!("\x1b]2;{}\x07", maybe_abbrev_path))?;
+                    }
                 }
             }
             Ok(Signal::CtrlC) => {
