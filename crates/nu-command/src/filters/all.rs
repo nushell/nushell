@@ -66,27 +66,31 @@ impl Command for All {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        Ok(Value::Bool {
-            val: input.into_interruptible_iter(ctrlc).all(move |value| {
-                if let Some(var_id) = var_id {
-                    stack.add_var(var_id, value);
-                }
+        for value in input.into_interruptible_iter(ctrlc) {
+            if let Some(var_id) = var_id {
+                stack.add_var(var_id, value);
+            }
 
-                eval_block(
-                    &engine_state,
-                    &mut stack,
-                    block,
-                    PipelineData::new(span),
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )
-                .map_or(false, |pipeline_data| {
-                    pipeline_data.into_value(span).is_true()
-                })
-            }),
-            span,
+            let eval = eval_block(
+                &engine_state,
+                &mut stack,
+                block,
+                PipelineData::new(span),
+                call.redirect_stdout,
+                call.redirect_stderr,
+            );
+            match eval {
+                Err(e) => {
+                    return Err(e);
+                }
+                Ok(pipeline_data) => {
+                    if !pipeline_data.into_value(span).is_true() {
+                        return Ok(Value::Bool { val: false, span }.into_pipeline_data());
+                    }
+                }
+            }
         }
-        .into_pipeline_data())
+        Ok(Value::Bool { val: true, span }.into_pipeline_data())
     }
 }
 

@@ -55,3 +55,15 @@ fn checks_all_columns_of_a_table_is_true() {
 
     assert_eq!(actual.out, "true");
 }
+
+#[test]
+fn checks_if_all_returns_error_with_invalid_command() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            [red orange yellow green blue purple] | all? ($it | st length) > 4
+        "#
+    ));
+
+    assert!(actual.err.contains("can't run executable") || actual.err.contains("type_mismatch"));
+}
