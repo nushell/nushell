@@ -6,5 +6,5 @@ mod serializers;
 mod plugin_capnp;
 
 pub use plugin::{get_signature, serve_plugin, Plugin, PluginDeclaration};
-pub use protocol::{EvaluatedCall, LabeledError};
+pub use protocol::{EvaluatedCall, LabeledError, PluginData};
 pub use serializers::{capnp::CapnpSerializer, json::JsonSerializer, EncodingType};
