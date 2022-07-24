@@ -1,5 +1,5 @@
 use super::signature::deserialize_signature;
-use super::{call, call_input, signature, value};
+use super::{call, call_input, plugin_data, signature, value};
 use crate::plugin_capnp::{plugin_call, plugin_response};
 use crate::protocol::{CallInfo, LabeledError, PluginCall, PluginResponse};
 use capnp::serialize;
@@ -38,7 +38,11 @@ pub fn encode_call(
 
             call_input::serialize_call_input(&call_info.input, call_input_builder);
         }
-        PluginCall::CollapseCustomValue(_) => todo!(),
+        PluginCall::CollapseCustomValue(plugin_data) => {
+            let builder = builder.init_collapse_custom_value();
+
+            plugin_data::serialize_plugin_data(plugin_data, builder);
+        }
     };
 
     serialize::write_message(writer, &message)
@@ -82,6 +86,13 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, She
                 call,
                 input,
             }))
+        }
+        Ok(plugin_call::CollapseCustomValue(reader)) => {
+            let reader = reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let plugin_data = plugin_data::deserialize_plugin_data(reader)?;
+
+            Ok(PluginCall::CollapseCustomValue(plugin_data))
         }
     }
 }
@@ -302,6 +313,30 @@ mod tests {
                     });
             }
             PluginCall::CollapseCustomValue(_) => panic!("returned wrong call type"),
+        }
+    }
+
+    #[test]
+    fn callinfo_round_trip_collapsecustomvalue() {
+        let data = vec![1, 2, 3, 4, 5, 6, 7];
+        let span = Span { start: 0, end: 20 };
+
+        let collapse_custom_value = PluginCall::CollapseCustomValue(PluginData {
+            data: data.clone(),
+            span,
+        });
+
+        let mut buffer: Vec<u8> = Vec::new();
+        encode_call(&collapse_custom_value, &mut buffer).expect("unable to serialize message");
+        let returned = decode_call(&mut buffer.as_slice()).expect("unable to deserialize message");
+
+        match returned {
+            PluginCall::Signature => panic!("returned wrong call type"),
+            PluginCall::CallInfo(_) => panic!("returned wrong call type"),
+            PluginCall::CollapseCustomValue(plugin_data) => {
+                assert_eq!(data, plugin_data.data);
+                assert_eq!(span, plugin_data.span);
+            }
         }
     }
 
