@@ -144,6 +144,7 @@ struct PluginCall {
 	union {
 		signature @0 :Void;
 		callInfo @1 :CallInfo;
+		collapseCustomValue @2 :PluginData;
 	}
 }
 

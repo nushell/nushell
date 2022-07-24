@@ -4017,7 +4017,7 @@ pub mod call_info {
 }
 
 pub mod plugin_call {
-    pub use self::Which::{CallInfo, Signature};
+    pub use self::Which::{CallInfo, CollapseCustomValue, Signature};
 
     #[derive(Copy, Clone)]
     pub struct Owned(());
@@ -4090,10 +4090,23 @@ pub mod plugin_call {
             !self.reader.get_pointer_field(0).is_null()
         }
         #[inline]
+        pub fn has_collapse_custom_value(&self) -> bool {
+            if self.reader.get_data_field::<u16>(0) != 2 {
+                return false;
+            }
+            !self.reader.get_pointer_field(0).is_null()
+        }
+        #[inline]
         pub fn which(self) -> ::core::result::Result<WhichReader<'a>, ::capnp::NotInSchema> {
             match self.reader.get_data_field::<u16>(0) {
                 0 => ::core::result::Result::Ok(Signature(())),
                 1 => ::core::result::Result::Ok(CallInfo(
+                    ::capnp::traits::FromPointerReader::get_from_pointer(
+                        &self.reader.get_pointer_field(0),
+                        ::core::option::Option::None,
+                    ),
+                )),
+                2 => ::core::result::Result::Ok(CollapseCustomValue(
                     ::capnp::traits::FromPointerReader::get_from_pointer(
                         &self.reader.get_pointer_field(0),
                         ::core::option::Option::None,
@@ -4202,10 +4215,40 @@ pub mod plugin_call {
             !self.builder.get_pointer_field(0).is_null()
         }
         #[inline]
+        pub fn set_collapse_custom_value(
+            &mut self,
+            value: crate::plugin_capnp::plugin_data::Reader<'_>,
+        ) -> ::capnp::Result<()> {
+            self.builder.set_data_field::<u16>(0, 2);
+            ::capnp::traits::SetPointerBuilder::set_pointer_builder(
+                self.builder.get_pointer_field(0),
+                value,
+                false,
+            )
+        }
+        #[inline]
+        pub fn init_collapse_custom_value(self) -> crate::plugin_capnp::plugin_data::Builder<'a> {
+            self.builder.set_data_field::<u16>(0, 2);
+            ::capnp::traits::FromPointerBuilder::init_pointer(self.builder.get_pointer_field(0), 0)
+        }
+        #[inline]
+        pub fn has_collapse_custom_value(&self) -> bool {
+            if self.builder.get_data_field::<u16>(0) != 2 {
+                return false;
+            }
+            !self.builder.get_pointer_field(0).is_null()
+        }
+        #[inline]
         pub fn which(self) -> ::core::result::Result<WhichBuilder<'a>, ::capnp::NotInSchema> {
             match self.builder.get_data_field::<u16>(0) {
                 0 => ::core::result::Result::Ok(Signature(())),
                 1 => ::core::result::Result::Ok(CallInfo(
+                    ::capnp::traits::FromPointerBuilder::get_from_pointer(
+                        self.builder.get_pointer_field(0),
+                        ::core::option::Option::None,
+                    ),
+                )),
+                2 => ::core::result::Result::Ok(CollapseCustomValue(
                     ::capnp::traits::FromPointerBuilder::get_from_pointer(
                         self.builder.get_pointer_field(0),
                         ::core::option::Option::None,
@@ -4235,12 +4278,19 @@ pub mod plugin_call {
         };
         pub const TYPE_ID: u64 = 0xde86_64b2_7f80_4db1;
     }
-    pub enum Which<A0> {
+    pub enum Which<A0, A1> {
         Signature(()),
         CallInfo(A0),
+        CollapseCustomValue(A1),
     }
-    pub type WhichReader<'a> = Which<::capnp::Result<crate::plugin_capnp::call_info::Reader<'a>>>;
-    pub type WhichBuilder<'a> = Which<::capnp::Result<crate::plugin_capnp::call_info::Builder<'a>>>;
+    pub type WhichReader<'a> = Which<
+        ::capnp::Result<crate::plugin_capnp::call_info::Reader<'a>>,
+        ::capnp::Result<crate::plugin_capnp::plugin_data::Reader<'a>>,
+    >;
+    pub type WhichBuilder<'a> = Which<
+        ::capnp::Result<crate::plugin_capnp::call_info::Builder<'a>>,
+        ::capnp::Result<crate::plugin_capnp::plugin_data::Builder<'a>>,
+    >;
 }
 
 pub mod plugin_response {
