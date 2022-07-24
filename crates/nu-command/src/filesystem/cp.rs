@@ -6,6 +6,7 @@ use itertools::Itertools;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_glob::GlobResult;
+use nu_path::dots::expand_ndots;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -89,7 +90,7 @@ impl Command for Cp {
         let interactive = call.has_flag("interactive");
 
         let current_dir_path = current_dir(engine_state, stack)?;
-        let destination = current_dir_path.join(dst.item.as_str());
+        let destination = expand_ndots(current_dir_path.join(dst.item.as_str()));
 
         let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
         let is_directory = path_last_char == Some('/') || path_last_char == Some('\\');
