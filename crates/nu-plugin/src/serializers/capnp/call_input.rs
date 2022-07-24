@@ -37,3 +37,51 @@ pub(crate) fn deserialize_call_input(reader: call_input::Reader) -> Result<CallI
         Ok(call_input::PluginData(_)) => todo!(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::CallInput;
+    use capnp::serialize;
+    use nu_protocol::{Span, Value};
+
+    pub fn write_buffer(
+        call_input: &CallInput,
+        writer: &mut impl std::io::Write,
+    ) -> Result<(), ShellError> {
+        let mut message = ::capnp::message::Builder::new_default();
+
+        let mut builder = message.init_root::<call_input::Builder>();
+
+        serialize_call_input(call_input, builder.reborrow());
+
+        serialize::write_message(writer, &message)
+            .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))
+    }
+
+    pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<CallInput, ShellError> {
+        let message_reader =
+            serialize::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
+
+        let reader = message_reader
+            .get_root::<call_input::Reader>()
+            .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+        deserialize_call_input(reader.reborrow())
+    }
+
+    #[test]
+    fn callinput_value_round_trip() {
+        let call_input = CallInput::Value(Value::String {
+            val: "abc".to_string(),
+            span: Span { start: 1, end: 20 },
+        });
+
+        let mut buffer: Vec<u8> = Vec::new();
+        write_buffer(&call_input, &mut buffer).expect("unable to serialize message");
+        let returned_call_input =
+            read_buffer(&mut buffer.as_slice()).expect("unable to deserialize message");
+
+        assert_eq!(call_input, returned_call_input)
+    }
+}
