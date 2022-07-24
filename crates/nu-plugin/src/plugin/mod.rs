@@ -5,9 +5,9 @@ use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginRes
 use crate::EncodingType;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use std::process::{Command as CommandSys, Stdio};
+use std::process::{Child, Command as CommandSys, Stdio};
 
-use nu_protocol::{CustomValue, ShellError};
+use nu_protocol::{CustomValue, ShellError, Span};
 use nu_protocol::{Signature, Value};
 
 use super::EvaluatedCall;
@@ -75,6 +75,37 @@ pub(crate) fn create_command(path: &Path, shell: &Option<PathBuf>) -> CommandSys
     process.stdout(Stdio::piped()).stdin(Stdio::piped());
 
     process
+}
+
+pub(crate) fn call_plugin(
+    child: &mut Child,
+    plugin_call: PluginCall,
+    encoding: &EncodingType,
+    span: Span,
+) -> Result<PluginResponse, ShellError> {
+    if let Some(mut stdin_writer) = child.stdin.take() {
+        let encoding_clone = encoding.clone();
+        std::thread::spawn(move || {
+            // PluginCall information
+            encoding_clone.encode_call(&plugin_call, &mut stdin_writer)
+        });
+    }
+
+    // Deserialize response from plugin to extract the resulting value
+    if let Some(stdout_reader) = &mut child.stdout {
+        let reader = stdout_reader;
+        let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
+
+        encoding.decode_response(&mut buf_read)
+    } else {
+        Err(ShellError::GenericError(
+            "Error with stdout reader".into(),
+            "no stdout reader".into(),
+            Some(span),
+            None,
+            Vec::new(),
+        ))
+    }
 }
 
 pub fn get_signature(

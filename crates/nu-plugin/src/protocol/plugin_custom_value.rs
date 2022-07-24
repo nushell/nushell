@@ -1,10 +1,10 @@
-use std::{io::BufReader, path::PathBuf};
+use std::path::PathBuf;
 
 use nu_protocol::{CustomValue, ShellError, Value};
 use serde::Serialize;
 
 use crate::{
-    plugin::{create_command, OUTPUT_BUFFER_SIZE},
+    plugin::{call_plugin, create_command},
     EncodingType,
 };
 
@@ -68,63 +68,42 @@ impl CustomValue for PluginCustomValue {
             )
         })?;
 
-        if let Some(mut stdin_writer) = child.stdin.take() {
-            let encoding_clone = self.encoding.clone();
-            let plugin_call = PluginCall::CollapseCustomValue(PluginData {
-                data: self.data.clone(),
-                span,
-            });
-            std::thread::spawn(move || {
-                // PluginCall information
-                encoding_clone.encode_call(&plugin_call, &mut stdin_writer)
-            });
-        }
+        let plugin_call = PluginCall::CollapseCustomValue(PluginData {
+            data: self.data.clone(),
+            span,
+        });
 
-        // Deserialize response from plugin to extract the resulting value
-        let value = if let Some(stdout_reader) = &mut child.stdout {
-            let reader = stdout_reader;
-            let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
-
-            let response = self.encoding.decode_response(&mut buf_read).map_err(|err| {
-                ShellError::GenericError(
-                    format!(
-                        "Unable to decode call for {} to get base value",
-                        self.source
-                    ),
-                    format!("{}", err),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
-            });
-
-            match response {
-                Ok(PluginResponse::Value(value)) => Ok(*value),
-                Ok(PluginResponse::PluginData(..)) => Err(ShellError::GenericError(
-                    "Plugin misbehaving".into(),
-                    "Plugin returned custom data as a response to a collapse call".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )),
-                Ok(PluginResponse::Error(err)) => Err(err.into()),
-                Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError(
-                    "Plugin missing value".into(),
-                    "Received a signature from plugin instead of value".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )),
-                Err(err) => Err(err),
-            }
-        } else {
-            Err(ShellError::GenericError(
-                "Error with stdout reader".into(),
-                "no stdout reader".into(),
+        let response = call_plugin(&mut child, plugin_call, &self.encoding, span).map_err(|err| {
+            ShellError::GenericError(
+                format!(
+                    "Unable to decode call for {} to get base value",
+                    self.source
+                ),
+                format!("{}", err),
                 Some(span),
                 None,
                 Vec::new(),
-            ))
+            )
+        });
+
+        let value = match response {
+            Ok(PluginResponse::Value(value)) => Ok(*value),
+            Ok(PluginResponse::PluginData(..)) => Err(ShellError::GenericError(
+                "Plugin misbehaving".into(),
+                "Plugin returned custom data as a response to a collapse call".into(),
+                Some(span),
+                None,
+                Vec::new(),
+            )),
+            Ok(PluginResponse::Error(err)) => Err(err.into()),
+            Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError(
+                "Plugin missing value".into(),
+                "Received a signature from plugin instead of value".into(),
+                Some(span),
+                None,
+                Vec::new(),
+            )),
+            Err(err) => Err(err),
         };
 
         // We need to call .wait() on the child, or we'll risk summoning the zombie horde
