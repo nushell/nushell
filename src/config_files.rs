@@ -71,40 +71,31 @@ pub(crate) fn read_config_file(
             };
 
             match answer.to_lowercase().trim() {
-                "y" | "" => {
-                    let mut output = File::create(&config_path).expect("Unable to create file");
-                    write!(output, "{}", config_file).expect("Unable to write to config file");
-                    println!("Config file created at: {}", config_path.to_string_lossy());
-                }
-                _ => {
-                    println!("Continuing without config file");
-                    // Just use the contents of "default_config.nu" or "default_env.nu"
-                    eval_source(
-                        engine_state,
-                        stack,
-                        config_file.as_bytes(),
-                        if is_env_config {
-                            "default_env.nu"
-                        } else {
-                            "default_config.nu"
-                        },
-                        PipelineData::new(Span::new(0, 0)),
-                    );
-
-                    // Merge the environment in case env vars changed in the config
-                    match nu_engine::env::current_dir(engine_state, stack) {
-                        Ok(cwd) => {
-                            if let Err(e) = engine_state.merge_env(stack, cwd) {
-                                let working_set = StateWorkingSet::new(engine_state);
-                                report_error(&working_set, &e);
-                            }
+                "y" | "" => match File::create(&config_path) {
+                    Ok(mut output) => match write!(output, "{}", config_file) {
+                        Ok(_) => {
+                            println!("Config file created at: {}", config_path.to_string_lossy())
                         }
-                        Err(e) => {
-                            let working_set = StateWorkingSet::new(engine_state);
-                            report_error(&working_set, &e);
+                        Err(_) => {
+                            eprintln!(
+                                "Unable to write to {}, sourcing default file instead",
+                                config_path.to_string_lossy(),
+                            );
+                            eval_default_config(engine_state, stack, config_file, is_env_config);
+                            return;
                         }
+                    },
+                    Err(_) => {
+                        eprintln!(
+                            "Unable to create {}, sourcing default file instead",
+                            config_file
+                        );
+                        eval_default_config(engine_state, stack, config_file, is_env_config);
+                        return;
                     }
-
+                },
+                _ => {
+                    eval_default_config(engine_state, stack, config_file, is_env_config);
                     return;
                 }
             }
@@ -155,6 +146,41 @@ pub(crate) fn read_default_env_file(
     if is_perf_true {
         info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     }
+    // Merge the environment in case env vars changed in the config
+    match nu_engine::env::current_dir(engine_state, stack) {
+        Ok(cwd) => {
+            if let Err(e) = engine_state.merge_env(stack, cwd) {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(&working_set, &e);
+            }
+        }
+        Err(e) => {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(&working_set, &e);
+        }
+    }
+}
+
+fn eval_default_config(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    config_file: &str,
+    is_env_config: bool,
+) {
+    println!("Continuing without config file");
+    // Just use the contents of "default_config.nu" or "default_env.nu"
+    eval_source(
+        engine_state,
+        stack,
+        config_file.as_bytes(),
+        if is_env_config {
+            "default_env.nu"
+        } else {
+            "default_config.nu"
+        },
+        PipelineData::new(Span::new(0, 0)),
+    );
+
     // Merge the environment in case env vars changed in the config
     match nu_engine::env::current_dir(engine_state, stack) {
         Ok(cwd) => {
