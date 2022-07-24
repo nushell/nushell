@@ -4,7 +4,7 @@ use nu_test_support::nu_with_plugins;
 fn can_get_custom_value_from_plugin_and_instantly_collapse_it() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("json", "nu_plugin_custom_values"),
+        plugin: ("capnp", "nu_plugin_custom_values"),
         "custom-value generate"
     );
 
@@ -15,7 +15,7 @@ fn can_get_custom_value_from_plugin_and_instantly_collapse_it() {
 fn can_get_custom_value_from_plugin_and_pass_it_over() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("json", "nu_plugin_custom_values"),
+        plugin: ("capnp", "nu_plugin_custom_values"),
         "custom-value generate | custom-value update"
     );
 
@@ -29,7 +29,7 @@ fn can_get_custom_value_from_plugin_and_pass_it_over() {
 fn can_generate_and_updated_multiple_types_of_custom_values() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("json", "nu_plugin_custom_values"),
+        plugin: ("capnp", "nu_plugin_custom_values"),
         "custom-value generate2 | custom-value update"
     );
 
@@ -43,7 +43,7 @@ fn can_generate_and_updated_multiple_types_of_custom_values() {
 fn can_get_describe_plugin_custom_values() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("json", "nu_plugin_custom_values"),
+        plugin: ("capnp", "nu_plugin_custom_values"),
         "custom-value generate | describe"
     );
 
