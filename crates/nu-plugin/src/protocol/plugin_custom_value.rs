@@ -100,7 +100,13 @@ impl CustomValue for PluginCustomValue {
 
             match response {
                 Ok(PluginResponse::Value(value)) => Ok(*value),
-                Ok(PluginResponse::PluginData(..)) => todo!(),
+                Ok(PluginResponse::PluginData(..)) => Err(ShellError::GenericError(
+                    "Plugin misbehaving".into(),
+                    "Plugin returned custom data as a response to a collapse call".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )),
                 Ok(PluginResponse::Error(err)) => Err(err.into()),
                 Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError(
                     "Plugin missing value".into(),
