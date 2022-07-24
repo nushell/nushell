@@ -76,11 +76,10 @@ pub(crate) fn read_config_file(
                         Ok(_) => {
                             println!("Config file created at: {}", config_path.to_string_lossy())
                         }
-                        Err(e) => {
+                        Err(_) => {
                             eprintln!(
-                                "Unable to write to {}: {}",
+                                "Unable to write to {}, sourcing default file instead",
                                 config_path.to_string_lossy(),
-                                e
                             );
                             eval_default_config(engine_state, stack, config_file, is_env_config);
                             return;
