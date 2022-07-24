@@ -31,3 +31,15 @@ fn checks_any_column_of_a_table_is_true() {
 
     assert_eq!(actual.out, "true");
 }
+
+#[test]
+fn checks_if_any_returns_error_with_invalid_command() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            [red orange yellow green blue purple] | any? ($it | st length) > 4
+        "#
+    ));
+
+    assert!(actual.err.contains("can't run executable"));
+}
