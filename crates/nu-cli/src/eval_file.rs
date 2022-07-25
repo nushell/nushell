@@ -86,20 +86,7 @@ pub fn print_table_or_error(
 
             match table {
                 Ok(table) => {
-                    for item in table {
-                        if let Value::Error { error } = item {
-                            let working_set = StateWorkingSet::new(engine_state);
-
-                            report_error(&working_set, &error);
-
-                            std::process::exit(1);
-                        }
-
-                        let mut out = item.into_string("\n", config);
-                        out.push('\n');
-
-                        let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{}", err));
-                    }
+                    print_or_exit(table, engine_state, config);
                 }
                 Err(error) => {
                     let working_set = StateWorkingSet::new(engine_state);
@@ -111,20 +98,7 @@ pub fn print_table_or_error(
             }
         }
         None => {
-            for item in pipeline_data {
-                if let Value::Error { error } = item {
-                    let working_set = StateWorkingSet::new(engine_state);
-
-                    report_error(&working_set, &error);
-
-                    std::process::exit(1);
-                }
-
-                let mut out = item.into_string("\n", config);
-                out.push('\n');
-
-                let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{}", err));
-            }
+            print_or_exit(pipeline_data, engine_state, config);
         }
     };
 
@@ -139,5 +113,22 @@ pub fn print_table_or_error(
             })
     } else {
         None
+    }
+}
+
+fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, config: &Config) {
+    for item in pipeline_data {
+        if let Value::Error { error } = item {
+            let working_set = StateWorkingSet::new(engine_state);
+
+            report_error(&working_set, &error);
+
+            std::process::exit(1);
+        }
+
+        let mut out = item.into_string("\n", config);
+        out.push('\n');
+
+        let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{}", err));
     }
 }
