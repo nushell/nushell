@@ -6,6 +6,10 @@ use crate::{plugin::PluginEncoder, protocol::PluginResponse};
 pub struct JsonSerializer;
 
 impl PluginEncoder for JsonSerializer {
+    fn name(&self) -> &str {
+        "Json Serializer"
+    }
+
     fn encode_call(
         &self,
         plugin_call: &crate::protocol::PluginCall,
