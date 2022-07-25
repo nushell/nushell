@@ -461,7 +461,7 @@ impl PipelineData {
         match engine_state.find_decl("table".as_bytes(), &[]) {
             Some(decl_id) => {
                 let command = engine_state.get_decl(decl_id);
-                if command.is_custom_command() {
+                if command.get_block_id().is_some() {
                     return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
                 }
 
