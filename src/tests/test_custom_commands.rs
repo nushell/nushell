@@ -130,3 +130,8 @@ fn help_not_present_in_extern() -> TestResult {
         "Usage:\n  > git fetch",
     )
 }
+
+#[test]
+fn override_table() -> TestResult {
+    run_test(r#"def table [] { "hi" }; table"#, "hi")
+}
