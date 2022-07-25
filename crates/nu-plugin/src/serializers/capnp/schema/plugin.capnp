@@ -121,10 +121,22 @@ struct EvaluatedCall {
 	named @2 :Map(Text, Value);
 }
 
+struct PluginData {
+	data @0 :Data;
+	span @1 :Span;
+}
+
+struct CallInput {
+	union {
+		value @0 :Value;
+		pluginData @1 :PluginData;
+	}
+}
+
 struct CallInfo {
 	name @0 :Text;
 	call @1 :EvaluatedCall;
-	input @2 :Value;
+	input @2 :CallInput;
 }
 
 # Main communication structs with the plugin
@@ -132,6 +144,7 @@ struct PluginCall {
 	union {
 		signature @0 :Void;
 		callInfo @1 :CallInfo;
+		collapseCustomValue @2 :PluginData;
 	}
 }
 
@@ -140,6 +153,12 @@ struct PluginResponse {
 		error @0 :LabeledError;
 		signature @1 :List(Signature);
 		value @2 :Value;
+		pluginData @3 :PluginDataResponse;
+	}
+
+	struct PluginDataResponse {
+		name @0 :Text;
+		data @1 :PluginData;
 	}
 }
 

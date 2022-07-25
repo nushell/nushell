@@ -1,21 +1,32 @@
 mod evaluated_call;
+mod plugin_custom_value;
+mod plugin_data;
 
 pub use evaluated_call::EvaluatedCall;
 use nu_protocol::{ShellError, Signature, Span, Value};
+pub use plugin_custom_value::PluginCustomValue;
+pub use plugin_data::PluginData;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CallInfo {
     pub name: String,
     pub call: EvaluatedCall,
-    pub input: Value,
+    pub input: CallInput,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub enum CallInput {
+    Value(Value),
+    Data(PluginData),
 }
 
 // Information sent to the plugin
 #[derive(Serialize, Deserialize, Debug)]
 pub enum PluginCall {
     Signature,
-    CallInfo(Box<CallInfo>),
+    CallInfo(CallInfo),
+    CollapseCustomValue(PluginData),
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
@@ -88,4 +99,5 @@ pub enum PluginResponse {
     Error(LabeledError),
     Signature(Vec<Signature>),
     Value(Box<Value>),
+    PluginData(String, PluginData),
 }

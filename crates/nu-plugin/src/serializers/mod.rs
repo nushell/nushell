@@ -8,7 +8,7 @@ use crate::{
 pub mod capnp;
 pub mod json;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum EncodingType {
     Capnp(capnp::CapnpSerializer),
     Json(json::JsonSerializer),

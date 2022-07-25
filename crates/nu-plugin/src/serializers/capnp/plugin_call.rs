@@ -1,5 +1,5 @@
 use super::signature::deserialize_signature;
-use super::{call, signature, value};
+use super::{call, call_input, plugin_data, signature, value};
 use crate::plugin_capnp::{plugin_call, plugin_response};
 use crate::protocol::{CallInfo, LabeledError, PluginCall, PluginResponse};
 use capnp::serialize;
@@ -31,12 +31,17 @@ pub fn encode_call(
                 .map_err(|e| ShellError::PluginFailedToEncode(e.to_string()))?;
 
             // Serializing the input value from the call info
-            let value_builder = call_info_builder
+            let call_input_builder = call_info_builder
                 .reborrow()
                 .get_input()
                 .map_err(|e| ShellError::PluginFailedToEncode(e.to_string()))?;
 
-            value::serialize_value(&call_info.input, value_builder);
+            call_input::serialize_call_input(&call_info.input, call_input_builder);
+        }
+        PluginCall::CollapseCustomValue(plugin_data) => {
+            let builder = builder.init_collapse_custom_value();
+
+            plugin_data::serialize_plugin_data(plugin_data, builder);
         }
     };
 
@@ -74,13 +79,20 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, She
                 .get_input()
                 .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
-            let input = value::deserialize_value(input_reader, call.head)?;
+            let input = call_input::deserialize_call_input(input_reader)?;
 
-            Ok(PluginCall::CallInfo(Box::new(CallInfo {
+            Ok(PluginCall::CallInfo(CallInfo {
                 name: name.to_string(),
                 call,
                 input,
-            })))
+            }))
+        }
+        Ok(plugin_call::CollapseCustomValue(reader)) => {
+            let reader = reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let plugin_data = plugin_data::deserialize_plugin_data(reader)?;
+
+            Ok(PluginCall::CollapseCustomValue(plugin_data))
         }
     }
 }
@@ -117,6 +129,12 @@ pub fn encode_response(
         PluginResponse::Value(val) => {
             let value_builder = builder.reborrow().init_value();
             value::serialize_value(val, value_builder);
+        }
+        PluginResponse::PluginData(name, plugin_data) => {
+            let mut plugin_data_builder = builder.reborrow().init_plugin_data();
+
+            plugin_data_builder.set_name(name);
+            plugin_data::serialize_plugin_data(plugin_data, plugin_data_builder.init_data());
         }
     };
 
@@ -196,13 +214,29 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
 
             Ok(PluginResponse::Value(Box::new(val)))
         }
+        Ok(plugin_response::PluginData(reader)) => {
+            let reader = reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let name = reader
+                .get_name()
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let plugin_data_reader = reader
+                .get_data()
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+            let plugin_data = plugin_data::deserialize_plugin_data(plugin_data_reader)?;
+
+            Ok(PluginResponse::PluginData(name.to_string(), plugin_data))
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{EvaluatedCall, LabeledError, PluginCall, PluginResponse};
+    use crate::protocol::{
+        CallInput, EvaluatedCall, LabeledError, PluginCall, PluginData, PluginResponse,
+    };
     use nu_protocol::{Signature, Span, Spanned, SyntaxShape, Value};
 
     #[test]
@@ -216,6 +250,7 @@ mod tests {
         match returned {
             PluginCall::Signature => {}
             PluginCall::CallInfo(_) => panic!("decoded into wrong value"),
+            PluginCall::CollapseCustomValue(_) => panic!("decoded into wrong value"),
         }
     }
 
@@ -223,10 +258,10 @@ mod tests {
     fn callinfo_round_trip_callinfo() {
         let name = "test".to_string();
 
-        let input = Value::Bool {
+        let input = CallInput::Value(Value::Bool {
             val: false,
             span: Span { start: 1, end: 20 },
-        };
+        });
 
         let call = EvaluatedCall {
             head: Span { start: 0, end: 10 },
@@ -252,11 +287,18 @@ mod tests {
             )],
         };
 
-        let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
+        let plugin_call = PluginCall::CallInfo(CallInfo {
             name: name.clone(),
             call: call.clone(),
-            input: input.clone(),
-        }));
+            // Avoiding having to implement Clone on CallInput just for tests
+            input: match &input {
+                CallInput::Value(value) => CallInput::Value(value.clone()),
+                CallInput::Data(plugin_data) => CallInput::Data(PluginData {
+                    data: plugin_data.data.clone(),
+                    span: plugin_data.span,
+                }),
+            },
+        });
 
         let mut buffer: Vec<u8> = Vec::new();
         encode_call(&plugin_call, &mut buffer).expect("unable to serialize message");
@@ -266,7 +308,7 @@ mod tests {
             PluginCall::Signature => panic!("returned wrong call type"),
             PluginCall::CallInfo(call_info) => {
                 assert_eq!(name, call_info.name);
-                assert_eq!(input, call_info.input);
+                assert_eq!(&input, &call_info.input);
                 assert_eq!(call.head, call_info.call.head);
                 assert_eq!(call.positional.len(), call_info.call.positional.len());
 
@@ -288,6 +330,31 @@ mod tests {
                             _ => panic!("not matching values"),
                         }
                     });
+            }
+            PluginCall::CollapseCustomValue(_) => panic!("returned wrong call type"),
+        }
+    }
+
+    #[test]
+    fn callinfo_round_trip_collapsecustomvalue() {
+        let data = vec![1, 2, 3, 4, 5, 6, 7];
+        let span = Span { start: 0, end: 20 };
+
+        let collapse_custom_value = PluginCall::CollapseCustomValue(PluginData {
+            data: data.clone(),
+            span,
+        });
+
+        let mut buffer: Vec<u8> = Vec::new();
+        encode_call(&collapse_custom_value, &mut buffer).expect("unable to serialize message");
+        let returned = decode_call(&mut buffer.as_slice()).expect("unable to deserialize message");
+
+        match returned {
+            PluginCall::Signature => panic!("returned wrong call type"),
+            PluginCall::CallInfo(_) => panic!("returned wrong call type"),
+            PluginCall::CollapseCustomValue(plugin_data) => {
+                assert_eq!(data, plugin_data.data);
+                assert_eq!(span, plugin_data.span);
             }
         }
     }
@@ -316,6 +383,7 @@ mod tests {
         match returned {
             PluginResponse::Error(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
+            PluginResponse::PluginData(..) => panic!("returned wrong call type"),
             PluginResponse::Signature(returned_signature) => {
                 assert!(returned_signature.len() == 1);
                 assert_eq!(signature.name, returned_signature[0].name);
@@ -366,8 +434,41 @@ mod tests {
         match returned {
             PluginResponse::Error(_) => panic!("returned wrong call type"),
             PluginResponse::Signature(_) => panic!("returned wrong call type"),
+            PluginResponse::PluginData(..) => panic!("returned wrong call type"),
             PluginResponse::Value(returned_value) => {
                 assert_eq!(&value, returned_value.as_ref())
+            }
+        }
+    }
+
+    #[test]
+    fn response_round_trip_plugin_data() {
+        let name = "test".to_string();
+
+        let data = vec![1, 2, 3, 4, 5];
+        let span = Span { start: 2, end: 30 };
+
+        let response = PluginResponse::PluginData(
+            name.clone(),
+            PluginData {
+                data: data.clone(),
+                span,
+            },
+        );
+
+        let mut buffer: Vec<u8> = Vec::new();
+        encode_response(&response, &mut buffer).expect("unable to serialize message");
+        let returned =
+            decode_response(&mut buffer.as_slice()).expect("unable to deserialize message");
+
+        match returned {
+            PluginResponse::Error(_) => panic!("returned wrong call type"),
+            PluginResponse::Signature(_) => panic!("returned wrong call type"),
+            PluginResponse::Value(_) => panic!("returned wrong call type"),
+            PluginResponse::PluginData(returned_name, returned_plugin_data) => {
+                assert_eq!(name, returned_name);
+                assert_eq!(data, returned_plugin_data.data);
+                assert_eq!(span, returned_plugin_data.span);
             }
         }
     }
@@ -390,6 +491,7 @@ mod tests {
             PluginResponse::Error(msg) => assert_eq!(error, msg),
             PluginResponse::Signature(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
+            PluginResponse::PluginData(..) => panic!("returned wrong call type"),
         }
     }
 
@@ -411,6 +513,7 @@ mod tests {
             PluginResponse::Error(msg) => assert_eq!(error, msg),
             PluginResponse::Signature(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
+            PluginResponse::PluginData(..) => panic!("returned wrong call type"),
         }
     }
 }
