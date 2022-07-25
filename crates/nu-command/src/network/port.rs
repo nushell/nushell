@@ -17,7 +17,7 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("post")
+        Signature::build("port")
             .optional(
                 "start",
                 SyntaxShape::Int,
@@ -48,7 +48,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "get free port between 3121 and 4000",
+                description: "get a free port between 3121 and 4000",
                 example: "port 3121 4000",
                 result: Some(Value::Int {
                     val: 3121,
@@ -56,7 +56,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "get free port from system",
+                description: "get a free port from system",
                 example: "port",
                 result: None,
             },
