@@ -3,8 +3,9 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, Operator},
     engine::{EngineState, Stack, Visibility},
-    HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream, PipelineData,
-    Range, ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
+    PipelineData, Range, ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId,
+    ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::cmp::Ordering;
@@ -766,28 +767,10 @@ pub fn eval_block(
                                 input,
                             )?;
 
-                            for item in table {
-                                if let Value::Error { error } = item {
-                                    return Err(error);
-                                }
-
-                                let mut out = item.into_string("\n", config);
-                                out.push('\n');
-
-                                stdout_write_all_and_flush(out)?
-                            }
+                            print_or_return(table, config)?;
                         }
                         None => {
-                            for item in input {
-                                if let Value::Error { error } = item {
-                                    return Err(error);
-                                }
-
-                                let mut out = item.into_string("\n", config);
-                                out.push('\n');
-
-                                stdout_write_all_and_flush(out)?
-                            }
+                            print_or_return(input, config)?;
                         }
                     };
 
@@ -812,28 +795,10 @@ pub fn eval_block(
                                 input,
                             )?;
 
-                            for item in table {
-                                if let Value::Error { error } = item {
-                                    return Err(error);
-                                }
-
-                                let mut out = item.into_string("\n", config);
-                                out.push('\n');
-
-                                stdout_write_all_and_flush(out)?
-                            }
+                            print_or_return(table, config)?;
                         }
                         None => {
-                            for item in input {
-                                if let Value::Error { error } = item {
-                                    return Err(error);
-                                }
-
-                                let mut out = item.into_string("\n", config);
-                                out.push('\n');
-
-                                stdout_write_all_and_flush(out)?
-                            }
+                            print_or_return(input, config)?;
                         }
                     };
                 }
@@ -844,6 +809,21 @@ pub fn eval_block(
     }
 
     Ok(input)
+}
+
+fn print_or_return(pipeline_data: PipelineData, config: &Config) -> Result<(), ShellError> {
+    for item in pipeline_data {
+        if let Value::Error { error } = item {
+            return Err(error);
+        }
+
+        let mut out = item.into_string("\n", config);
+        out.push('\n');
+
+        stdout_write_all_and_flush(out)?;
+    }
+
+    Ok(())
 }
 
 pub fn eval_subexpression(
