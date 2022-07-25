@@ -10,7 +10,7 @@ use crate::ast::{CellPath, PathMember};
 use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 use byte_unit::ByteUnit;
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, Duration, FixedOffset};
 use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
 pub use from_value::FromValue;
@@ -20,8 +20,9 @@ pub use range::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     collections::HashMap,
-    fmt::Write,
+    fmt::{Display, Formatter, Result as FmtResult},
     iter,
     path::PathBuf,
     {cmp::Ordering, fmt::Debug},
@@ -2530,192 +2531,205 @@ pub fn is_leap_year(year: i32) -> bool {
     (year % 4 == 0) && (year % 100 != 0 || (year % 100 == 0 && year % 400 == 0))
 }
 
+#[derive(Clone, Copy)]
+enum TimePeriod {
+    Nanos(i64),
+    Micros(i64),
+    Millis(i64),
+    Seconds(i64),
+    Minutes(i64),
+    Hours(i64),
+    Days(i64),
+    Weeks(i64),
+    Months(i64),
+    Years(i64),
+}
+
+impl TimePeriod {
+    fn to_text(self) -> Cow<'static, str> {
+        match self {
+            Self::Nanos(n) => format!("{}ns", n).into(),
+            Self::Micros(n) => format!("{}µs", n).into(),
+            Self::Millis(n) => format!("{}ms", n).into(),
+            Self::Seconds(n) => format!("{}sec", n).into(),
+            Self::Minutes(n) => format!("{}min", n).into(),
+            Self::Hours(n) => format!("{}hr", n).into(),
+            Self::Days(n) => format!("{}day", n).into(),
+            Self::Weeks(n) => format!("{}wk", n).into(),
+            Self::Months(n) => format!("{}month", n).into(),
+            Self::Years(n) => format!("{}yr", n).into(),
+        }
+    }
+}
+
+impl Display for TimePeriod {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.to_text())
+    }
+}
+
 pub fn format_duration(duration: i64) -> String {
-    const DAYS_IN_YEAR: f64 = 365.0;
-    const DAYS_IN_MONTH: f64 = 30.0;
-    const SEC_PER_MINUTE: f64 = 60.0;
-    const SEC_PER_HOUR: f64 = SEC_PER_MINUTE * 60.0;
-    const SEC_PER_DAY: f64 = SEC_PER_HOUR * 24.0;
-    const SEC_PER_WEEK: f64 = SEC_PER_DAY * 7.0;
-    const SEC_PER_MONTH: f64 = SEC_PER_DAY * DAYS_IN_MONTH;
-    const SEC_PER_YEAR: f64 = SEC_PER_DAY * DAYS_IN_YEAR;
-    const SEC_PER_DECADE: f64 = SEC_PER_YEAR * 10.0;
-    const MILLIS_PER_SEC: f64 = 1_000.0;
-    const NANOS_PER_SEC: f64 = 1_000_000_000.0;
+    // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
+    // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
+    const DAYS_IN_YEAR: i64 = 365;
+    const DAYS_IN_MONTH: i64 = 30;
 
-    fn split_int_frac(x: f64) -> (f64, f64) {
-        let i = x.floor();
-        let f = x - i;
-        (i, f)
+    let (sign, duration) = if duration >= 0 {
+        (1, duration)
+    } else {
+        (-1, -duration)
+    };
+
+    let dur = Duration::nanoseconds(duration);
+
+    /// Split this a duration into number of whole years and the remainder
+    fn split_years(duration: Duration) -> (Option<i64>, Duration) {
+        let years = duration.num_days() / DAYS_IN_YEAR;
+        let remainder = duration - Duration::days(years * DAYS_IN_YEAR);
+        normalize_split(years, remainder)
     }
 
-    fn split_decades(duration: i64) -> (Option<i64>, f64) {
-        let seconds = (duration as f64 / NANOS_PER_SEC) as f64;
-        let days: f64 = (seconds / SEC_PER_DAY) as f64;
-        let years: f64 = days / DAYS_IN_YEAR;
-        let decades: f64 = years / 10.0;
-        let (whole_number, remainder) = split_int_frac(decades);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
+    /// Split this a duration into number of whole months and the remainder
+    fn split_months(duration: Duration) -> (Option<i64>, Duration) {
+        let months = duration.num_days() / DAYS_IN_MONTH;
+        let remainder = duration - Duration::days(months * DAYS_IN_MONTH);
+        normalize_split(months, remainder)
     }
 
-    fn split_years(duration: f64) -> (Option<i64>, f64) {
-        let seconds = duration * SEC_PER_DECADE;
-        let years: f64 = seconds / SEC_PER_YEAR;
-        let (whole_number, remainder) = split_int_frac(years);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
+    /// Split this a duration into number of whole weeks and the remainder
+    fn split_weeks(duration: Duration) -> (Option<i64>, Duration) {
+        let weeks = duration.num_weeks();
+        let remainder = duration - Duration::weeks(weeks);
+        normalize_split(weeks, remainder)
     }
 
-    fn split_months(duration: f64) -> (Option<i64>, f64) {
-        let seconds = duration * SEC_PER_YEAR;
-        let days: f64 = (seconds / SEC_PER_DAY) as f64;
-        let months: f64 = days / DAYS_IN_MONTH;
-        let (whole_number, remainder) = split_int_frac(months);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
+    /// Split this a duration into number of whole days and the remainder
+    fn split_days(duration: Duration) -> (Option<i64>, Duration) {
+        let days = duration.num_days();
+        let remainder = duration - Duration::days(days);
+        normalize_split(days, remainder)
     }
 
-    fn split_weeks(duration: f64) -> (Option<i64>, f64) {
-        let seconds = duration * SEC_PER_MONTH;
-        let weeks: f64 = (seconds / SEC_PER_WEEK) as f64;
-        let (whole_number, remainder) = split_int_frac(weeks);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
+    /// Split this a duration into number of whole hours and the remainder
+    fn split_hours(duration: Duration) -> (Option<i64>, Duration) {
+        let hours = duration.num_hours();
+        let remainder = duration - Duration::hours(hours);
+        normalize_split(hours, remainder)
     }
 
-    fn split_days(duration: f64) -> (Option<i64>, f64) {
-        let seconds = duration * SEC_PER_WEEK;
-        let days: f64 = (seconds / SEC_PER_DAY) as f64;
-        let (whole_number, remainder) = split_int_frac(days);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
+    /// Split this a duration into number of whole minutes and the remainder
+    fn split_minutes(duration: Duration) -> (Option<i64>, Duration) {
+        let minutes = duration.num_minutes();
+        let remainder = duration - Duration::minutes(minutes);
+        normalize_split(minutes, remainder)
     }
 
-    fn split_hours(duration: f64) -> (Option<i64>, f64) {
-        let seconds = duration * SEC_PER_DAY;
-        let hours: f64 = (seconds / SEC_PER_HOUR) as f64;
-        let (whole_number, remainder) = split_int_frac(hours);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
+    /// Split this a duration into number of whole seconds and the remainder
+    fn split_seconds(duration: Duration) -> (Option<i64>, Duration) {
+        let seconds = duration.num_seconds();
+        let remainder = duration - Duration::seconds(seconds);
+        normalize_split(seconds, remainder)
     }
 
-    fn split_minutes(duration: f64) -> (Option<i64>, f64) {
-        let seconds = duration * SEC_PER_HOUR;
-        let minutes: f64 = (seconds / SEC_PER_MINUTE) as f64;
-        let (whole_number, remainder) = split_int_frac(minutes);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
+    /// Split this a duration into number of whole milliseconds and the remainder
+    fn split_milliseconds(duration: Duration) -> (Option<i64>, Duration) {
+        let millis = duration.num_milliseconds();
+        let remainder = duration - Duration::milliseconds(millis);
+        normalize_split(millis, remainder)
     }
 
-    fn split_seconds(duration: f64) -> (Option<i64>, f64) {
-        let seconds = duration * SEC_PER_MINUTE;
-        let (whole_number, remainder) = split_int_frac(seconds);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
+    /// Split this a duration into number of whole seconds and the remainder
+    fn split_microseconds(duration: Duration) -> (Option<i64>, Duration) {
+        let micros = duration.num_microseconds().unwrap_or_default();
+        let remainder = duration - Duration::microseconds(micros);
+        normalize_split(micros, remainder)
     }
 
-    fn split_milliseconds(duration: f64) -> (Option<i64>, f64) {
-        let milliseconds = duration * MILLIS_PER_SEC;
-        let (whole_number, remainder) = split_int_frac(milliseconds);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
+    /// Split this a duration into number of whole seconds and the remainder
+    fn split_nanoseconds(duration: Duration) -> (Option<i64>, Duration) {
+        let nanos = duration.num_nanoseconds().unwrap_or_default();
+        let remainder = duration - Duration::nanoseconds(nanos);
+        normalize_split(nanos, remainder)
     }
 
-    fn split_micros(duration: f64) -> (Option<i64>, f64) {
-        let microsecond = duration * MILLIS_PER_SEC;
-        let (whole_number, remainder) = split_int_frac(microsecond);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
+    fn normalize_split(
+        wholes: impl Into<Option<i64>>,
+        remainder: Duration,
+    ) -> (Option<i64>, Duration) {
+        let wholes = wholes.into().map(i64::abs).filter(|x| *x > 0);
+        (wholes, remainder)
     }
 
-    fn split_nanoseconds(duration: f64) -> (Option<i64>, f64) {
-        let nanoseconds = duration * MILLIS_PER_SEC;
-        let (whole_number, remainder) = split_int_frac(nanoseconds);
-        if whole_number == 0.0 {
-            (None, remainder)
-        } else {
-            (Some(whole_number as i64), remainder)
-        }
-    }
-
-    let mut calculated_durations: String = String::new();
-    let (decades, remainder) = split_decades(duration);
-    if let Some(decades) = decades {
-        write!(calculated_durations, "{}dec ", decades).expect("error dec writing to string");
-    }
-    let (years, remainder) = split_years(remainder);
+    let mut periods = vec![];
+    let (years, remainder) = split_years(dur);
     if let Some(years) = years {
-        write!(calculated_durations, "{}yr ", years).expect("error writing yr to string");
+        periods.push(TimePeriod::Years(years));
     }
+
     let (months, remainder) = split_months(remainder);
     if let Some(months) = months {
-        write!(calculated_durations, "{}month ", months).expect("error writing month to string");
-    }
-    let (weeks, remainder) = split_weeks(remainder);
-    if let Some(weeks) = weeks {
-        write!(calculated_durations, "{}wk ", weeks).expect("error writing wk to string");
-    }
-    let (days, remainder) = split_days(remainder);
-    if let Some(days) = days {
-        write!(calculated_durations, "{}day ", days).expect("error writing day to string");
-    }
-    let (hours, remainder) = split_hours(remainder);
-    if let Some(hours) = hours {
-        write!(calculated_durations, "{}hr ", hours).expect("error writing hr to string");
-    }
-    let (minutes, remainder) = split_minutes(remainder);
-    if let Some(minutes) = minutes {
-        write!(calculated_durations, "{}min ", minutes).expect("error writing min to string");
-    }
-    let (seconds, remainder) = split_seconds(remainder);
-    if let Some(seconds) = seconds {
-        write!(calculated_durations, "{}sec ", seconds).expect("error writing sec to string");
-    }
-    let (milliseconds, remainder) = split_milliseconds(remainder);
-    if let Some(milliseconds) = milliseconds {
-        write!(calculated_durations, "{}ms ", milliseconds).expect("error writing ms to string");
-    }
-    let (microseconds, remainder) = split_micros(remainder);
-    if let Some(microseconds) = microseconds {
-        write!(calculated_durations, "{}µs ", microseconds).expect("error writing µs to string");
-    }
-    let (nanoseconds, _remainder) = split_nanoseconds(remainder);
-    if let Some(nanoseconds) = nanoseconds {
-        write!(calculated_durations, "{}ns ", nanoseconds).expect("error writing ns to string");
+        periods.push(TimePeriod::Months(months));
     }
 
-    calculated_durations
+    let (weeks, remainder) = split_weeks(remainder);
+    if let Some(weeks) = weeks {
+        periods.push(TimePeriod::Weeks(weeks));
+    }
+
+    let (days, remainder) = split_days(remainder);
+    if let Some(days) = days {
+        periods.push(TimePeriod::Days(days));
+    }
+
+    let (hours, remainder) = split_hours(remainder);
+    if let Some(hours) = hours {
+        periods.push(TimePeriod::Hours(hours));
+    }
+
+    let (minutes, remainder) = split_minutes(remainder);
+    if let Some(minutes) = minutes {
+        periods.push(TimePeriod::Minutes(minutes));
+    }
+
+    let (seconds, remainder) = split_seconds(remainder);
+    if let Some(seconds) = seconds {
+        periods.push(TimePeriod::Seconds(seconds));
+    }
+
+    let (millis, remainder) = split_milliseconds(remainder);
+    if let Some(millis) = millis {
+        periods.push(TimePeriod::Millis(millis));
+    }
+
+    let (micros, remainder) = split_microseconds(remainder);
+    if let Some(micros) = micros {
+        periods.push(TimePeriod::Micros(micros));
+    }
+
+    let (nanos, _remainder) = split_nanoseconds(remainder);
+    if let Some(nanos) = nanos {
+        periods.push(TimePeriod::Nanos(nanos));
+    }
+
+    if periods.is_empty() {
+        periods.push(TimePeriod::Seconds(0));
+    }
+
+    // let last = periods.pop().map(|last| last.to_text().to_string());
+    let text = periods
+        .into_iter()
+        .map(|p| p.to_text().to_string())
+        .collect::<Vec<String>>();
+
+    // if let Some(last) = last {
+    //     text.push(format!("and {}", last));
+    // }
+
+    format!(
+        "{}{}",
+        if sign == -1 { "-" } else { "" },
+        text.join(" ").trim().to_string()
+    )
 }
 
 pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
