@@ -69,11 +69,6 @@ impl Command for Source {
                 example: r#"source ./foo.nu; say-hi"#,
                 result: None,
             },
-            Example {
-                description: "Runs foo.nu in current context and call the `main` command automatically, suppose foo.nu has content: `def main [] { echo 'Hi!' }`",
-                example: r#"source ./foo.nu"#,
-                result: None,
-            },
         ]
     }
 }
