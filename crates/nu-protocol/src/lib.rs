@@ -9,7 +9,7 @@ mod module;
 mod pipeline_data;
 mod shell_error;
 mod signature;
-mod span;
+pub mod span;
 mod syntax_shape;
 mod ty;
 mod value;
