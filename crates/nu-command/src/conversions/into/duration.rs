@@ -28,6 +28,10 @@ impl Command for SubCommand {
         "Convert value to duration"
     }
 
+    fn extra_usage(&self) -> &str {
+        "into duration does not take leap years into account and it every month is calculated with 30 days"
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["convert", "time", "period"]
     }
@@ -149,6 +153,9 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
                     Unit::Hour => return Ok(x * 60 * 60 * 1000 * 1000 * 1000),
                     Unit::Day => return Ok(x * 24 * 60 * 60 * 1000 * 1000 * 1000),
                     Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000),
+                    Unit::Month => return Ok(x * 30 * 24 * 60 * 60 * 1000 * 1000 * 1000), //30 days to a month
+                    Unit::Year => return Ok(x * 365 * 24 * 60 * 60 * 1000 * 1000 * 1000), //365 days to a year
+                    Unit::Decade => return Ok(x * 10 * 365 * 24 * 60 * 60 * 1000 * 1000 * 1000), //365 days to a year
                     _ => {}
                 }
             }
