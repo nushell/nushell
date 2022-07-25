@@ -2672,57 +2672,46 @@ pub fn format_duration(duration: i64) -> String {
     let mut calculated_durations: String = String::new();
     let (decades, remainder) = split_decades(duration);
     if let Some(decades) = decades {
-        // calculated_durations.push_str(&format!("{}dec ", decades));
         write!(calculated_durations, "{}dec ", decades).expect("error dec writing to string");
     }
     let (years, remainder) = split_years(remainder);
     if let Some(years) = years {
-        // calculated_durations.push_str(&format!("{}yr ", years));
         write!(calculated_durations, "{}yr ", years).expect("error writing yr to string");
     }
     let (months, remainder) = split_months(remainder);
     if let Some(months) = months {
-        // calculated_durations.push_str(&format!("{}month ", months));
         write!(calculated_durations, "{}month ", months).expect("error writing month to string");
     }
     let (weeks, remainder) = split_weeks(remainder);
     if let Some(weeks) = weeks {
-        // calculated_durations.push_str(&format!("{}wk ", weeks));
         write!(calculated_durations, "{}wk ", weeks).expect("error writing wk to string");
     }
     let (days, remainder) = split_days(remainder);
     if let Some(days) = days {
-        // calculated_durations.push_str(&format!("{}day ", days));
         write!(calculated_durations, "{}day ", days).expect("error writing day to string");
     }
     let (hours, remainder) = split_hours(remainder);
     if let Some(hours) = hours {
-        // calculated_durations.push_str(&format!("{}hr ", hours));
         write!(calculated_durations, "{}hr ", hours).expect("error writing hr to string");
     }
     let (minutes, remainder) = split_minutes(remainder);
     if let Some(minutes) = minutes {
-        // calculated_durations.push_str(&format!("{}min ", minutes));
         write!(calculated_durations, "{}min ", minutes).expect("error writing min to string");
     }
     let (seconds, remainder) = split_seconds(remainder);
     if let Some(seconds) = seconds {
-        // calculated_durations.push_str(&format!("{}sec ", seconds));
         write!(calculated_durations, "{}sec ", seconds).expect("error writing sec to string");
     }
     let (milliseconds, remainder) = split_milliseconds(remainder);
     if let Some(milliseconds) = milliseconds {
-        // calculated_durations.push_str(&format!("{}ms ", milliseconds));
         write!(calculated_durations, "{}ms ", milliseconds).expect("error writing ms to string");
     }
     let (microseconds, remainder) = split_micros(remainder);
     if let Some(microseconds) = microseconds {
-        // calculated_durations.push_str(&format!("{}µs ", microseconds));
         write!(calculated_durations, "{}µs ", microseconds).expect("error writing µs to string");
     }
     let (nanoseconds, _remainder) = split_nanoseconds(remainder);
     if let Some(nanoseconds) = nanoseconds {
-        // calculated_durations.push_str(&format!("{}ns ", nanoseconds));
         write!(calculated_durations, "{}ns ", nanoseconds).expect("error writing ns to string");
     }
 
