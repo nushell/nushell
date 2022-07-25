@@ -16,26 +16,35 @@ fn port_with_invalid_range() {
 
 #[test]
 fn port_with_already_usage() {
-    let (tx, rx) = mpsc::sync_channel(0);
+    let retry_times = 10;
+    for _ in 0..retry_times {
+        let (tx, rx) = mpsc::sync_channel(0);
 
-    // let system pick a free port for us.
-    let free_port = {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("failed to pick a port");
-        listener.local_addr().unwrap().port()
-    };
-    let handler = std::thread::spawn(move || {
-        let _listener = TcpListener::bind(format!("127.0.0.1:{free_port}"));
-        let _ = rx.recv();
-    });
-    let actual = nu!(
-        cwd: ".", pipeline(&format!("port {free_port} {free_port}"))
+        // let system pick a free port for us.
+        let free_port = {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("failed to pick a port");
+            listener.local_addr().unwrap().port()
+        };
+        let handler = std::thread::spawn(move || {
+            let _listener = TcpListener::bind(format!("127.0.0.1:{free_port}"));
+            let _ = rx.recv();
+        });
+        let actual = nu!(
+            cwd: ".", pipeline(&format!("port {free_port} {free_port}"))
+        );
+        let _ = tx.send(true);
+        // make sure that the thread is closed and we release the port.
+        handler.join().unwrap();
+
+        // check for error kind str.
+        if actual.err.contains("AddrInUse") {
+            return;
+        }
+    }
+    assert!(
+        false,
+        "already check port report AddrInUse for seveval times, but still failed."
     );
-    let _ = tx.send(true);
-    // make sure that the thread is closed and we release the port.
-    handler.join().unwrap();
-
-    // check for error kind str.
-    assert!(actual.err.contains("AddrInUse"))
 }
 
 #[test]
