@@ -77,14 +77,25 @@ impl Command for PluginDeclaration {
         let input = match input {
             Value::CustomValue { val, span } => {
                 match val.as_any().downcast_ref::<PluginCustomValue>() {
-                    Some(plugin_data) => CallInput::Data(PluginData {
-                        data: plugin_data.data.clone(),
-                        span,
-                    }),
-                    // TODO: sending random custom values to plugins is probably never the right
-                    // thing to do, we should probably just collapse them here and send base values
-                    // For example what will a plugin do with an SQLiteDatabase?
-                    None => CallInput::Value(Value::CustomValue { val, span }),
+                    Some(plugin_data) if plugin_data.filename == self.filename => {
+                        CallInput::Data(PluginData {
+                            data: plugin_data.data.clone(),
+                            span,
+                        })
+                    }
+                    _ => {
+                        let custom_value_name = val.value_string();
+                        return Err(ShellError::GenericError(
+                            format!(
+                                "Plugin {} can not handle the custom value {}",
+                                self.name, custom_value_name
+                            ),
+                            format!("custom value {}", custom_value_name),
+                            Some(span),
+                            None,
+                            Vec::new(),
+                        ));
+                    }
                 }
             }
             value => CallInput::Value(value),

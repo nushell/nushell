@@ -49,3 +49,36 @@ fn can_get_describe_plugin_custom_values() {
 
     assert_eq!(actual.out, "CoolCustomValue");
 }
+
+// There are currently no custom values defined by the engine that aren't hidden behind an extra
+// feature, both database and dataframes are hidden behind --features=extra so we need to guard
+// this test
+#[cfg(feature = "database")]
+#[test]
+fn fails_if_passing_engine_custom_values_to_plugins() {
+    let actual = nu_with_plugins!(
+        cwd: "tests/fixtures/formats",
+        plugin: ("capnp", "nu_plugin_custom_values"),
+        "open-db sample.db | custom-value update"
+    );
+
+    assert!(actual
+        .err
+        .contains("Plugin custom-value update can not handle the custom value SQLiteDatabase"));
+}
+
+#[test]
+fn fails_if_passing_custom_values_across_plugins() {
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugins: [
+            ("capnp", "nu_plugin_custom_values"),
+            ("json", "nu_plugin_inc")
+        ],
+        "custom-value generate | inc --major"
+    );
+
+    assert!(actual
+        .err
+        .contains("Plugin inc can not handle the custom value CoolCustomValue"));
+}
