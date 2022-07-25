@@ -467,47 +467,47 @@ impl PipelineData {
                     self,
                 )?;
 
-                write_all_and_flush(table, engine_state, config, no_newline, to_stderr)?;
+                table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
             }
             None => {
-                write_all_and_flush(self, engine_state, config, no_newline, to_stderr)?;
+                self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
             }
         };
 
         Ok(())
     }
-}
 
-fn write_all_and_flush(
-    pipeline_data: PipelineData,
-    engine_state: &EngineState,
-    config: &Config,
-    no_newline: bool,
-    to_stderr: bool,
-) -> Result<(), ShellError> {
-    for item in pipeline_data {
-        let mut out = if let Value::Error { error } = item {
-            let working_set = StateWorkingSet::new(engine_state);
+    fn write_all_and_flush(
+        self,
+        engine_state: &EngineState,
+        config: &Config,
+        no_newline: bool,
+        to_stderr: bool,
+    ) -> Result<(), ShellError> {
+        for item in self {
+            let mut out = if let Value::Error { error } = item {
+                let working_set = StateWorkingSet::new(engine_state);
 
-            format_error(&working_set, &error)
-        } else if no_newline {
-            item.into_string("", config)
-        } else {
-            item.into_string("\n", config)
-        };
+                format_error(&working_set, &error)
+            } else if no_newline {
+                item.into_string("", config)
+            } else {
+                item.into_string("\n", config)
+            };
 
-        if !no_newline {
-            out.push('\n');
+            if !no_newline {
+                out.push('\n');
+            }
+
+            if !to_stderr {
+                stdout_write_all_and_flush(out)?
+            } else {
+                stderr_write_all_and_flush(out)?
+            }
         }
 
-        if !to_stderr {
-            stdout_write_all_and_flush(out)?
-        } else {
-            stderr_write_all_and_flush(out)?
-        }
+        Ok(())
     }
-
-    Ok(())
 }
 
 pub struct PipelineIterator(PipelineData);
