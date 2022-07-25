@@ -2728,7 +2728,7 @@ pub fn format_duration(duration: i64) -> String {
     format!(
         "{}{}",
         if sign == -1 { "-" } else { "" },
-        text.join(" ").trim().to_string()
+        text.join(" ").trim()
     )
 }
 
