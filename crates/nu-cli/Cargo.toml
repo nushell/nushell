@@ -9,7 +9,7 @@ version = "0.65.1"
 [dev-dependencies]
 nu-test-support = { path="../nu-test-support", version = "0.65.1"  }
 nu-command = { path = "../nu-command", version = "0.65.1" }
-rstest = "0.12.0"
+rstest = "0.15.0"
 
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.65.1"  }
