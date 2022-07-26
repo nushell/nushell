@@ -73,7 +73,7 @@ serde_urlencoded = "0.7.0"
 serde_yaml = "0.8.16"
 sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
-shadow-rs = { version = "0.12.0", default-features = false }
+shadow-rs = { version = "0.16.1", default-features = false }
 strip-ansi-escapes = "0.1.1"
 sysinfo = "0.24.6"
 terminal_size = "0.2.1"
@@ -86,7 +86,7 @@ uuid = { version = "1.1.2", features = ["v4"] }
 which = { version = "4.2.2", optional = true }
 reedline = { git = "https://github.com/nushell/reedline.git", features = ["bashisms", "sqlite"]}
 wax = { version =  "0.5.0", features = ["diagnostics"] }
-rusqlite = { version = "0.27.0", features = ["bundled"], optional = true }
+rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.16.0", features = ["serde"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -126,7 +126,7 @@ dataframe = ["polars", "num"]
 database = ["sqlparser", "rusqlite"]
 
 [build-dependencies]
-shadow-rs = { version = "0.12.0", default-features = false }
+shadow-rs = { version = "0.16.1", default-features = false }
 
 [dev-dependencies]
 hamcrest2 = "0.3.0"
