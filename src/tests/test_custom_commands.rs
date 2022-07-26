@@ -1,4 +1,5 @@
 use crate::tests::{fail_test, run_test, run_test_contains, TestResult};
+use nu_test_support::nu;
 
 #[test]
 fn no_scope_leak1() -> TestResult {
@@ -134,4 +135,10 @@ fn help_not_present_in_extern() -> TestResult {
 #[test]
 fn override_table() -> TestResult {
     run_test(r#"def table [] { "hi" }; table"#, "hi")
+}
+
+#[test]
+fn override_table_eval_file() {
+    let actual = nu!(cwd: ".", r#"def table [] { "hi" }; table"#);
+    assert_eq!(actual.out, "hi");
 }
