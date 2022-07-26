@@ -4,7 +4,7 @@ description = "Nushell's built-in commands"
 edition = "2021"
 license = "MIT"
 name = "nu-command"
-version = "0.66.0"
+version = "0.66.1"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
