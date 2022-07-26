@@ -268,70 +268,64 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     println!("Nushell Plugin");
     println!("Encoder: {}", encoder.name());
 
-    let message: Vec<String> = plugin
-        .signature()
-        .iter()
-        .map(|signature| {
-            let mut help = String::new();
+    let mut help = String::new();
 
-            let res = write!(help, "\nCommand: {}", signature.name)
-                .and_then(|_| writeln!(help, "\nUsage:\n > {}", signature.usage))
-                .and_then(|_| {
-                    if !signature.extra_usage.is_empty() {
-                        writeln!(help, "\nExtra usage:\n > {}", signature.extra_usage)
-                    } else {
-                        Ok(())
-                    }
-                })
-                .and_then(|_| {
-                    let flags = get_flags_section(signature);
-                    write!(help, "{}", flags)
-                })
-                .and_then(|_| writeln!(help, "\nParameters:"))
-                .and_then(|_| {
-                    signature
-                        .required_positional
-                        .iter()
-                        .try_for_each(|positional| {
-                            writeln!(
-                                help,
-                                "  {} <{:?}>: {}",
-                                positional.name, positional.shape, positional.desc
-                            )
-                        })
-                })
-                .and_then(|_| {
-                    signature
-                        .optional_positional
-                        .iter()
-                        .try_for_each(|positional| {
-                            writeln!(
-                                help,
-                                "  (optional) {} <{:?}>: {}",
-                                positional.name, positional.shape, positional.desc
-                            )
-                        })
-                })
-                .and_then(|_| {
-                    if let Some(rest_positional) = &signature.rest_positional {
+    plugin.signature().iter().for_each(|signature| {
+        let res = write!(help, "\nCommand: {}", signature.name)
+            .and_then(|_| writeln!(help, "\nUsage:\n > {}", signature.usage))
+            .and_then(|_| {
+                if !signature.extra_usage.is_empty() {
+                    writeln!(help, "\nExtra usage:\n > {}", signature.extra_usage)
+                } else {
+                    Ok(())
+                }
+            })
+            .and_then(|_| {
+                let flags = get_flags_section(signature);
+                write!(help, "{}", flags)
+            })
+            .and_then(|_| writeln!(help, "\nParameters:"))
+            .and_then(|_| {
+                signature
+                    .required_positional
+                    .iter()
+                    .try_for_each(|positional| {
                         writeln!(
                             help,
-                            "  ...{} <{:?}>: {}",
-                            rest_positional.name, rest_positional.shape, rest_positional.desc
+                            "  {} <{:?}>: {}",
+                            positional.name, positional.shape, positional.desc
                         )
-                    } else {
-                        Ok(())
-                    }
-                });
+                    })
+            })
+            .and_then(|_| {
+                signature
+                    .optional_positional
+                    .iter()
+                    .try_for_each(|positional| {
+                        writeln!(
+                            help,
+                            "  (optional) {} <{:?}>: {}",
+                            positional.name, positional.shape, positional.desc
+                        )
+                    })
+            })
+            .and_then(|_| {
+                if let Some(rest_positional) = &signature.rest_positional {
+                    writeln!(
+                        help,
+                        "  ...{} <{:?}>: {}",
+                        rest_positional.name, rest_positional.shape, rest_positional.desc
+                    )
+                } else {
+                    Ok(())
+                }
+            })
+            .and_then(|_| writeln!(help, "======================"));
 
-            match res {
-                Ok(()) => help,
-                Err(e) => format!("error: {}", e),
-            }
-        })
-        .collect();
+        if res.is_err() {
+            println!("{:?}", res)
+        }
+    });
 
-    let message = message.join("======================\n");
-
-    println!("{}", message)
+    println!("{}", help)
 }
