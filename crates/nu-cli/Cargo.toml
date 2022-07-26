@@ -19,7 +19,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.65.1"  }
 nu-utils = { path = "../nu-utils", version = "0.65.1"  }
 nu-ansi-term = "0.46.0"
 nu-color-config = { path = "../nu-color-config", version = "0.65.1"  }
-reedline = { git = "https://github.com/nushell/reedline.git", features = ["bashisms", "sqlite"]}
+reedline = { version = "0.9.0", features = ["bashisms", "sqlite"]}
 crossterm = "0.23.0"
 miette = { version = "5.1.0", features = ["fancy"] }
 thiserror = "1.0.31"
