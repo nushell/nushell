@@ -13,6 +13,10 @@ use crate::{plugin::PluginEncoder, protocol::PluginResponse};
 pub struct CapnpSerializer;
 
 impl PluginEncoder for CapnpSerializer {
+    fn name(&self) -> &str {
+        "Capnp Serializer"
+    }
+
     fn encode_call(
         &self,
         plugin_call: &crate::protocol::PluginCall,
