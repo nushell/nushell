@@ -125,7 +125,7 @@ fn main() -> Result<()> {
     args_to_nushell.insert(0, "nu".into());
 
     if let Some(argv0) = argv0 {
-        if argv0.starts_with("-") {
+        if argv0.starts_with('-') {
             args_to_nushell.push("--login".into());
         }
     }
