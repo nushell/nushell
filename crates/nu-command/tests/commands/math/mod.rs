@@ -291,7 +291,7 @@ fn duration_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "8day");
+    assert_eq!(actual.out, "1wk 1day");
 }
 
 #[test]
@@ -315,7 +315,7 @@ fn duration_math_with_nanoseconds() {
         "#
     ));
 
-    assert_eq!(actual.out, "7day 10ns");
+    assert_eq!(actual.out, "1wk 10ns");
 }
 
 #[test]
@@ -327,7 +327,22 @@ fn duration_decimal_math_with_nanoseconds() {
         "#
     ));
 
-    assert_eq!(actual.out, "10day 10ns");
+    assert_eq!(actual.out, "1wk 3day 10ns");
+}
+
+#[test]
+fn duration_decimal_math_with_all_units() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            5dec + 3yr + 2month + 1wk + 3day + 8hr + 10min + 16sec + 121ms + 11us + 12ns
+        "#
+    ));
+
+    assert_eq!(
+        actual.out,
+        "53yr 2month 1wk 3day 8hr 10min 16sec 121ms 11µs 12ns"
+    );
 }
 
 #[test]
