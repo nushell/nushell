@@ -206,6 +206,11 @@ pub fn create_default_context() -> EngineState {
             StrUpcase
         };
 
+        // Bits
+        bind_command! {
+            BitsNot
+        }
+
         // Bytes
         bind_command! {
             Bytes,
@@ -363,7 +368,6 @@ pub fn create_default_context() -> EngineState {
             MathStddev,
             MathSum,
             MathVariance,
-            MathBitNot
         };
 
         // Network

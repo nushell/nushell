@@ -1,6 +1,5 @@
 mod abs;
 mod avg;
-mod bit_not;
 mod ceil;
 mod eval;
 mod floor;
@@ -20,7 +19,6 @@ mod variance;
 
 pub use abs::SubCommand as MathAbs;
 pub use avg::SubCommand as MathAvg;
-pub use bit_not::SubCommand as MathBitNot;
 pub use ceil::SubCommand as MathCeil;
 pub use eval::SubCommand as MathEval;
 pub use floor::SubCommand as MathFloor;
