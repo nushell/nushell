@@ -2695,7 +2695,7 @@ pub fn parse_register(
     )
 }
 
-pub fn find_in_dirs(
+fn find_in_dirs(
     filename: &str,
     working_set: &StateWorkingSet,
     cwd: &str,
