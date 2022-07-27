@@ -86,3 +86,68 @@ fn parse_file_relative_to_parsed_file() {
         assert_eq!(actual.out, "foo lol lol");
     })
 }
+
+#[test]
+fn parse_file_relative_to_parsed_file_dont_use_cwd_1() {
+    Playground::setup("relative_files", |dirs, sandbox| {
+        sandbox
+            .mkdir("lol")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/lol.nu",
+                r#"
+                    source foo.nu
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/foo.nu",
+                r#"
+                    let-env FOO = 'good'
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "foo.nu",
+                r#"
+                    let-env FOO = 'bad'
+                "#,
+            )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                source lol/lol.nu;
+                $env.FOO
+            "#
+        ));
+
+        assert_eq!(actual.out, "good");
+    })
+}
+
+#[test]
+fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
+    Playground::setup("relative_files", |dirs, sandbox| {
+        sandbox
+            .mkdir("lol")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/lol.nu",
+                r#"
+                    source foo.nu
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "foo.nu",
+                r#"
+                    let-env FOO = 'bad'
+                "#,
+            )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                source lol/lol.nu
+            "#
+        ));
+
+        assert!(actual.err.contains("File not found"));
+    })
+}

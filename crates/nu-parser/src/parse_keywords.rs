@@ -2756,11 +2756,11 @@ fn find_in_dirs(
 ) -> Option<PathBuf> {
     if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
         if let Ok(p) = canonicalize_with(filename, currently_parsed_cwd) {
-            return Some(p);
+            Some(p)
+        } else {
+            None
         }
-    }
-
-    if let Ok(p) = canonicalize_with(filename, cwd) {
+    } else if let Ok(p) = canonicalize_with(filename, cwd) {
         Some(p)
     } else {
         let path = Path::new(filename);

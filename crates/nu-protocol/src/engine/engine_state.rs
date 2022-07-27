@@ -937,7 +937,7 @@ impl<'a> StateWorkingSet<'a> {
             permanent_state,
             external_commands: vec![],
             type_scope: TypeScope::default(),
-            currently_parsed_cwd: permanent_state.get_cwd().map(PathBuf::from),
+            currently_parsed_cwd: None,
         }
     }
 
