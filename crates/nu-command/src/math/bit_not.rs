@@ -41,7 +41,11 @@ impl Command for SubCommand {
             description: "Apply the floor function to a list of numbers",
             example: "[4 3 2] | math bit-not",
             result: Some(Value::List {
-                vals: vec![Value::test_int(-5), Value::test_int(-4), Value::test_int(-3)],
+                vals: vec![
+                    Value::test_int(-5),
+                    Value::test_int(-4),
+                    Value::test_int(-3),
+                ],
                 span: Span::test_data(),
             }),
         }]
@@ -50,10 +54,7 @@ impl Command for SubCommand {
 
 fn operate(value: Value, head: Span) -> Value {
     match value {
-        Value::Int { val, span } => Value::Int {
-            val: !val,
-            span
-        },
+        Value::Int { val, span } => Value::Int { val: !val, span },
         other => Value::Error {
             error: ShellError::UnsupportedInput(
                 format!(
