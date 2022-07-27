@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-use polars::prelude::IntoSeries;
+use polars::prelude::{arg_where, col, IntoLazy};
 
 #[derive(Clone)]
 pub struct ArgTrue;
@@ -59,23 +59,41 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
-
-    let series = df.as_series(call.head)?;
-    let bool = series.bool().map_err(|_| {
-        ShellError::GenericError(
-            "Error converting to bool".into(),
-            "all-false only works with series of type bool".into(),
+    let columns = df.as_ref().get_column_names();
+    if columns.len() > 1 {
+        return Err(ShellError::GenericError(
+            "Error using as series".into(),
+            "dataframe has more than one column".into(),
             Some(call.head),
             None,
             Vec::new(),
-        )
-    })?;
+        ));
+    }
 
-    let mut res = bool.arg_true().into_series();
-    res.rename("arg_true");
+    match columns.get(0) {
+        Some(column) => {
+            let expression = arg_where(col(column).eq(true));
+            let res = df
+                .as_ref()
+                .clone()
+                .lazy()
+                .select(&[expression])
+                .collect()
+                .map_err(|err| {
+                    ShellError::GenericError(
+                        "Error creating index column".into(),
+                        err.to_string(),
+                        Some(call.head),
+                        None,
+                        Vec::new(),
+                    )
+                })?;
 
-    NuDataFrame::try_from_series(vec![res], call.head)
-        .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
+            let value = NuDataFrame::dataframe_into_value(res, call.head);
+            Ok(PipelineData::Value(value, None))
+        }
+        _ => todo!(),
+    }
 }
 
 #[cfg(test)]

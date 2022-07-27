@@ -6,6 +6,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
+use polars::prelude::SeriesMethods;
+
 #[derive(Clone)]
 pub struct ValueCount;
 
@@ -66,7 +68,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    let res = series.value_counts(false).map_err(|e| {
+    let res = series.value_counts(false, false).map_err(|e| {
         ShellError::GenericError(
             "Error calculating value counts values".into(),
             e.to_string(),

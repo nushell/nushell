@@ -130,9 +130,9 @@ checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
 name = "arrow-format"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "216249afef413d7e9e9b4b543e73b3e371ace3a812380af98f1c871521572cdd"
+checksum = "8df5d25bc6d676271277120c41ef28760fe0a9f070677a58db621c0f983f9c20"
 dependencies = [
  "planus",
  "serde",
@@ -141,15 +141,17 @@ dependencies = [
 [[package]]
 name = "arrow2"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5feafd6df4e3f577529e6aa2b9b7cdb3c9fe8e8f66ebc8dc29abbe71a7e968f0"
+source = "git+https://github.com/jorgecarleitao/arrow2?rev=c720eb26d426f7c3e1d1ea9e5650efcb83019732#c720eb26d426f7c3e1d1ea9e5650efcb83019732"
 dependencies = [
+ "ahash",
  "arrow-format",
  "base64",
  "bytemuck",
  "chrono",
+ "dyn-clone",
  "either",
  "fallible-streaming-iterator",
+ "foreign_vec",
  "futures",
  "hash_hasher",
  "indexmap",
@@ -992,6 +994,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "453440c271cf5577fd2a40e4942540cb7d0d2f85e27c8d07dd0023c925a67541"
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d07a982d1fb29db01e5a59b1918e03da4df7297eaeee7686ac45542fd4e59c8"
+
+[[package]]
 name = "ego-tree"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1195,6 +1203,12 @@ name = "foreign-types-shared"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
+
+[[package]]
+name = "foreign_vec"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee1b05cbd864bcaecbd3455d6d967862d446e4ebfc3c2e5e5b9841e53cba6673"
 
 [[package]]
 name = "form_urlencoded"
@@ -3183,9 +3197,9 @@ dependencies = [
 
 [[package]]
 name = "parquet-format-async-temp"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "488c8b5f43521d019fade4bcc0ce88cce5da5fd26eb1d38b933807041f5930bf"
+checksum = "e1a672c84c3e5b5eb6530286b2d22cc1ea8e1e3560e4c314218d6ab749c6db99"
 dependencies = [
  "async-trait",
  "futures",
@@ -3194,9 +3208,9 @@ dependencies = [
 
 [[package]]
 name = "parquet2"
-version = "0.13.2"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73fd2690ad041f9296876daef1f2706f6347073bdbcc719090887f1691e4a09d"
+checksum = "33e434af3293ba384075a56d4b400ce659868ca7823142194ef204f01ab35e50"
 dependencies = [
  "async-stream",
  "bitpacking",
@@ -3365,18 +3379,16 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 
 [[package]]
 name = "planus"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bffebaf174d6cad46a5f0f1bb1c45c6eb509571688bcb18dfab217f3c9f9b151"
+checksum = "fc1691dd09e82f428ce8d6310bd6d5da2557c82ff17694d2a32cad7242aea89f"
 dependencies = [
  "array-init-cursor",
 ]
 
 [[package]]
 name = "polars"
-version = "0.22.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d175c67e80ceaef7219258cfc3a8686531d9510875b0cefa25404e5b80a7933"
+version = "0.22.6"
 dependencies = [
  "polars-core",
  "polars-io",
@@ -3387,9 +3399,7 @@ dependencies = [
 
 [[package]]
 name = "polars-arrow"
-version = "0.22.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f66c7d3da2c10a09131294dbe7802fac792f570be639dc6ebf207bfc3e144287"
+version = "0.22.6"
 dependencies = [
  "arrow2",
  "hashbrown 0.12.1",
@@ -3400,13 +3410,12 @@ dependencies = [
 
 [[package]]
 name = "polars-core"
-version = "0.22.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7f15f443a90d5367c4fbbb151e203f03b5b96055c8b928c6bc30655a3644f13"
+version = "0.22.6"
 dependencies = [
  "ahash",
  "anyhow",
  "arrow2",
+ "bitflags",
  "chrono",
  "comfy-table",
  "hashbrown 0.12.1",
@@ -3421,14 +3430,13 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "smartstring",
  "thiserror",
 ]
 
 [[package]]
 name = "polars-io"
-version = "0.22.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "058d0a847ce5009b974c69ec878ed416e306436f21b626543019f738cee12315"
+version = "0.22.6"
 dependencies = [
  "ahash",
  "anyhow",
@@ -3454,11 +3462,10 @@ dependencies = [
 
 [[package]]
 name = "polars-lazy"
-version = "0.22.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dad86a4ce7e32540ff12089bce6f77270fd133a5b263328a92be61defdd6b151"
+version = "0.22.6"
 dependencies = [
  "ahash",
+ "bitflags",
  "glob",
  "parking_lot 0.12.1",
  "polars-arrow",
@@ -3473,9 +3480,7 @@ dependencies = [
 
 [[package]]
 name = "polars-ops"
-version = "0.22.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "030ecd473be113cd0264f1bc19de39a844fa12fa565db9dc52c859cbc292cf04"
+version = "0.22.6"
 dependencies = [
  "polars-arrow",
  "polars-core",
@@ -3483,9 +3488,7 @@ dependencies = [
 
 [[package]]
 name = "polars-time"
-version = "0.22.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94047b20d2da3bcc55c421be187a0c6f316cf1eea7fe7ed7347c1160a32d017c"
+version = "0.22.6"
 dependencies = [
  "chrono",
  "lexical",
@@ -3497,9 +3500,7 @@ dependencies = [
 
 [[package]]
 name = "polars-utils"
-version = "0.22.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcd3d0238462d5d9f7fbeaaea46e73ed4d58f6fae8b70d53cbe51d7538cc43f5"
+version = "0.22.6"
 dependencies = [
  "parking_lot 0.12.1",
  "rayon",
@@ -4492,6 +4493,17 @@ name = "smallvec"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2dd574626839106c320a323308629dcb1acfc96e32a8cba364ddc61ac23ee83"
+
+[[package]]
+name = "smartstring"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fb72c633efbaa2dd666986505016c32c3044395ceaf881518399d2f4127ee29"
+dependencies = [
+ "autocfg",
+ "static_assertions",
+ "version_check",
+]
 
 [[package]]
 name = "smawk"

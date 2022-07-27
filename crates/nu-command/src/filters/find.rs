@@ -190,7 +190,7 @@ fn find_with_regex(
         (true, true, true) => "(?ims)",
     };
 
-    let regex = flags.to_string() + &regex;
+    let regex = format!("{}{}", flags, &regex);
 
     let re = Regex::new(regex.as_str())
         .map_err(|e| ShellError::UnsupportedInput(format!("incorrect regex: {}", e), span))?;
