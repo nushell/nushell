@@ -2731,6 +2731,7 @@ dependencies = [
  "indexmap",
  "miette 5.1.1",
  "nu-json",
+ "nu-path",
  "nu-utils",
  "num-format",
  "regex",

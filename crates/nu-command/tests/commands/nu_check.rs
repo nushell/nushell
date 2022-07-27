@@ -260,7 +260,7 @@ fn parse_script_success_with_raw_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                open script.nu | nu-check 
+                open script.nu | nu-check
             "#
         ));
 
@@ -368,7 +368,7 @@ fn parse_script_success_with_complex_internal_stream() {
                   #
                   #Examples
                   #grep-nu search file.txt
-                  #ls **/* | some_filter | grep-nu search 
+                  #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | empty?) {
@@ -380,11 +380,11 @@ fn parse_script_success_with_complex_internal_stream() {
                   } else {
                       grep -ihHn $search $entrada
                   }
-                  | lines 
+                  | lines
                   | parse "{file}:{line}:{match}"
                   | str trim
-                  | update match {|f| 
-                      $f.match 
+                  | update match {|f|
+                      $f.match
                       | nu-highlight
                     }
                   | rename "source file" "line number"
@@ -417,9 +417,9 @@ fn parse_script_failure_with_complex_internal_stream() {
                   #
                   #Examples
                   #grep-nu search file.txt
-                  #ls **/* | some_filter | grep-nu search 
+                  #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
-                ] 
+                ]
                   if ($entrada | empty?) {
                     if ($in | column? name) {
                       grep -ihHn $search ($in | get name)
@@ -429,11 +429,11 @@ fn parse_script_failure_with_complex_internal_stream() {
                   } else {
                       grep -ihHn $search $entrada
                   }
-                  | lines 
+                  | lines
                   | parse "{file}:{line}:{match}"
                   | str trim
-                  | update match {|f| 
-                      $f.match 
+                  | update match {|f|
+                      $f.match
                       | nu-highlight
                     }
                   | rename "source file" "line number"
@@ -466,7 +466,7 @@ fn parse_script_success_with_complex_external_stream() {
                   #
                   #Examples
                   #grep-nu search file.txt
-                  #ls **/* | some_filter | grep-nu search 
+                  #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | empty?) {
@@ -478,11 +478,11 @@ fn parse_script_success_with_complex_external_stream() {
                   } else {
                       grep -ihHn $search $entrada
                   }
-                  | lines 
+                  | lines
                   | parse "{file}:{line}:{match}"
                   | str trim
-                  | update match {|f| 
-                      $f.match 
+                  | update match {|f|
+                      $f.match
                       | nu-highlight
                     }
                   | rename "source file" "line number"
@@ -515,7 +515,7 @@ fn parse_module_success_with_complex_external_stream() {
                   #
                   #Examples
                   #grep-nu search file.txt
-                  #ls **/* | some_filter | grep-nu search 
+                  #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | empty?) {
@@ -527,11 +527,11 @@ fn parse_module_success_with_complex_external_stream() {
                   } else {
                       grep -ihHn $search $entrada
                   }
-                  | lines 
+                  | lines
                   | parse "{file}:{line}:{match}"
                   | str trim
-                  | update match {|f| 
-                      $f.match 
+                  | update match {|f|
+                      $f.match
                       | nu-highlight
                     }
                   | rename "source file" "line number"
@@ -564,7 +564,7 @@ fn parse_with_flag_all_success_for_complex_external_stream() {
                   #
                   #Examples
                   #grep-nu search file.txt
-                  #ls **/* | some_filter | grep-nu search 
+                  #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | empty?) {
@@ -576,11 +576,11 @@ fn parse_with_flag_all_success_for_complex_external_stream() {
                   } else {
                       grep -ihHn $search $entrada
                   }
-                  | lines 
+                  | lines
                   | parse "{file}:{line}:{match}"
                   | str trim
-                  | update match {|f| 
-                      $f.match 
+                  | update match {|f|
+                      $f.match
                       | nu-highlight
                     }
                   | rename "source file" "line number"
@@ -592,7 +592,7 @@ fn parse_with_flag_all_success_for_complex_external_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                open grep.nu | nu-check -ad 
+                open grep.nu | nu-check -ad
             "#
         ));
 
@@ -607,13 +607,13 @@ fn parse_with_flag_all_failure_for_complex_external_stream() {
             "grep.nu",
             r#"
                 #grep for nu
-                def grep-nu 
+                def grep-nu
                   search   #search term
                   entrada?  #file or pipe
                   #
                   #Examples
                   #grep-nu search file.txt
-                  #ls **/* | some_filter | grep-nu search 
+                  #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | empty?) {
@@ -625,11 +625,11 @@ fn parse_with_flag_all_failure_for_complex_external_stream() {
                   } else {
                       grep -ihHn $search $entrada
                   }
-                  | lines 
+                  | lines
                   | parse "{file}:{line}:{match}"
                   | str trim
-                  | update match {|f| 
-                      $f.match 
+                  | update match {|f|
+                      $f.match
                       | nu-highlight
                     }
                   | rename "source file" "line number"
@@ -641,7 +641,7 @@ fn parse_with_flag_all_failure_for_complex_external_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                open grep.nu | nu-check -ad 
+                open grep.nu | nu-check -ad
             "#
         ));
 
@@ -656,13 +656,13 @@ fn parse_with_flag_all_failure_for_complex_list_stream() {
             "grep.nu",
             r#"
                 #grep for nu
-                def grep-nu 
+                def grep-nu
                   search   #search term
                   entrada?  #file or pipe
                   #
                   #Examples
                   #grep-nu search file.txt
-                  #ls **/* | some_filter | grep-nu search 
+                  #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | empty?) {
@@ -674,11 +674,11 @@ fn parse_with_flag_all_failure_for_complex_list_stream() {
                   } else {
                       grep -ihHn $search $entrada
                   }
-                  | lines 
+                  | lines
                   | parse "{file}:{line}:{match}"
                   | str trim
-                  | update match {|f| 
-                      $f.match 
+                  | update match {|f|
+                      $f.match
                       | nu-highlight
                     }
                   | rename "source file" "line number"
@@ -690,7 +690,7 @@ fn parse_with_flag_all_failure_for_complex_list_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                open grep.nu | lines | nu-check -ad 
+                open grep.nu | lines | nu-check -ad
             "#
         ));
 
@@ -722,5 +722,42 @@ fn parse_failure_due_conflicted_flags() {
         assert!(actual
             .err
             .contains("You cannot have both `--all` and `--as-module` on the same command line"));
+    })
+}
+
+#[test]
+fn parse_script_with_nested_scripts_success() {
+    Playground::setup("nu_check_test_24", |dirs, sandbox| {
+        sandbox
+            .mkdir("lol")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/lol.nu",
+                r#"
+                    source ../foo.nu
+                    use lol_shell.nu
+                    overlay add ../lol/lol_shell.nu
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/lol_shell.nu",
+                r#"
+                    export def ls [] { "lol" }
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "foo.nu",
+                r#"
+                    let-env FOO = 'foo'
+                "#,
+            )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                nu-check lol/lol.nu
+            "#
+        ));
+
+        assert_eq!(actual.out, "true");
     })
 }

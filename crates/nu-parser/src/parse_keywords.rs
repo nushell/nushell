@@ -1333,6 +1333,7 @@ pub fn parse_use(
 
             let (module_filename, err) =
                 unescape_unquote_string(&import_pattern.head.name, import_pattern.head.span);
+
             if err.is_none() {
                 if let Some(module_path) =
                     find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
@@ -1351,10 +1352,21 @@ pub fn parse_use(
                         );
                     };
 
-                    if let Ok(contents) = std::fs::read(module_path) {
+                    if let Ok(contents) = std::fs::read(&module_path) {
                         let span_start = working_set.next_span_start();
                         working_set.add_file(module_filename, &contents);
                         let span_end = working_set.next_span_start();
+
+                        // Change currently parsed directory
+                        let prev_currently_parsed_cwd = if let Some(parent) = module_path.parent() {
+                            let prev = working_set.currently_parsed_cwd.clone();
+
+                            working_set.currently_parsed_cwd = Some(parent.into());
+
+                            prev
+                        } else {
+                            working_set.currently_parsed_cwd.clone()
+                        };
 
                         let (block, module, err) = parse_module_block(
                             working_set,
@@ -1362,6 +1374,9 @@ pub fn parse_use(
                             expand_aliases_denylist,
                         );
                         error = error.or(err);
+
+                        // Restore the currently parsed directory back
+                        working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
                         let _ = working_set.add_block(block);
                         let module_id = working_set.add_module(&module_name, module.clone());
@@ -2069,10 +2084,21 @@ pub fn parse_overlay_add(
                         );
                     };
 
-                    if let Ok(contents) = std::fs::read(module_path) {
+                    if let Ok(contents) = std::fs::read(&module_path) {
                         let span_start = working_set.next_span_start();
                         working_set.add_file(module_filename, &contents);
                         let span_end = working_set.next_span_start();
+
+                        // Change currently parsed directory
+                        let prev_currently_parsed_cwd = if let Some(parent) = module_path.parent() {
+                            let prev = working_set.currently_parsed_cwd.clone();
+
+                            working_set.currently_parsed_cwd = Some(parent.into());
+
+                            prev
+                        } else {
+                            working_set.currently_parsed_cwd.clone()
+                        };
 
                         let (block, module, err) = parse_module_block(
                             working_set,
@@ -2080,6 +2106,9 @@ pub fn parse_overlay_add(
                             expand_aliases_denylist,
                         );
                         error = error.or(err);
+
+                        // Restore the currently parsed directory back
+                        working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
                         let _ = working_set.add_block(block);
                         let module_id = working_set.add_module(&overlay_name, module.clone());
@@ -2370,6 +2399,7 @@ pub fn parse_source(
     if name == b"source" {
         if let Some(decl_id) = working_set.find_decl(b"source", &Type::Any) {
             let cwd = working_set.get_cwd();
+
             // Is this the right call to be using here?
             // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
             let ParsedInternalCall {
@@ -2401,9 +2431,21 @@ pub fn parse_source(
             if spans.len() >= 2 {
                 let name_expr = working_set.get_span_contents(spans[1]);
                 let (filename, err) = unescape_unquote_string(name_expr, spans[1]);
+
                 if err.is_none() {
                     if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_ENV) {
                         if let Ok(contents) = std::fs::read(&path) {
+                            // Change currently parsed directory
+                            let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
+                                let prev = working_set.currently_parsed_cwd.clone();
+
+                                working_set.currently_parsed_cwd = Some(parent.into());
+
+                                prev
+                            } else {
+                                working_set.currently_parsed_cwd.clone()
+                            };
+
                             // This will load the defs from the file into the
                             // working set, if it was a successful parse.
                             let (block, err) = parse(
@@ -2413,6 +2455,9 @@ pub fn parse_source(
                                 false,
                                 expand_aliases_denylist,
                             );
+
+                            // Restore the currently parsed directory back
+                            working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
                             if err.is_some() {
                                 // Unsuccessful parse of file
@@ -2695,13 +2740,27 @@ pub fn parse_register(
     )
 }
 
-pub fn find_in_dirs(
+/// This helper function is used to find files during parsing
+///
+/// Checks whether the file is:
+/// 1. relative to the directory of the file currently being parsed
+/// 2. relative to the current working directory
+/// 3. within one of the NU_LIB_DIRS entries
+///
+/// Always returns absolute path
+fn find_in_dirs(
     filename: &str,
     working_set: &StateWorkingSet,
     cwd: &str,
     dirs_env: &str,
 ) -> Option<PathBuf> {
-    if let Ok(p) = canonicalize_with(filename, cwd) {
+    if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
+        if let Ok(p) = canonicalize_with(filename, currently_parsed_cwd) {
+            Some(p)
+        } else {
+            None
+        }
+    } else if let Ok(p) = canonicalize_with(filename, cwd) {
         Some(p)
     } else {
         let path = Path::new(filename);
