@@ -3226,7 +3226,14 @@ pub fn parse_signature_helper(
                                         String::from_utf8_lossy(short_flag).to_string();
                                     let chars: Vec<char> = short_flag.chars().collect();
                                     let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
-                                    let variable_name = flags[0][2..].to_vec();
+                                    let mut variable_name = flags[0][2..].to_vec();
+
+                                    (0..variable_name.len()).for_each(|idx| {
+                                        if variable_name[idx] == b'-' {
+                                            variable_name[idx] = b'_';
+                                        }
+                                    });
+
                                     if !is_variable(&variable_name) {
                                         error = error.or_else(|| {
                                             Some(ParseError::Expected(
