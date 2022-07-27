@@ -6,6 +6,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
+use std::path::Path;
+
 #[derive(Clone)]
 pub struct NuCheck;
 
@@ -117,13 +119,30 @@ impl Command for NuCheck {
                         ));
                     }
 
-                    if is_all {
+                    // Change currently parsed directory
+                    let prev_currently_parsed_cwd = if let Some(parent) = Path::new(&path).parent()
+                    {
+                        let prev = working_set.currently_parsed_cwd.clone();
+
+                        working_set.currently_parsed_cwd = Some(parent.into());
+
+                        prev
+                    } else {
+                        working_set.currently_parsed_cwd.clone()
+                    };
+
+                    let result = if is_all {
                         heuristic_parse_file(path, &mut working_set, call, is_debug)
                     } else if is_module {
                         parse_file_module(path, &mut working_set, call, is_debug)
                     } else {
                         parse_file_script(path, &mut working_set, call, is_debug)
-                    }
+                    };
+
+                    // Restore the currently parsed directory back
+                    working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+
+                    result
                 } else {
                     Err(ShellError::GenericError(
                         "Failed to execute command".to_string(),

@@ -729,6 +729,14 @@ impl EngineState {
         self.num_files() - 1
     }
 
+    pub fn get_cwd(&self) -> Option<String> {
+        if let Some(pwd_value) = self.get_env_var(PWD_ENV) {
+            pwd_value.as_string().ok()
+        } else {
+            None
+        }
+    }
+
     #[cfg(not(windows))]
     pub fn get_sig_quit(&self) -> &Option<Arc<AtomicBool>> {
         &self.sig_quit
@@ -755,6 +763,8 @@ pub struct StateWorkingSet<'a> {
     pub delta: StateDelta,
     pub external_commands: Vec<Vec<u8>>,
     pub type_scope: TypeScope,
+    /// Current working directory relative to the file being parsed right now
+    pub currently_parsed_cwd: Option<PathBuf>,
 }
 
 /// A temporary placeholder for expression types. It is used to keep track of the input types
@@ -927,6 +937,7 @@ impl<'a> StateWorkingSet<'a> {
             permanent_state,
             external_commands: vec![],
             type_scope: TypeScope::default(),
+            currently_parsed_cwd: permanent_state.get_cwd().map(PathBuf::from),
         }
     }
 
