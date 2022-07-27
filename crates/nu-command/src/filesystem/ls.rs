@@ -147,9 +147,13 @@ impl Command for Ls {
                         Some(glob_options)
                     };
                     let (prefix, paths) =
-                        nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options)
-                            .expect("glob failure");
-
+                        match nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options) {
+                            Ok((prefix, paths)) => (prefix, paths),
+                            Err(e) => {
+                                shell_errors.push(e);
+                                return Vec::from([Value::nothing(call_span)]).into_iter();
+                            }
+                        };
                     let mut paths_peek = paths.peekable();
                     if paths_peek.peek().is_none() {
                         shell_errors.push(ShellError::GenericError(

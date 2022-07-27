@@ -527,3 +527,11 @@ fn can_list_system_folder() {
     ));
     assert_eq!(ls_with_filter.err, "");
 }
+
+#[test]
+fn list_a_directory_not_exists() {
+    Playground::setup("ls_test_directory_not_exists", |dirs, _sandbox| {
+        let actual = nu!(cwd: dirs.test(), "ls a_directory_not_exists");
+        assert!(actual.err.contains("directory not found"));
+    })
+}
