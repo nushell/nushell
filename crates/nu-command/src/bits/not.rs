@@ -62,8 +62,9 @@ impl Command for SubCommand {
             Some(size) => match size.item.as_str() {
                 "1" => NumberSize::One,
                 "2" => NumberSize::Two,
-                "3" => NumberSize::Four,
-                "4" => NumberSize::Eight,
+                "4" => NumberSize::Four,
+                "8" => NumberSize::Eight,
+                "auto" => NumberSize::Auto,
                 _ => {
                     return Err(ShellError::UnsupportedInput(
                         "the size of number is invalid".to_string(),
@@ -143,7 +144,7 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberSize) -> V
                         } else if val <= 0xFF_FF_FF_FF {
                             !val & 0x00_00_FF_FF_FF_FF
                         } else {
-                            !val & 0x0F_FF_FF_FF_FF_FF
+                            !val & 0x7F_FF_FF_FF_FF_FF
                         }
                     }
                 };
