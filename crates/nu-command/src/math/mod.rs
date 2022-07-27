@@ -16,6 +16,7 @@ mod stddev;
 mod sum;
 mod utils;
 mod variance;
+mod bit_not;
 
 pub use abs::SubCommand as MathAbs;
 pub use avg::SubCommand as MathAvg;
@@ -33,3 +34,4 @@ pub use sqrt::SubCommand as MathSqrt;
 pub use stddev::SubCommand as MathStddev;
 pub use sum::SubCommand as MathSum;
 pub use variance::SubCommand as MathVariance;
+pub use bit_not::SubCommand as MathBitNot;
