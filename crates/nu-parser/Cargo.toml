@@ -4,7 +4,7 @@ description = "Nushell's parser"
 edition = "2021"
 license = "MIT"
 name = "nu-parser"
-version = "0.66.0"
+version = "0.66.1"
 
 [dependencies]
 chrono = "0.4.19"
@@ -12,9 +12,9 @@ itertools = "0.10"
 miette = "5.1.0"
 thiserror = "1.0.31"
 serde_json = "1.0"
-nu-path = {path = "../nu-path", version = "0.66.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.66.0" }
-nu-plugin = { path = "../nu-plugin", optional = true, version = "0.66.0"  }
+nu-path = {path = "../nu-path", version = "0.66.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.66.1" }
+nu-plugin = { path = "../nu-plugin", optional = true, version = "0.66.1"  }
 log = "0.4"
 
 [features]
