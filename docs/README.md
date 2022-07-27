@@ -1,7 +1,7 @@
 # Documentation
 
-This directory contains [default_config.nu](./sample_config/default_config.nu)
-which is the configuration file one gets when they startup Nushell for the first time.
+The default configurations can be found at [sample_config](../crates/nu-utils/src/sample_config)
+which are the configuration files one gets when they startup Nushell for the first time.
 
 It sets all of the default configuration to run Nushell.  From here one can
 then customize this file for their specific needs.
