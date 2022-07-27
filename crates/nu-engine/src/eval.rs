@@ -1452,6 +1452,14 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             val: size * 1000 * 1000 * 1000 * 1000 * 1000,
             span,
         },
+        Unit::Exabyte => Value::Filesize {
+            val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
+            span,
+        },
+        Unit::Zettabyte => Value::Filesize {
+            val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
+            span,
+        },
 
         Unit::Kibibyte => Value::Filesize {
             val: size * 1024,
@@ -1471,6 +1479,14 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
         },
         Unit::Pebibyte => Value::Filesize {
             val: size * 1024 * 1024 * 1024 * 1024 * 1024,
+            span,
+        },
+        Unit::Exbibyte => Value::Filesize {
+            val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
+            span,
+        },
+        Unit::Zebibyte => Value::Filesize {
+            val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
             span,
         },
 
@@ -1499,8 +1515,8 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
                 error: ShellError::GenericError(
-                    "duration too large".into(),
-                    "duration too large".into(),
+                    "day duration too large".into(),
+                    "day duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),
@@ -1511,8 +1527,44 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
                 error: ShellError::GenericError(
-                    "duration too large".into(),
-                    "duration too large".into(),
+                    "week duration too large".into(),
+                    "week duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
+        },
+        Unit::Month => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 30) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::GenericError(
+                    "month duration too large".into(),
+                    "month duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
+        },
+        Unit::Year => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 365) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::GenericError(
+                    "year duration too large".into(),
+                    "year duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
+        },
+        Unit::Decade => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 365 * 10) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::GenericError(
+                    "decade duration too large".into(),
+                    "decade duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),

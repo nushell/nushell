@@ -9,6 +9,8 @@ pub enum Unit {
     Gigabyte,
     Terabyte,
     Petabyte,
+    Exabyte,
+    Zettabyte,
 
     // Filesize units: ISO/IEC 80000
     Kibibyte,
@@ -16,6 +18,8 @@ pub enum Unit {
     Gibibyte,
     Tebibyte,
     Pebibyte,
+    Exbibyte,
+    Zebibyte,
 
     // Duration units
     Nanosecond,
@@ -26,4 +30,7 @@ pub enum Unit {
     Hour,
     Day,
     Week,
+    Month,
+    Year,
+    Decade,
 }

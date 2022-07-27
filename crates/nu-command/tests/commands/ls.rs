@@ -336,6 +336,28 @@ fn lists_files_including_starting_with_dot() {
 }
 
 #[test]
+fn lists_regular_files_using_multiple_asterisk_wildcards() {
+    Playground::setup("ls_test_10", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls *.txt *.clu
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "4");
+    })
+}
+
+#[test]
 fn list_all_columns() {
     Playground::setup("ls_test_all_columns", |dirs, sandbox| {
         sandbox.with_files(vec![

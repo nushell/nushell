@@ -92,7 +92,9 @@ fn main() -> Result<()> {
     // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
     // then it'll be the script name
     // then the args to the script
-    let mut args = std::env::args().skip(1);
+    let mut args = std::env::args();
+    let argv0 = args.next();
+
     while let Some(arg) = args.next() {
         if !script_name.is_empty() {
             args_to_script.push(escape_for_script_arg(&arg));
@@ -121,6 +123,12 @@ fn main() -> Result<()> {
     }
 
     args_to_nushell.insert(0, "nu".into());
+
+    if let Some(argv0) = argv0 {
+        if argv0.starts_with('-') {
+            args_to_nushell.push("--login".into());
+        }
+    }
 
     let nushell_commandline_args = args_to_nushell.join(" ");
 
