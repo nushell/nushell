@@ -4,7 +4,7 @@ use nu_parser::ParseError;
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{PipelineData, Span, Spanned};
-use nu_utils::{get_default_env, get_default_config};
+use nu_utils::{get_default_config, get_default_env};
 use std::fs::File;
 use std::io::Write;
 
