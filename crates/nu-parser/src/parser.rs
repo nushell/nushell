@@ -2812,9 +2812,9 @@ pub fn parse_import_pattern(
                     expr: Expr::List(list),
                     ..
                 } => {
-                    for l in list {
-                        let contents = working_set.get_span_contents(l.span);
-                        output.push((contents.to_vec(), l.span));
+                    for expr in list {
+                        let contents = working_set.get_span_contents(expr.span);
+                        output.push((trim_quotes(contents).to_vec(), expr.span));
                     }
 
                     (
