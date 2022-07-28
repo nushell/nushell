@@ -573,8 +573,6 @@ pub fn eval_string_with_input(
         (output, working_set.render())
     };
 
-    // let cwd = nu_engine::env::current_dir_str(engine_state, stack)?;
-
     if let Err(err) = engine_state.merge_delta(delta) {
         return Err(err);
     }
