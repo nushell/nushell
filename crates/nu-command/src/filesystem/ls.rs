@@ -499,11 +499,7 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
 }
 
 fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
-    let path_str = path.to_str().expect("failed to read path");
-    if folders
-        .iter()
-        .any(|p| path_str.starts_with(&p.to_str().expect("failed to read hidden paths")))
-    {
+    if folders.iter().any(|p| path.starts_with(p.as_path())) {
         return true;
     }
     false
