@@ -88,6 +88,15 @@ impl Command for Mv {
 
         let span = call.head;
 
+        // an empty sources is same meaning to a non-existent destionation
+        // because, if there is only one argument, the first is bound to spanned_destination.
+        if spanned_sources.is_empty() {
+            return Err(ShellError::MoveNotPossibleSingle(
+                "missing destination".to_string(),
+                span,
+            ));
+        }
+
         Ok(spanned_sources
             .into_iter()
             .flat_map(move |spanned_source| {
