@@ -18,22 +18,6 @@ fn copies_a_file() {
 }
 
 #[test]
-fn copies_multiple_files() {
-    Playground::setup("cp_test_1_1", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![EmptyFile("a.txt"), EmptyFile("b.txt")])
-            .mkdir("dest");
-        nu!(
-            cwd: dirs.test(),
-            "cp a.txt b.txt dest",
-        );
-
-        assert!(dirs.test().join("dest/a.txt").exists());
-        assert!(dirs.test().join("dest/b.txt").exists());
-    });
-}
-
-#[test]
 fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
     Playground::setup("cp_test_2", |dirs, _| {
         let expected_file = AbsoluteFile::new(dirs.test().join("sample.ini"));
