@@ -135,7 +135,7 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberSize) -> V
                     One => !val & 0x00_00_00_00_00_FF,
                     Two => !val & 0x00_00_00_00_FF_FF,
                     Four => !val & 0x00_00_FF_FF_FF_FF,
-                    Eight => !val & 0x0F_FF_FF_FF_FF_FF,
+                    Eight => !val & 0x7F_FF_FF_FF_FF_FF,
                     Auto => {
                         if val <= 0xFF {
                             !val & 0x00_00_00_00_00_FF
