@@ -84,7 +84,7 @@ impl Command for Mv {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let path = current_dir(engine_state, stack).expect("Failed current_dir");
+        let path = current_dir(engine_state, stack)?;
 
         let span = call.head;
 
@@ -141,7 +141,7 @@ impl Command for Mv {
                         let err = ShellError::GenericError(
                             format!(
                                 "Not possible to move {:?} to itself",
-                                filename.file_name().expect("Invalid file name")
+                                filename.file_name().unwrap_or(filename.as_os_str())
                             ),
                             "cannot move to itself".into(),
                             Some(spanned_destination.span),
@@ -178,18 +178,17 @@ impl Command for Mv {
                         if let Err(error) = result {
                             Some(Value::Error { error })
                         } else if verbose {
-                            let val = if result.expect("Error value when unwrapping mv result") {
-                                format!(
+                            let val = match result {
+                                Ok(true) => format!(
                                     "moved {:} to {:}",
                                     entry.to_string_lossy(),
                                     destination.to_string_lossy()
-                                )
-                            } else {
-                                format!(
+                                ),
+                                _ => format!(
                                     "{:} not moved to {:}",
                                     entry.to_string_lossy(),
                                     destination.to_string_lossy()
-                                )
+                                ),
                             };
                             Some(Value::String { val, span })
                         } else {
