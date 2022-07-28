@@ -544,7 +544,7 @@ let-env config {{
         "\x1b[32m",   //before Nushell
         "\x1b[0m",    //after Nushell
         age,
-        "\x1b[1;30m", //before banner disable
+        "\x1b[2;37m", //before banner disable
         "\x1b[0m",    //after banner disable
     );
 
