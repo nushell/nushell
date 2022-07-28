@@ -493,8 +493,7 @@ fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
     };
 
     let banner = format!(
-        r#"
-{}     __  ,
+        r#"{}     __  ,
 {} .--()°'.' {}Welcome to {}Nushell{}, 
 {}'|, . ,'   {}based on the {}nu{} language,
 {} !_-(_\    {}where all data is structured!
