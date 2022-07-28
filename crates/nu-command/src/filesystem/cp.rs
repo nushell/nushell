@@ -1,16 +1,11 @@
-use std::collections::HashMap;
 use std::fs::read_link;
 use std::path::PathBuf;
 
-use itertools::Itertools;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
-use nu_glob::GlobResult;
-use nu_path::dots::expand_ndots;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::span::span as merge_spans;
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value,
@@ -46,12 +41,7 @@ impl Command for Cp {
 
     fn signature(&self) -> Signature {
         Signature::build("cp")
-            .rest(
-                "source(s)",
-                SyntaxShape::String,
-                "the place(s) to copy from",
-            )
-            // .required("source", SyntaxShape::GlobPattern, "the place to copy from")
+            .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
             .switch(
                 "recursive",
@@ -81,16 +71,15 @@ impl Command for Cp {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut src_vec: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-        // read dst as final argument
-        let dst: Spanned<String> = src_vec.pop().expect("Final argument is destination");
-
+        let src: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
         let recursive = call.has_flag("recursive");
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
 
         let current_dir_path = current_dir(engine_state, stack)?;
-        let destination = expand_ndots(current_dir_path.join(dst.item.as_str()));
+        let source = current_dir_path.join(src.item.as_str());
+        let destination = current_dir_path.join(dst.item.as_str());
 
         let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
         let is_directory = path_last_char == Some('/') || path_last_char == Some('\\');
@@ -103,54 +92,24 @@ impl Command for Cp {
         let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
 
-        let mut sources: Vec<PathBuf> = vec![];
-        let mut path_to_span: HashMap<PathBuf, Span> = HashMap::new();
-
-        for src in &src_vec {
-            let source = current_dir_path.join(src.item.as_str());
-            let glob_results: Vec<GlobResult> =
-                match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
-                    Ok(files) => files.collect(),
-                    Err(e) => {
-                        return Err(ShellError::GenericError(
-                            e.to_string(),
-                            "invalid pattern".to_string(),
-                            Some(src.span),
-                            None,
-                            Vec::new(),
-                        ))
-                    }
-                };
-
-            let mut new_sources: Vec<PathBuf> = vec![];
-            for glob_result in glob_results {
-                match glob_result {
-                    Ok(path) => {
-                        path_to_span.insert(path.clone(), src.span);
-                        new_sources.push(path);
-                    }
-                    Err(e) => {
-                        return Err(ShellError::GenericError(
-                            e.to_string(),
-                            "glob iteration error".to_string(),
-                            Some(src.span),
-                            None,
-                            Vec::new(),
-                        ))
-                    }
-                }
+        let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
+            Ok(files) => files.collect(),
+            Err(e) => {
+                return Err(ShellError::GenericError(
+                    e.to_string(),
+                    "invalid pattern".to_string(),
+                    Some(src.span),
+                    None,
+                    Vec::new(),
+                ))
             }
-
-            sources.append(&mut new_sources);
-        }
+        };
 
         if sources.is_empty() {
             return Err(ShellError::GenericError(
                 "No matches found".into(),
                 "no matches found".into(),
-                Some(merge_spans(
-                    &src_vec.into_iter().map(|src| src.span).collect_vec(),
-                )),
+                Some(src.span),
                 None,
                 Vec::new(),
             ));
@@ -166,25 +125,21 @@ impl Command for Cp {
             ));
         }
 
-        let any_source_is_dir = sources.iter().find(|f| f.is_dir());
+        let any_source_is_dir = sources.iter().any(|f| matches!(f, Ok(f) if f.is_dir()));
 
-        if let Some(dir_source) = any_source_is_dir {
-            if !recursive {
-                return Err(ShellError::GenericError(
-                    "Directories must be copied using \"--recursive\"".into(),
-                    "resolves to a directory (not copied)".into(),
-                    Some(*path_to_span.get(dir_source).unwrap_or_else(|| {
-                        panic!("Key {:?} should exist", dir_source.as_os_str())
-                    })),
-                    None,
-                    Vec::new(),
-                ));
-            }
+        if any_source_is_dir && !recursive {
+            return Err(ShellError::GenericError(
+                "Directories must be copied using \"--recursive\"".into(),
+                "resolves to a directory (not copied)".into(),
+                Some(src.span),
+                None,
+                Vec::new(),
+            ));
         }
 
         let mut result = Vec::new();
 
-        for entry in sources.into_iter() {
+        for entry in sources.into_iter().flatten() {
             let mut sources = FileStructure::new();
             sources.walk_decorate(&entry, engine_state, stack)?;
 
@@ -208,8 +163,7 @@ impl Command for Cp {
                         let res = if src == dst {
                             let message = format!(
                                 "src {:?} and dst {:?} are identical(not copied)",
-                                src.as_os_str(),
-                                destination
+                                source, destination
                             );
 
                             return Err(ShellError::GenericError(
