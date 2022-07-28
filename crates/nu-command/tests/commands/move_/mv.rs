@@ -23,36 +23,6 @@ fn moves_a_file() {
 }
 
 #[test]
-fn moves_multiple_files() {
-    Playground::setup("mv_test_1_1", |dirs, sandbox| {
-        sandbox
-            .mkdir("expected")
-            .with_files(vec![EmptyFile("andres.txt"), EmptyFile("yehuda.txt")])
-            .within("foo")
-            .with_files(vec![EmptyFile("bar.txt")]);
-
-        let original_1 = dirs.test().join("andres.txt");
-        let original_2 = dirs.test().join("yehuda.txt");
-        let original_3 = dirs.test().join("foo/bar.txt");
-        let expected_1 = dirs.test().join("expected/andres.txt");
-        let expected_2 = dirs.test().join("expected/yehuda.txt");
-        let expected_3 = dirs.test().join("expected/bar.txt");
-
-        nu!(
-            cwd: dirs.test(),
-            "mv andres.txt yehuda.txt foo/bar.txt expected"
-        );
-
-        assert!(!original_1.exists());
-        assert!(!original_2.exists());
-        assert!(!original_3.exists());
-        assert!(expected_1.exists());
-        assert!(expected_2.exists());
-        assert!(expected_3.exists());
-    })
-}
-
-#[test]
 fn overwrites_if_moving_to_existing_file() {
     Playground::setup("mv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jonathan.txt")]);
