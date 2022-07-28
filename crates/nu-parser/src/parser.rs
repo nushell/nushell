@@ -4790,7 +4790,7 @@ pub fn parse_builtin_commands(
         b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => {
-            if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
+            if let Some(decl_id) = working_set.find_decl(b"export", &Type::Any) {
                 let parsed_call = parse_internal_call(
                     working_set,
                     lite_command.parts[0],
