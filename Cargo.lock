@@ -573,7 +573,7 @@ version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b103d85ca6e209388771bfb7aa6b68a7aeec4afbf6f0a0264bfbf50360e5212e"
 dependencies = [
- "crossterm",
+ "crossterm 0.23.2",
  "strum 0.23.0",
  "strum_macros 0.23.1",
  "unicode-width",
@@ -734,6 +734,22 @@ name = "crossterm"
 version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2102ea4f781910f8a5b98dd061f4c2023f479ce7bb1236330099ceb5a93cf17"
+dependencies = [
+ "bitflags",
+ "crossterm_winapi",
+ "libc",
+ "mio 0.8.4",
+ "parking_lot",
+ "signal-hook",
+ "signal-hook-mio",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "crossterm"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab9f7409c70a38a56216480fba371ee460207dd8926ccf5b4160591759559170"
 dependencies = [
  "bitflags",
  "crossterm_winapi",
@@ -2084,12 +2100,12 @@ dependencies = [
 
 [[package]]
 name = "lscolors"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88e4434edeec6cd16a7e8e13569af4568a66fcd6d79abd8696db22dd95f920e6"
+checksum = "a24e014efe73b727e5792b6f422a23c04b10ba9d8cdc74b197a25a08db7eac86"
 dependencies = [
  "ansi_term",
- "crossterm",
+ "crossterm 0.24.0",
 ]
 
 [[package]]
@@ -2469,7 +2485,7 @@ version = "0.66.2"
 dependencies = [
  "assert_cmd",
  "chrono",
- "crossterm",
+ "crossterm 0.24.0",
  "ctrlc",
  "hamcrest2",
  "is_executable",
@@ -2519,7 +2535,7 @@ name = "nu-cli"
 version = "0.66.2"
 dependencies = [
  "chrono",
- "crossterm",
+ "crossterm 0.24.0",
  "fuzzy-matcher",
  "is_executable",
  "lazy_static",
@@ -2565,7 +2581,7 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "chrono-tz",
- "crossterm",
+ "crossterm 0.24.0",
  "csv",
  "dialoguer",
  "digest 0.10.3",
@@ -3874,11 +3890,10 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1815a84fe3d1c632106199f4ba844c109d783e16682df293044bb994537671d8"
+source = "git+https://github.com/nushell/reedline.git?branch=main#a406bfc6621f01805a0a80cd520ac59c128aec23"
 dependencies = [
  "chrono",
- "crossterm",
+ "crossterm 0.24.0",
  "fd-lock",
  "gethostname",
  "itertools",
