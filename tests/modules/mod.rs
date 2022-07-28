@@ -163,6 +163,33 @@ fn module_public_import_alias() {
     })
 }
 
+// TODO -- doesn't work because modules are never evaluated
+#[ignore]
+#[test]
+fn module_public_import_env() {
+    Playground::setup("module_public_import_decl", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    export use spam.nu FOO
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    export env FOO { "foo" }
+                "#,
+            )]);
+
+        let inp = &[r#"use main.nu FOO"#, r#"$env.FOO"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}
+
 #[test]
 fn module_nested_imports() {
     Playground::setup("module_nested_imports", |dirs, sandbox| {
