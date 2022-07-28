@@ -111,3 +111,139 @@ fn module_private_import_env() {
         assert_eq!(actual.out, "foo");
     })
 }
+
+#[test]
+fn module_public_import_decl() {
+    Playground::setup("module_public_import_decl", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    export use spam.nu foo
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    def foo-helper [] { "foo" }
+                    export def foo [] { foo-helper }
+                "#,
+            )]);
+
+        let inp = &[r#"use main.nu foo"#, r#"foo"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}
+
+#[test]
+fn module_public_import_alias() {
+    Playground::setup("module_public_import_alias", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    export use spam.nu foo
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    export alias foo = "foo"
+                "#,
+            )]);
+
+        let inp = &[r#"use main.nu foo"#, r#"foo"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}
+
+#[test]
+fn module_nested_imports() {
+    Playground::setup("module_nested_imports", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    export use spam.nu [ foo bar ]
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    export use spam2.nu [ foo bar ]
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam2.nu",
+                r#"
+                    export use spam3.nu [ foo bar ]
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam3.nu",
+                r#"
+                    export def foo [] { "foo" }
+                    export alias bar = "bar"
+                "#,
+            )]);
+
+        let inp1 = &[r#"use main.nu foo"#, r#"foo"#];
+        let inp2 = &[r#"use main.nu bar"#, r#"bar"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp1.join("; ")));
+        assert_eq!(actual.out, "foo");
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp2.join("; ")));
+        assert_eq!(actual.out, "bar");
+    })
+}
+
+#[test]
+fn module_nested_imports_in_dirs() {
+    Playground::setup("module_nested_imports_in_dirs", |dirs, sandbox| {
+        sandbox
+            .mkdir("spam")
+            .mkdir("spam/spam2")
+            .mkdir("spam/spam3")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    export use spam/spam.nu [ foo bar ]
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam/spam.nu",
+                r#"
+                    export use spam2/spam2.nu [ foo bar ]
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam/spam2/spam2.nu",
+                r#"
+                    export use ../spam3/spam3.nu [ foo bar ]
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam/spam3/spam3.nu",
+                r#"
+                    export def foo [] { "foo" }
+                    export alias bar = "bar"
+                "#,
+            )]);
+
+        let inp1 = &[r#"use main.nu foo"#, r#"foo"#];
+        let inp2 = &[r#"use main.nu bar"#, r#"bar"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp1.join("; ")));
+        assert_eq!(actual.out, "foo");
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp2.join("; ")));
+        assert_eq!(actual.out, "bar");
+    })
+}

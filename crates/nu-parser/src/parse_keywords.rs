@@ -655,7 +655,7 @@ pub fn parse_export(
         redirect_stderr: false,
     });
 
-    let exportable = if let Some(kw_span) = spans.get(1) {
+    let exportables = if let Some(kw_span) = spans.get(1) {
         let kw_name = working_set.get_span_contents(*kw_span);
         match kw_name {
             b"def" => {
@@ -915,7 +915,7 @@ pub fn parse_export(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let (pipeline, err) =
+                let (pipeline, exportables, err) =
                     parse_use(working_set, &lite_command.parts, expand_aliases_denylist);
                 error = error.or(err);
 
@@ -952,9 +952,7 @@ pub fn parse_export(
                     });
                 };
 
-                let result = vec![];
-
-                result
+                exportables
             }
             b"env" => {
                 if let Some(id) = working_set.find_decl(b"export env", &Type::Any) {
@@ -1078,7 +1076,7 @@ pub fn parse_export(
             ty: Type::Any,
             custom_completion: None,
         }]),
-        exportable,
+        exportables,
         error,
     )
 }
@@ -1146,7 +1144,7 @@ pub fn parse_module_block(
                         (pipeline, err)
                     }
                     b"use" => {
-                        let (pipeline, err) = parse_use(
+                        let (pipeline, _, err) = parse_use(
                             working_set,
                             &pipeline.commands[0].parts,
                             expand_aliases_denylist,
@@ -1183,23 +1181,6 @@ pub fn parse_module_block(
                                     }
                                 }
                             }
-
-                            // let name_span = pipeline.commands[0].parts[2];
-                            // let name = working_set.get_span_contents(name_span);
-                            // let name = trim_quotes(name);
-
-                            // match exportable {
-                            //     Some(Exportable::Decl(decl_id)) => {
-                            //         module.add_decl(name, decl_id);
-                            //     }
-                            //     Some(Exportable::EnvVar(block_id)) => {
-                            //         module.add_env_var(name, block_id);
-                            //     }
-                            //     Some(Exportable::Alias(alias_id)) => {
-                            //         module.add_alias(name, alias_id);
-                            //     }
-                            //     None => {} // None should always come with error from parse_export()
-                            // }
                         }
 
                         (pipe, err)
@@ -1325,10 +1306,11 @@ pub fn parse_use(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
-) -> (Pipeline, Option<ParseError>) {
+) -> (Pipeline, Vec<Exportable>, Option<ParseError>) {
     if working_set.get_span_contents(spans[0]) != b"use" {
         return (
             garbage_pipeline(spans),
+            vec![],
             Some(ParseError::UnknownState(
                 "internal error: Wrong call name for 'use' command".into(),
                 span(spans),
@@ -1362,6 +1344,7 @@ pub fn parse_use(
                         ty: output,
                         custom_completion: None,
                     }]),
+                    vec![],
                     err,
                 );
             }
@@ -1371,6 +1354,7 @@ pub fn parse_use(
         None => {
             return (
                 garbage_pipeline(spans),
+                vec![],
                 Some(ParseError::UnknownState(
                     "internal error: 'use' declaration not found".into(),
                     span(spans),
@@ -1385,6 +1369,7 @@ pub fn parse_use(
         } else {
             return (
                 garbage_pipeline(spans),
+                vec![],
                 Some(ParseError::UnknownState(
                     "internal error: Import pattern positional is not import pattern".into(),
                     expr.span,
@@ -1394,6 +1379,7 @@ pub fn parse_use(
     } else {
         return (
             garbage_pipeline(spans),
+            vec![],
             Some(ParseError::UnknownState(
                 "internal error: Missing required positional after call parsing".into(),
                 call_span,
@@ -1431,6 +1417,7 @@ pub fn parse_use(
                                 ty: Type::Any,
                                 custom_completion: None,
                             }]),
+                            vec![],
                             Some(ParseError::ModuleNotFound(spans[1])),
                         );
                     };
@@ -1484,6 +1471,7 @@ pub fn parse_use(
                                 ty: Type::Any,
                                 custom_completion: None,
                             }]),
+                            vec![],
                             Some(ParseError::ModuleNotFound(spans[1])),
                         );
                     }
@@ -1496,7 +1484,11 @@ pub fn parse_use(
                     (import_pattern, Module::new())
                 }
             } else {
-                return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
+                return (
+                    garbage_pipeline(spans),
+                    vec![],
+                    Some(ParseError::NonUtf8(spans[1])),
+                );
             }
         };
 
@@ -1542,6 +1534,22 @@ pub fn parse_use(
         }
     };
 
+    let exportables = decls_to_use
+        .iter()
+        .map(|(name, decl_id)| Exportable::Decl {
+            name: name.clone(),
+            id: *decl_id,
+        })
+        .chain(
+            aliases_to_use
+                .iter()
+                .map(|(name, alias_id)| Exportable::Alias {
+                    name: name.clone(),
+                    id: *alias_id,
+                }),
+        )
+        .collect();
+
     // Extend the current scope with the module's exportables
     working_set.use_decls(decls_to_use);
     working_set.use_aliases(aliases_to_use);
@@ -1569,6 +1577,7 @@ pub fn parse_use(
             ty: Type::Any,
             custom_completion: None,
         }]),
+        exportables,
         error,
     )
 }
