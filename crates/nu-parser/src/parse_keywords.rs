@@ -1085,6 +1085,15 @@ pub fn parse_module_block(
 
                         (pipeline, err)
                     }
+                    b"use" => {
+                        let (pipeline, err) = parse_use(
+                            working_set,
+                            &pipeline.commands[0].parts,
+                            expand_aliases_denylist,
+                        );
+
+                        (pipeline, err)
+                    }
                     // TODO: Currently, it is not possible to define a private env var.
                     // TODO: Exported env vars are usable iside the module only if correctly
                     // exported by the user. For example:
