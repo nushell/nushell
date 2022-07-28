@@ -18,7 +18,7 @@ impl Command for ExportCommand {
     }
 
     fn usage(&self) -> &str {
-        "Export custom commands or environment variables from a module."
+        "Export definitions or environment variables from a module."
     }
 
     fn extra_usage(&self) -> &str {
