@@ -57,6 +57,32 @@ fn module_private_import_alias() {
     })
 }
 
+#[test]
+fn module_private_import_decl_not_public() {
+    Playground::setup("module_private_import_decl_not_public", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    use spam.nu foo-helper
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    def get-foo [] { "foo" }
+                    export def foo-helper [] { get-foo }
+                "#,
+            )]);
+
+        let inp = &[r#"use main.nu foo"#, r#"foo-helper"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(!actual.err.is_empty());
+    })
+}
+
 // TODO -- doesn't work because modules are never evaluated
 #[ignore]
 #[test]
