@@ -531,12 +531,12 @@ fn trim_enclosing_quotes(input: &str) -> (String, bool) {
 fn remove_quotes(input: String) -> String {
     let mut chars = input.chars();
 
-    match chars.next_back() {
-        Some('"') => chars
+    match (chars.next_back(), input.contains('=')) {
+        (Some('"'), true) => chars
             .collect::<String>()
             .replacen('"', "", 1)
             .replace(r#"\""#, "\""),
-        Some('\'') => chars.collect::<String>().replacen('\'', "", 1),
+        (Some('\''), true) => chars.collect::<String>().replacen('\'', "", 1),
         _ => input,
     }
 }
@@ -584,5 +584,42 @@ impl Iterator for ValueReceiver {
             Ok(v) => Some(v),
             Err(_) => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn remove_quotes_argument_with_equal_test() {
+        let input = r#"--file="my_file.txt""#.into();
+        let res = remove_quotes(input);
+
+        assert_eq!("--file=my_file.txt", res)
+    }
+
+    #[test]
+    fn argument_without_equal_test() {
+        let input = r#"--file "my_file.txt""#.into();
+        let res = remove_quotes(input);
+
+        assert_eq!(r#"--file "my_file.txt""#, res)
+    }
+
+    #[test]
+    fn remove_quotes_argument_with_single_quotes_test() {
+        let input = r#"--file='my_file.txt'"#.into();
+        let res = remove_quotes(input);
+
+        assert_eq!("--file=my_file.txt", res)
+    }
+
+    #[test]
+    fn argument_with_inner_quotes_test() {
+        let input = r#"bash -c 'echo a'"#.into();
+        let res = remove_quotes(input);
+
+        assert_eq!("bash -c 'echo a'", res)
     }
 }
