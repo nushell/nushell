@@ -498,20 +498,21 @@ fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
 {}'|, . ,'   {}based on the {}nu{} language,
 {} !_-(_\    {}where all data is structured!
 
-Please join our {}Discord{} community at https://discord.gg/NtAbbGn
-Our {}GitHub{} repository is at https://github.com/nushell/nushell
-Our {}Documentation{} is located at http://nushell.sh
+Please join our {}Discord{} community at {}https://discord.gg/NtAbbGn{}
+Our {}GitHub{} repository is at {}https://github.com/nushell/nushell{}
+Our {}Documentation{} is located at {}http://nushell.sh{}
 {}Tweet{} us a {}@nu_shell{}
 
 {}Nushell{} has been around for:
 {}
 
-Disable this banner by changing config.nu like this:
+{}You can disable this banner using the config nu command
+to modify the config.nu file and setting show_banner to false.
 
 let-env config {{
     show_banner: false
     ...
-}}
+}}{}
 "#,
         "\x1b[32m",   //start line 1 green
         "\x1b[32m",   //start line 2
@@ -526,17 +527,25 @@ let-env config {{
         "\x1b[0m",    //before where
         "\x1b[35m",   //before Discord purple
         "\x1b[0m",    //after Discord
+        "\x1b[35m",   //before Discord URL
+        "\x1b[0m",    //after Discord URL
         "\x1b[1;32m", //before GitHub green_bold
         "\x1b[0m",    //after GitHub
+        "\x1b[1;32m", //before GitHub URL
+        "\x1b[0m",    //after GitHub URL
         "\x1b[32m",   //before Documentation
         "\x1b[0m",    //after Documentation
+        "\x1b[32m",   //before Documentation URL
+        "\x1b[0m",    //after Documentation URL
         "\x1b[36m",   //before Tweet blue
         "\x1b[0m",    //after Tweet
         "\x1b[1;36m", //before @nu_shell cyan_bold
         "\x1b[0m",    //after @nu_shell
         "\x1b[32m",   //before Nushell
         "\x1b[0m",    //after Nushell
-        age
+        age,
+        "\x1b[1;30m", //before banner disable
+        "\x1b[0m",    //after banner disable
     );
 
     banner
