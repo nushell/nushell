@@ -2537,6 +2537,7 @@ dependencies = [
  "reedline",
  "regex",
  "rstest",
+ "strip-ansi-escapes",
  "sysinfo",
  "thiserror",
 ]

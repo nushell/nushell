@@ -14,12 +14,14 @@ use nu_parser::{lex, parse};
 use nu_protocol::{
     ast::PathMember,
     engine::{EngineState, Stack, StateWorkingSet},
-    BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
+    format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
+    Type, Value, VarId,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
 use regex::Regex;
 use std::io::{self, Write};
 use std::{sync::atomic::Ordering, time::Instant};
+use strip_ansi_escapes::strip;
 use sysinfo::SystemExt;
 
 // According to Daniel Imms @Tyriar, we need to do these this way:
@@ -118,6 +120,25 @@ pub fn evaluate_repl(
     };
 
     let sys = sysinfo::System::new();
+
+    let show_banner = config.show_banner;
+    let use_ansi = config.use_ansi_coloring;
+    if show_banner {
+        let banner = get_banner(engine_state, stack);
+        if use_ansi {
+            println!("{}", banner);
+        } else {
+            let stripped_string = {
+                if let Ok(bytes) = strip(&banner) {
+                    String::from_utf8_lossy(&bytes).to_string()
+                } else {
+                    banner
+                }
+            };
+
+            println!("{}", stripped_string);
+        }
+    }
 
     loop {
         if is_perf_true {
@@ -458,6 +479,112 @@ pub fn evaluate_repl(
     }
 
     Ok(())
+}
+
+fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
+    let age = match eval_string_with_input(
+        engine_state,
+        stack,
+        None,
+        "(date now) - ('05/10/2019' | into datetime)",
+    ) {
+        Ok(Value::Duration { val, .. }) => format_duration(val),
+        _ => "".to_string(),
+    };
+
+    let banner = format!(
+        r#"
+{}     __  ,
+{} .--()°'.' {}Welcome to {}Nushell{}, 
+{}'|, . ,'   {}based on the {}nu{} language,
+{} !_-(_\    {}where all data is structured!
+
+Please join our {}Discord{} community at https://discord.gg/NtAbbGn
+Our {}GitHub{} repository is at https://github.com/nushell/nushell
+Our {}Documentation{} is located at http://nushell.sh
+{}Tweet{} us a {}@nu_shell{}
+
+{}Nushell{} has been around for:
+{}
+
+Disable this banner by changing config.nu like this:
+
+let-env config {{
+    show_banner: false
+    ...
+}}
+"#,
+        "\x1b[32m",   //start line 1 green
+        "\x1b[32m",   //start line 2
+        "\x1b[0m",    //before welcome
+        "\x1b[32m",   //before nushell
+        "\x1b[0m",    //after nushell
+        "\x1b[32m",   //start line 3
+        "\x1b[0m",    //before based
+        "\x1b[32m",   //before nu
+        "\x1b[0m",    //after nu
+        "\x1b[32m",   //start line 4
+        "\x1b[0m",    //before where
+        "\x1b[35m",   //before Discord purple
+        "\x1b[0m",    //after Discord
+        "\x1b[1;32m", //before GitHub green_bold
+        "\x1b[0m",    //after GitHub
+        "\x1b[32m",   //before Documentation
+        "\x1b[0m",    //after Documentation
+        "\x1b[36m",   //before Tweet blue
+        "\x1b[0m",    //after Tweet
+        "\x1b[1;36m", //before @nu_shell cyan_bold
+        "\x1b[0m",    //after @nu_shell
+        "\x1b[32m",   //before Nushell
+        "\x1b[0m",    //after Nushell
+        age
+    );
+
+    banner
+}
+
+// Taken from Nana's simple_eval
+/// Evaluate a block of Nu code, optionally with input.
+/// For example, source="$in * 2" will multiply the value in input by 2.
+pub fn eval_string_with_input(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    input: Option<Value>,
+    source: &str,
+) -> Result<Value, ShellError> {
+    let (block, delta) = {
+        let mut working_set = StateWorkingSet::new(engine_state);
+        let (output, _) = parse(
+            &mut working_set,
+            Some("nana"),
+            source.as_bytes(),
+            false,
+            &[],
+        );
+
+        (output, working_set.render())
+    };
+
+    // let cwd = nu_engine::env::current_dir_str(engine_state, stack)?;
+
+    if let Err(err) = engine_state.merge_delta(delta) {
+        return Err(err);
+    }
+
+    let input_as_pipeline_data = match input {
+        Some(input) => PipelineData::Value(input, None),
+        None => PipelineData::new(Span::test_data()),
+    };
+
+    eval_block(
+        engine_state,
+        stack,
+        &block,
+        input_as_pipeline_data,
+        false,
+        true,
+    )
+    .map(|x| x.into_value(Span::test_data()))
 }
 
 pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {

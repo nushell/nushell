@@ -81,6 +81,7 @@ pub struct Config {
     pub case_sensitive_completions: bool,
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
+    pub show_banner: bool,
 }
 
 impl Default for Config {
@@ -115,6 +116,7 @@ impl Default for Config {
             case_sensitive_completions: false,
             enable_external_completion: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
+            show_banner: true,
         }
     }
 }
@@ -388,6 +390,13 @@ impl Value {
                         }
                     }
                     "table_trim" => config.trim_strategy = try_parse_trim_strategy(value, &config)?,
+                    "show_banner" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.show_banner = b;
+                        } else {
+                            eprintln!("$config.show_banner is not a bool")
+                        }
+                    }
                     x => {
                         eprintln!("$config.{} is an unknown config setting", x)
                     }
