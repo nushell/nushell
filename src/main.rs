@@ -177,6 +177,7 @@ fn main() -> Result<()> {
                     "nonu" => test_bins::nonu(),
                     "chop" => test_bins::chop(),
                     "repeater" => test_bins::repeater(),
+                    "nu_repl" => test_bins::nu_repl(),
                     _ => std::process::exit(1),
                 }
                 std::process::exit(0)

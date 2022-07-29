@@ -2834,25 +2834,29 @@ pub fn parse_register(
 
 /// This helper function is used to find files during parsing
 ///
-/// Checks whether the file is:
-/// 1. relative to the directory of the file currently being parsed
-/// 2. relative to the current working directory
-/// 3. within one of the NU_LIB_DIRS entries
+/// First, the actual current working directory is selected as
+///   a) the directory of a file currently being parsed
+///   b) current working directory (PWD)
 ///
-/// Always returns absolute path
+/// Then, if the file is not found in the actual cwd, NU_LIB_DIRS is checked.
+/// If there is a relative path in NU_LIB_DIRS, it is assumed to be relative to the actual cwd
+/// determined in the first step.
+///
+/// Always returns an absolute path
 fn find_in_dirs(
     filename: &str,
     working_set: &StateWorkingSet,
     cwd: &str,
     dirs_env: &str,
 ) -> Option<PathBuf> {
-    if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
-        if let Ok(p) = canonicalize_with(filename, currently_parsed_cwd) {
-            Some(p)
-        } else {
-            None
-        }
-    } else if let Ok(p) = canonicalize_with(filename, cwd) {
+    // Choose whether to use file-relative or PWD-relative path
+    let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
+        currently_parsed_cwd.as_path()
+    } else {
+        Path::new(cwd)
+    };
+
+    if let Ok(p) = canonicalize_with(filename, actual_cwd) {
         Some(p)
     } else {
         let path = Path::new(filename);
@@ -2862,8 +2866,8 @@ fn find_in_dirs(
                 if let Ok(dirs) = lib_dirs.as_list() {
                     for lib_dir in dirs {
                         if let Ok(dir) = lib_dir.as_path() {
-                            if let Ok(dir_abs) = canonicalize_with(&dir, cwd) {
-                                // make sure the dir is absolute path
+                            // make sure the dir is absolute path
+                            if let Ok(dir_abs) = canonicalize_with(&dir, actual_cwd) {
                                 if let Ok(path) = canonicalize_with(filename, dir_abs) {
                                     return Some(path);
                                 }
