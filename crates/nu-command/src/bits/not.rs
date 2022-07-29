@@ -9,7 +9,7 @@ use nu_protocol::{
 pub struct SubCommand;
 
 #[derive(Clone, Copy)]
-enum NumberSize {
+enum NumberBytes {
     One,
     Two,
     Four,
@@ -30,9 +30,9 @@ impl Command for SubCommand {
                 Some('s'),
             )
             .named(
-                "number-size",
+                "number-bytes",
                 SyntaxShape::String,
-                "the size of unsigned number, it can be 1, 2, 4, 8, auto",
+                "the size of unsigned number in bytes, it can be 1, 2, 4, 8, auto",
                 Some('n'),
             )
             .category(Category::Bits)
@@ -55,16 +55,16 @@ impl Command for SubCommand {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
         let signed = call.has_flag("signed");
-        let size_of_number: Option<Spanned<String>> =
-            call.get_flag(engine_state, stack, "number-size")?;
-        let size_of_number = match size_of_number.as_ref() {
-            None => NumberSize::Auto,
+        let number_bytes: Option<Spanned<String>> =
+            call.get_flag(engine_state, stack, "number-bytes")?;
+        let number_bytes = match number_bytes.as_ref() {
+            None => NumberBytes::Auto,
             Some(size) => match size.item.as_str() {
-                "1" => NumberSize::One,
-                "2" => NumberSize::Two,
-                "4" => NumberSize::Four,
-                "8" => NumberSize::Eight,
-                "auto" => NumberSize::Auto,
+                "1" => NumberBytes::One,
+                "2" => NumberBytes::Two,
+                "4" => NumberBytes::Four,
+                "8" => NumberBytes::Eight,
+                "auto" => NumberBytes::Auto,
                 _ => {
                     return Err(ShellError::UnsupportedInput(
                         "the size of number is invalid".to_string(),
@@ -75,7 +75,7 @@ impl Command for SubCommand {
         };
 
         input.map(
-            move |value| operate(value, head, signed, size_of_number),
+            move |value| operate(value, head, signed, number_bytes),
             engine_state.ctrlc.clone(),
         )
     }
@@ -124,13 +124,13 @@ impl Command for SubCommand {
     }
 }
 
-fn operate(value: Value, head: Span, signed: bool, number_size: NumberSize) -> Value {
+fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> Value {
     match value {
         Value::Int { val, span } => {
             if signed || val < 0 {
                 Value::Int { val: !val, span }
             } else {
-                use NumberSize::*;
+                use NumberBytes::*;
                 let out_val = match number_size {
                     One => !val & 0x00_00_00_00_00_FF,
                     Two => !val & 0x00_00_00_00_FF_FF,
