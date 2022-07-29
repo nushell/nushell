@@ -535,3 +535,28 @@ fn list_a_directory_not_exists() {
         assert!(actual.err.contains("directory not found"));
     })
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn list_directory_contains_invalid_utf8() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    Playground::setup(
+        "ls_test_directory_contains_invalid_utf8",
+        |dirs, _sandbox| {
+            let v: [u8; 4] = [7, 196, 144, 188];
+            let s = OsStr::from_bytes(&v);
+
+            let cwd = dirs.test();
+            let path = cwd.join(s);
+
+            std::fs::create_dir_all(&path).expect("failed to create directory");
+
+            let actual = nu!(cwd, "ls");
+
+            assert!(actual.out.contains("warning: get non-utf8 filename"));
+            assert!(actual.err.contains("No matches found for"));
+        },
+    )
+}
