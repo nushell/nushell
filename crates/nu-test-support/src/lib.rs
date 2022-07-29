@@ -35,6 +35,25 @@ pub fn pipeline(commands: &str) -> String {
         .to_string()
 }
 
+pub fn nu_repl_code(source_lines: &[&str]) -> String {
+    let mut out = String::from("nu --testbin=nu_repl [ ");
+
+    for line in source_lines.iter() {
+        // convert each "line" to really be a single line to prevent nu! macro joining the newlines
+        // with ';'
+        let line = pipeline(line);
+
+        out.push('`');
+        out.push_str(&line);
+        out.push('`');
+        out.push(' ');
+    }
+
+    out.push(']');
+
+    out
+}
+
 pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
     let mut original_paths = vec![];
 

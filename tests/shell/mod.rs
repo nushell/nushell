@@ -1,7 +1,6 @@
-use super::nu_repl::nu_repl;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, nu_repl_code, pipeline};
 
 #[cfg(feature = "which-support")]
 mod environment;
@@ -72,13 +71,13 @@ fn nu_lib_dirs_repl() {
                 "#,
             )]);
 
-        let inp = &[
+        let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
             r#"source foo.nu"#,
             r#"$env.FOO"#,
         ];
 
-        let actual_repl = nu_repl(dirs.test().to_str().unwrap(), inp);
+        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
 
         assert!(actual_repl.err.is_empty());
         assert_eq!(actual_repl.out, "foo");
@@ -103,13 +102,13 @@ fn nu_lib_dirs_script() {
                 "#,
             )]);
 
-        let inp = &[
+        let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
             r#"source main.nu"#,
             r#"$env.FOO"#,
         ];
 
-        let actual_repl = nu_repl(dirs.test().to_str().unwrap(), inp);
+        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
 
         assert!(actual_repl.err.is_empty());
         assert_eq!(actual_repl.out, "foo");
@@ -128,13 +127,13 @@ fn nu_lib_dirs_relative_repl() {
                 "#,
             )]);
 
-        let inp = &[
+        let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
             r#"source foo.nu"#,
             r#"$env.FOO"#,
         ];
 
-        let actual_repl = nu_repl(dirs.test().to_str().unwrap(), inp);
+        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
 
         assert!(actual_repl.err.is_empty());
         assert_eq!(actual_repl.out, "foo");
@@ -159,13 +158,13 @@ fn nu_lib_dirs_relative_script() {
                 "#,
             )]);
 
-        let inp = &[
+        let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
             r#"source scripts/main.nu"#,
             r#"$env.FOO"#,
         ];
 
-        let actual_repl = nu_repl(dirs.test().to_str().unwrap(), inp);
+        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
 
         assert!(actual_repl.err.is_empty());
         assert_eq!(actual_repl.out, "foo");

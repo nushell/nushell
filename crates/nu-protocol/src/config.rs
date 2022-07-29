@@ -197,7 +197,7 @@ impl Value {
                         if let Ok(map) = create_map(value, &config) {
                             config.color_config = map;
                         } else {
-                            eprintln!("$config.color_config is not a record")
+                            eprintln!("$env.config.color_config is not a record")
                         }
                     }
                     "use_grid_icons" => {
@@ -394,7 +394,7 @@ impl Value {
                 }
             }
         } else {
-            eprintln!("$config is not a record");
+            eprintln!("$env.config is not a record");
         }
 
         Ok(config)
@@ -403,7 +403,7 @@ impl Value {
 
 fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrategy, ShellError> {
     let map = create_map(value, config).map_err(|e| {
-        eprintln!("$config.table_trim is not a record");
+        eprintln!("$env.config.table_trim is not a record");
         e
     })?;
 
