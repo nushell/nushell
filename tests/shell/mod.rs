@@ -1,3 +1,6 @@
+use super::nu_repl::nu_repl;
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[cfg(feature = "which-support")]
@@ -55,4 +58,116 @@ fn do_not_panic_if_broken_pipe() {
         .expect("failed to execute process");
 
     assert!(child_output.stderr.is_empty());
+}
+
+#[test]
+fn nu_lib_dirs_repl() {
+    Playground::setup("nu_lib_dirs_repl", |dirs, sandbox| {
+        sandbox
+            .mkdir("scripts")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "scripts/foo.nu",
+                r#"
+                    let-env FOO = "foo"
+                "#,
+            )]);
+
+        let inp = &[
+            r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
+            r#"source foo.nu"#,
+            r#"$env.FOO"#,
+        ];
+
+        let actual_repl = nu_repl(dirs.test().to_str().unwrap(), inp);
+
+        assert!(actual_repl.err.is_empty());
+        assert_eq!(actual_repl.out, "foo");
+    })
+}
+
+#[test]
+fn nu_lib_dirs_script() {
+    Playground::setup("nu_lib_dirs_script", |dirs, sandbox| {
+        sandbox
+            .mkdir("scripts")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "scripts/foo.nu",
+                r#"
+                    let-env FOO = "foo"
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    source foo.nu
+                "#,
+            )]);
+
+        let inp = &[
+            r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
+            r#"source main.nu"#,
+            r#"$env.FOO"#,
+        ];
+
+        let actual_repl = nu_repl(dirs.test().to_str().unwrap(), inp);
+
+        assert!(actual_repl.err.is_empty());
+        assert_eq!(actual_repl.out, "foo");
+    })
+}
+
+#[test]
+fn nu_lib_dirs_relative_repl() {
+    Playground::setup("nu_lib_dirs_relative_repl", |dirs, sandbox| {
+        sandbox
+            .mkdir("scripts")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "scripts/foo.nu",
+                r#"
+                    let-env FOO = "foo"
+                "#,
+            )]);
+
+        let inp = &[
+            r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
+            r#"source foo.nu"#,
+            r#"$env.FOO"#,
+        ];
+
+        let actual_repl = nu_repl(dirs.test().to_str().unwrap(), inp);
+
+        assert!(actual_repl.err.is_empty());
+        assert_eq!(actual_repl.out, "foo");
+    })
+}
+
+#[test]
+fn nu_lib_dirs_relative_script() {
+    Playground::setup("nu_lib_dirs_relative_script", |dirs, sandbox| {
+        sandbox
+            .mkdir("scripts")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "scripts/main.nu",
+                r#"
+                    source ../foo.nu
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "foo.nu",
+                r#"
+                    let-env FOO = "foo"
+                "#,
+            )]);
+
+        let inp = &[
+            r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
+            r#"source scripts/main.nu"#,
+            r#"$env.FOO"#,
+        ];
+
+        let actual_repl = nu_repl(dirs.test().to_str().unwrap(), inp);
+
+        assert!(actual_repl.err.is_empty());
+        assert_eq!(actual_repl.out, "foo");
+    })
 }
