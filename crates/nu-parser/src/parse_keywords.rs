@@ -606,7 +606,7 @@ pub fn parse_export(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     expand_aliases_denylist: &[usize],
-) -> (Pipeline, Option<Exportable>, Option<ParseError>) {
+) -> (Pipeline, Vec<Exportable>, Option<ParseError>) {
     let spans = &lite_command.parts[..];
     let mut error = None;
 
@@ -614,7 +614,7 @@ pub fn parse_export(
         if working_set.get_span_contents(*sp) != b"export" {
             return (
                 garbage_pipeline(spans),
-                None,
+                vec![],
                 Some(ParseError::UnknownState(
                     "expected export statement".into(),
                     span(spans),
@@ -626,7 +626,7 @@ pub fn parse_export(
     } else {
         return (
             garbage_pipeline(spans),
-            None,
+            vec![],
             Some(ParseError::UnknownState(
                 "got empty input for parsing export statement".into(),
                 span(spans),
@@ -639,7 +639,7 @@ pub fn parse_export(
     } else {
         return (
             garbage_pipeline(spans),
-            None,
+            vec![],
             Some(ParseError::InternalError(
                 "missing export command".into(),
                 export_span,
@@ -655,7 +655,7 @@ pub fn parse_export(
         redirect_stderr: false,
     });
 
-    let exportable = if let Some(kw_span) = spans.get(1) {
+    let exportables = if let Some(kw_span) = spans.get(1) {
         let kw_name = working_set.get_span_contents(*kw_span);
         match kw_name {
             b"def" => {
@@ -673,7 +673,7 @@ pub fn parse_export(
                     } else {
                         return (
                             garbage_pipeline(spans),
-                            None,
+                            vec![],
                             Some(ParseError::InternalError(
                                 "missing 'export def' command".into(),
                                 export_span,
@@ -700,23 +700,26 @@ pub fn parse_export(
                     });
                 };
 
-                if error.is_none() {
-                    let decl_name = working_set.get_span_contents(spans[2]);
-                    let decl_name = trim_quotes(decl_name);
-                    if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
-                        Some(Exportable::Decl(decl_id))
-                    } else {
-                        error = error.or_else(|| {
-                            Some(ParseError::InternalError(
-                                "failed to find added declaration".into(),
-                                span(&spans[1..]),
-                            ))
-                        });
-                        None
-                    }
+                let mut result = vec![];
+
+                let decl_name = working_set.get_span_contents(spans[2]);
+                let decl_name = trim_quotes(decl_name);
+
+                if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
+                    result.push(Exportable::Decl {
+                        name: decl_name.to_vec(),
+                        id: decl_id,
+                    });
                 } else {
-                    None
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "failed to find added declaration".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
                 }
+
+                result
             }
             b"def-env" => {
                 let lite_command = LiteCommand {
@@ -733,7 +736,7 @@ pub fn parse_export(
                     } else {
                         return (
                             garbage_pipeline(spans),
-                            None,
+                            vec![],
                             Some(ParseError::InternalError(
                                 "missing 'export def-env' command".into(),
                                 export_span,
@@ -760,23 +763,26 @@ pub fn parse_export(
                     });
                 };
 
-                if error.is_none() {
-                    let decl_name = working_set.get_span_contents(spans[2]);
-                    let decl_name = trim_quotes(decl_name);
-                    if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
-                        Some(Exportable::Decl(decl_id))
-                    } else {
-                        error = error.or_else(|| {
-                            Some(ParseError::InternalError(
-                                "failed to find added declaration".into(),
-                                span(&spans[1..]),
-                            ))
-                        });
-                        None
-                    }
+                let mut result = vec![];
+
+                let decl_name = working_set.get_span_contents(spans[2]);
+                let decl_name = trim_quotes(decl_name);
+
+                if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
+                    result.push(Exportable::Decl {
+                        name: decl_name.to_vec(),
+                        id: decl_id,
+                    });
                 } else {
-                    None
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "failed to find added declaration".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
                 }
+
+                result
             }
             b"extern" => {
                 let lite_command = LiteCommand {
@@ -793,7 +799,7 @@ pub fn parse_export(
                     } else {
                         return (
                             garbage_pipeline(spans),
-                            None,
+                            vec![],
                             Some(ParseError::InternalError(
                                 "missing 'export extern' command".into(),
                                 export_span,
@@ -820,23 +826,26 @@ pub fn parse_export(
                     });
                 };
 
-                if error.is_none() {
-                    let decl_name = working_set.get_span_contents(spans[2]);
-                    let decl_name = trim_quotes(decl_name);
-                    if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
-                        Some(Exportable::Decl(decl_id))
-                    } else {
-                        error = error.or_else(|| {
-                            Some(ParseError::InternalError(
-                                "failed to find added declaration".into(),
-                                span(&spans[1..]),
-                            ))
-                        });
-                        None
-                    }
+                let mut result = vec![];
+
+                let decl_name = working_set.get_span_contents(spans[2]);
+                let decl_name = trim_quotes(decl_name);
+
+                if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
+                    result.push(Exportable::Decl {
+                        name: decl_name.to_vec(),
+                        id: decl_id,
+                    });
                 } else {
-                    None
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "failed to find added declaration".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
                 }
+
+                result
             }
             b"alias" => {
                 let lite_command = LiteCommand {
@@ -853,7 +862,7 @@ pub fn parse_export(
                     } else {
                         return (
                             garbage_pipeline(spans),
-                            None,
+                            vec![],
                             Some(ParseError::InternalError(
                                 "missing 'export alias' command".into(),
                                 export_span,
@@ -880,23 +889,70 @@ pub fn parse_export(
                     });
                 };
 
-                if error.is_none() {
-                    let alias_name = working_set.get_span_contents(spans[2]);
-                    let alias_name = trim_quotes(alias_name);
-                    if let Some(alias_id) = working_set.find_alias(alias_name) {
-                        Some(Exportable::Alias(alias_id))
-                    } else {
-                        error = error.or_else(|| {
-                            Some(ParseError::InternalError(
-                                "failed to find added alias".into(),
-                                span(&spans[1..]),
-                            ))
-                        });
-                        None
-                    }
+                let mut result = vec![];
+
+                let alias_name = working_set.get_span_contents(spans[2]);
+                let alias_name = trim_quotes(alias_name);
+
+                if let Some(alias_id) = working_set.find_alias(alias_name) {
+                    result.push(Exportable::Alias {
+                        name: alias_name.to_vec(),
+                        id: alias_id,
+                    });
                 } else {
-                    None
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "failed to find added alias".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
                 }
+
+                result
+            }
+            b"use" => {
+                let lite_command = LiteCommand {
+                    comments: lite_command.comments.clone(),
+                    parts: spans[1..].to_vec(),
+                };
+                let (pipeline, exportables, err) =
+                    parse_use(working_set, &lite_command.parts, expand_aliases_denylist);
+                error = error.or(err);
+
+                let export_use_decl_id =
+                    if let Some(id) = working_set.find_decl(b"export use", &Type::Any) {
+                        id
+                    } else {
+                        return (
+                            garbage_pipeline(spans),
+                            vec![],
+                            Some(ParseError::InternalError(
+                                "missing 'export use' command".into(),
+                                export_span,
+                            )),
+                        );
+                    };
+
+                // Trying to warp the 'use' call into the 'export use' in a very clumsy way
+                if let Some(Expression {
+                    expr: Expr::Call(ref use_call),
+                    ..
+                }) = pipeline.expressions.get(0)
+                {
+                    call = use_call.clone();
+
+                    call.head = span(&spans[0..=1]);
+                    call.decl_id = export_use_decl_id;
+                } else {
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "unexpected output from parsing a definition".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
+                };
+
+                exportables
             }
             b"env" => {
                 if let Some(id) = working_set.find_decl(b"export env", &Type::Any) {
@@ -904,7 +960,7 @@ pub fn parse_export(
                 } else {
                     return (
                         garbage_pipeline(spans),
-                        None,
+                        vec![],
                         Some(ParseError::InternalError(
                             "missing 'export env' command".into(),
                             export_span,
@@ -917,11 +973,15 @@ pub fn parse_export(
 
                 call.head = span(&spans[0..=1]);
 
+                let mut result = vec![];
+
                 if let Some(name_span) = spans.get(2) {
                     let (name_expr, err) =
                         parse_string(working_set, *name_span, expand_aliases_denylist);
                     error = error.or(err);
                     call.add_positional(name_expr);
+
+                    let env_var_name = working_set.get_span_contents(*name_span).to_vec();
 
                     if let Some(block_span) = spans.get(3) {
                         let (block_expr, err) = parse_block_expression(
@@ -932,12 +992,15 @@ pub fn parse_export(
                         );
                         error = error.or(err);
 
-                        let exportable = if let Expression {
+                        if let Expression {
                             expr: Expr::Block(block_id),
                             ..
                         } = block_expr
                         {
-                            Some(Exportable::EnvVar(block_id))
+                            result.push(Exportable::EnvVar {
+                                name: env_var_name,
+                                id: block_id,
+                            });
                         } else {
                             error = error.or_else(|| {
                                 Some(ParseError::InternalError(
@@ -945,12 +1008,9 @@ pub fn parse_export(
                                     *block_span,
                                 ))
                             });
-                            None
-                        };
+                        }
 
                         call.add_positional(block_expr);
-
-                        exportable
                     } else {
                         let err_span = Span {
                             start: name_span.end,
@@ -964,8 +1024,6 @@ pub fn parse_export(
                                 call_signature,
                             ))
                         });
-
-                        None
                     }
                 } else {
                     let err_span = Span {
@@ -980,20 +1038,20 @@ pub fn parse_export(
                             call_signature,
                         ))
                     });
-
-                    None
                 }
+
+                result
             }
             _ => {
                 error = error.or_else(|| {
                     Some(ParseError::Expected(
                         // TODO: Fill in more keywords as they come
-                        "def, def-env, alias, or env keyword".into(),
+                        "def, def-env, alias, use, or env keyword".into(),
                         spans[1],
                     ))
                 });
 
-                None
+                vec![]
             }
         }
     } else {
@@ -1008,7 +1066,7 @@ pub fn parse_export(
             ))
         });
 
-        None
+        vec![]
     };
 
     (
@@ -1018,7 +1076,7 @@ pub fn parse_export(
             ty: Type::Any,
             custom_completion: None,
         }]),
-        exportable,
+        exportables,
         error,
     )
 }
@@ -1085,6 +1143,15 @@ pub fn parse_module_block(
 
                         (pipeline, err)
                     }
+                    b"use" => {
+                        let (pipeline, _, err) = parse_use(
+                            working_set,
+                            &pipeline.commands[0].parts,
+                            expand_aliases_denylist,
+                        );
+
+                        (pipeline, err)
+                    }
                     // TODO: Currently, it is not possible to define a private env var.
                     // TODO: Exported env vars are usable iside the module only if correctly
                     // exported by the user. For example:
@@ -1094,28 +1161,25 @@ pub fn parse_module_block(
                     // will work only if you call `use foo *; b` but not with `use foo; foo b`
                     // since in the second case, the name of the env var would be $env."foo a".
                     b"export" => {
-                        let (pipe, exportable, err) = parse_export(
+                        let (pipe, exportables, err) = parse_export(
                             working_set,
                             &pipeline.commands[0],
                             expand_aliases_denylist,
                         );
 
                         if err.is_none() {
-                            let name_span = pipeline.commands[0].parts[2];
-                            let name = working_set.get_span_contents(name_span);
-                            let name = trim_quotes(name);
-
-                            match exportable {
-                                Some(Exportable::Decl(decl_id)) => {
-                                    module.add_decl(name, decl_id);
+                            for exportable in exportables {
+                                match exportable {
+                                    Exportable::Decl { name, id } => {
+                                        module.add_decl(name, id);
+                                    }
+                                    Exportable::Alias { name, id } => {
+                                        module.add_alias(name, id);
+                                    }
+                                    Exportable::EnvVar { name, id } => {
+                                        module.add_env_var(name, id);
+                                    }
                                 }
-                                Some(Exportable::EnvVar(block_id)) => {
-                                    module.add_env_var(name, block_id);
-                                }
-                                Some(Exportable::Alias(alias_id)) => {
-                                    module.add_alias(name, alias_id);
-                                }
-                                None => {} // None should always come with error from parse_export()
                             }
                         }
 
@@ -1242,10 +1306,11 @@ pub fn parse_use(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
-) -> (Pipeline, Option<ParseError>) {
+) -> (Pipeline, Vec<Exportable>, Option<ParseError>) {
     if working_set.get_span_contents(spans[0]) != b"use" {
         return (
             garbage_pipeline(spans),
+            vec![],
             Some(ParseError::UnknownState(
                 "internal error: Wrong call name for 'use' command".into(),
                 span(spans),
@@ -1279,6 +1344,7 @@ pub fn parse_use(
                         ty: output,
                         custom_completion: None,
                     }]),
+                    vec![],
                     err,
                 );
             }
@@ -1288,6 +1354,7 @@ pub fn parse_use(
         None => {
             return (
                 garbage_pipeline(spans),
+                vec![],
                 Some(ParseError::UnknownState(
                     "internal error: 'use' declaration not found".into(),
                     span(spans),
@@ -1302,6 +1369,7 @@ pub fn parse_use(
         } else {
             return (
                 garbage_pipeline(spans),
+                vec![],
                 Some(ParseError::UnknownState(
                     "internal error: Import pattern positional is not import pattern".into(),
                     expr.span,
@@ -1311,6 +1379,7 @@ pub fn parse_use(
     } else {
         return (
             garbage_pipeline(spans),
+            vec![],
             Some(ParseError::UnknownState(
                 "internal error: Missing required positional after call parsing".into(),
                 call_span,
@@ -1348,6 +1417,7 @@ pub fn parse_use(
                                 ty: Type::Any,
                                 custom_completion: None,
                             }]),
+                            vec![],
                             Some(ParseError::ModuleNotFound(spans[1])),
                         );
                     };
@@ -1401,6 +1471,7 @@ pub fn parse_use(
                                 ty: Type::Any,
                                 custom_completion: None,
                             }]),
+                            vec![],
                             Some(ParseError::ModuleNotFound(spans[1])),
                         );
                     }
@@ -1413,7 +1484,11 @@ pub fn parse_use(
                     (import_pattern, Module::new())
                 }
             } else {
-                return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
+                return (
+                    garbage_pipeline(spans),
+                    vec![],
+                    Some(ParseError::NonUtf8(spans[1])),
+                );
             }
         };
 
@@ -1459,6 +1534,22 @@ pub fn parse_use(
         }
     };
 
+    let exportables = decls_to_use
+        .iter()
+        .map(|(name, decl_id)| Exportable::Decl {
+            name: name.clone(),
+            id: *decl_id,
+        })
+        .chain(
+            aliases_to_use
+                .iter()
+                .map(|(name, alias_id)| Exportable::Alias {
+                    name: name.clone(),
+                    id: *alias_id,
+                }),
+        )
+        .collect();
+
     // Extend the current scope with the module's exportables
     working_set.use_decls(decls_to_use);
     working_set.use_aliases(aliases_to_use);
@@ -1486,6 +1577,7 @@ pub fn parse_use(
             ty: Type::Any,
             custom_completion: None,
         }]),
+        exportables,
         error,
     )
 }
@@ -1588,13 +1680,13 @@ pub fn parse_hide(
             if let Some(id) = working_set.find_alias(&import_pattern.head.name) {
                 // an alias,
                 let mut module = Module::new();
-                module.add_alias(&import_pattern.head.name, id);
+                module.add_alias(import_pattern.head.name.clone(), id);
 
                 (false, module)
             } else if let Some(id) = working_set.find_decl(&import_pattern.head.name, &Type::Any) {
                 // a custom command,
                 let mut module = Module::new();
-                module.add_decl(&import_pattern.head.name, id);
+                module.add_decl(import_pattern.head.name.clone(), id);
 
                 (false, module)
             } else {

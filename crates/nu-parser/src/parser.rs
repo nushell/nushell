@@ -2812,9 +2812,9 @@ pub fn parse_import_pattern(
                     expr: Expr::List(list),
                     ..
                 } => {
-                    for l in list {
-                        let contents = working_set.get_span_contents(l.span);
-                        output.push((contents.to_vec(), l.span));
+                    for expr in list {
+                        let contents = working_set.get_span_contents(expr.span);
+                        output.push((trim_quotes(contents).to_vec(), expr.span));
                     }
 
                     (
@@ -4786,7 +4786,11 @@ pub fn parse_builtin_commands(
         }
         b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
         b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"use" => parse_use(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"use" => {
+            let (pipeline, _, err) =
+                parse_use(working_set, &lite_command.parts, expand_aliases_denylist);
+            (pipeline, err)
+        }
         b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => {
