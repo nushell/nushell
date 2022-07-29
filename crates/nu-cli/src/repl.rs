@@ -501,7 +501,7 @@ fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
 Please join our {}Discord{} community at {}https://discord.gg/NtAbbGn{}
 Our {}GitHub{} repository is at {}https://github.com/nushell/nushell{}
 Our {}Documentation{} is located at {}http://nushell.sh{}
-{}Tweet{} us a {}@nu_shell{}
+{}Tweet{} us at {}@nu_shell{}
 
 {}Nushell{} has been around for:
 {}
