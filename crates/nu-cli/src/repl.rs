@@ -312,7 +312,6 @@ pub fn evaluate_repl(
                 }
 
                 if shell_integration {
-                    run_ansi_sequence(RESET_APPLICATION_MODE)?;
                     run_ansi_sequence(PRE_EXECUTE_MARKER)?;
                 }
 
@@ -429,6 +428,7 @@ pub fn evaluate_repl(
                         // ESC]2;stringBEL -- Set window title to string
                         run_ansi_sequence(&format!("\x1b]2;{}\x07", maybe_abbrev_path))?;
                     }
+                    run_ansi_sequence(RESET_APPLICATION_MODE)?;
                 }
             }
             Ok(Signal::CtrlC) => {
