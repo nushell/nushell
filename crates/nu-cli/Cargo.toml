@@ -30,6 +30,7 @@ is_executable = "1.0.1"
 lazy_static = "1.4.0"
 log = "0.4"
 regex = "1.5.4"
+strip-ansi-escapes = "0.1.1"
 sysinfo = "0.24.1"
 
 [features]
