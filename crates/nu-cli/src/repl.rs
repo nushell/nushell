@@ -506,7 +506,7 @@ Our {}Documentation{} is located at {}http://nushell.sh{}
 {}Nushell{} has been around for:
 {}
 
-{}You can disable this banner using the config nu command
+{}You can disable this banner using the {}config nu{}{} command
 to modify the config.nu file and setting show_banner to false.
 
 let-env config {{
@@ -544,7 +544,10 @@ let-env config {{
         "\x1b[32m",   //before Nushell
         "\x1b[0m",    //after Nushell
         age,
-        "\x1b[2;37m", //before banner disable
+        "\x1b[2;37m", //before banner disable dim white
+        "\x1b[2;36m", //before config nu dim cyan
+        "\x1b[0m",    //after config nu
+        "\x1b[2;37m", //after config nu dim white
         "\x1b[0m",    //after banner disable
     );
 
