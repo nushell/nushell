@@ -142,7 +142,7 @@ fn help(
 
                 cols.push("is_custom".into());
                 vals.push(Value::Bool {
-                    val: decl.get_block_id().is_some(),
+                    val: decl.is_custom_command(),
                     span: head,
                 });
 
@@ -243,7 +243,7 @@ fn help(
 
                 cols.push("is_custom".into());
                 vals.push(Value::Bool {
-                    val: decl.get_block_id().is_some(),
+                    val: decl.is_custom_command(),
                     span: head,
                 });
 

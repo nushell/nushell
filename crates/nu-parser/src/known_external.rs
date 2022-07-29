@@ -30,6 +30,10 @@ impl Command for KnownExternal {
         true
     }
 
+    fn is_builtin(&self) -> bool {
+        false
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
