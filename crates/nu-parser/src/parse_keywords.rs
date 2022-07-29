@@ -2846,6 +2846,7 @@ fn find_in_dirs(
     cwd: &str,
     dirs_env: &str,
 ) -> Option<PathBuf> {
+
     if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
         if let Ok(p) = canonicalize_with(filename, currently_parsed_cwd) {
             Some(p)
