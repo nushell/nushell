@@ -207,6 +207,11 @@ pub fn create_default_context() -> EngineState {
             StrUpcase
         };
 
+        // Bits
+        bind_command! {
+            BitsNot
+        }
+
         // Bytes
         bind_command! {
             Bytes,
