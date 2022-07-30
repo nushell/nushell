@@ -4808,7 +4808,7 @@ pub fn parse_builtin_commands(
             if let Some(decl_id) = working_set.find_decl(&full_decl, &Type::Any) {
                 let parsed_call = parse_internal_call(
                     working_set,
-                    if full_decl == b"export" && lite_command.parts.len() > 1 {
+                    if full_decl == b"export" {
                         lite_command.parts[0]
                     } else {
                         span(&lite_command.parts[0..2])
