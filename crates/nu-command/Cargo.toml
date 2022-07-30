@@ -34,7 +34,7 @@ calamine = "0.18.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.6.1"
-crossterm = "0.23.0"
+crossterm = "0.24.0"
 csv = "1.1.6"
 dialoguer = "0.9.0"
 digest = "0.10.0"
@@ -52,7 +52,7 @@ is-root = "0.1.2"
 itertools = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
-lscolors = { version = "0.10.0", features = ["crossterm"]}
+lscolors = { version = "0.11.0", features = ["crossterm"]}
 md5 = { package = "md-5", version = "0.10.0" }
 meval = "0.2.0"
 mime = "0.3.16"

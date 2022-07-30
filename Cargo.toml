@@ -34,7 +34,7 @@ members = [
 
 [dependencies]
 chrono = { version = "0.4.19", features = ["serde"] }
-crossterm = "0.23.0"
+crossterm = "0.24.0"
 ctrlc = "3.2.1"
 log = "0.4"
 miette = "5.1.0"
@@ -120,3 +120,6 @@ debug = false
 [[bin]]
 name = "nu"
 path = "src/main.rs"
+
+[patch.crates-io]
+reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
