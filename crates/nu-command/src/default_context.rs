@@ -212,6 +212,8 @@ pub fn create_default_context() -> EngineState {
             Bits,
             BitsAnd,
             BitsNot,
+            BitsOr,
+            BitsXor,
         }
 
         // Bytes
