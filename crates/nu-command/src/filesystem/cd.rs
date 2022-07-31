@@ -188,6 +188,11 @@ impl Command for Cd {
                 example: r#"cd d/s/9"#,
                 result: None,
             },
+            Example {
+                description: "Change to the previous working directory ($OLDPWD)",
+                example: r#"cd -"#,
+                result: None,
+            },
         ]
     }
 }
