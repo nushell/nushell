@@ -265,7 +265,6 @@ let-env config = {
     # A suffix which will be used with 'truncating' methodology
     # truncating_suffix: "..."
   }
-  show_banner: true # true or false to enable or disable the banner
 
   hooks: {
     pre_prompt: [{
