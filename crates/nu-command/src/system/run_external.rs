@@ -13,6 +13,7 @@ use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, 
 use itertools::Itertools;
 
 use nu_engine::CallExt;
+use nu_system::external_process_setup::{reset_foreground_id, set_foreground, setup_fg_external};
 use pathdiff::diff_paths;
 use regex::Regex;
 
@@ -140,6 +141,7 @@ impl ExternalCommand {
 
         #[cfg(not(windows))]
         {
+            setup_fg_external(&mut process);
             child = process.spawn()
         }
 
@@ -150,6 +152,7 @@ impl ExternalCommand {
                 self.name.span,
             )),
             Ok(mut child) => {
+                set_foreground(&child);
                 if !input.is_nothing() {
                     let mut engine_state = engine_state.clone();
                     let mut stack = stack.clone();
@@ -296,6 +299,7 @@ impl ExternalCommand {
                                     span: head,
                                 });
                             }
+                            reset_foreground_id();
                             Ok(())
                         }
                     }
