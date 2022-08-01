@@ -45,7 +45,7 @@ pub mod external_process_setup {
 #[cfg(target_family = "windows")]
 pub mod external_process_setup {
 
-    pub fn setup_fg_external(external_command: &mut std::process::Command) {}
+    pub fn prepare_to_foreground(external_command: &mut std::process::Command) {}
 
     pub fn set_foreground(process: &std::process::Child) {}
 
