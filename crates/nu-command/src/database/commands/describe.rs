@@ -28,7 +28,7 @@ impl Command for DescribeDb {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Describe SQLite database constructed query",
-            example: "open foo.db | into db | select col_1 | from table_1 | describe",
+            example: "open foo.db | from table table_1 | select col_1 | describe",
             result: Some(Value::Record {
                 cols: vec!["connection".into(), "query".into()],
                 vals: vec![

@@ -37,17 +37,16 @@ impl Command for WhereDb {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "selects a column from a database with a where clause",
-            example: r#"open db.mysql
-    | into db
+            example: r#"open db.sqlite
+    | from table table_1
     | select a
-    | from table_1
     | where ((field a) > 1)
     | describe"#,
             result: Some(Value::Record {
                 cols: vec!["connection".into(), "query".into()],
                 vals: vec![
                     Value::String {
-                        val: "db.mysql".into(),
+                        val: "db.sqlite".into(),
                         span: Span::test_data(),
                     },
                     Value::String {

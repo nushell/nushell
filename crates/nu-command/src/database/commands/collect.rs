@@ -28,7 +28,7 @@ impl Command for CollectDb {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Collect from a select query",
-            example: "open foo.db | into db | select a | from table_1 | collect",
+            example: "open foo.db | from table table_1 db | select a | collect",
             result: None,
         }]
     }

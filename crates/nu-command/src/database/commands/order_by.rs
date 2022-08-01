@@ -44,9 +44,8 @@ impl Command for OrderByDb {
         vec![
             Example {
                 description: "orders query by a column",
-                example: r#"open db.mysql
-    | into db
-    | from table_a
+                example: r#"open db.sqlite
+    | from table table_a
     | select a
     | order-by a
     | describe"#,
@@ -54,7 +53,7 @@ impl Command for OrderByDb {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {
@@ -67,9 +66,8 @@ impl Command for OrderByDb {
             },
             Example {
                 description: "orders query by column a ascending and by column b",
-                example: r#"open db.mysql
-    | into db
-    | from table_a
+                example: r#"open db.sqlite
+    | from table table_a
     | select a
     | order-by a --ascending
     | order-by b
@@ -78,7 +76,7 @@ impl Command for OrderByDb {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {

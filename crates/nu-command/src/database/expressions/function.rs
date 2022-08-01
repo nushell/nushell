@@ -68,16 +68,15 @@ impl Command for FunctionExpr {
             },
             Example {
                 description: "orders query by a column",
-                example: r#"open db.mysql
-    | into db
+                example: r#"open db.sqlite
+    | from table table_a
     | select (fn lead col_a)
-    | from table_a
     | describe"#,
                 result: Some(Value::Record {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {
