@@ -54,17 +54,16 @@ impl Command for JoinDb {
         vec![
             Example {
                 description: "joins two tables on col_b",
-                example: r#"open db.mysql
-    | into db
-    | select col_a
-    | from table_1 --as t1
+                example: r#"open db.sqlite
+    | from table table_1 --as t1
     | join table_2 col_b --as t2
+    | select col_a
     | describe"#,
                 result: Some(Value::Record {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {
@@ -78,22 +77,20 @@ impl Command for JoinDb {
             },
             Example {
                 description: "joins a table with a derived table using aliases",
-                example: r#"open db.mysql
-    | into db
-    | select col_a
-    | from table_1 --as t1
+                example: r#"open db.sqlite
+    | from table table_1 --as t1
     | join (
-        open db.mysql
-        | into db
+        open db.sqlite
+        | from table table_2
         | select col_c
-        | from table_2
       ) ((field t1.col_a) == (field t2.col_c)) --as t2 --right
+    | select col_a
     | describe"#,
                 result: Some(Value::Record {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {

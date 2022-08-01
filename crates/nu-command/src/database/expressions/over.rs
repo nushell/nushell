@@ -69,7 +69,7 @@ impl Command for OverExpr {
         },
             Example {
                 description: "orders query by a column",
-                example: r#"open db.mysql
+                example: r#"open db.sqlite
     | into db
     | select (fn lead col_a | over col_b)
     | from table_a
@@ -78,7 +78,7 @@ impl Command for OverExpr {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {

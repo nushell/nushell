@@ -40,12 +40,12 @@ impl Command for ProjectionDb {
         vec![
             Example {
                 description: "selects a column from a database",
-                example: "open db.mysql | into db | select a | describe",
+                example: "open db.sqlite | into db | select a | describe",
                 result: Some(Value::Record {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {
@@ -58,16 +58,16 @@ impl Command for ProjectionDb {
             },
             Example {
                 description: "selects columns from a database using alias",
-                example: r#"open db.mysql
+                example: r#"open db.sqlite
     | into db
     | select (field a | as new_a) b c
-    | from table_1
+    | from table table_1
     | describe"#,
                 result: Some(Value::Record {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {
