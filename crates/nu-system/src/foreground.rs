@@ -43,11 +43,11 @@ pub mod external_process_setup {
 
 // TODO: investigate if we can set foreground process through windows system call.
 #[cfg(target_family = "windows")]
-mod external_process_setup {
+pub mod external_process_setup {
 
     pub fn setup_fg_external(external_command: &mut std::process::Command) {}
 
-    pub fn set_foreground(process: &std::process::Child) -> i32 {}
+    pub fn set_foreground(process: &std::process::Child) {}
 
     pub fn reset_foreground_id() {}
 }
