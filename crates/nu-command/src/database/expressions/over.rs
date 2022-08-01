@@ -70,9 +70,8 @@ impl Command for OverExpr {
             Example {
                 description: "orders query by a column",
                 example: r#"open db.sqlite
-    | into db
+    | from table table_a
     | select (fn lead col_a | over col_b)
-    | from table_a
     | describe"#,
                 result: Some(Value::Record {
                     cols: vec!["connection".into(), "query".into()],

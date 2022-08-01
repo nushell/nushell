@@ -69,9 +69,8 @@ impl Command for FunctionExpr {
             Example {
                 description: "orders query by a column",
                 example: r#"open db.sqlite
-    | into db
+    | from table table_a
     | select (fn lead col_a)
-    | from table_a
     | describe"#,
                 result: Some(Value::Record {
                     cols: vec!["connection".into(), "query".into()],
