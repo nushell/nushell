@@ -13,7 +13,9 @@ use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, 
 use itertools::Itertools;
 
 use nu_engine::CallExt;
-use nu_system::external_process_setup::{reset_foreground_id, set_foreground, prepare_to_foreground};
+use nu_system::external_process_setup::{
+    prepare_to_foreground, reset_foreground_id, set_foreground,
+};
 use pathdiff::diff_paths;
 use regex::Regex;
 
