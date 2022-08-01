@@ -95,7 +95,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Shift left a signed number by 1 bits",
+                description: "Shift left a signed number by 1 bit",
                 example: "0x7F | bits shift-left 1 -s",
                 result: Some(Value::Int {
                     val: -2,
@@ -139,8 +139,11 @@ where
         }
         None => Value::Error {
             error: ShellError::GenericError(
-                "Shift left overflow".to_string(),
-                format!("{} shift left {} bits will be overflow", val, shift_bits),
+                "Shift left failed".to_string(),
+                format!(
+                    "{} shift left {} bits failed, you may shift too many bits",
+                    val, shift_bits
+                ),
                 Some(span),
                 None,
                 Vec::new(),
@@ -153,7 +156,8 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
     match value {
         Value::Int { val, span } => {
             use NumberBytes::*;
-            let shift_bits = (((bits % 64) + 64) % 64) as u32;
+            // let shift_bits = (((bits % 64) + 64) % 64) as u32;
+            let shift_bits = bits as u32;
             if signed || val < 0 {
                 match number_size {
                     One => get_shift_left(val as i8, shift_bits, span),

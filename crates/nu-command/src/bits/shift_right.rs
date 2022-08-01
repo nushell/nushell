@@ -68,13 +68,16 @@ impl Command for SubCommand {
 fn operate(value: Value, bits: usize, head: Span) -> Value {
     match value {
         Value::Int { val, span } => {
-            let shift_bits = (bits % 64) as u32;
+            let shift_bits = bits as u32;
             match val.checked_shr(shift_bits) {
                 Some(val) => Value::Int { val, span },
                 None => Value::Error {
                     error: ShellError::GenericError(
-                        "Shift right overflow".to_string(),
-                        format!("{} shift right {} bits will be overflow", val, shift_bits),
+                        "Shift right failed".to_string(),
+                        format!(
+                            "{} shift right {} bits failed, you may shift too many bits",
+                            val, shift_bits
+                        ),
                         Some(span),
                         None,
                         Vec::new(),
