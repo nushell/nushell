@@ -4,6 +4,7 @@ use nu_parser::ParseError;
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{PipelineData, Span, Spanned};
+use nu_utils::{get_default_config, get_default_env};
 use std::fs::File;
 use std::io::Write;
 
@@ -65,9 +66,9 @@ pub(crate) fn read_config_file(
                 .expect("Failed to read user input");
 
             let config_file = if is_env_config {
-                include_str!("../docs/sample_config/default_env.nu")
+                get_default_env()
             } else {
-                include_str!("../docs/sample_config/default_config.nu")
+                get_default_config()
             };
 
             match answer.to_lowercase().trim() {
@@ -134,7 +135,7 @@ pub(crate) fn read_default_env_file(
     stack: &mut Stack,
     is_perf_true: bool,
 ) {
-    let config_file = include_str!("../docs/sample_config/default_env.nu");
+    let config_file = get_default_env();
     eval_source(
         engine_state,
         stack,

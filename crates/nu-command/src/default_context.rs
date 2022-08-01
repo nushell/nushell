@@ -353,6 +353,7 @@ pub fn create_default_context() -> EngineState {
             ConfigNu,
             ConfigEnv,
             ConfigMeta,
+            ConfigReset,
         };
 
         // Math
