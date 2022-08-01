@@ -13,7 +13,7 @@ use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, 
 use itertools::Itertools;
 
 use nu_engine::CallExt;
-use nu_system::external_process_setup::{reset_foreground_id, set_foreground, setup_fg_external};
+use nu_system::external_process_setup::{reset_foreground_id, set_foreground, prepare_to_foreground};
 use pathdiff::diff_paths;
 use regex::Regex;
 
@@ -141,7 +141,7 @@ impl ExternalCommand {
 
         #[cfg(not(windows))]
         {
-            setup_fg_external(&mut process);
+            prepare_to_foreground(&mut process);
             child = process.spawn()
         }
 
