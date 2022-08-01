@@ -44,3 +44,33 @@ fn bits_xor_negative() -> TestResult {
 fn bits_xor_list() -> TestResult {
     run_test("[1 2 3 8 9 10] | bits xor 2 | str collect '.'", "3.0.1.10.11.8")
 }
+
+#[test]
+fn bits_shift_left() -> TestResult {
+    run_test("2 | bits shift-left 3", "16")
+}
+
+#[test]
+fn bits_shift_left_negative() -> TestResult {
+    run_test("-3 | bits shift-left 5", "-96")
+}
+
+#[test]
+fn bits_shift_left_list() -> TestResult {
+    run_test("[1 2 7 32 9 10] | bits shift-left 3 | str collect '.'", "8.16.56.256.72.80")
+}
+
+#[test]
+fn bits_shift_right() -> TestResult {
+    run_test("8 | bits shift-right 2", "2")
+}
+
+#[test]
+fn bits_shift_right_negative() -> TestResult {
+    run_test("-32 | bits shift-right 2", "-8")
+}
+
+#[test]
+fn bits_shift_right_list() -> TestResult {
+    run_test("[12 98 7 64 900 10] | bits shift-right 3 | str collect '.'", "1.12.0.8.112.1")
+}

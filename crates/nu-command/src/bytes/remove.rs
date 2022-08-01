@@ -41,7 +41,7 @@ impl Command for BytesRemove {
     }
 
     fn usage(&self) -> &str {
-        "remove bytes"
+        "Remove bytes"
     }
 
     fn search_terms(&self) -> Vec<&str> {
