@@ -1,4 +1,4 @@
-use super::NumberBytes;
+use super::{get_number_bytes, NumberBytes};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -49,25 +49,18 @@ impl Command for SubCommand {
         let signed = call.has_flag("signed");
         let number_bytes: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let number_bytes = match number_bytes.as_ref() {
-            None => NumberBytes::Auto,
-            Some(size) => match size.item.as_str() {
-                "1" => NumberBytes::One,
-                "2" => NumberBytes::Two,
-                "4" => NumberBytes::Four,
-                "8" => NumberBytes::Eight,
-                "auto" => NumberBytes::Auto,
-                _ => {
-                    return Err(ShellError::UnsupportedInput(
-                        "the size of number is invalid".to_string(),
-                        size.span,
-                    ))
-                }
-            },
-        };
+        let bytes_len = get_number_bytes(&number_bytes);
+        if let NumberBytes::Invalid = bytes_len {
+            if let Some(val) = number_bytes {
+                return Err(ShellError::UnsupportedInput(
+                    "the size of number is invalid".to_string(),
+                    val.span,
+                ));
+            }
+        }
 
         input.map(
-            move |value| operate(value, head, signed, number_bytes),
+            move |value| operate(value, head, signed, bytes_len),
             engine_state.ctrlc.clone(),
         )
     }
@@ -139,6 +132,8 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
                             !val & 0x7F_FF_FF_FF_FF_FF
                         }
                     }
+                    // This case shouldn't happen here, as it's handled before
+                    Invalid => 0,
                 };
                 Value::Int { val: out_val, span }
             }

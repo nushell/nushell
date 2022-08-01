@@ -1,4 +1,4 @@
-use super::NumberBytes;
+use super::{get_number_bytes, NumberBytes};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .named(
                 "number-bytes",
                 SyntaxShape::String,
-                "the size of unsigned number in bytes, it can be 1, 2, 4, 8, auto, default value `auto`",
+                "the size of number in bytes, it can be 1, 2, 4, 8, auto, default value `auto`",
                 Some('n'),
             )
             .category(Category::Bits)
@@ -53,25 +53,18 @@ impl Command for SubCommand {
         let signed = call.has_flag("signed");
         let number_bytes: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let number_bytes = match number_bytes.as_ref() {
-            None => NumberBytes::Auto,
-            Some(size) => match size.item.as_str() {
-                "1" => NumberBytes::One,
-                "2" => NumberBytes::Two,
-                "4" => NumberBytes::Four,
-                "8" => NumberBytes::Eight,
-                "auto" => NumberBytes::Auto,
-                _ => {
-                    return Err(ShellError::UnsupportedInput(
-                        "the size of number is invalid".to_string(),
-                        size.span,
-                    ))
-                }
-            },
-        };
+        let bytes_len = get_number_bytes(&number_bytes);
+        if let NumberBytes::Invalid = bytes_len {
+            if let Some(val) = number_bytes {
+                return Err(ShellError::UnsupportedInput(
+                    "the size of number is invalid".to_string(),
+                    val.span,
+                ));
+            }
+        }
 
         input.map(
-            move |value| operate(value, bits, head, signed, number_bytes),
+            move |value| operate(value, bits, head, signed, bytes_len),
             engine_state.ctrlc.clone(),
         )
     }
@@ -175,6 +168,8 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
                             get_shift_left(val as i64, shift_bits, span)
                         }
                     }
+                    // This case shouldn't happen here, as it's handled before
+                    Invalid => Value::Int { val, span },
                 }
             } else {
                 match number_size {
@@ -193,6 +188,8 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
                             get_shift_left(val as u64, shift_bits, span)
                         }
                     }
+                    // This case shouldn't happen here, as it's handled before
+                    Invalid => Value::Int { val, span },
                 }
             }
         }
