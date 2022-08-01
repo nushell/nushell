@@ -11,17 +11,18 @@ pub mod external_process_setup {
             libc::signal(libc::SIGTTIN, libc::SIG_IGN);
 
             external_command.pre_exec(|| {
+                // make the command startup with new process group.
+                // The process group id must be the same as external commands' pid.
+                // Or else we'll failed to set it as foreground process.
                 libc::setpgid(0, 0);
                 Ok(())
             });
         }
     }
 
-    pub fn set_foreground(process: &std::process::Child) -> i32 {
+    pub fn set_foreground(process: &std::process::Child) {
         unsafe {
-            let my_id = libc::getpid();
-            libc::tcsetpgrp(0, process.id() as i32);
-            my_id
+            libc::tcsetpgrp(libc::STDIN_FILENO, process.id() as i32);
         }
     }
 
