@@ -126,6 +126,7 @@ impl ExternalCommand {
         let ctrlc = engine_state.ctrlc.clone();
 
         let mut process = self.create_process(&input, false, head)?;
+        prepare_to_foreground(&mut process);
         let child;
 
         #[cfg(windows)]
@@ -143,7 +144,6 @@ impl ExternalCommand {
 
         #[cfg(not(windows))]
         {
-            prepare_to_foreground(&mut process);
             child = process.spawn()
         }
 
