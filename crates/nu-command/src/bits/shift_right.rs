@@ -1,9 +1,12 @@
+use super::{get_number_bytes, NumberBytes};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
+use num_traits::CheckedShr;
+use std::fmt::Display;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -16,6 +19,17 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("bits shift-right")
             .required("bits", SyntaxShape::Int, "number of bits to shift right")
+            .switch(
+                "signed",
+                "always treat input number as a signed number",
+                Some('s'),
+            )
+            .named(
+                "number-bytes",
+                SyntaxShape::String,
+                "the size of number in bytes, it can be 1, 2, 4, 8, auto, default value `auto`",
+                Some('n'),
+            )
             .category(Category::Bits)
     }
 
@@ -36,9 +50,21 @@ impl Command for SubCommand {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
         let bits: usize = call.req(engine_state, stack, 0)?;
+        let signed = call.has_flag("signed");
+        let number_bytes: Option<Spanned<String>> =
+            call.get_flag(engine_state, stack, "number-bytes")?;
+        let bytes_len = get_number_bytes(&number_bytes);
+        if let NumberBytes::Invalid = bytes_len {
+            if let Some(val) = number_bytes {
+                return Err(ShellError::UnsupportedInput(
+                    "the size of number is invalid".to_string(),
+                    val.span,
+                ));
+            }
+        }
 
         input.map(
-            move |value| operate(value, bits, head),
+            move |value| operate(value, bits, head, signed, bytes_len),
             engine_state.ctrlc.clone(),
         )
     }
@@ -65,24 +91,89 @@ impl Command for SubCommand {
     }
 }
 
-fn operate(value: Value, bits: usize, head: Span) -> Value {
-    match value {
-        Value::Int { val, span } => {
-            let shift_bits = bits as u32;
-            match val.checked_shr(shift_bits) {
-                Some(val) => Value::Int { val, span },
-                None => Value::Error {
+fn get_shift_right<T: CheckedShr + Display + Copy>(val: T, bits: u32, span: Span) -> Value
+where
+    i64: std::convert::TryFrom<T>,
+{
+    match val.checked_shr(bits) {
+        Some(val) => {
+            let shift_result = i64::try_from(val);
+            match shift_result {
+                Ok(val) => Value::Int { val, span },
+                Err(_) => Value::Error {
                     error: ShellError::GenericError(
-                        "Shift right failed".to_string(),
+                        "Shift right result beyond the range of 64 bit signed number".to_string(),
                         format!(
-                            "{} shift right {} bits failed, you may shift too many bits",
-                            val, shift_bits
+                            "{} of the specified number of bytes shift right {} bits exceed limit",
+                            val, bits
                         ),
                         Some(span),
                         None,
                         Vec::new(),
                     ),
                 },
+            }
+        }
+        None => Value::Error {
+            error: ShellError::GenericError(
+                "Shift right failed".to_string(),
+                format!(
+                    "{} shift right {} bits failed, you may shift too many bits",
+                    val, bits
+                ),
+                Some(span),
+                None,
+                Vec::new(),
+            ),
+        },
+    }
+}
+
+fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: NumberBytes) -> Value {
+    match value {
+        Value::Int { val, span } => {
+            use NumberBytes::*;
+            let bits = bits as u32;
+            if signed || val < 0 {
+                match number_size {
+                    One => get_shift_right(val as i8, bits, span),
+                    Two => get_shift_right(val as i16, bits, span),
+                    Four => get_shift_right(val as i32, bits, span),
+                    Eight => get_shift_right(val as i64, bits, span),
+                    Auto => {
+                        if val <= 0x7F && val >= -(2i64.pow(7)) {
+                            get_shift_right(val as i8, bits, span)
+                        } else if val <= 0x7FFF && val >= -(2i64.pow(15)) {
+                            get_shift_right(val as i16, bits, span)
+                        } else if val <= 0x7FFFFFFF && val >= -(2i64.pow(31)) {
+                            get_shift_right(val as i32, bits, span)
+                        } else {
+                            get_shift_right(val as i64, bits, span)
+                        }
+                    }
+                    // This case shouldn't happen here, as it's handled before
+                    Invalid => Value::Int { val, span },
+                }
+            } else {
+                match number_size {
+                    One => get_shift_right(val as u8, bits, span),
+                    Two => get_shift_right(val as u16, bits, span),
+                    Four => get_shift_right(val as u32, bits, span),
+                    Eight => get_shift_right(val as u64, bits, span),
+                    Auto => {
+                        if val <= 0xFF {
+                            get_shift_right(val as u8, bits, span)
+                        } else if val <= 0xFFFF {
+                            get_shift_right(val as u16, bits, span)
+                        } else if val <= 0xFFFFFFFF {
+                            get_shift_right(val as u32, bits, span)
+                        } else {
+                            get_shift_right(val as u64, bits, span)
+                        }
+                    }
+                    // This case shouldn't happen here, as it's handled before
+                    Invalid => Value::Int { val, span },
+                }
             }
         }
         other => Value::Error {

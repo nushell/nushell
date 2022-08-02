@@ -107,11 +107,11 @@ impl Command for SubCommand {
     }
 }
 
-fn get_shift_left<T: CheckedShl + Display + Copy>(val: T, shift_bits: u32, span: Span) -> Value
+fn get_shift_left<T: CheckedShl + Display + Copy>(val: T, bits: u32, span: Span) -> Value
 where
     i64: std::convert::TryFrom<T>,
 {
-    match val.checked_shl(shift_bits) {
+    match val.checked_shl(bits) {
         Some(val) => {
             let shift_result = i64::try_from(val);
             match shift_result {
@@ -121,7 +121,7 @@ where
                         "Shift left result beyond the range of 64 bit signed number".to_string(),
                         format!(
                             "{} of the specified number of bytes shift left {} bits exceed limit",
-                            val, shift_bits
+                            val, bits
                         ),
                         Some(span),
                         None,
@@ -135,7 +135,7 @@ where
                 "Shift left failed".to_string(),
                 format!(
                     "{} shift left {} bits failed, you may shift too many bits",
-                    val, shift_bits
+                    val, bits
                 ),
                 Some(span),
                 None,
@@ -149,23 +149,23 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
     match value {
         Value::Int { val, span } => {
             use NumberBytes::*;
-            // let shift_bits = (((bits % 64) + 64) % 64) as u32;
-            let shift_bits = bits as u32;
+            // let bits = (((bits % 64) + 64) % 64) as u32;
+            let bits = bits as u32;
             if signed || val < 0 {
                 match number_size {
-                    One => get_shift_left(val as i8, shift_bits, span),
-                    Two => get_shift_left(val as i16, shift_bits, span),
-                    Four => get_shift_left(val as i32, shift_bits, span),
-                    Eight => get_shift_left(val as i64, shift_bits, span),
+                    One => get_shift_left(val as i8, bits, span),
+                    Two => get_shift_left(val as i16, bits, span),
+                    Four => get_shift_left(val as i32, bits, span),
+                    Eight => get_shift_left(val as i64, bits, span),
                     Auto => {
                         if val <= 0x7F && val >= -(2i64.pow(7)) {
-                            get_shift_left(val as i8, shift_bits, span)
+                            get_shift_left(val as i8, bits, span)
                         } else if val <= 0x7FFF && val >= -(2i64.pow(15)) {
-                            get_shift_left(val as i16, shift_bits, span)
+                            get_shift_left(val as i16, bits, span)
                         } else if val <= 0x7FFFFFFF && val >= -(2i64.pow(31)) {
-                            get_shift_left(val as i32, shift_bits, span)
+                            get_shift_left(val as i32, bits, span)
                         } else {
-                            get_shift_left(val as i64, shift_bits, span)
+                            get_shift_left(val as i64, bits, span)
                         }
                     }
                     // This case shouldn't happen here, as it's handled before
@@ -173,19 +173,19 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
                 }
             } else {
                 match number_size {
-                    One => get_shift_left(val as u8, shift_bits, span),
-                    Two => get_shift_left(val as u16, shift_bits, span),
-                    Four => get_shift_left(val as u32, shift_bits, span),
-                    Eight => get_shift_left(val as u64, shift_bits, span),
+                    One => get_shift_left(val as u8, bits, span),
+                    Two => get_shift_left(val as u16, bits, span),
+                    Four => get_shift_left(val as u32, bits, span),
+                    Eight => get_shift_left(val as u64, bits, span),
                     Auto => {
                         if val <= 0xFF {
-                            get_shift_left(val as u8, shift_bits, span)
+                            get_shift_left(val as u8, bits, span)
                         } else if val <= 0xFFFF {
-                            get_shift_left(val as u16, shift_bits, span)
+                            get_shift_left(val as u16, bits, span)
                         } else if val <= 0xFFFFFFFF {
-                            get_shift_left(val as u32, shift_bits, span)
+                            get_shift_left(val as u32, bits, span)
                         } else {
-                            get_shift_left(val as u64, shift_bits, span)
+                            get_shift_left(val as u64, bits, span)
                         }
                     }
                     // This case shouldn't happen here, as it's handled before
