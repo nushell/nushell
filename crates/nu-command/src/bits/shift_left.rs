@@ -13,11 +13,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "bits shift-left"
+        "bits shl"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("bits shift-left")
+        Signature::build("bits shl")
             .required("bits", SyntaxShape::Int, "number of bits to shift left")
             .switch(
                 "signed",
@@ -73,7 +73,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Shift left a number by 7 bits",
-                example: "2 | bits shift-left 7",
+                example: "2 | bits shl 7",
                 result: Some(Value::Int {
                     val: 0,
                     span: Span::test_data(),
@@ -81,7 +81,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Shift left a number with 2 bytes by 7 bits",
-                example: "2 | bits shift-left 7 -n 2",
+                example: "2 | bits shl 7 -n 2",
                 result: Some(Value::Int {
                     val: 256,
                     span: Span::test_data(),
@@ -89,7 +89,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Shift left a signed number by 1 bit",
-                example: "0x7F | bits shift-left 1 -s",
+                example: "0x7F | bits shl 1 -s",
                 result: Some(Value::Int {
                     val: -2,
                     span: Span::test_data(),
@@ -97,7 +97,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Shift left a list of numbers",
-                example: "[5 3 2] | bits shift-left 2",
+                example: "[5 3 2] | bits shl 2",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(20), Value::test_int(12), Value::test_int(8)],
                     span: Span::test_data(),

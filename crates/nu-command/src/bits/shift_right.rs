@@ -13,11 +13,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "bits shift-right"
+        "bits shr"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("bits shift-right")
+        Signature::build("bits shr")
             .required("bits", SyntaxShape::Int, "number of bits to shift right")
             .switch(
                 "signed",
@@ -73,7 +73,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Shift right a number with 2 bits",
-                example: "8 | bits shift-right 2",
+                example: "8 | bits shr 2",
                 result: Some(Value::Int {
                     val: 2,
                     span: Span::test_data(),
@@ -81,7 +81,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Shift right a list of numbers",
-                example: "[15 35 2] | bits shift-right 2",
+                example: "[15 35 2] | bits shr 2",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(3), Value::test_int(8), Value::test_int(0)],
                     span: Span::test_data(),
