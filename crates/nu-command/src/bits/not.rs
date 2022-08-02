@@ -53,7 +53,7 @@ impl Command for SubCommand {
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
                 return Err(ShellError::UnsupportedInput(
-                    "the size of number is invalid".to_string(),
+                    "Only 1, 2, 4, 8, or \"auto\" bytes are supported as word sizes".to_string(),
                     val.span,
                 ));
             }
