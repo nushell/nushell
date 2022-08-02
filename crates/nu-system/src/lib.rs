@@ -6,7 +6,7 @@ mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
 
-pub use self::foreground::external_process_setup;
+pub use self::foreground::{ForegroundChild, ForegroundProcess};
 #[cfg(any(target_os = "android", target_os = "linux"))]
 pub use self::linux::*;
 #[cfg(target_os = "macos")]
