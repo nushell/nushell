@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .named(
                 "number-bytes",
                 SyntaxShape::String,
-                "the size of number in bytes, it can be 1, 2, 4, 8, auto, default value `auto`",
+                "the word size in number of bytes, it can be 1, 2, 4, 8, auto, default value `auto`",
                 Some('n'),
             )
             .category(Category::Bits)
