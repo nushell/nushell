@@ -107,5 +107,5 @@ mod fg_process_setup {
 
     pub fn set_foreground(_process: &std::process::Child) {}
 
-    pub fn reset_foreground_id() {}
+    pub unsafe fn reset_foreground_id() {}
 }
