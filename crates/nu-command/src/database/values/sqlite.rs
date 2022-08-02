@@ -366,16 +366,21 @@ impl CustomValue for SQLiteDatabase {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(self.connection.as_path(span)?, span)?;
-        read_entire_sqlite_db(db, span).map_err(|e| {
-            ShellError::GenericError(
-                "Failed to read from SQLite database".into(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
-        })
+        match self.statement {
+            None => {
+                let db = open_sqlite_db(self.connection.as_path(span)?, span)?;
+                read_entire_sqlite_db(db, span).map_err(|e| {
+                    ShellError::GenericError(
+                        "Failed to read from SQLite database".into(),
+                        e.to_string(),
+                        Some(span),
+                        None,
+                        Vec::new(),
+                    )
+                })
+            }
+            Some(_) => self.collect(span),
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
