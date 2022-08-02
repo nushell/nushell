@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .named(
                 "number-bytes",
                 SyntaxShape::String,
-                "the size of number in bytes, it can be 1, 2, 4, 8, auto, default value `auto`",
+                "the word size in number of bytes, it can be 1, 2, 4, 8, auto, default value `auto`",
                 Some('n'),
             )
             .category(Category::Bits)
@@ -57,7 +57,7 @@ impl Command for SubCommand {
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
                 return Err(ShellError::UnsupportedInput(
-                    "Only 1, 2, 4, 8, or \"auto\" bytes are supported as word sizes".to_string(),
+                    "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
                     val.span,
                 ));
             }
