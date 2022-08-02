@@ -97,13 +97,10 @@ impl Command for All {
                         call.redirect_stderr,
                     ) {
                         Err(error) => Value::Error { error },
-                        Ok(pipeline_data) => {
-                            if !pipeline_data.into_value(span).is_true() {
-                                Value::Bool { val: false, span }
-                            } else {
-                                Value::Bool { val: true, span }
-                            }
-                        }
+                        Ok(pipeline_data) => Value::Bool {
+                            val: pipeline_data.into_value(span).is_true(),
+                            span,
+                        },
                     }
                 })
                 .collect::<Vec<_>>();
