@@ -105,6 +105,27 @@ pub fn partial_from(input: &str) -> (String, String) {
     // rsplit_once removes the separator
     base.push(SEP);
 
+    // take leftmost dots from rest and push them into base
+    let mut i = 0;
+
+    while i < rest.len() && rest.chars().nth(i).expect("i is within rest length") == '.' {
+        i += 1;
+    }
+
+    if i > 0 {
+        let (leftmost_dots, rest) = rest.split_at(i);
+        base.push_str(leftmost_dots);
+        base.push(SEP);
+
+        // remove redundant dot and separator from beginning of base
+        if base.chars().next().expect("base has a first character") == '.' {
+            base.remove(0);
+            base.remove(0);
+        }
+
+        return (base.to_string(), rest.to_string());
+    }
+
     (base.to_string(), rest.to_string())
 }
 
