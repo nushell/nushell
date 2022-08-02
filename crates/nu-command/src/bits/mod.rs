@@ -40,7 +40,7 @@ enum InputNumType {
 
 fn get_number_bytes(number_bytes: &Option<Spanned<String>>) -> NumberBytes {
     match number_bytes.as_ref() {
-        None => NumberBytes::Auto,
+        None => NumberBytes::Eight,
         Some(size) => match size.item.as_str() {
             "1" => NumberBytes::One,
             "2" => NumberBytes::Two,
