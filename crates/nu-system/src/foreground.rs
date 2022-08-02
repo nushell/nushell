@@ -56,7 +56,7 @@ impl Drop for ForegroundChild {
 #[cfg(target_family = "unix")]
 mod fg_process_setup {
     use std::os::unix::prelude::CommandExt;
-    pub fn prepare_to_foreground(external_command: &mut std::process::Command) {
+    pub(super) fn prepare_to_foreground(external_command: &mut std::process::Command) {
         unsafe {
             libc::signal(libc::SIGTTOU, libc::SIG_IGN);
             libc::signal(libc::SIGTTIN, libc::SIG_IGN);
@@ -79,7 +79,7 @@ mod fg_process_setup {
     }
 
     // If `prepare_to_foreground` function is not called, the function will fail with silence and do nothing.
-    pub fn set_foreground(process: &std::process::Child) {
+    pub(super) fn set_foreground(process: &std::process::Child) {
         // it's ok to use unsafe here
         // the implementaion here is just the same as
         // https://docs.rs/nix/latest/nix/unistd/fn.tcsetpgrp.html, which is a safe function.
@@ -92,7 +92,7 @@ mod fg_process_setup {
     ///
     /// ## Safety
     /// It can only be called when you have called `set_foreground`, or results in undefined behavior.
-    pub unsafe fn reset_foreground_id() {
+    pub(super) unsafe fn reset_foreground_id() {
         libc::tcsetpgrp(libc::STDIN_FILENO, libc::getpgrp());
         libc::signal(libc::SIGTTOU, libc::SIG_DFL);
         libc::signal(libc::SIGTTIN, libc::SIG_DFL);
@@ -103,9 +103,9 @@ mod fg_process_setup {
 #[cfg(target_family = "windows")]
 mod fg_process_setup {
 
-    pub fn prepare_to_foreground(_external_command: &mut std::process::Command) {}
+    pub(super) fn prepare_to_foreground(_external_command: &mut std::process::Command) {}
 
-    pub fn set_foreground(_process: &std::process::Child) {}
+    pub(super) fn set_foreground(_process: &std::process::Child) {}
 
-    pub unsafe fn reset_foreground_id() {}
+    pub(super) unsafe fn reset_foreground_id() {}
 }
