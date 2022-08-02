@@ -112,17 +112,17 @@ impl Command for All {
                 .iter()
                 .all(|item| item == &Value::Bool { val: true, span })
             {
-                return Ok(Value::Bool { val: true, span }.into_pipeline_data());
+                Ok(Value::Bool { val: true, span }.into_pipeline_data())
             } else if result.contains(&Value::Bool { val: false, span }) {
-                return Ok(Value::Bool { val: false, span }.into_pipeline_data());
+                Ok(Value::Bool { val: false, span }.into_pipeline_data())
             } else {
-                return Err(ShellError::GenericError(
+                Err(ShellError::GenericError(
                     "Error occurred during running with parallel flag".to_string(),
                     "Command unable to complete".to_string(),
                     Some(span),
                     None,
                     Vec::new(),
-                ));
+                ))
             }
         } else {
             for value in input.into_interruptible_iter(ctrlc) {
