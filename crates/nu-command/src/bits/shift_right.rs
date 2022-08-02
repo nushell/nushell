@@ -1,4 +1,4 @@
-use super::{get_number_bytes, NumberBytes};
+use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -132,48 +132,19 @@ where
 fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: NumberBytes) -> Value {
     match value {
         Value::Int { val, span } => {
-            use NumberBytes::*;
+            use InputNumType::*;
+            // let bits = (((bits % 64) + 64) % 64) as u32;
             let bits = bits as u32;
-            if signed || val < 0 {
-                match number_size {
-                    One => get_shift_right(val as i8, bits, span),
-                    Two => get_shift_right(val as i16, bits, span),
-                    Four => get_shift_right(val as i32, bits, span),
-                    Eight => get_shift_right(val as i64, bits, span),
-                    Auto => {
-                        if val <= 0x7F && val >= -(2i64.pow(7)) {
-                            get_shift_right(val as i8, bits, span)
-                        } else if val <= 0x7FFF && val >= -(2i64.pow(15)) {
-                            get_shift_right(val as i16, bits, span)
-                        } else if val <= 0x7FFFFFFF && val >= -(2i64.pow(31)) {
-                            get_shift_right(val as i32, bits, span)
-                        } else {
-                            get_shift_right(val as i64, bits, span)
-                        }
-                    }
-                    // This case shouldn't happen here, as it's handled before
-                    Invalid => Value::Int { val, span },
-                }
-            } else {
-                match number_size {
-                    One => get_shift_right(val as u8, bits, span),
-                    Two => get_shift_right(val as u16, bits, span),
-                    Four => get_shift_right(val as u32, bits, span),
-                    Eight => get_shift_right(val as u64, bits, span),
-                    Auto => {
-                        if val <= 0xFF {
-                            get_shift_right(val as u8, bits, span)
-                        } else if val <= 0xFFFF {
-                            get_shift_right(val as u16, bits, span)
-                        } else if val <= 0xFFFFFFFF {
-                            get_shift_right(val as u32, bits, span)
-                        } else {
-                            get_shift_right(val as u64, bits, span)
-                        }
-                    }
-                    // This case shouldn't happen here, as it's handled before
-                    Invalid => Value::Int { val, span },
-                }
+            let input_type = get_input_num_type(val, signed, number_size);
+            match input_type {
+                One => get_shift_right(val as u8, bits, span),
+                Two => get_shift_right(val as u16, bits, span),
+                Four => get_shift_right(val as u32, bits, span),
+                Eight => get_shift_right(val as u64, bits, span),
+                SignedOne => get_shift_right(val as i8, bits, span),
+                SignedTwo => get_shift_right(val as i16, bits, span),
+                SignedFour => get_shift_right(val as i32, bits, span),
+                SignedEight => get_shift_right(val as i64, bits, span),
             }
         }
         other => Value::Error {
