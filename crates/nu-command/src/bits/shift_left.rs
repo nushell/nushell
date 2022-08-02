@@ -75,15 +75,15 @@ impl Command for SubCommand {
                 description: "Shift left a number by 7 bits",
                 example: "2 | bits shl 7",
                 result: Some(Value::Int {
-                    val: 0,
+                    val: 256,
                     span: Span::test_data(),
                 }),
             },
             Example {
-                description: "Shift left a number with 2 bytes by 7 bits",
-                example: "2 | bits shl 7 -n 2",
+                description: "Shift left a number with 1 byte by 7 bits",
+                example: "2 | bits shl 7 -n 1",
                 result: Some(Value::Int {
-                    val: 256,
+                    val: 0,
                     span: Span::test_data(),
                 }),
             },
@@ -91,7 +91,7 @@ impl Command for SubCommand {
                 description: "Shift left a signed number by 1 bit",
                 example: "0x7F | bits shl 1 -s",
                 result: Some(Value::Int {
-                    val: -2,
+                    val: 254,
                     span: Span::test_data(),
                 }),
             },
