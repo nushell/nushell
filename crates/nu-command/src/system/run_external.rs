@@ -13,6 +13,7 @@ use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, 
 use itertools::Itertools;
 
 use nu_engine::CallExt;
+use nu_system::ForegroundProcess;
 use pathdiff::diff_paths;
 use regex::Regex;
 
@@ -122,15 +123,16 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let mut process = self.create_process(&input, false, head)?;
+        let mut fg_process = ForegroundProcess::new(self.create_process(&input, false, head)?);
         let child;
 
         #[cfg(windows)]
         {
-            match process.spawn() {
+            match fg_process.spawn() {
                 Err(_) => {
-                    let mut process = self.create_process(&input, true, head)?;
-                    child = process.spawn();
+                    let mut fg_process =
+                        ForegroundProcess::new(self.create_process(&input, true, head)?);
+                    child = fg_process.spawn();
                 }
                 Ok(process) => {
                     child = Ok(process);
@@ -140,7 +142,7 @@ impl ExternalCommand {
 
         #[cfg(not(windows))]
         {
-            child = process.spawn()
+            child = fg_process.spawn()
         }
 
         match child {
@@ -158,7 +160,7 @@ impl ExternalCommand {
                     engine_state.config.use_ansi_coloring = false;
 
                     // if there is a string or a stream, that is sent to the pipe std
-                    if let Some(mut stdin_write) = child.stdin.take() {
+                    if let Some(mut stdin_write) = child.as_mut().stdin.take() {
                         std::thread::spawn(move || {
                             let input = crate::Table::run(
                                 &crate::Table,
@@ -199,7 +201,7 @@ impl ExternalCommand {
                     // and we create a ListStream that can be consumed
 
                     if redirect_stderr {
-                        let stderr = child.stderr.take().ok_or_else(|| {
+                        let stderr = child.as_mut().stderr.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stderr from external".to_string(),
                                 "Redirects need access to stderr of an external command"
@@ -238,7 +240,7 @@ impl ExternalCommand {
                     }
 
                     if redirect_stdout {
-                        let stdout = child.stdout.take().ok_or_else(|| {
+                        let stdout = child.as_mut().stdout.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stdout from external".to_string(),
                                 "Redirects need access to stdout of an external command"
@@ -276,7 +278,7 @@ impl ExternalCommand {
                         }
                     }
 
-                    match child.wait() {
+                    match child.as_mut().wait() {
                         Err(err) => Err(ShellError::ExternalCommand(
                             "External command exited with error".into(),
                             err.to_string(),
