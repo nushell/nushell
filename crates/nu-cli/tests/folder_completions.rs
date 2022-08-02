@@ -21,6 +21,7 @@ fn folder_completions() {
         folder(dir.join("test_a")),
         folder(dir.join("test_b")),
         folder(dir.join("another")),
+        folder(dir.join("ünicöde")),
         folder(dir.join(".hidden_folder")),
     ];
 
