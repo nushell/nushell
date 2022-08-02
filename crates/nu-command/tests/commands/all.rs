@@ -67,3 +67,59 @@ fn checks_if_all_returns_error_with_invalid_command() {
 
     assert!(actual.err.contains("can't run executable") || actual.err.contains("type_mismatch"));
 }
+
+#[test]
+fn checks_all_rows_are_true_parallel() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+                echo  [ "Andrés", "Andrés", "Andrés" ]
+                | all? -p $it == "Andrés"
+        "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn checks_all_rows_are_false_with_param_parallel() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+                [1, 2, 3, 4] | all? -p { |a| $a >= 5 }
+        "#
+    ));
+
+    assert_eq!(actual.out, "false");
+}
+
+#[test]
+fn checks_all_rows_are_true_with_param_parallel() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+                [1, 2, 3, 4] | all? -p { |a| $a < 5 }
+        "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn checks_all_columns_of_a_table_is_true_parallel() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+                echo [
+                        [  first_name, last_name,   rusty_at, likes  ];
+                        [      Andrés,  Robalino, 10/11/2013,   1    ]
+                        [    Jonathan,    Turner, 10/12/2013,   1    ]
+                        [      Darren, Schroeder, 10/11/2013,   1    ]
+                        [      Yehuda,      Katz, 10/11/2013,   1    ]
+                ]
+                | all? -p likes > 0
+        "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}

@@ -5,6 +5,8 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 
+use rayon::prelude::*;
+
 #[derive(Clone)]
 pub struct All;
 
@@ -20,6 +22,11 @@ impl Command for All {
                 SyntaxShape::RowCondition,
                 "the predicate that must match",
             )
+            .switch(
+                "parallel",
+                "run command for getting potential parallelism",
+                Some('p'),
+            )
             .category(Category::Filters)
     }
 
@@ -28,7 +35,7 @@ impl Command for All {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["every"]
+        vec!["every", "all"]
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -43,6 +50,11 @@ impl Command for All {
                 example: "echo [2 4 6 8] | all? ($it mod 2) == 0",
                 result: Some(Value::test_bool(true)),
             },
+            Example {
+                description: "Check that all values are even in parallel ",
+                example: "echo [2 4 6 8] | all? -p ($it mod 2) == 0",
+                result: Some(Value::test_bool(true)),
+            },
         ]
     }
 
@@ -53,8 +65,8 @@ impl Command for All {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // let predicate = &call.positional[0];
         let span = call.head;
+        let is_parallel = call.has_flag("parallel");
 
         let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
         let block_id = capture_block.block_id;
@@ -66,31 +78,79 @@ impl Command for All {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        for value in input.into_interruptible_iter(ctrlc) {
-            if let Some(var_id) = var_id {
-                stack.add_var(var_id, value);
-            }
+        if is_parallel {
+            let par_bridge = input.into_interruptible_iter(ctrlc).par_bridge();
 
-            let eval = eval_block(
-                &engine_state,
-                &mut stack,
-                block,
-                PipelineData::new(span),
-                call.redirect_stdout,
-                call.redirect_stderr,
-            );
-            match eval {
-                Err(e) => {
-                    return Err(e);
+            let result = par_bridge
+                .map(|value| {
+                    let mut stack = stack.clone();
+                    if let Some(var_id) = var_id {
+                        stack.add_var(var_id, value);
+                    }
+
+                    match eval_block(
+                        &engine_state,
+                        &mut stack,
+                        block,
+                        PipelineData::new(span),
+                        call.redirect_stdout,
+                        call.redirect_stderr,
+                    ) {
+                        Err(error) => Value::Error { error },
+                        Ok(pipeline_data) => {
+                            if !pipeline_data.into_value(span).is_true() {
+                                Value::Bool { val: false, span }
+                            } else {
+                                Value::Bool { val: true, span }
+                            }
+                        }
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            if result
+                .iter()
+                .all(|item| item == &Value::Bool { val: true, span })
+            {
+                return Ok(Value::Bool { val: true, span }.into_pipeline_data());
+            } else if result.contains(&Value::Bool { val: false, span }) {
+                return Ok(Value::Bool { val: false, span }.into_pipeline_data());
+            } else {
+                return Err(ShellError::GenericError(
+                    "Error occurred during running with parallel flag".to_string(),
+                    "Command unable to complete".to_string(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ));
+            }
+        } else {
+            for value in input.into_interruptible_iter(ctrlc) {
+                if let Some(var_id) = var_id {
+                    stack.add_var(var_id, value);
                 }
-                Ok(pipeline_data) => {
-                    if !pipeline_data.into_value(span).is_true() {
-                        return Ok(Value::Bool { val: false, span }.into_pipeline_data());
+
+                let eval = eval_block(
+                    &engine_state,
+                    &mut stack,
+                    block,
+                    PipelineData::new(span),
+                    call.redirect_stdout,
+                    call.redirect_stderr,
+                );
+                match eval {
+                    Err(e) => {
+                        return Err(e);
+                    }
+                    Ok(pipeline_data) => {
+                        if !pipeline_data.into_value(span).is_true() {
+                            return Ok(Value::Bool { val: false, span }.into_pipeline_data());
+                        }
                     }
                 }
             }
+            Ok(Value::Bool { val: true, span }.into_pipeline_data())
         }
-        Ok(Value::Bool { val: true, span }.into_pipeline_data())
     }
 }
 
