@@ -70,7 +70,7 @@ assert_cmd = "2.0.2"
 pretty_assertions = "1.0.0"
 serial_test = "0.8.0"
 hamcrest2 = "0.3.0"
-rstest = "0.15.0"
+rstest = {version = "0.15.0", default-features = false}
 itertools = "0.10.3"
 
 [target.'cfg(windows)'.build-dependencies]
