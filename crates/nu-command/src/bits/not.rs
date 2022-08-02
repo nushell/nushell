@@ -1,3 +1,4 @@
+use super::{get_number_bytes, NumberBytes};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -7,15 +8,6 @@ use nu_protocol::{
 
 #[derive(Clone)]
 pub struct SubCommand;
-
-#[derive(Clone, Copy)]
-enum NumberBytes {
-    One,
-    Two,
-    Four,
-    Eight,
-    Auto,
-}
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
@@ -57,25 +49,18 @@ impl Command for SubCommand {
         let signed = call.has_flag("signed");
         let number_bytes: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let number_bytes = match number_bytes.as_ref() {
-            None => NumberBytes::Auto,
-            Some(size) => match size.item.as_str() {
-                "1" => NumberBytes::One,
-                "2" => NumberBytes::Two,
-                "4" => NumberBytes::Four,
-                "8" => NumberBytes::Eight,
-                "auto" => NumberBytes::Auto,
-                _ => {
-                    return Err(ShellError::UnsupportedInput(
-                        "the size of number is invalid".to_string(),
-                        size.span,
-                    ))
-                }
-            },
-        };
+        let bytes_len = get_number_bytes(&number_bytes);
+        if let NumberBytes::Invalid = bytes_len {
+            if let Some(val) = number_bytes {
+                return Err(ShellError::UnsupportedInput(
+                    "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    val.span,
+                ));
+            }
+        }
 
         input.map(
-            move |value| operate(value, head, signed, number_bytes),
+            move |value| operate(value, head, signed, bytes_len),
             engine_state.ctrlc.clone(),
         )
     }
@@ -83,20 +68,20 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Apply the logical negation to a list of numbers",
+                description: "Apply logical negation to a list of numbers",
                 example: "[4 3 2] | bits not",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_int(251),
-                        Value::test_int(252),
-                        Value::test_int(253),
+                        Value::test_int(140737488355323),
+                        Value::test_int(140737488355324),
+                        Value::test_int(140737488355325),
                     ],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description:
-                    "Apply the logical negation to a list of numbers, treat input as 2 bytes number",
+                    "Apply logical negation to a list of numbers, treat input as 2 bytes number",
                 example: "[4 3 2] | bits not -n 2",
                 result: Some(Value::List {
                     vals: vec![
@@ -109,7 +94,7 @@ impl Command for SubCommand {
             },
             Example {
                 description:
-                    "Apply the logical negation to a list of numbers, treat input as signed number",
+                    "Apply logical negation to a list of numbers, treat input as signed number",
                 example: "[4 3 2] | bits not -s",
                 result: Some(Value::List {
                     vals: vec![
@@ -147,6 +132,8 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
                             !val & 0x7F_FF_FF_FF_FF_FF
                         }
                     }
+                    // This case shouldn't happen here, as it's handled before
+                    Invalid => 0,
                 };
                 Value::Int { val: out_val, span }
             }

@@ -2620,6 +2620,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num 0.4.0",
+ "num-traits",
  "pathdiff",
  "polars",
  "powierza-coefficient",

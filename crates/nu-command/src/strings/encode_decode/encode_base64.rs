@@ -31,7 +31,7 @@ impl Command for EncodeBase64 {
     }
 
     fn usage(&self) -> &str {
-        "base64 encode a value"
+        "Base64 encode a value"
     }
 
     fn examples(&self) -> Vec<Example> {
