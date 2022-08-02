@@ -72,9 +72,9 @@ impl Command for SubCommand {
                 example: "[4 3 2] | bits not",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_int(251),
-                        Value::test_int(252),
-                        Value::test_int(253),
+                        Value::test_int(140737488355323),
+                        Value::test_int(140737488355324),
+                        Value::test_int(140737488355325),
                     ],
                     span: Span::test_data(),
                 }),
