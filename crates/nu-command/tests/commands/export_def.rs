@@ -9,5 +9,7 @@ fn export_subcommands_help() {
         "#
     ));
 
-    assert!(actual.out.contains("Define a custom command and export it from a module"));
+    assert!(actual
+        .out
+        .contains("Define a custom command and export it from a module"));
 }
