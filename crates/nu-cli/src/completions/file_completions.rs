@@ -112,7 +112,7 @@ pub fn partial_from(input: &str) -> (String, String) {
         i += 1;
     }
 
-    if i > 0 {
+    if i > 1 {
         let (leftmost_dots, rest) = rest.split_at(i);
         base.push_str(leftmost_dots);
         base.push(SEP);
