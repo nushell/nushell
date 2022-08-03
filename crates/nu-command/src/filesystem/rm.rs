@@ -69,6 +69,11 @@ impl Command for Rm {
                 Some('v'),
             )
             .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch(
+                "include-ansi",
+                "include ansi escape codes in file or folder name",
+                None,
+            )
             .rest(
                 "rest",
                 SyntaxShape::GlobPattern,
@@ -139,7 +144,21 @@ fn rm(
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
+    let mut targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
+
+    if !call.has_flag("include-ansi") {
+        for (idx, path) in targets.clone().into_iter().enumerate() {
+            let corrected_path = Spanned {
+                item: match strip_ansi_escapes::strip(&path.item) {
+                    Ok(item) => String::from_utf8(item).unwrap_or(path.item),
+                    Err(_) => path.item,
+                },
+                span: path.span,
+            };
+            let _ = std::mem::replace(&mut targets[idx], corrected_path);
+        }
+    }
+
     let span = call.head;
 
     let config = engine_state.get_config();

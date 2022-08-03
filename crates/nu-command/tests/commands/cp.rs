@@ -331,3 +331,16 @@ fn copy_identical_file() {
         assert!(actual.err.contains("Copy aborted"));
     });
 }
+
+#[test]
+fn copy_ignores_ansi() {
+    Playground::setup("cp_test_16", |_dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("test.txt")]);
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "ls | find test | get name | cp $in.0 success.txt; ls | find success | get name | ansi strip | get 0",
+        );
+        assert_eq!(actual.out, "success.txt");
+    });
+}

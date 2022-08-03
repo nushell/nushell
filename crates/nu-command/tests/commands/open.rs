@@ -267,3 +267,19 @@ fn test_open_block_command() {
 
     assert_eq!(actual.out, "abcd")
 }
+
+#[test]
+fn open_ignore_ansi() {
+    Playground::setup("open_test_ansi", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("nu.zion.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls | find nu.zion | get 0 | get name | open $in
+            "#
+        ));
+
+        assert!(actual.err.is_empty());
+    })
+}

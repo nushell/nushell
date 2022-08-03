@@ -538,3 +538,24 @@ fn list_directory_contains_invalid_utf8() {
         },
     )
 }
+
+#[test]
+fn list_ignores_ansi() {
+    Playground::setup("ls_test_ansi", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls | find .txt | each { ls $in.name } 
+            "#
+        ));
+
+        assert!(actual.err.is_empty());
+    })
+}

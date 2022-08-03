@@ -61,6 +61,11 @@ impl Command for Ls {
                 "List the specified directory itself instead of its contents",
                 Some('D'),
             )
+            .switch(
+                "include-ansi",
+                "include ansi escape codes in file or folder name",
+                None,
+            )
             .category(Category::FileSystem)
     }
 
@@ -82,6 +87,22 @@ impl Command for Ls {
         let cwd = current_dir(engine_state, stack)?;
 
         let pattern_arg: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
+
+        let pattern_arg = if !call.has_flag("include-ansi") {
+            if let Some(path) = pattern_arg {
+                Some(Spanned {
+                    item: match strip_ansi_escapes::strip(&path.item) {
+                        Ok(item) => String::from_utf8(item).unwrap_or(path.item),
+                        Err(_) => path.item,
+                    },
+                    span: path.span,
+                })
+            } else {
+                pattern_arg
+            }
+        } else {
+            pattern_arg
+        };
 
         let (path, p_tag, absolute_path) = match pattern_arg {
             Some(p) => {
