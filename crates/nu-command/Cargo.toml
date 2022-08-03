@@ -134,4 +134,4 @@ hamcrest2 = "0.3.0"
 dirs-next = "2.0.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
-rstest = "0.15.0"
+rstest = {version = "0.15.0", default-features = false}
