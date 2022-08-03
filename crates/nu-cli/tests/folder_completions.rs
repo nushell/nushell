@@ -80,7 +80,6 @@ fn folder_completions_with_no_initial_path() {
     match_suggestions(expected_paths, suggestions);
 }
 
-
 #[test]
 fn folder_completions_with_single_dot_hidden_folder() {
     // Create a new engine
@@ -95,9 +94,7 @@ fn folder_completions_with_single_dot_hidden_folder() {
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values
-    let expected_paths: Vec<String> = vec![
-        folder(dir.join(".hidden_folder")),
-    ];
+    let expected_paths: Vec<String> = vec![folder(dir.join(".hidden_folder"))];
 
     // Match the results
     match_suggestions(expected_paths, suggestions);

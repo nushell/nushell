@@ -1,9 +1,11 @@
 use crate::completions::{Completer, CompletionOptions};
+use lazy_static::lazy_static;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
 };
 use reedline::Suggestion;
+use regex::Regex;
 use std::path::{is_separator, Path};
 use std::sync::Arc;
 
@@ -106,24 +108,28 @@ pub fn partial_from(input: &str) -> (String, String) {
     base.push(SEP);
 
     // take leftmost dots from rest and push them into base
-    let mut i = 0;
-
-    while i < rest.len() && rest.chars().nth(i).expect("i is within rest length") == '.' {
-        i += 1;
+    lazy_static! {
+        static ref LEADING_DOTS: Regex = Regex::new(r#"^(\.*)(.*)"#).expect("regex should compile");
     }
 
-    if i > 1 {
-        let (leftmost_dots, rest) = rest.split_at(i);
-        base.push_str(leftmost_dots);
+    let leading_dots_captures = LEADING_DOTS.captures(rest).expect("regex should capture");
+
+    let leading_dots = leading_dots_captures
+        .get(1)
+        .expect("regex should capture leading dots")
+        .as_str();
+
+    let following_leading_dots = leading_dots_captures
+        .get(2)
+        .expect("regex should capture following leading dots")
+        .as_str();
+
+    // only push dots from rest into base if we are certain input is not a prefix to a single dot hidden folder
+    if leading_dots.len() > 1 {
+        base.push_str(leading_dots);
         base.push(SEP);
 
-        // remove redundant dot and separator from beginning of base
-        if base.chars().next().expect("base has a first character") == '.' {
-            base.remove(0);
-            base.remove(0);
-        }
-
-        return (base.to_string(), rest.to_string());
+        return (base.to_string(), following_leading_dots.to_string());
     }
 
     (base.to_string(), rest.to_string())
