@@ -1,3 +1,4 @@
+use fancy_regex::{NoExpand as FancyNoExpand, Regex as FancyRegex};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -9,11 +10,12 @@ use std::sync::Arc;
 
 struct Arguments {
     all: bool,
-    find: String,
+    find: Spanned<String>,
     replace: String,
     column_paths: Vec<CellPath>,
     literal_replace: bool,
     no_regex: bool,
+    use_fancy_regex: bool,
 }
 
 #[derive(Clone)]
@@ -44,6 +46,11 @@ impl Command for SubCommand {
                 "do not use regular expressions for string find and replace",
                 Some('s'),
             )
+            .switch(
+                "fancy-regex",
+                "use the fancy-regex crate instead of regex crate",
+                Some('f'),
+            )
             .category(Category::Strings)
     }
 
@@ -52,7 +59,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["search", "shift", "switch"]
+        vec!["search", "shift", "switch", "regex"]
     }
 
     fn run(
@@ -133,6 +140,22 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Use fancy-regex crate with look-around to find and replace",
+                example: r#"'AU$10, $20' | str replace -f '(?<!AU)\$(\d+)' '100'"#,
+                result: Some(Value::String {
+                    val: "AU$10, 100".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Use fancy-regex crate with atomic groups to find and replace",
+                example: r#"'abcc' | str replace -f '^a(?>bc|b)c$' '-'"#,
+                result: Some(Value::String {
+                    val: "-".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -148,14 +171,16 @@ fn operate(
     let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
     let literal_replace = call.has_flag("no-expand");
     let no_regex = call.has_flag("string");
+    let use_fancy_regex = call.has_flag("fancy-regex");
 
     let options = Arc::new(Arguments {
         all: call.has_flag("all"),
-        find: find.item,
+        find,
         replace: replace.item,
         column_paths: call.rest(engine_state, stack, 2)?,
         literal_replace,
         no_regex,
+        use_fancy_regex,
     });
 
     input.map(
@@ -183,68 +208,165 @@ fn operate(
 
 struct FindReplace<'a>(&'a str, &'a str);
 
+enum NuRegEx {
+    Regex(Result<Regex, regex::Error>),
+    FancyRegex(Result<FancyRegex, fancy_regex::Error>),
+}
+
+impl NuRegEx {
+    fn replace(&self, val: &str, replacement: &str, literal_replace: bool, span: Span) -> Value {
+        match self {
+            NuRegEx::Regex(regex) => match regex {
+                Ok(re) => {
+                    if literal_replace {
+                        Value::String {
+                            val: re.replace(val, NoExpand(replacement)).to_string(),
+                            span,
+                        }
+                    } else {
+                        Value::String {
+                            val: re.replace(val, replacement).to_string(),
+                            span,
+                        }
+                    }
+                }
+                Err(e) => Value::Error {
+                    error: ShellError::GenericError(
+                        "error with regular expression".into(),
+                        e.to_string(),
+                        Some(span),
+                        None,
+                        Vec::new(),
+                    ),
+                },
+            },
+            NuRegEx::FancyRegex(regex) => match regex {
+                Ok(re) => {
+                    if literal_replace {
+                        Value::String {
+                            val: re.replace(val, FancyNoExpand(replacement)).to_string(),
+                            span,
+                        }
+                    } else {
+                        Value::String {
+                            val: re.replace(val, replacement).to_string(),
+                            span,
+                        }
+                    }
+                }
+                Err(e) => Value::Error {
+                    error: ShellError::GenericError(
+                        "error with regular expression".into(),
+                        e.to_string(),
+                        Some(span),
+                        None,
+                        Vec::new(),
+                    ),
+                },
+            },
+        }
+    }
+    fn replace_all(
+        &self,
+        val: &str,
+        replacement: &str,
+        literal_replace: bool,
+        span: Span,
+    ) -> Value {
+        match self {
+            NuRegEx::Regex(regex) => match regex {
+                Ok(re) => {
+                    if literal_replace {
+                        Value::String {
+                            val: re.replace_all(val, NoExpand(replacement)).to_string(),
+                            span,
+                        }
+                    } else {
+                        Value::String {
+                            val: re.replace_all(val, replacement).to_string(),
+                            span,
+                        }
+                    }
+                }
+                Err(e) => Value::Error {
+                    error: ShellError::GenericError(
+                        "error with regular expression".into(),
+                        e.to_string(),
+                        Some(span),
+                        None,
+                        Vec::new(),
+                    ),
+                },
+            },
+            NuRegEx::FancyRegex(regex) => match regex {
+                Ok(re) => {
+                    if literal_replace {
+                        Value::String {
+                            val: re.replace_all(val, FancyNoExpand(replacement)).to_string(),
+                            span,
+                        }
+                    } else {
+                        Value::String {
+                            val: re.replace_all(val, replacement).to_string(),
+                            span,
+                        }
+                    }
+                }
+                Err(e) => Value::Error {
+                    error: ShellError::GenericError(
+                        "error with regular expression".into(),
+                        e.to_string(),
+                        Some(span),
+                        None,
+                        Vec::new(),
+                    ),
+                },
+            },
+        }
+    }
+}
+
 fn action(
     input: &Value,
     Arguments {
+        all,
         find,
         replace,
-        all,
         literal_replace,
         no_regex,
+        use_fancy_regex,
         ..
     }: &Arguments,
     head: Span,
 ) -> Value {
     match input {
         Value::String { val, .. } => {
-            let FindReplace(find, replacement) = FindReplace(find, replace);
+            let FindReplace(find_str, replacement) = FindReplace(&find.item, replace);
             if *no_regex {
                 // just use regular string replacement vs regular expressions
                 if *all {
                     Value::String {
-                        val: val.replace(find, replacement),
+                        val: val.replace(find_str, replacement),
                         span: head,
                     }
                 } else {
                     Value::String {
-                        val: val.replacen(find, replacement, 1),
+                        val: val.replacen(find_str, replacement, 1),
                         span: head,
                     }
                 }
             } else {
                 // use regular expressions to replace strings
-                let regex = Regex::new(find);
+                let regex = if *use_fancy_regex {
+                    NuRegEx::FancyRegex(FancyRegex::new(find_str))
+                } else {
+                    NuRegEx::Regex(Regex::new(find_str))
+                };
 
-                match regex {
-                    Ok(re) => {
-                        if *all {
-                            Value::String {
-                                val: {
-                                    if *literal_replace {
-                                        re.replace_all(val, NoExpand(replacement)).to_string()
-                                    } else {
-                                        re.replace_all(val, replacement).to_string()
-                                    }
-                                },
-                                span: head,
-                            }
-                        } else {
-                            Value::String {
-                                val: {
-                                    if *literal_replace {
-                                        re.replace(val, NoExpand(replacement)).to_string()
-                                    } else {
-                                        re.replace(val, replacement).to_string()
-                                    }
-                                },
-                                span: head,
-                            }
-                        }
-                    }
-                    Err(_) => Value::String {
-                        val: val.to_string(),
-                        span: head,
-                    },
+                if *all {
+                    regex.replace_all(val, replacement, *literal_replace, find.span)
+                } else {
+                    regex.replace(val, replacement, *literal_replace, find.span)
                 }
             }
         }
@@ -279,13 +401,18 @@ mod tests {
             span: Span::test_data(),
         };
 
+        let spanned_find = Spanned {
+            item: "Cargo.(.+)".to_string(),
+            span: Span::test_data(),
+        };
         let options = Arguments {
-            find: String::from("Cargo.(.+)"),
+            find: spanned_find,
             replace: String::from("Carga.$1"),
             column_paths: vec![],
             literal_replace: false,
             all: false,
             no_regex: false,
+            use_fancy_regex: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
