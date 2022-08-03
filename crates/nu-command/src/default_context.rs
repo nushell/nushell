@@ -214,6 +214,8 @@ pub fn create_default_context() -> EngineState {
             BitsNot,
             BitsOr,
             BitsXor,
+            BitsRotateLeft,
+            BitsRotateRight,
             BitsShiftLeft,
             BitsShiftRight,
         }
