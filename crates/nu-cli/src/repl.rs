@@ -5,6 +5,7 @@ use crate::{
     util::{eval_source, get_guaranteed_cwd, report_error, report_error_new},
     NuHighlighter, NuValidator, NushellPrompt,
 };
+use fancy_regex::Regex;
 use lazy_static::lazy_static;
 use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
@@ -18,7 +19,6 @@ use nu_protocol::{
     Type, Value, VarId,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
-use regex::Regex;
 use std::io::{self, Write};
 use std::{sync::atomic::Ordering, time::Instant};
 use strip_ansi_escapes::strip;
@@ -494,7 +494,7 @@ fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
 
     let banner = format!(
         r#"{}     __  ,
-{} .--()°'.' {}Welcome to {}Nushell{}, 
+{} .--()°'.' {}Welcome to {}Nushell{},
 {}'|, . ,'   {}based on the {}nu{} language,
 {} !_-(_\    {}where all data is structured!
 
@@ -909,7 +909,7 @@ lazy_static! {
 fn looks_like_path(orig: &str) -> bool {
     #[cfg(windows)]
     {
-        if DRIVE_PATH_REGEX.is_match(orig) {
+        if DRIVE_PATH_REGEX.is_match(orig).unwrap_or(false) {
             return true;
         }
     }

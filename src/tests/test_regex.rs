@@ -63,12 +63,12 @@ fn where_not_works() -> TestResult {
 
 #[test]
 fn invalid_regex_fails() -> TestResult {
-    fail_test(r#"'foo' =~ '['"#, "regex parse error")
+    fail_test(r#"'foo' =~ '['"#, "Invalid character class")
 }
 
 #[test]
 fn invalid_not_regex_fails() -> TestResult {
-    fail_test(r#"'foo' !~ '['"#, "regex parse error")
+    fail_test(r#"'foo' !~ '['"#, "Invalid character class")
 }
 
 #[test]
