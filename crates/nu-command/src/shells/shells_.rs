@@ -1,3 +1,4 @@
+use super::{get_current_shell, get_shells};
 use nu_engine::current_dir;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -36,21 +37,8 @@ impl Command for Shells {
             span,
         };
 
-        let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
-        let shells = if let Some(v) = shells {
-            v.as_list()
-                .map(|x| x.to_vec())
-                .unwrap_or_else(|_| vec![cwd])
-        } else {
-            vec![cwd]
-        };
-
-        let current_shell = stack.get_env_var(engine_state, "NUSHELL_CURRENT_SHELL");
-        let current_shell = if let Some(v) = current_shell {
-            v.as_integer().unwrap_or_default() as usize
-        } else {
-            0
-        };
+        let shells = get_shells(engine_state, stack, cwd);
+        let current_shell = get_current_shell(engine_state, stack);
 
         let output = shells
             .into_iter()
