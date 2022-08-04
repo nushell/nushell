@@ -40,6 +40,20 @@ impl Command for Cd {
         let config = engine_state.get_config();
         let use_abbrev = config.cd_with_abbreviations;
 
+        let path_val = {
+            if let Some(path) = path_val {
+                Some(Spanned {
+                    item: match strip_ansi_escapes::strip(&path.item) {
+                        Ok(item) => String::from_utf8(item).unwrap_or(path.item),
+                        Err(_) => path.item,
+                    },
+                    span: path.span,
+                })
+            } else {
+                path_val
+            }
+        };
+
         let (path, span) = match path_val {
             Some(v) => {
                 if v.item == "-" {

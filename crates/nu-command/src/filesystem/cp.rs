@@ -72,6 +72,15 @@ impl Command for Cp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let src: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let src = {
+            Spanned {
+                item: match strip_ansi_escapes::strip(&src.item) {
+                    Ok(item) => String::from_utf8(item).unwrap_or(src.item),
+                    Err(_) => src.item,
+                },
+                span: src.span,
+            }
+        };
         let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
         let recursive = call.has_flag("recursive");
         let verbose = call.has_flag("verbose");
