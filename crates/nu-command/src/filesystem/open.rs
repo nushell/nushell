@@ -35,11 +35,6 @@ impl Command for Open {
         Signature::build("open")
             .optional("filename", SyntaxShape::Filepath, "the filename to use")
             .switch("raw", "open file as raw binary", Some('r'))
-            .switch(
-                "include-ansi",
-                "include ansi escape codes in file or folder name",
-                None,
-            )
             .category(Category::FileSystem)
     }
 
@@ -55,7 +50,7 @@ impl Command for Open {
         let ctrlc = engine_state.ctrlc.clone();
         let path = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
-        let path = if !call.has_flag("include-ansi") {
+        let path = {
             if let Some(path_val) = path {
                 Some(Spanned {
                     item: match strip_ansi_escapes::strip(&path_val.item) {
@@ -67,8 +62,6 @@ impl Command for Open {
             } else {
                 path
             }
-        } else {
-            path
         };
 
         let path = if let Some(path) = path {

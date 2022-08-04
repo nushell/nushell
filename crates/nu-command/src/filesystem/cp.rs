@@ -61,11 +61,6 @@ impl Command for Cp {
                 "If the -r option is specified, no symbolic links are followed.",
                 Some('p'),
             )
-            .switch(
-                "include-ansi",
-                "include ansi escape codes in file or folder name",
-                None,
-            )
             .category(Category::FileSystem)
     }
 
@@ -77,7 +72,7 @@ impl Command for Cp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let src: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let src = if !call.has_flag("include-ansi") {
+        let src = {
             Spanned {
                 item: match strip_ansi_escapes::strip(&src.item) {
                     Ok(item) => String::from_utf8(item).unwrap_or(src.item),
@@ -85,8 +80,6 @@ impl Command for Cp {
                 },
                 span: src.span,
             }
-        } else {
-            src
         };
         let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
         let recursive = call.has_flag("recursive");

@@ -51,11 +51,6 @@ impl Command for Mv {
                 "make mv to be verbose, showing files been moved.",
                 Some('v'),
             )
-            .switch(
-                "include-ansi",
-                "include ansi escape codes in file or folder name",
-                None,
-            )
             .switch("interactive", "ask user to confirm action", Some('i'))
             // .switch("force", "suppress error when no file", Some('f'))
             .category(Category::FileSystem)
@@ -70,7 +65,7 @@ impl Command for Mv {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let spanned_source = if !call.has_flag("include-ansi") {
+        let spanned_source = {
             Spanned {
                 item: match strip_ansi_escapes::strip(&spanned_source.item) {
                     Ok(item) => String::from_utf8(item).unwrap_or(spanned_source.item),
@@ -78,8 +73,6 @@ impl Command for Mv {
                 },
                 span: spanned_source.span,
             }
-        } else {
-            spanned_source
         };
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
         let verbose = call.has_flag("verbose");

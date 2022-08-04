@@ -24,11 +24,6 @@ impl Command for Cd {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
-            .switch(
-                "include-ansi",
-                "include ansi escape codes in file or folder name",
-                None,
-            )
             .optional("path", SyntaxShape::Directory, "the path to change to")
             .category(Category::FileSystem)
     }
@@ -45,7 +40,7 @@ impl Command for Cd {
         let config = engine_state.get_config();
         let use_abbrev = config.cd_with_abbreviations;
 
-        let path_val = if !call.has_flag("include-ansi") {
+        let path_val = {
             if let Some(path) = path_val {
                 Some(Spanned {
                     item: match strip_ansi_escapes::strip(&path.item) {
@@ -57,8 +52,6 @@ impl Command for Cd {
             } else {
                 path_val
             }
-        } else {
-            path_val
         };
 
         let (path, span) = match path_val {
