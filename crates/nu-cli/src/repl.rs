@@ -565,13 +565,7 @@ pub fn eval_string_with_input(
 ) -> Result<Value, ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
-        let (output, _) = parse(
-            &mut working_set,
-            Some("nana"),
-            source.as_bytes(),
-            false,
-            &[],
-        );
+        let (output, _) = parse(&mut working_set, None, source.as_bytes(), false, &[]);
 
         (output, working_set.render())
     };
