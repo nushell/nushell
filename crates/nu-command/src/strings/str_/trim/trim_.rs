@@ -1,3 +1,4 @@
+use fancy_regex::Regex;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -311,7 +312,7 @@ fn trim(s: &str, char_: Option<char>, closure_flags: &ClosureFlags) -> String {
             // create a regex string that looks for 2 or more of each of these characters
             let re_str = format!("{}{{2,}}", reg);
             // create the regex
-            let re = regex::Regex::new(&re_str).expect("Error creating regular expression");
+            let re = Regex::new(&re_str).expect("Error creating regular expression");
             // replace all mutliple occurances with single occurences represented by r
             let new_str = re.replace_all(&return_string, r.to_string());
             // update the return string so the next loop has the latest changes

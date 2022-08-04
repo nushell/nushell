@@ -1,4 +1,5 @@
 use crate::formats::to::delimited::merge_descriptors;
+use fancy_regex::Regex;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -6,7 +7,6 @@ use nu_protocol::{
     Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned,
     SyntaxShape, Value,
 };
-use regex::Regex;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

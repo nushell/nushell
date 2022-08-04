@@ -184,7 +184,9 @@ mod regex {
                 "#
             ));
 
-            assert!(actual.err.contains("unclosed group"));
+            assert!(actual
+                .err
+                .contains("Opening parenthesis without closing parenthesis"));
         })
     }
 }

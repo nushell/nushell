@@ -1,3 +1,4 @@
+use fancy_regex::Regex;
 use nu_ansi_term::{
     Color::{Default, Red, White},
     Style,
@@ -11,7 +12,6 @@ use nu_protocol::{
     ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 use std::borrow::Borrow;
-
 #[derive(Clone)]
 pub struct Help;
 
@@ -350,7 +350,7 @@ pub fn highlight_search_string(
     string_style: &Style,
 ) -> Result<String, ShellError> {
     let regex_string = format!("(?i){}", needle);
-    let regex = match regex::Regex::new(&regex_string) {
+    let regex = match Regex::new(&regex_string) {
         Ok(regex) => regex,
         Err(err) => {
             return Err(ShellError::GenericError(
@@ -367,21 +367,34 @@ pub fn highlight_search_string(
     let mut highlighted = String::new();
 
     for cap in regex.captures_iter(haystack) {
-        let start = match cap.get(0) {
-            Some(cap) => cap.start(),
-            None => 0,
-        };
-        let end = match cap.get(0) {
-            Some(cap) => cap.end(),
-            None => 0,
-        };
-        highlighted.push_str(
-            &string_style
-                .paint(&haystack[last_match_end..start])
-                .to_string(),
-        );
-        highlighted.push_str(&style.paint(&haystack[start..end]).to_string());
-        last_match_end = end;
+        match cap {
+            Ok(capture) => {
+                let start = match capture.get(0) {
+                    Some(acap) => acap.start(),
+                    None => 0,
+                };
+                let end = match capture.get(0) {
+                    Some(acap) => acap.end(),
+                    None => 0,
+                };
+                highlighted.push_str(
+                    &string_style
+                        .paint(&haystack[last_match_end..start])
+                        .to_string(),
+                );
+                highlighted.push_str(&style.paint(&haystack[start..end]).to_string());
+                last_match_end = end;
+            }
+            Err(e) => {
+                return Err(ShellError::GenericError(
+                    "Error with regular expression capture".into(),
+                    e.to_string(),
+                    None,
+                    None,
+                    Vec::new(),
+                ));
+            }
+        }
     }
 
     highlighted.push_str(&string_style.paint(&haystack[last_match_end..]).to_string());

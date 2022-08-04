@@ -1,3 +1,4 @@
+use fancy_regex::Regex;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -5,7 +6,6 @@ use nu_protocol::{
     Category, Example, ListStream, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
     Value,
 };
-use regex::Regex;
 
 #[derive(Clone)]
 pub struct Parse;
@@ -55,6 +55,61 @@ impl Command for Parse {
                 example: "echo \"hi there\" | parse -r '(?P<foo>\\w+) (?P<bar>\\w+)'",
                 result: Some(result),
             },
+            Example {
+                description: "Parse a string using fancy-regex named capture group pattern",
+                example: "echo \"foo bar.\" | parse -r '\\s*(?<name>\\w+)(?=\\.)'",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["name".to_string()],
+                        vals: vec![Value::test_string("bar")],
+                        span: Span::test_data()
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Parse a string using fancy-regex capture group pattern",
+                example: "echo \"foo! bar.\" | parse -r '(\\w+)(?=\\.)|(\\w+)(?=!)'",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["Capture1".to_string(), "Capture2".to_string()],
+                            vals: vec![Value::test_string(""), Value::test_string("foo")],
+                            span: Span::test_data()
+                        },
+                        Value::Record {
+                            cols: vec!["Capture1".to_string(), "Capture2".to_string()],
+                            vals: vec![Value::test_string("bar"), Value::test_string("")],
+                            span: Span::test_data(),
+                        }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Parse a string using fancy-regex look behind pattern",
+                example: "echo \" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["Capture1".to_string(), "Capture2".to_string()],
+                        vals: vec![Value::test_string("@another"), Value::test_string("(foo bar)")],
+                        span: Span::test_data()
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Parse a string using fancy-regex look ahead atomic group pattern",
+                example: "echo \"abcd\" | parse -r '^a(bc(?=d)|b)cd$'",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["Capture1".to_string()],
+                        vals: vec![Value::test_string("b")],
+                        span: Span::test_data()
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+
         ]
     }
 
@@ -89,8 +144,15 @@ fn operate(
         build_regex(&pattern_item, pattern_span)?
     };
 
-    let regex_pattern =
-        Regex::new(&item_to_parse).map_err(|e| parse_regex_error(e, pattern_span))?;
+    let regex_pattern = Regex::new(&item_to_parse).map_err(|err| {
+        ShellError::GenericError(
+            "Error with regular expression".into(),
+            err.to_string(),
+            Some(pattern_span),
+            None,
+            Vec::new(),
+        )
+    })?;
 
     let columns = column_names(&regex_pattern);
     let mut parsed: Vec<Value> = Vec::new();
@@ -102,9 +164,21 @@ fn operate(
 
                 for c in results {
                     let mut cols = Vec::with_capacity(columns.len());
-                    let mut vals = Vec::with_capacity(c.len());
+                    let captures = match c {
+                        Ok(c) => c,
+                        Err(e) => {
+                            return Err(ShellError::GenericError(
+                                "Error with regular expression captures".into(),
+                                e.to_string(),
+                                None,
+                                None,
+                                Vec::new(),
+                            ))
+                        }
+                    };
+                    let mut vals = Vec::with_capacity(captures.len());
 
-                    for (column_name, cap) in columns.iter().zip(c.iter().skip(1)) {
+                    for (column_name, cap) in columns.iter().zip(captures.iter().skip(1)) {
                         let cap_string = cap.map(|v| v.as_str()).unwrap_or("").to_string();
                         cols.push(column_name.clone());
                         vals.push(Value::String {
@@ -156,7 +230,7 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
         }
 
         if !before.is_empty() {
-            output.push_str(&regex::escape(&before));
+            output.push_str(&fancy_regex::escape(&before));
         }
 
         // Look for column as we're now at one
@@ -200,35 +274,6 @@ fn column_names(regex: &Regex) -> Vec<String> {
                 .unwrap_or_else(|| format!("Capture{}", i))
         })
         .collect()
-}
-
-fn parse_regex_error(e: regex::Error, base_span: Span) -> ShellError {
-    match e {
-        regex::Error::Syntax(msg) => {
-            let mut lines = msg.lines();
-
-            let main_msg = lines
-                .next()
-                .map(|l| l.replace(':', ""))
-                .expect("invalid regex pattern");
-
-            let span = lines.nth(1).and_then(|l| l.find('^')).map(|space| {
-                let start = base_span.start + space - 3;
-                Span::new(start, start + 1)
-            });
-
-            let msg = lines
-                .next()
-                .and_then(|l| l.split(':').nth(1))
-                .map(|s| format!("{}: {}", main_msg, s.trim()));
-
-            match (msg, span) {
-                (Some(msg), Some(span)) => ShellError::DelimiterError(msg, span),
-                _ => ShellError::DelimiterError("Invalid regex".to_owned(), base_span),
-            }
-        }
-        _ => ShellError::DelimiterError("Invalid regex".to_owned(), base_span),
-    }
 }
 
 #[cfg(test)]

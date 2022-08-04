@@ -1,7 +1,7 @@
 // FIXME: re-enable tests
 /*
 use nu_json::Value;
-use regex::Regex;
+use fancy_regex::Regex;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};

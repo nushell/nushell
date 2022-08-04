@@ -13,11 +13,11 @@ use byte_unit::ByteUnit;
 use chrono::{DateTime, Duration, FixedOffset};
 use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
+use fancy_regex::Regex;
 pub use from_value::FromValue;
 use indexmap::map::IndexMap;
 use num_format::{Locale, ToFormattedString};
 pub use range::*;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -2178,7 +2178,11 @@ impl Value {
                     .map_err(|e| ShellError::UnsupportedInput(format!("{e}"), *rhs_span))?;
                 let is_match = regex.is_match(lhs);
                 Ok(Value::Bool {
-                    val: if invert { !is_match } else { is_match },
+                    val: if invert {
+                        !is_match.unwrap_or(false)
+                    } else {
+                        is_match.unwrap_or(true)
+                    },
                     span,
                 })
             }

@@ -20,18 +20,18 @@ nu-utils = { path = "../nu-utils", version = "0.66.3"  }
 nu-ansi-term = "0.46.0"
 nu-color-config = { path = "../nu-color-config", version = "0.66.3"  }
 reedline = { version = "0.9.0", features = ["bashisms", "sqlite"]}
-crossterm = "0.24.0"
-miette = { version = "5.1.0", features = ["fancy"] }
-thiserror = "1.0.31"
-fuzzy-matcher = "0.3.7"
 
 chrono = "0.4.19"
+crossterm = "0.24.0"
+fancy-regex = "0.10.0"
+fuzzy-matcher = "0.3.7"
 is_executable = "1.0.1"
 lazy_static = "1.4.0"
 log = "0.4"
-regex = "1.5.4"
+miette = { version = "5.1.0", features = ["fancy"] }
 strip-ansi-escapes = "0.1.1"
 sysinfo = "0.24.1"
+thiserror = "1.0.31"
 
 [features]
 plugin = []

@@ -1,10 +1,10 @@
+use fancy_regex::{NoExpand, Regex};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
-use regex::{NoExpand, Regex};
 use std::sync::Arc;
 
 struct Arguments {
@@ -133,6 +133,23 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Find and replace with fancy-regex",
+                example: r#"'a sucessful b' | str replace '\b([sS])uc(?:cs|s?)e(ed(?:ed|ing|s?)|ss(?:es|ful(?:ly)?|i(?:ons?|ve(?:ly)?)|ors?)?)\b' '${1}ucce$2'"#,
+                result: Some(Value::String {
+                    val: "a successful b".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Find and replace with fancy-regex",
+                example: r#"'GHIKK-9+*' | str replace '[*[:xdigit:]+]' 'z'"#,
+                result: Some(Value::String {
+                    val: "GHIKK-z+*".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+
         ]
     }
 }

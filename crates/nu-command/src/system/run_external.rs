@@ -1,21 +1,18 @@
+use fancy_regex::Regex;
+use itertools::Itertools;
+use nu_engine::env_to_strings;
+use nu_engine::CallExt;
+use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
+use nu_system::ForegroundProcess;
+use pathdiff::diff_paths;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
-
-use nu_engine::env_to_strings;
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
-
-use itertools::Itertools;
-
-use nu_engine::CallExt;
-use nu_system::ForegroundProcess;
-use pathdiff::diff_paths;
-use regex::Regex;
 
 const OUTPUT_BUFFER_SIZE: usize = 1024;
 const OUTPUT_BUFFERS_IN_FLIGHT: usize = 3;
@@ -505,7 +502,7 @@ impl ExternalCommand {
 fn has_unsafe_shell_characters(arg: &str) -> bool {
     let re: Regex = Regex::new(r"[^\w@%+=:,./-]").expect("regex to be valid");
 
-    re.is_match(arg)
+    re.is_match(arg).unwrap_or(false)
 }
 
 fn shell_arg_escape(arg: &str) -> String {

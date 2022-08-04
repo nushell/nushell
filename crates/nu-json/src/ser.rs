@@ -12,7 +12,7 @@ use serde::ser;
 
 //use super::util::ParseNumber;
 
-use regex::Regex;
+use fancy_regex::Regex;
 
 use lazy_static::lazy_static;
 
