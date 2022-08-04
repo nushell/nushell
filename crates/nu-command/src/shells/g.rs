@@ -1,3 +1,4 @@
+use super::get_shells;
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -43,14 +44,7 @@ impl Command for GotoShell {
             span: call.head,
         };
 
-        let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
-        let shells = if let Some(v) = shells {
-            v.as_list()
-                .map(|x| x.to_vec())
-                .unwrap_or_else(|_| vec![cwd])
-        } else {
-            vec![cwd]
-        };
+        let shells = get_shells(engine_state, stack, cwd);
 
         let new_path = if let Some(v) = shells.get(new_shell.item as usize) {
             v.clone()
