@@ -1,11 +1,9 @@
 use crate::completions::{Completer, CompletionOptions};
-use lazy_static::lazy_static;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
 };
 use reedline::Suggestion;
-use regex::Regex;
 use std::path::{is_separator, Path};
 use std::sync::Arc;
 
@@ -107,25 +105,13 @@ pub fn partial_from(input: &str) -> (String, String) {
     // rsplit_once removes the separator
     base.push(SEP);
 
-    // take leftmost dots from rest and push them into base
-    lazy_static! {
-        static ref LEADING_DOTS: Regex = Regex::new(r#"^(\.*)(.*)"#).expect("regex should compile");
-    }
+    let num_leading_dots = rest.bytes().take_while(|c| *c == b'.').count();
 
-    let leading_dots_captures = LEADING_DOTS.captures(rest).expect("regex should capture");
+    let (leading_dots, following_leading_dots) = rest.split_at(num_leading_dots);
 
-    let leading_dots = leading_dots_captures
-        .get(1)
-        .expect("regex should capture leading dots")
-        .as_str();
-
-    let following_leading_dots = leading_dots_captures
-        .get(2)
-        .expect("regex should capture following leading dots")
-        .as_str();
-
-    // only push dots from rest into base if we are certain input is not a prefix to a single dot hidden folder
-    if leading_dots.len() > 1 {
+    // only push dots from rest into base if we believe input is not a prefix to a single dot hidden folder
+    // TODO: Also deal with legal but rare files or folders that contain multiple leading dots.
+    if num_leading_dots > 1 {
         base.push_str(leading_dots);
         base.push(SEP);
 
