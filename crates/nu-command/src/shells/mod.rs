@@ -14,7 +14,7 @@ use nu_protocol::Value;
 pub use p::PrevShell;
 pub use shells_::Shells;
 
-fn get_shells(engine_state: &EngineState, stack: &mut Stack, cwd: Value) -> Vec<Value> {
+pub fn get_shells(engine_state: &EngineState, stack: &mut Stack, cwd: Value) -> Vec<Value> {
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
     let shells = if let Some(v) = shells {
         v.as_list()
@@ -26,7 +26,7 @@ fn get_shells(engine_state: &EngineState, stack: &mut Stack, cwd: Value) -> Vec<
     shells
 }
 
-fn get_current_shell(engine_state: &EngineState, stack: &mut Stack) -> usize {
+pub fn get_current_shell(engine_state: &EngineState, stack: &mut Stack) -> usize {
     let current_shell = stack.get_env_var(engine_state, "NUSHELL_CURRENT_SHELL");
     if let Some(v) = current_shell {
         v.as_integer().unwrap_or_default() as usize
