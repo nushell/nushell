@@ -74,3 +74,33 @@ fn bits_shift_right_negative() -> TestResult {
 fn bits_shift_right_list() -> TestResult {
     run_test("[12 98 7 64 900 10] | bits shr 3 | str collect '.'", "1.12.0.8.112.1")
 }
+
+#[test]
+fn bits_rotate_left() -> TestResult {
+    run_test("2 | bits rol 3", "16")
+}
+
+#[test]
+fn bits_rotate_left_negative() -> TestResult {
+    run_test("-3 | bits rol 5", "-65")
+}
+
+#[test]
+fn bits_rotate_left_list() -> TestResult {
+    run_test("[1 2 7 32 9 10] | bits rol 3 | str collect '.'", "8.16.56.256.72.80")
+}
+
+#[test]
+fn bits_rotate_right() -> TestResult {
+    run_test("2 | bits ror 62", "8")
+}
+
+#[test]
+fn bits_rotate_right_negative() -> TestResult {
+    run_test("-3 | bits ror 60", "-33")
+}
+
+#[test]
+fn bits_rotate_right_list() -> TestResult {
+    run_test("[1 2 7 32 23 10] | bits ror 60 | str collect '.'", "16.32.112.512.368.160")
+}
