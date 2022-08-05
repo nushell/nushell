@@ -21,7 +21,7 @@ nu-ansi-term = "0.46.0"
 nu-color-config = { path = "../nu-color-config", version = "0.66.3"  }
 reedline = { version = "0.9.0", features = ["bashisms", "sqlite"]}
 
-chrono = "0.4.19"
+chrono = "0.4.20"
 crossterm = "0.24.0"
 fancy-regex = "0.10.0"
 fuzzy-matcher = "0.3.7"
