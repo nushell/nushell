@@ -7,7 +7,7 @@ name = "nu-parser"
 version = "0.66.3"
 
 [dependencies]
-chrono = "0.4.19"
+chrono = "0.4.20"
 itertools = "0.10"
 miette = "5.1.0"
 thiserror = "1.0.31"
