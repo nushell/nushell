@@ -1,5 +1,7 @@
 pub mod support;
 
+use std::path::PathBuf;
+
 use nu_cli::NuCompleter;
 use reedline::Completer;
 use support::{file, folder, match_suggestions, new_engine};
@@ -25,6 +27,7 @@ fn file_completions() {
         folder(dir.join("ÜnÏçØdÈ")),
         file(dir.join("custom_completion.nu")),
         file(dir.join(".hidden_file")),
+        folder(dir.join("..bad_folder")),
         folder(dir.join(".hidden_folder")),
     ];
 
@@ -37,6 +40,22 @@ fn file_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![file(dir.join("another").join("newfile"))];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completions for file/directories with dots
+    let parent_dir = PathBuf::from(dir_str).join("..");
+    let target_dir = format!("cp {}", parent_dir.to_str().unwrap());
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(dir.join("..").join("formats")),
+        folder(dir.join("..").join("playground")),
+        folder(dir.join("..").join("completions")),
+        folder(dir.join("..bad_folder")),
+    ];
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
@@ -60,6 +79,7 @@ fn command_ls_completion() {
         "ÜnÏçØdÈ\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder\\".to_string(),
         ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
@@ -71,6 +91,7 @@ fn command_ls_completion() {
         "ÜnÏçØdÈ/".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder/".to_string(),
         ".hidden_folder/".to_string(),
     ];
 
@@ -94,6 +115,7 @@ fn command_open_completion() {
         "ÜnÏçØdÈ\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder\\".to_string(),
         ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
@@ -105,6 +127,7 @@ fn command_open_completion() {
         "ÜnÏçØdÈ/".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder/".to_string(),
         ".hidden_folder/".to_string(),
     ];
 
@@ -129,6 +152,7 @@ fn command_rm_completion() {
         "ÜnÏçØdÈ\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder\\".to_string(),
         ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
@@ -140,6 +164,7 @@ fn command_rm_completion() {
         "ÜnÏçØdÈ/".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder/".to_string(),
         ".hidden_folder/".to_string(),
     ];
 
@@ -164,6 +189,7 @@ fn command_cp_completion() {
         "ÜnÏçØdÈ\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder\\".to_string(),
         ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
@@ -175,6 +201,7 @@ fn command_cp_completion() {
         "ÜnÏçØdÈ/".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder/".to_string(),
         ".hidden_folder/".to_string(),
     ];
 
@@ -199,6 +226,7 @@ fn command_save_completion() {
         "ÜnÏçØdÈ\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder\\".to_string(),
         ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
@@ -210,6 +238,7 @@ fn command_save_completion() {
         "ÜnÏçØdÈ/".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder/".to_string(),
         ".hidden_folder/".to_string(),
     ];
 
@@ -234,6 +263,7 @@ fn command_touch_completion() {
         "ÜnÏçØdÈ\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder\\".to_string(),
         ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
@@ -245,6 +275,7 @@ fn command_touch_completion() {
         "ÜnÏçØdÈ/".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder/".to_string(),
         ".hidden_folder/".to_string(),
     ];
 
@@ -269,6 +300,7 @@ fn command_watch_completion() {
         "ÜnÏçØdÈ\\".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder\\".to_string(),
         ".hidden_folder\\".to_string(),
     ];
     #[cfg(not(windows))]
@@ -280,6 +312,7 @@ fn command_watch_completion() {
         "ÜnÏçØdÈ/".to_string(),
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
+        "..bad_folder/".to_string(),
         ".hidden_folder/".to_string(),
     ];
 

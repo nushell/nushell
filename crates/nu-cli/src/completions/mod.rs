@@ -17,7 +17,8 @@ pub use custom_completions::CustomCompletion;
 pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;
 pub use file_completions::{
-    file_path_completion, matches, partial_from, prepend_base_dir, FileCompletion,
+    file_path_completion, file_path_completion_with_parents, generic_completion_with_parents,
+    matches, partial_from, partial_from_with_parents, prepend_base_dir, FileCompletion,
 };
 pub use flag_completions::FlagCompletion;
 pub use variable_completions::VariableCompletion;

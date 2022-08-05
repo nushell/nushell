@@ -1,5 +1,5 @@
 use crate::completions::{
-    file_path_completion, partial_from, Completer, CompletionOptions, SortBy,
+    file_path_completion_with_parents, partial_from, Completer, CompletionOptions, SortBy,
 };
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
@@ -7,6 +7,7 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 use std::sync::Arc;
+
 const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[derive(Clone)]
@@ -91,7 +92,7 @@ impl Completer for DotNuCompletion {
         let output: Vec<Suggestion> = search_dirs
             .into_iter()
             .flat_map(|it| {
-                file_path_completion(span, &partial, &it, options)
+                file_path_completion_with_parents(span, &partial, &it, options)
                     .into_iter()
                     .filter(|it| {
                         // Different base dir, so we list the .nu files or folders

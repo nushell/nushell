@@ -1,4 +1,6 @@
-use crate::completions::{matches, Completer, CompletionOptions};
+use crate::completions::{
+    generic_completion_with_parents, matches, prepend_base_dir, Completer, CompletionOptions,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -7,8 +9,6 @@ use reedline::Suggestion;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-
-use super::{partial_from, prepend_base_dir};
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
@@ -44,7 +44,7 @@ impl Completer for DirectoryCompletion {
         let partial = String::from_utf8_lossy(&prefix).to_string();
 
         // Filter only the folders
-        let output: Vec<_> = directory_completion(span, &partial, &cwd, options)
+        let output: Vec<_> = directory_completion_with_parents(span, &partial, &cwd, options)
             .into_iter()
             .map(move |x| Suggestion {
                 value: x.1,
@@ -99,17 +99,24 @@ impl Completer for DirectoryCompletion {
     }
 }
 
+pub fn directory_completion_with_parents(
+    span: nu_protocol::Span,
+    partial_input: &str,
+    cwd: &str,
+    options: &CompletionOptions,
+) -> Vec<(nu_protocol::Span, String)> {
+    generic_completion_with_parents(span, partial_input, cwd, options, directory_completion)
+}
+
 pub fn directory_completion(
     span: nu_protocol::Span,
+    original_input: &str,
+    base_dir_name: &str,
     partial: &str,
     cwd: &str,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
-    let original_input = partial;
-
-    let (base_dir_name, partial) = partial_from(partial);
-
-    let base_dir = nu_path::expand_path_with(&base_dir_name, cwd);
+    let base_dir = nu_path::expand_path_with(base_dir_name, cwd);
 
     // This check is here as base_dir.read_dir() with base_dir == "" will open the current dir
     // which we don't want in this case (if we did, base_dir would already be ".")
@@ -124,8 +131,8 @@ pub fn directory_completion(
                     if let Ok(metadata) = fs::metadata(entry.path()) {
                         if metadata.is_dir() {
                             let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                            if matches(&partial, &file_name, options) {
-                                let mut path = if prepend_base_dir(original_input, &base_dir_name) {
+                            if matches(partial, &file_name, options) {
+                                let mut path = if prepend_base_dir(original_input, base_dir_name) {
                                     format!("{}{}", base_dir_name, file_name)
                                 } else {
                                     file_name.to_string()

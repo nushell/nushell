@@ -39,7 +39,7 @@ impl Completer for FileCompletion {
             "".to_string()
         };
         let prefix = String::from_utf8_lossy(&prefix).to_string();
-        let output: Vec<_> = file_path_completion(span, &prefix, &cwd, options)
+        let output: Vec<_> = file_path_completion_with_parents(span, &prefix, &cwd, options)
             .into_iter()
             .map(move |x| Suggestion {
                 value: x.1,
@@ -94,7 +94,7 @@ impl Completer for FileCompletion {
     }
 }
 
-pub fn partial_from(input: &str) -> (String, String) {
+pub fn partial_from_with_parents(input: &str) -> Option<(String, String)> {
     let partial = input.replace('`', "");
 
     // If partial is only a word we want to search in the current dir
@@ -110,26 +110,93 @@ pub fn partial_from(input: &str) -> (String, String) {
     let (leading_dots, following_leading_dots) = rest.split_at(num_leading_dots);
 
     // only push dots from rest into base if we believe input is not a prefix to a single dot hidden folder
-    // TODO: Also deal with legal but rare files or folders that contain multiple leading dots.
     if num_leading_dots > 1 {
         base.push_str(leading_dots);
         base.push(SEP);
 
-        return (base.to_string(), following_leading_dots.to_string());
+        return Some((base.to_string(), following_leading_dots.to_string()));
     }
+
+    None
+}
+
+pub fn partial_from(input: &str) -> (String, String) {
+    let partial = input.replace('`', "");
+
+    // If partial is only a word we want to search in the current dir
+    let (base, rest) = partial.rsplit_once(is_separator).unwrap_or((".", &partial));
+    // On windows, this standardizes paths to use \
+    let mut base = base.replace(is_separator, &SEP.to_string());
+
+    // rsplit_once removes the separator
+    base.push(SEP);
 
     (base.to_string(), rest.to_string())
 }
 
+pub fn generic_completion_with_parents<F>(
+    span: nu_protocol::Span,
+    partial_input: &str,
+    cwd: &str,
+    options: &CompletionOptions,
+    completer: F,
+) -> Vec<(nu_protocol::Span, String)>
+where
+    F: Fn(
+        nu_protocol::Span,
+        &str,
+        &str,
+        &str,
+        &str,
+        &CompletionOptions,
+    ) -> Vec<(nu_protocol::Span, String)>,
+{
+    let original_input = partial_input;
+
+    let (base_completion, partial) = partial_from(partial_input);
+
+    let mut completions = completer(
+        span,
+        original_input,
+        &base_completion,
+        &partial,
+        cwd,
+        options,
+    );
+
+    if let Some((base_completion, partial)) = partial_from_with_parents(partial_input) {
+        let mut completions_with_parents = completer(
+            span,
+            original_input,
+            &base_completion,
+            &partial,
+            cwd,
+            options,
+        );
+
+        completions.append(completions_with_parents.as_mut());
+    }
+
+    completions
+}
+
+pub fn file_path_completion_with_parents(
+    span: nu_protocol::Span,
+    partial_input: &str,
+    cwd: &str,
+    options: &CompletionOptions,
+) -> Vec<(nu_protocol::Span, String)> {
+    generic_completion_with_parents(span, partial_input, cwd, options, file_path_completion)
+}
+
 pub fn file_path_completion(
     span: nu_protocol::Span,
+    original_input: &str,
+    base_dir_name: &str,
     partial: &str,
     cwd: &str,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
-    let original_input = partial;
-    let (base_dir_name, partial) = partial_from(partial);
-
     let base_dir = nu_path::expand_path_with(&base_dir_name, cwd);
     // This check is here as base_dir.read_dir() with base_dir == "" will open the current dir
     // which we don't want in this case (if we did, base_dir would already be ".")
@@ -142,8 +209,8 @@ pub fn file_path_completion(
             .filter_map(|entry| {
                 entry.ok().and_then(|entry| {
                     let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                    if matches(&partial, &file_name, options) {
-                        let mut path = if prepend_base_dir(original_input, &base_dir_name) {
+                    if matches(partial, &file_name, options) {
+                        let mut path = if prepend_base_dir(original_input, base_dir_name) {
                             format!("{}{}", base_dir_name, file_name)
                         } else {
                             file_name.to_string()

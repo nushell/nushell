@@ -24,6 +24,7 @@ fn folder_completions() {
         folder(dir.join("test_b")),
         folder(dir.join("another")),
         folder(dir.join("ÜnÏçØdÈ")),
+        folder(dir.join("..bad_folder")),
         folder(dir.join(".hidden_folder")),
     ];
 
@@ -39,7 +40,7 @@ fn folder_completions_with_dots() {
     // Instatiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
-    // Test completions for the parent folder
+    // Test completions for file/directories with dots
     let parent_dir = PathBuf::from(dir_str).join("..");
     let target_dir = format!("cd {}", parent_dir.to_str().unwrap());
     let suggestions = completer.complete(&target_dir, target_dir.len());
@@ -49,6 +50,7 @@ fn folder_completions_with_dots() {
         folder(dir.join("..").join("formats")),
         folder(dir.join("..").join("playground")),
         folder(dir.join("..").join("completions")),
+        folder(dir.join("..bad_folder")),
     ];
 
     // Match the results
@@ -73,6 +75,7 @@ fn folder_completions_with_no_initial_path() {
         folder(PathBuf::from("test_b")),
         folder(PathBuf::from("another")),
         folder(PathBuf::from("ÜnÏçØdÈ")),
+        folder(PathBuf::from("..bad_folder")),
         folder(PathBuf::from(".hidden_folder")),
     ];
 
