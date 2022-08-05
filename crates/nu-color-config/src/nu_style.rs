@@ -11,12 +11,12 @@ pub struct NuStyle {
 pub fn parse_nustyle(nu_style: NuStyle) -> Style {
     // get the nu_ansi_term::Color foreground color
     let fg_color = match nu_style.fg {
-        Some(fg) => color_from_hex(&fg).expect("error with foreground color"),
+        Some(fg) => color_from_hex(&fg).unwrap_or_default(),
         _ => None,
     };
     // get the nu_ansi_term::Color background color
     let bg_color = match nu_style.bg {
-        Some(bg) => color_from_hex(&bg).expect("error with background color"),
+        Some(bg) => color_from_hex(&bg).unwrap_or_default(),
         _ => None,
     };
     // get the attributes
