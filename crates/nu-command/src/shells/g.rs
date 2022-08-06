@@ -73,12 +73,12 @@ impl Command for GotoShell {
 
                 stack.add_env_var("PWD".into(), new_path);
 
-                return Ok(PipelineData::new(call.head));
+                Ok(PipelineData::new(call.head))
             }
             None => {
                 let current_shell = get_current_shell(engine_state, stack);
 
-                let output = shells
+                Ok(shells
                     .into_iter()
                     .enumerate()
                     .map(move |(idx, val)| Value::Record {
@@ -91,9 +91,8 @@ impl Command for GotoShell {
                             val,
                         ],
                         span,
-                    });
-
-                return Ok(output.into_pipeline_data(None));
+                    })
+                    .into_pipeline_data(None))
             }
         }
     }
