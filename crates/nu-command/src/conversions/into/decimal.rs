@@ -42,7 +42,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert string to integer in table",
+                description: "Convert string to decimal in table",
                 example: "[[num]; ['5.01']] | into decimal num",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
@@ -54,14 +54,19 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Convert string to integer",
+                description: "Convert string to decimal",
                 example: "'1.345' | into decimal",
                 result: Some(Value::test_float(1.345)),
             },
             Example {
-                description: "Convert decimal to integer",
+                description: "Convert decimal to decimal",
                 example: "'-5.9' | into decimal",
                 result: Some(Value::test_float(-5.9)),
+            },
+            Example {
+                description: "Convert boolean to decimal",
+                example: "true | into decimal",
+                result: Some(Value::test_float(1.0)),
             },
         ]
     }
@@ -116,6 +121,13 @@ fn action(input: &Value, head: Span) -> Value {
         }
         Value::Int { val: v, span } => Value::Float {
             val: *v as f64,
+            span: *span,
+        },
+        Value::Bool { val: b, span } => Value::Float {
+            val: match b {
+                true => 1.0,
+                false => 0.0,
+            },
             span: *span,
         },
         other => {
