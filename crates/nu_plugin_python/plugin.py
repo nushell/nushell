@@ -41,6 +41,8 @@ def signatures():
                 "name": "nu-python",
                 "usage": "Signature test for Python",
                 "extra_usage": "",
+                "input_type": "Any",
+                "output_type": "Any",
                 "required_positional": [
                     {
                         "name": "a",
