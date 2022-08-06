@@ -53,16 +53,16 @@ impl Command for GotoShell {
                 let index = if shell_span.item == "-" {
                     get_last_shell(engine_state, stack)
                 } else {
-                    match shell_span.item.parse::<usize>() {
-                        Ok(index) => index,
-                        Err(_) => return Err(ShellError::NotFound(shell_span.span)),
-                    }
+                    shell_span
+                        .item
+                        .parse::<usize>()
+                        .map_err(|_| ShellError::NotFound(shell_span.span))?
                 };
 
-                let new_path = match shells.get(index) {
-                    Some(v) => v.clone(),
-                    None => return Err(ShellError::NotFound(shell_span.span)),
-                };
+                let new_path = shells
+                    .get(index)
+                    .ok_or(ShellError::NotFound(shell_span.span))?
+                    .to_owned();
 
                 let current_shell = get_current_shell(engine_state, stack);
 
