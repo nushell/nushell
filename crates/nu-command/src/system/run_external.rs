@@ -125,10 +125,24 @@ impl ExternalCommand {
 
         #[cfg(windows)]
         {
+            // Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
+            // To support those commands, we "shell out" to cmd.exe.
+
+            // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
+            // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
+            const CMD_INTERNAL_COMMANDS: [&str; 8] = [
+                "ASSOC", "DIR", "ECHO", "FTYPE", "MKLINK", "START", "VER", "VOL",
+            ];
+
+            let command_name_upper = self.name.item.to_uppercase();
+            let use_cmd = CMD_INTERNAL_COMMANDS
+                .iter()
+                .any(|&cmd| command_name_upper == cmd);
+
             match fg_process.spawn() {
                 Err(_) => {
                     let mut fg_process =
-                        ForegroundProcess::new(self.create_process(&input, true, head)?);
+                        ForegroundProcess::new(self.create_process(&input, use_cmd, head)?);
                     child = fg_process.spawn();
                 }
                 Ok(process) => {
