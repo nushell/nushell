@@ -395,9 +395,23 @@ pub fn evaluate_repl(
                         0
                     };
 
+                    let last_shell = stack.get_env_var(engine_state, "NUSHELL_LAST_SHELL");
+                    let last_shell = if let Some(v) = last_shell {
+                        v.as_integer().unwrap_or_default() as usize
+                    } else {
+                        0
+                    };
+
                     shells[current_shell] = Value::String { val: path, span };
 
                     stack.add_env_var("NUSHELL_SHELLS".into(), Value::List { vals: shells, span });
+                    stack.add_env_var(
+                        "NUSHELL_LAST_SHELL".into(),
+                        Value::Int {
+                            val: last_shell as i64,
+                            span,
+                        },
+                    );
                 } else {
                     trace!("eval source: {}", s);
 
