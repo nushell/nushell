@@ -1,9 +1,10 @@
-use super::get_shells;
+use super::{get_current_shell, get_shells};
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
+    SyntaxShape, Value,
 };
 
 /// Source a file for environment variables.
@@ -17,7 +18,7 @@ impl Command for GotoShell {
 
     fn signature(&self) -> Signature {
         Signature::build("g")
-            .required(
+            .optional(
                 "shell_number",
                 SyntaxShape::Int,
                 "shell number to change to",
@@ -26,7 +27,7 @@ impl Command for GotoShell {
     }
 
     fn usage(&self) -> &str {
-        "Switch to a given shell."
+        "Switch to a given shell, or list all shells if no given shell number."
     }
 
     fn run(
@@ -36,7 +37,8 @@ impl Command for GotoShell {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let new_shell: Spanned<i64> = call.req(engine_state, stack, 0)?;
+        let span = call.head;
+        let new_shell: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
 
         let cwd = current_dir(engine_state, stack)?;
         let cwd = Value::String {
@@ -46,34 +48,62 @@ impl Command for GotoShell {
 
         let shells = get_shells(engine_state, stack, cwd);
 
-        let new_path = if let Some(v) = shells.get(new_shell.item as usize) {
-            v.clone()
-        } else {
-            return Err(ShellError::NotFound(new_shell.span));
-        };
+        match new_shell {
+            Some(shell_span) => {
+                let new_path = if let Some(v) = shells.get(shell_span.item as usize) {
+                    v.clone()
+                } else {
+                    return Err(ShellError::NotFound(shell_span.span));
+                };
 
-        stack.add_env_var(
-            "NUSHELL_SHELLS".into(),
-            Value::List {
-                vals: shells,
-                span: call.head,
-            },
-        );
-        stack.add_env_var(
-            "NUSHELL_CURRENT_SHELL".into(),
-            Value::Int {
-                val: new_shell.item,
-                span: call.head,
-            },
-        );
+                stack.add_env_var(
+                    "NUSHELL_SHELLS".into(),
+                    Value::List {
+                        vals: shells,
+                        span: call.head,
+                    },
+                );
+                stack.add_env_var(
+                    "NUSHELL_CURRENT_SHELL".into(),
+                    Value::Int {
+                        val: shell_span.item,
+                        span: call.head,
+                    },
+                );
 
-        stack.add_env_var("PWD".into(), new_path);
+                stack.add_env_var("PWD".into(), new_path);
 
-        Ok(PipelineData::new(call.head))
+                Ok(PipelineData::new(call.head))
+            }
+            None => {
+                let current_shell = get_current_shell(engine_state, stack);
+
+                Ok(shells
+                    .into_iter()
+                    .enumerate()
+                    .map(move |(idx, val)| Value::Record {
+                        cols: vec!["active".to_string(), "path".to_string()],
+                        vals: vec![
+                            Value::Bool {
+                                val: idx == current_shell,
+                                span,
+                            },
+                            val,
+                        ],
+                        span,
+                    })
+                    .into_pipeline_data(None))
+            }
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
+            Example {
+                description: "Lists all open shells",
+                example: r#"g"#,
+                result: None,
+            },
             Example {
                 description: "Make two directories and enter new shells for them, use `g` to jump to the specific shell",
                 example: r#"mkdir foo bar; enter foo; enter ../bar; g 1"#,

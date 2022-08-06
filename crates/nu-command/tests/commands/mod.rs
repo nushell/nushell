@@ -22,6 +22,7 @@ mod find;
 mod first;
 mod flatten;
 mod format;
+mod g;
 mod get;
 mod group_by;
 mod hash_;
