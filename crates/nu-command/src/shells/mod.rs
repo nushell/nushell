@@ -34,3 +34,12 @@ pub fn get_current_shell(engine_state: &EngineState, stack: &mut Stack) -> usize
         0
     }
 }
+
+fn get_last_shell(engine_state: &EngineState, stack: &mut Stack) -> usize {
+    let last_shell = stack.get_env_var(engine_state, "NUSHELL_LAST_SHELL");
+    if let Some(v) = last_shell {
+        v.as_integer().unwrap_or_default() as usize
+    } else {
+        0
+    }
+}

@@ -1,4 +1,4 @@
-use super::{get_current_shell, get_shells};
+use super::{get_current_shell, get_last_shell, get_shells};
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -20,7 +20,7 @@ impl Command for GotoShell {
         Signature::build("g")
             .optional(
                 "shell_number",
-                SyntaxShape::Int,
+                SyntaxShape::String,
                 "shell number to change to",
             )
             .category(Category::Shells)
@@ -38,7 +38,7 @@ impl Command for GotoShell {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let new_shell: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+        let new_shell: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
 
         let cwd = current_dir(engine_state, stack)?;
         let cwd = Value::String {
@@ -50,11 +50,21 @@ impl Command for GotoShell {
 
         match new_shell {
             Some(shell_span) => {
-                let new_path = if let Some(v) = shells.get(shell_span.item as usize) {
-                    v.clone()
+                let index = if shell_span.item == "-" {
+                    get_last_shell(engine_state, stack)
                 } else {
-                    return Err(ShellError::NotFound(shell_span.span));
+                    match shell_span.item.parse::<usize>() {
+                        Ok(index) => index,
+                        Err(_) => return Err(ShellError::NotFound(shell_span.span)),
+                    }
                 };
+
+                let new_path = match shells.get(index) {
+                    Some(v) => v.clone(),
+                    None => return Err(ShellError::NotFound(shell_span.span)),
+                };
+
+                let current_shell = get_current_shell(engine_state, stack);
 
                 stack.add_env_var(
                     "NUSHELL_SHELLS".into(),
@@ -66,7 +76,14 @@ impl Command for GotoShell {
                 stack.add_env_var(
                     "NUSHELL_CURRENT_SHELL".into(),
                     Value::Int {
-                        val: shell_span.item,
+                        val: index as i64,
+                        span: call.head,
+                    },
+                );
+                stack.add_env_var(
+                    "NUSHELL_LAST_SHELL".into(),
+                    Value::Int {
+                        val: current_shell as i64,
                         span: call.head,
                     },
                 );
@@ -112,6 +129,11 @@ impl Command for GotoShell {
             Example {
                 description: "Use `shells` to show all the opened shells and run `g 2` to jump to the third one",
                 example: r#"shells; g 2"#,
+                result: None,
+            },
+            Example {
+                description: "Make two directories and enter new shells for them, use `g` to jump to the last used shell",
+                example: r#"mkdir foo bar; enter foo; enter ../bar;  g 0; g -"#,
                 result: None,
             },
         ]
