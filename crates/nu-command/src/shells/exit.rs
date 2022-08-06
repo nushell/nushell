@@ -1,4 +1,4 @@
-use super::{get_current_shell, get_shells};
+use super::{get_current_shell, get_last_shell, get_shells};
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -60,8 +60,13 @@ impl Command for Exit {
 
         let mut shells = get_shells(engine_state, stack, cwd);
         let mut current_shell = get_current_shell(engine_state, stack);
+        let mut last_shell = get_last_shell(engine_state, stack);
 
         shells.remove(current_shell);
+
+        if current_shell <= last_shell {
+            last_shell = 0;
+        }
 
         if current_shell == shells.len() && !shells.is_empty() {
             current_shell -= 1;
@@ -83,6 +88,13 @@ impl Command for Exit {
                 "NUSHELL_CURRENT_SHELL".into(),
                 Value::Int {
                     val: current_shell as i64,
+                    span: call.head,
+                },
+            );
+            stack.add_env_var(
+                "NUSHELL_LAST_SHELL".into(),
+                Value::Int {
+                    val: last_shell as i64,
                     span: call.head,
                 },
             );

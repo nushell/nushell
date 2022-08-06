@@ -66,6 +66,14 @@ impl Command for Enter {
         let mut shells = get_shells(engine_state, stack, cwd);
         let mut current_shell = get_current_shell(engine_state, stack);
 
+        stack.add_env_var(
+            "NUSHELL_LAST_SHELL".into(),
+            Value::Int {
+                val: current_shell as i64,
+                span: call.head,
+            },
+        );
+
         if current_shell + 1 > shells.len() {
             shells.push(new_path.clone());
             current_shell = shells.len();
