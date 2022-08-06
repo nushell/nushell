@@ -132,8 +132,8 @@ impl Command for GotoShell {
                 result: None,
             },
             Example {
-                description: "Make two directories and enter new shells for them, use `g` to jump to the last used shell",
-                example: r#"mkdir foo bar; enter foo; enter ../bar;  g 0; g -"#,
+                description: "Make two directories and enter new shells for them, use `g -` to jump to the last used shell",
+                example: r#"mkdir foo bar; enter foo; enter ../bar; g -"#,
                 result: None,
             },
         ]
