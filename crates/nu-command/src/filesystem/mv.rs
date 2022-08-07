@@ -288,10 +288,10 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
             Err(e) => {
                 let error_kind = match e.kind {
                     fs_extra::error::ErrorKind::Io(io) => {
-                        format!("I/O error: {:?}", io.to_string())
+                        format!("I/O error: {}", io.to_string())
                     }
                     fs_extra::error::ErrorKind::StripPrefix(sp) => {
-                        format!("Strip prefix error: {:?}", sp.to_string())
+                        format!("Strip prefix error: {}", sp.to_string())
                     }
                     fs_extra::error::ErrorKind::OsString(os) => {
                         format!("OsString error: {:?}", os.to_str())
@@ -300,7 +300,7 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
                 };
                 Err(ShellError::GenericError(
                     format!(
-                        "Could not move {:?} to {:?}. Error Kind {:?}",
+                        "Could not move {:?} to {:?}. Error Kind: {:?}",
                         from, to, error_kind
                     ),
                     "could not move".into(),
