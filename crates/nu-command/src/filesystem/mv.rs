@@ -285,13 +285,30 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
             fs_extra::dir::move_dir(from, to, &options)
         } {
             Ok(_) => Ok(()),
-            Err(e) => Err(ShellError::GenericError(
-                format!("Could not move {:?} to {:?}. {:}", from, to, e),
-                "could not move".into(),
-                Some(from_span),
-                None,
-                Vec::new(),
-            )),
+            Err(e) => {
+                let error_kind = match e.kind {
+                    fs_extra::error::ErrorKind::Io(io) => {
+                        format!("I/O error: {:?}", io.to_string())
+                    }
+                    fs_extra::error::ErrorKind::StripPrefix(sp) => {
+                        format!("Strip prefix error: {:?}", sp.to_string())
+                    }
+                    fs_extra::error::ErrorKind::OsString(os) => {
+                        format!("OsString error: {:?}", os.to_str())
+                    }
+                    _ => e.to_string(),
+                };
+                Err(ShellError::GenericError(
+                    format!(
+                        "Could not move {:?} to {:?}. Error Kind {:?}",
+                        from, to, error_kind
+                    ),
+                    "could not move".into(),
+                    Some(from_span),
+                    None,
+                    Vec::new(),
+                ))
+            }
         }
     })
 }
