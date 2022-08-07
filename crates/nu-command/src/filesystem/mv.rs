@@ -288,10 +288,10 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
             Err(e) => {
                 let error_kind = match e.kind {
                     fs_extra::error::ErrorKind::Io(io) => {
-                        format!("I/O error: {}", io.to_string())
+                        format!("I/O error: {}", io)
                     }
                     fs_extra::error::ErrorKind::StripPrefix(sp) => {
-                        format!("Strip prefix error: {}", sp.to_string())
+                        format!("Strip prefix error: {}", sp)
                     }
                     fs_extra::error::ErrorKind::OsString(os) => {
                         format!("OsString error: {:?}", os.to_str())
