@@ -1,4 +1,4 @@
-use super::{get_current_shell, get_last_shell, get_shells};
+use super::{get_current_shell, get_shells, switch_shell, SwitchTo};
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -50,47 +50,16 @@ impl Command for GotoShell {
 
         match new_shell {
             Some(shell_span) => {
-                let index = if shell_span.item == "-" {
-                    get_last_shell(engine_state, stack)
+                if shell_span.item == "-" {
+                    switch_shell(engine_state, stack, call, shell_span.span, SwitchTo::Last)
                 } else {
-                    shell_span
+                    let n = shell_span
                         .item
                         .parse::<usize>()
-                        .map_err(|_| ShellError::NotFound(shell_span.span))?
-                };
+                        .map_err(|_| ShellError::NotFound(shell_span.span))?;
 
-                let new_path = shells
-                    .get(index)
-                    .ok_or(ShellError::NotFound(shell_span.span))?
-                    .to_owned();
-
-                let current_shell = get_current_shell(engine_state, stack);
-
-                stack.add_env_var(
-                    "NUSHELL_SHELLS".into(),
-                    Value::List {
-                        vals: shells,
-                        span: call.head,
-                    },
-                );
-                stack.add_env_var(
-                    "NUSHELL_CURRENT_SHELL".into(),
-                    Value::Int {
-                        val: index as i64,
-                        span: call.head,
-                    },
-                );
-                stack.add_env_var(
-                    "NUSHELL_LAST_SHELL".into(),
-                    Value::Int {
-                        val: current_shell as i64,
-                        span: call.head,
-                    },
-                );
-
-                stack.add_env_var("PWD".into(), new_path);
-
-                Ok(PipelineData::new(call.head))
+                    switch_shell(engine_state, stack, call, shell_span.span, SwitchTo::Nth(n))
+                }
             }
             None => {
                 let current_shell = get_current_shell(engine_state, stack);
