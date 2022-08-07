@@ -36,7 +36,7 @@ impl Command for SubCommand {
                 Some('s'),
             )
             .switch(
-                "no-dereference",
+                "no-follow-link",
                 "Just expand path but don't follow symbolic link",
                 Some('p'),
             )
@@ -64,7 +64,7 @@ impl Command for SubCommand {
             strict: call.has_flag("strict"),
             columns: call.get_flag(engine_state, stack, "columns")?,
             cwd: current_dir_str(engine_state, stack)?,
-            not_follow_symlink: call.has_flag("no-deference"),
+            not_follow_symlink: call.has_flag("no-follow-link"),
         };
 
         input.map(
