@@ -11,6 +11,7 @@ struct Arguments {
     strict: bool,
     columns: Option<Vec<String>>,
     cwd: String,
+    not_follow_symlink: bool,
 }
 
 impl PathSubcommandArguments for Arguments {
@@ -33,6 +34,11 @@ impl Command for SubCommand {
                 "strict",
                 "Throw an error if the path could not be expanded",
                 Some('s'),
+            )
+            .switch(
+                "no-deference",
+                "Just expand path but don't follow symbolic link",
+                Some('p'),
             )
             .named(
                 "columns",
@@ -58,6 +64,7 @@ impl Command for SubCommand {
             strict: call.has_flag("strict"),
             columns: call.get_flag(engine_state, stack, "columns")?,
             cwd: current_dir_str(engine_state, stack)?,
+            not_follow_symlink: call.has_flag("no-deference"),
         };
 
         input.map(
@@ -82,6 +89,11 @@ impl Command for SubCommand {
             Example {
                 description: "Expand a relative path",
                 example: r"'foo\..\bar' | path expand",
+                result: None,
+            },
+            Example {
+                description: "Expand an absolute path without following symlink",
+                example: r"'foo\..\bar' | path expand -p",
                 result: None,
             },
         ]
@@ -110,6 +122,9 @@ impl Command for SubCommand {
 }
 
 fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
+    if args.not_follow_symlink {
+        return Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span);
+    }
     if let Ok(p) = canonicalize_with(path, &args.cwd) {
         Value::string(p.to_string_lossy(), span)
     } else if args.strict {
