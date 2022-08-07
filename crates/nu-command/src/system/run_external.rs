@@ -159,6 +159,21 @@ impl ExternalCommand {
 
         match child {
             Err(err) => {
+                // recommend a replacement if the user tried a deprecated command
+                let command_name_lower = self.name.item.to_lowercase();
+                let deprecated = crate::deprecated_commands();
+                if deprecated.contains_key(&command_name_lower) {
+                    let replacement = match deprecated.get(&command_name_lower) {
+                        Some(s) => s.clone(),
+                        None => "".to_string(),
+                    };
+                    return Err(ShellError::DeprecatedCommand(
+                        command_name_lower,
+                        replacement,
+                        self.name.span,
+                    ));
+                }
+
                 // If we try to run an external but can't, there's a good chance
                 // that the user entered the wrong command name
                 let suggestion = suggest_command(&self.name.item, engine_state);

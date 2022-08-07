@@ -416,7 +416,6 @@ pub fn create_default_context() -> EngineState {
             Hash,
             HashMd5::default(),
             HashSha256::default(),
-            HashBase64,
         };
 
         // Experimental
@@ -427,17 +426,11 @@ pub fn create_default_context() -> EngineState {
 
         // Deprecated
         bind_command! {
-            PivotDeprecated,
+            HashBase64,
             StrDatetimeDeprecated,
             StrDecimalDeprecated,
             StrIntDeprecated,
-            MatchDeprecated,
-            NthDeprecated,
-            UnaliasDeprecated,
             StrFindReplaceDeprecated,
-            KeepDeprecated,
-            KeepUntilDeprecated,
-            KeepWhileDeprecated,
         };
 
         #[cfg(feature = "plugin")]
