@@ -300,7 +300,7 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
                 };
                 Err(ShellError::GenericError(
                     format!(
-                        "Could not move {:?} to {:?}. Error Kind: {:?}",
+                        "Could not move {:?} to {:?}. Error Kind: {}",
                         from, to, error_kind
                     ),
                     "could not move".into(),
