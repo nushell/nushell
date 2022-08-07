@@ -36,7 +36,7 @@ impl Command for SubCommand {
                 Some('s'),
             )
             .switch(
-                "no-deference",
+                "no-dereference",
                 "Just expand path but don't follow symbolic link",
                 Some('p'),
             )
