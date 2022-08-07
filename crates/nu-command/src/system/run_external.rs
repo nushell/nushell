@@ -162,14 +162,14 @@ impl ExternalCommand {
                 // If we try to run an external but can't, there's a good chance
                 // that the user entered the wrong command name
                 let suggestion = suggest_command(&self.name.item, engine_state);
-                let error_message = match suggestion {
-                    Some(s) => format!("{err} (did you mean '{s}'?)"),
-                    None => err.to_string(),
+                let label = match suggestion {
+                    Some(s) => format!("did you mean '{s}'?"),
+                    None => "can't run executable".into(),
                 };
 
                 Err(ShellError::ExternalCommand(
-                    "can't run executable".to_string(),
-                    error_message,
+                    label,
+                    err.to_string(),
                     self.name.span,
                 ))
             }
