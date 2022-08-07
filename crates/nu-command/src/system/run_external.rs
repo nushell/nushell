@@ -2,6 +2,7 @@ use fancy_regex::Regex;
 use itertools::Itertools;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
+use nu_protocol::did_you_mean;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
 use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
@@ -157,11 +158,21 @@ impl ExternalCommand {
         }
 
         match child {
-            Err(err) => Err(ShellError::ExternalCommand(
-                "can't run executable".to_string(),
-                err.to_string(),
-                self.name.span,
-            )),
+            Err(err) => {
+                // If we try to run an external but can't, there's a good chance
+                // that the user entered the wrong command name
+                let suggestion = suggest_command(&self.name.item, engine_state);
+                let label = match suggestion {
+                    Some(s) => format!("did you mean '{s}'?"),
+                    None => "can't run executable".into(),
+                };
+
+                Err(ShellError::ExternalCommand(
+                    label,
+                    err.to_string(),
+                    self.name.span,
+                ))
+            }
             Ok(mut child) => {
                 if !input.is_nothing() {
                     let mut engine_state = engine_state.clone();
@@ -510,6 +521,24 @@ impl ExternalCommand {
         let mut process = std::process::Command::new("sh");
         process.arg("-c").arg(cmd_with_args);
         process
+    }
+}
+
+/// Given an invalid command name, try to suggest an alternative
+fn suggest_command(attempted_command: &str, engine_state: &EngineState) -> Option<String> {
+    let commands = engine_state.get_signatures(false);
+    let command_name_lower = attempted_command.to_lowercase();
+    let search_term_match = commands.iter().find(|sig| {
+        sig.search_terms
+            .iter()
+            .any(|term| term.to_lowercase() == command_name_lower)
+    });
+    match search_term_match {
+        Some(sig) => Some(sig.name.clone()),
+        None => {
+            let command_names: Vec<String> = commands.iter().map(|sig| sig.name.clone()).collect();
+            did_you_mean(&command_names, attempted_command)
+        }
     }
 }
 
