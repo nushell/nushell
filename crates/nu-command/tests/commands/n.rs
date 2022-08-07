@@ -17,7 +17,7 @@ fn switch_to_next_shell_1() {
 
 #[test]
 fn switch_to_next_shell_2() {
-    Playground::setup("switch_to_next_shell_1", |dirs, sandbox| {
+    Playground::setup("switch_to_next_shell_2", |dirs, sandbox| {
         sandbox.mkdir("foo").mkdir("bar");
 
         let actual = nu!(
