@@ -2818,7 +2818,9 @@ dependencies = [
  "lazy_static",
  "nu-glob",
  "nu-path",
+ "nu-utils",
  "num-bigint 0.4.3",
+ "num-format",
  "tempfile",
 ]
 
@@ -2828,7 +2830,6 @@ version = "0.66.4"
 dependencies = [
  "crossterm_winapi",
  "lscolors",
- "nu-test-support",
  "num-format",
  "sys-locale",
 ]
