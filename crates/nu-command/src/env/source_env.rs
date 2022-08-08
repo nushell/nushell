@@ -5,34 +5,25 @@ use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Syntax
 
 /// Source a file for environment variables.
 #[derive(Clone)]
-pub struct Source;
+pub struct SourceEnv;
 
 impl Command for Source {
     fn name(&self) -> &str {
-        "source"
+        "source-env"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("source")
+        Signature::build("source-env")
             .required(
                 "filename",
                 SyntaxShape::Filepath,
-                "the filepath to the script file to source",
+                "the filepath to the script file to source the environment frome",
             )
             .category(Category::Core)
     }
 
     fn usage(&self) -> &str {
-        "Runs a script file in the current context."
-    }
-
-    fn extra_usage(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nushell.html"#
-    }
-
-    fn is_parser_keyword(&self) -> bool {
-        true
+        "Source the environment from a source file into the current environment."
     }
 
     fn run(
@@ -58,17 +49,10 @@ impl Command for Source {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Runs foo.nu in the current context",
-                example: r#"source foo.nu"#,
-                result: None,
-            },
-            Example {
-                description: "Runs foo.nu in current context and call the command defined, suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`",
-                example: r#"source ./foo.nu; say-hi"#,
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Sources the environment from foo.nu in the current context",
+            example: r#"source-env foo.nu"#,
+            result: None,
+        }]
     }
 }
