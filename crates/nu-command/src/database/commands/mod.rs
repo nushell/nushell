@@ -7,6 +7,7 @@ mod collect;
 mod describe;
 mod from;
 mod group_by;
+mod into_sqlite;
 mod join;
 mod limit;
 mod open;
@@ -22,16 +23,16 @@ mod where_;
 mod testing;
 use testing::TestingDb;
 
-use nu_protocol::engine::StateWorkingSet;
-
 use alias::AliasDb;
 use and::AndDb;
 use collect::CollectDb;
 pub(crate) use describe::DescribeDb;
 pub(crate) use from::FromDb;
 use group_by::GroupByDb;
+use into_sqlite::IntoSqliteDb;
 use join::JoinDb;
 use limit::LimitDb;
+use nu_protocol::engine::StateWorkingSet;
 use open::OpenDb;
 use or::OrDb;
 use order_by::OrderByDb;
@@ -60,6 +61,7 @@ pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
         DescribeDb,
         FromDb,
         GroupByDb,
+        IntoSqliteDb,
         JoinDb,
         LimitDb,
         OpenDb,
