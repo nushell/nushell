@@ -15,6 +15,7 @@ serde_json = "1.0"
 nu-path = {path = "../nu-path", version = "0.66.3" }
 nu-protocol = { path = "../nu-protocol", version = "0.66.3" }
 nu-plugin = { path = "../nu-plugin", optional = true, version = "0.66.3"  }
+nu-engine = { path = "../nu-engine", version = "0.66.3" }
 log = "0.4"
 
 [features]
