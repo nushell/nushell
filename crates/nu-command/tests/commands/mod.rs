@@ -32,6 +32,7 @@ mod histogram;
 mod insert;
 mod into_filesize;
 mod into_int;
+mod into_string;
 mod last;
 mod length;
 mod let_;
