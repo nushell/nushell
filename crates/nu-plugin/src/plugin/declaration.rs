@@ -62,7 +62,7 @@ impl Command for PluginDeclaration {
         let source_file = Path::new(&self.filename);
         let mut plugin_cmd = create_command(source_file, &self.shell);
         // We need the current environment variables for `python` based plugins
-        // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.       
+        // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
         let current_envs = nu_engine::env::env_to_strings(engine_state, stack).unwrap_or_default();
         plugin_cmd.envs(current_envs);
 
