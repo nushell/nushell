@@ -4,20 +4,20 @@ use num_format::Grouping;
 
 #[test]
 fn test_get_system_locale_en() {
-    with_locale_override("en_US.UTF-8", || {
-        let locale = get_system_locale();
+    let locale = with_locale_override("en_US.UTF-8", || {
+        get_system_locale()
+    });
 
-        assert_eq!(locale.name(), "en");
-        assert_eq!(locale.grouping(), Grouping::Standard)
-    })
+    assert_eq!(locale.name(), "en");
+    assert_eq!(locale.grouping(), Grouping::Standard)
 }
 
 #[test]
 fn test_get_system_locale_de() {
-    with_locale_override("de_DE.UTF-8", || {
-        let locale = get_system_locale();
-
-        assert_eq!(locale.name(), "de");
-        assert_eq!(locale.grouping(), Grouping::Standard)
+    let locale = with_locale_override("de_DE.UTF-8", || {
+        get_system_locale()
     });
+
+    assert_eq!(locale.name(), "de");
+    assert_eq!(locale.grouping(), Grouping::Standard)
 }
