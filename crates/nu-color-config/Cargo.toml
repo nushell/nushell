@@ -4,11 +4,11 @@ description = "Color configuration code used by Nushell"
 edition = "2021"
 license = "MIT"
 name = "nu-color-config"
-version = "0.66.3"
+version = "0.66.4"
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.66.3"  }
+nu-protocol = { path = "../nu-protocol", version = "0.66.4"  }
 nu-ansi-term = "0.46.0"
-nu-json = { path = "../nu-json", version = "0.66.3"  }
-nu-table = { path = "../nu-table", version = "0.66.3"  }
+nu-json = { path = "../nu-json", version = "0.66.4"  }
+nu-table = { path = "../nu-table", version = "0.66.4"  }
 serde = { version="1.0.123", features=["derive"] }

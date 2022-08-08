@@ -4,14 +4,14 @@ description = "Nushell's internal protocols, including its abstract syntax tree"
 edition = "2021"
 license = "MIT"
 name = "nu-protocol"
-version = "0.66.3"
+version = "0.66.4"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-utils = { path = "../nu-utils", version = "0.66.3"  }
-nu-path = { path = "../nu-path", version = "0.66.3"  }
-nu-json = { path = "../nu-json", version = "0.66.3"  }
+nu-utils = { path = "../nu-utils", version = "0.66.4"  }
+nu-path = { path = "../nu-path", version = "0.66.4"  }
+nu-json = { path = "../nu-json", version = "0.66.4"  }
 
 byte-unit = "4.0.9"
 chrono = { version="0.4.20", features=["serde"] }
