@@ -1,6 +1,7 @@
 mod declaration;
 pub use declaration::PluginDeclaration;
 use nu_engine::documentation::get_flags_section;
+use std::collections::HashMap;
 
 use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginResponse};
 use crate::EncodingType;
@@ -117,9 +118,11 @@ pub fn get_signature(
     path: &Path,
     encoding: &EncodingType,
     shell: &Option<PathBuf>,
+    current_envs: &HashMap<String, String>,
 ) -> Result<Vec<Signature>, ShellError> {
     let mut plugin_cmd = create_command(path, shell);
 
+    plugin_cmd.envs(current_envs);
     let mut child = plugin_cmd.spawn().map_err(|err| {
         ShellError::PluginFailedToLoad(format!("Error spawning child process: {}", err))
     })?;

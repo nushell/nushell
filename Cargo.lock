@@ -2721,6 +2721,7 @@ dependencies = [
  "itertools",
  "log",
  "miette 5.1.1",
+ "nu-engine",
  "nu-path",
  "nu-plugin",
  "nu-protocol",
