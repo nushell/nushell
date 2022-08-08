@@ -1,20 +1,73 @@
 #[macro_export]
 macro_rules! nu {
-    (cwd: $cwd:expr, $path:expr, $($part:expr),*) => {{
+    // In the `@options` phase, we restucture all the
+    // `$field_1: $value_1, $field_2: $value_2, ...`
+    // pairs to a structure like
+    // `@options[ $field_1 => $value_1 ; $field_2 => $value_2 ; ... ]`.
+    // We do this to later distinguish the options from the `$path` and `$part`s.
+    // (See
+    //   https://users.rust-lang.org/t/i-dont-think-this-local-ambiguity-when-calling-macro-is-ambiguous/79401?u=x3ro
+    // )
+    //
+    // If there is any special treatment needed for the `$value`, we can just
+    // match for the specific `field` name.
+    (
+        @options [ $($options:tt)* ]
+        cwd: $value:expr,
+        $($rest:tt)*
+    ) => {
+        nu!(@options [ $($options)* cwd => $crate::fs::in_directory($value) ; ] $($rest)*)
+    };
+    // For all other options, we call `.into()` on the `$value` and hope for the best. ;)
+    (
+        @options [ $($options:tt)* ]
+        $field:ident : $value:expr,
+        $($rest:tt)*
+    ) => {
+        nu!(@options [ $($options)* $field => $value.into() ; ] $($rest)*)
+    };
+
+    // When the `$field: $value,` pairs are all parsed, the next tokens are the `$path` and any
+    // number of `$part`s, potentially followed by a trailing comma.
+    (
+        @options [ $($options:tt)* ]
+        $path:expr
+        $(, $part:expr)*
+        $(,)*
+    ) => {{
+        // Here we parse the options into a `NuOpts` struct
+        let opts = nu!(@nu_opts $($options)*);
+        // and format the `$path` using the `$part`s
+        let path = nu!(@format_path $path, $($part),*);
+        // Then finally we go to the `@main` phase, where the actual work is done.
+        nu!(@main opts, path)
+    }};
+
+    // Create the NuOpts struct from the `field => value ;` pairs
+    (@nu_opts $( $field:ident => $value:expr ; )*) => {
+        NuOpts{
+            $(
+                $field: Some($value),
+            )*
+            ..Default::default()
+        }
+    };
+
+    // Helper to format `$path`.
+    (@format_path $path:expr $(,)?) => {
+        // When there are no `$part`s, do not format anything
+        $path
+    };
+    (@format_path $path:expr, $($part:expr),* $(,)?) => {{
         use $crate::fs::DisplayPath;
 
-        let path = format!($path, $(
+        format!($path, $(
             $part.display_path()
-        ),*);
-
-        nu!($cwd, &path)
+        ),*)
     }};
 
-    (cwd: $cwd:expr, $path:expr) => {{
-        nu!($cwd, $path)
-    }};
-
-    ($cwd:expr, $path:expr) => {{
+    // Do the actual work.
+    (@main $opts:expr, $path:expr) => {{
         pub use itertools::Itertools;
         pub use std::error::Error;
         pub use std::io::prelude::*;
@@ -64,7 +117,7 @@ macro_rules! nu {
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };
 
-        let target_cwd = $crate::fs::in_directory(&$cwd);
+        let target_cwd = &$opts.cwd.unwrap_or(".".to_string());
 
         let mut process = match Command::new($crate::fs::executable_path())
             .env("PWD", &target_cwd)
@@ -99,6 +152,16 @@ macro_rules! nu {
             println!("=== stderr\n{}", err);
 
         $crate::Outcome::new(out,err.into_owned())
+    }};
+
+    // This is the entrypoint for this macro.
+    ($($token:tt)*) => {{
+        #[derive(Default)]
+        struct NuOpts {
+            cwd: Option<String>,
+        }
+
+        nu!(@options [ ] $($token)*)
     }};
 }
 
