@@ -119,7 +119,8 @@ macro_rules! nu {
 
         let target_cwd = &$opts.cwd.unwrap_or(".".to_string());
 
-        let mut process = match Command::new($crate::fs::executable_path())
+        let mut command = Command::new($crate::fs::executable_path());
+        command
             .env("PWD", &target_cwd)
             .current_dir(target_cwd)
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
@@ -130,8 +131,12 @@ macro_rules! nu {
             .arg(format!("-c {}", escape_quote_string($crate::fs::DisplayPath::display_path(&path))))
             .stdout(Stdio::piped())
             // .stdin(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+            .stderr(Stdio::piped());
+        if let Some(locale) = &$opts.locale {
+            command.env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale);
+        }
+
+        let mut process = match command.spawn()
         {
             Ok(child) => child,
             Err(why) => panic!("Can't run test {:?} {}", $crate::fs::executable_path(), why.to_string()),
@@ -159,6 +164,7 @@ macro_rules! nu {
         #[derive(Default)]
         struct NuOpts {
             cwd: Option<String>,
+            locale: Option<String>,
         }
 
         nu!(@options [ ] $($token)*)
