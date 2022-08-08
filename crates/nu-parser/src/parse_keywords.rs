@@ -2785,8 +2785,8 @@ pub fn parse_register(
         },
     };
 
-    // We needs current envs for `python` based plugin
-    // Or we'll likely to get a problem when plugin is implemented in a virtual Python environment.
+    // We need the current environment variables for `python` based plugins
+    // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
     let stack = Stack::new();
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
