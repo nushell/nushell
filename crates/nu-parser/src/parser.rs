@@ -1,7 +1,7 @@
 use crate::{
     lex, lite_parse,
     lite_parse::LiteCommand,
-    parse_keywords::{parse_extern, parse_for, parse_source},
+    parse_keywords::{parse_extern, parse_for},
     type_check::{math_result_type, type_compatible},
     LiteBlock, ParseError, Token, TokenContents,
 };
@@ -4627,19 +4627,6 @@ pub fn parse_expression(
                     )
                 }
             }
-            b"source" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                )
-                .0,
-                Some(ParseError::BuiltinCommandInPipeline(
-                    "source".into(),
-                    spans[0],
-                )),
-            ),
             b"export" => (
                 parse_call(
                     working_set,
@@ -4792,7 +4779,6 @@ pub fn parse_builtin_commands(
             (pipeline, err)
         }
         b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => {
             let full_decl = if lite_command.parts.len() > 1 {
                 let sub = working_set.get_span_contents(lite_command.parts[1]);

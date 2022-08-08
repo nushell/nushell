@@ -73,7 +73,7 @@ fn nu_lib_dirs_repl() {
 
         let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
-            r#"source foo.nu"#,
+            r#"source-env foo.nu"#,
             r#"$env.FOO"#,
         ];
 

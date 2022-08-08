@@ -57,7 +57,6 @@ pub fn create_default_context() -> EngineState {
             Let,
             Metadata,
             Module,
-            Source,
             Use,
             Version,
         };
@@ -353,6 +352,7 @@ pub fn create_default_context() -> EngineState {
             Env,
             LetEnv,
             LoadEnv,
+            SourceEnv,
             WithEnv,
             ConfigNu,
             ConfigEnv,

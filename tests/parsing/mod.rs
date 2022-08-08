@@ -56,7 +56,7 @@ fn parse_file_relative_to_parsed_file() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol/lol.nu",
                 r#"
-                    source ../../foo.nu
+                    source-env ../../foo.nu
                     use ../lol_shell.nu
                     overlay add ../../lol/lol_shell.nu
 
@@ -79,7 +79,7 @@ fn parse_file_relative_to_parsed_file() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                source lol/lol/lol.nu
+                source-env lol/lol/lol.nu
             "#
         ));
 

@@ -23,7 +23,6 @@ mod let_;
 mod metadata;
 mod module;
 pub(crate) mod overlay;
-mod source;
 mod use_;
 mod version;
 
@@ -52,7 +51,6 @@ pub use let_::Let;
 pub use metadata::Metadata;
 pub use module::Module;
 pub use overlay::*;
-pub use source::Source;
 pub use use_::Use;
 pub use version::Version;
 #[cfg(feature = "plugin")]

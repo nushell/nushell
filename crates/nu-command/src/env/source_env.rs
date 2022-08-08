@@ -1,13 +1,16 @@
+use std::collections::HashMap;
+
 use nu_engine::{eval_block, CallExt};
+use nu_parser::{find_in_dirs, parse, LIB_DIRS_ENV};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
 pub struct SourceEnv;
 
-impl Command for Source {
+impl Command for SourceEnv {
     fn name(&self) -> &str {
         "source-env"
     }
@@ -29,23 +32,34 @@ impl Command for Source {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        caller_stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Note: this hidden positional is the block_id that corresponded to the 0th position
-        // it is put here by the parser
-        let block_id: i64 = call.req(engine_state, stack, 1)?;
+        let source_filename: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
 
-        let block = engine_state.get_block(block_id as usize).clone();
-        eval_block(
-            engine_state,
-            stack,
-            &block,
-            input,
-            call.redirect_stdout,
-            call.redirect_stderr,
-        )
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let cwd = working_set.get_cwd();
+        eprintln!("trying to find {} in {}", cwd, source_filename.item);
+        if let Some(path) =
+            find_in_dirs(&source_filename.item, &mut working_set, &cwd, LIB_DIRS_ENV)
+        {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                let (block, _) = parse(&mut working_set, None, content.as_bytes(), false, &[]);
+                let mut callee_stack = caller_stack.captures_to_stack(&HashMap::new());
+                let result = eval_block(engine_state, &mut callee_stack, &block, input, true, true);
+
+                // add new env vars from callee to caller
+                for (var, value) in callee_stack.get_stack_env_vars() {
+                    caller_stack.add_env_var(var, value);
+                }
+                result
+            } else {
+                Err(ShellError::FileNotFound(source_filename.span))
+            }
+        } else {
+            Err(ShellError::FileNotFound(source_filename.span))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
