@@ -12,7 +12,7 @@ pub use n::NextShell;
 use nu_engine::current_dir;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Span, Value};
+use nu_protocol::{IntoInterruptiblePipelineData, PipelineData, ShellError, Span, Value};
 pub use p::PrevShell;
 pub use shells_::Shells;
 
@@ -122,4 +122,35 @@ fn switch_shell(
     stack.add_env_var("PWD".into(), new_path);
 
     Ok(PipelineData::new(call.head))
+}
+
+fn list_shells(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
+    let cwd = current_dir(engine_state, stack)?;
+    let cwd = Value::String {
+        val: cwd.to_string_lossy().to_string(),
+        span,
+    };
+
+    let shells = get_shells(engine_state, stack, cwd);
+    let current_shell = get_current_shell(engine_state, stack);
+
+    Ok(shells
+        .into_iter()
+        .enumerate()
+        .map(move |(idx, val)| Value::Record {
+            cols: vec!["active".to_string(), "path".to_string()],
+            vals: vec![
+                Value::Bool {
+                    val: idx == current_shell,
+                    span,
+                },
+                val,
+            ],
+            span,
+        })
+        .into_pipeline_data(None))
 }
