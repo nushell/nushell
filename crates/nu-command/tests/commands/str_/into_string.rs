@@ -1,4 +1,4 @@
-use nu_test_support::fake_locale::with_fake_locale;
+use nu_test_support::locale_override::with_locale_override;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
@@ -199,7 +199,7 @@ fn int_into_string() {
 
 #[test]
 fn int_into_string_decimals_0() {
-    with_fake_locale("en_US.UTF-8", || {
+    with_locale_override("en_US.UTF-8", || {
         let actual = nu!(
             cwd: ".", pipeline(
             r#"
@@ -213,7 +213,7 @@ fn int_into_string_decimals_0() {
 
 #[test]
 fn int_into_string_decimals_1() {
-    with_fake_locale("en_US.UTF-8", || {
+    with_locale_override("en_US.UTF-8", || {
         let actual = nu!(
             cwd: ".", pipeline(
             r#"
@@ -227,7 +227,7 @@ fn int_into_string_decimals_1() {
 
 #[test]
 fn int_into_string_decimals_10() {
-    with_fake_locale("en_US.UTF-8", || {
+    with_locale_override("en_US.UTF-8", || {
         let actual = nu!(
             cwd: ".", pipeline(
             r#"
@@ -242,7 +242,7 @@ fn int_into_string_decimals_10() {
 #[test]
 fn int_into_string_decimals_respects_system_locale_de() {
     // Set locale to `de_DE`, which uses `,` (comma) as decimal separator
-    with_fake_locale("de_DE.UTF-8", || {
+    with_locale_override("de_DE.UTF-8", || {
         let actual = nu!(
             cwd: ".", pipeline(
             r#"
@@ -257,7 +257,7 @@ fn int_into_string_decimals_respects_system_locale_de() {
 #[test]
 fn int_into_string_decimals_respects_system_locale_en() {
     // Set locale to `en_US`, which uses `.` (period) as decimal separator
-    with_fake_locale("en_US.UTF-8", || {
+    with_locale_override("en_US.UTF-8", || {
         let actual = nu!(
             cwd: ".", pipeline(
             r#"

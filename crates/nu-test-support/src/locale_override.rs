@@ -15,7 +15,7 @@ lazy_static! {
 /// Environment variables are global values. So when they are changed by one
 /// thread they are changed for all others. To prevent a test from overwriting
 /// the `LC_ALL` environment variable of another test, a mutex is used.
-pub fn with_fake_locale(locale_string: &str, func: fn()) {
+pub fn with_locale_override(locale_string: &str, func: fn()) {
     let result = {
         let _lock = LC_ALL_MUTEX
             .lock()

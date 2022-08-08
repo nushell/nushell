@@ -1,10 +1,10 @@
-use nu_test_support::fake_locale::with_fake_locale;
+use nu_test_support::locale_override::with_locale_override;
 use nu_utils::get_system_locale;
 use num_format::Grouping;
 
 #[test]
 fn test_get_system_locale_en() {
-    with_fake_locale("en_US.UTF-8", || {
+    with_locale_override("en_US.UTF-8", || {
         let locale = get_system_locale();
 
         assert_eq!(locale.name(), "en");
@@ -14,7 +14,7 @@ fn test_get_system_locale_en() {
 
 #[test]
 fn test_get_system_locale_de() {
-    with_fake_locale("de_DE.UTF-8", || {
+    with_locale_override("de_DE.UTF-8", || {
         let locale = get_system_locale();
 
         assert_eq!(locale.name(), "de");
