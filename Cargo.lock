@@ -2816,6 +2816,7 @@ version = "0.66.4"
 dependencies = [
  "getset",
  "hamcrest2",
+ "lazy_static",
  "nu-glob",
  "nu-path",
  "num-bigint 0.4.3",

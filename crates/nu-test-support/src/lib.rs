@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod fake_locale;
 pub mod fs;
 pub mod macros;
 pub mod playground;
