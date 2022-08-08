@@ -6,7 +6,8 @@ use nu_protocol::{
     Span, SyntaxShape, Value,
 };
 
-// TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
+// TODO once platform-specific dependencies are stable (see Cargo.toml)
+//use num_format::{Locale, SystemLocale, ToFormattedString};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -292,28 +293,45 @@ pub fn action(
         },
     }
 }
-fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
-    let str = if group_digits {
-        // TODO once platform-specific dependencies are stable (see Cargo.toml)
-        // #[cfg(windows)]
-        // {
-        //     int.to_formatted_string(&Locale::en)
-        // }
-        // #[cfg(not(windows))]
-        // {
-        //     match SystemLocale::default() {
-        //         Ok(locale) => int.to_formatted_string(&locale),
-        //         Err(_) => int.to_formatted_string(&Locale::en),
-        //     }
-        // }
+fn format_int(int: i64, _group_digits: bool, decimals: usize) -> String {
+    // TODO once platform-specific dependencies are stable (see Cargo.toml)
+    // rename function argument `_group_digits` to `group_digits`
 
-        int.to_string()
-    } else {
-        int.to_string()
-    };
+    // TODO once platform-specific dependencies are stable (see Cargo.toml)
+    //let locale = {
+    //    #[cfg(windows)]
+    //    {
+    //        Locale::en
+    //    }
+    //    #[cfg(not(windows))]
+    //    {
+    //        match SystemLocale::default() {
+    //            Ok(l) => l,
+    //            Err(_) => Locale::en,
+    //        }
+    //    }
+    //};
+
+    // TODO once platform-specific dependencies are stable (see Cargo.toml)
+    //let str = if group_digits {
+    //    int.to_formatted_string(&locale)
+    //} else {
+    //    int.to_string()
+    //};
+    let str = int.to_string();
 
     if decimals > 0 {
-        format!("{}.{:0decimals$}", str, 0, decimals = decimals)
+        // TODO once platform-specific dependencies are stable (see Cargo.toml)
+        //let decimal_point = locale.decimal();
+        let decimal_point = ".";
+
+        format!(
+            "{}{decimal_point}{dummy:0<decimals$}",
+            str,
+            decimal_point = decimal_point,
+            dummy = "",
+            decimals = decimals
+        )
     } else {
         str
     }

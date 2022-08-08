@@ -90,6 +90,9 @@ wax = { version =  "0.5.0", features = ["diagnostics"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.16.0", features = ["serde"], optional = true }
 
+# TODO once platform-specific dependencies are stable
+#num-format = { version = "0.4.0", features = ["with-system-locale"] }
+
 [target.'cfg(unix)'.dependencies]
 umask = "2.0.0"
 users = "0.11.0"
