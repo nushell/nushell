@@ -1,4 +1,3 @@
-use nu_test_support::locale_override::with_locale_override;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
@@ -199,42 +198,42 @@ fn int_into_string() {
 
 #[test]
 fn int_into_string_decimals_0() {
-    let actual = with_locale_override("en_US.UTF-8", || {
-        nu!(
-            cwd: ".", pipeline(
+    let actual = nu!(
+        locale: "en_US.UTF-8",
+        pipeline(
             r#"
             10 | into string --decimals 0
             "#
-        ))
-    });
+        )
+    );
 
     assert_eq!(actual.out, "10");
 }
 
 #[test]
 fn int_into_string_decimals_1() {
-    let actual = with_locale_override("en_US.UTF-8", || {
-        nu!(
-            cwd: ".", pipeline(
+    let actual = nu!(
+        locale: "en_US.UTF-8",
+        pipeline(
             r#"
             10 | into string --decimals 1
             "#
-        ))
-    });
+        )
+    );
 
     assert_eq!(actual.out, "10.0");
 }
 
 #[test]
 fn int_into_string_decimals_10() {
-    let actual = with_locale_override("en_US.UTF-8", || {
-        nu!(
-            cwd: ".", pipeline(
+    let actual = nu!(
+        locale: "en_US.UTF-8",
+        pipeline(
             r#"
             10 | into string --decimals 10
             "#
-        ))
-    });
+        )
+    );
 
     assert_eq!(actual.out, "10.0000000000");
 }
@@ -242,14 +241,14 @@ fn int_into_string_decimals_10() {
 #[test]
 fn int_into_string_decimals_respects_system_locale_de() {
     // Set locale to `de_DE`, which uses `,` (comma) as decimal separator
-    let actual = with_locale_override("de_DE.UTF-8", || {
-        nu!(
-            cwd: ".", pipeline(
+    let actual = nu!(
+        locale: "de_DE.UTF-8",
+        pipeline(
             r#"
             10 | into string --decimals 1
             "#
-        ))
-    });
+        )
+    );
 
     assert_eq!(actual.out, "10,0");
 }
@@ -257,14 +256,14 @@ fn int_into_string_decimals_respects_system_locale_de() {
 #[test]
 fn int_into_string_decimals_respects_system_locale_en() {
     // Set locale to `en_US`, which uses `.` (period) as decimal separator
-    let actual = with_locale_override("en_US.UTF-8", || {
-        nu!(
-            cwd: ".", pipeline(
+    let actual = nu!(
+        locale: "en_US.UTF-8",
+        pipeline(
             r#"
             10 | into string --decimals 1
             "#
-        ))
-    });
+        )
+    );
 
     assert_eq!(actual.out, "10.0");
 }
