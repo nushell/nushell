@@ -216,21 +216,8 @@ pub fn action(
 ) -> Value {
     match input {
         Value::Int { val, .. } => {
-            let res = if group_digits {
-                format_int(*val) // int.to_formatted_string(*locale)
-            } else if let Some(dig) = digits {
-                let mut val_with_trailing_zeroes = val.to_string();
-                if dig != 0 {
-                    val_with_trailing_zeroes.push('.');
-                }
-                for _ in 0..dig {
-                    val_with_trailing_zeroes.push('0');
-                }
-                val_with_trailing_zeroes
-            } else {
-                val.to_string()
-            };
-
+            let decimal_value = digits.unwrap_or(0) as usize;
+            let res = format_int(*val, group_digits, decimal_value);
             Value::String { val: res, span }
         }
         Value::Float { val, .. } => {
@@ -305,21 +292,31 @@ pub fn action(
         },
     }
 }
-fn format_int(int: i64) -> String {
-    int.to_string()
+fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
+    let str = if group_digits {
+        // TODO once platform-specific dependencies are stable (see Cargo.toml)
+        // #[cfg(windows)]
+        // {
+        //     int.to_formatted_string(&Locale::en)
+        // }
+        // #[cfg(not(windows))]
+        // {
+        //     match SystemLocale::default() {
+        //         Ok(locale) => int.to_formatted_string(&locale),
+        //         Err(_) => int.to_formatted_string(&Locale::en),
+        //     }
+        // }
 
-    // TODO once platform-specific dependencies are stable (see Cargo.toml)
-    // #[cfg(windows)]
-    // {
-    //     int.to_formatted_string(&Locale::en)
-    // }
-    // #[cfg(not(windows))]
-    // {
-    //     match SystemLocale::default() {
-    //         Ok(locale) => int.to_formatted_string(&locale),
-    //         Err(_) => int.to_formatted_string(&Locale::en),
-    //     }
-    // }
+        int.to_string()
+    } else {
+        int.to_string()
+    };
+
+    if decimals > 0 {
+        format!("{}.{:0decimals$}", str, 0, decimals=decimals)
+    } else {
+        str
+    }
 }
 
 #[cfg(test)]
