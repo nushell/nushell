@@ -47,4 +47,3 @@ fn int_into_string_decimals_10() {
 
     assert!(actual.out.eq("10.0000000000"));
 }
-

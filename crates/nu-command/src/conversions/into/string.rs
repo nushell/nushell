@@ -313,7 +313,7 @@ fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
     };
 
     if decimals > 0 {
-        format!("{}.{:0decimals$}", str, 0, decimals=decimals)
+        format!("{}.{:0decimals$}", str, 0, decimals = decimals)
     } else {
         str
     }
