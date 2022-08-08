@@ -5,9 +5,7 @@ use nu_protocol::{
     into_code, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature,
     Span, SyntaxShape, Value,
 };
-
-// TODO once platform-specific dependencies are stable (see Cargo.toml)
-//use num_format::{Locale, SystemLocale, ToFormattedString};
+use num_format::{Locale, ToFormattedString};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -293,37 +291,41 @@ pub fn action(
         },
     }
 }
-fn format_int(int: i64, _group_digits: bool, decimals: usize) -> String {
-    // TODO once platform-specific dependencies are stable (see Cargo.toml)
-    // rename function argument `_group_digits` to `group_digits`
 
-    // TODO once platform-specific dependencies are stable (see Cargo.toml)
-    //let locale = {
-    //    #[cfg(windows)]
-    //    {
-    //        Locale::en
-    //    }
-    //    #[cfg(not(windows))]
-    //    {
-    //        match SystemLocale::default() {
-    //            Ok(l) => l,
-    //            Err(_) => Locale::en,
-    //        }
-    //    }
-    //};
+fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
+    // TODO: This is the same logic as in `crates/nu-protocol/src/value/mod.rs:2603-2631`. It should be refactored into a lib function.
+    let locale = {
+        use sys_locale::get_locale;
+        let locale_string = get_locale().unwrap_or_else(|| String::from("en-US"));
+        // Since get_locale() and Locale::from_name() don't always return the same items
+        // we need to try and parse it to match. For instance, a valid locale is de_DE
+        // however Locale::from_name() wants only de so we split and parse it out.
+        let locale_string = locale_string.replace('_', "-"); // en_AU -> en-AU
 
-    // TODO once platform-specific dependencies are stable (see Cargo.toml)
-    //let str = if group_digits {
-    //    int.to_formatted_string(&locale)
-    //} else {
-    //    int.to_string()
-    //};
-    let str = int.to_string();
+        match Locale::from_name(&locale_string) {
+            Ok(loc) => loc,
+            _ => {
+                let all = num_format::Locale::available_names();
+                let locale_prefix = &locale_string.split('-').collect::<Vec<&str>>();
+                if all.contains(&locale_prefix[0]) {
+                    // eprintln!("Found alternate: {}", &locale_prefix[0]);
+                    Locale::from_name(locale_prefix[0]).unwrap_or(Locale::en)
+                } else {
+                    // eprintln!("Unable to find matching locale. Defaulting to en-US");
+                    Locale::en
+                }
+            }
+        }
+    };
+
+    let str = if group_digits {
+        int.to_formatted_string(&locale)
+    } else {
+        int.to_string()
+    };
 
     if decimals > 0 {
-        // TODO once platform-specific dependencies are stable (see Cargo.toml)
-        //let decimal_point = locale.decimal();
-        let decimal_point = ".";
+        let decimal_point = locale.decimal();
 
         format!(
             "{}{decimal_point}{dummy:0<decimals$}",

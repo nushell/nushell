@@ -24,6 +24,8 @@ nu-term-grid = { path = "../nu-term-grid", version = "0.66.4"  }
 nu-test-support = { path = "../nu-test-support", version = "0.66.4"  }
 nu-utils = { path = "../nu-utils", version = "0.66.4" }
 nu-ansi-term = "0.46.0"
+num-format = { version = "0.4.0" }
+sys-locale = "0.2.1"
 
 # Potential dependencies for extras
 alphanumeric-sort = "1.4.4"
@@ -89,9 +91,6 @@ reedline = { version = "0.9.0", features = ["bashisms", "sqlite"]}
 wax = { version =  "0.5.0", features = ["diagnostics"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.16.0", features = ["serde"], optional = true }
-
-# TODO once platform-specific dependencies are stable
-#num-format = { version = "0.4.0", features = ["with-system-locale"] }
 
 [target.'cfg(unix)'.dependencies]
 umask = "2.0.0"
