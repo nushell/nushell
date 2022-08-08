@@ -13,6 +13,9 @@ path = "src/main.rs"
 
 [dependencies]
 lscolors = { version = "0.12.0", features = ["crossterm"]}
+nu-test-support = { path = "../nu-test-support", version = "0.66.3"  }
+num-format = { version = "0.4.0" }
+sys-locale = "0.2.1"
 
 [target.'cfg(windows)'.dependencies]
 crossterm_winapi = "0.9.0"

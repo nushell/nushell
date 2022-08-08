@@ -2660,7 +2660,6 @@ dependencies = [
  "shadow-rs",
  "sqlparser",
  "strip-ansi-escapes",
- "sys-locale",
  "sysinfo",
  "terminal_size 0.2.1",
  "thiserror",
@@ -2829,6 +2828,9 @@ version = "0.66.4"
 dependencies = [
  "crossterm_winapi",
  "lscolors",
+ "nu-test-support",
+ "num-format",
+ "sys-locale",
 ]
 
 [[package]]
