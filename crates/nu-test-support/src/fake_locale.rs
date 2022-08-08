@@ -16,18 +16,28 @@ lazy_static! {
 /// thread they are changed for all others. To prevent a test from overwriting
 /// the `LC_ALL` environment variable of another test, a mutex is used.
 pub fn with_fake_locale(locale_string: &str, func: fn()) {
-    let _lock = LC_ALL_MUTEX
-        .lock()
-        .expect("Failed to get mutex lock for fake locale");
+    let result = {
+        let _lock = LC_ALL_MUTEX
+            .lock()
+            .expect("Failed to get mutex lock for fake locale");
 
-    let saved = std::env::var("LC_ALL").ok();
-    std::env::set_var("LC_ALL", locale_string);
+        let saved = std::env::var("LC_ALL").ok();
+        std::env::set_var("LC_ALL", locale_string);
 
-    func();
+        let result = std::panic::catch_unwind(|| {
+            func();
+        });
 
-    if let Some(locale_str) = saved {
-        std::env::set_var("LC_ALL", locale_str);
-    } else {
-        std::env::remove_var("LC_ALL");
+        if let Some(locale_str) = saved {
+            std::env::set_var("LC_ALL", locale_str);
+        } else {
+            std::env::remove_var("LC_ALL");
+        }
+
+        result
+    };
+
+    if let Err(err) = result {
+        std::panic::resume_unwind(err);
     }
 }
