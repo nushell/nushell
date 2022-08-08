@@ -1,10 +1,7 @@
-use super::{get_current_shell, get_shells};
-use nu_engine::current_dir;
+use super::list_shells;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -30,32 +27,7 @@ impl Command for Shells {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
-        let cwd = current_dir(engine_state, stack)?;
-        let cwd = Value::String {
-            val: cwd.to_string_lossy().to_string(),
-            span,
-        };
-
-        let shells = get_shells(engine_state, stack, cwd);
-        let current_shell = get_current_shell(engine_state, stack);
-
-        let output = shells
-            .into_iter()
-            .enumerate()
-            .map(move |(idx, val)| Value::Record {
-                cols: vec!["active".to_string(), "path".to_string()],
-                vals: vec![
-                    Value::Bool {
-                        val: idx == current_shell,
-                        span,
-                    },
-                    val,
-                ],
-                span,
-            });
-
-        Ok(output.into_pipeline_data(None))
+        list_shells(engine_state, stack, call.head)
     }
 
     fn examples(&self) -> Vec<Example> {

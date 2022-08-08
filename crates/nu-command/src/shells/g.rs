@@ -1,11 +1,8 @@
-use super::{get_current_shell, get_shells, switch_shell, SwitchTo};
-use nu_engine::{current_dir, CallExt};
+use super::{list_shells, switch_shell, SwitchTo};
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
-    SyntaxShape, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -37,16 +34,7 @@ impl Command for GotoShell {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
         let new_shell: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
-
-        let cwd = current_dir(engine_state, stack)?;
-        let cwd = Value::String {
-            val: cwd.to_string_lossy().to_string(),
-            span: call.head,
-        };
-
-        let shells = get_shells(engine_state, stack, cwd);
 
         match new_shell {
             Some(shell_span) => {
@@ -61,25 +49,7 @@ impl Command for GotoShell {
                     switch_shell(engine_state, stack, call, shell_span.span, SwitchTo::Nth(n))
                 }
             }
-            None => {
-                let current_shell = get_current_shell(engine_state, stack);
-
-                Ok(shells
-                    .into_iter()
-                    .enumerate()
-                    .map(move |(idx, val)| Value::Record {
-                        cols: vec!["active".to_string(), "path".to_string()],
-                        vals: vec![
-                            Value::Bool {
-                                val: idx == current_shell,
-                                span,
-                            },
-                            val,
-                        ],
-                        span,
-                    })
-                    .into_pipeline_data(None))
-            }
+            None => list_shells(engine_state, stack, call.head),
         }
     }
 
