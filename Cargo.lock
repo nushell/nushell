@@ -2678,6 +2678,7 @@ dependencies = [
  "wax",
  "which",
  "windows",
+ "zstd",
 ]
 
 [[package]]
@@ -5639,4 +5640,5 @@ checksum = "9fd07cbbc53846d9145dbffdf6dd09a7a0aa52be46741825f5c97bdd4f73f12b"
 dependencies = [
  "cc",
  "libc",
+ "pkg-config",
 ]
