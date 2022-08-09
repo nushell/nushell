@@ -85,10 +85,12 @@ mod fg_process_setup {
         // it's ok to use unsafe here
         // the implementaion here is just the same as
         // https://docs.rs/nix/latest/nix/unistd/fn.tcsetpgrp.html, which is a safe function.
-        if let Err(e) =
-            nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, Pid::from_raw(process.id() as i32))
-        {
-            println!("ERROR: set foreground id failed, tcsetpgrp result: {e:?}");
+        if atty::is(atty::Stream::Stdin) {
+            if let Err(e) =
+                nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, Pid::from_raw(process.id() as i32))
+            {
+                println!("ERROR: set foreground id failed, tcsetpgrp result: {e:?}");
+            }
         }
     }
 
@@ -97,8 +99,10 @@ mod fg_process_setup {
     /// ## Safety
     /// It can only be called when you have called `set_foreground`, or results in undefined behavior.
     pub(super) unsafe fn reset_foreground_id() {
-        if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, unistd::getpgrp()) {
-            println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
+        if atty::is(atty::Stream::Stdin) {
+            if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, unistd::getpgrp()) {
+                println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
+            }
         }
         unblock()
     }
