@@ -85,7 +85,9 @@ mod fg_process_setup {
         // it's ok to use unsafe here
         // the implementaion here is just the same as
         // https://docs.rs/nix/latest/nix/unistd/fn.tcsetpgrp.html, which is a safe function.
-        if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, Pid::from_raw(process.id() as i32)) {
+        if let Err(e) =
+            nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, Pid::from_raw(process.id() as i32))
+        {
             println!("ERROR: set foreground id failed, tcsetpgrp result: {e:?}");
         }
     }
