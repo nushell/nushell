@@ -122,6 +122,8 @@ impl ExternalCommand {
         let ctrlc = engine_state.ctrlc.clone();
 
         let mut process = self.create_process(&input, false, head)?;
+        // mut is used in the windows branch only, suppress warning on other platforms
+        #[allow(unused_mut)]
         let mut child;
 
         #[cfg(windows)]
