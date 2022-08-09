@@ -57,9 +57,9 @@ impl Command for Cp {
             // .switch("force", "suppress error when no file", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
             .switch(
-                "no-follow-link",
+                "no-symlink",
                 "If the -r option is specified, no symbolic links are followed.",
-                Some('p'),
+                Some('n'),
             )
             .category(Category::FileSystem)
     }
@@ -218,7 +218,7 @@ impl Command for Cp {
                     )
                 })?;
 
-                let not_follow_symlink = call.has_flag("no-follow-link");
+                let not_follow_symlink = call.has_flag("no-symlink");
                 let sources = sources.paths_applying_with(|(source_file, depth_level)| {
                     let mut dest = destination.clone();
 

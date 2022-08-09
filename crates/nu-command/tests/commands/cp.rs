@@ -286,7 +286,7 @@ fn copy_dir_contains_symlink() {
         // make symbolic link and copy.
         nu!(
             cwd: sandbox.cwd(),
-            "rm tmp_dir/good_bye; cp -r -p tmp_dir tmp_dir_2",
+            "rm tmp_dir/good_bye; cp -r -n tmp_dir tmp_dir_2",
         );
 
         // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` also exists inside `tmp_dir_2`.
@@ -309,7 +309,7 @@ fn copy_dir_symlink_file_body_not_changed() {
         // make symbolic link and copy.
         nu!(
             cwd: sandbox.cwd(),
-            "rm tmp_dir/good_bye; cp -r -p tmp_dir tmp_dir_2; rm -r tmp_dir; cp -r -p tmp_dir_2 tmp_dir; echo hello_data | save tmp_dir/good_bye",
+            "rm tmp_dir/good_bye; cp -r -n tmp_dir tmp_dir_2; rm -r tmp_dir; cp -r -n tmp_dir_2 tmp_dir; echo hello_data | save tmp_dir/good_bye",
         );
 
         // check dangle_symlink in tmp_dir is no longer dangling.
