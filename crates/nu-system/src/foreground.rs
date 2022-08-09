@@ -82,9 +82,6 @@ mod fg_process_setup {
 
     // If `prepare_to_foreground` function is not called, the function will fail with silence and do nothing.
     pub(super) fn set_foreground(process: &std::process::Child) {
-        // it's ok to use unsafe here
-        // the implementaion here is just the same as
-        // https://docs.rs/nix/latest/nix/unistd/fn.tcsetpgrp.html, which is a safe function.
         if atty::is(atty::Stream::Stdin) {
             if let Err(e) =
                 nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, Pid::from_raw(process.id() as i32))
@@ -94,7 +91,7 @@ mod fg_process_setup {
         }
     }
 
-    /// Reset foreground to current process, and reset back `SIGTTOU`, `SIGTTIN` single handler.
+    /// Reset foreground to current process, unblock `SIGTSTP`, `SIGTTOU`, `SIGTTIN`, `SIGCHLD`
     ///
     /// ## Safety
     /// It can only be called when you have called `set_foreground`, or results in undefined behavior.
