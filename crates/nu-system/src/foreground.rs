@@ -55,11 +55,21 @@ impl Drop for ForegroundChild {
 // https://github.com/fish-shell/fish-shell/blob/3f90efca38079922b4b21707001d7bb9630107eb/src/postfork.cpp#L140
 #[cfg(target_family = "unix")]
 mod fg_process_setup {
+    use nix::{
+        sys::signal,
+        unistd::{tcsetpgrp, Pid},
+    };
+
     use std::os::unix::prelude::CommandExt;
     pub(super) fn prepare_to_foreground(external_command: &mut std::process::Command) {
         unsafe {
-            libc::signal(libc::SIGTTOU, libc::SIG_IGN);
-            libc::signal(libc::SIGTTIN, libc::SIG_IGN);
+            let mut sigset = signal::SigSet::empty();
+            sigset.add(signal::Signal::SIGTSTP);
+            sigset.add(signal::Signal::SIGTTOU);
+            sigset.add(signal::Signal::SIGTTIN);
+            sigset.add(signal::Signal::SIGCHLD);
+            signal::sigprocmask(signal::SigmaskHow::SIG_BLOCK, Some(&sigset), None)
+                .expect("Could not block the signals");
 
             // Safety:
             // POSIX only allows async-signal-safe functions to be called.
@@ -84,7 +94,8 @@ mod fg_process_setup {
         // the implementaion here is just the same as
         // https://docs.rs/nix/latest/nix/unistd/fn.tcsetpgrp.html, which is a safe function.
         unsafe {
-            libc::tcsetpgrp(libc::STDIN_FILENO, process.id() as i32);
+            let res = nix::unistd::tcsetpgrp(0, Pid::from_raw(process.id() as i32));
+            // println!("debug: in set foreground, tcsetpgrp result: {:?}", res);
         }
     }
 
@@ -93,9 +104,16 @@ mod fg_process_setup {
     /// ## Safety
     /// It can only be called when you have called `set_foreground`, or results in undefined behavior.
     pub(super) unsafe fn reset_foreground_id() {
-        libc::tcsetpgrp(libc::STDIN_FILENO, libc::getpgrp());
-        libc::signal(libc::SIGTTOU, libc::SIG_DFL);
-        libc::signal(libc::SIGTTIN, libc::SIG_DFL);
+        let res = nix::unistd::tcsetpgrp(0, Pid::from_raw(libc::getpgrp().into()));
+        // println!("debug: in resetset foreground, tcsetpgrp result: {:?}", res);
+
+        let mut sigset = signal::SigSet::empty();
+        sigset.add(signal::Signal::SIGTSTP);
+        sigset.add(signal::Signal::SIGTTOU);
+        sigset.add(signal::Signal::SIGTTIN);
+        sigset.add(signal::Signal::SIGCHLD);
+        signal::sigprocmask(signal::SigmaskHow::SIG_UNBLOCK, Some(&sigset), None)
+            .expect("Could not block the signals");
     }
 }
 

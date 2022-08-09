@@ -134,6 +134,27 @@ fn main() -> Result<()> {
 
     let parsed_nu_cli_args = parse_commandline_args(&nushell_commandline_args, &mut engine_state);
 
+    unsafe {
+        if libc::isatty(0) != 0 {
+            let mut sigset = signal::SigSet::empty();
+            sigset.add(signal::Signal::SIGTSTP);
+            sigset.add(signal::Signal::SIGTTOU);
+            sigset.add(signal::Signal::SIGTTIN);
+            sigset.add(signal::Signal::SIGCHLD);
+            signal::sigprocmask(signal::SigmaskHow::SIG_BLOCK, Some(&sigset), None)
+                .expect("Could not block the signals");
+
+            use nix::sys::signal::{self, SigHandler, Signal};
+            use nix::unistd;
+            let pgid = unistd::getpid();
+            if pgid != unistd::getpgrp() {
+                unistd::setpgid(pgid, pgid).unwrap();
+            }
+            unsafe { signal::signal(Signal::SIGTTOU, SigHandler::SigIgn) }.unwrap();
+            unistd::tcsetpgrp(nix::libc::STDIN_FILENO, pgid).unwrap();
+        }
+    }
+
     match parsed_nu_cli_args {
         Ok(binary_args) => {
             if let Some(t) = binary_args.threads {

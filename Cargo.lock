@@ -2434,6 +2434,7 @@ dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
  "libc",
+ "memoffset",
 ]
 
 [[package]]
@@ -2509,8 +2510,10 @@ dependencies = [
  "hamcrest2",
  "is_executable",
  "itertools",
+ "libc",
  "log",
  "miette 5.1.1",
+ "nix",
  "nu-ansi-term",
  "nu-cli",
  "nu-color-config",
@@ -2686,6 +2689,7 @@ name = "nu-engine"
 version = "0.66.4"
 dependencies = [
  "chrono",
+ "nix",
  "nu-glob",
  "nu-path",
  "nu-protocol",
@@ -2789,6 +2793,7 @@ dependencies = [
  "errno",
  "libc",
  "libproc",
+ "nix",
  "ntapi",
  "once_cell",
  "procfs",
