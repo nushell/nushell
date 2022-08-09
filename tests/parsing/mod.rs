@@ -95,7 +95,7 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_1() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 r#"
-                    source foo.nu
+                    source-env foo.nu
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -114,7 +114,7 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_1() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                source lol/lol.nu;
+                source-env lol/lol.nu;
                 $env.FOO
             "#
         ));
@@ -131,7 +131,7 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 r#"
-                    source foo.nu
+                    source-env foo.nu
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -144,7 +144,7 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                source lol/lol.nu
+                source-env lol/lol.nu
             "#
         ));
 

@@ -1,10 +1,13 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use nu_engine::{eval_block, CallExt};
 use nu_parser::{find_in_dirs, parse, LIB_DIRS_ENV};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -19,7 +22,7 @@ impl Command for SourceEnv {
         Signature::build("source-env")
             .required(
                 "filename",
-                SyntaxShape::Filepath,
+                SyntaxShape::String,
                 "the filepath to the script file to source the environment frome",
             )
             .category(Category::Core)
@@ -39,15 +42,33 @@ impl Command for SourceEnv {
         let source_filename: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
 
         let mut working_set = StateWorkingSet::new(&engine_state);
+
         let cwd = working_set.get_cwd();
-        eprintln!("trying to find {} in {}", cwd, source_filename.item);
+
         if let Some(path) =
             find_in_dirs(&source_filename.item, &mut working_set, &cwd, LIB_DIRS_ENV)
         {
             if let Ok(content) = std::fs::read_to_string(&path) {
+                let mut engine_state = engine_state.clone();
+
+                let mut path = PathBuf::from(&path);
+                path.pop();
+
+                engine_state.add_env_var(
+                    "PWD".into(),
+                    Value::String {
+                        val: path.to_string_lossy().to_string(),
+                        span: call.head,
+                    },
+                );
+
+                let mut working_set = StateWorkingSet::new(&engine_state);
+
                 let (block, _) = parse(&mut working_set, None, content.as_bytes(), false, &[]);
                 let mut callee_stack = caller_stack.captures_to_stack(&HashMap::new());
-                let result = eval_block(engine_state, &mut callee_stack, &block, input, true, true);
+
+                let result =
+                    eval_block(&engine_state, &mut callee_stack, &block, input, true, true);
 
                 // add new env vars from callee to caller
                 for (var, value) in callee_stack.get_stack_env_vars() {

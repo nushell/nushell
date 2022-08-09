@@ -98,13 +98,13 @@ fn nu_lib_dirs_script() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "main.nu",
                 r#"
-                    source foo.nu
+                    source-env foo.nu
                 "#,
             )]);
 
         let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
-            r#"source main.nu"#,
+            r#"source-env main.nu"#,
             r#"$env.FOO"#,
         ];
 
@@ -129,7 +129,7 @@ fn nu_lib_dirs_relative_repl() {
 
         let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
-            r#"source foo.nu"#,
+            r#"source-env foo.nu"#,
             r#"$env.FOO"#,
         ];
 
@@ -148,7 +148,7 @@ fn nu_lib_dirs_relative_script() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/main.nu",
                 r#"
-                    source ../foo.nu
+                    source-env ../foo.nu
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -160,7 +160,7 @@ fn nu_lib_dirs_relative_script() {
 
         let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
-            r#"source scripts/main.nu"#,
+            r#"source-env scripts/main.nu"#,
             r#"$env.FOO"#,
         ];
 
