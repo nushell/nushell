@@ -1726,16 +1726,16 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.has_overlay(name)
     }
 
-    pub fn find_overlay_origin(&self, name: &[u8]) -> Option<ModuleId> {
+    pub fn find_overlay(&self, name: &[u8]) -> Option<&OverlayFrame> {
         for scope_frame in self.delta.scope.iter().rev() {
             if let Some(overlay_id) = scope_frame.find_overlay(name) {
-                return Some(scope_frame.get_overlay(overlay_id).origin);
+                return Some(scope_frame.get_overlay(overlay_id));
             }
         }
 
         self.permanent_state
             .find_overlay(name)
-            .map(|id| self.permanent_state.get_overlay(id).origin)
+            .map(|id| self.permanent_state.get_overlay(id))
     }
 
     pub fn last_overlay_name(&self) -> &Vec<u8> {
@@ -1777,7 +1777,8 @@ impl<'a> StateWorkingSet<'a> {
             // If there is no overlay, automatically activate the last one
             let name = self.last_overlay_name().to_vec();
             let origin = self.last_overlay().origin;
-            self.add_overlay(name, origin, vec![], vec![]);
+            let prefixed = self.last_overlay().prefixed;
+            self.add_overlay(name, origin, vec![], vec![], prefixed);
         }
 
         self.delta
@@ -1841,6 +1842,7 @@ impl<'a> StateWorkingSet<'a> {
         origin: ModuleId,
         decls: Vec<(Vec<u8>, DeclId)>,
         aliases: Vec<(Vec<u8>, AliasId)>,
+        prefixed: bool,
     ) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
@@ -1855,7 +1857,7 @@ impl<'a> StateWorkingSet<'a> {
         } else {
             last_scope_frame
                 .overlays
-                .push((name, OverlayFrame::from_origin(origin)));
+                .push((name, OverlayFrame::from_origin(origin, prefixed)));
             last_scope_frame.overlays.len() - 1
         };
 
@@ -1873,19 +1875,22 @@ impl<'a> StateWorkingSet<'a> {
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
-        let removed_overlay_origin = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
+        let result = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
             last_scope_frame
                 .active_overlays
                 .retain(|id| id != &overlay_id);
 
-            Some(last_scope_frame.get_overlay(overlay_id).origin)
+            let overlay_frame = last_scope_frame.get_overlay(overlay_id);
+
+            Some((overlay_frame.origin, overlay_frame.prefixed))
         } else {
             self.permanent_state
                 .find_overlay(name)
-                .map(|id| self.permanent_state.get_overlay(id).origin)
+                .map(|id| self.permanent_state.get_overlay(id))
+                .map(|overlay_frame| (overlay_frame.origin, overlay_frame.prefixed))
         };
 
-        if let Some(module_id) = removed_overlay_origin {
+        if let Some((module_id, prefixed)) = result {
             last_scope_frame.removed_overlays.push(name.to_owned());
 
             if keep_custom {
@@ -1895,12 +1900,32 @@ impl<'a> StateWorkingSet<'a> {
                     .decls_of_overlay(name)
                     .into_iter()
                     .filter(|(n, _)| !origin_module.has_decl(n))
+                    .map(|(n, id)| {
+                        if prefixed {
+                            let mut new_name = name.to_vec();
+                            new_name.push(b' ');
+                            new_name.extend(n);
+                            (new_name, id)
+                        } else {
+                            (n, id)
+                        }
+                    })
                     .collect();
 
                 let aliases = self
                     .aliases_of_overlay(name)
                     .into_iter()
                     .filter(|(n, _)| !origin_module.has_alias(n))
+                    .map(|(n, id)| {
+                        if prefixed {
+                            let mut new_name = name.to_vec();
+                            new_name.push(b' ');
+                            new_name.extend(n);
+                            (new_name, id)
+                        } else {
+                            (n, id)
+                        }
+                    })
                     .collect();
 
                 self.use_decls(decls);
