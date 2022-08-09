@@ -141,8 +141,7 @@ impl ExternalCommand {
 
             match process.spawn() {
                 Err(_) => {
-                    let mut fg_process =
-                        ForegroundProcess::new(self.create_process(&input, use_cmd, head)?);
+                    let mut fg_process = self.create_process(&input, use_cmd, head)?;
                     child = fg_process.spawn();
                 }
                 Ok(process) => {
