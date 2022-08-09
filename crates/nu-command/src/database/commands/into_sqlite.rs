@@ -140,7 +140,7 @@ fn action(
                                     })
                                     .join(",")
                             }
-                            // Number is formats so keep them without quotes
+                            // Number formats so keep them without quotes
                             Value::Int { val: _, span: _ }
                             | Value::Float { val: _, span: _ }
                             | Value::Filesize { val: _, span: _ }
@@ -255,7 +255,7 @@ fn nu_value_to_string(value: Value, separator: &str, config: &Config) -> String 
                 }
             };
             // escape single quotes
-            stripped.replace("'", "''")
+            stripped.replace('\'', "''")
         }
         Value::List { vals: val, .. } => val
             .iter()
