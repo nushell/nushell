@@ -4,10 +4,11 @@ use std::process::{Child, Command};
 ///
 /// ## spawn behavior
 /// ### Unix
-/// When invoke `spawn`, current process will ignore `SIGTTOU`, `SIGTTIN` signal, spawned child process will get it's
-/// own process group id, and it's going to foreground(by making stdin belong's to child's process group).
+/// When invoke `spawn`, current process will block `SIGTSTP`, `SIGTTOU`, `SIGTTIN`, `SIGCHLD`
 ///
-/// When child is to over, `SIGTTOU`, `SIGTTIN` signal will be reset, foreground process is back to callers' process.
+/// spawned child process will get it's own process group id, and it's going to foreground(by making stdin belong's to child's process group).
+///
+/// When child is to over, unblock `SIGTSTP`, `SIGTTOU`, `SIGTTIN`, `SIGCHLD`, foreground process is back to callers' process.
 ///
 /// ### Windows
 /// It does nothing special on windows system, `spawn` is the same as [std::process::Command::spawn](std::process::Command::spawn)
@@ -50,27 +51,15 @@ impl Drop for ForegroundChild {
 }
 
 // It's a simpler version of fish shell's external process handling.
-//
-// For more information, please check `child_setup_process` function in fish shell.
-// https://github.com/fish-shell/fish-shell/blob/3f90efca38079922b4b21707001d7bb9630107eb/src/postfork.cpp#L140
 #[cfg(target_family = "unix")]
 mod fg_process_setup {
-    use nix::{
-        sys::signal,
-        unistd::{tcsetpgrp, Pid},
-    };
-
+    use crate::signal::{block, unblock};
+    use nix::unistd::{self, Pid};
     use std::os::unix::prelude::CommandExt;
+
     pub(super) fn prepare_to_foreground(external_command: &mut std::process::Command) {
         unsafe {
-            let mut sigset = signal::SigSet::empty();
-            sigset.add(signal::Signal::SIGTSTP);
-            sigset.add(signal::Signal::SIGTTOU);
-            sigset.add(signal::Signal::SIGTTIN);
-            sigset.add(signal::Signal::SIGCHLD);
-            signal::sigprocmask(signal::SigmaskHow::SIG_BLOCK, Some(&sigset), None)
-                .expect("Could not block the signals");
-
+            block();
             // Safety:
             // POSIX only allows async-signal-safe functions to be called.
             // And `setpgid` is async-signal-safe function according to:
@@ -82,7 +71,9 @@ mod fg_process_setup {
                 // Or else we'll failed to set it as foreground process.
                 // For more information, check `fork_child_for_process` function:
                 // https://github.com/fish-shell/fish-shell/blob/023042098396aa450d2c4ea1eb9341312de23126/src/exec.cpp#L398
-                libc::setpgid(0, 0);
+                if let Err(e) = unistd::setpgid(Pid::from_raw(0), Pid::from_raw(0)) {
+                    println!("ERROR: setpgid for external failed, result: {e:?}");
+                }
                 Ok(())
             });
         }
@@ -93,9 +84,8 @@ mod fg_process_setup {
         // it's ok to use unsafe here
         // the implementaion here is just the same as
         // https://docs.rs/nix/latest/nix/unistd/fn.tcsetpgrp.html, which is a safe function.
-        unsafe {
-            let res = nix::unistd::tcsetpgrp(0, Pid::from_raw(process.id() as i32));
-            // println!("debug: in set foreground, tcsetpgrp result: {:?}", res);
+        if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, Pid::from_raw(process.id() as i32)) {
+            println!("ERROR: set foreground id failed, tcsetpgrp result: {e:?}");
         }
     }
 
@@ -104,16 +94,10 @@ mod fg_process_setup {
     /// ## Safety
     /// It can only be called when you have called `set_foreground`, or results in undefined behavior.
     pub(super) unsafe fn reset_foreground_id() {
-        let res = nix::unistd::tcsetpgrp(0, Pid::from_raw(libc::getpgrp().into()));
-        // println!("debug: in resetset foreground, tcsetpgrp result: {:?}", res);
-
-        let mut sigset = signal::SigSet::empty();
-        sigset.add(signal::Signal::SIGTSTP);
-        sigset.add(signal::Signal::SIGTTOU);
-        sigset.add(signal::Signal::SIGTTIN);
-        sigset.add(signal::Signal::SIGCHLD);
-        signal::sigprocmask(signal::SigmaskHow::SIG_UNBLOCK, Some(&sigset), None)
-            .expect("Could not block the signals");
+        if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, unistd::getpgrp()) {
+            println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
+        }
+        unblock()
     }
 }
 
