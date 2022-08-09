@@ -2687,7 +2687,6 @@ name = "nu-engine"
 version = "0.66.4"
 dependencies = [
  "chrono",
- "nix",
  "nu-glob",
  "nu-path",
  "nu-protocol",

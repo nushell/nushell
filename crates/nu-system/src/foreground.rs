@@ -9,6 +9,7 @@ use std::process::{Child, Command};
 /// spawned child process will get it's own process group id, and it's going to foreground(by making stdin belong's to child's process group).
 ///
 /// When child is to over, unblock `SIGTSTP`, `SIGTTOU`, `SIGTTIN`, `SIGCHLD`, foreground process is back to callers' process.
+/// It bahaves something like `SignalHandler` in ion(https://gitlab.redox-os.org/redox-os/ion/-/tree/master/).
 ///
 /// ### Windows
 /// It does nothing special on windows system, `spawn` is the same as [std::process::Command::spawn](std::process::Command::spawn)

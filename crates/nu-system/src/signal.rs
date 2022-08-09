@@ -8,8 +8,9 @@ pub fn block() {
     sigset.add(signal::Signal::SIGTTOU);
     sigset.add(signal::Signal::SIGTTIN);
     sigset.add(signal::Signal::SIGCHLD);
-    signal::sigprocmask(signal::SigmaskHow::SIG_BLOCK, Some(&sigset), None)
-        .expect("Could not block the signals");
+    if let Err(e) = signal::sigprocmask(signal::SigmaskHow::SIG_BLOCK, Some(&sigset), None) {
+        println!("ERROR: Could not block the signals, error message: {e:?}");
+    }
 }
 
 /// Unblocks the SIGTSTP/SIGTTOU/SIGTTIN/SIGCHLD signals so children processes can be
@@ -21,10 +22,12 @@ pub fn unblock() {
     sigset.add(signal::Signal::SIGTTOU);
     sigset.add(signal::Signal::SIGTTIN);
     sigset.add(signal::Signal::SIGCHLD);
-    signal::sigprocmask(signal::SigmaskHow::SIG_UNBLOCK, Some(&sigset), None)
-        .expect("Could not block the signals");
+    if let Err(e) = signal::sigprocmask(signal::SigmaskHow::SIG_UNBLOCK, Some(&sigset), None) {
+        println!("ERROR: Could not unblock the signals, error message: {e:?}");
+    }
 }
 
+// It's referenced from `set_unique_pid` function in `ion`.
 pub fn set_terminal_leader() {
     let stdin_is_a_tty = atty::is(atty::Stream::Stdin);
     if stdin_is_a_tty {
