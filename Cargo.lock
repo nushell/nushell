@@ -2120,8 +2120,8 @@ dependencies = [
 
 [[package]]
 name = "lscolors"
-version = "0.11.1"
-source = "git+https://github.com/sharkdp/lscolors.git?branch=master#bfc0d457b75640bd2d8d9bf16895c9ccd0b98722"
+version = "0.12.0"
+source = "git+https://github.com/sharkdp/lscolors.git?branch=master#5516bc727f66e7931a62585034ca8cc3ecf3f699"
 dependencies = [
  "ansi_term",
  "crossterm 0.24.0",
