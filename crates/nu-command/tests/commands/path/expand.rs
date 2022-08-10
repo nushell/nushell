@@ -116,7 +116,7 @@ mod windows {
                 cwd: dirs.test(), pipeline(
                 r#"
                 echo "menu/./spam_link.ln"
-                | path expand -p
+                | path expand -n
             "#
             ));
 
