@@ -32,18 +32,12 @@ fn expands_path_without_follow_symlink() {
             .within("menu")
             .with_files(vec![EmptyFile("spam.txt")]);
 
-        let cwd = dirs.test();
-        std::os::unix::fs::symlink(
-            cwd.join("menu").join("spam.txt"),
-            cwd.join("menu").join("spam_link.ln"),
-        )
-        .unwrap();
-
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
+                ln -s spam.txt menu/spam_link.ln;
                 echo "menu/./spam_link.ln"
-                | path expand -p
+                | path expand -n
             "#
         ));
 
