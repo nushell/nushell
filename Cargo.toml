@@ -125,4 +125,3 @@ path = "src/main.rs"
 
 [patch.crates-io]
 reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
-lscolors = { git = "https://github.com/sharkdp/lscolors.git", branch = "master" }
