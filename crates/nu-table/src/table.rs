@@ -354,7 +354,7 @@ impl papergrid::Color for TextStyle {
 
     fn fmt_suffix(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.color_style.is_some() {
-            papergrid::Color::fmt_suffix(&(), f)?;
+            f.write_str("\u{1b}[0m")?;
         }
 
         Ok(())
