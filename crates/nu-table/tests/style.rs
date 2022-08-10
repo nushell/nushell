@@ -131,7 +131,7 @@ fn test_reinforced() {
     );
 
     assert_eq!(
-        draw_table(vec![row(4); 1], 2, false, theme::reinforced()),
+        draw_table(vec![row(4); 2], 4, false, theme::reinforced()),
         "┏───┬───┬───┬───┓\n\
          │ 0 │ 1 │ 2 │ 3 │\n\
          │ 0 │ 1 │ 2 │ 3 │\n\

@@ -104,8 +104,12 @@ fn draw_table(
     let with_footer = with_header && need_footer(config, (&table.data).size().0 as u64);
     let with_index = !config.disable_table_indexes;
 
-    let table: tabled::Table<RecordsInfo<'_, TextStyle>> =
-        Builder::custom(table_data.clone()).build();
+    let mut data = table_data.clone();
+    if with_footer {
+        data.duplicate_row(0);
+    }
+
+    let table: tabled::Table<RecordsInfo<'_, TextStyle>> = Builder::custom(data).build();
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
     let table = align_table(
         table,
