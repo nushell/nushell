@@ -384,8 +384,11 @@ fn convert_to_table<'a>(
     let with_header = !headers.is_empty();
     let mut count_columns = headers.len();
 
-    let mut data: Vec<Vec<StyledString>> = Vec::new();
-    data.push(headers);
+    let mut data: Vec<Vec<StyledString>> = if headers.is_empty() {
+        Vec::new()
+    } else {
+        vec![headers]
+    };
 
     for (row_num, item) in input.enumerate() {
         if let Some(ctrlc) = &ctrlc {
@@ -500,12 +503,12 @@ fn make_styled_string(
         };
         StyledString {
             contents: precise_number,
-            style: style_primitive(text_type, &color_hm),
+            style: style_primitive(text_type, color_hm),
         }
     } else {
         StyledString {
             contents: text,
-            style: style_primitive(text_type, &color_hm),
+            style: style_primitive(text_type, color_hm),
         }
     }
 }

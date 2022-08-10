@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, iter};
+use std::{collections::HashMap, fmt::Display};
 
 use nu_protocol::{Config, FooterMode, TrimStrategy};
 use tabled::{
@@ -15,9 +15,7 @@ use tabled::{
     Alignment, Modify, ModifyObject, TableOption, Width,
 };
 
-use crate::{
-    table_theme::TableTheme, width_control::maybe_truncate_columns, StyledString, TextStyle,
-};
+use crate::{table_theme::TableTheme, StyledString, TextStyle};
 
 /// Table represent a table view.
 #[derive(Debug)]
@@ -107,7 +105,7 @@ fn draw_table(
     let with_index = !config.disable_table_indexes;
 
     let table: tabled::Table<RecordsInfo<'_, TextStyle>> =
-        tabled::builder::Builder::custom(table_data.clone()).build();
+        Builder::custom(table_data.clone()).build();
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
     let table = align_table(
         table,
@@ -148,60 +146,6 @@ fn table_width(table: &str) -> usize {
         .lines()
         .next()
         .map_or(0, papergrid::util::string_width)
-}
-
-fn colorize_data(table_data: &[Vec<StyledString>], count_columns: usize) -> Vec<Vec<String>> {
-    let mut data = vec![Vec::with_capacity(count_columns); table_data.len()];
-    for (row, row_data) in table_data.iter().enumerate() {
-        for cell in row_data {
-            let colored_text = cell
-                .style
-                .color_style
-                .as_ref()
-                .map(|color| color.paint(&cell.contents).to_string())
-                .unwrap_or_else(|| cell.contents.clone());
-
-            data[row].push(colored_text)
-        }
-    }
-
-    data
-}
-
-fn colorize_headers(headers: Option<&[StyledString]>) -> Option<Vec<String>> {
-    headers.map(|table_headers| {
-        let mut headers = Vec::with_capacity(table_headers.len());
-        for cell in table_headers {
-            let colored_text = cell
-                .style
-                .color_style
-                .as_ref()
-                .map(|color| color.paint(&cell.contents).to_string())
-                .unwrap_or_else(|| cell.contents.clone());
-
-            headers.push(colored_text)
-        }
-
-        headers
-    })
-}
-
-fn build_table(
-    data: Vec<Vec<String>>,
-    headers: Option<Vec<String>>,
-    need_footer: bool,
-) -> tabled::Table {
-    let mut builder = Builder::from(data);
-
-    if let Some(headers) = headers {
-        builder.set_columns(headers.clone());
-
-        if need_footer {
-            builder.add_record(headers);
-        }
-    }
-
-    builder.build()
 }
 
 fn align_table<R>(
@@ -379,27 +323,24 @@ where
     }
 }
 
-fn table_fix_lengths(headers: Option<&mut Vec<String>>, data: &mut [Vec<String>]) -> usize {
-    let length = table_find_max_length(headers.as_deref(), data);
-
-    if let Some(headers) = headers {
-        headers.extend(iter::repeat(String::default()).take(length - headers.len()));
+fn maybe_truncate_columns(
+    data: &mut RecordsInfo<'_, TextStyle>,
+    length: usize,
+    termwidth: usize,
+) -> bool {
+    // Make sure we have enough space for the columns we have
+    let max_num_of_columns = termwidth / 10;
+    if max_num_of_columns == 0 {
+        return true;
     }
 
-    for row in data {
-        row.extend(iter::repeat(String::default()).take(length - row.len()));
+    // If we have too many columns, truncate the table
+    if max_num_of_columns < length {
+        data.truncate(max_num_of_columns);
+        data.push(String::from("..."), &GridConfig::default());
     }
 
-    length
-}
-
-fn table_find_max_length<T>(headers: Option<&Vec<T>>, data: &[Vec<T>]) -> usize {
-    let mut length = headers.map_or(0, |h| h.len());
-    for row in data {
-        length = std::cmp::max(length, row.len());
-    }
-
-    length
+    false
 }
 
 impl papergrid::Color for TextStyle {
