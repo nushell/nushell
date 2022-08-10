@@ -24,7 +24,7 @@ impl Command for ToYaml {
         vec![Example {
             description: "Outputs an YAML string representing the contents of this table",
             example: r#"[[foo bar]; ["1" "2"]] | to yaml"#,
-            result: Some(Value::test_string("---\n- foo: \"1\"\n  bar: \"2\"\n")),
+            result: Some(Value::test_string("- foo: '1'\n  bar: '2'\n")),
         }]
     }
 
