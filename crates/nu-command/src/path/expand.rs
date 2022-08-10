@@ -35,11 +35,7 @@ impl Command for SubCommand {
                 "Throw an error if the path could not be expanded",
                 Some('s'),
             )
-            .switch(
-                "no-symlink",
-                "Do not resolve symbolic links",
-                Some('n'),
-            )
+            .switch("no-symlink", "Do not resolve symbolic links", Some('n'))
             .named(
                 "columns",
                 SyntaxShape::Table,
@@ -93,7 +89,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Expand an absolute path without following symlink",
-                example: r"'foo\..\bar' | path expand -p",
+                example: r"'foo\..\bar' | path expand -n",
                 result: None,
             },
         ]
@@ -122,25 +118,35 @@ impl Command for SubCommand {
 }
 
 fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
-    if args.not_follow_symlink {
-        return Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span);
-    }
-    if let Ok(p) = canonicalize_with(path, &args.cwd) {
-        Value::string(p.to_string_lossy(), span)
-    } else if args.strict {
-        Value::Error {
-            error: ShellError::GenericError(
-                "Could not expand path".into(),
-                "could not be expanded (path might not exist, non-final \
-                    component is not a directory, or other cause)"
-                    .into(),
-                Some(span),
-                None,
-                Vec::new(),
-            ),
+    if args.strict {
+        match canonicalize_with(path, &args.cwd) {
+            Ok(p) => {
+                if args.not_follow_symlink {
+                    Value::String(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+                } else {
+                    Value::String(p.to_string_lossy(), span)
+                }
+            }
+            Err(_) => Value::Error {
+                error: ShellError::GenericError(
+                    "Could not expand path".into(),
+                    "could not be expanded (path might not exist, non-final \
+                            component is not a directory, or other cause)"
+                        .into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
         }
     } else {
-        Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+        if args.not_follow_symlink {
+            Value::String(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+        } else {
+            canonicalize_with(path, &args.cwd).unwrap_or_else(|| {
+                Value::String(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+            })
+        }
     }
 }
 
