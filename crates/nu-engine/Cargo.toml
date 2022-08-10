@@ -4,13 +4,13 @@ description = "Nushell's evaluation engine"
 edition = "2021"
 license = "MIT"
 name = "nu-engine"
-version = "0.66.3"
+version = "0.66.4"
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.66.3"  }
-nu-path = { path = "../nu-path", version = "0.66.3"  }
-nu-glob = { path = "../nu-glob", version = "0.66.3" }
-nu-utils = { path = "../nu-utils", version = "0.66.3"  }
+nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.66.4"  }
+nu-path = { path = "../nu-path", version = "0.66.4"  }
+nu-glob = { path = "../nu-glob", version = "0.66.4" }
+nu-utils = { path = "../nu-utils", version = "0.66.4"  }
 
 chrono = { version="0.4.20", features=["serde"] }
 sysinfo = "0.24.6"

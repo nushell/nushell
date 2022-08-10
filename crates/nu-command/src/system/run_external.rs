@@ -2,10 +2,10 @@ use fancy_regex::Regex;
 use itertools::Itertools;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
+use nu_protocol::did_you_mean;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
 use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
-use nu_system::ForegroundProcess;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -101,6 +101,7 @@ impl Command for External {
     }
 }
 
+#[derive(Clone)]
 pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
@@ -120,30 +121,76 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let mut fg_process = ForegroundProcess::new(self.create_process(&input, false, head)?);
-        let child;
+        let mut process = self.create_process(&input, false, head)?;
+        // mut is used in the windows branch only, suppress warning on other platforms
+        #[allow(unused_mut)]
+        let mut child;
 
         #[cfg(windows)]
         {
-            // Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
-            // To support those commands, we "shell out" to cmd.exe.
+            // Running external commands on Windows has 2 points of complication:
+            // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
+            // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
 
-            // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
-            // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
-            const CMD_INTERNAL_COMMANDS: [&str; 8] = [
-                "ASSOC", "DIR", "ECHO", "FTYPE", "MKLINK", "START", "VER", "VOL",
-            ];
+            // To support these situations, we have a fallback path that gets run if a command
+            // fails to be run as a normal executable:
+            // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
+            // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
 
-            let command_name_upper = self.name.item.to_uppercase();
-            let use_cmd = CMD_INTERNAL_COMMANDS
-                .iter()
-                .any(|&cmd| command_name_upper == cmd);
+            match process.spawn() {
+                Err(err) => {
+                    // set the default value, maybe we'll override it later
+                    child = Err(err);
 
-            match fg_process.spawn() {
-                Err(_) => {
-                    let mut fg_process =
-                        ForegroundProcess::new(self.create_process(&input, use_cmd, head)?);
-                    child = fg_process.spawn();
+                    // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
+                    // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
+                    const CMD_INTERNAL_COMMANDS: [&str; 8] = [
+                        "ASSOC", "DIR", "ECHO", "FTYPE", "MKLINK", "START", "VER", "VOL",
+                    ];
+                    let command_name_upper = self.name.item.to_uppercase();
+                    let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
+                        .iter()
+                        .any(|&cmd| command_name_upper == cmd);
+
+                    if looks_like_cmd_internal {
+                        let mut cmd_process = self.create_process(&input, true, head)?;
+                        child = cmd_process.spawn();
+                    } else {
+                        #[cfg(feature = "which-support")]
+                        {
+                            // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
+                            // TODO: clean this up with an if-let chain once those are stable
+                            if let Ok(path) =
+                                nu_engine::env::path_str(engine_state, stack, self.name.span)
+                            {
+                                if let Some(cwd) = self.env_vars.get("PWD") {
+                                    // append cwd to PATH so `which-rs` looks in the cwd too.
+                                    // this approximates what cmd.exe does.
+                                    let path_with_cwd = format!("{};{}", cwd, path);
+                                    if let Ok(which_path) =
+                                        which::which_in(&self.name.item, Some(path_with_cwd), cwd)
+                                    {
+                                        if let Some(file_name) = which_path.file_name() {
+                                            let file_name_upper =
+                                                file_name.to_string_lossy().to_uppercase();
+                                            if file_name_upper != command_name_upper {
+                                                // which-rs found an executable file with a slightly different name
+                                                // than the one the user tried. Let's try running it
+                                                let mut new_command = self.clone();
+                                                new_command.name = Spanned {
+                                                    item: file_name.to_string_lossy().to_string(),
+                                                    span: self.name.span,
+                                                };
+                                                let mut cmd_process = new_command
+                                                    .create_process(&input, true, head)?;
+                                                child = cmd_process.spawn();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 Ok(process) => {
                     child = Ok(process);
@@ -153,15 +200,40 @@ impl ExternalCommand {
 
         #[cfg(not(windows))]
         {
-            child = fg_process.spawn()
+            child = process.spawn()
         }
 
         match child {
-            Err(err) => Err(ShellError::ExternalCommand(
-                "can't run executable".to_string(),
-                err.to_string(),
-                self.name.span,
-            )),
+            Err(err) => {
+                // recommend a replacement if the user tried a deprecated command
+                let command_name_lower = self.name.item.to_lowercase();
+                let deprecated = crate::deprecated_commands();
+                if deprecated.contains_key(&command_name_lower) {
+                    let replacement = match deprecated.get(&command_name_lower) {
+                        Some(s) => s.clone(),
+                        None => "".to_string(),
+                    };
+                    return Err(ShellError::DeprecatedCommand(
+                        command_name_lower,
+                        replacement,
+                        self.name.span,
+                    ));
+                }
+
+                // If we try to run an external but can't, there's a good chance
+                // that the user entered the wrong command name
+                let suggestion = suggest_command(&self.name.item, engine_state);
+                let label = match suggestion {
+                    Some(s) => format!("did you mean '{s}'?"),
+                    None => "can't run executable".into(),
+                };
+
+                Err(ShellError::ExternalCommand(
+                    label,
+                    err.to_string(),
+                    self.name.span,
+                ))
+            }
             Ok(mut child) => {
                 if !input.is_nothing() {
                     let mut engine_state = engine_state.clone();
@@ -171,7 +243,7 @@ impl ExternalCommand {
                     engine_state.config.use_ansi_coloring = false;
 
                     // if there is a string or a stream, that is sent to the pipe std
-                    if let Some(mut stdin_write) = child.as_mut().stdin.take() {
+                    if let Some(mut stdin_write) = child.stdin.take() {
                         std::thread::spawn(move || {
                             let input = crate::Table::run(
                                 &crate::Table,
@@ -212,7 +284,7 @@ impl ExternalCommand {
                     // and we create a ListStream that can be consumed
 
                     if redirect_stderr {
-                        let stderr = child.as_mut().stderr.take().ok_or_else(|| {
+                        let stderr = child.stderr.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stderr from external".to_string(),
                                 "Redirects need access to stderr of an external command"
@@ -251,7 +323,7 @@ impl ExternalCommand {
                     }
 
                     if redirect_stdout {
-                        let stdout = child.as_mut().stdout.take().ok_or_else(|| {
+                        let stdout = child.stdout.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stdout from external".to_string(),
                                 "Redirects need access to stdout of an external command"
@@ -289,7 +361,7 @@ impl ExternalCommand {
                         }
                     }
 
-                    match child.as_mut().wait() {
+                    match child.wait() {
                         Err(err) => Err(ShellError::ExternalCommand(
                             "External command exited with error".into(),
                             err.to_string(),
@@ -510,6 +582,24 @@ impl ExternalCommand {
         let mut process = std::process::Command::new("sh");
         process.arg("-c").arg(cmd_with_args);
         process
+    }
+}
+
+/// Given an invalid command name, try to suggest an alternative
+fn suggest_command(attempted_command: &str, engine_state: &EngineState) -> Option<String> {
+    let commands = engine_state.get_signatures(false);
+    let command_name_lower = attempted_command.to_lowercase();
+    let search_term_match = commands.iter().find(|sig| {
+        sig.search_terms
+            .iter()
+            .any(|term| term.to_lowercase() == command_name_lower)
+    });
+    match search_term_match {
+        Some(sig) => Some(sig.name.clone()),
+        None => {
+            let command_names: Vec<String> = commands.iter().map(|sig| sig.name.clone()).collect();
+            did_you_mean(&command_names, attempted_command)
+        }
     }
 }
 

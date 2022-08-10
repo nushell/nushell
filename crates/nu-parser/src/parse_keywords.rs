@@ -2623,7 +2623,8 @@ pub fn parse_register(
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     use nu_plugin::{get_signature, EncodingType, PluginDeclaration};
-    use nu_protocol::Signature;
+    use nu_protocol::{engine::Stack, Signature};
+
     let cwd = working_set.get_cwd();
 
     // Checking that the function is used with the correct name
@@ -2784,6 +2785,11 @@ pub fn parse_register(
         },
     };
 
+    // We need the current environment variables for `python` based plugins
+    // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
+    let stack = Stack::new();
+    let current_envs =
+        nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
     let error = match signature {
         Some(signature) => arguments.and_then(|(path, encoding)| {
             signature.map(|signature| {
@@ -2793,7 +2799,7 @@ pub fn parse_register(
             })
         }),
         None => arguments.and_then(|(path, encoding)| {
-            get_signature(path.as_path(), &encoding, &shell)
+            get_signature(path.as_path(), &encoding, &shell, &current_envs)
                 .map_err(|err| {
                     ParseError::LabeledError(
                         "Error getting signatures".into(),

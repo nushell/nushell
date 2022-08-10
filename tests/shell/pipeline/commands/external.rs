@@ -107,6 +107,19 @@ fn passes_binary_data_between_externals() {
     )
 }
 
+#[test]
+fn command_not_found_error_suggests_search_term() {
+    // 'distinct' is not a command, but it is a search term for 'uniq'
+    let actual = nu!(cwd: ".", "ls | distinct");
+    assert!(actual.err.contains("uniq"));
+}
+
+#[test]
+fn command_not_found_error_suggests_typo_fix() {
+    let actual = nu!(cwd: ".", "benhcmark { echo 'foo'}");
+    assert!(actual.err.contains("benchmark"));
+}
+
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};

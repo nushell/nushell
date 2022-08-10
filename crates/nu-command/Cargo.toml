@@ -4,25 +4,25 @@ description = "Nushell's built-in commands"
 edition = "2021"
 license = "MIT"
 name = "nu-command"
-version = "0.66.3"
+version = "0.66.4"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-color-config = { path = "../nu-color-config", version = "0.66.3"  }
-nu-engine = { path = "../nu-engine", version = "0.66.3"  }
-nu-glob = { path = "../nu-glob", version = "0.66.3" }
-nu-json = { path = "../nu-json", version = "0.66.3"  }
-nu-parser = { path = "../nu-parser", version = "0.66.3"  }
-nu-path = { path = "../nu-path", version = "0.66.3"  }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.66.3"  }
-nu-protocol = { path = "../nu-protocol", version = "0.66.3"  }
-nu-system = { path = "../nu-system", version = "0.66.3"  }
-nu-table = { path = "../nu-table", version = "0.66.3"  }
-nu-term-grid = { path = "../nu-term-grid", version = "0.66.3"  }
-nu-test-support = { path = "../nu-test-support", version = "0.66.3"  }
-nu-utils = { path = "../nu-utils", version = "0.66.3" }
+nu-color-config = { path = "../nu-color-config", version = "0.66.4"  }
+nu-engine = { path = "../nu-engine", version = "0.66.4"  }
+nu-glob = { path = "../nu-glob", version = "0.66.4" }
+nu-json = { path = "../nu-json", version = "0.66.4"  }
+nu-parser = { path = "../nu-parser", version = "0.66.4"  }
+nu-path = { path = "../nu-path", version = "0.66.4"  }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.66.4"  }
+nu-protocol = { path = "../nu-protocol", version = "0.66.4"  }
+nu-system = { path = "../nu-system", version = "0.66.4"  }
+nu-table = { path = "../nu-table", version = "0.66.4"  }
+nu-term-grid = { path = "../nu-term-grid", version = "0.66.4"  }
+nu-test-support = { path = "../nu-test-support", version = "0.66.4"  }
+nu-utils = { path = "../nu-utils", version = "0.66.4" }
 nu-ansi-term = "0.46.0"
 
 # Potential dependencies for extras
@@ -53,7 +53,7 @@ is-root = "0.1.2"
 itertools = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
-lscolors = { version = "0.11.0", features = ["crossterm"]}
+lscolors = { version = "0.12.0", features = ["crossterm"]}
 md5 = { package = "md-5", version = "0.10.0" }
 meval = "0.2.0"
 mime = "0.3.16"
@@ -89,6 +89,7 @@ reedline = { version = "0.9.0", features = ["bashisms", "sqlite"]}
 wax = { version =  "0.5.0", features = ["diagnostics"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.16.0", features = ["serde"], optional = true }
+zstd = { version = "*", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 umask = "2.0.0"
@@ -124,6 +125,7 @@ trash-support = ["trash"]
 which-support = ["which"]
 plugin = ["nu-parser/plugin"]
 dataframe = ["polars", "num"]
+system-zstd = ["zstd/pkg-config"]
 database = ["sqlparser", "rusqlite"]
 
 [build-dependencies]

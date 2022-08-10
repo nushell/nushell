@@ -61,6 +61,10 @@ impl Command for PluginDeclaration {
         // Create PipelineData
         let source_file = Path::new(&self.filename);
         let mut plugin_cmd = create_command(source_file, &self.shell);
+        // We need the current environment variables for `python` based plugins
+        // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
+        let current_envs = nu_engine::env::env_to_strings(engine_state, stack).unwrap_or_default();
+        plugin_cmd.envs(current_envs);
 
         let mut child = plugin_cmd.spawn().map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);
