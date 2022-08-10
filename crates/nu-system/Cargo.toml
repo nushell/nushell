@@ -16,7 +16,7 @@ path = "src/main.rs"
 libc = "0.2"
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
-procfs  = "0.13.0"
+procfs  = "0.14.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libproc = "0.12.0"
