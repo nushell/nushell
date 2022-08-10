@@ -1,24 +1,30 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display, iter};
 
-use nu_ansi_term::Style;
 use nu_protocol::{Config, FooterMode, TrimStrategy};
 use tabled::{
+    alignment::AlignmentHorizontal,
     builder::Builder,
-    formatting_settings::AlignmentStrategy,
+    color::Color,
+    formatting::AlignmentStrategy,
     object::{Cell, Columns, Rows, Segment},
-    papergrid,
-    style::Color,
-    Alignment, AlignmentHorizontal, Modify, ModifyObject, TableOption, Width,
+    papergrid::{
+        self,
+        records::{self, records_info_colored::RecordsInfo, Records, RecordsMut},
+        GridConfig,
+    },
+    Alignment, Modify, ModifyObject, TableOption, Width,
 };
 
-use crate::{table_theme::TableTheme, width_control::maybe_truncate_columns, StyledString};
+use crate::{
+    table_theme::TableTheme, width_control::maybe_truncate_columns, StyledString, TextStyle,
+};
 
 /// Table represent a table view.
 #[derive(Debug)]
-pub struct Table {
-    headers: Option<Vec<StyledString>>,
-    data: Vec<Vec<StyledString>>,
-    theme: TableTheme,
+pub struct Table<'a> {
+    data: RecordsInfo<'a, TextStyle>,
+    with_header: bool,
+    is_empty: bool,
 }
 
 #[derive(Debug)]
@@ -38,25 +44,33 @@ impl Default for Alignments {
     }
 }
 
-impl Table {
+impl<'a> Table<'a> {
     /// Creates a [Table] instance.
     ///
     /// If `headers.is_empty` then no headers will be rendered.
-    pub fn new(
-        headers: Vec<StyledString>,
-        data: Vec<Vec<StyledString>>,
-        theme: TableTheme,
-    ) -> Table {
-        let headers = if headers.is_empty() {
-            None
-        } else {
-            Some(headers)
-        };
+    pub fn new<D, DR>(
+        data: D,
+        size: (usize, usize),
+        termwidth: usize,
+        with_header: bool,
+    ) -> Table<'a>
+    where
+        D: IntoIterator<Item = DR> + 'a,
+        DR: IntoIterator<Item = StyledString> + 'a,
+    {
+        let data = data
+            .into_iter()
+            .map(|row| row.into_iter().map(|c| (c.contents, c.style)));
+
+        let mut data = RecordsInfo::new(data, size, &GridConfig::default());
+
+        let count_columns = (&data).size().1;
+        let is_empty = maybe_truncate_columns(&mut data, count_columns, termwidth);
 
         Table {
-            headers,
             data,
-            theme,
+            is_empty,
+            with_header,
         }
     }
 
@@ -66,38 +80,34 @@ impl Table {
     pub fn draw_table(
         &self,
         config: &Config,
-        color_hm: &HashMap<String, Style>,
+        color_hm: &HashMap<String, nu_ansi_term::Style>,
         alignments: Alignments,
+        theme: &TableTheme,
         termwidth: usize,
     ) -> Option<String> {
-        draw_table(self, config, color_hm, alignments, termwidth)
+        draw_table(self, config, color_hm, alignments, theme, termwidth)
     }
 }
 
 fn draw_table(
     table: &Table,
     config: &Config,
-    color_hm: &HashMap<String, Style>,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
     alignments: Alignments,
+    theme: &TableTheme,
     termwidth: usize,
 ) -> Option<String> {
-    let mut headers = colorize_headers(table.headers.as_deref());
-    let mut data = colorize_data(&table.data, table.headers.as_ref().map_or(0, |h| h.len()));
-
-    let count_columns = table_fix_lengths(headers.as_mut(), &mut data);
-
-    let is_empty = maybe_truncate_columns(&mut headers, &mut data, count_columns, termwidth);
-    if is_empty {
+    if table.is_empty {
         return None;
     }
 
     let table_data = &table.data;
-    let theme = &table.theme;
-    let with_header = headers.is_some();
-    let with_footer = with_header && need_footer(config, data.len() as u64);
+    let with_header = table.with_header;
+    let with_footer = with_header && need_footer(config, (&table.data).size().0 as u64);
     let with_index = !config.disable_table_indexes;
 
-    let table = build_table(data, headers, with_footer);
+    let table: tabled::Table<RecordsInfo<'_, TextStyle>> =
+        tabled::builder::Builder::custom(table_data.clone()).build();
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
     let table = align_table(
         table,
@@ -117,7 +127,7 @@ fn draw_table(
     }
 }
 
-fn print_table(table: tabled::Table, config: &Config) -> String {
+fn print_table(table: tabled::Table<RecordsInfo<'_, TextStyle>>, config: &Config) -> String {
     let output = table.to_string();
 
     // the atty is for when people do ls from vim, there should be no coloring there
@@ -134,7 +144,10 @@ fn print_table(table: tabled::Table, config: &Config) -> String {
 }
 
 fn table_width(table: &str) -> usize {
-    table.lines().next().map_or(0, papergrid::string_width)
+    table
+        .lines()
+        .next()
+        .map_or(0, papergrid::util::string_width)
 }
 
 fn colorize_data(table_data: &[Vec<StyledString>], count_columns: usize) -> Vec<Vec<String>> {
@@ -191,14 +204,18 @@ fn build_table(
     builder.build()
 }
 
-fn align_table(
-    mut table: tabled::Table,
+fn align_table<R>(
+    mut table: tabled::Table<R>,
     alignments: Alignments,
     with_index: bool,
     with_header: bool,
     with_footer: bool,
-    data: &[Vec<StyledString>],
-) -> tabled::Table {
+    data: &RecordsInfo<TextStyle>,
+) -> tabled::Table<R>
+where
+    R: RecordsMut,
+    for<'a> &'a R: Records,
+{
     table = table.with(
         Modify::new(Segment::all())
             .with(Alignment::Horizontal(alignments.data))
@@ -224,28 +241,33 @@ fn align_table(
     table
 }
 
-fn override_alignments(
-    mut table: tabled::Table,
-    data: &[Vec<StyledString>],
+fn override_alignments<R>(
+    mut table: tabled::Table<R>,
+    data: &RecordsInfo<TextStyle>,
     header_present: bool,
     index_present: bool,
     alignments: Alignments,
-) -> tabled::Table {
+) -> tabled::Table<R>
+where
+    for<'a> &'a R: Records,
+{
     let offset = if header_present { 1 } else { 0 };
-    for (row, rows) in data.iter().enumerate() {
-        for (col, s) in rows.iter().enumerate() {
-            if index_present && col == 0 && s.style.alignment == alignments.index {
+    let (count_rows, count_columns) = data.size();
+    for row in offset..count_rows {
+        for col in 0..count_columns {
+            let alignment = data[(row, col)].alignment;
+            if index_present && col == 0 && alignment == alignments.index {
                 continue;
             }
 
-            if s.style.alignment == alignments.data {
+            if alignment == alignments.data {
                 continue;
             }
 
             table = table.with(
-                Cell(row + offset, col)
+                Cell(row, col)
                     .modify()
-                    .with(Alignment::Horizontal(s.style.alignment)),
+                    .with(Alignment::Horizontal(alignment)),
             );
         }
     }
@@ -253,13 +275,17 @@ fn override_alignments(
     table
 }
 
-fn load_theme(
-    mut table: tabled::Table,
-    color_hm: &HashMap<String, Style>,
+fn load_theme<R>(
+    mut table: tabled::Table<R>,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
     theme: &TableTheme,
     with_footer: bool,
     with_header: bool,
-) -> tabled::Table {
+) -> tabled::Table<R>
+where
+    R: RecordsMut,
+    for<'a> &'a R: Records,
+{
     let mut theme = theme.theme.clone();
     if !with_header {
         theme.set_lines(HashMap::default());
@@ -292,23 +318,27 @@ fn need_footer(config: &Config, count_records: u64) -> bool {
 
 struct FooterStyle;
 
-impl TableOption for FooterStyle {
-    fn change(&mut self, grid: &mut papergrid::Grid) {
-        if grid.count_columns() == 0 || grid.count_rows() == 0 {
+impl<R> TableOption<R> for FooterStyle
+where
+    for<'a> &'a R: Records,
+{
+    fn change(&mut self, table: &mut tabled::Table<R>) {
+        if table.is_empty() {
             return;
         }
 
-        if let Some(line) = grid.get_split_line(1) {
-            grid.set_split_line(grid.count_rows() - 1, line.clone());
+        if let Some(line) = table.get_config().get_split_line(1).cloned() {
+            let count_rows = table.shape().0;
+            table.get_config_mut().set_split_line(count_rows - 1, line);
         }
     }
 }
 
-fn table_trim_columns(
-    table: tabled::Table,
+fn table_trim_columns<'a>(
+    table: tabled::Table<RecordsInfo<'a, TextStyle>>,
     termwidth: usize,
     trim_strategy: &TrimStrategy,
-) -> tabled::Table {
+) -> tabled::Table<RecordsInfo<'a, TextStyle>> {
     table.with(&TrimStrategyModifier {
         termwidth,
         trim_strategy,
@@ -320,8 +350,13 @@ pub struct TrimStrategyModifier<'a> {
     trim_strategy: &'a TrimStrategy,
 }
 
-impl tabled::TableOption for &TrimStrategyModifier<'_> {
-    fn change(&mut self, grid: &mut papergrid::Grid) {
+impl<R> tabled::TableOption<R> for &TrimStrategyModifier<'_>
+where
+    R: RecordsMut,
+    for<'a> &'a R: Records,
+    for<'a> <&'a R as Records>::Cell: records::Cell,
+{
+    fn change(&mut self, table: &mut tabled::Table<R>) {
         match self.trim_strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
                 let mut w = Width::wrap(self.termwidth).priority::<tabled::width::PriorityMax>();
@@ -329,7 +364,7 @@ impl tabled::TableOption for &TrimStrategyModifier<'_> {
                     w = w.keep_words();
                 }
 
-                w.change(grid)
+                w.change(table)
             }
             TrimStrategy::Truncate { suffix } => {
                 let mut w =
@@ -338,7 +373,7 @@ impl tabled::TableOption for &TrimStrategyModifier<'_> {
                     w = w.suffix(suffix).suffix_try_color(true);
                 }
 
-                w.change(grid);
+                w.change(table);
             }
         };
     }
@@ -348,11 +383,11 @@ fn table_fix_lengths(headers: Option<&mut Vec<String>>, data: &mut [Vec<String>]
     let length = table_find_max_length(headers.as_deref(), data);
 
     if let Some(headers) = headers {
-        headers.extend(std::iter::repeat(String::default()).take(length - headers.len()));
+        headers.extend(iter::repeat(String::default()).take(length - headers.len()));
     }
 
     for row in data {
-        row.extend(std::iter::repeat(String::default()).take(length - row.len()));
+        row.extend(iter::repeat(String::default()).take(length - row.len()));
     }
 
     length
@@ -365,4 +400,22 @@ fn table_find_max_length<T>(headers: Option<&Vec<T>>, data: &[Vec<T>]) -> usize 
     }
 
     length
+}
+
+impl papergrid::Color for TextStyle {
+    fn fmt_prefix(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(color) = &self.color_style {
+            color.prefix().fmt(f)?;
+        }
+
+        Ok(())
+    }
+
+    fn fmt_suffix(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.color_style.is_some() {
+            papergrid::Color::fmt_suffix(&(), f)?;
+        }
+
+        Ok(())
+    }
 }

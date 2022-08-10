@@ -1,3 +1,4 @@
+mod nu_data;
 mod table;
 mod table_theme;
 mod textstyle;

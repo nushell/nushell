@@ -1,6 +1,9 @@
+use tabled::papergrid::{records::records_info_colored::RecordsInfo, GridConfig};
+
+use crate::TextStyle;
+
 pub(crate) fn maybe_truncate_columns(
-    headers: &mut Option<Vec<String>>,
-    data: &mut [Vec<String>],
+    data: &mut RecordsInfo<'_, TextStyle>,
     length: usize,
     termwidth: usize,
 ) -> bool {
@@ -11,18 +14,9 @@ pub(crate) fn maybe_truncate_columns(
     }
 
     // If we have too many columns, truncate the table
-    if let Some(headers) = headers {
-        if max_num_of_columns < length {
-            headers.truncate(max_num_of_columns);
-            headers.push(String::from("..."));
-        }
-    }
-
     if max_num_of_columns < length {
-        for entry in data.iter_mut() {
-            entry.truncate(max_num_of_columns);
-            entry.push(String::from("..."));
-        }
+        data.truncate(max_num_of_columns);
+        data.push(String::from("..."), &GridConfig::default());
     }
 
     false

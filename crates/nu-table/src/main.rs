@@ -23,14 +23,23 @@ fn main() {
     // The table rows
     let rows = vec_of_str_to_vec_of_styledstr(&row_data, false);
     // The table itself
-    let table = Table::new(headers, vec![rows; 3], TableTheme::rounded());
+    let count_cols = std::cmp::max(rows.len(), headers.len());
+    let mut rows = vec![rows; 3];
+    rows.insert(0, headers);
+    let table = Table::new(rows.into_iter(), (3, count_cols), width, true);
     // FIXME: Config isn't available from here so just put these here to compile
     let color_hm: HashMap<String, nu_ansi_term::Style> = HashMap::new();
     // get the default config
     let config = Config::default();
     // Capture the table as a string
     let output_table = table
-        .draw_table(&config, &color_hm, Alignments::default(), width)
+        .draw_table(
+            &config,
+            &color_hm,
+            Alignments::default(),
+            &TableTheme::rounded(),
+            width,
+        )
         .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", width));
     // Draw the table
     println!("{}", output_table)

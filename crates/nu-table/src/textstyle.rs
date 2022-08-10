@@ -1,6 +1,6 @@
 use nu_ansi_term::{Color, Style};
 
-pub type Alignment = tabled::AlignmentHorizontal;
+pub type Alignment = tabled::alignment::AlignmentHorizontal;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TextStyle {

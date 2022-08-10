@@ -3146,8 +3146,7 @@ checksum = "decf7381921fea4dcb2549c5667eda59b3ec297ab7e2b5fc33eac69d2e7da87b"
 [[package]]
 name = "papergrid"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "453cf71f2a37af495a1a124bf30d4d7469cfbea58e9f2479be9d222396a518a2"
+source = "git+https://github.com/zhiburt/tabled?rev=2ff5e96a8ee5e23ce3a51ff60c56ebafd4567c0e#2ff5e96a8ee5e23ce3a51ff60c56ebafd4567c0e"
 dependencies = [
  "ansi-str",
  "bytecount",
@@ -4737,26 +4736,11 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5b2f8c37d26d87d2252187b0a45ea3cbf42baca10377c7e7eaaa2800fa9bf97"
+source = "git+https://github.com/zhiburt/tabled?rev=2ff5e96a8ee5e23ce3a51ff60c56ebafd4567c0e#2ff5e96a8ee5e23ce3a51ff60c56ebafd4567c0e"
 dependencies = [
  "ansi-str",
  "papergrid",
- "tabled_derive",
  "unicode-width",
-]
-
-[[package]]
-name = "tabled_derive"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9ee618502f497abf593e1c5c9577f34775b111480009ffccd7ad70d23fcaba8"
-dependencies = [
- "heck 0.4.0",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

@@ -1,4 +1,7 @@
-use tabled::style::{Line, RawStyle, Style};
+use tabled::{
+    raw_style::RawStyle,
+    style::{Line, Style},
+};
 
 #[derive(Debug, Clone)]
 pub struct TableTheme {
