@@ -13,7 +13,7 @@ nu-glob = { path = "../nu-glob", version = "0.66.4" }
 nu-utils = { path = "../nu-utils", version = "0.66.4"  }
 
 chrono = { version="0.4.20", features=["serde"] }
-sysinfo = "0.24.6"
+sysinfo = "0.25.2"
 
 [features]
 plugin = []

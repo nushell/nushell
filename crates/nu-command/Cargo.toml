@@ -71,12 +71,12 @@ rust-embed = "6.3.0"
 serde = { version="1.0.123", features=["derive"] }
 serde_ini = "0.2.0"
 serde_urlencoded = "0.7.0"
-serde_yaml = "0.8.16"
+serde_yaml = "0.9.4"
 sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
 shadow-rs = { version = "0.16.1", default-features = false }
 strip-ansi-escapes = "0.1.1"
-sysinfo = "0.24.6"
+sysinfo = "0.25.2"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"
 titlecase = "2.0.0"
