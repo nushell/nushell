@@ -198,6 +198,7 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
 
 #[cfg(windows)]
 #[test]
+#[ignore = "fails on local Windows machines"]
 // This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
 //
 // Test command 1 - `dir * `
@@ -230,6 +231,7 @@ fn double_quote_does_not_expand_path_glob_windows() {
 
 #[cfg(windows)]
 #[test]
+#[ignore = "fails on local Windows machines"]
 // This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
 //
 // Test command 1 - `dir * `
