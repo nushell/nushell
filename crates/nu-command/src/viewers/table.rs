@@ -430,7 +430,7 @@ fn convert_to_table<'a>(
             row.push(value);
         } else {
             let skip_num = if !disable_index { 1 } else { 0 };
-            for (col, header) in data[0].iter().skip(skip_num).enumerate() {
+            for (col, header) in data[0].iter().enumerate().skip(skip_num) {
                 let result = match item {
                     Value::Record { .. } => item.clone().follow_cell_path(
                         &[PathMember::String {
