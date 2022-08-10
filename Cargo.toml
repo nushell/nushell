@@ -94,7 +94,6 @@ trash-support = ["nu-command/trash-support"]
 
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe"]
-system-zstd = ["nu-command/system-zstd"]
 
 # Database commands for nushell
 database = ["nu-command/database"]
