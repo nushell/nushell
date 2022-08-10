@@ -182,7 +182,7 @@ impl ExternalCommand {
                                                     item: file_name.to_string_lossy().to_string(),
                                                     span: self.name.span,
                                                 };
-                                                let mut cmd_process = ForeegroundProcess::new(
+                                                let mut cmd_process = ForegroundProcess::new(
                                                     new_command
                                                         .create_process(&input, true, head)?,
                                                 );
