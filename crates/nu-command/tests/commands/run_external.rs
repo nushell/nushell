@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
+use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
@@ -198,6 +198,7 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
 
 #[cfg(windows)]
 #[test]
+#[ignore = "fails on local Windows machines"]
 // This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
 //
 // Test command 1 - `dir * `
@@ -230,6 +231,7 @@ fn double_quote_does_not_expand_path_glob_windows() {
 
 #[cfg(windows)]
 #[test]
+#[ignore = "fails on local Windows machines"]
 // This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
 //
 // Test command 1 - `dir * `
@@ -263,6 +265,7 @@ fn single_quote_does_not_expand_path_glob_windows() {
 #[cfg(windows)]
 #[test]
 fn can_run_batch_files() {
+    use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup("run a Windows batch file", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "foo.cmd",
@@ -280,6 +283,7 @@ fn can_run_batch_files() {
 #[cfg(windows)]
 #[test]
 fn can_run_batch_files_without_cmd_extension() {
+    use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup(
         "run a Windows batch file without specifying the extension",
         |dirs, sandbox| {
@@ -300,6 +304,7 @@ fn can_run_batch_files_without_cmd_extension() {
 #[cfg(windows)]
 #[test]
 fn can_run_batch_files_without_bat_extension() {
+    use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup(
         "run a Windows batch file without specifying the extension",
         |dirs, sandbox| {
