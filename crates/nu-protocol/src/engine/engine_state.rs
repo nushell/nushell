@@ -101,7 +101,11 @@ impl EngineState {
             blocks: vec![],
             modules: vec![Module::new()],
             // make sure we have some default overlay:
-            scope: ScopeFrame::with_empty_overlay(DEFAULT_OVERLAY_NAME.as_bytes().to_vec(), 0),
+            scope: ScopeFrame::with_empty_overlay(
+                DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
+                0,
+                false,
+            ),
             ctrlc: None,
             env_vars: EnvVars::from([(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]),
             previous_env_vars: HashMap::new(),
@@ -832,9 +836,11 @@ pub struct StateDelta {
 
 impl StateDelta {
     pub fn new(engine_state: &EngineState) -> Self {
+        let last_overlay = engine_state.last_overlay(&[]);
         let scope_frame = ScopeFrame::with_empty_overlay(
             engine_state.last_overlay_name(&[]).to_owned(),
-            engine_state.last_overlay(&[]).origin,
+            last_overlay.origin,
+            last_overlay.prefixed,
         );
 
         StateDelta {
@@ -1775,9 +1781,10 @@ impl<'a> StateWorkingSet<'a> {
     pub fn last_overlay_mut(&mut self) -> &mut OverlayFrame {
         if self.delta.last_overlay_mut().is_none() {
             // If there is no overlay, automatically activate the last one
+            let overlay_frame = self.last_overlay();
             let name = self.last_overlay_name().to_vec();
-            let origin = self.last_overlay().origin;
-            let prefixed = self.last_overlay().prefixed;
+            let origin = overlay_frame.origin;
+            let prefixed = overlay_frame.prefixed;
             self.add_overlay(name, origin, vec![], vec![], prefixed);
         }
 

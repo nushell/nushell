@@ -74,8 +74,7 @@ fn add_prefixed_overlay_mismatch_1() {
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
     assert!(actual.err.contains("exists with a prefix"));
-    // TODO: Fix nu_repl not capturing stderr
-    // assert!(actual_repl.out.contains("exists with a prefix"));
+    assert!(actual_repl.err.contains("exists with a prefix"));
 }
 
 #[test]
@@ -90,11 +89,8 @@ fn add_prefixed_overlay_mismatch_2() {
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
     assert!(actual.err.contains("exists without a prefix"));
-    // TODO: Fix nu_repl not capturing stderr
-    // assert!(actual_repl.out.contains("exists without a prefix"));
-    // assert_eq!(actual_repl.out, "foo");
+    assert!(actual_repl.err.contains("exists without a prefix"));
 }
-
 
 #[test]
 fn add_overlay_env() {

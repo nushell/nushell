@@ -130,7 +130,11 @@ pub enum ParseError {
         url(docsrs),
         help("Overlay {0} already exists {1} a prefix. To add it again, do it {1} the --prefix flag.")
     )]
-    OverlayPrefixMismatch(String, String, #[label = "already exists {1} a prefix"] Span),
+    OverlayPrefixMismatch(
+        String,
+        String,
+        #[label = "already exists {1} a prefix"] Span,
+    ),
 
     #[error("Module or overlay not found.")]
     #[diagnostic(
