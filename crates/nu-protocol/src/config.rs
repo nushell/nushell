@@ -52,7 +52,7 @@ impl Default for Hooks {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
-    pub custom_completer: Option<usize>,
+    pub external_completer: Option<usize>,
     pub filesize_metric: bool,
     pub table_mode: String,
     pub use_ls_colors: bool,
@@ -90,7 +90,7 @@ impl Default for Config {
         Config {
             filesize_metric: false,
             table_mode: "rounded".into(),
-            custom_completer: None,
+            external_completer: None,
             use_ls_colors: true,
             color_config: HashMap::new(),
             use_grid_icons: false,
@@ -183,10 +183,10 @@ impl Value {
                             eprintln!("$config.filesize_metric is not a bool")
                         }
                     }
-                    "custom_completion" => {
+                    "external_completer" => {
                         if let Ok(v) = value.as_block() {
                             println!("{:?}", v);
-                            config.custom_completer = Some(v)
+                            config.external_completer = Some(v)
                         }
                     }
                     "table_mode" => {

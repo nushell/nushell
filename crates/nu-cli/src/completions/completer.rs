@@ -5,9 +5,8 @@ use crate::completions::{
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
-    ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, PositionalArg, Span, Type, Value,
+    PipelineData, PositionalArg, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::str;
@@ -118,19 +117,9 @@ impl NuCompleter {
         match result {
             Ok(pd) => {
                 let value = pd.into_value(span);
-                println!("value: {:?}", value);
                 match &value {
-                    Value::Record { .. } => {
-                        let completions = value
-                            .get_data_by_key("completions")
-                            .and_then(|val| {
-                                val.as_list()
-                                    .ok()
-                                    .map(|it| map_value_completions(it.iter(), span, offset))
-                            })
-                            .unwrap_or_default();
-
-                        return completions;
+                    Value::List { vals, span: _ } => {
+                        return map_value_completions(vals.iter(), span, offset)
                     }
                     _ => {}
                 }
@@ -138,22 +127,7 @@ impl NuCompleter {
             Err(err) => println!("failed to eval call {}", err),
         }
 
-        vec![
-            Suggestion {
-                value: "one".into(),
-                extra: None,
-                append_whitespace: true,
-                description: None,
-                span: reedline::Span { start: 0, end: 0 },
-            },
-            Suggestion {
-                value: "two".into(),
-                extra: None,
-                append_whitespace: true,
-                description: None,
-                span: reedline::Span { start: 0, end: 0 },
-            },
-        ]
+        vec![]
     }
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
@@ -166,7 +140,7 @@ impl NuCompleter {
         let config = self.engine_state.get_config();
 
         // External completer
-        if let Some(decl_id) = config.custom_completer {
+        if let Some(decl_id) = config.external_completer {
             return self.external_completion(decl_id, initial_line.clone(), pos, offset);
         }
 
