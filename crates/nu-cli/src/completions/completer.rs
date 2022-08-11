@@ -124,7 +124,7 @@ impl NuCompleter {
                     _ => {}
                 }
             }
-            Err(err) => println!("failed to eval call {}", err),
+            Err(err) => println!("failed to eval completer block: {}", err),
         }
 
         vec![]
