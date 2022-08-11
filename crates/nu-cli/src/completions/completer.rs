@@ -4,6 +4,7 @@ use crate::completions::{
 };
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
+    ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
     Span,
 };
@@ -37,6 +38,8 @@ impl NuCompleter {
     ) -> Vec<Suggestion> {
         let config = self.engine_state.get_config();
 
+        println!("{:?}", self.engine_state.get_config().custom_completer);
+
         let mut options = CompletionOptions {
             case_sensitive: config.case_sensitive_completions,
             ..Default::default()
@@ -54,6 +57,42 @@ impl NuCompleter {
         suggestions = completer.sort(suggestions, prefix);
 
         suggestions
+    }
+
+    fn external_completion(&self, decl_id: usize) -> Vec<Suggestion> {
+        let result = self.engine_state.eval_call(
+            &self.engine_state,
+            &mut self.stack,
+            &Call {
+                decl_id: self.decl_id,
+                head: span,
+                arguments: vec![
+                    Argument::Positional(Expression {
+                        span: Span { start: 0, end: 0 },
+                        ty: Type::String,
+                        expr: Expr::String(self.line.clone()),
+                        custom_completion: None,
+                    }),
+                    Argument::Positional(Expression {
+                        span: Span { start: 0, end: 0 },
+                        ty: Type::Int,
+                        expr: Expr::Int(line_pos as i64),
+                        custom_completion: None,
+                    }),
+                ],
+                redirect_stdout: true,
+                redirect_stderr: true,
+            },
+            PipelineData::new(span),
+        );
+
+        vec![Suggestion {
+            value: "test".into(),
+            extra: None,
+            append_whitespace: true,
+            description: None,
+            span: reedline::Span { start: 0, end: 0 },
+        }]
     }
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
