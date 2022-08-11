@@ -3,7 +3,7 @@ use super::db_table::DbTable;
 // Thank you gobang
 // https://github.com/TaKO8Ki/gobang/blob/main/database-tree/src/lib.rs
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Db {
     pub name: String,
     pub tables: Vec<DbTable>,

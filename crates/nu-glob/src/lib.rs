@@ -992,7 +992,7 @@ mod test {
                 .and_then(|p| match p.components().next().unwrap() {
                     Component::Prefix(prefix_component) => {
                         let path = Path::new(prefix_component.as_os_str()).join("*");
-                        Some(path.to_path_buf())
+                        Some(path)
                     }
                     _ => panic!("no prefix in this path"),
                 })
