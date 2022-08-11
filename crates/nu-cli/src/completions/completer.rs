@@ -117,11 +117,8 @@ impl NuCompleter {
         match result {
             Ok(pd) => {
                 let value = pd.into_value(span);
-                match &value {
-                    Value::List { vals, span: _ } => {
-                        return map_value_completions(vals.iter(), span, offset)
-                    }
-                    _ => {}
+                if let Value::List { vals, span: _ } = value {
+                    return map_value_completions(vals.iter(), span, offset);
                 }
             }
             Err(err) => println!("failed to eval completer block: {}", err),
@@ -141,7 +138,7 @@ impl NuCompleter {
 
         // Check if external completer
         if let Some(decl_id) = config.external_completer {
-            return self.external_completion(decl_id, initial_line.clone(), pos, offset);
+            return self.external_completion(decl_id, initial_line, pos, offset);
         }
 
         let (output, _err) = parse(&mut working_set, Some("completer"), &new_line, false, &[]);
