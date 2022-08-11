@@ -7,6 +7,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
 };
 
+use std::path::PathBuf;
 #[derive(Clone)]
 pub struct Cd;
 
@@ -141,6 +142,7 @@ impl Command for Cd {
             }
         };
 
+        let checkpath = path.clone();
         let path_value = Value::String { val: path, span };
         let cwd = Value::String {
             val: cwd.to_string_lossy().to_string(),
@@ -170,10 +172,19 @@ impl Command for Cd {
             stack.add_env_var("OLDPWD".into(), oldpwd)
         }
 
-        //FIXME: this only changes the current scope, but instead this environment variable
-        //should probably be a block that loads the information from the state in the overlay
+        // get a fake path ,if it can get it, or not permission_denied , then can cd into
+        // the path
+        if permission_denied(PathBuf::from(format!("{}/enter", checkpath))) {
+            return Err(ShellError::IOError(format!(
+                "Permission denied changing to {}",
+                checkpath
+            )));
+        } else {
+            //FIXME: this only changes the current scope, but instead this environment variable
+            //should probably be a block that loads the information from the state in the overlay
+            stack.add_env_var("PWD".into(), path_value);
+        }
 
-        stack.add_env_var("PWD".into(), path_value);
         Ok(PipelineData::new(call.head))
     }
 
@@ -195,5 +206,13 @@ impl Command for Cd {
                 result: None,
             },
         ]
+    }
+}
+fn permission_denied(dir: std::path::PathBuf) -> bool {
+    match std::fs::symlink_metadata(dir) {
+        Err(e) => {
+            matches!(e.kind(), std::io::ErrorKind::PermissionDenied)
+        }
+        Ok(_) => false,
     }
 }
