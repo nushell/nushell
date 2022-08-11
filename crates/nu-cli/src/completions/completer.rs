@@ -2,11 +2,12 @@ use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
     DotNuCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, VariableCompletion,
 };
+use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
-    ast::Call,
+    ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
-    Span,
+    PipelineData, PositionalArg, Span, Type, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::str;
@@ -38,8 +39,6 @@ impl NuCompleter {
     ) -> Vec<Suggestion> {
         let config = self.engine_state.get_config();
 
-        println!("{:?}", self.engine_state.get_config().custom_completer);
-
         let mut options = CompletionOptions {
             case_sensitive: config.case_sensitive_completions,
             ..Default::default()
@@ -59,40 +58,102 @@ impl NuCompleter {
         suggestions
     }
 
-    fn external_completion(&self, decl_id: usize) -> Vec<Suggestion> {
-        let result = self.engine_state.eval_call(
+    fn external_completion(
+        &self,
+        decl_id: usize,
+        line: String,
+        pos: usize,
+        offset: usize,
+    ) -> Vec<Suggestion> {
+        let span = Span {
+            start: offset,
+            end: pos,
+        };
+
+        let line_pos = pos - offset;
+        let stack = self.stack.clone();
+
+        let block = self.engine_state.get_block(decl_id);
+        let mut callee_stack = stack.gather_captures(&block.captures);
+
+        for (idx, PositionalArg { var_id, .. }) in
+            block.signature.required_positional.iter().enumerate()
+        {
+            match idx {
+                0 => {
+                    if let Some(var_id) = var_id {
+                        callee_stack.add_var(
+                            *var_id,
+                            Value::String {
+                                val: line.clone(),
+                                span,
+                            },
+                        );
+                    }
+                }
+                1 => {
+                    if let Some(var_id) = var_id {
+                        callee_stack.add_var(
+                            *var_id,
+                            Value::Int {
+                                val: line_pos as i64,
+                                span,
+                            },
+                        );
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let result = eval_block(
             &self.engine_state,
-            &mut self.stack,
-            &Call {
-                decl_id: self.decl_id,
-                head: span,
-                arguments: vec![
-                    Argument::Positional(Expression {
-                        span: Span { start: 0, end: 0 },
-                        ty: Type::String,
-                        expr: Expr::String(self.line.clone()),
-                        custom_completion: None,
-                    }),
-                    Argument::Positional(Expression {
-                        span: Span { start: 0, end: 0 },
-                        ty: Type::Int,
-                        expr: Expr::Int(line_pos as i64),
-                        custom_completion: None,
-                    }),
-                ],
-                redirect_stdout: true,
-                redirect_stderr: true,
-            },
+            &mut callee_stack,
+            block,
             PipelineData::new(span),
+            true,
+            true,
         );
 
-        vec![Suggestion {
-            value: "test".into(),
-            extra: None,
-            append_whitespace: true,
-            description: None,
-            span: reedline::Span { start: 0, end: 0 },
-        }]
+        match result {
+            Ok(pd) => {
+                let value = pd.into_value(span);
+                println!("value: {:?}", value);
+                match &value {
+                    Value::Record { .. } => {
+                        let completions = value
+                            .get_data_by_key("completions")
+                            .and_then(|val| {
+                                val.as_list()
+                                    .ok()
+                                    .map(|it| map_value_completions(it.iter(), span, offset))
+                            })
+                            .unwrap_or_default();
+
+                        return completions;
+                    }
+                    _ => {}
+                }
+            }
+            Err(err) => println!("failed to eval call {}", err),
+        }
+
+        vec![
+            Suggestion {
+                value: "one".into(),
+                extra: None,
+                append_whitespace: true,
+                description: None,
+                span: reedline::Span { start: 0, end: 0 },
+            },
+            Suggestion {
+                value: "two".into(),
+                extra: None,
+                append_whitespace: true,
+                description: None,
+                span: reedline::Span { start: 0, end: 0 },
+            },
+        ]
     }
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
@@ -102,6 +163,13 @@ impl NuCompleter {
         let initial_line = line.to_string();
         new_line.push(b'a');
         let pos = offset + pos;
+        let config = self.engine_state.get_config();
+
+        // External completer
+        if let Some(decl_id) = config.custom_completer {
+            return self.external_completion(decl_id, initial_line.clone(), pos, offset);
+        }
+
         let (output, _err) = parse(&mut working_set, Some("completer"), &new_line, false, &[]);
 
         for pipeline in output.pipelines.into_iter() {
@@ -421,4 +489,68 @@ fn most_left_variable(
     let sublevels: Vec<Vec<u8>> = variables_found.into_iter().skip(1).collect();
 
     Some((var, sublevels))
+}
+
+pub fn map_value_completions<'a>(
+    list: impl Iterator<Item = &'a Value>,
+    span: Span,
+    offset: usize,
+) -> Vec<Suggestion> {
+    list.filter_map(move |x| {
+        println!("{:?}", x);
+
+        // Match for string values
+        if let Ok(s) = x.as_string() {
+            return Some(Suggestion {
+                value: s,
+                description: None,
+                extra: None,
+                span: reedline::Span {
+                    start: span.start - offset,
+                    end: span.end - offset,
+                },
+                append_whitespace: false,
+            });
+        }
+
+        // Match for record values
+        if let Ok((cols, vals)) = x.as_record() {
+            let mut suggestion = Suggestion {
+                value: String::from(""), // Initialize with empty string
+                description: None,
+                extra: None,
+                span: reedline::Span {
+                    start: span.start - offset,
+                    end: span.end - offset,
+                },
+                append_whitespace: false,
+            };
+
+            // Iterate the cols looking for `value` and `description`
+            cols.iter().zip(vals).for_each(|it| {
+                // Match `value` column
+                if it.0 == "value" {
+                    // Convert the value to string
+                    if let Ok(val_str) = it.1.as_string() {
+                        // Update the suggestion value
+                        suggestion.value = val_str;
+                    }
+                }
+
+                // Match `description` column
+                if it.0 == "description" {
+                    // Convert the value to string
+                    if let Ok(desc_str) = it.1.as_string() {
+                        // Update the suggestion value
+                        suggestion.description = Some(desc_str);
+                    }
+                }
+            });
+
+            return Some(suggestion);
+        }
+
+        None
+    })
+    .collect()
 }
