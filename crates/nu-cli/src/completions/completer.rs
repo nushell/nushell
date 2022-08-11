@@ -139,7 +139,7 @@ impl NuCompleter {
         let pos = offset + pos;
         let config = self.engine_state.get_config();
 
-        // External completer
+        // Check if external completer
         if let Some(decl_id) = config.external_completer {
             return self.external_completion(decl_id, initial_line.clone(), pos, offset);
         }
@@ -471,8 +471,6 @@ pub fn map_value_completions<'a>(
     offset: usize,
 ) -> Vec<Suggestion> {
     list.filter_map(move |x| {
-        println!("{:?}", x);
-
         // Match for string values
         if let Ok(s) = x.as_string() {
             return Some(Suggestion {
