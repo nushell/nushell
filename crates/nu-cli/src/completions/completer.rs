@@ -65,9 +65,10 @@ impl NuCompleter {
         offset: usize,
     ) -> Vec<Suggestion> {
         let span = Span {
-            start: offset,
+            start: pos,
             end: pos,
         };
+        println!("{:?}", span);
 
         let line_pos = pos - offset;
         let stack = self.stack.clone();
