@@ -145,15 +145,13 @@ fn alias_db(
                     Vec::new(),
                 )),
             },
-            s => {
-                return Err(ShellError::GenericError(
-                    "Connection doesn't define a query".into(),
-                    format!("Expected a connection with query. Got {}", s),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                ))
-            }
+            s => Err(ShellError::GenericError(
+                "Connection doesn't define a query".into(),
+                format!("Expected a connection with query. Got {}", s),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )),
         },
     }
 }

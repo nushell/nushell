@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DbTable {
     pub name: String,
     pub create_time: Option<chrono::DateTime<chrono::Utc>>,

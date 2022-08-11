@@ -412,7 +412,7 @@ fn lists_with_directory_flag() {
         ));
         let expected = [".", ".", "..", "../dir_files", "../dir_files/nushell.json"].join("");
         #[cfg(windows)]
-        let expected = expected.replace("/", "\\");
+        let expected = expected.replace('/', "\\");
         assert_eq!(
             actual.out, expected,
             "column names are incorrect for ls --directory (-D)"

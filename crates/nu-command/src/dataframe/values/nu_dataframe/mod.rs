@@ -446,7 +446,7 @@ impl NuDataFrame {
         // sorting dataframe by the first column
         let column_names = self.as_ref().get_column_names();
         let first_col = column_names
-            .get(0)
+            .first()
             .expect("already checked that dataframe is different than 0");
 
         // if unable to sort, then unable to compare

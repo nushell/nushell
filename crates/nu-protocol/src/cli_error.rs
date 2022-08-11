@@ -15,7 +15,7 @@ pub fn format_error(
     working_set: &StateWorkingSet,
     error: &(dyn miette::Diagnostic + Send + Sync + 'static),
 ) -> String {
-    return format!("Error: {:?}", CliError(error, working_set));
+    format!("Error: {:?}", CliError(error, working_set))
 }
 
 impl std::fmt::Debug for CliError<'_> {

@@ -845,7 +845,7 @@ fn extract_custom_completion_from_arg(engine_state: &EngineState, shape: &Syntax
     return match shape {
         SyntaxShape::Custom(_, custom_completion_decl_id) => {
             let custom_completion_command = engine_state.get_decl(*custom_completion_decl_id);
-            let custom_completion_command_name: &str = &*custom_completion_command.name();
+            let custom_completion_command_name: &str = custom_completion_command.name();
             custom_completion_command_name.to_string()
         }
         _ => "".to_string(),
