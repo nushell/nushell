@@ -185,7 +185,6 @@ impl Value {
                     }
                     "external_completer" => {
                         if let Ok(v) = value.as_block() {
-                            println!("{:?}", v);
                             config.external_completer = Some(v)
                         }
                     }
