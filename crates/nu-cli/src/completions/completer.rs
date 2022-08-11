@@ -75,33 +75,29 @@ impl NuCompleter {
         let block = self.engine_state.get_block(block_id);
         let mut callee_stack = stack.gather_captures(&block.captures);
 
-        for (idx, PositionalArg { var_id, .. }) in
-            block.signature.required_positional.iter().enumerate()
-        {
-            match idx {
-                0 => {
-                    if let Some(var_id) = var_id {
-                        callee_stack.add_var(
-                            *var_id,
-                            Value::String {
-                                val: line.clone(),
-                                span,
-                            },
-                        );
-                    }
-                }
-                1 => {
-                    if let Some(var_id) = var_id {
-                        callee_stack.add_var(
-                            *var_id,
-                            Value::Int {
-                                val: line_pos as i64,
-                                span,
-                            },
-                        );
-                    }
-                }
-                _ => {}
+        // Line
+        if let Some(pos_arg) = block.signature.required_positional.get(0) {
+            if let Some(var_id) = pos_arg.var_id {
+                callee_stack.add_var(
+                    var_id,
+                    Value::String {
+                        val: line.clone(),
+                        span,
+                    },
+                );
+            }
+        }
+
+        // Current cursor position
+        if let Some(pos_arg) = block.signature.required_positional.get(1) {
+            if let Some(var_id) = pos_arg.var_id {
+                callee_stack.add_var(
+                    var_id,
+                    Value::Int {
+                        val: line_pos as i64,
+                        span,
+                    },
+                );
             }
         }
 
