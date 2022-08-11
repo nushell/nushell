@@ -66,8 +66,8 @@ impl NuCompleter {
         span: Span,
     ) -> Vec<Suggestion> {
         // Append extra " "
-        let mut line = line.clone();
-        line.push_str(" ");
+        let mut line = line;
+        line.push(' ');
 
         let stack = self.stack.clone();
 
