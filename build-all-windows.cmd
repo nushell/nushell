@@ -24,8 +24,12 @@ cargo build
 @echo.
 
 @cd ..\..\crates\nu_plugin_query
-
 echo Building nu_plugin_query.exe
+cargo build
+@echo.
+
+@cd ..\..\crates\nu_plugin_custom_values
+echo Building nu_plugin_custom_values.exe
 cargo build
 @echo.
 
