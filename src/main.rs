@@ -101,7 +101,7 @@ fn main() -> Result<()> {
         } else if arg.starts_with('-') {
             // Cool, it's a flag
             let flag_value = match arg.as_ref() {
-                "--commands" | "-c" | "--table-mode" | "-m" => {
+                "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" => {
                     args.next().map(|a| escape_quote_string(&a))
                 }
                 "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
@@ -341,6 +341,7 @@ fn main() -> Result<()> {
                     &mut stack,
                     config_files::NUSHELL_FOLDER,
                     is_perf_true(),
+                    binary_args.execute,
                 );
                 if is_perf_true() {
                     info!("repl eval {}:{}:{}", file!(), line!(), column!());
@@ -438,6 +439,7 @@ fn parse_commandline_args(
             let env_file: Option<Expression> = call.get_flag_expr("env-config");
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let log_target: Option<Expression> = call.get_flag_expr("log-target");
+            let execute: Option<Expression> = call.get_flag_expr("execute");
             let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
@@ -468,6 +470,7 @@ fn parse_commandline_args(
             let env_file = extract_contents(env_file)?;
             let log_level = extract_contents(log_level)?;
             let log_target = extract_contents(log_target)?;
+            let execute = extract_contents(execute)?;
 
             let help = call.has_flag("help");
 
@@ -501,6 +504,7 @@ fn parse_commandline_args(
                 env_file,
                 log_level,
                 log_target,
+                execute,
                 perf,
                 threads,
                 table_mode,
@@ -527,6 +531,7 @@ struct NushellCliArgs {
     env_file: Option<Spanned<String>>,
     log_level: Option<Spanned<String>>,
     log_target: Option<Spanned<String>>,
+    execute: Option<Spanned<String>>,
     perf: bool,
     threads: Option<Value>,
     table_mode: Option<Value>,
@@ -587,6 +592,12 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "set the target for the log to output. stdout, stderr(default), mixed or file",
                 None,
+            )
+            .named(
+                "execute",
+                SyntaxShape::String,
+                "run the given commands and then enter an interactive shell",
+                Some('e'),
             )
             .named(
                 "threads",
