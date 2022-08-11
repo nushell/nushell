@@ -59,7 +59,7 @@ impl NuCompleter {
 
     fn external_completion(
         &self,
-        decl_id: usize,
+        block_id: usize,
         line: String,
         pos: usize,
         offset: usize,
@@ -68,12 +68,11 @@ impl NuCompleter {
             start: pos,
             end: pos,
         };
-        println!("{:?}", span);
 
         let line_pos = pos - offset;
         let stack = self.stack.clone();
 
-        let block = self.engine_state.get_block(decl_id);
+        let block = self.engine_state.get_block(block_id);
         let mut callee_stack = stack.gather_captures(&block.captures);
 
         for (idx, PositionalArg { var_id, .. }) in
