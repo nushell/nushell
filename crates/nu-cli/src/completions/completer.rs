@@ -63,13 +63,12 @@ impl NuCompleter {
         line: String,
         pos: usize,
         offset: usize,
+        span: Span,
     ) -> Vec<Suggestion> {
-        let span = Span {
-            start: pos,
-            end: pos,
-        };
+        // Append extra " "
+        let mut line = line.clone();
+        line.push_str(" ");
 
-        let line_pos = pos - offset;
         let stack = self.stack.clone();
 
         let block = self.engine_state.get_block(block_id);
@@ -94,7 +93,7 @@ impl NuCompleter {
                 callee_stack.add_var(
                     var_id,
                     Value::Int {
-                        val: line_pos as i64,
+                        val: pos as i64,
                         span,
                     },
                 );
@@ -114,7 +113,16 @@ impl NuCompleter {
             Ok(pd) => {
                 let value = pd.into_value(span);
                 if let Value::List { vals, span: _ } = value {
-                    return map_value_completions(vals.iter(), span, offset);
+                    let result = map_value_completions(
+                        vals.iter(),
+                        Span {
+                            start: span.start,
+                            end: span.end,
+                        },
+                        offset,
+                    );
+
+                    return result;
                 }
             }
             Err(err) => println!("failed to eval completer block: {}", err),
@@ -125,17 +133,13 @@ impl NuCompleter {
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
+        let original_pos = pos;
         let offset = working_set.next_span_start();
         let (mut new_line, alias_offset) = try_find_alias(line.as_bytes(), &working_set);
         let initial_line = line.to_string();
         new_line.push(b'a');
         let pos = offset + pos;
         let config = self.engine_state.get_config();
-
-        // Check if external completer
-        if let Some(decl_id) = config.external_completer {
-            return self.external_completion(decl_id, initial_line, pos, offset);
-        }
 
         let (output, _err) = parse(&mut working_set, Some("completer"), &new_line, false, &[]);
 
@@ -162,6 +166,17 @@ impl NuCompleter {
                                 end: flat.0.end - 1 - span_offset,
                             }
                         };
+
+                        // Check if external completer
+                        if let Some(decl_id) = config.external_completer {
+                            return self.external_completion(
+                                decl_id,
+                                initial_line,
+                                original_pos,
+                                offset,
+                                new_span,
+                            );
+                        }
 
                         // Parses the prefix
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
