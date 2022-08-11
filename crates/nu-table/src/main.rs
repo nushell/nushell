@@ -1,6 +1,7 @@
 use nu_protocol::Config;
-use nu_table::{Alignments, StyledString, Table, TableTheme, TextStyle};
+use nu_table::{Alignments, Table, TableTheme, TextStyle};
 use std::collections::HashMap;
+use tabled::papergrid::records::records_info_colored::CellInfo;
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
@@ -26,7 +27,7 @@ fn main() {
     let count_cols = std::cmp::max(rows.len(), headers.len());
     let mut rows = vec![rows; 3];
     rows.insert(0, headers);
-    let table = Table::new(rows.into_iter(), (3, count_cols), width, true);
+    let table = Table::new(rows, (3, count_cols), width, true);
     // FIXME: Config isn't available from here so just put these here to compile
     let color_hm: HashMap<String, nu_ansi_term::Style> = HashMap::new();
     // get the default config
@@ -83,17 +84,23 @@ fn make_table_data() -> (Vec<&'static str>, Vec<&'static str>) {
     (table_headers, row_data)
 }
 
-fn vec_of_str_to_vec_of_styledstr(data: &[&str], is_header: bool) -> Vec<StyledString> {
+fn vec_of_str_to_vec_of_styledstr(
+    data: &[&str],
+    is_header: bool,
+) -> Vec<CellInfo<'static, TextStyle>> {
     let mut v = vec![];
 
     for x in data {
         if is_header {
-            v.push(StyledString::new(
+            v.push(Table::create_cell(
                 String::from(*x),
                 TextStyle::default_header(),
             ))
         } else {
-            v.push(StyledString::new(String::from(*x), TextStyle::basic_left()))
+            v.push(Table::create_cell(
+                String::from(*x),
+                TextStyle::basic_left(),
+            ))
         }
     }
     v

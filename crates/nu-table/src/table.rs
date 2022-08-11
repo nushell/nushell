@@ -9,13 +9,18 @@ use tabled::{
     object::{Cell, Columns, Rows, Segment},
     papergrid::{
         self,
-        records::{self, records_info_colored::RecordsInfo, Records, RecordsMut},
+        records::{
+            self,
+            records_info_colored::{CellInfo, RecordsInfo},
+            Records, RecordsMut,
+        },
+        width::CfgWidthFunction,
         GridConfig,
     },
     Alignment, Modify, ModifyObject, TableOption, Width,
 };
 
-use crate::{table_theme::TableTheme, StyledString, TextStyle};
+use crate::{table_theme::TableTheme, TextStyle};
 
 /// Table represent a table view.
 #[derive(Debug)]
@@ -46,30 +51,24 @@ impl<'a> Table<'a> {
     /// Creates a [Table] instance.
     ///
     /// If `headers.is_empty` then no headers will be rendered.
-    pub fn new<D, DR>(
-        data: D,
+    pub fn new(
+        data: Vec<Vec<CellInfo<'static, TextStyle>>>,
         size: (usize, usize),
         termwidth: usize,
         with_header: bool,
-    ) -> Table<'a>
-    where
-        D: IntoIterator<Item = DR> + 'a,
-        DR: IntoIterator<Item = StyledString> + 'a,
-    {
-        let data = data
-            .into_iter()
-            .map(|row| row.into_iter().map(|c| (c.contents, c.style)));
-
-        let mut data = RecordsInfo::new(data, size, &GridConfig::default());
-
-        let count_columns = (&data).size().1;
-        let is_empty = maybe_truncate_columns(&mut data, count_columns, termwidth);
+    ) -> Table<'a> {
+        let mut data = RecordsInfo::from_vec(data, size);
+        let is_empty = maybe_truncate_columns(&mut data, size.1, termwidth);
 
         Table {
             data,
             is_empty,
             with_header,
         }
+    }
+
+    pub fn create_cell(text: String, style: TextStyle) -> CellInfo<'static, TextStyle> {
+        CellInfo::from_str(text, style, CfgWidthFunction::new(4))
     }
 
     /// Draws a trable on a String.

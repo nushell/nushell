@@ -3146,9 +3146,10 @@ checksum = "decf7381921fea4dcb2549c5667eda59b3ec297ab7e2b5fc33eac69d2e7da87b"
 [[package]]
 name = "papergrid"
 version = "0.5.1"
-source = "git+https://github.com/zhiburt/tabled?rev=9a859e313a6f5ac77d64e0ff71ff88353e2de134#9a859e313a6f5ac77d64e0ff71ff88353e2de134"
+source = "git+https://github.com/zhiburt/tabled?rev=1e62f6d20751635246ad23aa21caf3bcdba36724#1e62f6d20751635246ad23aa21caf3bcdba36724"
 dependencies = [
  "ansi-str",
+ "ansitok",
  "bytecount",
  "fnv",
  "strip-ansi-escapes",
@@ -4736,7 +4737,7 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.8.0"
-source = "git+https://github.com/zhiburt/tabled?rev=9a859e313a6f5ac77d64e0ff71ff88353e2de134#9a859e313a6f5ac77d64e0ff71ff88353e2de134"
+source = "git+https://github.com/zhiburt/tabled?rev=1e62f6d20751635246ad23aa21caf3bcdba36724#1e62f6d20751635246ad23aa21caf3bcdba36724"
 dependencies = [
  "ansi-str",
  "papergrid",

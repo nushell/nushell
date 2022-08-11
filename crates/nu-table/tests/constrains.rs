@@ -1,7 +1,8 @@
 use std::{collections::HashMap, usize};
 
 use nu_protocol::{Config, TrimStrategy};
-use nu_table::{Alignments, StyledString, Table, TableTheme as theme, TextStyle};
+use nu_table::{Alignments, Table, TableTheme as theme, TextStyle};
+use tabled::papergrid::records::records_info_colored::CellInfo;
 
 #[test]
 fn data_and_header_has_different_size() {
@@ -181,18 +182,18 @@ fn draw_table(table: &Table, limit: usize, cfg: &Config) -> Option<String> {
     table.draw_table(cfg, &styles, alignments, &theme::heavy(), limit)
 }
 
-fn row(count_columns: usize) -> Vec<StyledString> {
+fn row(count_columns: usize) -> Vec<CellInfo<'static, TextStyle>> {
     let mut row = Vec::with_capacity(count_columns);
 
     for i in 0..count_columns {
-        row.push(StyledString::new(i.to_string(), TextStyle::default()));
+        row.push(Table::create_cell(i.to_string(), TextStyle::default()));
     }
 
     row
 }
 
-fn styled_str(s: &str) -> StyledString {
-    StyledString::new(s.to_string(), TextStyle::default())
+fn styled_str(s: &str) -> CellInfo<'static, TextStyle> {
+    Table::create_cell(s.to_string(), TextStyle::default())
 }
 
 fn table_with_data(termwidth: usize) -> Table<'static> {

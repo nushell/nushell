@@ -7,7 +7,7 @@ use nu_protocol::{
     format_error, Category, Config, DataSource, Example, IntoPipelineData, ListStream,
     PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use nu_table::{Alignments, StyledString, TableTheme, TextStyle};
+use nu_table::{Alignment, Alignments, Table as NuTable, TableTheme, TextStyle};
 use nu_utils::get_ls_colors;
 use std::time::Instant;
 use std::{cmp::max, sync::Arc};
@@ -156,21 +156,22 @@ impl Command for Table {
                 metadata,
             ),
             PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
-                let output = cols.into_iter().zip(vals.into_iter()).map(|(c, v)| {
-                    vec![
-                        StyledString {
-                            contents: c,
-                            style: TextStyle::default_field(),
-                        },
-                        StyledString {
-                            contents: v.into_abbreviated_string(config),
-                            style: TextStyle::default(),
-                        },
-                    ]
-                });
+                let output = cols
+                    .into_iter()
+                    .zip(vals.into_iter())
+                    .map(|(c, v)| {
+                        vec![
+                            NuTable::create_cell(c, TextStyle::default_field()),
+                            NuTable::create_cell(
+                                v.into_abbreviated_string(config),
+                                TextStyle::default(),
+                            ),
+                        ]
+                    })
+                    .collect::<Vec<_>>();
 
                 let output_len = output.len();
-                let table = nu_table::Table::new(output, (output_len, 2), term_width, false);
+                let table = NuTable::new(output, (output_len, 2), term_width, false);
 
                 let theme = load_theme_from_config(config);
                 let result = table
@@ -351,7 +352,7 @@ fn convert_to_table<'a>(
     head: Span,
     termwidth: usize,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
-) -> Result<Option<nu_table::Table<'a>>, ShellError> {
+) -> Result<Option<NuTable<'a>>, ShellError> {
     let mut headers = get_columns(input);
     let mut input = input.iter().peekable();
     let float_precision = config.float_precision as usize;
@@ -367,14 +368,14 @@ fn convert_to_table<'a>(
 
     // The header with the INDEX is removed from the table headers since
     // it is added to the natural table index
-    let headers: Vec<StyledString> = headers
+    let headers: Vec<_> = headers
         .into_iter()
         .filter(|header| header != INDEX_COLUMN_NAME)
         .map(|text| {
-            StyledString::new(
+            NuTable::create_cell(
                 text,
                 TextStyle {
-                    alignment: nu_table::Alignment::Center,
+                    alignment: Alignment::Center,
                     color_style: Some(color_hm["header"]),
                 },
             )
@@ -384,7 +385,7 @@ fn convert_to_table<'a>(
     let with_header = !headers.is_empty();
     let mut count_columns = headers.len();
 
-    let mut data: Vec<Vec<StyledString>> = if headers.is_empty() {
+    let mut data: Vec<Vec<_>> = if headers.is_empty() {
         Vec::new()
     } else {
         vec![headers]
@@ -401,7 +402,7 @@ fn convert_to_table<'a>(
             return Err(error.clone());
         }
 
-        let mut row: Vec<StyledString> = vec![];
+        let mut row = vec![];
         if !disable_index {
             let text = match &item {
                 Value::Record { .. } => item
@@ -413,6 +414,7 @@ fn convert_to_table<'a>(
 
             let value =
                 make_styled_string(text, "string", 0, disable_index, color_hm, float_precision);
+            let value = NuTable::create_cell(value.0, value.1);
 
             row.push(value);
         }
@@ -429,6 +431,7 @@ fn convert_to_table<'a>(
                 color_hm,
                 float_precision,
             );
+            let value = NuTable::create_cell(value.0, value.1);
 
             row.push(value);
         } else {
@@ -437,7 +440,7 @@ fn convert_to_table<'a>(
                 let result = match item {
                     Value::Record { .. } => item.clone().follow_cell_path(
                         &[PathMember::String {
-                            val: header.contents.clone(),
+                            val: header.as_str().to_owned(),
                             span: head,
                         }],
                         false,
@@ -464,6 +467,7 @@ fn convert_to_table<'a>(
                     ),
                 };
 
+                let value = NuTable::create_cell(value.0, value.1);
                 row.push(value);
             }
         }
@@ -474,7 +478,7 @@ fn convert_to_table<'a>(
     }
 
     let count_rows = data.len();
-    let table = nu_table::Table::new(data, (count_rows, count_columns), termwidth, with_header);
+    let table = NuTable::new(data, (count_rows, count_columns), termwidth, with_header);
 
     Ok(Some(table))
 }
@@ -486,30 +490,24 @@ fn make_styled_string(
     disable_index: bool,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
     float_precision: usize,
-) -> StyledString {
+) -> (String, TextStyle) {
     if col == 0 && !disable_index {
-        StyledString {
-            contents: text,
-            style: TextStyle {
-                alignment: nu_table::Alignment::Right,
+        (
+            text,
+            TextStyle {
+                alignment: Alignment::Right,
                 color_style: Some(color_hm["row_index"]),
             },
-        }
+        )
     } else if text_type == "float" {
         // set dynamic precision from config
         let precise_number = match convert_with_precision(&text, float_precision) {
             Ok(num) => num,
             Err(e) => e.to_string(),
         };
-        StyledString {
-            contents: precise_number,
-            style: style_primitive(text_type, color_hm),
-        }
+        (precise_number, style_primitive(text_type, color_hm))
     } else {
-        StyledString {
-            contents: text,
-            style: style_primitive(text_type, color_hm),
-        }
+        (text, style_primitive(text_type, color_hm))
     }
 }
 
