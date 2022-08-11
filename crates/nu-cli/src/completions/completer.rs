@@ -6,7 +6,7 @@ use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, PositionalArg, Span, Value,
+    PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::str;
