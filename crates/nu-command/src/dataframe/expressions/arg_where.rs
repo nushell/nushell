@@ -1,4 +1,4 @@
-use crate::dataframe::values::NuExpression;
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -29,11 +29,17 @@ impl Command for ExprArgWhere {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "",
-            example: "",
-            result: Some(Value::Nothing {
-                span: Span::test_data(),
-            }),
+            description: "Return a dataframe where the value match the expression",
+            example: "let df = ([[a b]; [one 1] [two 2] [three 3]] | into df);
+    $df | select (arg-where ((col b) >= 2) | as b_arg)",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![Column::new(
+                    "b_arg".to_string(),
+                    vec![Value::test_int(1), Value::test_int(2)],
+                )])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
         }]
     }
 
@@ -56,10 +62,15 @@ impl Command for ExprArgWhere {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
-    use crate::dataframe::expressions::as_nu::ExprAsNu;
+    use crate::dataframe::expressions::ExprAlias;
+    use crate::dataframe::lazy::LazySelect;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ExprArgWhere {}), Box::new(ExprAsNu {})])
+        test_dataframe(vec![
+            Box::new(ExprArgWhere {}),
+            Box::new(ExprAlias {}),
+            Box::new(LazySelect {}),
+        ])
     }
 }

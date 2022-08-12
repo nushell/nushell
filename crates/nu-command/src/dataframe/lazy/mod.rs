@@ -24,7 +24,7 @@ use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 use crate::dataframe::lazy::join::LazyJoin;
 pub(crate) use crate::dataframe::lazy::macro_commands::*;
 use crate::dataframe::lazy::quantile::LazyQuantile;
-use crate::dataframe::lazy::select::LazySelect;
+pub(crate) use crate::dataframe::lazy::select::LazySelect;
 use crate::dataframe::lazy::sort_by_expr::LazySortBy;
 pub use crate::dataframe::lazy::to_lazy::ToLazyFrame;
 
