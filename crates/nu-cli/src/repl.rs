@@ -786,9 +786,6 @@ pub fn eval_hook(
                         for var_id in var_ids.iter() {
                             stack.vars.remove(var_id);
                         }
-
-                        let cwd = get_guaranteed_cwd(engine_state, stack);
-                        engine_state.merge_env(stack, cwd)?;
                     }
                     Value::Block {
                         val: block_id,
@@ -796,8 +793,6 @@ pub fn eval_hook(
                         ..
                     } => {
                         run_hook_block(engine_state, stack, block_id, arguments, block_span)?;
-                        let cwd = get_guaranteed_cwd(engine_state, stack);
-                        engine_state.merge_env(stack, cwd)?;
                     }
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
@@ -824,6 +819,9 @@ pub fn eval_hook(
             ));
         }
     }
+
+    let cwd = get_guaranteed_cwd(engine_state, stack);
+    engine_state.merge_env(stack, cwd)?;
 
     Ok(())
 }
