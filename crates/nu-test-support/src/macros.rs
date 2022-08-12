@@ -1,3 +1,54 @@
+/// Run a command in nu and get it's output
+///
+/// The `nu!` macro accepts a number of options like the `cwd` in which the
+/// command should be run. It is also possible to specify a different `locale`
+/// to test locale dependent commands.
+///
+/// Pass options as the first arguments in the form of `key_1: value_1, key_1:
+/// value_2, ...`. The options are defined in the `NuOpts` struct inside the
+/// `nu!` macro.
+///
+/// The command can be formatted using `{}` just like `println!` or `format!`.
+/// Pass the format arguments comma separated after the command itself.
+///
+/// # Examples
+///
+/// ```no_run
+/// # // NOTE: The `nu!` macro needs the `nu` binary to exist. The test are
+/// # //       therefore only compiled but not run (thats what the `no_run` at
+/// # //       the beginning of this code block is for).
+/// #
+/// use nu_test_support::nu;
+///
+/// let outcome = nu!(
+///     "date now | date to-record | get year"
+/// );
+///
+/// let dir = "/";
+/// let outcome = nu!(
+///     "ls {} | get name",
+///     dir,
+/// );
+///
+/// let outcome = nu!(
+///     cwd: "/",
+///     "ls | get name",
+/// );
+///
+/// let cell = "size";
+/// let outcome = nu!(
+///     locale: "de_DE.UTF-8",
+///     "ls | into int {}",
+///     cell,
+/// );
+///
+/// let decimals = 2;
+/// let outcome = nu!(
+///     locale: "de_DE.UTF-8",
+///     "10 | into string --decimals {}",
+///     decimals,
+/// );
+/// ```
 #[macro_export]
 macro_rules! nu {
     // In the `@options` phase, we restucture all the
