@@ -389,7 +389,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// ## Resolution
     ///
     /// This error is fairly generic. Refer to the specific error message for further details.
-    #[error("External command")]
+    #[error("External command failed")]
     #[diagnostic(code(nu::shell::external_command), url(docsrs), help("{1}"))]
     ExternalCommand(String, String, #[label("{0}")] Span),
 
