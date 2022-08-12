@@ -33,13 +33,19 @@ impl Command for LazyFilter {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | into df | select a",
+            description: "Filter dataframe using an expression",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | into df | filter ((col a) >= 4)",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "a".to_string(),
-                    vec![Value::test_int(6), Value::test_int(4), Value::test_int(2)],
-                )])
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(6), Value::test_int(4)],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(2), Value::test_int(2)],
+                    ),
+                ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

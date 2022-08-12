@@ -72,7 +72,7 @@ fn command(
 
     match columns.get(0) {
         Some(column) => {
-            let expression = arg_where(col(column).eq(true));
+            let expression = arg_where(col(column).eq(true)).alias("arg_true");
             let res = df
                 .as_ref()
                 .clone()

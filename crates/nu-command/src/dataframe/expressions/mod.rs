@@ -4,6 +4,7 @@ mod as_nu;
 mod col;
 mod concat_str;
 mod expressions_macro;
+mod is_in;
 mod lit;
 mod otherwise;
 mod quantile;
@@ -17,6 +18,7 @@ use crate::dataframe::expressions::as_nu::ExprAsNu;
 pub(super) use crate::dataframe::expressions::col::ExprCol;
 pub(super) use crate::dataframe::expressions::concat_str::ExprConcatStr;
 pub(crate) use crate::dataframe::expressions::expressions_macro::*;
+pub(super) use crate::dataframe::expressions::is_in::ExprIsIn;
 pub(super) use crate::dataframe::expressions::lit::ExprLit;
 pub(super) use crate::dataframe::expressions::otherwise::ExprOtherwise;
 pub(super) use crate::dataframe::expressions::quantile::ExprQuantile;
@@ -52,6 +54,7 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
         ExprFirst,
         ExprLast,
         ExprNUnique,
+        ExprIsIn,
         ExprIsNotNull,
         ExprIsNull,
         ExprNot,
