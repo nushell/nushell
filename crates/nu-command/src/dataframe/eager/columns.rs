@@ -26,7 +26,7 @@ impl Command for ColumnsDF {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Dataframe dtypes",
+            description: "Dataframe columns",
             example: "[[a b]; [1 2] [3 4]] | into df | columns",
             result: Some(Value::List {
                 vals: vec![
