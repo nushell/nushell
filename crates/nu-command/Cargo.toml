@@ -31,7 +31,8 @@ base64 = "0.13.0"
 byteorder = "1.4.3"
 bytesize = "1.1.0"
 calamine = "0.18.0"
-chrono = { version = "0.4.20", features = ["serde"] }
+chrono = { version = "0.4.20", features = ["serde", "unstable-locales"] }
+sys-locale = "0.2"
 chrono-humanize = "0.2.1"
 chrono-tz = "0.6.3"
 crossterm = "0.24.0"
