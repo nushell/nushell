@@ -28,7 +28,7 @@ pub fn with_locale_override<T>(locale_string: &str, func: fn() -> T) -> T {
         let saved = std::env::var(LOCALE_OVERRIDE_ENV_VAR).ok();
         std::env::set_var(LOCALE_OVERRIDE_ENV_VAR, locale_string);
 
-        let result = std::panic::catch_unwind(|| func());
+        let result = std::panic::catch_unwind(func);
 
         if let Some(locale_str) = saved {
             std::env::set_var(LOCALE_OVERRIDE_ENV_VAR, locale_str);
