@@ -1,11 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use super::util::try_interaction;
-use itertools::Itertools;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
-use nu_glob::GlobResult;
-use nu_path::dots::expand_ndots;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -39,16 +36,11 @@ impl Command for Mv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
-            .rest(
-                "source(s)",
-                SyntaxShape::String,
-                "the location(s) to move files/directories from",
+            .required(
+                "source",
+                SyntaxShape::GlobPattern,
+                "the location to move files/directories from",
             )
-            // .required(
-            //     "source",
-            //     SyntaxShape::GlobPattern,
-            //     "the location to move files/directories from",
-            // )
             .required(
                 "destination",
                 SyntaxShape::Filepath,
@@ -72,132 +64,137 @@ impl Command for Mv {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
-        let mut spanned_sources: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-        // read destination as final argument
-        let spanned_destination: Spanned<String> =
-            call.req(engine_state, stack, spanned_sources.len() - 1)?;
-        // don't read destination argument
-        spanned_sources.pop();
+        let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let spanned_source = {
+            Spanned {
+                item: match strip_ansi_escapes::strip(&spanned_source.item) {
+                    Ok(item) => String::from_utf8(item).unwrap_or(spanned_source.item),
+                    Err(_) => spanned_source.item,
+                },
+                span: spanned_source.span,
+            }
+        };
+        let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
         // let force = call.has_flag("force");
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let path = current_dir(engine_state, stack).expect("Failed current_dir");
+        let path = current_dir(engine_state, stack)?;
+        let source = path.join(spanned_source.item.as_str());
+        let destination = path.join(spanned_destination.item.as_str());
 
-        let span = call.head;
+        let mut sources = nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
+            .map_or_else(|_| Vec::new(), Iterator::collect);
 
-        Ok(spanned_sources
-            .into_iter()
-            .flat_map(move |spanned_source| {
-                let path = path.clone();
-                let source = path.join(spanned_source.item.as_str());
-                let destination = expand_ndots(path.join(spanned_destination.item.as_str()));
+        if sources.is_empty() {
+            return Err(ShellError::GenericError(
+                "Invalid file or pattern".into(),
+                "invalid file or pattern".into(),
+                Some(spanned_source.span),
+                None,
+                Vec::new(),
+            ));
+        }
 
-                let mut sources: Vec<GlobResult> =
-                    nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
-                        .map_or_else(|_| Vec::new(), Iterator::collect);
+        // We have two possibilities.
+        //
+        // First, the destination exists.
+        //  - If a directory, move everything into that directory, otherwise
+        //  - if only a single source, overwrite the file, otherwise
+        //  - error.
+        //
+        // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
+        // it's an error.
 
-                if sources.is_empty() {
-                    let err = ShellError::GenericError(
-                        "Invalid file or pattern".into(),
-                        "invalid file or pattern".into(),
-                        Some(spanned_source.span),
-                        None,
-                        Vec::new(),
-                    );
-                    return Vec::from([Value::Error { error: err }]).into_iter();
-                }
+        if (destination.exists() && !destination.is_dir() && sources.len() > 1)
+            || (!destination.exists() && sources.len() > 1)
+        {
+            return Err(ShellError::GenericError(
+                "Can only move multiple sources if destination is a directory".into(),
+                "destination must be a directory when multiple sources".into(),
+                Some(spanned_destination.span),
+                None,
+                Vec::new(),
+            ));
+        }
 
-                // We have two possibilities.
-                //
-                // First, the destination exists.
-                //  - If a directory, move everything into that directory, otherwise
-                //  - if only a single source, overwrite the file, otherwise
-                //  - error.
-                //
-                // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
-                // it's an error.
-
-                if (destination.exists() && !destination.is_dir() && sources.len() > 1)
-                    || (!destination.exists() && sources.len() > 1)
-                {
-                    let err = ShellError::GenericError(
-                        "Can only move multiple sources if destination is a directory".into(),
-                        "destination must be a directory when multiple sources".into(),
+        if source.is_dir() && destination.is_dir() {
+            if let Some(name) = source.file_name() {
+                let dst = destination.join(name);
+                if dst.is_dir() {
+                    return Err(ShellError::GenericError(
+                        format!("Can't move {:?} to {:?}", source, dst),
+                        "Directory not empty".into(),
                         Some(spanned_destination.span),
                         None,
                         Vec::new(),
-                    );
-                    return Vec::from([Value::Error { error: err }]).into_iter();
+                    ));
                 }
+            }
+        }
 
-                let some_if_source_is_destination = sources
-                    .iter()
-                    .find(|f| matches!(f, Ok(f) if destination.starts_with(f)));
-                if destination.exists() && destination.is_dir() && sources.len() == 1 {
-                    if let Some(Ok(filename)) = some_if_source_is_destination {
-                        let err = ShellError::GenericError(
-                            format!(
-                                "Not possible to move {:?} to itself",
-                                filename.file_name().expect("Invalid file name")
-                            ),
-                            "cannot move to itself".into(),
-                            Some(spanned_destination.span),
-                            None,
-                            Vec::new(),
-                        );
-                        return Vec::from([Value::Error { error: err }]).into_iter();
-                    }
+        let some_if_source_is_destination = sources
+            .iter()
+            .find(|f| matches!(f, Ok(f) if destination.starts_with(f)));
+        if destination.exists() && destination.is_dir() && sources.len() == 1 {
+            if let Some(Ok(filename)) = some_if_source_is_destination {
+                return Err(ShellError::GenericError(
+                    format!(
+                        "Not possible to move {:?} to itself",
+                        filename.file_name().unwrap_or(filename.as_os_str())
+                    ),
+                    "cannot move to itself".into(),
+                    Some(spanned_destination.span),
+                    None,
+                    Vec::new(),
+                ));
+            }
+        }
+
+        if let Some(Ok(_filename)) = some_if_source_is_destination {
+            sources = sources
+                .into_iter()
+                .filter(|f| matches!(f, Ok(f) if !destination.starts_with(f)))
+                .collect();
+        }
+
+        let span = call.head;
+        Ok(sources
+            .into_iter()
+            .flatten()
+            .filter_map(move |entry| {
+                let result = move_file(
+                    Spanned {
+                        item: entry.clone(),
+                        span: spanned_source.span,
+                    },
+                    Spanned {
+                        item: destination.clone(),
+                        span: spanned_destination.span,
+                    },
+                    interactive,
+                );
+                if let Err(error) = result {
+                    Some(Value::Error { error })
+                } else if verbose {
+                    let val = match result {
+                        Ok(true) => format!(
+                            "moved {:} to {:}",
+                            entry.to_string_lossy(),
+                            destination.to_string_lossy()
+                        ),
+                        _ => format!(
+                            "{:} not moved to {:}",
+                            entry.to_string_lossy(),
+                            destination.to_string_lossy()
+                        ),
+                    };
+                    Some(Value::String { val, span })
+                } else {
+                    None
                 }
-
-                if let Some(Ok(_filename)) = some_if_source_is_destination {
-                    sources = sources
-                        .into_iter()
-                        .filter(|f| matches!(f, Ok(f) if !destination.starts_with(f)))
-                        .collect();
-                }
-
-                sources
-                    .into_iter()
-                    .flatten()
-                    .filter_map(move |entry| {
-                        let entry = expand_ndots(entry);
-                        let result = move_file(
-                            Spanned {
-                                item: entry.clone(),
-                                span: spanned_source.span,
-                            },
-                            Spanned {
-                                item: destination.clone(),
-                                span: spanned_destination.span,
-                            },
-                            interactive,
-                        );
-                        if let Err(error) = result {
-                            Some(Value::Error { error })
-                        } else if verbose {
-                            let val = if result.expect("Error value when unwrapping mv result") {
-                                format!(
-                                    "moved {:} to {:}",
-                                    entry.to_string_lossy(),
-                                    destination.to_string_lossy()
-                                )
-                            } else {
-                                format!(
-                                    "{:} not moved to {:}",
-                                    entry.to_string_lossy(),
-                                    destination.to_string_lossy()
-                                )
-                            };
-                            Some(Value::String { val, span })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect_vec()
-                    .into_iter()
             })
             .into_pipeline_data(ctrlc))
     }
@@ -303,13 +300,30 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
             fs_extra::dir::move_dir(from, to, &options)
         } {
             Ok(_) => Ok(()),
-            Err(e) => Err(ShellError::GenericError(
-                format!("Could not move {:?} to {:?}. {:}", from, to, e),
-                "could not move".into(),
-                Some(from_span),
-                None,
-                Vec::new(),
-            )),
+            Err(e) => {
+                let error_kind = match e.kind {
+                    fs_extra::error::ErrorKind::Io(io) => {
+                        format!("I/O error: {}", io)
+                    }
+                    fs_extra::error::ErrorKind::StripPrefix(sp) => {
+                        format!("Strip prefix error: {}", sp)
+                    }
+                    fs_extra::error::ErrorKind::OsString(os) => {
+                        format!("OsString error: {:?}", os.to_str())
+                    }
+                    _ => e.to_string(),
+                };
+                Err(ShellError::GenericError(
+                    format!(
+                        "Could not move {:?} to {:?}. Error Kind: {}",
+                        from, to, error_kind
+                    ),
+                    "could not move".into(),
+                    Some(from_span),
+                    None,
+                    Vec::new(),
+                ))
+            }
         }
     })
 }

@@ -98,7 +98,12 @@ impl Command for Input {
                     match crossterm::event::read() {
                         Ok(Event::Key(k)) => match k.code {
                             // TODO: maintain keycode parity with existing command
-                            KeyCode::Char(_) if k.modifiers != KeyModifiers::NONE => continue,
+                            KeyCode::Char(_)
+                                if k.modifiers == KeyModifiers::ALT
+                                    || k.modifiers == KeyModifiers::CONTROL =>
+                            {
+                                continue
+                            }
                             KeyCode::Char(c) => buf.push(c),
                             KeyCode::Backspace => {
                                 let _ = buf.pop();

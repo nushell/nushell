@@ -38,10 +38,9 @@ impl Command for OrDb {
         vec![
             Example {
                 description: "selects a column from a database with an OR clause",
-                example: r#"open db.mysql
-    | into db
+                example: r#"open db.sqlite
+    | from table table_1
     | select a
-    | from table_1
     | where ((field a) > 1)
     | or ((field b) == 1)
     | describe"#,
@@ -49,7 +48,7 @@ impl Command for OrDb {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {
@@ -62,10 +61,9 @@ impl Command for OrDb {
             },
             Example {
                 description: "Creates an OR clause in the column names and a column",
-                example: r#"open db.mysql
-    | into db
+                example: r#"open db.sqlite
+    | from table table_1
     | select a
-    | from table_1
     | where ((field a) > 1 | or ((field a) < 10))
     | or ((field b) == 1)
     | describe"#,
@@ -73,7 +71,7 @@ impl Command for OrDb {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {

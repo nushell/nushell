@@ -412,7 +412,7 @@ fn lists_with_directory_flag() {
         ));
         let expected = [".", ".", "..", "../dir_files", "../dir_files/nushell.json"].join("");
         #[cfg(windows)]
-        let expected = expected.replace("/", "\\");
+        let expected = expected.replace('/', "\\");
         assert_eq!(
             actual.out, expected,
             "column names are incorrect for ls --directory (-D)"
@@ -504,4 +504,58 @@ fn can_list_system_folder() {
         r#"ls | where size > 10mb"#
     ));
     assert_eq!(ls_with_filter.err, "");
+}
+
+#[test]
+fn list_a_directory_not_exists() {
+    Playground::setup("ls_test_directory_not_exists", |dirs, _sandbox| {
+        let actual = nu!(cwd: dirs.test(), "ls a_directory_not_exists");
+        assert!(actual.err.contains("directory not found"));
+    })
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn list_directory_contains_invalid_utf8() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    Playground::setup(
+        "ls_test_directory_contains_invalid_utf8",
+        |dirs, _sandbox| {
+            let v: [u8; 4] = [7, 196, 144, 188];
+            let s = OsStr::from_bytes(&v);
+
+            let cwd = dirs.test();
+            let path = cwd.join(s);
+
+            std::fs::create_dir_all(&path).expect("failed to create directory");
+
+            let actual = nu!(cwd, "ls");
+
+            assert!(actual.out.contains("warning: get non-utf8 filename"));
+            assert!(actual.err.contains("No matches found for"));
+        },
+    )
+}
+
+#[test]
+fn list_ignores_ansi() {
+    Playground::setup("ls_test_ansi", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls | find .txt | each { ls $in.name } 
+            "#
+        ));
+
+        assert!(actual.err.is_empty());
+    })
 }

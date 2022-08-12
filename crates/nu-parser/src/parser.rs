@@ -44,7 +44,21 @@ pub fn garbage_pipeline(spans: &[Span]) -> Pipeline {
 }
 
 fn is_identifier_byte(b: u8) -> bool {
-    b != b'.' && b != b'[' && b != b'(' && b != b'{'
+    b != b'.'
+        && b != b'['
+        && b != b'('
+        && b != b'{'
+        && b != b'+'
+        && b != b'-'
+        && b != b'*'
+        && b != b'^'
+        && b != b'/'
+        && b != b'='
+        && b != b'!'
+        && b != b'<'
+        && b != b'>'
+        && b != b'&'
+        && b != b'|'
 }
 
 pub fn is_math_expression_like(
@@ -1103,7 +1117,7 @@ pub fn parse_call(
         // We might be parsing left-unbounded range ("..10")
         let bytes = working_set.get_span_contents(spans[0]);
         trace!("parsing: range {:?} ", bytes);
-        if let (Some(b'.'), Some(b'.')) = (bytes.get(0), bytes.get(1)) {
+        if let (Some(b'.'), Some(b'.')) = (bytes.first(), bytes.get(1)) {
             trace!("-- found leading range indicator");
             let (range_expr, range_err) =
                 parse_range(working_set, spans[0], expand_aliases_denylist);
@@ -2170,6 +2184,9 @@ pub fn parse_duration_bytes(bytes: &[u8], span: Span) -> Option<Expression> {
         (Unit::Hour, "HR", Some((Unit::Minute, 60))),
         (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
         (Unit::Week, "WK", Some((Unit::Day, 7))),
+        (Unit::Month, "MONTH", Some((Unit::Day, 30))), //30 day month
+        (Unit::Year, "YR", Some((Unit::Day, 365))),    //365 day year
+        (Unit::Decade, "DEC", Some((Unit::Year, 10))), //365 day years
     ];
     if let Some(unit) = unit_groups.iter().find(|&x| upper.ends_with(x.1)) {
         let mut lhs = token;
@@ -2264,11 +2281,15 @@ pub fn parse_filesize(
         (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
         (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
         (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
+        (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
+        (Unit::Zettabyte, "ZB", Some((Unit::Exabyte, 1000))),
         (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
         (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
         (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
         (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
         (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
+        (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
+        (Unit::Zebibyte, "ZIB", Some((Unit::Exbibyte, 1024))),
         (Unit::Byte, "B", None),
     ];
     if let Some(unit) = unit_groups.iter().find(|&x| upper.ends_with(x.1)) {
@@ -2791,9 +2812,9 @@ pub fn parse_import_pattern(
                     expr: Expr::List(list),
                     ..
                 } => {
-                    for l in list {
-                        let contents = working_set.get_span_contents(l.span);
-                        output.push((contents.to_vec(), l.span));
+                    for expr in list {
+                        let contents = working_set.get_span_contents(expr.span);
+                        output.push((trim_quotes(contents).to_vec(), expr.span));
                     }
 
                     (
@@ -2892,11 +2913,19 @@ pub fn parse_var_with_opt_type(
 
             let ty = parse_type(working_set, type_bytes);
 
-            let id = working_set.add_variable(
-                bytes[0..(bytes.len() - 1)].to_vec(),
-                spans[*spans_idx - 1],
-                ty.clone(),
-            );
+            let var_name = bytes[0..(bytes.len() - 1)].to_vec();
+
+            if !is_variable(&var_name) {
+                return (
+                    garbage(spans[*spans_idx]),
+                    Some(ParseError::Expected(
+                        "valid variable name".into(),
+                        spans[*spans_idx],
+                    )),
+                );
+            }
+
+            let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone());
 
             (
                 Expression {
@@ -2908,11 +2937,19 @@ pub fn parse_var_with_opt_type(
                 None,
             )
         } else {
-            let id = working_set.add_variable(
-                bytes[0..(bytes.len() - 1)].to_vec(),
-                spans[*spans_idx],
-                Type::Any,
-            );
+            let var_name = bytes[0..(bytes.len() - 1)].to_vec();
+
+            if !is_variable(&var_name) {
+                return (
+                    garbage(spans[*spans_idx]),
+                    Some(ParseError::Expected(
+                        "valid variable name".into(),
+                        spans[*spans_idx],
+                    )),
+                );
+            }
+
+            let id = working_set.add_variable(var_name, spans[*spans_idx], Type::Any);
             (
                 Expression {
                     expr: Expr::VarDecl(id),
@@ -2924,8 +2961,23 @@ pub fn parse_var_with_opt_type(
             )
         }
     } else {
-        let id =
-            working_set.add_variable(bytes, span(&spans[*spans_idx..*spans_idx + 1]), Type::Any);
+        let var_name = bytes;
+
+        if !is_variable(&var_name) {
+            return (
+                garbage(spans[*spans_idx]),
+                Some(ParseError::Expected(
+                    "valid variable name".into(),
+                    spans[*spans_idx],
+                )),
+            );
+        }
+
+        let id = working_set.add_variable(
+            var_name,
+            span(&spans[*spans_idx..*spans_idx + 1]),
+            Type::Any,
+        );
 
         (
             Expression {
@@ -3123,7 +3175,23 @@ pub fn parse_signature_helper(
                                     contents.split(|x| x == &b'(').map(|x| x.to_vec()).collect();
 
                                 let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
-                                let variable_name = flags[0][2..].to_vec();
+                                let mut variable_name = flags[0][2..].to_vec();
+                                // Replace the '-' in a variable name with '_'
+                                (0..variable_name.len()).for_each(|idx| {
+                                    if variable_name[idx] == b'-' {
+                                        variable_name[idx] = b'_';
+                                    }
+                                });
+
+                                if !is_variable(&variable_name) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected(
+                                            "valid variable name".into(),
+                                            span,
+                                        ))
+                                    })
+                                }
+
                                 let var_id =
                                     working_set.add_variable(variable_name, span, Type::Any);
 
@@ -3158,7 +3226,23 @@ pub fn parse_signature_helper(
                                         String::from_utf8_lossy(short_flag).to_string();
                                     let chars: Vec<char> = short_flag.chars().collect();
                                     let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
-                                    let variable_name = flags[0][2..].to_vec();
+                                    let mut variable_name = flags[0][2..].to_vec();
+
+                                    (0..variable_name.len()).for_each(|idx| {
+                                        if variable_name[idx] == b'-' {
+                                            variable_name[idx] = b'_';
+                                        }
+                                    });
+
+                                    if !is_variable(&variable_name) {
+                                        error = error.or_else(|| {
+                                            Some(ParseError::Expected(
+                                                "valid variable name".into(),
+                                                span,
+                                            ))
+                                        })
+                                    }
+
                                     let var_id =
                                         working_set.add_variable(variable_name, span, Type::Any);
 
@@ -3194,6 +3278,15 @@ pub fn parse_signature_helper(
                                 let mut encoded_var_name = vec![0u8; 4];
                                 let len = chars[0].encode_utf8(&mut encoded_var_name).len();
                                 let variable_name = encoded_var_name[0..len].to_vec();
+                                if !is_variable(&variable_name) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected(
+                                            "valid variable name".into(),
+                                            span,
+                                        ))
+                                    })
+                                }
+
                                 let var_id =
                                     working_set.add_variable(variable_name, span, Type::Any);
 
@@ -3253,6 +3346,15 @@ pub fn parse_signature_helper(
                                 let contents: Vec<_> = contents[..(contents.len() - 1)].into();
                                 let name = String::from_utf8_lossy(&contents).to_string();
 
+                                if !is_variable(&contents) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected(
+                                            "valid variable name".into(),
+                                            span,
+                                        ))
+                                    })
+                                }
+
                                 let var_id = working_set.add_variable(contents, span, Type::Any);
 
                                 // Positional arg, optional
@@ -3269,6 +3371,14 @@ pub fn parse_signature_helper(
                             } else if let Some(contents) = contents.strip_prefix(b"...") {
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec: Vec<u8> = contents.to_vec();
+                                if !is_variable(&contents_vec) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected(
+                                            "valid variable name".into(),
+                                            span,
+                                        ))
+                                    })
+                                }
 
                                 let var_id =
                                     working_set.add_variable(contents_vec, span, Type::Any);
@@ -3283,6 +3393,15 @@ pub fn parse_signature_helper(
                             } else {
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec = contents.to_vec();
+
+                                if !is_variable(&contents_vec) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected(
+                                            "valid variable name".into(),
+                                            span,
+                                        ))
+                                    })
+                                }
 
                                 let var_id =
                                     working_set.add_variable(contents_vec, span, Type::Any);
@@ -4643,7 +4762,10 @@ pub fn parse_variable(
             (None, None)
         }
     } else {
-        (None, Some(ParseError::Expected("variable".into(), span)))
+        (
+            None,
+            Some(ParseError::Expected("valid variable name".into(), span)),
+        )
     }
 }
 
@@ -4664,15 +4786,38 @@ pub fn parse_builtin_commands(
         }
         b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
         b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"use" => parse_use(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"use" => {
+            let (pipeline, _, err) =
+                parse_use(working_set, &lite_command.parts, expand_aliases_denylist);
+            (pipeline, err)
+        }
         b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
         b"export" => {
-            if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
+            let full_decl = if lite_command.parts.len() > 1 {
+                let sub = working_set.get_span_contents(lite_command.parts[1]);
+                match sub {
+                    b"alias" | b"def" | b"def-env" | b"env" | b"extern" | b"use" => {
+                        [b"export ", sub].concat()
+                    }
+                    _ => b"export".to_vec(),
+                }
+            } else {
+                b"export".to_vec()
+            };
+            if let Some(decl_id) = working_set.find_decl(&full_decl, &Type::Any) {
                 let parsed_call = parse_internal_call(
                     working_set,
-                    lite_command.parts[0],
-                    &lite_command.parts[1..],
+                    if full_decl == b"export" {
+                        lite_command.parts[0]
+                    } else {
+                        span(&lite_command.parts[0..2])
+                    },
+                    if full_decl == b"export" {
+                        &lite_command.parts[1..]
+                    } else {
+                        &lite_command.parts[2..]
+                    },
                     decl_id,
                     expand_aliases_denylist,
                 );

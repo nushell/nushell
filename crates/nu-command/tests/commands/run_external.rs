@@ -198,6 +198,7 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
 
 #[cfg(windows)]
 #[test]
+#[ignore = "fails on local Windows machines"]
 // This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
 //
 // Test command 1 - `dir * `
@@ -230,6 +231,7 @@ fn double_quote_does_not_expand_path_glob_windows() {
 
 #[cfg(windows)]
 #[test]
+#[ignore = "fails on local Windows machines"]
 // This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
 //
 // Test command 1 - `dir * `
@@ -258,4 +260,64 @@ fn single_quote_does_not_expand_path_glob_windows() {
         assert!(actual.out.contains("D&D_volume_1.txt"));
         assert!(actual.out.contains("D&D_volume_2.txt"));
     });
+}
+
+#[cfg(windows)]
+#[test]
+fn can_run_batch_files() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("run a Windows batch file", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "foo.cmd",
+            r#"
+                @echo off
+                echo Hello World
+            "#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("foo.cmd"));
+        assert!(actual.out.contains("Hello World"));
+    });
+}
+
+#[cfg(windows)]
+#[test]
+fn can_run_batch_files_without_cmd_extension() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup(
+        "run a Windows batch file without specifying the extension",
+        |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContent(
+                "foo.cmd",
+                r#"
+                @echo off
+                echo Hello World
+            "#,
+            )]);
+
+            let actual = nu!(cwd: dirs.test(), pipeline("foo"));
+            assert!(actual.out.contains("Hello World"));
+        },
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn can_run_batch_files_without_bat_extension() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup(
+        "run a Windows batch file without specifying the extension",
+        |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContent(
+                "foo.bat",
+                r#"
+                @echo off
+                echo Hello World
+            "#,
+            )]);
+
+            let actual = nu!(cwd: dirs.test(), pipeline("foo"));
+            assert!(actual.out.contains("Hello World"));
+        },
+    );
 }

@@ -1,8 +1,12 @@
 mod declaration;
 pub use declaration::PluginDeclaration;
+use nu_engine::documentation::get_flags_section;
+use std::collections::HashMap;
 
 use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginResponse};
 use crate::EncodingType;
+use std::env;
+use std::fmt::Write;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command as CommandSys, Stdio};
@@ -15,6 +19,8 @@ use super::EvaluatedCall;
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
 pub trait PluginEncoder: Clone {
+    fn name(&self) -> &str;
+
     fn encode_call(
         &self,
         plugin_call: &PluginCall,
@@ -112,9 +118,11 @@ pub fn get_signature(
     path: &Path,
     encoding: &EncodingType,
     shell: &Option<PathBuf>,
+    current_envs: &HashMap<String, String>,
 ) -> Result<Vec<Signature>, ShellError> {
     let mut plugin_cmd = create_command(path, shell);
 
+    plugin_cmd.envs(current_envs);
     let mut child = plugin_cmd.spawn().map_err(|err| {
         ShellError::PluginFailedToLoad(format!("Error spawning child process: {}", err))
     })?;
@@ -183,6 +191,11 @@ pub trait Plugin {
 // That should be encoded correctly and sent to StdOut for nushell to decode and
 // and present its result
 pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
+    if env::args().any(|arg| (arg == "-h") || (arg == "--help")) {
+        print_help(plugin, encoder);
+        std::process::exit(0)
+    }
+
     let mut stdin_buf = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, std::io::stdin());
     let plugin_call = encoder.decode_call(&mut stdin_buf);
 
@@ -252,4 +265,70 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
             }
         }
     }
+}
+
+fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
+    println!("Nushell Plugin");
+    println!("Encoder: {}", encoder.name());
+
+    let mut help = String::new();
+
+    plugin.signature().iter().for_each(|signature| {
+        let res = write!(help, "\nCommand: {}", signature.name)
+            .and_then(|_| writeln!(help, "\nUsage:\n > {}", signature.usage))
+            .and_then(|_| {
+                if !signature.extra_usage.is_empty() {
+                    writeln!(help, "\nExtra usage:\n > {}", signature.extra_usage)
+                } else {
+                    Ok(())
+                }
+            })
+            .and_then(|_| {
+                let flags = get_flags_section(signature);
+                write!(help, "{}", flags)
+            })
+            .and_then(|_| writeln!(help, "\nParameters:"))
+            .and_then(|_| {
+                signature
+                    .required_positional
+                    .iter()
+                    .try_for_each(|positional| {
+                        writeln!(
+                            help,
+                            "  {} <{:?}>: {}",
+                            positional.name, positional.shape, positional.desc
+                        )
+                    })
+            })
+            .and_then(|_| {
+                signature
+                    .optional_positional
+                    .iter()
+                    .try_for_each(|positional| {
+                        writeln!(
+                            help,
+                            "  (optional) {} <{:?}>: {}",
+                            positional.name, positional.shape, positional.desc
+                        )
+                    })
+            })
+            .and_then(|_| {
+                if let Some(rest_positional) = &signature.rest_positional {
+                    writeln!(
+                        help,
+                        "  ...{} <{:?}>: {}",
+                        rest_positional.name, rest_positional.shape, rest_positional.desc
+                    )
+                } else {
+                    Ok(())
+                }
+            })
+            .and_then(|_| writeln!(help, "======================"));
+
+        if res.is_err() {
+            println!("{:?}", res)
+        }
+    });
+
+    println!("{}", help)
 }

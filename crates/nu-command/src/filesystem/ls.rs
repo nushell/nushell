@@ -83,6 +83,20 @@ impl Command for Ls {
 
         let pattern_arg: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
 
+        let pattern_arg = {
+            if let Some(path) = pattern_arg {
+                Some(Spanned {
+                    item: match strip_ansi_escapes::strip(&path.item) {
+                        Ok(item) => String::from_utf8(item).unwrap_or(path.item),
+                        Err(_) => path.item,
+                    },
+                    span: path.span,
+                })
+            } else {
+                pattern_arg
+            }
+        };
+
         let (path, p_tag, absolute_path) = match pattern_arg {
             Some(p) => {
                 let p_tag = p.span;
@@ -343,11 +357,7 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
 }
 
 fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
-    let path_str = path.to_str().expect("failed to read path");
-    if folders
-        .iter()
-        .any(|p| path_str.starts_with(&p.to_str().expect("failed to read hidden paths")))
-    {
+    if folders.iter().any(|p| path.starts_with(p.as_path())) {
         return true;
     }
     false

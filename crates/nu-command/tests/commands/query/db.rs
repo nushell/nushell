@@ -7,8 +7,7 @@ fn can_query_single_table() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample.db
-            | into db
-            | query "select * from strings"
+            | query db "select * from strings"
             | where x =~ ell
             | length
         "#
@@ -24,8 +23,7 @@ fn invalid_sql_fails() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample.db
-            | into db
-            | query "select *asdfasdf"
+            | query db "select *asdfasdf"
         "#
     ));
 
@@ -38,7 +36,7 @@ fn invalid_input_fails() {
     let actual = nu!(
     cwd: "tests/fixtures/formats", pipeline(
         r#"
-            "foo" | into db | query "select * from asdf"
+            "foo" | query db "select * from asdf"
         "#
     ));
 

@@ -1,4 +1,5 @@
 use crate::filesystem::cd_query::query;
+use crate::{get_current_shell, get_shells};
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -39,6 +40,20 @@ impl Command for Cd {
         let cwd = current_dir(engine_state, stack)?;
         let config = engine_state.get_config();
         let use_abbrev = config.cd_with_abbreviations;
+
+        let path_val = {
+            if let Some(path) = path_val {
+                Some(Spanned {
+                    item: match strip_ansi_escapes::strip(&path.item) {
+                        Ok(item) => String::from_utf8(item).unwrap_or(path.item),
+                        Err(_) => path.item,
+                    },
+                    span: path.span,
+                })
+            } else {
+                path_val
+            }
+        };
 
         let (path, span) = match path_val {
             Some(v) => {
@@ -132,22 +147,8 @@ impl Command for Cd {
             span: call.head,
         };
 
-        let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
-        let mut shells = if let Some(v) = shells {
-            v.as_list()
-                .map(|x| x.to_vec())
-                .unwrap_or_else(|_| vec![cwd])
-        } else {
-            vec![cwd]
-        };
-
-        let current_shell = stack.get_env_var(engine_state, "NUSHELL_CURRENT_SHELL");
-        let current_shell = if let Some(v) = current_shell {
-            v.as_integer().unwrap_or_default() as usize
-        } else {
-            0
-        };
-
+        let mut shells = get_shells(engine_state, stack, cwd);
+        let current_shell = get_current_shell(engine_state, stack);
         shells[current_shell] = path_value.clone();
 
         stack.add_env_var(
@@ -186,6 +187,11 @@ impl Command for Cd {
             Example {
                 description: "Change to a directory via abbreviations",
                 example: r#"cd d/s/9"#,
+                result: None,
+            },
+            Example {
+                description: "Change to the previous working directory ($OLDPWD)",
+                example: r#"cd -"#,
                 result: None,
             },
         ]

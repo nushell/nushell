@@ -23,36 +23,6 @@ fn moves_a_file() {
 }
 
 #[test]
-fn moves_multiple_files() {
-    Playground::setup("mv_test_1_1", |dirs, sandbox| {
-        sandbox
-            .mkdir("expected")
-            .with_files(vec![EmptyFile("andres.txt"), EmptyFile("yehuda.txt")])
-            .within("foo")
-            .with_files(vec![EmptyFile("bar.txt")]);
-
-        let original_1 = dirs.test().join("andres.txt");
-        let original_2 = dirs.test().join("yehuda.txt");
-        let original_3 = dirs.test().join("foo/bar.txt");
-        let expected_1 = dirs.test().join("expected/andres.txt");
-        let expected_2 = dirs.test().join("expected/yehuda.txt");
-        let expected_3 = dirs.test().join("expected/bar.txt");
-
-        nu!(
-            cwd: dirs.test(),
-            "mv andres.txt yehuda.txt foo/bar.txt expected"
-        );
-
-        assert!(!original_1.exists());
-        assert!(!original_2.exists());
-        assert!(!original_3.exists());
-        assert!(expected_1.exists());
-        assert!(expected_2.exists());
-        assert!(expected_3.exists());
-    })
-}
-
-#[test]
 fn overwrites_if_moving_to_existing_file() {
     Playground::setup("mv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jonathan.txt")]);
@@ -388,5 +358,38 @@ fn does_not_error_when_some_file_is_moving_into_itself() {
 
         assert!(!original_dir.exists());
         assert!(expected.exists());
+    })
+}
+
+#[test]
+fn mv_ignores_ansi() {
+    Playground::setup("mv_test_ansi", |_dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("test.txt")]);
+        let actual = nu!(
+             cwd: sandbox.cwd(),
+            r#"
+                 ls | find test | mv $in.0.name success.txt; ls | $in.0.name
+            "#
+        );
+
+        assert_eq!(actual.out, "success.txt");
+    })
+}
+
+#[test]
+fn mv_directory_with_same_name() {
+    Playground::setup("mv_test_directory_with_same_name", |_dirs, sandbox| {
+        sandbox.mkdir("testdir");
+        sandbox.mkdir("testdir/testdir");
+
+        let cwd = sandbox.cwd().join("testdir");
+        let actual = nu!(
+            cwd,
+            r#"
+                 mv testdir ..
+            "#
+        );
+
+        assert!(actual.err.contains("Directory not empty"));
     })
 }

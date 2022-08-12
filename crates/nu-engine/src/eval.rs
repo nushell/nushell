@@ -845,7 +845,7 @@ fn extract_custom_completion_from_arg(engine_state: &EngineState, shape: &Syntax
     return match shape {
         SyntaxShape::Custom(_, custom_completion_decl_id) => {
             let custom_completion_command = engine_state.get_decl(*custom_completion_decl_id);
-            let custom_completion_command_name: &str = &*custom_completion_command.name();
+            let custom_completion_command_name: &str = custom_completion_command.name();
             custom_completion_command_name.to_string()
         }
         _ => "".to_string(),
@@ -1101,7 +1101,7 @@ pub fn create_scope(
             cols.push("is_builtin".to_string());
             // we can only be a is_builtin or is_custom, not both
             vals.push(Value::Bool {
-                val: decl.get_block_id().is_none(),
+                val: !decl.is_custom_command(),
                 span,
             });
 
@@ -1119,7 +1119,7 @@ pub fn create_scope(
 
             cols.push("is_custom".to_string());
             vals.push(Value::Bool {
-                val: decl.get_block_id().is_some(),
+                val: decl.is_custom_command(),
                 span,
             });
 
@@ -1452,6 +1452,14 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             val: size * 1000 * 1000 * 1000 * 1000 * 1000,
             span,
         },
+        Unit::Exabyte => Value::Filesize {
+            val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
+            span,
+        },
+        Unit::Zettabyte => Value::Filesize {
+            val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
+            span,
+        },
 
         Unit::Kibibyte => Value::Filesize {
             val: size * 1024,
@@ -1471,6 +1479,14 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
         },
         Unit::Pebibyte => Value::Filesize {
             val: size * 1024 * 1024 * 1024 * 1024 * 1024,
+            span,
+        },
+        Unit::Exbibyte => Value::Filesize {
+            val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
+            span,
+        },
+        Unit::Zebibyte => Value::Filesize {
+            val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
             span,
         },
 
@@ -1499,8 +1515,8 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
                 error: ShellError::GenericError(
-                    "duration too large".into(),
-                    "duration too large".into(),
+                    "day duration too large".into(),
+                    "day duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),
@@ -1511,8 +1527,44 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
                 error: ShellError::GenericError(
-                    "duration too large".into(),
-                    "duration too large".into(),
+                    "week duration too large".into(),
+                    "week duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
+        },
+        Unit::Month => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 30) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::GenericError(
+                    "month duration too large".into(),
+                    "month duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
+        },
+        Unit::Year => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 365) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::GenericError(
+                    "year duration too large".into(),
+                    "year duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
+        },
+        Unit::Decade => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 365 * 10) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::GenericError(
+                    "decade duration too large".into(),
+                    "decade duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),

@@ -32,17 +32,16 @@ impl Command for AliasDb {
         vec![
             Example {
                 description: "Creates an alias for a selected table",
-                example: r#"open db.mysql
-    | into db
+                example: r#"open db.sqlite
+    | from table table_1
     | select a
-    | from table_1
     | as t1
     | describe"#,
                 result: Some(Value::Record {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {
@@ -55,22 +54,20 @@ impl Command for AliasDb {
             },
             Example {
                 description: "Creates an alias for a derived table",
-                example: r#"open db.mysql
-    | into db
-    | select a
-    | from (
-        open db.mysql
-        | into db
+                example: r#"open db.sqlite
+    | from table (
+        open db.sqlite
+        | from table table_a
         | select a b
-        | from table_a
       )
+    | select a
     | as t1
     | describe"#,
                 result: Some(Value::Record {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {
@@ -148,15 +145,13 @@ fn alias_db(
                     Vec::new(),
                 )),
             },
-            s => {
-                return Err(ShellError::GenericError(
-                    "Connection doesn't define a query".into(),
-                    format!("Expected a connection with query. Got {}", s),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                ))
-            }
+            s => Err(ShellError::GenericError(
+                "Connection doesn't define a query".into(),
+                format!("Expected a connection with query. Got {}", s),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )),
         },
     }
 }

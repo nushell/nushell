@@ -92,7 +92,9 @@ fn main() -> Result<()> {
     // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
     // then it'll be the script name
     // then the args to the script
-    let mut args = std::env::args().skip(1);
+    let mut args = std::env::args();
+    let argv0 = args.next();
+
     while let Some(arg) = args.next() {
         if !script_name.is_empty() {
             args_to_script.push(escape_for_script_arg(&arg));
@@ -105,7 +107,7 @@ fn main() -> Result<()> {
                 "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
                 #[cfg(feature = "plugin")]
                 "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-                "--log-level" | "--testbin" | "--threads" | "-t" => args.next(),
+                "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t" => args.next(),
                 _ => None,
             };
 
@@ -121,6 +123,12 @@ fn main() -> Result<()> {
     }
 
     args_to_nushell.insert(0, "nu".into());
+
+    if let Some(argv0) = argv0 {
+        if argv0.starts_with('-') {
+            args_to_nushell.push("--login".into());
+        }
+    }
 
     let nushell_commandline_args = args_to_nushell.join(" ");
 
@@ -149,10 +157,12 @@ fn main() -> Result<()> {
                     .map(|level| level.item)
                     .unwrap_or_else(|| "info".to_string());
 
-                logger(|builder| {
-                    configure(level.as_str(), builder)?;
-                    Ok(())
-                })?;
+                let target = binary_args
+                    .log_target
+                    .map(|target| target.item)
+                    .unwrap_or_else(|| "stderr".to_string());
+
+                logger(|builder| configure(level.as_str(), target.as_str(), builder))?;
                 info!("start logging {}:{}:{}", file!(), line!(), column!());
             }
 
@@ -169,6 +179,7 @@ fn main() -> Result<()> {
                     "nonu" => test_bins::nonu(),
                     "chop" => test_bins::chop(),
                     "repeater" => test_bins::repeater(),
+                    "nu_repl" => test_bins::nu_repl(),
                     _ => std::process::exit(1),
                 }
                 std::process::exit(0)
@@ -426,6 +437,7 @@ fn parse_commandline_args(
             let config_file: Option<Expression> = call.get_flag_expr("config");
             let env_file: Option<Expression> = call.get_flag_expr("env-config");
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
+            let log_target: Option<Expression> = call.get_flag_expr("log-target");
             let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
@@ -455,6 +467,7 @@ fn parse_commandline_args(
             let config_file = extract_contents(config_file)?;
             let env_file = extract_contents(env_file)?;
             let log_level = extract_contents(log_level)?;
+            let log_target = extract_contents(log_target)?;
 
             let help = call.has_flag("help");
 
@@ -487,6 +500,7 @@ fn parse_commandline_args(
                 config_file,
                 env_file,
                 log_level,
+                log_target,
                 perf,
                 threads,
                 table_mode,
@@ -512,6 +526,7 @@ struct NushellCliArgs {
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
     log_level: Option<Spanned<String>>,
+    log_target: Option<Spanned<String>>,
     perf: bool,
     threads: Option<Value>,
     table_mode: Option<Value>,
@@ -565,6 +580,12 @@ impl Command for Nu {
                 "log-level",
                 SyntaxShape::String,
                 "log level for performance logs",
+                None,
+            )
+            .named(
+                "log-target",
+                SyntaxShape::String,
+                "set the target for the log to output. stdout, stderr(default), mixed or file",
                 None,
             )
             .named(

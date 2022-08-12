@@ -121,7 +121,15 @@ impl Command for Touch {
 
                 // Checks for the seconds stamp and removes the '.' delimiter if any
                 let (val, has_sec): (String, bool) = match stamp.split_once('.') {
-                    Some((dtime, sec)) => (format!("{}{}", dtime, sec), true),
+                    Some((dtime, sec)) => match sec.parse::<u8>() {
+                        Ok(sec) if sec < 60 => (format!("{}{}", dtime, sec), true),
+                        _ => {
+                            return Err(ShellError::UnsupportedInput(
+                                "input has an invalid timestamp".to_string(),
+                                span,
+                            ))
+                        }
+                    },
                     None => (stamp.to_string(), false),
                 };
 
@@ -140,14 +148,24 @@ impl Command for Touch {
                         10 => Some(AddYear::Full),
                         12 => Some(AddYear::FirstDigits),
                         14 => None,
-                        _ => unreachable!(), // This should never happen as the check above should catch it
+                        _ => {
+                            return Err(ShellError::UnsupportedInput(
+                                "input has an invalid timestamp".to_string(),
+                                span,
+                            ))
+                        }
                     }
                 } else {
                     match size {
                         8 => Some(AddYear::Full),
                         10 => Some(AddYear::FirstDigits),
                         12 => None,
-                        _ => unreachable!(), // This should never happen as the check above should catch it
+                        _ => {
+                            return Err(ShellError::UnsupportedInput(
+                                "input has an invalid timestamp".to_string(),
+                                span,
+                            ))
+                        }
                     }
                 };
 

@@ -40,9 +40,8 @@ impl Command for LimitDb {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Limits selection from table",
-            example: r#"open db.mysql
-    | into db
-    | from table_a
+            example: r#"open db.sqlite
+    | from table table_a
     | select a
     | limit 10
     | describe"#,
@@ -50,7 +49,7 @@ impl Command for LimitDb {
                 cols: vec!["connection".into(), "query".into()],
                 vals: vec![
                     Value::String {
-                        val: "db.mysql".into(),
+                        val: "db.sqlite".into(),
                         span: Span::test_data(),
                     },
                     Value::String {

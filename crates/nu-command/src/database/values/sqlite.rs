@@ -366,16 +366,21 @@ impl CustomValue for SQLiteDatabase {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(self.connection.as_path(span)?, span)?;
-        read_entire_sqlite_db(db, span).map_err(|e| {
-            ShellError::GenericError(
-                "Failed to read from SQLite database".into(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
-        })
+        match self.statement {
+            None => {
+                let db = open_sqlite_db(self.connection.as_path(span)?, span)?;
+                read_entire_sqlite_db(db, span).map_err(|e| {
+                    ShellError::GenericError(
+                        "Failed to read from SQLite database".into(),
+                        e.to_string(),
+                        Some(span),
+                        None,
+                        Vec::new(),
+                    )
+                })
+            }
+            Some(_) => self.collect(span),
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -410,7 +415,7 @@ impl CustomValue for SQLiteDatabase {
     }
 }
 
-fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, nu_protocol::ShellError> {
+pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, nu_protocol::ShellError> {
     let path = path.to_string_lossy().to_string();
 
     Connection::open(path).map_err(|e| {
@@ -425,18 +430,8 @@ fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, nu_protoco
 }
 
 fn run_sql_query(conn: Connection, sql: &Spanned<String>) -> Result<Value, rusqlite::Error> {
-    let mut stmt = conn.prepare(&sql.item)?;
-    let results = stmt.query([])?;
-
-    let nu_records = results
-        .mapped(|row| Result::Ok(convert_sqlite_row_to_nu_value(row, sql.span)))
-        .into_iter()
-        .collect::<Result<Vec<Value>, rusqlite::Error>>()?;
-
-    Ok(Value::List {
-        vals: nu_records,
-        span: sql.span,
-    })
+    let stmt = conn.prepare(&sql.item)?;
+    prepared_statement_to_nu_list(stmt, sql.span)
 }
 
 fn read_single_table(
@@ -444,14 +439,30 @@ fn read_single_table(
     table_name: String,
     call_span: Span,
 ) -> Result<Value, rusqlite::Error> {
-    let mut stmt = conn.prepare(&format!("SELECT * FROM {}", table_name))?;
-    let results = stmt.query([])?;
+    let stmt = conn.prepare(&format!("SELECT * FROM {}", table_name))?;
+    prepared_statement_to_nu_list(stmt, call_span)
+}
 
+fn prepared_statement_to_nu_list(
+    mut stmt: rusqlite::Statement,
+    call_span: Span,
+) -> Result<Value, rusqlite::Error> {
+    let column_names = stmt
+        .column_names()
+        .iter()
+        .map(|c| c.to_string())
+        .collect::<Vec<String>>();
+    let results = stmt.query([])?;
     let nu_records = results
-        .mapped(|row| Result::Ok(convert_sqlite_row_to_nu_value(row, call_span)))
+        .mapped(|row| {
+            Result::Ok(convert_sqlite_row_to_nu_value(
+                row,
+                call_span,
+                column_names.clone(),
+            ))
+        })
         .into_iter()
         .collect::<Result<Vec<Value>, rusqlite::Error>>()?;
-
     Ok(Value::List {
         vals: nu_records,
         span: call_span,
@@ -470,19 +481,9 @@ fn read_entire_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rus
         let table_name: String = row?;
         table_names.push(table_name.clone());
 
-        let mut rows = Vec::new();
-        let mut table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
-        let mut table_rows = table_stmt.query([])?;
-        while let Some(table_row) = table_rows.next()? {
-            rows.push(convert_sqlite_row_to_nu_value(table_row, call_span))
-        }
-
-        let table_record = Value::List {
-            vals: rows,
-            span: call_span,
-        };
-
-        tables.push(table_record);
+        let table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
+        let rows = prepared_statement_to_nu_list(table_stmt, call_span)?;
+        tables.push(rows);
     }
 
     Ok(Value::Record {
@@ -492,19 +493,16 @@ fn read_entire_sqlite_db(conn: Connection, call_span: Span) -> Result<Value, rus
     })
 }
 
-pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span) -> Value {
-    let mut vals = Vec::new();
-    let colnamestr = row.as_ref().column_names().to_vec();
-    let colnames = colnamestr.iter().map(|s| s.to_string()).collect();
+pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: Vec<String>) -> Value {
+    let mut vals = Vec::with_capacity(column_names.len());
 
-    for (i, c) in row.as_ref().column_names().iter().enumerate() {
-        let _column = c.to_string();
+    for i in 0..column_names.len() {
         let val = convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), span);
         vals.push(val);
     }
 
     Value::Record {
-        cols: colnames,
+        cols: column_names,
         vals,
         span,
     }

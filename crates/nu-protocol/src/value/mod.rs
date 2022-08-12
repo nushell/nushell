@@ -5,31 +5,31 @@ mod range;
 mod stream;
 mod unit;
 
+use crate::ast::Operator;
+use crate::ast::{CellPath, PathMember};
+use crate::ShellError;
+use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 use byte_unit::ByteUnit;
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, Duration, FixedOffset};
 use chrono_humanize::HumanTime;
+pub use custom_value::CustomValue;
+use fancy_regex::Regex;
 pub use from_value::FromValue;
 use indexmap::map::IndexMap;
 use num_format::{Locale, ToFormattedString};
 pub use range::*;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    fmt::{Display, Formatter, Result as FmtResult},
+    iter,
+    path::PathBuf,
+    {cmp::Ordering, fmt::Debug},
+};
 pub use stream::*;
 use sys_locale::get_locale;
 pub use unit::*;
-
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::{cmp::Ordering, fmt::Debug};
-
-use crate::ast::{CellPath, PathMember};
-use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
-
-use crate::ast::Operator;
-pub use custom_value::CustomValue;
-use std::iter;
-
-use crate::ShellError;
 
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the
@@ -2178,7 +2178,11 @@ impl Value {
                     .map_err(|e| ShellError::UnsupportedInput(format!("{e}"), *rhs_span))?;
                 let is_match = regex.is_match(lhs);
                 Ok(Value::Bool {
-                    val: if invert { !is_match } else { is_match },
+                    val: if invert {
+                        !is_match.unwrap_or(false)
+                    } else {
+                        is_match.unwrap_or(true)
+                    },
                     span,
                 })
             }
@@ -2525,54 +2529,210 @@ impl From<Spanned<IndexMap<String, Value>>> for Value {
     }
 }
 
-/// Format a duration in nanoseconds into a string
+/// Is the given year a leap year?
+#[allow(clippy::nonminimal_bool)]
+pub fn is_leap_year(year: i32) -> bool {
+    (year % 4 == 0) && (year % 100 != 0 || (year % 100 == 0 && year % 400 == 0))
+}
+
+#[derive(Clone, Copy)]
+enum TimePeriod {
+    Nanos(i64),
+    Micros(i64),
+    Millis(i64),
+    Seconds(i64),
+    Minutes(i64),
+    Hours(i64),
+    Days(i64),
+    Weeks(i64),
+    Months(i64),
+    Years(i64),
+}
+
+impl TimePeriod {
+    fn to_text(self) -> Cow<'static, str> {
+        match self {
+            Self::Nanos(n) => format!("{}ns", n).into(),
+            Self::Micros(n) => format!("{}µs", n).into(),
+            Self::Millis(n) => format!("{}ms", n).into(),
+            Self::Seconds(n) => format!("{}sec", n).into(),
+            Self::Minutes(n) => format!("{}min", n).into(),
+            Self::Hours(n) => format!("{}hr", n).into(),
+            Self::Days(n) => format!("{}day", n).into(),
+            Self::Weeks(n) => format!("{}wk", n).into(),
+            Self::Months(n) => format!("{}month", n).into(),
+            Self::Years(n) => format!("{}yr", n).into(),
+        }
+    }
+}
+
+impl Display for TimePeriod {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.to_text())
+    }
+}
+
 pub fn format_duration(duration: i64) -> String {
+    // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
+    // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
+    const DAYS_IN_YEAR: i64 = 365;
+    const DAYS_IN_MONTH: i64 = 30;
+
     let (sign, duration) = if duration >= 0 {
         (1, duration)
     } else {
         (-1, -duration)
     };
-    let (micros, nanos): (i64, i64) = (duration / 1000, duration % 1000);
-    let (millis, micros): (i64, i64) = (micros / 1000, micros % 1000);
-    let (secs, millis): (i64, i64) = (millis / 1000, millis % 1000);
-    let (mins, secs): (i64, i64) = (secs / 60, secs % 60);
-    let (hours, mins): (i64, i64) = (mins / 60, mins % 60);
-    let (days, hours): (i64, i64) = (hours / 24, hours % 24);
 
-    let mut output_prep = vec![];
+    let dur = Duration::nanoseconds(duration);
 
-    if days != 0 {
-        output_prep.push(format!("{}day", days));
+    /// Split this a duration into number of whole years and the remainder
+    fn split_years(duration: Duration) -> (Option<i64>, Duration) {
+        let years = duration.num_days() / DAYS_IN_YEAR;
+        let remainder = duration - Duration::days(years * DAYS_IN_YEAR);
+        normalize_split(years, remainder)
     }
 
-    if hours != 0 {
-        output_prep.push(format!("{}hr", hours));
+    /// Split this a duration into number of whole months and the remainder
+    fn split_months(duration: Duration) -> (Option<i64>, Duration) {
+        let months = duration.num_days() / DAYS_IN_MONTH;
+        let remainder = duration - Duration::days(months * DAYS_IN_MONTH);
+        normalize_split(months, remainder)
     }
 
-    if mins != 0 {
-        output_prep.push(format!("{}min", mins));
-    }
-    // output 0sec for zero duration
-    if duration == 0 || secs != 0 {
-        output_prep.push(format!("{}sec", secs));
-    }
-
-    if millis != 0 {
-        output_prep.push(format!("{}ms", millis));
+    /// Split this a duration into number of whole weeks and the remainder
+    fn split_weeks(duration: Duration) -> (Option<i64>, Duration) {
+        let weeks = duration.num_weeks();
+        let remainder = duration - Duration::weeks(weeks);
+        normalize_split(weeks, remainder)
     }
 
-    if micros != 0 {
-        output_prep.push(format!("{}us", micros));
+    /// Split this a duration into number of whole days and the remainder
+    fn split_days(duration: Duration) -> (Option<i64>, Duration) {
+        let days = duration.num_days();
+        let remainder = duration - Duration::days(days);
+        normalize_split(days, remainder)
     }
 
-    if nanos != 0 {
-        output_prep.push(format!("{}ns", nanos));
+    /// Split this a duration into number of whole hours and the remainder
+    fn split_hours(duration: Duration) -> (Option<i64>, Duration) {
+        let hours = duration.num_hours();
+        let remainder = duration - Duration::hours(hours);
+        normalize_split(hours, remainder)
     }
+
+    /// Split this a duration into number of whole minutes and the remainder
+    fn split_minutes(duration: Duration) -> (Option<i64>, Duration) {
+        let minutes = duration.num_minutes();
+        let remainder = duration - Duration::minutes(minutes);
+        normalize_split(minutes, remainder)
+    }
+
+    /// Split this a duration into number of whole seconds and the remainder
+    fn split_seconds(duration: Duration) -> (Option<i64>, Duration) {
+        let seconds = duration.num_seconds();
+        let remainder = duration - Duration::seconds(seconds);
+        normalize_split(seconds, remainder)
+    }
+
+    /// Split this a duration into number of whole milliseconds and the remainder
+    fn split_milliseconds(duration: Duration) -> (Option<i64>, Duration) {
+        let millis = duration.num_milliseconds();
+        let remainder = duration - Duration::milliseconds(millis);
+        normalize_split(millis, remainder)
+    }
+
+    /// Split this a duration into number of whole seconds and the remainder
+    fn split_microseconds(duration: Duration) -> (Option<i64>, Duration) {
+        let micros = duration.num_microseconds().unwrap_or_default();
+        let remainder = duration - Duration::microseconds(micros);
+        normalize_split(micros, remainder)
+    }
+
+    /// Split this a duration into number of whole seconds and the remainder
+    fn split_nanoseconds(duration: Duration) -> (Option<i64>, Duration) {
+        let nanos = duration.num_nanoseconds().unwrap_or_default();
+        let remainder = duration - Duration::nanoseconds(nanos);
+        normalize_split(nanos, remainder)
+    }
+
+    fn normalize_split(
+        wholes: impl Into<Option<i64>>,
+        remainder: Duration,
+    ) -> (Option<i64>, Duration) {
+        let wholes = wholes.into().map(i64::abs).filter(|x| *x > 0);
+        (wholes, remainder)
+    }
+
+    let mut periods = vec![];
+    let (years, remainder) = split_years(dur);
+    if let Some(years) = years {
+        periods.push(TimePeriod::Years(years));
+    }
+
+    let (months, remainder) = split_months(remainder);
+    if let Some(months) = months {
+        periods.push(TimePeriod::Months(months));
+    }
+
+    let (weeks, remainder) = split_weeks(remainder);
+    if let Some(weeks) = weeks {
+        periods.push(TimePeriod::Weeks(weeks));
+    }
+
+    let (days, remainder) = split_days(remainder);
+    if let Some(days) = days {
+        periods.push(TimePeriod::Days(days));
+    }
+
+    let (hours, remainder) = split_hours(remainder);
+    if let Some(hours) = hours {
+        periods.push(TimePeriod::Hours(hours));
+    }
+
+    let (minutes, remainder) = split_minutes(remainder);
+    if let Some(minutes) = minutes {
+        periods.push(TimePeriod::Minutes(minutes));
+    }
+
+    let (seconds, remainder) = split_seconds(remainder);
+    if let Some(seconds) = seconds {
+        periods.push(TimePeriod::Seconds(seconds));
+    }
+
+    let (millis, remainder) = split_milliseconds(remainder);
+    if let Some(millis) = millis {
+        periods.push(TimePeriod::Millis(millis));
+    }
+
+    let (micros, remainder) = split_microseconds(remainder);
+    if let Some(micros) = micros {
+        periods.push(TimePeriod::Micros(micros));
+    }
+
+    let (nanos, _remainder) = split_nanoseconds(remainder);
+    if let Some(nanos) = nanos {
+        periods.push(TimePeriod::Nanos(nanos));
+    }
+
+    if periods.is_empty() {
+        periods.push(TimePeriod::Seconds(0));
+    }
+
+    // let last = periods.pop().map(|last| last.to_text().to_string());
+    let text = periods
+        .into_iter()
+        .map(|p| p.to_text().to_string())
+        .collect::<Vec<String>>();
+
+    // if let Some(last) = last {
+    //     text.push(format!("and {}", last));
+    // }
 
     format!(
         "{}{}",
         if sign == -1 { "-" } else { "" },
-        output_prep.join(" ")
+        text.join(" ").trim()
     )
 }
 

@@ -77,23 +77,28 @@ pub fn print_table_or_error(
 
     match engine_state.find_decl("table".as_bytes(), &[]) {
         Some(decl_id) => {
-            let table = engine_state.get_decl(decl_id).run(
-                engine_state,
-                stack,
-                &Call::new(Span::new(0, 0)),
-                pipeline_data,
-            );
+            let command = engine_state.get_decl(decl_id);
+            if command.get_block_id().is_some() {
+                print_or_exit(pipeline_data, engine_state, config);
+            } else {
+                let table = command.run(
+                    engine_state,
+                    stack,
+                    &Call::new(Span::new(0, 0)),
+                    pipeline_data,
+                );
 
-            match table {
-                Ok(table) => {
-                    print_or_exit(table, engine_state, config);
-                }
-                Err(error) => {
-                    let working_set = StateWorkingSet::new(engine_state);
+                match table {
+                    Ok(table) => {
+                        print_or_exit(table, engine_state, config);
+                    }
+                    Err(error) => {
+                        let working_set = StateWorkingSet::new(engine_state);
 
-                    report_error(&working_set, &error);
+                        report_error(&working_set, &error);
 
-                    std::process::exit(1);
+                        std::process::exit(1);
+                    }
                 }
             }
         }

@@ -35,7 +35,7 @@ impl Command for DecodeBase64 {
     }
 
     fn usage(&self) -> &str {
-        "base64 decode a value"
+        "Base64 decode a value"
     }
 
     fn extra_usage(&self) -> &str {

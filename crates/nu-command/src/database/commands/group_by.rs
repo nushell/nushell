@@ -42,9 +42,8 @@ impl Command for GroupByDb {
         vec![
             Example {
                 description: "groups by column a and calculates the max",
-                example: r#"open db.mysql
-    | into db
-    | from table_a
+                example: r#"open db.sqlite
+    | from table table_a
     | select (fn max a)
     | group-by a
     | describe"#,
@@ -52,7 +51,7 @@ impl Command for GroupByDb {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {
@@ -65,9 +64,8 @@ impl Command for GroupByDb {
             },
             Example {
                 description: "groups by column column a and counts records",
-                example: r#"open db.mysql
-    | into db
-    | from table_a
+                example: r#"open db.sqlite
+    | from table table_a
     | select (fn count *)
     | group-by a
     | describe"#,
@@ -75,7 +73,7 @@ impl Command for GroupByDb {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {

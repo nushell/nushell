@@ -1,3 +1,4 @@
+use super::{get_current_shell, get_shells};
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -62,21 +63,16 @@ impl Command for Enter {
             span: call.head,
         };
 
-        let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
-        let mut shells = if let Some(v) = shells {
-            v.as_list()
-                .map(|x| x.to_vec())
-                .unwrap_or_else(|_| vec![cwd])
-        } else {
-            vec![cwd]
-        };
+        let mut shells = get_shells(engine_state, stack, cwd);
+        let mut current_shell = get_current_shell(engine_state, stack);
 
-        let current_shell = stack.get_env_var(engine_state, "NUSHELL_CURRENT_SHELL");
-        let mut current_shell = if let Some(v) = current_shell {
-            v.as_integer().unwrap_or_default() as usize
-        } else {
-            0
-        };
+        stack.add_env_var(
+            "NUSHELL_LAST_SHELL".into(),
+            Value::Int {
+                val: current_shell as i64,
+                span: call.head,
+            },
+        );
 
         if current_shell + 1 > shells.len() {
             shells.push(new_path.clone());

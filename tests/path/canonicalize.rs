@@ -96,21 +96,19 @@ fn canonicalize_absolute_path_relative_to() {
 
 #[test]
 fn canonicalize_dot() {
-    let cwd = std::env::current_dir().expect("Could not get current directory");
-
-    let actual = canonicalize_with(".", cwd).expect("Failed to canonicalize");
     let expected = std::env::current_dir().expect("Could not get current directory");
+
+    let actual = canonicalize_with(".", expected.as_path()).expect("Failed to canonicalize");
 
     assert_eq!(actual, expected);
 }
 
 #[test]
 fn canonicalize_many_dots() {
-    let cwd = std::env::current_dir().expect("Could not get current directory");
-
-    let actual =
-        canonicalize_with("././/.//////./././//.///", cwd).expect("Failed to canonicalize");
     let expected = std::env::current_dir().expect("Could not get current directory");
+
+    let actual = canonicalize_with("././/.//////./././//.///", expected.as_path())
+        .expect("Failed to canonicalize");
 
     assert_eq!(actual, expected);
 }

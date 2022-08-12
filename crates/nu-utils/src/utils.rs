@@ -51,6 +51,14 @@ where
     ret
 }
 
+pub fn get_default_env() -> &'static str {
+    include_str!("sample_config/default_env.nu")
+}
+
+pub fn get_default_config() -> &'static str {
+    include_str!("sample_config/default_config.nu")
+}
+
 pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
     match lscolors_env_string {
         Some(s) => LsColors::from_string(&s),

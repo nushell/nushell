@@ -180,6 +180,34 @@ fn errors_if_change_modified_time_of_file_with_invalid_timestamp() {
         );
 
         assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -m -t 082412.3012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -m -t 0824.123012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -m -t 08.24123012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -m -t 0.824123012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
     })
 }
 
@@ -398,6 +426,34 @@ fn errors_if_change_access_time_of_file_with_invalid_timestamp() {
         outcome = nu!(
             cwd: dirs.test(),
             "touch -a -t 01908241230 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -a -t 082412.3012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -a -t 0824.123012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -a -t 08.24123012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -a -t 0.824123012 file.txt"
         );
 
         assert!(outcome.err.contains("input has an invalid timestamp"));
@@ -634,6 +690,34 @@ fn errors_if_change_modified_and_access_time_of_file_with_invalid_timestamp() {
         );
 
         assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -m -a -t 082412.3012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -m -a -t 0824.123012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -m -a -t 08.24123012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        outcome = nu!(
+            cwd: dirs.test(),
+            "touch -m -a -t 0.824123012 file.txt"
+        );
+
+        assert!(outcome.err.contains("input has an invalid timestamp"));
     })
 }
 
@@ -764,5 +848,22 @@ fn not_create_file_if_it_not_exists() {
         let path = dirs.test().join("file.txt");
 
         assert!(!path.exists());
+    })
+}
+
+#[test]
+fn test_invalid_timestamp() {
+    Playground::setup("test_invalid_timestamp", |dirs, _sandbox| {
+        let outcome = nu!(
+            cwd: dirs.test(),
+            r#"touch -t 20220729. file.txt"#
+        );
+        assert!(outcome.err.contains("input has an invalid timestamp"));
+
+        let outcome = nu!(
+            cwd: dirs.test(),
+            r#"touch -t 20220729120099 file.txt"#
+        );
+        assert!(outcome.err.contains("input has an invalid timestamp"));
     })
 }

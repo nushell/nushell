@@ -18,22 +18,6 @@ fn copies_a_file() {
 }
 
 #[test]
-fn copies_multiple_files() {
-    Playground::setup("cp_test_1_1", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![EmptyFile("a.txt"), EmptyFile("b.txt")])
-            .mkdir("dest");
-        nu!(
-            cwd: dirs.test(),
-            "cp a.txt b.txt dest",
-        );
-
-        assert!(dirs.test().join("dest/a.txt").exists());
-        assert!(dirs.test().join("dest/b.txt").exists());
-    });
-}
-
-#[test]
 fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
     Playground::setup("cp_test_2", |dirs, _| {
         let expected_file = AbsoluteFile::new(dirs.test().join("sample.ini"));
@@ -302,7 +286,7 @@ fn copy_dir_contains_symlink() {
         // make symbolic link and copy.
         nu!(
             cwd: sandbox.cwd(),
-            "rm tmp_dir/good_bye; cp -r -p tmp_dir tmp_dir_2",
+            "rm tmp_dir/good_bye; cp -r -n tmp_dir tmp_dir_2",
         );
 
         // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` also exists inside `tmp_dir_2`.
@@ -325,7 +309,7 @@ fn copy_dir_symlink_file_body_not_changed() {
         // make symbolic link and copy.
         nu!(
             cwd: sandbox.cwd(),
-            "rm tmp_dir/good_bye; cp -r -p tmp_dir tmp_dir_2; rm -r tmp_dir; cp -r -p tmp_dir_2 tmp_dir; echo hello_data | save tmp_dir/good_bye",
+            "rm tmp_dir/good_bye; cp -r -n tmp_dir tmp_dir_2; rm -r tmp_dir; cp -r -n tmp_dir_2 tmp_dir; echo hello_data | save tmp_dir/good_bye",
         );
 
         // check dangle_symlink in tmp_dir is no longer dangling.
@@ -345,5 +329,18 @@ fn copy_identical_file() {
             "cp same.txt same.txt",
         );
         assert!(actual.err.contains("Copy aborted"));
+    });
+}
+
+#[test]
+fn copy_ignores_ansi() {
+    Playground::setup("cp_test_16", |_dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("test.txt")]);
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "ls | find test | get name | cp $in.0 success.txt; ls | find success | get name | ansi strip | get 0",
+        );
+        assert_eq!(actual.out, "success.txt");
     });
 }

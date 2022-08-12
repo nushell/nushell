@@ -1,7 +1,7 @@
 extern crate nu_test_support;
 
 mod hooks;
-mod nu_repl;
+mod modules;
 mod overlays;
 mod parsing;
 mod path;

@@ -115,6 +115,11 @@ fn bad_var_name() -> TestResult {
 }
 
 #[test]
+fn bad_var_name2() -> TestResult {
+    fail_test(r#"let $foo-bar = 4"#, "valid variable")
+}
+
+#[test]
 fn long_flag() -> TestResult {
     run_test(
         r#"([a, b, c] | each --numbered { |it| if $it.index == 1 { 100 } else { 0 } }).1"#,

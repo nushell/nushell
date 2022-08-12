@@ -81,6 +81,7 @@ pub struct Config {
     pub case_sensitive_completions: bool,
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
+    pub show_banner: bool,
 }
 
 impl Default for Config {
@@ -115,6 +116,7 @@ impl Default for Config {
             case_sensitive_completions: false,
             enable_external_completion: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
+            show_banner: true,
         }
     }
 }
@@ -197,7 +199,7 @@ impl Value {
                         if let Ok(map) = create_map(value, &config) {
                             config.color_config = map;
                         } else {
-                            eprintln!("$config.color_config is not a record")
+                            eprintln!("$env.config.color_config is not a record")
                         }
                     }
                     "use_grid_icons" => {
@@ -388,13 +390,20 @@ impl Value {
                         }
                     }
                     "table_trim" => config.trim_strategy = try_parse_trim_strategy(value, &config)?,
+                    "show_banner" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.show_banner = b;
+                        } else {
+                            eprintln!("$config.show_banner is not a bool")
+                        }
+                    }
                     x => {
                         eprintln!("$config.{} is an unknown config setting", x)
                     }
                 }
             }
         } else {
-            eprintln!("$config is not a record");
+            eprintln!("$env.config is not a record");
         }
 
         Ok(config)
@@ -403,7 +412,7 @@ impl Value {
 
 fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrategy, ShellError> {
     let map = create_map(value, config).map_err(|e| {
-        eprintln!("$config.table_trim is not a record");
+        eprintln!("$env.config.table_trim is not a record");
         e
     })?;
 

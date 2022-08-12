@@ -1,4 +1,5 @@
 use crate::help::highlight_search_string;
+use fancy_regex::Regex;
 use lscolors::Style as LsColors_Style;
 use nu_ansi_term::{Color::Default, Style};
 use nu_color_config::get_color_config;
@@ -10,7 +11,6 @@ use nu_protocol::{
     Signature, Span, SyntaxShape, Value,
 };
 use nu_utils::get_ls_colors;
-use regex::Regex;
 
 #[derive(Clone)]
 pub struct Find;
@@ -197,18 +197,26 @@ fn find_with_regex(
 
     input.filter(
         move |value| match value {
-            Value::String { val, .. } => re.is_match(val.as_str()) != invert,
+            Value::String { val, .. } => re.is_match(val.as_str()).unwrap_or(false) != invert,
             Value::Record { cols: _, vals, .. } => {
                 let matches: Vec<bool> = vals
                     .iter()
-                    .map(|v| re.is_match(v.into_string(" ", &config).as_str()) != invert)
+                    .map(|v| {
+                        re.is_match(v.into_string(" ", &config).as_str())
+                            .unwrap_or(false)
+                            != invert
+                    })
                     .collect();
                 matches.iter().any(|b| *b)
             }
             Value::List { vals, .. } => {
                 let matches: Vec<bool> = vals
                     .iter()
-                    .map(|v| re.is_match(v.into_string(" ", &config).as_str()) != invert)
+                    .map(|v| {
+                        re.is_match(v.into_string(" ", &config).as_str())
+                            .unwrap_or(false)
+                            != invert
+                    })
                     .collect();
                 matches.iter().any(|b| *b)
             }

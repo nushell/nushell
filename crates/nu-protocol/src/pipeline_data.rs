@@ -460,12 +460,12 @@ impl PipelineData {
 
         match engine_state.find_decl("table".as_bytes(), &[]) {
             Some(decl_id) => {
-                let table = engine_state.get_decl(decl_id).run(
-                    engine_state,
-                    stack,
-                    &Call::new(Span::new(0, 0)),
-                    self,
-                )?;
+                let command = engine_state.get_decl(decl_id);
+                if command.get_block_id().is_some() {
+                    return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
+                }
+
+                let table = command.run(engine_state, stack, &Call::new(Span::new(0, 0)), self)?;
 
                 table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
             }

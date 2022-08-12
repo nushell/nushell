@@ -38,10 +38,9 @@ impl Command for AndDb {
         vec![
             Example {
                 description: "Selects a column from a database with an AND clause",
-                example: r#"open db.mysql
-    | into db
+                example: r#"open db.sqlite
+    | from table table_1
     | select a
-    | from table_1
     | where ((field a) > 1)
     | and ((field b) == 1)
     | describe"#,
@@ -49,7 +48,7 @@ impl Command for AndDb {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {
@@ -62,10 +61,9 @@ impl Command for AndDb {
             },
             Example {
                 description: "Creates a AND clause combined with an expression AND",
-                example: r#"open db.mysql
-    | into db
+                example: r#"open db.sqlite
+    | from table table_1
     | select a
-    | from table_1
     | where ((field a) > 1 | and ((field a) < 10))
     | and ((field b) == 1)
     | describe"#,
@@ -73,7 +71,7 @@ impl Command for AndDb {
                     cols: vec!["connection".into(), "query".into()],
                     vals: vec![
                         Value::String {
-                            val: "db.mysql".into(),
+                            val: "db.sqlite".into(),
                             span: Span::test_data(),
                         },
                         Value::String {

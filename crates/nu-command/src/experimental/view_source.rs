@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -131,6 +132,15 @@ impl Command for ViewSource {
                             Vec::new(),
                         ))
                     }
+                } else if let Some(alias_id) = engine_state.find_alias(val.as_bytes(), &[]) {
+                    let contents = &mut engine_state.get_alias(alias_id).iter().map(|span| {
+                        String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string()
+                    });
+                    Ok(Value::String {
+                        val: contents.join(" "),
+                        span: call.head,
+                    }
+                    .into_pipeline_data())
                 } else {
                     Err(ShellError::GenericError(
                         "Cannot view value".to_string(),
@@ -182,6 +192,14 @@ impl Command for ViewSource {
                 example: r#"module mod-foo { export env FOO_ENV { 'BAZ' } }; view-source mod-foo"#,
                 result: Some(Value::String {
                     val: " export env FOO_ENV { 'BAZ' }".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "View the source of an alias",
+                example: r#"alias hello = echo hi; view-source hello"#,
+                result: Some(Value::String {
+                    val: "echo hi".to_string(),
                     span: Span::test_data(),
                 }),
             },

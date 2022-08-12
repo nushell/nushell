@@ -214,12 +214,11 @@ fn errors_if_file_not_found() {
         cwd: "tests/fixtures/formats",
         "open i_dont_exist.txt"
     );
-
-    #[cfg(windows)]
-    let expected = "The system cannot find the file specified. (os error 2)";
-
-    #[cfg(not(windows))]
-    let expected = "No such file or directory (os error 2)";
+    // Common error code between unixes and Windows for "No such file or directory"
+    //
+    // This seems to be not directly affected by localization compared to the OS
+    // provided error message
+    let expected = "(os error 2)";
 
     assert!(
         actual.err.contains(expected),
@@ -267,4 +266,20 @@ fn test_open_block_command() {
     );
 
     assert_eq!(actual.out, "abcd")
+}
+
+#[test]
+fn open_ignore_ansi() {
+    Playground::setup("open_test_ansi", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("nu.zion.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls | find nu.zion | get 0 | get name | open $in
+            "#
+        ));
+
+        assert!(actual.err.is_empty());
+    })
 }

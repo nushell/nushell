@@ -29,3 +29,9 @@ debian/nu/
 # Coverage tools
 lcov.info
 tarpaulin-report.html
+
+# Visual Studio
+.vs/*
+*.rsproj
+*.rsproj.user
+*.sln
