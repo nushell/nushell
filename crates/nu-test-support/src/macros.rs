@@ -105,11 +105,13 @@ macro_rules! nu {
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };
 
-        let target_cwd = &$opts.cwd.unwrap_or(".".to_string());
+        let target_cwd = $opts.cwd.unwrap_or(".".to_string());
+        let locale = $opts.locale.unwrap_or("en_US.UTF-8".to_string());
 
         let mut command = Command::new($crate::fs::executable_path());
         command
             .env("PWD", &target_cwd)
+            .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
             .current_dir(target_cwd)
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
             // .arg("--skip-plugins")
@@ -120,9 +122,6 @@ macro_rules! nu {
             .stdout(Stdio::piped())
             // .stdin(Stdio::piped())
             .stderr(Stdio::piped());
-        if let Some(locale) = &$opts.locale {
-            command.env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale);
-        }
 
         let mut process = match command.spawn()
         {
