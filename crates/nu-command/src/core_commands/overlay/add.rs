@@ -24,12 +24,11 @@ impl Command for OverlayAdd {
                 SyntaxShape::String,
                 "Module name to create overlay for",
             )
-            // TODO:
-            // .switch(
-            //     "prefix",
-            //     "Prepend module name to the imported symbols",
-            //     Some('p'),
-            // )
+            .switch(
+                "prefix",
+                "Prepend module name to the imported commands and aliases",
+                Some('p'),
+            )
             .category(Category::Core)
     }
 
@@ -122,13 +121,22 @@ impl Command for OverlayAdd {
             Example {
                 description: "Create an overlay from a module",
                 example: r#"module spam { export def foo [] { "foo" } }
-    overlay add spam"#,
+    overlay add spam
+    foo"#,
+                result: None,
+            },
+            Example {
+                description: "Create an overlay with a prefix",
+                example: r#"echo 'export def foo { "foo" }'
+    overlay add --prefix spam
+    spam foo"#,
                 result: None,
             },
             Example {
                 description: "Create an overlay from a file",
                 example: r#"echo 'export env FOO { "foo" }' | save spam.nu
-    overlay add spam.nu"#,
+    overlay add spam.nu
+    $env.FOO"#,
                 result: None,
             },
         ]

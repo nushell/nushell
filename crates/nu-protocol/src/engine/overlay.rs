@@ -100,9 +100,9 @@ impl ScopeFrame {
         }
     }
 
-    pub fn with_empty_overlay(name: Vec<u8>, origin: ModuleId) -> Self {
+    pub fn with_empty_overlay(name: Vec<u8>, origin: ModuleId, prefixed: bool) -> Self {
         Self {
-            overlays: vec![(name, OverlayFrame::from_origin(origin))],
+            overlays: vec![(name, OverlayFrame::from_origin(origin, prefixed))],
             active_overlays: vec![0],
             removed_overlays: vec![],
             predecls: HashMap::new(),
@@ -205,10 +205,11 @@ pub struct OverlayFrame {
     pub modules: HashMap<Vec<u8>, ModuleId>,
     pub visibility: Visibility,
     pub origin: ModuleId, // The original module the overlay was created from
+    pub prefixed: bool,   // Whether the overlay has definitions prefixed with its name
 }
 
 impl OverlayFrame {
-    pub fn from_origin(origin: ModuleId) -> Self {
+    pub fn from_origin(origin: ModuleId, prefixed: bool) -> Self {
         Self {
             vars: HashMap::new(),
             predecls: HashMap::new(),
@@ -217,6 +218,7 @@ impl OverlayFrame {
             modules: HashMap::new(),
             visibility: Visibility::new(),
             origin,
+            prefixed,
         }
     }
 

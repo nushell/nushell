@@ -702,21 +702,23 @@ pub fn parse_export(
 
                 let mut result = vec![];
 
-                let decl_name = working_set.get_span_contents(spans[2]);
-                let decl_name = trim_quotes(decl_name);
+                if let Some(decl_name_span) = spans.get(2) {
+                    let decl_name = working_set.get_span_contents(*decl_name_span);
+                    let decl_name = trim_quotes(decl_name);
 
-                if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
-                    result.push(Exportable::Decl {
-                        name: decl_name.to_vec(),
-                        id: decl_id,
-                    });
-                } else {
-                    error = error.or_else(|| {
-                        Some(ParseError::InternalError(
-                            "failed to find added declaration".into(),
-                            span(&spans[1..]),
-                        ))
-                    });
+                    if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
+                        result.push(Exportable::Decl {
+                            name: decl_name.to_vec(),
+                            id: decl_id,
+                        });
+                    } else {
+                        error = error.or_else(|| {
+                            Some(ParseError::InternalError(
+                                "failed to find added declaration".into(),
+                                span(&spans[1..]),
+                            ))
+                        });
+                    }
                 }
 
                 result
@@ -2032,7 +2034,13 @@ pub fn parse_overlay_new(
 
     let module_id = working_set.add_module(&overlay_name, Module::new());
 
-    working_set.add_overlay(overlay_name.as_bytes().to_vec(), module_id, vec![], vec![]);
+    working_set.add_overlay(
+        overlay_name.as_bytes().to_vec(),
+        module_id,
+        vec![],
+        vec![],
+        false,
+    );
 
     (pipeline, None)
 }
@@ -2118,6 +2126,8 @@ pub fn parse_overlay_add(
         );
     };
 
+    let has_prefix = call.has_flag("prefix");
+
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
         span: span(spans),
@@ -2125,15 +2135,36 @@ pub fn parse_overlay_add(
         custom_completion: None,
     }]);
 
-    // TODO: Add support for it -- needs to play well with overlay remove
-    let has_prefix = false; //call.has_flag("prefix");
-
     let cwd = working_set.get_cwd();
 
     let mut error = None;
 
-    let result = if let Some(module_id) = working_set.find_overlay_origin(overlay_name.as_bytes()) {
+    let result = if let Some(overlay_frame) = working_set.find_overlay(overlay_name.as_bytes()) {
+        if has_prefix && !overlay_frame.prefixed {
+            return (
+                pipeline,
+                Some(ParseError::OverlayPrefixMismatch(
+                    overlay_name,
+                    "without".to_string(),
+                    overlay_name_span,
+                )),
+            );
+        }
+
+        if !has_prefix && overlay_frame.prefixed {
+            return (
+                pipeline,
+                Some(ParseError::OverlayPrefixMismatch(
+                    overlay_name,
+                    "with".to_string(),
+                    overlay_name_span,
+                )),
+            );
+        }
+
         // Activate existing overlay
+        let module_id = overlay_frame.origin;
+
         if let Some(new_module_id) = working_set.find_module(overlay_name.as_bytes()) {
             if module_id == new_module_id {
                 Some((overlay_name, Module::new(), module_id))
@@ -2237,6 +2268,7 @@ pub fn parse_overlay_add(
             module_id,
             decls_to_lay,
             aliases_to_lay,
+            has_prefix,
         );
     }
 

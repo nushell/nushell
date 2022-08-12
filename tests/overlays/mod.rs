@@ -16,10 +16,121 @@ fn add_overlay() {
 }
 
 #[test]
+fn add_overlay_twice() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay add spam"#,
+        r#"overlay add spam"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn add_prefixed_overlay() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay add --prefix spam"#,
+        r#"spam foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn add_prefixed_overlay_twice() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay add --prefix spam"#,
+        r#"overlay add --prefix spam"#,
+        r#"spam foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn add_prefixed_overlay_mismatch_1() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay add --prefix spam"#,
+        r#"overlay add spam"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.err.contains("exists with a prefix"));
+    // Why doesn't the REPL test work with the previous expected output
+    assert!(actual_repl.err.contains("overlay_prefix_mismatch"));
+}
+
+#[test]
+fn add_prefixed_overlay_mismatch_2() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay add spam"#,
+        r#"overlay add --prefix spam"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.err.contains("exists without a prefix"));
+    // Why doesn't the REPL test work with the previous expected output
+    assert!(actual_repl.err.contains("overlay_prefix_mismatch"));
+}
+
+#[test]
+fn prefixed_overlay_keeps_custom_decl() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay add --prefix spam"#,
+        r#"def bar [] { "bar" }"#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"bar"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "bar");
+    assert_eq!(actual_repl.out, "bar");
+}
+
+#[test]
 fn add_overlay_env() {
     let inp = &[
         r#"module spam { export env FOO { "foo" } }"#,
         r#"overlay add spam"#,
+        r#"$env.FOO"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn add_prefixed_overlay_env_no_prefix() {
+    let inp = &[
+        r#"module spam { export env FOO { "foo" } }"#,
+        r#"overlay add --prefix spam"#,
         r#"$env.FOO"#,
     ];
 
