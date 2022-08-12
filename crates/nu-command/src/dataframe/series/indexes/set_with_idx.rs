@@ -146,7 +146,7 @@ fn command(
             NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         }
         Value::Float { val, span } => {
-            let chunked = series.as_ref().f64().map_err(|e| {
+            let chunked = series.f64().map_err(|e| {
                 ShellError::GenericError(
                     "Error casting to f64".into(),
                     e.to_string(),
@@ -169,7 +169,7 @@ fn command(
             NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         }
         Value::String { val, span } => {
-            let chunked = series.as_ref().utf8().map_err(|e| {
+            let chunked = series.utf8().map_err(|e| {
                 ShellError::GenericError(
                     "Error casting to string".into(),
                     e.to_string(),

@@ -59,7 +59,7 @@ fn try_source_foo_with_double_quotes_in(testdir: &str, playdir: &str) {
         sandbox.mkdir(&testdir);
         sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
-        let cmd = String::from("source ") + r#"""# + &foo_file + r#"""#;
+        let cmd = String::from("source ") + r#"""# + foo_file.as_str() + r#"""#;
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
@@ -76,7 +76,7 @@ fn try_source_foo_with_single_quotes_in(testdir: &str, playdir: &str) {
         sandbox.mkdir(&testdir);
         sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
-        let cmd = String::from("source ") + r#"'"# + &foo_file + r#"'"#;
+        let cmd = String::from("source ") + r#"'"# + foo_file.as_str() + r#"'"#;
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
@@ -93,7 +93,7 @@ fn try_source_foo_without_quotes_in(testdir: &str, playdir: &str) {
         sandbox.mkdir(&testdir);
         sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
-        let cmd = String::from("source ") + &foo_file;
+        let cmd = String::from("source ") + foo_file.as_str();
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
