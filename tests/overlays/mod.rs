@@ -95,6 +95,23 @@ fn add_prefixed_overlay_mismatch_2() {
 }
 
 #[test]
+fn prefixed_overlay_keeps_custom_decl() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay add --prefix spam"#,
+        r#"def bar [] { "bar" }"#,
+        r#"overlay remove --keep-custom spam"#,
+        r#"bar"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "bar");
+    assert_eq!(actual_repl.out, "bar");
+}
+
+#[test]
 fn add_overlay_env() {
     let inp = &[
         r#"module spam { export env FOO { "foo" } }"#,
