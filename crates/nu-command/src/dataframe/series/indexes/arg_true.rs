@@ -70,7 +70,7 @@ fn command(
         ));
     }
 
-    match columns.get(0) {
+    match columns.first() {
         Some(column) => {
             let expression = arg_where(col(column).eq(true)).alias("arg_true");
             let res = df
