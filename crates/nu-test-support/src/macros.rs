@@ -59,16 +59,11 @@ macro_rules! nu {
         $path
     };
     (@format_path $path:expr, $($part:expr),* $(,)?) => {{
-        use $crate::fs::DisplayPath;
-
-        format!($path, $(
-            $part.display_path()
-        ),*)
+        format!($path, $( $part ),*)
     }};
 
     // Do the actual work.
     (@main $opts:expr, $path:expr) => {{
-        pub use itertools::Itertools;
         pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
@@ -88,13 +83,6 @@ macro_rules! nu {
             output.push('"');
             output
         }
-
-        // let commands = &*format!(
-        //     "
-        //                     {}
-        //                     exit",
-        //     $crate::fs::DisplayPath::display_path(&$path)
-        // );
 
         let test_bins = $crate::fs::binaries();
 
@@ -128,7 +116,7 @@ macro_rules! nu {
             // .arg("--no-history")
             // .arg("--config-file")
             // .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
-            .arg(format!("-c {}", escape_quote_string($crate::fs::DisplayPath::display_path(&path))))
+            .arg(format!("-c {}", escape_quote_string(path)))
             .stdout(Stdio::piped())
             // .stdin(Stdio::piped())
             .stderr(Stdio::piped());

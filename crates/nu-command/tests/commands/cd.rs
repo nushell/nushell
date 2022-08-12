@@ -31,7 +31,7 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
                 cd "{}"
                 echo (pwd)
             "#,
-            dirs.formats()
+            dirs.formats().display()
         );
 
         assert_eq!(PathBuf::from(actual.out), dirs.formats());
@@ -52,7 +52,7 @@ fn filesystem_switch_back_to_previous_working_directory() {
                 cd -
                 echo (pwd)
             "#,
-            dirs.test()
+            dirs.test().display()
         );
 
         assert_eq!(PathBuf::from(actual.out), dirs.test().join("odin"));
@@ -132,7 +132,7 @@ fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
                 cd ..
                 echo (pwd)
             "#,
-            dirs.test()
+            dirs.test().display()
         );
 
         let actual = actual.out.split(',').nth(1).unwrap();
