@@ -199,7 +199,7 @@ impl Iterator for RawStreamLinesAdapter {
                                     if !self.incomplete_line.is_empty() {
                                         if let Some(first) = lines.first() {
                                             let new_incomplete_line =
-                                                self.incomplete_line.to_string() + first;
+                                                self.incomplete_line.to_string() + first.as_str();
                                             lines.splice(0..1, vec![new_incomplete_line]);
                                             self.incomplete_line = String::new();
                                         }
