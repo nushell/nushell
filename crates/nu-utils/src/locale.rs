@@ -30,7 +30,7 @@ pub fn get_system_locale() -> Locale {
 fn get_system_locale_string() -> Option<String> {
     std::env::var(LOCALE_OVERRIDE_ENV_VAR)
         .ok()
-        .or(sys_locale::get_locale())
+        .or_else(sys_locale::get_locale)
 }
 
 #[cfg(not(debug_assertions))]
