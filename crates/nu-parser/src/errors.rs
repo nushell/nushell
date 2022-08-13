@@ -160,6 +160,10 @@ pub enum ParseError {
     )]
     CantRemoveDefaultOverlay(String, #[label = "can't remove overlay"] Span),
 
+    #[error("Cannot add overlay.")]
+    #[diagnostic(code(nu::parser::cant_add_overlay_help), url(docsrs), help("{0}"))]
+    CantAddOverlayHelp(String, #[label = "cannot add this overlay"] Span),
+
     #[error("Not found.")]
     #[diagnostic(code(nu::parser::not_found), url(docsrs))]
     NotFound(#[label = "did not find anything under this name"] Span),
@@ -342,6 +346,7 @@ impl ParseError {
             ParseError::OverlayPrefixMismatch(_, _, s) => *s,
             ParseError::CantRemoveLastOverlay(s) => *s,
             ParseError::CantRemoveDefaultOverlay(_, s) => *s,
+            ParseError::CantAddOverlayHelp(_, s) => *s,
             ParseError::NotFound(s) => *s,
             ParseError::DuplicateCommandDef(s) => *s,
             ParseError::UnknownCommand(s) => *s,

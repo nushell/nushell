@@ -5,7 +5,7 @@ use nu_protocol::{
         ImportPatternMember, Pipeline,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
-    span, Exportable, Module, PositionalArg, Span, SyntaxShape, Type,
+    span, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
 };
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -2126,6 +2126,36 @@ pub fn parse_overlay_add(
         );
     };
 
+    let new_name = if let Some(kw_expression) = call.positional_nth(1) {
+        if let Some(new_name_expression) = kw_expression.as_keyword() {
+            if let Some(new_name) = new_name_expression.as_string() {
+                Some(Spanned {
+                    item: new_name,
+                    span: new_name_expression.span,
+                })
+            } else {
+                return (
+                    garbage_pipeline(spans),
+                    Some(ParseError::TypeMismatch(
+                        Type::String,
+                        new_name_expression.ty.clone(),
+                        new_name_expression.span,
+                    )),
+                );
+            }
+        } else {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::ExpectedKeyword(
+                    "as keyword".to_string(),
+                    kw_expression.span,
+                )),
+            );
+        }
+    } else {
+        None
+    };
+
     let has_prefix = call.has_flag("prefix");
 
     let pipeline = Pipeline::from_vec(vec![Expression {
@@ -2162,6 +2192,18 @@ pub fn parse_overlay_add(
             );
         }
 
+        if let Some(new_name) = new_name {
+            if new_name.item != overlay_name {
+                return (
+                    pipeline,
+                    Some(ParseError::CantAddOverlayHelp(
+                            format!("Cannot add overlay as '{}' because it already exsits under the name '{}'", new_name.item, overlay_name),
+                            new_name.span,
+                    )),
+                );
+            }
+        }
+
         // Activate existing overlay
         let module_id = overlay_frame.origin;
 
@@ -2186,7 +2228,7 @@ pub fn parse_overlay_add(
             working_set.find_module(overlay_name.as_bytes())
         {
             Some((
-                overlay_name,
+                new_name.map(|spanned| spanned.item).unwrap_or(overlay_name),
                 working_set.get_module(module_id).clone(),
                 module_id,
             ))
@@ -2236,7 +2278,11 @@ pub fn parse_overlay_add(
                         let _ = working_set.add_block(block);
                         let module_id = working_set.add_module(&overlay_name, module.clone());
 
-                        Some((overlay_name, module, module_id))
+                        Some((
+                            new_name.map(|spanned| spanned.item).unwrap_or(overlay_name),
+                            module,
+                            module_id,
+                        ))
                     } else {
                         return (
                             pipeline,
