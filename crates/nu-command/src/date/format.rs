@@ -6,6 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
+use nu_utils::locale::get_system_locale_string;
 use std::fmt::{Display, Write};
 
 use super::utils::parse_date_from_string;
@@ -26,7 +27,6 @@ impl Command for SubCommand {
                 SyntaxShape::String,
                 "the desired date format",
             )
-            .switch("locale", "make output date based on locale", None)
             .category(Category::Date)
     }
 
@@ -54,17 +54,10 @@ impl Command for SubCommand {
         }
 
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
-        let output_native = call.has_flag("native");
 
         input.map(
             move |value| match &format {
-                Some(format) => format_helper(
-                    value,
-                    format.item.as_str(),
-                    format.span,
-                    head,
-                    output_native,
-                ),
+                Some(format) => format_helper(value, format.item.as_str(), format.span, head),
                 None => format_helper_rfc2822(value, head),
             },
             engine_state.ctrlc.clone(),
@@ -96,35 +89,22 @@ impl Command for SubCommand {
                 example: r#""2021-10-22 20:00:12 +01:00" | date format "%Y-%m-%d""#,
                 result: None,
             },
-            Example {
-                description: "Format a given date based on locale",
-                example: r#""2021-10-22 20:00:12 +01:00" | date format "%c" --locale"#,
-                result: None,
-            },
         ]
     }
 }
 
-fn format_from<Tz: TimeZone>(
-    date_time: DateTime<Tz>,
-    formatter: &str,
-    span: Span,
-    native: bool,
-) -> Value
+fn format_from<Tz: TimeZone>(date_time: DateTime<Tz>, formatter: &str, span: Span) -> Value
 where
     Tz::Offset: Display,
 {
     let mut formatter_buf = String::new();
-    let format = if native {
-        let locale: Locale = sys_locale::get_locale()
-            .unwrap_or_else(|| String::from("en-US"))
-            .as_str()
-            .try_into()
-            .unwrap_or(Locale::en_US);
-        date_time.format_localized(formatter, locale)
-    } else {
-        date_time.format(formatter)
-    };
+    let locale: Locale = get_system_locale_string()
+        .map(|l| l.replace('-', "_"))
+        .unwrap_or_else(|| String::from("en_US"))
+        .as_str()
+        .try_into()
+        .unwrap_or(Locale::en_US);
+    let format = date_time.format_localized(formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{}", format)) {
         Ok(_) => Value::String {
@@ -137,26 +117,20 @@ where
     }
 }
 
-fn format_helper(
-    value: Value,
-    formatter: &str,
-    formatter_span: Span,
-    head_span: Span,
-    locale: bool,
-) -> Value {
+fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span: Span) -> Value {
     match value {
-        Value::Date { val, .. } => format_from(val, formatter, formatter_span, locale),
+        Value::Date { val, .. } => format_from(val, formatter, formatter_span),
         Value::String { val, .. } => {
             let dt = parse_date_from_string(&val, formatter_span);
 
             match dt {
-                Ok(x) => format_from(x, formatter, formatter_span, locale),
+                Ok(x) => format_from(x, formatter, formatter_span),
                 Err(e) => e,
             }
         }
         Value::Nothing { .. } => {
             let dt = Local::now();
-            format_from(dt, formatter, formatter_span, locale)
+            format_from(dt, formatter, formatter_span)
         }
         _ => Value::Error {
             error: ShellError::DatetimeParseError(head_span),

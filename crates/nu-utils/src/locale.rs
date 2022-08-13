@@ -27,13 +27,13 @@ pub fn get_system_locale() -> Locale {
 }
 
 #[cfg(debug_assertions)]
-fn get_system_locale_string() -> Option<String> {
+pub fn get_system_locale_string() -> Option<String> {
     std::env::var(LOCALE_OVERRIDE_ENV_VAR)
         .ok()
         .or_else(sys_locale::get_locale)
 }
 
 #[cfg(not(debug_assertions))]
-fn get_system_locale_string() -> Option<String> {
+pub fn get_system_locale_string() -> Option<String> {
     sys_locale::get_locale()
 }
