@@ -19,11 +19,11 @@ impl Command for Hide {
     }
 
     fn usage(&self) -> &str {
-        "Hide symbols in the current scope"
+        "Hide definitions in the current scope"
     }
 
     fn extra_usage(&self) -> &str {
-        r#"Symbols are hidden by priority: First aliases, then custom commands, then environment variables.
+        r#"Definitions are hidden by priority: First aliases, then custom commands.
 
 This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nushell.html"#

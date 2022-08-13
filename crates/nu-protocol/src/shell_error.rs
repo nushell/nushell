@@ -626,6 +626,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::name_not_found), url(docsrs))]
     DidYouMean(String, #[label("did you mean '{0}'?")] Span),
 
+    /// A name was not found. Did you mean a different name?
+    ///
+    /// ## Resolution
+    ///
+    /// The error message will suggest a possible match for what you meant.
+    #[error("{0}")]
+    #[diagnostic(code(nu::shell::did_you_mean_custom), url(docsrs))]
+    DidYouMeanCustom(String, String, #[label("did you mean '{1}'?")] Span),
+
     /// The given input must be valid UTF-8 for further processing.
     ///
     /// ## Resolution
