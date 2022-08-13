@@ -14,7 +14,7 @@ nu-path = { path = "../nu-path", version = "0.66.4"  }
 nu-json = { path = "../nu-json", version = "0.66.4"  }
 
 byte-unit = "4.0.9"
-chrono = { version="0.4.20", features=["serde"] }
+chrono = { version="0.4.21", features=["serde"] }
 chrono-humanize = "0.2.1"
 fancy-regex = "0.10.0"
 indexmap = { version="1.7", features=["serde-1"] }
