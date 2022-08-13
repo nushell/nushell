@@ -1,16 +1,22 @@
 use crate::DirBuilder;
 use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
+use lscolors::LsColors;
+use lscolors::Style;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
+use nu_engine::env_to_string;
 use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
+use nu_protocol::Config;
+use nu_protocol::PipelineDataFormatter;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
+use nu_utils::get_ls_colors;
 use pathdiff::diff_paths;
 
 #[cfg(unix)]
@@ -265,7 +271,7 @@ impl Command for Ls {
             })
             .into_pipeline_data_with_metadata(
                 PipelineMetadata {
-                    data_source: DataSource::Ls,
+                    pipeline_data_formatter: Some(formatter()),
                 },
                 engine_state.ctrlc.clone(),
             ))
@@ -317,6 +323,80 @@ impl Command for Ls {
             },
         ]
     }
+}
+
+fn formatter() -> PipelineDataFormatter {
+    PipelineDataFormatter::from_fn(|ctx| {
+        let list_stream = match ctx.pipeline_data {
+            PipelineData::ListStream(list_stream, _) => list_stream,
+            _ => return Ok(ctx.pipeline_data),
+        };
+
+        let config = ctx.engine_state.config.clone();
+        let ls_colors_env_str = match ctx.stack.get_env_var(ctx.engine_state, "LS_COLORS") {
+            Some(v) => Some(env_to_string("LS_COLORS", &v, ctx.engine_state, ctx.stack)?),
+            None => None,
+        };
+        let ls_colors = get_ls_colors(ls_colors_env_str);
+
+        let pipeline_data = list_stream.into_iter()
+            .map(move |value| format_record_value(value, &ls_colors, &config))
+            .into_pipeline_data(ctx.ctrlc);
+
+        Ok(pipeline_data)
+    })
+}
+
+fn format_record_value(value: Value, ls_colors: &LsColors, config: &Config) -> Value {
+    let (cols, mut vals, span) = match value {
+        Value::Record { cols, vals, span } => (cols, vals, span),
+        _ => return value,
+    };
+
+    let val = cols.iter().position(|col| &**col == "name")
+        .and_then(|col| vals.get_mut(col));
+
+    if let Some(val) = val {
+        if let Value::String { val: path, span } = val {
+            match std::fs::symlink_metadata(&path) {
+                Ok(metadata) => {
+                    let style = ls_colors.style_for_path_with_metadata(
+                        path.clone(),
+                        Some(&metadata),
+                    );
+                    let ansi_style = style
+                        .map(Style::to_crossterm_style)
+                        // .map(ToNuAnsiStyle::to_nu_ansi_style)
+                        .unwrap_or_default();
+                    let use_ls_colors = config.use_ls_colors;
+
+                    if use_ls_colors {
+                        *val = Value::String {
+                            val: ansi_style.apply(path).to_string(),
+                            span: *span,
+                        };
+                    }
+                }
+                Err(_) => {
+                    let style = ls_colors.style_for_path(path.clone());
+                    let ansi_style = style
+                        .map(Style::to_crossterm_style)
+                        // .map(ToNuAnsiStyle::to_nu_ansi_style)
+                        .unwrap_or_default();
+                    let use_ls_colors = config.use_ls_colors;
+
+                    if use_ls_colors {
+                        *val = Value::String {
+                            val: ansi_style.apply(path).to_string(),
+                            span: *span,
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    Value::Record { cols, vals, span }
 }
 
 fn permission_denied(dir: impl AsRef<Path>) -> bool {

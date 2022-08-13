@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature,
+    Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature,
     Span, SyntaxShape, Value,
 };
 
@@ -73,18 +73,16 @@ impl Command for Metadata {
             None => {
                 let mut cols = vec![];
                 let mut vals = vec![];
-                if let Some(x) = &input.metadata() {
-                    match x {
-                        PipelineMetadata {
-                            data_source: DataSource::Ls,
-                        } => {
-                            cols.push("source".into());
-                            vals.push(Value::String {
-                                val: "ls".into(),
-                                span: head,
-                            })
-                        }
-                    }
+                if let Some(metadata) = &input.metadata() {
+                    let PipelineMetadata {
+                        pipeline_data_formatter
+                    } = metadata;
+
+                    cols.push("formatter".into());
+                    vals.push(Value::String {
+                        val: format!("{:?}", pipeline_data_formatter),
+                        span: head,
+                    })
                 }
 
                 Ok(Value::Record {
@@ -135,18 +133,17 @@ fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head:
         });
     }
 
-    if let Some(x) = &metadata {
-        match x {
-            PipelineMetadata {
-                data_source: DataSource::Ls,
-            } => {
-                cols.push("source".into());
-                vals.push(Value::String {
-                    val: "ls".into(),
-                    span: head,
-                })
-            }
-        }
+
+    if let Some(metadata) = &metadata {
+        let PipelineMetadata {
+            pipeline_data_formatter
+        } = metadata;
+
+        cols.push("source".into());
+        vals.push(Value::String {
+            val: format!("{:?}", pipeline_data_formatter),
+            span: head,
+        })
     }
 
     Value::Record {

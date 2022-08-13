@@ -5,6 +5,7 @@ use crate::{
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::sync::{atomic::AtomicBool, Arc};
+use std::fmt;
 
 /// The foundational abstraction for input and output to commands
 ///
@@ -50,12 +51,42 @@ pub enum PipelineData {
 
 #[derive(Debug, Clone)]
 pub struct PipelineMetadata {
-    pub data_source: DataSource,
+    pub pipeline_data_formatter: Option<PipelineDataFormatter>,
 }
 
-#[derive(Debug, Clone)]
-pub enum DataSource {
-    Ls,
+#[derive(Clone)]
+pub struct PipelineDataFormatter(Arc<dyn Fn(PipelineDataFormatterContext) -> Result<PipelineData, ShellError> + Send + Sync>);
+
+impl PipelineDataFormatter {
+    pub fn from_fn<F>(f: F) -> Self
+    where
+        F: Fn(PipelineDataFormatterContext) -> Result<PipelineData, ShellError>,
+        F: Send + Sync + 'static,
+    {
+        Self(Arc::new(f))
+    }
+
+    pub fn format(
+        &self,
+        context: PipelineDataFormatterContext<'_>,
+    ) -> Result<PipelineData, ShellError> {
+        self.0(context)
+    }
+}
+
+impl fmt::Debug for PipelineDataFormatter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("PipelineDataFormatter")
+            .field(&"<formatter>")
+            .finish()
+    }
+}
+
+pub struct PipelineDataFormatterContext<'a> {
+    pub engine_state: &'a EngineState,
+    pub stack: &'a mut Stack,
+    pub pipeline_data: PipelineData,
+    pub ctrlc: Option<Arc<AtomicBool>>,
 }
 
 impl PipelineData {
@@ -72,6 +103,14 @@ impl PipelineData {
             PipelineData::ListStream(_, x) => x.clone(),
             PipelineData::ExternalStream { metadata: x, .. } => x.clone(),
             PipelineData::Value(_, x) => x.clone(),
+        }
+    }
+
+    pub fn metadata_mut(&mut self) -> Option<&mut PipelineMetadata> {
+        match self {
+            PipelineData::Value(_, metadata) => metadata.as_mut(),
+            PipelineData::ListStream(_, metadata) => metadata.as_mut(),
+            PipelineData::ExternalStream { metadata, .. } => metadata.as_mut(),
         }
     }
 
