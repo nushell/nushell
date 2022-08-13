@@ -384,7 +384,7 @@ fn mv_directory_with_same_name() {
 
         let cwd = sandbox.cwd().join("testdir");
         let actual = nu!(
-            cwd,
+            cwd: cwd,
             r#"
                  mv testdir ..
             "#

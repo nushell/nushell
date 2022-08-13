@@ -1,4 +1,4 @@
-use nu_test_support::fs::{AbsolutePath, DisplayPath, Stub::FileWithContent};
+use nu_test_support::fs::{AbsolutePath, Stub::FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::pipeline;
 use nu_test_support::playground::Playground;
@@ -18,7 +18,7 @@ fn sources_also_files_under_custom_lib_dirs_path() {
                 lib_dirs = ["{}"]
                 skip_welcome_message = true
             "#,
-                library_path.display_path()
+                library_path
             ),
         )]);
 

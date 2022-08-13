@@ -2636,6 +2636,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num 0.4.0",
+ "num-format",
  "num-traits",
  "pathdiff",
  "polars",
@@ -2814,9 +2815,12 @@ version = "0.66.4"
 dependencies = [
  "getset",
  "hamcrest2",
+ "lazy_static",
  "nu-glob",
  "nu-path",
+ "nu-utils",
  "num-bigint 0.4.3",
+ "num-format",
  "tempfile",
 ]
 
@@ -2826,6 +2830,8 @@ version = "0.66.4"
 dependencies = [
  "crossterm_winapi",
  "lscolors",
+ "num-format",
+ "sys-locale",
 ]
 
 [[package]]

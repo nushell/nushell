@@ -12,6 +12,9 @@ doctest = false
 [dependencies]
 nu-path = { path="../nu-path", version = "0.66.4"  }
 nu-glob = { path = "../nu-glob", version = "0.66.4" }
+nu-utils = { path="../nu-utils", version = "0.66.4"  }
+lazy_static = "1.4.0"
+num-format = "0.4.0"
 
 getset = "0.1.1"
 num-bigint = { version="0.4.3", features=["serde"] }
