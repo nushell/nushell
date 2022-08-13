@@ -11,7 +11,7 @@ pub mod db_row;
 pub mod db_schema;
 pub mod db_table;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ConnectionDb {
     Path(PathBuf),
 }

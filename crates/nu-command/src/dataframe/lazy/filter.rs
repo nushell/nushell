@@ -6,24 +6,25 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-#[derive(Clone)]
-pub struct LazySelect;
 
-impl Command for LazySelect {
+#[derive(Clone)]
+pub struct LazyFilter;
+
+impl Command for LazyFilter {
     fn name(&self) -> &str {
-        "select"
+        "filter"
     }
 
     fn usage(&self) -> &str {
-        "Selects columns from lazyframe"
+        "Filter dataframe based in expression"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest(
-                "select expressions",
+            .required(
+                "filter expression",
                 SyntaxShape::Any,
-                "Expression(s) that define the column selection",
+                "Expression that define the column selection",
             )
             .input_type(Type::Custom("dataframe".into()))
             .output_type(Type::Custom("dataframe".into()))
@@ -32,13 +33,19 @@ impl Command for LazySelect {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Select a column from the dataframe",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | into df | select a",
+            description: "Filter dataframe using an expression",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | into df | filter ((col a) >= 4)",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "a".to_string(),
-                    vec![Value::test_int(6), Value::test_int(4), Value::test_int(2)],
-                )])
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(6), Value::test_int(4)],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(2), Value::test_int(2)],
+                    ),
+                ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -52,15 +59,14 @@ impl Command for LazySelect {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List {
-            vals,
-            span: call.head,
-        };
-        let expressions = NuExpression::extract_exprs(value)?;
+        let value: Value = call.req(engine_state, stack, 0)?;
+        let expression = NuExpression::try_from_value(value)?;
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
-        let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().select(&expressions));
+        let lazy = NuLazyFrame::new(
+            lazy.from_eager,
+            lazy.into_polars().filter(expression.into_polars()),
+        );
 
         Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
     }
@@ -73,6 +79,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(LazySelect {})])
+        test_dataframe(vec![Box::new(LazyFilter {})])
     }
 }

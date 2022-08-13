@@ -412,7 +412,7 @@ fn lists_with_directory_flag() {
         ));
         let expected = [".", ".", "..", "../dir_files", "../dir_files/nushell.json"].join("");
         #[cfg(windows)]
-        let expected = expected.replace("/", "\\");
+        let expected = expected.replace('/', "\\");
         assert_eq!(
             actual.out, expected,
             "column names are incorrect for ls --directory (-D)"
@@ -531,7 +531,7 @@ fn list_directory_contains_invalid_utf8() {
 
             std::fs::create_dir_all(&path).expect("failed to create directory");
 
-            let actual = nu!(cwd, "ls");
+            let actual = nu!(cwd: cwd, "ls");
 
             assert!(actual.out.contains("warning: get non-utf8 filename"));
             assert!(actual.err.contains("No matches found for"));
