@@ -1219,7 +1219,7 @@ fn hide_alias_hides_alias() {
         "#)
     );
 
-    assert!(actual.err.contains("not found"));
+    assert!(actual.err.contains("did you mean"));
 }
 
 mod parse {
