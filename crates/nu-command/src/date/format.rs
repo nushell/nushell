@@ -99,7 +99,7 @@ where
 {
     let mut formatter_buf = String::new();
     let locale: Locale = get_system_locale_string()
-        .map(|l| l.replace('-', "_"))
+        .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
         .unwrap_or_else(|| String::from("en_US"))
         .as_str()
         .try_into()
