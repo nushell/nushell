@@ -110,7 +110,7 @@ features = [
 	"csv-file",
 	"cum_agg",
 	"default",
-    "dtype-datetime",
+	"dtype-datetime",
 	"dtype-struct",
 	"dtype-categorical",
 	"dynamic_groupby",
