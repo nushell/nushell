@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::io::Read;
 use std::ops::Div;
 use std::path::{Path, PathBuf};
@@ -113,45 +114,25 @@ impl<T: AsRef<str>> Div<T> for &RelativePath {
         RelativePath::new(result)
     }
 }
-pub trait DisplayPath {
-    fn display_path(&self) -> String;
-}
 
-impl DisplayPath for AbsolutePath {
-    fn display_path(&self) -> String {
-        self.inner.display().to_string()
+impl Display for AbsoluteFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner.display())
     }
 }
 
-impl DisplayPath for PathBuf {
-    fn display_path(&self) -> String {
-        self.display().to_string()
+impl Display for AbsolutePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner.display())
     }
 }
 
-impl DisplayPath for str {
-    fn display_path(&self) -> String {
-        self.to_string()
+impl Display for RelativePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner.display())
     }
 }
 
-impl DisplayPath for &str {
-    fn display_path(&self) -> String {
-        (*self).to_string()
-    }
-}
-
-impl DisplayPath for String {
-    fn display_path(&self) -> String {
-        self.clone()
-    }
-}
-
-impl DisplayPath for &String {
-    fn display_path(&self) -> String {
-        (*self).to_string()
-    }
-}
 pub enum Stub<'a> {
     FileWithContent(&'a str, &'a str),
     FileWithContentToBeTrimmed(&'a str, &'a str),

@@ -10,6 +10,7 @@ NU_PLUGINS=(
     'nu_plugin_gstat'
     'nu_plugin_inc'
     'nu_plugin_query'
+    'nu_plugin_custom_values'
 )
 
 echo "Building nushell"

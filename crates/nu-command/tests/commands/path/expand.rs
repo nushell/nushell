@@ -24,6 +24,28 @@ fn expands_path_with_dot() {
     })
 }
 
+#[cfg(unix)]
+#[test]
+fn expands_path_without_follow_symlink() {
+    Playground::setup("path_expand_3", |dirs, sandbox| {
+        sandbox
+            .within("menu")
+            .with_files(vec![EmptyFile("spam.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ln -s spam.txt menu/spam_link.ln;
+                echo "menu/./spam_link.ln"
+                | path expand -n
+            "#
+        ));
+
+        let expected = dirs.test.join("menu").join("spam_link.ln");
+        assert_eq!(PathBuf::from(actual.out), expected);
+    })
+}
+
 #[test]
 fn expands_path_with_double_dot() {
     Playground::setup("path_expand_2", |dirs, sandbox| {
@@ -73,6 +95,33 @@ mod windows {
             ));
 
             assert!(!PathBuf::from(actual.out).starts_with("~"));
+        })
+    }
+
+    #[test]
+    fn expands_path_without_follow_symlink() {
+        Playground::setup("path_expand_3", |dirs, sandbox| {
+            sandbox
+                .within("menu")
+                .with_files(vec![EmptyFile("spam.txt")]);
+
+            let cwd = dirs.test();
+            std::os::windows::fs::symlink_file(
+                cwd.join("menu").join("spam.txt"),
+                cwd.join("menu").join("spam_link.ln"),
+            )
+            .unwrap();
+
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                echo "menu/./spam_link.ln"
+                | path expand -n
+            "#
+            ));
+
+            let expected = dirs.test.join("menu").join("spam_link.ln");
+            assert_eq!(PathBuf::from(actual.out), expected);
         })
     }
 }

@@ -415,7 +415,7 @@ impl CustomValue for SQLiteDatabase {
     }
 }
 
-fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, nu_protocol::ShellError> {
+pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, nu_protocol::ShellError> {
     let path = path.to_string_lossy().to_string();
 
     Connection::open(path).map_err(|e| {

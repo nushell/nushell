@@ -1,10 +1,11 @@
 [package]
 authors = ["The Nushell Project Developers"]
 description = "Nushell table printing"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-table"
 edition = "2021"
 license = "MIT"
 name = "nu-table"
-version = "0.66.3"
+version = "0.66.4"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -13,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 nu-ansi-term = "0.46.0"
-nu-protocol = { path = "../nu-protocol", version = "0.66.3" }
+nu-protocol = { path = "../nu-protocol", version = "0.66.4" }
 strip-ansi-escapes = "0.1.1"
 atty = "0.2.14"
 tabled = { git = "https://github.com/zhiburt/tabled", rev = "913df1783e67e76fcae8cf7c5f0ebc41656e2e65", features = ["color"], default-features = false }

@@ -163,7 +163,7 @@ impl From<String> for Cell {
 impl<'a> From<&'a str> for Cell {
     fn from(string: &'a str) -> Self {
         Self {
-            width: unicode_width_strip_ansi(&*string),
+            width: unicode_width_strip_ansi(string),
             contents: string.into(),
             alignment: Alignment::Left,
         }
@@ -243,7 +243,7 @@ impl Dimensions {
 /// Everything needed to format the cells with the grid options.
 ///
 /// For more information, see the [`grid` crate documentation](index.html).
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct Grid {
     options: GridOptions,
     cells: Vec<Cell>,
@@ -428,7 +428,7 @@ impl Grid {
 ///
 /// This type implements `Display`, so you can get the textual version
 /// of the grid by calling `.to_string()`.
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct Display<'grid> {
     /// The grid to display.
     grid: &'grid Grid,

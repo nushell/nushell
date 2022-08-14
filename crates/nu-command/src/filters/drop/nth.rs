@@ -206,7 +206,7 @@ impl Iterator for DropNthIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(row) = self.rows.get(0) {
+            if let Some(row) = self.rows.first() {
                 if self.current == *row {
                     self.rows.remove(0);
                     self.current += 1;

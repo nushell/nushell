@@ -247,7 +247,7 @@ fn process_arguments(options: &Arguments, head: Span) -> Result<(isize, isize), 
             let idx: Vec<&str> = val.split(',').collect();
 
             let start = idx
-                .get(0)
+                .first()
                 .ok_or_else(|| {
                     ShellError::UnsupportedInput("could not perform substring".to_string(), head)
                 })?

@@ -23,12 +23,13 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
-          components: rustfmt, clippy
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        # makes ci use rust-toolchain.toml
+        # with:
+        #   profile: minimal
+        #   toolchain: ${{ matrix.rust }}
+        #   override: true
+        #   components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v1
         with:
@@ -74,11 +75,12 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        # makes ci use rust-toolchain.toml
+        # with:
+        #   profile: minimal
+        #   toolchain: ${{ matrix.rust }}
+        #   override: true
 
       # Temporarily disabled; the cache was getting huge (2.6GB compressed) on Windows and causing issues.
       # TODO: investigate why the cache was so big
@@ -111,11 +113,12 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        # makes ci use rust-toolchain.toml
+        # with:
+        #   profile: minimal
+        #   toolchain: ${{ matrix.rust }}
+        #   override: true
 
       - uses: Swatinem/rust-cache@v1
         with:
@@ -135,7 +138,7 @@ jobs:
       - run: python -m pip install tox
 
       - name: Install virtualenv
-        run: git clone https://github.com/pypa/virtualenv.git          
+        run: git clone https://github.com/pypa/virtualenv.git
         shell: bash
 
       - name: Test Nushell in virtualenv
@@ -161,11 +164,12 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        # makes ci use rust-toolchain.toml
+        # with:
+        #   profile: minimal
+        #   toolchain: ${{ matrix.rust }}
+        #   override: true
 
       - name: Clippy
         uses: actions-rs/cargo@v1
