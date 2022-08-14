@@ -103,11 +103,30 @@ optional = true
 version = "0.23.2"
 optional = true
 features = [
-	"default", "to_dummies", "parquet", "json", "serde", "serde-lazy",
-	"object", "checked_arithmetic", "strings", "cum_agg", "is_in",
-	"rolling_window", "strings", "rows", "random",
-    "dtype-datetime", "dtype-struct", "lazy", "cross_join",
-	"dynamic_groupby", "dtype-categorical", "concat_str", "arg_where"
+	"arg_where",
+	"checked_arithmetic",
+	"concat_str",
+	"cross_join",
+	"csv-file",
+	"cum_agg",
+	"default",
+    "dtype-datetime",
+	"dtype-struct",
+	"dtype-categorical",
+	"dynamic_groupby",
+	"is_in",
+	"json",
+	"lazy",
+	"object",
+	"parquet",
+	"random",
+	"rolling_window",
+	"rows",
+	"serde",
+	"serde-lazy",
+	"strings",
+	"strings",
+	"to_dummies",
 ]
 
 [target.'cfg(windows)'.dependencies.windows]
