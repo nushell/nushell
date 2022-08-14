@@ -62,7 +62,9 @@ pub fn calculate(
     mf: impl Fn(&[Value], &Span) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
     match values {
-        PipelineData::ListStream(s, ..) => helper_for_tables(&s.map(|(v, _)| v).collect::<Vec<Value>>(), name, mf),
+        PipelineData::ListStream(s, ..) => {
+            helper_for_tables(&s.map(|(v, _)| v).collect::<Vec<Value>>(), name, mf)
+        }
         PipelineData::Value(Value::List { ref vals, .. }, ..) => match &vals[..] {
             [Value::Record { .. }, _end @ ..] => helper_for_tables(vals, name, mf),
             _ => mf(vals, &name),

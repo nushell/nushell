@@ -4,14 +4,14 @@ use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use lscolors::LsColors;
 use lscolors::Style;
 use nu_engine::env::current_dir;
-use nu_engine::CallExt;
 use nu_engine::env_to_string;
+use nu_engine::CallExt;
 use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
-use nu_protocol::Config;
-use nu_protocol::ValueFormatter;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Config;
+use nu_protocol::ValueFormatter;
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
@@ -271,10 +271,7 @@ impl Command for Ls {
                 _ => Some(Value::Nothing { span: call_span }),
             })
             .map(move |value| (value, Some(formatter.clone())))
-            .into_pipeline_data_with_metadata(
-                PipelineMetadata {},
-                engine_state.ctrlc.clone(),
-            ))
+            .into_pipeline_data_with_metadata(PipelineMetadata {}, engine_state.ctrlc.clone()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -332,9 +329,8 @@ fn formatter(engine_state: &EngineState, stack: &mut Stack) -> Result<ValueForma
     };
     let ls_colors = get_ls_colors(ls_colors_env_str);
     let config = engine_state.config.clone();
-    let formatter = ValueFormatter::from_fn(move |value| {
-        format_record_value(value, &ls_colors, &config)
-    });
+    let formatter =
+        ValueFormatter::from_fn(move |value| format_record_value(value, &ls_colors, &config));
 
     Ok(formatter)
 }
@@ -345,17 +341,17 @@ fn format_record_value(value: Value, ls_colors: &LsColors, config: &Config) -> V
         _ => return value,
     };
 
-    let val = cols.iter().position(|col| &**col == "name")
+    let val = cols
+        .iter()
+        .position(|col| &**col == "name")
         .and_then(|col| vals.get_mut(col));
 
     if let Some(val) = val {
         if let Value::String { val: path, span } = val {
             match std::fs::symlink_metadata(&path) {
                 Ok(metadata) => {
-                    let style = ls_colors.style_for_path_with_metadata(
-                        path.clone(),
-                        Some(&metadata),
-                    );
+                    let style =
+                        ls_colors.style_for_path_with_metadata(path.clone(), Some(&metadata));
                     let ansi_style = style
                         .map(Style::to_crossterm_style)
                         // .map(ToNuAnsiStyle::to_nu_ansi_style)

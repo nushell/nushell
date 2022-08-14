@@ -3,8 +3,8 @@ use nu_engine::{column::get_columns, CallExt};
 use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    format_error, Category, Config, Example, IntoPipelineData, ListStream,
-    PipelineData, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
+    format_error, Category, Config, Example, IntoPipelineData, ListStream, PipelineData, RawStream,
+    ShellError, Signature, Span, SyntaxShape, Value,
 };
 use nu_table::{Alignments, StyledString, TableTheme, TextStyle};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -140,14 +140,9 @@ impl Command for Table {
                 row_offset,
                 ctrlc,
             ),
-            PipelineData::ListStream(stream, _metadata) => handle_row_stream(
-                engine_state,
-                stack,
-                stream,
-                call,
-                row_offset,
-                ctrlc,
-            ),
+            PipelineData::ListStream(stream, _metadata) => {
+                handle_row_stream(engine_state, stack, stream, call, row_offset, ctrlc)
+            }
             PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                 let mut output = vec![];
 

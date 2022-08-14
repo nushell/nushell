@@ -248,7 +248,10 @@ fn eval_external(
         match exit_code {
             Some(exit_code_stream) => {
                 let ctrlc = exit_code_stream.ctrlc.clone();
-                let exit_code: Vec<Value> = exit_code_stream.into_iter().map(|(value, _)| value).collect();
+                let exit_code: Vec<Value> = exit_code_stream
+                    .into_iter()
+                    .map(|(value, _)| value)
+                    .collect();
                 if let Some(Value::Int { val: code, .. }) = exit_code.last() {
                     // if exit_code is not 0, it indicates error occured, return back Err.
                     if *code != 0 {

@@ -7,8 +7,8 @@ mod unit;
 
 use crate::ast::Operator;
 use crate::ast::{CellPath, PathMember};
-use crate::{ShellError, ValueFormatter};
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
+use crate::{ShellError, ValueFormatter};
 use byte_unit::ByteUnit;
 use chrono::{DateTime, Duration, FixedOffset};
 use chrono_humanize::HumanTime;

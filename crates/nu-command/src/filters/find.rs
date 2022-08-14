@@ -2,15 +2,15 @@ use std::borrow::Cow;
 
 use crate::help::highlight_search_string;
 use fancy_regex::Regex;
-use lscolors::{Style as LsColors_Style, LsColors};
+use lscolors::{LsColors, Style as LsColors_Style};
 use nu_ansi_term::{Color::Default, Style};
 use nu_color_config::get_color_config;
 use nu_engine::{env_to_string, eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{CaptureBlock, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Value, ValueFormatter, Config,
+    Category, Config, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Value, ValueFormatter,
 };
 use nu_utils::get_ls_colors;
 
@@ -347,10 +347,8 @@ fn find_with_rest_and_highlight(
                         .map_or(false, |val| val.is_true()),
                     Value::Record { vals, .. } => vals.iter().any(|val| {
                         if let Ok(span) = val.span() {
-                            let lower_val = Value::string(
-                                val.into_string("", &config).to_lowercase(),
-                                span,
-                            );
+                            let lower_val =
+                                Value::string(val.into_string("", &config).to_lowercase(), span);
 
                             term.r#in(span, &lower_val, span)
                                 .map_or(false, |aval| aval.is_true())
@@ -365,82 +363,76 @@ fn find_with_rest_and_highlight(
             ctrlc,
         ),
         PipelineData::ListStream(stream, meta) => {
-            let stream = stream
-                .filter_map(move |(value, _)| {
-                    let lower_value = if let Ok(span) = value.span() {
-                        Value::string(
-                            value.into_string("", &filter_config).to_lowercase(),
-                            span,
-                        )
-                    } else {
-                        value.clone()
-                    };
+            let stream = stream.filter_map(move |(value, _)| {
+                let lower_value = if let Ok(span) = value.span() {
+                    Value::string(value.into_string("", &filter_config).to_lowercase(), span)
+                } else {
+                    value.clone()
+                };
 
-                    let (matched, formatter) = match &value {
-                        Value::Bool { .. }
-                        | Value::Int { .. }
-                        | Value::Filesize { .. }
-                        | Value::Duration { .. }
-                        | Value::Date { .. }
-                        | Value::Range { .. }
-                        | Value::Float { .. }
-                        | Value::Block { .. }
-                        | Value::Nothing { .. }
-                        | Value::Error { .. } => {
-                            let matched = lower_terms.iter().any(|lower_term| {
-                                lower_value
-                                    .eq(span, lower_term, span)
-                                    .map_or(false, |value| value.is_true())
-                            });
+                let (matched, formatter) = match &value {
+                    Value::Bool { .. }
+                    | Value::Int { .. }
+                    | Value::Filesize { .. }
+                    | Value::Duration { .. }
+                    | Value::Date { .. }
+                    | Value::Range { .. }
+                    | Value::Float { .. }
+                    | Value::Block { .. }
+                    | Value::Nothing { .. }
+                    | Value::Error { .. } => {
+                        let matched = lower_terms.iter().any(|lower_term| {
+                            lower_value
+                                .eq(span, lower_term, span)
+                                .map_or(false, |value| value.is_true())
+                        });
 
-                            (matched, None)
-                        },
-                        Value::String { .. }
-                        | Value::List { .. }
-                        | Value::CellPath { .. }
-                        | Value::CustomValue { .. } => {
-                            let matched = lower_terms.iter().any(|lower_term| {
-                                lower_term
-                                    .r#in(span, &lower_value, span)
-                                    .map_or(false, |value| value.is_true())
-                            });
-
-                            (matched, None)
-                        }
-                        Value::Record { vals, .. } => {
-                            let matched = lower_terms.iter().any(|lower_term| {
-                                vals.iter().any(|val| {
-                                    let lower_val = match val.span() {
-                                        Ok(_) => Cow::Owned(Value::string(
-                                            val.into_string("", &filter_config).to_lowercase(),
-                                            span,
-                                        )),
-                                        Err(_) => Cow::Borrowed(val),
-                                    };
-
-                                    lower_term.r#in(span, &lower_val, span)
-                                        .map_or(false, |value| value.is_true())
-                                })
-                            });
-
-                            (matched, Some(record_formatter.clone()))
-                        },
-                        Value::Binary { .. } => (false, None),
-                    };
-
-                    if matched != invert {
-                        Some((value, formatter))
-                    } else {
-                        None
+                        (matched, None)
                     }
-                });
+                    Value::String { .. }
+                    | Value::List { .. }
+                    | Value::CellPath { .. }
+                    | Value::CustomValue { .. } => {
+                        let matched = lower_terms.iter().any(|lower_term| {
+                            lower_term
+                                .r#in(span, &lower_value, span)
+                                .map_or(false, |value| value.is_true())
+                        });
 
+                        (matched, None)
+                    }
+                    Value::Record { vals, .. } => {
+                        let matched = lower_terms.iter().any(|lower_term| {
+                            vals.iter().any(|val| {
+                                let lower_val = match val.span() {
+                                    Ok(_) => Cow::Owned(Value::string(
+                                        val.into_string("", &filter_config).to_lowercase(),
+                                        span,
+                                    )),
+                                    Err(_) => Cow::Borrowed(val),
+                                };
 
-            Ok(
-                ListStream::from_stream(stream,ctrlc.clone())
+                                lower_term
+                                    .r#in(span, &lower_val, span)
+                                    .map_or(false, |value| value.is_true())
+                            })
+                        });
+
+                        (matched, Some(record_formatter.clone()))
+                    }
+                    Value::Binary { .. } => (false, None),
+                };
+
+                if matched != invert {
+                    Some((value, formatter))
+                } else {
+                    None
+                }
+            });
+
+            Ok(ListStream::from_stream(stream, ctrlc.clone())
                 .into_pipeline_data(ctrlc)
-                .set_metadata(meta)
-            )
+                .set_metadata(meta))
         }
         PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(span)),
         PipelineData::ExternalStream {
@@ -496,7 +488,12 @@ fn find_with_rest_and_highlight(
     }
 }
 
-fn record_formatter(terms: Vec<Value>, config: Config, ls_colors: LsColors, string_style: Style) -> ValueFormatter {
+fn record_formatter(
+    terms: Vec<Value>,
+    config: Config,
+    ls_colors: LsColors,
+    string_style: Style,
+) -> ValueFormatter {
     ValueFormatter::from_fn(move |value| {
         let (cols, mut vals, span) = match value {
             Value::Record { cols, vals, span } => (cols, vals, span),
@@ -526,16 +523,11 @@ fn record_formatter(terms: Vec<Value>, config: Config, ls_colors: LsColors, stri
                         Cow::Borrowed(&val_str)
                     };
 
-                    let highlighted = match highlight_search_string(
-                        &val_str,
-                        &term_str,
-                        &string_style,
-                    ) {
-                        Ok(highlighted) => highlighted,
-                        Err(_) => string_style
-                            .paint(term_str.to_string())
-                            .to_string(),
-                    };
+                    let highlighted =
+                        match highlight_search_string(&val_str, &term_str, &string_style) {
+                            Ok(highlighted) => highlighted,
+                            Err(_) => string_style.paint(term_str.to_string()).to_string(),
+                        };
 
                     *val = Value::string(highlighted, span);
 
