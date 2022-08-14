@@ -9,7 +9,7 @@ use nu_engine::env_to_string;
 use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
 use nu_protocol::Config;
-use nu_protocol::PipelineDataFormatter;
+use nu_protocol::ValueFormatter;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -182,6 +182,7 @@ impl Command for Ls {
         }
 
         let mut hidden_dirs = vec![];
+        let formatter = formatter(engine_state, stack)?;
 
         Ok(paths_peek
             .into_iter()
@@ -269,10 +270,9 @@ impl Command for Ls {
                 }
                 _ => Some(Value::Nothing { span: call_span }),
             })
+            .map(move |value| (value, Some(formatter.clone())))
             .into_pipeline_data_with_metadata(
-                PipelineMetadata {
-                    pipeline_data_formatter: Some(formatter()),
-                },
+                PipelineMetadata {},
                 engine_state.ctrlc.clone(),
             ))
     }
@@ -325,26 +325,18 @@ impl Command for Ls {
     }
 }
 
-fn formatter() -> PipelineDataFormatter {
-    PipelineDataFormatter::from_fn(|ctx| {
-        let list_stream = match ctx.pipeline_data {
-            PipelineData::ListStream(list_stream, _) => list_stream,
-            _ => return Ok(ctx.pipeline_data),
-        };
+fn formatter(engine_state: &EngineState, stack: &mut Stack) -> Result<ValueFormatter, ShellError> {
+    let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
+        Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
+        None => None,
+    };
+    let ls_colors = get_ls_colors(ls_colors_env_str);
+    let config = engine_state.config.clone();
+    let formatter = ValueFormatter::from_fn(move |value| {
+        format_record_value(value, &ls_colors, &config)
+    });
 
-        let config = ctx.engine_state.config.clone();
-        let ls_colors_env_str = match ctx.stack.get_env_var(ctx.engine_state, "LS_COLORS") {
-            Some(v) => Some(env_to_string("LS_COLORS", &v, ctx.engine_state, ctx.stack)?),
-            None => None,
-        };
-        let ls_colors = get_ls_colors(ls_colors_env_str);
-
-        let pipeline_data = list_stream.into_iter()
-            .map(move |value| format_record_value(value, &ls_colors, &config))
-            .into_pipeline_data(ctx.ctrlc);
-
-        Ok(pipeline_data)
-    })
+    Ok(formatter)
 }
 
 fn format_record_value(value: Value, ls_colors: &LsColors, config: &Config) -> Value {

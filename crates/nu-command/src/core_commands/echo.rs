@@ -34,7 +34,7 @@ impl Command for Echo {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        call.rest(engine_state, stack, 0).map(|to_be_echoed| {
+        call.rest(engine_state, stack, 0).map(|to_be_echoed: Vec<Value>| {
             let n = to_be_echoed.len();
             match n.cmp(&1usize) {
                 //  More than one value is converted in a stream of values

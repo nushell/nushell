@@ -71,18 +71,11 @@ impl Command for Metadata {
                 Ok(build_metadata_record(&val, &input.metadata(), head).into_pipeline_data())
             }
             None => {
-                let mut cols = vec![];
-                let mut vals = vec![];
-                if let Some(metadata) = &input.metadata() {
-                    let PipelineMetadata {
-                        pipeline_data_formatter
-                    } = metadata;
+                let cols = vec![];
+                let vals = vec![];
 
-                    cols.push("formatter".into());
-                    vals.push(Value::String {
-                        val: format!("{:?}", pipeline_data_formatter),
-                        span: head,
-                    })
+                if let Some(metadata) = &input.metadata() {
+                    let PipelineMetadata {} = metadata;
                 }
 
                 Ok(Value::Record {
@@ -133,17 +126,8 @@ fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head:
         });
     }
 
-
-    if let Some(metadata) = &metadata {
-        let PipelineMetadata {
-            pipeline_data_formatter
-        } = metadata;
-
-        cols.push("source".into());
-        vals.push(Value::String {
-            val: format!("{:?}", pipeline_data_formatter),
-            span: head,
-        })
+    if let Some(metadata) = metadata {
+        let PipelineMetadata {} = metadata;
     }
 
     Value::Record {

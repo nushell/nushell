@@ -51,16 +51,15 @@ pub enum PipelineData {
 
 #[derive(Debug, Clone)]
 pub struct PipelineMetadata {
-    pub pipeline_data_formatter: Option<PipelineDataFormatter>,
 }
 
 #[derive(Clone)]
-pub struct PipelineDataFormatter(Arc<dyn Fn(PipelineDataFormatterContext) -> Result<PipelineData, ShellError> + Send + Sync>);
+pub struct ValueFormatter(Arc<dyn Fn(Value) -> Value + Send + Sync>);
 
-impl PipelineDataFormatter {
+impl ValueFormatter {
     pub fn from_fn<F>(f: F) -> Self
     where
-        F: Fn(PipelineDataFormatterContext) -> Result<PipelineData, ShellError>,
+        F: Fn(Value) -> Value,
         F: Send + Sync + 'static,
     {
         Self(Arc::new(f))
@@ -68,25 +67,18 @@ impl PipelineDataFormatter {
 
     pub fn format(
         &self,
-        context: PipelineDataFormatterContext<'_>,
-    ) -> Result<PipelineData, ShellError> {
-        self.0(context)
+        value: Value,
+    ) -> Value {
+        self.0(value)
     }
 }
 
-impl fmt::Debug for PipelineDataFormatter {
+impl fmt::Debug for ValueFormatter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("PipelineDataFormatter")
             .field(&"<formatter>")
             .finish()
     }
-}
-
-pub struct PipelineDataFormatterContext<'a> {
-    pub engine_state: &'a EngineState,
-    pub stack: &'a mut Stack,
-    pub pipeline_data: PipelineData,
-    pub ctrlc: Option<Arc<AtomicBool>>,
 }
 
 impl PipelineData {
@@ -133,7 +125,7 @@ impl PipelineData {
             PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
             PipelineData::Value(v, ..) => v,
             PipelineData::ListStream(s, ..) => Value::List {
-                vals: s.collect(),
+                vals: s.map(|(value, _)| value).collect(),
                 span, // FIXME?
             },
             PipelineData::ExternalStream {
@@ -261,7 +253,7 @@ impl PipelineData {
         match self {
             // FIXME: there are probably better ways of doing this
             PipelineData::ListStream(stream, ..) => Value::List {
-                vals: stream.collect(),
+                vals: stream.map(|(value, _)| value).collect(),
                 span: head,
             }
             .follow_cell_path(cell_path, insensitive),
@@ -279,7 +271,7 @@ impl PipelineData {
         match self {
             // FIXME: there are probably better ways of doing this
             PipelineData::ListStream(stream, ..) => Value::List {
-                vals: stream.collect(),
+                vals: stream.map(|(value, _)| value).collect(),
                 span: head,
             }
             .upsert_cell_path(cell_path, callback),
@@ -302,7 +294,7 @@ impl PipelineData {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
             }
-            PipelineData::ListStream(stream, ..) => Ok(stream.map(f).into_pipeline_data(ctrlc)),
+            PipelineData::ListStream(stream, ..) => Ok(stream.map(move |(value, _)| f(value)).into_pipeline_data(ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => {
                 Ok(PipelineData::new(Span { start: 0, end: 0 }))
             }
@@ -355,7 +347,7 @@ impl PipelineData {
                 Ok(vals.into_iter().flat_map(f).into_pipeline_data(ctrlc))
             }
             PipelineData::ListStream(stream, ..) => {
-                Ok(stream.flat_map(f).into_pipeline_data(ctrlc))
+                Ok(stream.flat_map(move |(value, _)| f(value)).into_pipeline_data(ctrlc))
             }
             PipelineData::ExternalStream { stdout: None, .. } => {
                 Ok(PipelineData::new(Span { start: 0, end: 0 }))
@@ -405,7 +397,13 @@ impl PipelineData {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
             }
-            PipelineData::ListStream(stream, ..) => Ok(stream.filter(f).into_pipeline_data(ctrlc)),
+            PipelineData::ListStream(stream, ..) => {
+                Ok(stream
+                    .filter(move |(value, _)| f(value))
+                    .map(|(value, _)| value)
+                    .into_pipeline_data(ctrlc)
+                )
+            }
             PipelineData::ExternalStream { stdout: None, .. } => {
                 Ok(PipelineData::new(Span { start: 0, end: 0 }))
             }
@@ -560,27 +558,18 @@ impl IntoIterator for PipelineData {
         match self {
             PipelineData::Value(Value::List { vals, .. }, metadata) => {
                 PipelineIterator(PipelineData::ListStream(
-                    ListStream {
-                        stream: Box::new(vals.into_iter()),
-                        ctrlc: None,
-                    },
+                    ListStream::from_stream(vals.into_iter(), None),
                     metadata,
                 ))
             }
             PipelineData::Value(Value::Range { val, .. }, metadata) => {
                 match val.into_range_iter(None) {
                     Ok(iter) => PipelineIterator(PipelineData::ListStream(
-                        ListStream {
-                            stream: Box::new(iter),
-                            ctrlc: None,
-                        },
+                        ListStream::from_stream(iter, None),
                         metadata,
                     )),
                     Err(error) => PipelineIterator(PipelineData::ListStream(
-                        ListStream {
-                            stream: Box::new(std::iter::once(Value::Error { error })),
-                            ctrlc: None,
-                        },
+                        ListStream::from_stream(std::iter::once(Value::Error { error }), None),
                         metadata,
                     )),
                 }
@@ -597,7 +586,7 @@ impl Iterator for PipelineIterator {
         match &mut self.0 {
             PipelineData::Value(Value::Nothing { .. }, ..) => None,
             PipelineData::Value(v, ..) => Some(std::mem::take(v)),
-            PipelineData::ListStream(stream, ..) => stream.next(),
+            PipelineData::ListStream(stream, ..) => stream.next().map(|(value, _)| value),
             PipelineData::ExternalStream { stdout: None, .. } => None,
             PipelineData::ExternalStream {
                 stdout: Some(stream),
@@ -616,10 +605,12 @@ pub trait IntoPipelineData {
 
 impl<V> IntoPipelineData for V
 where
-    V: Into<Value>,
+    V: Into<(Value, Option<ValueFormatter>)>,
 {
     fn into_pipeline_data(self) -> PipelineData {
-        PipelineData::Value(self.into(), None)
+        let (value, _formatter) = self.into();
+
+        PipelineData::Value(value, None)
     }
 }
 
@@ -636,7 +627,7 @@ impl<I> IntoInterruptiblePipelineData for I
 where
     I: IntoIterator + Send + 'static,
     I::IntoIter: Send + 'static,
-    <I::IntoIter as Iterator>::Item: Into<Value>,
+    <I::IntoIter as Iterator>::Item: Into<(Value, Option<ValueFormatter>)>,
 {
     fn into_pipeline_data(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData {
         PipelineData::ListStream(

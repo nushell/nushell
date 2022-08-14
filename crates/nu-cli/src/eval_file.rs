@@ -109,7 +109,7 @@ pub fn print_table_or_error(
 
     // Make sure everything has finished
     if let Some(exit_code) = exit_code {
-        let mut exit_code: Vec<_> = exit_code.into_iter().collect();
+        let mut exit_code: Vec<_> = exit_code.into_iter().map(|(value, _)| value).collect();
         exit_code
             .pop()
             .and_then(|last_exit_code| match last_exit_code {

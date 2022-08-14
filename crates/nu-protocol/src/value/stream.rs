@@ -171,13 +171,13 @@ impl Iterator for RawStream {
 /// Like other iterators in Rust, observing values from this stream will drain the items as you view them
 /// and the stream cannot be replayed.
 pub struct ListStream {
-    pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
+    pub stream: Box<dyn Iterator<Item = (Value, Option<ValueFormatter>)> + Send + 'static>,
     pub ctrlc: Option<Arc<AtomicBool>>,
 }
 
 impl ListStream {
     pub fn into_string(self, separator: &str, config: &Config) -> String {
-        self.map(|x: Value| x.into_string(", ", config))
+        self.map(|(x, _): (Value, _)| x.into_string(", ", config))
             .collect::<Vec<String>>()
             .join(separator)
     }
@@ -187,7 +187,7 @@ impl ListStream {
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> ListStream {
         ListStream {
-            stream: Box::new(input),
+            stream: Box::new(input.map(|value| (value, None))),
             ctrlc,
         }
     }
@@ -200,7 +200,7 @@ impl Debug for ListStream {
 }
 
 impl Iterator for ListStream {
-    type Item = Value;
+    type Item = (Value, Option<ValueFormatter>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(ctrlc) = &self.ctrlc {

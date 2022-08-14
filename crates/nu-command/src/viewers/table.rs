@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     format_error, Category, Config, Example, IntoPipelineData, ListStream,
-    PipelineData, RawStream, ShellError, Signature, Span, SyntaxShape, Value, PipelineDataFormatterContext,
+    PipelineData, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use nu_table::{Alignments, StyledString, TableTheme, TextStyle};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -72,7 +72,7 @@ impl Command for Table {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        mut input: PipelineData,
+        input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
@@ -111,19 +111,6 @@ impl Command for Table {
         {
             let _ = nu_utils::enable_vt_processing();
         }
-
-        let pipeline_data_formatter = input.metadata_mut()
-            .and_then(|metadata| metadata.pipeline_data_formatter.take());
-
-        let input = match pipeline_data_formatter {
-            Some(pipeline_data_formatter) => pipeline_data_formatter.format(PipelineDataFormatterContext {
-                engine_state,
-                stack,
-                pipeline_data: input,
-                ctrlc: ctrlc.clone(),
-            })?,
-            None => input,
-        };
 
         match input {
             PipelineData::ExternalStream { .. } => Ok(input),
@@ -448,7 +435,11 @@ impl Iterator for PagingTableCreator {
         let mut idx = 0;
 
         // Pull from stream until time runs out or we have enough items
-        for item in self.stream.by_ref() {
+        for (mut item, formatter) in self.stream.by_ref() {
+            if let Some(formatter) = formatter {
+                item = formatter.format(item);
+            }
+
             batch.push(item);
             idx += 1;
 
