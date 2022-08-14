@@ -183,11 +183,11 @@ impl ListStream {
     }
 
     pub fn from_stream(
-        input: impl Iterator<Item = Value> + Send + 'static,
+        input: impl Iterator<Item = impl Into<(Value, Option<ValueFormatter>)> + 'static> + Send + 'static,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> ListStream {
         ListStream {
-            stream: Box::new(input.map(|value| (value, None))),
+            stream: Box::new(input.map(Into::into)),
             ctrlc,
         }
     }
