@@ -539,6 +539,7 @@ dependencies = [
  "js-sys",
  "num-integer",
  "num-traits",
+ "pure-rust-locales",
  "serde",
  "time 0.1.44",
  "wasm-bindgen",
@@ -3675,6 +3676,12 @@ dependencies = [
  "lazy_static",
  "rustix",
 ]
+
+[[package]]
+name = "pure-rust-locales"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b45c49fc4f91f35bae654f85ebb3a44d60ac64f11b3166ffa609def390c732d8"
 
 [[package]]
 name = "pwd"
