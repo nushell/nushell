@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use nu_protocol::Config;
 use nu_table::{Alignments, Table, TableTheme as theme, TextStyle};
-use tabled::papergrid::records::records_info_colored::CellInfo;
+use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 
 #[test]
 fn test_rounded() {
@@ -452,7 +452,7 @@ fn test_with_love() {
 }
 
 fn draw_table(
-    data: Vec<Vec<CellInfo<'static, TextStyle>>>,
+    data: Vec<Vec<TCell<CellInfo<'static>, TextStyle>>>,
     count_columns: usize,
     with_header: bool,
     theme: theme,
@@ -468,7 +468,7 @@ fn draw_table(
         .expect("Unexpectdly got no table")
 }
 
-fn row(count_columns: usize) -> Vec<CellInfo<'static, TextStyle>> {
+fn row(count_columns: usize) -> Vec<TCell<CellInfo<'static>, TextStyle>> {
     let mut row = Vec::with_capacity(count_columns);
 
     for i in 0..count_columns {

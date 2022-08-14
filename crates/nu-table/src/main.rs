@@ -1,7 +1,7 @@
 use nu_protocol::Config;
 use nu_table::{Alignments, Table, TableTheme, TextStyle};
 use std::collections::HashMap;
-use tabled::papergrid::records::records_info_colored::CellInfo;
+use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
@@ -87,7 +87,7 @@ fn make_table_data() -> (Vec<&'static str>, Vec<&'static str>) {
 fn vec_of_str_to_vec_of_styledstr(
     data: &[&str],
     is_header: bool,
-) -> Vec<CellInfo<'static, TextStyle>> {
+) -> Vec<TCell<CellInfo<'static>, TextStyle>> {
     let mut v = vec![];
 
     for x in data {

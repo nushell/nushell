@@ -9,13 +9,8 @@ use tabled::{
     object::{Cell, Columns, Rows, Segment},
     papergrid::{
         self,
-        records::{
-            self,
-            records_info_colored::{CellInfo, RecordsInfo},
-            Records, RecordsMut,
-        },
+        records::{cell_info::CellInfo, tcell::TCell, vec_records::VecRecords, Records},
         width::CfgWidthFunction,
-        GridConfig,
     },
     Alignment, Modify, ModifyObject, TableOption, Width,
 };
@@ -24,11 +19,13 @@ use crate::{table_theme::TableTheme, TextStyle};
 
 /// Table represent a table view.
 #[derive(Debug)]
-pub struct Table<'a> {
-    data: RecordsInfo<'a, TextStyle>,
+pub struct Table {
+    data: Data,
     with_header: bool,
     is_empty: bool,
 }
+
+type Data = VecRecords<TCell<CellInfo<'static>, TextStyle>>;
 
 #[derive(Debug)]
 pub struct Alignments {
@@ -47,17 +44,17 @@ impl Default for Alignments {
     }
 }
 
-impl<'a> Table<'a> {
+impl Table {
     /// Creates a [Table] instance.
     ///
     /// If `headers.is_empty` then no headers will be rendered.
     pub fn new(
-        data: Vec<Vec<CellInfo<'static, TextStyle>>>,
+        data: Vec<Vec<TCell<CellInfo<'static>, TextStyle>>>,
         size: (usize, usize),
         termwidth: usize,
         with_header: bool,
-    ) -> Table<'a> {
-        let mut data = RecordsInfo::from_vec(data, size);
+    ) -> Table {
+        let mut data = VecRecords::with_hint(data, size.1);
         let is_empty = maybe_truncate_columns(&mut data, size.1, termwidth);
 
         Table {
@@ -67,15 +64,15 @@ impl<'a> Table<'a> {
         }
     }
 
-    pub fn create_cell(text: String, style: TextStyle) -> CellInfo<'static, TextStyle> {
-        CellInfo::from_str(text, style, CfgWidthFunction::new(4))
+    pub fn create_cell(text: String, style: TextStyle) -> TCell<CellInfo<'static>, TextStyle> {
+        TCell::new(CellInfo::new(text, CfgWidthFunction::new(4)), style)
     }
 
     /// Draws a trable on a String.
     ///
     /// It returns None in case where table cannot be fit to a terminal width.
     pub fn draw_table(
-        &self,
+        self,
         config: &Config,
         color_hm: &HashMap<String, nu_ansi_term::Style>,
         alignments: Alignments,
@@ -87,7 +84,7 @@ impl<'a> Table<'a> {
 }
 
 fn draw_table(
-    table: &Table,
+    mut table: Table,
     config: &Config,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
     alignments: Alignments,
@@ -98,26 +95,17 @@ fn draw_table(
         return None;
     }
 
-    let table_data = &table.data;
     let with_header = table.with_header;
     let with_footer = with_header && need_footer(config, (&table.data).size().0 as u64);
     let with_index = !config.disable_table_indexes;
 
-    let mut data = table_data.clone();
     if with_footer {
-        data.duplicate_row(0);
+        table.data.duplicate_row(0);
     }
 
-    let table: tabled::Table<RecordsInfo<'_, TextStyle>> = Builder::custom(data).build();
+    let table: tabled::Table<_> = Builder::custom(table.data).build();
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
-    let table = align_table(
-        table,
-        alignments,
-        with_index,
-        with_header,
-        with_footer,
-        table_data,
-    );
+    let table = align_table(table, alignments, with_index, with_header, with_footer);
     let table = table_trim_columns(table, termwidth, &config.trim_strategy);
 
     let table = print_table(table, config);
@@ -128,7 +116,7 @@ fn draw_table(
     }
 }
 
-fn print_table(table: tabled::Table<RecordsInfo<'_, TextStyle>>, config: &Config) -> String {
+fn print_table(table: tabled::Table<Data>, config: &Config) -> String {
     let output = table.to_string();
 
     // the atty is for when people do ls from vim, there should be no coloring there
@@ -151,18 +139,13 @@ fn table_width(table: &str) -> usize {
         .map_or(0, papergrid::util::string_width)
 }
 
-fn align_table<R>(
-    mut table: tabled::Table<R>,
+fn align_table(
+    mut table: tabled::Table<Data>,
     alignments: Alignments,
     with_index: bool,
     with_header: bool,
     with_footer: bool,
-    data: &RecordsInfo<TextStyle>,
-) -> tabled::Table<R>
-where
-    R: RecordsMut,
-    for<'a> &'a R: Records,
-{
+) -> tabled::Table<Data> {
     table = table.with(
         Modify::new(Segment::all())
             .with(Alignment::Horizontal(alignments.data))
@@ -183,26 +166,22 @@ where
             table.with(Modify::new(Columns::first()).with(Alignment::Horizontal(alignments.index)));
     }
 
-    table = override_alignments(table, data, with_header, with_index, alignments);
+    table = override_alignments(table, with_header, with_index, alignments);
 
     table
 }
 
-fn override_alignments<R>(
-    mut table: tabled::Table<R>,
-    data: &RecordsInfo<TextStyle>,
+fn override_alignments(
+    mut table: tabled::Table<Data>,
     header_present: bool,
     index_present: bool,
     alignments: Alignments,
-) -> tabled::Table<R>
-where
-    for<'a> &'a R: Records,
-{
+) -> tabled::Table<Data> {
     let offset = if header_present { 1 } else { 0 };
-    let (count_rows, count_columns) = data.size();
+    let (count_rows, count_columns) = table.shape();
     for row in offset..count_rows {
         for col in 0..count_columns {
-            let alignment = data[(row, col)].alignment;
+            let alignment = table.get_records()[(row, col)].get_data().alignment;
             if index_present && col == 0 && alignment == alignments.index {
                 continue;
             }
@@ -222,17 +201,13 @@ where
     table
 }
 
-fn load_theme<R>(
-    mut table: tabled::Table<R>,
+fn load_theme(
+    mut table: tabled::Table<Data>,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
     theme: &TableTheme,
     with_footer: bool,
     with_header: bool,
-) -> tabled::Table<R>
-where
-    R: RecordsMut,
-    for<'a> &'a R: Records,
-{
+) -> tabled::Table<Data> {
     let mut theme = theme.theme.clone();
     if !with_header {
         theme.set_lines(HashMap::default());
@@ -281,12 +256,12 @@ where
     }
 }
 
-fn table_trim_columns<'a>(
-    table: tabled::Table<RecordsInfo<'a, TextStyle>>,
+fn table_trim_columns(
+    table: tabled::Table<Data>,
     termwidth: usize,
     trim_strategy: &TrimStrategy,
-) -> tabled::Table<RecordsInfo<'a, TextStyle>> {
-    table.with(&TrimStrategyModifier {
+) -> tabled::Table<Data> {
+    table.with(TrimStrategyModifier {
         termwidth,
         trim_strategy,
     })
@@ -297,13 +272,8 @@ pub struct TrimStrategyModifier<'a> {
     trim_strategy: &'a TrimStrategy,
 }
 
-impl<R> tabled::TableOption<R> for &TrimStrategyModifier<'_>
-where
-    R: RecordsMut,
-    for<'a> &'a R: Records,
-    for<'a> <&'a R as Records>::Cell: records::Cell,
-{
-    fn change(&mut self, table: &mut tabled::Table<R>) {
+impl tabled::TableOption<Data> for TrimStrategyModifier<'_> {
+    fn change(&mut self, table: &mut tabled::Table<Data>) {
         match self.trim_strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
                 let mut w = Width::wrap(self.termwidth).priority::<tabled::width::PriorityMax>();
@@ -326,11 +296,7 @@ where
     }
 }
 
-fn maybe_truncate_columns(
-    data: &mut RecordsInfo<'_, TextStyle>,
-    length: usize,
-    termwidth: usize,
-) -> bool {
+fn maybe_truncate_columns(data: &mut Data, length: usize, termwidth: usize) -> bool {
     // Make sure we have enough space for the columns we have
     let max_num_of_columns = termwidth / 10;
     if max_num_of_columns == 0 {
@@ -340,7 +306,10 @@ fn maybe_truncate_columns(
     // If we have too many columns, truncate the table
     if max_num_of_columns < length {
         data.truncate(max_num_of_columns);
-        data.push(String::from("..."), &GridConfig::default());
+        data.push(Table::create_cell(
+            String::from("..."),
+            TextStyle::default(),
+        ));
     }
 
     false

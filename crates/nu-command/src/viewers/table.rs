@@ -344,7 +344,7 @@ fn handle_row_stream(
     })
 }
 
-fn convert_to_table<'a>(
+fn convert_to_table(
     row_offset: usize,
     input: &[Value],
     ctrlc: Option<Arc<AtomicBool>>,
@@ -352,7 +352,7 @@ fn convert_to_table<'a>(
     head: Span,
     termwidth: usize,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
-) -> Result<Option<NuTable<'a>>, ShellError> {
+) -> Result<Option<NuTable>, ShellError> {
     let mut headers = get_columns(input);
     let mut input = input.iter().peekable();
     let float_precision = config.float_precision as usize;
@@ -440,7 +440,7 @@ fn convert_to_table<'a>(
                 let result = match item {
                     Value::Record { .. } => item.clone().follow_cell_path(
                         &[PathMember::String {
-                            val: header.as_str().to_owned(),
+                            val: header.as_ref().to_owned(),
                             span: head,
                         }],
                         false,

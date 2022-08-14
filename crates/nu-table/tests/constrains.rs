@@ -2,7 +2,7 @@ use std::{collections::HashMap, usize};
 
 use nu_protocol::{Config, TrimStrategy};
 use nu_table::{Alignments, Table, TableTheme as theme, TextStyle};
-use tabled::papergrid::records::records_info_colored::CellInfo;
+use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 
 #[test]
 fn data_and_header_has_different_size() {
@@ -16,7 +16,7 @@ fn data_and_header_has_different_size() {
                          ┗━━━┻━━━┻━━━┻━━━┻━━━┛";
 
     assert_eq!(
-        draw_table(&table, usize::MAX, &Config::default()).as_deref(),
+        draw_table(table, usize::MAX, &Config::default()).as_deref(),
         Some(expected)
     );
 
@@ -30,7 +30,7 @@ fn data_and_header_has_different_size() {
                          ┗━━━┻━━━┻━━━┻━━━┻━━━┛";
 
     assert_eq!(
-        draw_table(&table, usize::MAX, &Config::default()).as_deref(),
+        draw_table(table, usize::MAX, &Config::default()).as_deref(),
         Some(expected)
     );
 }
@@ -40,11 +40,11 @@ fn termwidth_too_small() {
     let cfg = Config::default();
     for i in 0..10 {
         let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), i, true);
-        assert!(draw_table(&table, i, &cfg).is_none());
+        assert!(draw_table(table, i, &cfg).is_none());
     }
 
     let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), 11, true);
-    assert!(draw_table(&table, 11, &cfg).is_some());
+    assert!(draw_table(table, 11, &cfg).is_some());
 
     let cfg = Config {
         trim_strategy: TrimStrategy::Truncate { suffix: None },
@@ -53,11 +53,11 @@ fn termwidth_too_small() {
 
     for i in 0..10 {
         let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), i, true);
-        assert!(draw_table(&table, i, &cfg).is_none());
+        assert!(draw_table(table, i, &cfg).is_none());
     }
 
     let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), 11, true);
-    assert!(draw_table(&table, 11, &cfg).is_some());
+    assert!(draw_table(table, 11, &cfg).is_some());
 }
 
 #[test]
@@ -70,20 +70,20 @@ fn wrap_test() {
     };
 
     for i in 0..10 {
-        assert!(draw_table(&table_with_data(i), i, &cfg).is_none());
+        assert!(draw_table(table_with_data(i), i, &cfg).is_none());
     }
 
-    assert_eq!(draw_table(&table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 3  ┃ . ┃\n┃ 45 ┃ . ┃\n┃ 67 ┃   ┃\n┃  8 ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
+    assert_eq!(draw_table(table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 3  ┃ . ┃\n┃ 45 ┃ . ┃\n┃ 67 ┃   ┃\n┃  8 ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
     assert_eq!(
-        draw_table(&table_with_data(21), 21, &cfg).unwrap(),
+        draw_table(table_with_data(21), 21, &cfg).unwrap(),
         "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃ w eq ┃     ┃\n┃    8 ┃  we  ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
     );
     assert_eq!(
-        draw_table(&table_with_data(29), 29, &cfg).unwrap(),
+        draw_table(table_with_data(29), 29, &cfg).unwrap(),
         "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ ... ┃\n┃        8 ┃    we    ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
     );
     assert_eq!(
-        draw_table(&table_with_data(49), 49, &cfg).unwrap(),
+        draw_table(table_with_data(49), 49, &cfg).unwrap(),
         "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┃        8 ┃    we    ┃ xx x xx ┃  qqqq q ┃     ┃\n┃          ┃          ┃  x xx x ┃  qq qq  ┃     ┃\n┃          ┃          ┃    x    ┃         ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
     );
 }
@@ -98,20 +98,20 @@ fn wrap_keep_words_test() {
     };
 
     for i in 0..10 {
-        assert!(draw_table(&table_with_data(i), i, &cfg).is_none());
+        assert!(draw_table(table_with_data(i), i, &cfg).is_none());
     }
 
-    assert_eq!(draw_table(&table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 34 ┃ . ┃\n┃ 56 ┃ . ┃\n┃ 78 ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
+    assert_eq!(draw_table(table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 34 ┃ . ┃\n┃ 56 ┃ . ┃\n┃ 78 ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
     assert_eq!(
-        draw_table(&table_with_data(21), 21, &cfg).unwrap(),
+        draw_table(table_with_data(21), 21, &cfg).unwrap(),
         "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃ w    ┃     ┃\n┃ 8    ┃ eqwe ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
     );
     assert_eq!(
-        draw_table(&table_with_data(29), 29, &cfg).unwrap(),
+        draw_table(table_with_data(29), 29, &cfg).unwrap(),
         "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123      ┃ qweqw    ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
     );
     assert_eq!(
-        draw_table(&table_with_data(49), 49, &cfg).unwrap(),
+        draw_table(table_with_data(49), 49, &cfg).unwrap(),
         "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123      ┃ qweqw    ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃ xx x xx ┃ qqqq    ┃     ┃\n┃          ┃          ┃ x xx xx ┃ qqq qq  ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
     );
 }
@@ -124,23 +124,23 @@ fn truncate_test() {
     };
 
     for i in 0..10 {
-        assert!(draw_table(&table_with_data(i), i, &cfg).is_none());
+        assert!(draw_table(table_with_data(i), i, &cfg).is_none());
     }
 
     assert_eq!(
-        draw_table(&table_with_data(10), 10, &cfg).unwrap(),
+        draw_table(table_with_data(10), 10, &cfg).unwrap(),
         "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃ 0  ┃ . ┃\n┗━━━━┻━━━┛"
     );
     assert_eq!(
-        draw_table(&table_with_data(21), 21, &cfg).unwrap(),
+        draw_table(table_with_data(21), 21, &cfg).unwrap(),
         "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
     );
     assert_eq!(
-        draw_table(&table_with_data(29), 29, &cfg).unwrap(),
+        draw_table(table_with_data(29), 29, &cfg).unwrap(),
         "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ ... ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
     );
     assert_eq!(
-        draw_table(&table_with_data(49), 49, &cfg).unwrap(),
+        draw_table(table_with_data(49), 49, &cfg).unwrap(),
         "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
     );
 }
@@ -155,34 +155,34 @@ fn truncate_with_suffix_test() {
     };
 
     for i in 0..10 {
-        assert!(draw_table(&table_with_data(i), i, &cfg).is_none());
+        assert!(draw_table(table_with_data(i), i, &cfg).is_none());
     }
 
     assert_eq!(
-        draw_table(&table_with_data(10), 10, &cfg).unwrap(),
+        draw_table(table_with_data(10), 10, &cfg).unwrap(),
         "┏━━━━┳━━━┓\n┃ .. ┃ . ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃ 0  ┃ . ┃\n┗━━━━┻━━━┛"
     );
     assert_eq!(
-        draw_table(&table_with_data(21), 21, &cfg).unwrap(),
+        draw_table(table_with_data(21), 21, &cfg).unwrap(),
         "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 1... ┃ q... ┃ ... ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
     );
     assert_eq!(
-        draw_table(&table_with_data(29), 29, &cfg).unwrap(),
+        draw_table(table_with_data(29), 29, &cfg).unwrap(),
         "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4... ┃ qweqw... ┃ ... ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
     );
     assert_eq!(
-        draw_table(&table_with_data(49), 49, &cfg).unwrap(),
+        draw_table(table_with_data(49), 49, &cfg).unwrap(),
         "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123 4... ┃ qweqw... ┃ xxx ... ┃ qqq ... ┃ ... ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
     );
 }
 
-fn draw_table(table: &Table, limit: usize, cfg: &Config) -> Option<String> {
+fn draw_table(table: Table, limit: usize, cfg: &Config) -> Option<String> {
     let styles = HashMap::default();
     let alignments = Alignments::default();
     table.draw_table(cfg, &styles, alignments, &theme::heavy(), limit)
 }
 
-fn row(count_columns: usize) -> Vec<CellInfo<'static, TextStyle>> {
+fn row(count_columns: usize) -> Vec<TCell<CellInfo<'static>, TextStyle>> {
     let mut row = Vec::with_capacity(count_columns);
 
     for i in 0..count_columns {
@@ -192,11 +192,11 @@ fn row(count_columns: usize) -> Vec<CellInfo<'static, TextStyle>> {
     row
 }
 
-fn styled_str(s: &str) -> CellInfo<'static, TextStyle> {
+fn styled_str(s: &str) -> TCell<CellInfo<'static>, TextStyle> {
     Table::create_cell(s.to_string(), TextStyle::default())
 }
 
-fn table_with_data(termwidth: usize) -> Table<'static> {
+fn table_with_data(termwidth: usize) -> Table {
     let header = vec![
         styled_str("123 45678"),
         styled_str("qweqw eqwe"),
