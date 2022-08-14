@@ -20,7 +20,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.66.4"  }
 nu-utils = { path = "../nu-utils", version = "0.66.4"  }
 nu-ansi-term = "0.46.0"
 nu-color-config = { path = "../nu-color-config", version = "0.66.4"  }
-reedline = { version = "0.9.0", features = ["bashisms", "sqlite"]}
+reedline = { version = "0.10.0", features = ["bashisms", "sqlite"]}
 
 chrono = "0.4.21"
 crossterm = "0.24.0"
