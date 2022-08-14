@@ -44,7 +44,7 @@ impl Command for Wrap {
                 })
                 .into_pipeline_data(engine_state.ctrlc.clone())),
             PipelineData::ListStream(stream, ..) => Ok(stream
-                .map(move |x| Value::Record {
+                .map(move |(x, _)| Value::Record {
                     cols: vec![name.clone()],
                     vals: vec![x],
                     span,

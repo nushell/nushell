@@ -125,7 +125,7 @@ fn reject(
         PipelineData::ListStream(stream, ..) => {
             let mut output = vec![];
 
-            let v: Vec<_> = stream.into_iter().collect();
+            let v: Vec<_> = stream.into_iter().map(|(v, _)| v).collect();
             let input_cols = get_input_cols(v.clone());
             let kc = get_keep_columns(input_cols, columns);
             keep_columns = get_cellpath_columns(kc, span);

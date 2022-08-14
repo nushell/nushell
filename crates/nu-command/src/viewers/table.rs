@@ -260,7 +260,7 @@ fn handle_row_stream(
             let ls_colors = get_ls_colors(ls_colors_env_str);
 
             ListStream::from_stream(
-                stream.map(move |mut x| match &mut x {
+                stream.map(move |(mut x, _)| match &mut x {
                     Value::Record { cols, vals, .. } => {
                         let mut idx = 0;
 
@@ -512,7 +512,11 @@ impl Iterator for PagingTableCreator {
         let mut idx = 0;
 
         // Pull from stream until time runs out or we have enough items
-        for item in self.stream.by_ref() {
+        for (mut item, formatter) in self.stream.by_ref() {
+            if let Some(formatter) = formatter {
+                item = formatter.format(item);
+            }
+
             batch.push(item);
             idx += 1;
 
