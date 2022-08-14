@@ -814,7 +814,6 @@ fn event_from_record(
 ) -> Result<ReedlineEvent, ShellError> {
     let event = match name {
         "none" => ReedlineEvent::None,
-        "actionhandler" => ReedlineEvent::ActionHandler,
         "clearscreen" => ReedlineEvent::ClearScreen,
         "clearscrollback" => ReedlineEvent::ClearScrollback,
         "historyhintcomplete" => ReedlineEvent::HistoryHintComplete,
