@@ -3153,7 +3153,7 @@ checksum = "decf7381921fea4dcb2549c5667eda59b3ec297ab7e2b5fc33eac69d2e7da87b"
 [[package]]
 name = "papergrid"
 version = "0.5.1"
-source = "git+https://github.com/zhiburt/tabled?rev=913df1783e67e76fcae8cf7c5f0ebc41656e2e65#913df1783e67e76fcae8cf7c5f0ebc41656e2e65"
+source = "git+https://github.com/zhiburt/tabled?rev=964f9c083bf4329d8712033af5fbf957612a0b48#964f9c083bf4329d8712033af5fbf957612a0b48"
 dependencies = [
  "ansi-str",
  "ansitok",
@@ -3918,7 +3918,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.9.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#e72f927db361d41d243592452de6c6b148c7b1a8"
+source = "git+https://github.com/nushell/reedline.git?branch=main#174255535dccb0fea5e2d0e055fc5884830df898"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
@@ -4766,7 +4766,7 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.8.0"
-source = "git+https://github.com/zhiburt/tabled?rev=913df1783e67e76fcae8cf7c5f0ebc41656e2e65#913df1783e67e76fcae8cf7c5f0ebc41656e2e65"
+source = "git+https://github.com/zhiburt/tabled?rev=964f9c083bf4329d8712033af5fbf957612a0b48#964f9c083bf4329d8712033af5fbf957612a0b48"
 dependencies = [
  "ansi-str",
  "papergrid",
