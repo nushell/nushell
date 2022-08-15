@@ -266,6 +266,7 @@ let-env config = {
     # truncating_suffix: "..."
   }
   show_banner: true # true or false to enable or disable the banner
+  show_clickable_links_in_ls: true # true or false to enable or disable clickable links in the ls listing. your terminal has to support links.
 
   hooks: {
     pre_prompt: [{

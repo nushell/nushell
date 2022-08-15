@@ -82,6 +82,7 @@ pub struct Config {
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
+    pub show_clickable_links_in_ls: bool,
 }
 
 impl Default for Config {
@@ -117,6 +118,7 @@ impl Default for Config {
             enable_external_completion: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             show_banner: true,
+            show_clickable_links_in_ls: true,
         }
     }
 }
@@ -395,6 +397,13 @@ impl Value {
                             config.show_banner = b;
                         } else {
                             eprintln!("$config.show_banner is not a bool")
+                        }
+                    }
+                    "show_clickable_links_in_ls" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.show_clickable_links_in_ls = b;
+                        } else {
+                            eprintln!("$config.show_clickable_links_in_ls is not a bool")
                         }
                     }
                     x => {
