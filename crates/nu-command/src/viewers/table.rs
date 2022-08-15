@@ -581,3 +581,70 @@ fn load_theme_from_config(config: &Config) -> TableTheme {
         _ => nu_table::TableTheme::rounded(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use nu_protocol::ValueFormatter;
+
+    use super::*;
+
+    #[test]
+    fn list_stream_value_formatters() {
+        let span = Span::test_data();
+        let ctrlc = None;
+        let config = Config {
+            use_ansi_coloring: false,
+            ..<_>::default()
+        };
+
+        let hex_formatter = ValueFormatter::from_fn(|value| {
+            let (value, span) = match value {
+                Value::Int { val, span } => (val, span),
+                _ => return value,
+            };
+            let value = format!("0x{:016x}", value);
+
+            Value::string(value, span)
+        });
+
+        let stream = ListStream::from_stream(
+            [
+                (Value::int(42, span), Some(hex_formatter.clone())),
+                (Value::int(777, span), None),
+                (Value::int(-1, span), Some(hex_formatter)),
+            ]
+            .into_iter(),
+            ctrlc.clone(),
+        );
+
+        let paging_table_creator = PagingTableCreator {
+            head: span,
+            stream,
+            ctrlc,
+            config,
+            row_offset: 0,
+            width_param: Some(80),
+        };
+
+        let mut output = Vec::new();
+
+        for chunk in paging_table_creator {
+            let chunk = chunk.unwrap();
+
+            output.extend(chunk);
+        }
+
+        let output = String::from_utf8(output).unwrap();
+
+        assert_eq!(
+            output,
+            concat!(
+                "╭───┬────────────────────╮\n",
+                "│ 0 │ 0x000000000000002a │\n",
+                "│ 1 │                777 │\n",
+                "│ 2 │ 0xffffffffffffffff │\n",
+                "╰───┴────────────────────╯"
+            )
+        )
+    }
+}
