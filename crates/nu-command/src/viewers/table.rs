@@ -371,6 +371,8 @@ fn make_clickable_link(
     link_name: Option<&str>,
     show_clickable_links: bool,
 ) -> String {
+    // uri's based on this https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+
     if show_clickable_links {
         format!(
             "\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\",

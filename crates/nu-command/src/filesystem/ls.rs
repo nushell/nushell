@@ -413,17 +413,6 @@ pub(crate) fn dir_entry_dict(
     let mut vals = vec![];
     let mut file_type = "unknown";
 
-    // uri's based on this https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
-
-    // cols.push("name".into());
-    // vals.push(Value::String {
-    //     val: format!(
-    //         "\x1b]8;;file://c:/users/dschroeder/source/repos/forks/nushell/{}\x1b\\{}\x1b]8;;\x1b\\",
-    //         display_name.to_string(),
-    //         display_name.to_string()
-    //     ),
-    //     span,
-    // });
     cols.push("name".into());
     vals.push(Value::String {
         val: display_name.to_string(),
