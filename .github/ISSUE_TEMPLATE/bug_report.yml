@@ -1,6 +1,5 @@
 name: Bug Report
 description: Create a report to help us improve
-labels: "question"
 body: 
   - type: textarea
     id: description
