@@ -179,12 +179,7 @@ impl NuCompleter {
 
                         // Check if external completer
                         if let Some(decl_id) = config.external_completer {
-                            return self.external_completion(
-                                decl_id,
-                                spans,
-                                offset,
-                                new_span,
-                            );
+                            return self.external_completion(decl_id, spans, offset, new_span);
                         }
 
                         // Parses the prefix
