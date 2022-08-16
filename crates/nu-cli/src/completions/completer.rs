@@ -68,6 +68,19 @@ impl NuCompleter {
         let block = self.engine_state.get_block(block_id);
         let mut callee_stack = stack.gather_captures(&block.captures);
 
+        println!("");
+        println!("");
+        println!("");
+        println!("{:?}", spans);
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+
         // Line
         if let Some(pos_arg) = block.signature.required_positional.get(0) {
             if let Some(var_id) = pos_arg.var_id {
@@ -138,7 +151,7 @@ impl NuCompleter {
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
                     // Skip the last 'a' as span item
-                    if flat_idx != flattened.len() {
+                    if flat_idx != flattened.len() - 1 {
                         // Read the spam and stores it
                         let current_span = working_set.get_span_contents(flat.0).to_vec();
                         let current_span_str = String::from_utf8_lossy(&current_span);
