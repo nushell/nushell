@@ -60,17 +60,11 @@ impl NuCompleter {
     fn external_completion(
         &self,
         block_id: usize,
-        line: String,
-        pos: usize,
+        spans: Vec<String>,
         offset: usize,
         span: Span,
     ) -> Vec<Suggestion> {
-        // Append extra " "
-        let mut line = line;
-        line.push(' ');
-
         let stack = self.stack.clone();
-
         let block = self.engine_state.get_block(block_id);
         let mut callee_stack = stack.gather_captures(&block.captures);
 
@@ -79,22 +73,15 @@ impl NuCompleter {
             if let Some(var_id) = pos_arg.var_id {
                 callee_stack.add_var(
                     var_id,
-                    Value::String {
-                        val: line.clone(),
-                        span,
-                    },
-                );
-            }
-        }
-
-        // Current cursor position
-        if let Some(pos_arg) = block.signature.required_positional.get(1) {
-            if let Some(var_id) = pos_arg.var_id {
-                callee_stack.add_var(
-                    var_id,
-                    Value::Int {
-                        val: pos as i64,
-                        span,
+                    Value::List {
+                        vals: spans
+                            .into_iter()
+                            .map(|it| Value::String {
+                                val: it,
+                                span: Span::unknown(),
+                            })
+                            .collect(),
+                        span: Span::unknown(),
                     },
                 );
             }
@@ -147,8 +134,15 @@ impl NuCompleter {
             for expr in pipeline.expressions {
                 let flattened: Vec<_> = flatten_expression(&working_set, &expr);
                 let span_offset: usize = alias_offset.iter().sum();
+                let mut spans: Vec<String> = vec![];
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
+                    // Read the spam and stores it
+                    let current_span = working_set.get_span_contents(flat.0).to_vec();
+                    let current_span_str = String::from_utf8_lossy(&current_span);
+                    spans.push(current_span_str.to_string());
+
+                    // Complete based on the last span
                     if pos + span_offset >= flat.0.start && pos + span_offset < flat.0.end {
                         // Context variables
                         let most_left_var =
@@ -171,8 +165,7 @@ impl NuCompleter {
                         if let Some(decl_id) = config.external_completer {
                             return self.external_completion(
                                 decl_id,
-                                initial_line,
-                                original_pos,
+                                spans,
                                 offset,
                                 new_span,
                             );
