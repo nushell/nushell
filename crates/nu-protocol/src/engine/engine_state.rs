@@ -8,7 +8,6 @@ use core::panic;
 use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::path::Path;
-#[cfg(feature = "plugin")]
 use std::path::PathBuf;
 use std::{
     collections::HashMap,
