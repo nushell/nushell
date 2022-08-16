@@ -13,7 +13,7 @@ fn external_completions() {
 
     // Add block completer
     let block = "
-    let external_completer = {|line,pos|
+    let external_completer = {|spans|
         ['yes', 'no']
     }
     ";

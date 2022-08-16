@@ -137,10 +137,13 @@ impl NuCompleter {
                 let mut spans: Vec<String> = vec![];
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
-                    // Read the spam and stores it
-                    let current_span = working_set.get_span_contents(flat.0).to_vec();
-                    let current_span_str = String::from_utf8_lossy(&current_span);
-                    spans.push(current_span_str.to_string());
+                    // Skip the last 'a' as span item
+                    if flat_idx != flattened.len() {
+                        // Read the spam and stores it
+                        let current_span = working_set.get_span_contents(flat.0).to_vec();
+                        let current_span_str = String::from_utf8_lossy(&current_span);
+                        spans.push(current_span_str.to_string());
+                    }
 
                     // Complete based on the last span
                     if pos + span_offset >= flat.0.start && pos + span_offset < flat.0.end {
