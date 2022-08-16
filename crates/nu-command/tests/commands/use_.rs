@@ -1,4 +1,4 @@
-use nu_test_support::fs::{AbsolutePath, DisplayPath, Stub::FileWithContent};
+use nu_test_support::fs::{AbsolutePath, Stub::FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::pipeline;
 use nu_test_support::playground::Playground;
@@ -9,7 +9,7 @@ fn use_module_file_within_block() {
         let file = AbsolutePath::new(dirs.test().join("spam.nu"));
 
         nu.with_files(vec![FileWithContent(
-            &file.display_path(),
+            &file.to_string(),
             r#"
                 export def foo [] {
                     echo "hello world"
@@ -39,7 +39,7 @@ fn use_keeps_doc_comments() {
         let file = AbsolutePath::new(dirs.test().join("spam.nu"));
 
         nu.with_files(vec![FileWithContent(
-            &file.display_path(),
+            &file.to_string(),
             r#"
                 # this is my foo command
                 export def foo [

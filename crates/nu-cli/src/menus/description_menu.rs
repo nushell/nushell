@@ -1,8 +1,8 @@
 use {
     nu_ansi_term::{ansi::RESET, Style},
     reedline::{
-        menu_functions::string_difference, Completer, LineBuffer, Menu, MenuEvent, MenuTextStyle,
-        Painter, Suggestion,
+        menu_functions::string_difference, Completer, Editor, Menu, MenuEvent, MenuTextStyle,
+        Painter, Suggestion, UndoBehavior,
     },
 };
 
@@ -459,7 +459,7 @@ impl Menu for DescriptionMenu {
     fn can_partially_complete(
         &mut self,
         _values_updated: bool,
-        _line_buffer: &mut LineBuffer,
+        _editor: &mut Editor,
         _completer: &mut dyn Completer,
     ) -> bool {
         false
@@ -481,19 +481,21 @@ impl Menu for DescriptionMenu {
     }
 
     /// Updates menu values
-    fn update_values(&mut self, line_buffer: &mut LineBuffer, completer: &mut dyn Completer) {
+    fn update_values(&mut self, editor: &mut Editor, completer: &mut dyn Completer) {
         if self.only_buffer_difference {
             if let Some(old_string) = &self.input {
-                let (start, input) = string_difference(line_buffer.get_buffer(), old_string);
+                let (start, input) = string_difference(editor.get_buffer(), old_string);
                 if !input.is_empty() {
                     self.reset_position();
                     self.values = completer.complete(input, start);
                 }
             }
         } else {
-            let trimmed_buffer = line_buffer.get_buffer().replace('\n', " ");
-            self.values =
-                completer.complete(trimmed_buffer.as_str(), line_buffer.insertion_point());
+            let trimmed_buffer = editor.get_buffer().replace('\n', " ");
+            self.values = completer.complete(
+                trimmed_buffer.as_str(),
+                editor.line_buffer().insertion_point(),
+            );
             self.reset_position();
         }
     }
@@ -502,7 +504,7 @@ impl Menu for DescriptionMenu {
     /// collected from the completer
     fn update_working_details(
         &mut self,
-        line_buffer: &mut LineBuffer,
+        editor: &mut Editor,
         completer: &mut dyn Completer,
         painter: &Painter,
     ) {
@@ -560,13 +562,13 @@ impl Menu for DescriptionMenu {
             match event {
                 MenuEvent::Activate(_) => {
                     self.reset_position();
-                    self.input = Some(line_buffer.get_buffer().to_string());
-                    self.update_values(line_buffer, completer);
+                    self.input = Some(editor.get_buffer().to_string());
+                    self.update_values(editor, completer);
                 }
                 MenuEvent::Deactivate => self.active = false,
                 MenuEvent::Edit(_) => {
                     self.reset_position();
-                    self.update_values(line_buffer, completer);
+                    self.update_values(editor, completer);
                     self.update_examples()
                 }
                 MenuEvent::NextElement => {
@@ -627,27 +629,28 @@ impl Menu for DescriptionMenu {
     }
 
     /// The buffer gets replaced in the Span location
-    fn replace_in_buffer(&self, line_buffer: &mut LineBuffer) {
+    fn replace_in_buffer(&self, editor: &mut Editor) {
         if let Some(Suggestion { value, span, .. }) = self.get_value() {
-            let start = span.start.min(line_buffer.len());
-            let end = span.end.min(line_buffer.len());
+            let start = span.start.min(editor.line_buffer().len());
+            let end = span.end.min(editor.line_buffer().len());
 
-            let string_len = if let Some(example_index) = self.example_index {
-                let example = self
-                    .examples
+            let replacement = if let Some(example_index) = self.example_index {
+                self.examples
                     .get(example_index)
-                    .expect("the example index is always checked");
-
-                line_buffer.replace(start..end, example);
-                example.len()
+                    .expect("the example index is always checked")
             } else {
-                line_buffer.replace(start..end, &value);
-                value.len()
+                &value
             };
 
-            let mut offset = line_buffer.insertion_point();
-            offset += string_len.saturating_sub(end.saturating_sub(start));
-            line_buffer.set_insertion_point(offset);
+            editor.edit_buffer(
+                |lb| {
+                    lb.replace_range(start..end, replacement);
+                    let mut offset = lb.insertion_point();
+                    offset += lb.len().saturating_sub(end.saturating_sub(start));
+                    lb.set_insertion_point(offset);
+                },
+                UndoBehavior::CreateUndoPoint,
+            );
         }
     }
 

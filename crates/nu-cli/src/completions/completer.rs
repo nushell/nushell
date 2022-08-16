@@ -338,7 +338,7 @@ impl NuCompleter {
             }
         }
 
-        return vec![];
+        vec![]
     }
 }
 

@@ -116,7 +116,8 @@ impl CommandCompletion {
 
         let partial = working_set.get_span_contents(span);
         let partial = String::from_utf8_lossy(partial).to_string();
-        let results = if find_externals {
+
+        if find_externals {
             let results_external = self
                 .external_command_completion(&partial, match_algorithm)
                 .into_iter()
@@ -148,9 +149,7 @@ impl CommandCompletion {
             results
         } else {
             results
-        };
-
-        results
+        }
     }
 }
 

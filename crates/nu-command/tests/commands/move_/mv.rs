@@ -375,3 +375,21 @@ fn mv_ignores_ansi() {
         assert_eq!(actual.out, "success.txt");
     })
 }
+
+#[test]
+fn mv_directory_with_same_name() {
+    Playground::setup("mv_test_directory_with_same_name", |_dirs, sandbox| {
+        sandbox.mkdir("testdir");
+        sandbox.mkdir("testdir/testdir");
+
+        let cwd = sandbox.cwd().join("testdir");
+        let actual = nu!(
+            cwd: cwd,
+            r#"
+                 mv testdir ..
+            "#
+        );
+
+        assert!(actual.err.contains("Directory not empty"));
+    })
+}

@@ -124,6 +124,18 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::active_overlay_not_found), url(docsrs))]
     ActiveOverlayNotFound(#[label = "not an active overlay"] Span),
 
+    #[error("Overlay prefix mismatch.")]
+    #[diagnostic(
+        code(nu::parser::overlay_prefix_mismatch),
+        url(docsrs),
+        help("Overlay {0} already exists {1} a prefix. To add it again, do it {1} the --prefix flag.")
+    )]
+    OverlayPrefixMismatch(
+        String,
+        String,
+        #[label = "already exists {1} a prefix"] Span,
+    ),
+
     #[error("Module or overlay not found.")]
     #[diagnostic(
         code(nu::parser::module_or_overlay_not_found),
@@ -147,6 +159,10 @@ pub enum ParseError {
         help("'{0}' is a default overlay. Default overlays cannot be removed.")
     )]
     CantRemoveDefaultOverlay(String, #[label = "can't remove overlay"] Span),
+
+    #[error("Cannot add overlay.")]
+    #[diagnostic(code(nu::parser::cant_add_overlay_help), url(docsrs), help("{0}"))]
+    CantAddOverlayHelp(String, #[label = "cannot add this overlay"] Span),
 
     #[error("Not found.")]
     #[diagnostic(code(nu::parser::not_found), url(docsrs))]
@@ -327,8 +343,10 @@ impl ParseError {
             ParseError::ModuleNotFound(s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
             ParseError::ActiveOverlayNotFound(s) => *s,
+            ParseError::OverlayPrefixMismatch(_, _, s) => *s,
             ParseError::CantRemoveLastOverlay(s) => *s,
             ParseError::CantRemoveDefaultOverlay(_, s) => *s,
+            ParseError::CantAddOverlayHelp(_, s) => *s,
             ParseError::NotFound(s) => *s,
             ParseError::DuplicateCommandDef(s) => *s,
             ParseError::UnknownCommand(s) => *s,

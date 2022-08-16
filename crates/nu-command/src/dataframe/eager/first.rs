@@ -1,4 +1,4 @@
-use super::super::values::{utils::DEFAULT_ROWS, Column, NuDataFrame};
+use super::super::values::{Column, NuDataFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -15,30 +15,54 @@ impl Command for FirstDF {
     }
 
     fn usage(&self) -> &str {
-        "Creates new dataframe with first rows"
+        "Show only the first number of rows."
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional("rows", SyntaxShape::Int, "Number of rows for head")
+            .optional(
+                "rows",
+                SyntaxShape::Int,
+                "starting from the front, the number of rows to return",
+            )
             .input_type(Type::Custom("dataframe".into()))
             .output_type(Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Create new dataframe with head rows",
-            example: "[[a b]; [1 2] [3 4]] | into df | first 1",
-            result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_int(1)]),
-                    Column::new("b".to_string(), vec![Value::test_int(2)]),
-                ])
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Return the first row of a dataframe",
+                example: "[[a b]; [1 2] [3 4]] | into df | first",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![
+                        Column::new("a".to_string(), vec![Value::test_int(1)]),
+                        Column::new("b".to_string(), vec![Value::test_int(2)]),
+                    ])
+                    .expect("should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Return the first two rows of a dataframe",
+                example: "[[a b]; [1 2] [3 4]] | into df | first 2",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_int(1), Value::test_int(3)],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(2), Value::test_int(4)],
+                        ),
+                    ])
+                    .expect("should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -60,7 +84,7 @@ fn command(
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let rows: Option<usize> = call.opt(engine_state, stack, 0)?;
-    let rows = rows.unwrap_or(DEFAULT_ROWS);
+    let rows = rows.unwrap_or(1);
 
     let res = df.as_ref().head(Some(rows));
     Ok(PipelineData::Value(

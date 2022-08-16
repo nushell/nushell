@@ -1,4 +1,4 @@
-use nu_test_support::fs::{AbsolutePath, DisplayPath, Stub::FileWithContent};
+use nu_test_support::fs::{AbsolutePath, Stub::FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::pipeline;
 use nu_test_support::playground::Playground;
@@ -18,7 +18,7 @@ fn sources_also_files_under_custom_lib_dirs_path() {
                 lib_dirs = ["{}"]
                 skip_welcome_message = true
             "#,
-                library_path.display_path()
+                library_path
             ),
         )]);
 
@@ -59,7 +59,7 @@ fn try_source_foo_with_double_quotes_in(testdir: &str, playdir: &str) {
         sandbox.mkdir(&testdir);
         sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
-        let cmd = String::from("source ") + r#"""# + &foo_file + r#"""#;
+        let cmd = String::from("source ") + r#"""# + foo_file.as_str() + r#"""#;
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
@@ -76,7 +76,7 @@ fn try_source_foo_with_single_quotes_in(testdir: &str, playdir: &str) {
         sandbox.mkdir(&testdir);
         sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
-        let cmd = String::from("source ") + r#"'"# + &foo_file + r#"'"#;
+        let cmd = String::from("source ") + r#"'"# + foo_file.as_str() + r#"'"#;
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
@@ -93,7 +93,7 @@ fn try_source_foo_without_quotes_in(testdir: &str, playdir: &str) {
         sandbox.mkdir(&testdir);
         sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
-        let cmd = String::from("source ") + &foo_file;
+        let cmd = String::from("source ") + foo_file.as_str();
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 

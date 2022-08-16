@@ -6,8 +6,6 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::Expr;
-
 #[derive(Clone)]
 pub struct LazySelect;
 
@@ -60,17 +58,6 @@ impl Command for LazySelect {
             span: call.head,
         };
         let expressions = NuExpression::extract_exprs(value)?;
-
-        if expressions
-            .iter()
-            .any(|expr| !matches!(expr, Expr::Column(..)))
-        {
-            let value: Value = call.req(engine_state, stack, 0)?;
-            return Err(ShellError::IncompatibleParametersSingle(
-                "Expected only Col expressions".into(),
-                value.span()?,
-            ));
-        }
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
         let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().select(&expressions));

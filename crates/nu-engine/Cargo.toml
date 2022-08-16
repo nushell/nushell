@@ -1,19 +1,20 @@
 [package]
 authors = ["The Nushell Project Developers"]
 description = "Nushell's evaluation engine"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-engine"
 edition = "2021"
 license = "MIT"
 name = "nu-engine"
-version = "0.66.4"
+version = "0.67.0"
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.66.4"  }
-nu-path = { path = "../nu-path", version = "0.66.4"  }
-nu-glob = { path = "../nu-glob", version = "0.66.4" }
-nu-utils = { path = "../nu-utils", version = "0.66.4"  }
+nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.67.0"  }
+nu-path = { path = "../nu-path", version = "0.67.0"  }
+nu-glob = { path = "../nu-glob", version = "0.67.0" }
+nu-utils = { path = "../nu-utils", version = "0.67.0"  }
 
-chrono = { version="0.4.20", features=["serde"] }
-sysinfo = "0.24.6"
+chrono = { version="0.4.21", features=["serde"] }
+sysinfo = "0.25.2"
 
 [features]
 plugin = []

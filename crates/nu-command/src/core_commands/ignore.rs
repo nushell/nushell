@@ -18,6 +18,10 @@ impl Command for Ignore {
         Signature::build("ignore").category(Category::Core)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["silent", "quiet", "out-null"]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
