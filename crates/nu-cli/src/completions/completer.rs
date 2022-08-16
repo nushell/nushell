@@ -68,19 +68,6 @@ impl NuCompleter {
         let block = self.engine_state.get_block(block_id);
         let mut callee_stack = stack.gather_captures(&block.captures);
 
-        println!("");
-        println!("");
-        println!("");
-        println!("{:?}", spans);
-        println!("");
-        println!("");
-        println!("");
-        println!("");
-        println!("");
-        println!("");
-        println!("");
-        println!("");
-
         // Line
         if let Some(pos_arg) = block.signature.required_positional.get(0) {
             if let Some(var_id) = pos_arg.var_id {
@@ -133,7 +120,6 @@ impl NuCompleter {
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let original_pos = pos;
         let offset = working_set.next_span_start();
         let (mut new_line, alias_offset) = try_find_alias(line.as_bytes(), &working_set);
         let initial_line = line.to_string();
