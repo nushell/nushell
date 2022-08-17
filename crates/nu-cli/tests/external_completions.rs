@@ -37,7 +37,7 @@ fn external_completer_pass_flags() {
     let suggestions = run_completion(&block, &input);
     assert_eq!(3, suggestions.len());
     assert_eq!("gh", suggestions.get(0).unwrap().value);
-    assert_eq!("alias", suggestions.get(1).unwrap().value);
+    assert_eq!("api", suggestions.get(1).unwrap().value);
     assert_eq!("--", suggestions.get(2).unwrap().value);
 }
 
