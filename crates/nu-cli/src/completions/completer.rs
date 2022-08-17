@@ -169,11 +169,6 @@ impl NuCompleter {
                             }
                         };
 
-                        // Check if external completer
-                        if let Some(decl_id) = config.external_completer {
-                            return self.external_completion(decl_id, spans, offset, new_span);
-                        }
-
                         // Parses the prefix
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
                         prefix.remove(pos - (flat.0.start - span_offset));
@@ -291,6 +286,12 @@ impl NuCompleter {
                                 );
                             }
                             flat_shape => {
+                                // Check if external completer
+                                if let Some(decl_id) = config.external_completer {
+                                    return self
+                                        .external_completion(decl_id, spans, offset, new_span);
+                                }
+
                                 let mut completer = CommandCompletion::new(
                                     self.engine_state.clone(),
                                     &working_set,
