@@ -193,6 +193,11 @@ impl NuCompleter {
 
                         // Flags completion
                         if prefix.starts_with(b"-") {
+                            // Check if external completer
+                            if let Some(decl_id) = config.external_completer {
+                                return self.external_completion(decl_id, spans, offset, new_span);
+                            }
+
                             let mut completer = FlagCompletion::new(expr);
 
                             return self.process_completion(
