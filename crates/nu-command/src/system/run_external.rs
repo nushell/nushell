@@ -208,34 +208,43 @@ impl ExternalCommand {
 
         match child {
             Err(err) => {
-                // recommend a replacement if the user tried a deprecated command
-                let command_name_lower = self.name.item.to_lowercase();
-                let deprecated = crate::deprecated_commands();
-                if deprecated.contains_key(&command_name_lower) {
-                    let replacement = match deprecated.get(&command_name_lower) {
-                        Some(s) => s.clone(),
-                        None => "".to_string(),
-                    };
-                    return Err(ShellError::DeprecatedCommand(
-                        command_name_lower,
-                        replacement,
+                match err.kind() {
+                    // If file not found, try suggesting alternative commands to the user
+                    std::io::ErrorKind::NotFound => {
+                        // recommend a replacement if the user tried a deprecated command
+                        let command_name_lower = self.name.item.to_lowercase();
+                        let deprecated = crate::deprecated_commands();
+                        if deprecated.contains_key(&command_name_lower) {
+                            let replacement = match deprecated.get(&command_name_lower) {
+                                Some(s) => s.clone(),
+                                None => "".to_string(),
+                            };
+                            return Err(ShellError::DeprecatedCommand(
+                                command_name_lower,
+                                replacement,
+                                self.name.span,
+                            ));
+                        }
+
+                        let suggestion = suggest_command(&self.name.item, engine_state);
+                        let label = match suggestion {
+                            Some(s) => format!("did you mean '{s}'?"),
+                            None => "can't run executable".into(),
+                        };
+
+                        Err(ShellError::ExternalCommand(
+                            label,
+                            err.to_string(),
+                            self.name.span,
+                        ))
+                    }
+                    // otherwise, a default error message
+                    _ => Err(ShellError::ExternalCommand(
+                        "can't run executable".into(),
+                        err.to_string(),
                         self.name.span,
-                    ));
+                    )),
                 }
-
-                // If we try to run an external but can't, there's a good chance
-                // that the user entered the wrong command name
-                let suggestion = suggest_command(&self.name.item, engine_state);
-                let label = match suggestion {
-                    Some(s) => format!("did you mean '{s}'?"),
-                    None => "can't run executable".into(),
-                };
-
-                Err(ShellError::ExternalCommand(
-                    label,
-                    err.to_string(),
-                    self.name.span,
-                ))
             }
             Ok(mut child) => {
                 if !input.is_nothing() {

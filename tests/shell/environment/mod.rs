@@ -12,9 +12,9 @@ pub mod support {
         pub fn in_path(dirs: &Dirs, block: impl FnOnce() -> Outcome) -> Outcome {
             let for_env_manifest = dirs.test().to_string_lossy();
 
-            nu!(cwd: dirs.root(), format!("autoenv trust \"{}\"", for_env_manifest));
+            nu!(cwd: dirs.root(), "autoenv trust \"{}\"", for_env_manifest);
             let out = block();
-            nu!(cwd: dirs.root(), format!("autoenv untrust \"{}\"", for_env_manifest));
+            nu!(cwd: dirs.root(), "autoenv untrust \"{}\"", for_env_manifest);
 
             out
         }

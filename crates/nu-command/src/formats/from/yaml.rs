@@ -133,7 +133,7 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, span: Span) -> Result<V
                             .and_then(|e| match e {
                                 (serde_yaml::Value::String(s), serde_yaml::Value::Null) => {
                                     Some(Value::String {
-                                        val: "{{ ".to_owned() + s + " }}",
+                                        val: "{{ ".to_owned() + s.as_str() + " }}",
                                         span,
                                     })
                                 }

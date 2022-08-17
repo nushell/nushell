@@ -11,7 +11,7 @@ name = "nu"
 readme = "README.md"
 repository = "https://github.com/nushell/nushell"
 rust-version = "1.60"
-version = "0.66.4"
+version = "0.67.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -33,27 +33,27 @@ members = [
 ]
 
 [dependencies]
-chrono = { version = "0.4.20", features = ["serde"] }
+chrono = { version = "0.4.21", features = ["serde"] }
 crossterm = "0.24.0"
 ctrlc = "3.2.1"
 log = "0.4"
 miette = "5.1.0"
 nu-ansi-term = "0.46.0"
-nu-cli = { path="./crates/nu-cli", version = "0.66.4"  }
-nu-color-config = { path = "./crates/nu-color-config", version = "0.66.4"  }
-nu-command = { path="./crates/nu-command", version = "0.66.4"  }
-nu-engine = { path="./crates/nu-engine", version = "0.66.4"  }
-nu-json = { path="./crates/nu-json", version = "0.66.4"  }
-nu-parser = { path="./crates/nu-parser", version = "0.66.4"  }
-nu-path = { path="./crates/nu-path", version = "0.66.4"  }
-nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.66.4"  }
-nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.66.4"  }
-nu-protocol = { path = "./crates/nu-protocol", version = "0.66.4"  }
-nu-system = { path = "./crates/nu-system", version = "0.66.4" }
-nu-table = { path = "./crates/nu-table", version = "0.66.4"  }
-nu-term-grid = { path = "./crates/nu-term-grid", version = "0.66.4"  }
-nu-utils = { path = "./crates/nu-utils", version = "0.66.4"  }
-reedline = { version = "0.9.0", features = ["bashisms", "sqlite"]}
+nu-cli = { path="./crates/nu-cli", version = "0.67.0"  }
+nu-color-config = { path = "./crates/nu-color-config", version = "0.67.0"  }
+nu-command = { path="./crates/nu-command", version = "0.67.0"  }
+nu-engine = { path="./crates/nu-engine", version = "0.67.0"  }
+nu-json = { path="./crates/nu-json", version = "0.67.0"  }
+nu-parser = { path="./crates/nu-parser", version = "0.67.0"  }
+nu-path = { path="./crates/nu-path", version = "0.67.0"  }
+nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.67.0"  }
+nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.67.0"  }
+nu-protocol = { path = "./crates/nu-protocol", version = "0.67.0"  }
+nu-system = { path = "./crates/nu-system", version = "0.67.0" }
+nu-table = { path = "./crates/nu-table", version = "0.67.0"  }
+nu-term-grid = { path = "./crates/nu-term-grid", version = "0.67.0"  }
+nu-utils = { path = "./crates/nu-utils", version = "0.67.0"  }
+reedline = { version = "0.10.0", features = ["bashisms", "sqlite"]}
 rayon = "1.5.1"
 is_executable = "1.0.1"
 simplelog = "0.12.0"
@@ -65,7 +65,7 @@ openssl = { version = "0.10.38", features = ["vendored"], optional = true }
 signal-hook = { version = "0.3.14", default-features = false }
 
 [dev-dependencies]
-nu-test-support = { path="./crates/nu-test-support", version = "0.66.4"  }
+nu-test-support = { path="./crates/nu-test-support", version = "0.67.0"  }
 tempfile = "3.2.0"
 assert_cmd = "2.0.2"
 pretty_assertions = "1.0.0"
@@ -94,7 +94,6 @@ trash-support = ["nu-command/trash-support"]
 
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe"]
-system-zstd = ["nu-command/system-zstd"]
 
 # Database commands for nushell
 database = ["nu-command/database"]
@@ -122,7 +121,3 @@ debug = false
 [[bin]]
 name = "nu"
 path = "src/main.rs"
-
-[patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
-lscolors = { git = "https://github.com/sharkdp/lscolors.git", branch = "master" }

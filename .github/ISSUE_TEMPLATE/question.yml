@@ -1,0 +1,21 @@
+name: Question
+description: "When you have a question to ask"
+labels: "question"
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Question
+      description: Leave your question here
+      placeholder: |
+        A clear and concise question
+        Example: Is there any equivalent of bash's $CDPATH in Nu?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context and details
+      description: Add any other context, screenshots or other media that will help us understand your question here, if needed.
+    validations:
+      required: false

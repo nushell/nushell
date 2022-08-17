@@ -374,7 +374,7 @@ fn let_env_hides_variable() {
         r#"
             let-env TESTENVVAR = "hello world"
             echo $env.TESTENVVAR
-            hide TESTENVVAR
+            hide-env TESTENVVAR
             echo $env.TESTENVVAR
         "#
     );
@@ -391,7 +391,7 @@ fn let_env_hides_variable_in_parent_scope() {
             let-env TESTENVVAR = "hello world"
             echo $env.TESTENVVAR
             do {
-                hide TESTENVVAR
+                hide-env TESTENVVAR
                 echo $env.TESTENVVAR
             }
             echo $env.TESTENVVAR
@@ -408,7 +408,7 @@ fn unlet_env_variable() {
         cwd: ".",
         r#"
             let-env TEST_VAR = "hello world"
-            hide TEST_VAR
+            hide-env TEST_VAR
             echo $env.TEST_VAR
         "#
     );
@@ -421,7 +421,7 @@ fn unlet_nonexistent_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
-            hide NONEXISTENT_VARIABLE
+            hide-env NONEXISTENT_VARIABLE
         "#
     );
 
@@ -438,7 +438,7 @@ fn unlet_variable_in_parent_scope() {
             do {
                 let-env DEBUG = "2"
                 echo $env.DEBUG
-                hide DEBUG
+                hide-env DEBUG
                 echo $env.DEBUG
             }
             echo $env.DEBUG
@@ -1171,17 +1171,15 @@ fn nothing_string_1() {
     assert_eq!(actual.out, "false");
 }
 
-// FIXME: no current way to hide aliases
-#[ignore]
 #[test]
-fn unalias_shadowing() {
+fn hide_alias_shadowing() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
         def test-shadowing [] {
             alias greet = echo hello;
             let xyz = { greet };
-            unalias greet;
+            hide greet;
             do $xyz
         };
         test-shadowing
@@ -1190,16 +1188,16 @@ fn unalias_shadowing() {
     assert_eq!(actual.out, "hello");
 }
 
-// FIXME: no current way to hide aliases
+// FIXME: Seems like subexpression are no longer scoped. Should we remove this test?
 #[ignore]
 #[test]
-fn unalias_does_not_escape_scope() {
+fn hide_alias_does_not_escape_scope() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
         def test-alias [] {
             alias greet = echo hello;
-            (unalias greet);
+            (hide greet);
             greet
         };
         test-alias
@@ -1208,22 +1206,20 @@ fn unalias_does_not_escape_scope() {
     assert_eq!(actual.out, "hello");
 }
 
-// FIXME: no current way to hide aliases
-#[ignore]
 #[test]
-fn unalias_hides_alias() {
+fn hide_alias_hides_alias() {
     let actual = nu!(cwd: ".", pipeline(
         r#"
         def test-alias [] {
             alias ll = ls -l;
-            unalias ll;
+            hide ll;
             ll
         };
         test-alias
         "#)
     );
 
-    assert!(actual.err.contains("not found"));
+    assert!(actual.err.contains("did you mean"));
 }
 
 mod parse {

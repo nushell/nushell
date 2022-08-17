@@ -11,6 +11,7 @@ let plugins = [
     nu_plugin_gstat,
     nu_plugin_query,
     nu_plugin_example,
+    nu_plugin_custom_values,
 ]
 
 for plugin in $plugins {

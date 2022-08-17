@@ -47,6 +47,7 @@ pub fn create_default_context() -> EngineState {
             For,
             Help,
             Hide,
+            HideEnv,
             If,
             Ignore,
             Overlay,

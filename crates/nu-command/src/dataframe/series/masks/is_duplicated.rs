@@ -27,26 +27,46 @@ impl Command for IsDuplicated {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Create mask indicating duplicated values",
-            example: "[5 6 6 6 8 8 8] | into df | is-duplicated",
-            result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "is_duplicated".to_string(),
-                    vec![
-                        Value::test_bool(false),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                    ],
-                )])
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Create mask indicating duplicated values",
+                example: "[5 6 6 6 8 8 8] | into df | is-duplicated",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![Column::new(
+                        "is_duplicated".to_string(),
+                        vec![
+                            Value::test_bool(false),
+                            Value::test_bool(true),
+                            Value::test_bool(true),
+                            Value::test_bool(true),
+                            Value::test_bool(true),
+                            Value::test_bool(true),
+                            Value::test_bool(true),
+                        ],
+                    )])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Create mask indicating duplicated rows in a dataframe",
+                example: "[[a, b]; [1 2] [1 2] [3 3] [3 3] [1 1]] | into df | is-duplicated",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![Column::new(
+                        "is_duplicated".to_string(),
+                        vec![
+                            Value::test_bool(true),
+                            Value::test_bool(true),
+                            Value::test_bool(true),
+                            Value::test_bool(true),
+                            Value::test_bool(false),
+                        ],
+                    )])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -69,7 +89,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let mut res = df
-        .as_series(call.head)?
+        .as_ref()
         .is_duplicated()
         .map_err(|e| {
             ShellError::GenericError(
@@ -84,7 +104,7 @@ fn command(
 
     res.rename("is_duplicated");
 
-    NuDataFrame::try_from_series(vec![res.into_series()], call.head)
+    NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 

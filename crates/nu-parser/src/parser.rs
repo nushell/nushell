@@ -1117,7 +1117,7 @@ pub fn parse_call(
         // We might be parsing left-unbounded range ("..10")
         let bytes = working_set.get_span_contents(spans[0]);
         trace!("parsing: range {:?} ", bytes);
-        if let (Some(b'.'), Some(b'.')) = (bytes.get(0), bytes.get(1)) {
+        if let (Some(b'.'), Some(b'.')) = (bytes.first(), bytes.get(1)) {
             trace!("-- found leading range indicator");
             let (range_expr, range_err) =
                 parse_range(working_set, spans[0], expand_aliases_denylist);

@@ -1,21 +1,120 @@
+/// Run a command in nu and get it's output
+///
+/// The `nu!` macro accepts a number of options like the `cwd` in which the
+/// command should be run. It is also possible to specify a different `locale`
+/// to test locale dependent commands.
+///
+/// Pass options as the first arguments in the form of `key_1: value_1, key_1:
+/// value_2, ...`. The options are defined in the `NuOpts` struct inside the
+/// `nu!` macro.
+///
+/// The command can be formatted using `{}` just like `println!` or `format!`.
+/// Pass the format arguments comma separated after the command itself.
+///
+/// # Examples
+///
+/// ```no_run
+/// # // NOTE: The `nu!` macro needs the `nu` binary to exist. The test are
+/// # //       therefore only compiled but not run (thats what the `no_run` at
+/// # //       the beginning of this code block is for).
+/// #
+/// use nu_test_support::nu;
+///
+/// let outcome = nu!(
+///     "date now | date to-record | get year"
+/// );
+///
+/// let dir = "/";
+/// let outcome = nu!(
+///     "ls {} | get name",
+///     dir,
+/// );
+///
+/// let outcome = nu!(
+///     cwd: "/",
+///     "ls | get name",
+/// );
+///
+/// let cell = "size";
+/// let outcome = nu!(
+///     locale: "de_DE.UTF-8",
+///     "ls | into int {}",
+///     cell,
+/// );
+///
+/// let decimals = 2;
+/// let outcome = nu!(
+///     locale: "de_DE.UTF-8",
+///     "10 | into string --decimals {}",
+///     decimals,
+/// );
+/// ```
 #[macro_export]
 macro_rules! nu {
-    (cwd: $cwd:expr, $path:expr, $($part:expr),*) => {{
-        use $crate::fs::DisplayPath;
+    // In the `@options` phase, we restucture all the
+    // `$field_1: $value_1, $field_2: $value_2, ...`
+    // pairs to a structure like
+    // `@options[ $field_1 => $value_1 ; $field_2 => $value_2 ; ... ]`.
+    // We do this to later distinguish the options from the `$path` and `$part`s.
+    // (See
+    //   https://users.rust-lang.org/t/i-dont-think-this-local-ambiguity-when-calling-macro-is-ambiguous/79401?u=x3ro
+    // )
+    //
+    // If there is any special treatment needed for the `$value`, we can just
+    // match for the specific `field` name.
+    (
+        @options [ $($options:tt)* ]
+        cwd: $value:expr,
+        $($rest:tt)*
+    ) => {
+        nu!(@options [ $($options)* cwd => $crate::fs::in_directory($value) ; ] $($rest)*)
+    };
+    // For all other options, we call `.into()` on the `$value` and hope for the best. ;)
+    (
+        @options [ $($options:tt)* ]
+        $field:ident : $value:expr,
+        $($rest:tt)*
+    ) => {
+        nu!(@options [ $($options)* $field => $value.into() ; ] $($rest)*)
+    };
 
-        let path = format!($path, $(
-            $part.display_path()
-        ),*);
-
-        nu!($cwd, &path)
+    // When the `$field: $value,` pairs are all parsed, the next tokens are the `$path` and any
+    // number of `$part`s, potentially followed by a trailing comma.
+    (
+        @options [ $($options:tt)* ]
+        $path:expr
+        $(, $part:expr)*
+        $(,)*
+    ) => {{
+        // Here we parse the options into a `NuOpts` struct
+        let opts = nu!(@nu_opts $($options)*);
+        // and format the `$path` using the `$part`s
+        let path = nu!(@format_path $path, $($part),*);
+        // Then finally we go to the `@main` phase, where the actual work is done.
+        nu!(@main opts, path)
     }};
 
-    (cwd: $cwd:expr, $path:expr) => {{
-        nu!($cwd, $path)
+    // Create the NuOpts struct from the `field => value ;` pairs
+    (@nu_opts $( $field:ident => $value:expr ; )*) => {
+        NuOpts{
+            $(
+                $field: Some($value),
+            )*
+            ..Default::default()
+        }
+    };
+
+    // Helper to format `$path`.
+    (@format_path $path:expr $(,)?) => {
+        // When there are no `$part`s, do not format anything
+        $path
+    };
+    (@format_path $path:expr, $($part:expr),* $(,)?) => {{
+        format!($path, $( $part ),*)
     }};
 
-    ($cwd:expr, $path:expr) => {{
-        pub use itertools::Itertools;
+    // Do the actual work.
+    (@main $opts:expr, $path:expr) => {{
         pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
@@ -35,13 +134,6 @@ macro_rules! nu {
             output.push('"');
             output
         }
-
-        // let commands = &*format!(
-        //     "
-        //                     {}
-        //                     exit",
-        //     $crate::fs::DisplayPath::display_path(&$path)
-        // );
 
         let test_bins = $crate::fs::binaries();
 
@@ -64,21 +156,25 @@ macro_rules! nu {
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };
 
-        let target_cwd = $crate::fs::in_directory(&$cwd);
+        let target_cwd = $opts.cwd.unwrap_or(".".to_string());
+        let locale = $opts.locale.unwrap_or("en_US.UTF-8".to_string());
 
-        let mut process = match Command::new($crate::fs::executable_path())
+        let mut command = Command::new($crate::fs::executable_path());
+        command
             .env("PWD", &target_cwd)
+            .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
             .current_dir(target_cwd)
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
             // .arg("--skip-plugins")
             // .arg("--no-history")
             // .arg("--config-file")
             // .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
-            .arg(format!("-c {}", escape_quote_string($crate::fs::DisplayPath::display_path(&path))))
+            .arg(format!("-c {}", escape_quote_string(path)))
             .stdout(Stdio::piped())
             // .stdin(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+            .stderr(Stdio::piped());
+
+        let mut process = match command.spawn()
         {
             Ok(child) => child,
             Err(why) => panic!("Can't run test {:?} {}", $crate::fs::executable_path(), why.to_string()),
@@ -99,6 +195,17 @@ macro_rules! nu {
             println!("=== stderr\n{}", err);
 
         $crate::Outcome::new(out,err.into_owned())
+    }};
+
+    // This is the entrypoint for this macro.
+    ($($token:tt)*) => {{
+        #[derive(Default)]
+        struct NuOpts {
+            cwd: Option<String>,
+            locale: Option<String>,
+        }
+
+        nu!(@options [ ] $($token)*)
     }};
 }
 
