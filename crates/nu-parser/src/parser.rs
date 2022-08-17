@@ -1182,7 +1182,7 @@ fn parse_binary_with_base(
                             Some(ParseError::Expected("binary".into(), span)),
                         );
                     }
-                    TokenContents::Comment | TokenContents::Semicolon | TokenContents::Eol => {}
+                    _ => {}
                 }
             }
 

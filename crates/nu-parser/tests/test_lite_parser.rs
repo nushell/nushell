@@ -240,3 +240,35 @@ let b = 0
 
     Ok(())
 }
+
+#[test]
+fn logical_and() -> Result<(), ParseError> {
+    let input = b"true && true | false && true";
+    let lite_block = lite_parse_helper(input)?;
+    println!("{:?}", lite_block);
+    assert_eq!(lite_block.block.len(), 3);
+    assert_eq!(lite_block.block[0].commands.len(), 1);
+    assert_eq!(lite_block.block[1].commands.len(), 2);
+    assert_eq!(lite_block.block[2].commands.len(), 1);
+    assert_eq!(lite_block.block[0].commands[0].parts.len(), 1);
+    assert_eq!(lite_block.block[1].commands[0].parts.len(), 1);
+    assert_eq!(lite_block.block[1].commands[1].parts.len(), 1);
+    assert_eq!(lite_block.block[2].commands[0].parts.len(), 1);
+    assert_eq!(
+        lite_block.block[0].commands[0].parts[0],
+        Span { start: 0, end: 4 }
+    );
+    assert_eq!(
+        lite_block.block[1].commands[1].parts[0],
+        Span { start: 15, end: 20 }
+    );
+    assert_eq!(
+        lite_block.block[1].commands[0].parts[0],
+        Span { start: 8, end: 12 }
+    );
+    assert_eq!(
+        lite_block.block[2].commands[0].parts[0],
+        Span { start: 24, end: 28 }
+    );
+    Ok(())
+}
