@@ -40,7 +40,7 @@ pub use export::ExportCommand;
 pub use export_alias::ExportAlias;
 pub use export_def::ExportDef;
 pub use export_def_env::ExportDefEnv;
-pub use export_env::ExportEnv;
+pub use export_env::ExportEnvModule;
 pub use export_extern::ExportExtern;
 pub use export_use::ExportUse;
 pub use extern_::Extern;

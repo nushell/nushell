@@ -40,7 +40,7 @@ pub fn create_default_context() -> EngineState {
             ExportCommand,
             ExportDef,
             ExportDefEnv,
-            ExportEnv,
+            ExportEnvModule,
             ExportExtern,
             ExportUse,
             Extern,
@@ -352,6 +352,7 @@ pub fn create_default_context() -> EngineState {
         // Env
         bind_command! {
             Env,
+            ExportEnv,
             LetEnv,
             LoadEnv,
             WithEnv,
