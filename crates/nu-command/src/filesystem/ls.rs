@@ -1,17 +1,25 @@
 use crate::DirBuilder;
 use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
+use lscolors::LsColors;
+use lscolors::Style;
 use nu_engine::env::current_dir;
+use nu_engine::env_to_string;
 use nu_engine::CallExt;
 use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Config;
+use nu_protocol::DataSource;
+use nu_protocol::ValueFormatter;
 use nu_protocol::{
-    Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
+use nu_utils::get_ls_colors;
 use pathdiff::diff_paths;
+use url::Url;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -176,6 +184,7 @@ impl Command for Ls {
         }
 
         let mut hidden_dirs = vec![];
+        let formatter = formatter(engine_state, stack)?;
 
         Ok(paths_peek
             .into_iter()
@@ -263,6 +272,7 @@ impl Command for Ls {
                 }
                 _ => Some(Value::Nothing { span: call_span }),
             })
+            .map(move |value| (value, Some(formatter.clone())))
             .into_pipeline_data_with_metadata(
                 PipelineMetadata {
                     data_source: DataSource::Ls,
@@ -316,6 +326,114 @@ impl Command for Ls {
                 result: None,
             },
         ]
+    }
+}
+
+fn formatter(engine_state: &EngineState, stack: &mut Stack) -> Result<ValueFormatter, ShellError> {
+    let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
+        Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
+        None => None,
+    };
+    let ls_colors = get_ls_colors(ls_colors_env_str);
+    let config = engine_state.config.clone();
+    let formatter =
+        ValueFormatter::from_fn(move |value| format_record_value(value, &ls_colors, &config));
+
+    Ok(formatter)
+}
+
+fn format_record_value(value: Value, ls_colors: &LsColors, config: &Config) -> Value {
+    let show_clickable_links = config.show_clickable_links_in_ls;
+    let (cols, mut vals, span) = match value {
+        Value::Record { cols, vals, span } => (cols, vals, span),
+        _ => return value,
+    };
+
+    let val = cols
+        .iter()
+        .position(|col| &**col == "name")
+        .and_then(|col| vals.get_mut(col));
+
+    if let Some(val) = val {
+        if let Value::String { val: path, span } = val {
+            match std::fs::symlink_metadata(&path) {
+                Ok(metadata) => {
+                    let style =
+                        ls_colors.style_for_path_with_metadata(path.clone(), Some(&metadata));
+                    let ansi_style = style
+                        .map(Style::to_crossterm_style)
+                        // .map(ToNuAnsiStyle::to_nu_ansi_style)
+                        .unwrap_or_default();
+                    let use_ls_colors = config.use_ls_colors;
+
+                    let full_path = PathBuf::from(path.clone())
+                        .canonicalize()
+                        .unwrap_or_else(|_| PathBuf::from(&*path));
+                    let full_path_link = make_clickable_link(
+                        full_path.display().to_string(),
+                        Some(&path.clone()),
+                        show_clickable_links,
+                    );
+
+                    if use_ls_colors {
+                        *val = Value::String {
+                            val: ansi_style.apply(full_path_link).to_string(),
+                            span: *span,
+                        };
+                    }
+                }
+                Err(_) => {
+                    let style = ls_colors.style_for_path(path.clone());
+                    let ansi_style = style
+                        .map(Style::to_crossterm_style)
+                        // .map(ToNuAnsiStyle::to_nu_ansi_style)
+                        .unwrap_or_default();
+                    let use_ls_colors = config.use_ls_colors;
+
+                    let full_path = PathBuf::from(path.clone())
+                        .canonicalize()
+                        .unwrap_or_else(|_| PathBuf::from(&*path));
+                    let full_path_link = make_clickable_link(
+                        full_path.display().to_string(),
+                        Some(&path.clone()),
+                        show_clickable_links,
+                    );
+
+                    if use_ls_colors {
+                        *val = Value::String {
+                            val: ansi_style.apply(full_path_link).to_string(),
+                            span: *span,
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    Value::Record { cols, vals, span }
+}
+
+fn make_clickable_link(
+    full_path: String,
+    link_name: Option<&str>,
+    show_clickable_links: bool,
+) -> String {
+    // uri's based on this https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+
+    if show_clickable_links {
+        format!(
+            "\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\",
+            match Url::from_file_path(full_path.clone()) {
+                Ok(url) => url.to_string(),
+                Err(_) => full_path.clone(),
+            },
+            link_name.unwrap_or(full_path.as_str())
+        )
+    } else {
+        match link_name {
+            Some(link_name) => link_name.to_string(),
+            None => full_path,
+        }
     }
 }
 
