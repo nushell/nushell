@@ -53,6 +53,14 @@ impl Command for First {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Return the first 2 items of a bytes",
+                example: "0x[01 23 45] | first 2",
+                result: Some(Value::Binary {
+                    val: vec![0x01, 0x23],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -153,10 +161,7 @@ fn first_helper(
             }
         }
     } else {
-        Err(ShellError::UnsupportedInput(
-            String::from("Cannot perform into string on empty input"),
-            head,
-        ))
+        Ok(PipelineData::new(head).set_metadata(metadata))
     }
 }
 #[cfg(test)]
