@@ -146,7 +146,7 @@ fn select(
                 .set_metadata(metadata))
         }
         PipelineData::ListStream(stream, metadata, ..) => Ok(stream
-            .map(move |x| {
+            .map(move |(x, _)| {
                 if !columns.is_empty() {
                     let mut cols = vec![];
                     let mut vals = vec![];

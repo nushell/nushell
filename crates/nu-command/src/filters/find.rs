@@ -364,7 +364,7 @@ fn find_with_rest_and_highlight(
         PipelineData::ListStream(stream, meta) => {
             Ok(ListStream::from_stream(
                 stream
-                    .map(move |mut x| match &mut x {
+                    .map(move |(mut x, _)| match &mut x {
                         Value::Record { cols, vals, span } => {
                             let mut output = vec![];
                             for val in vals {

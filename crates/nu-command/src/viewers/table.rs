@@ -260,7 +260,7 @@ fn handle_row_stream(
             let ls_colors = get_ls_colors(ls_colors_env_str);
 
             ListStream::from_stream(
-                stream.map(move |mut x| match &mut x {
+                stream.map(move |(mut x, _)| match &mut x {
                     Value::Record { cols, vals, .. } => {
                         let mut idx = 0;
 
@@ -512,7 +512,11 @@ impl Iterator for PagingTableCreator {
         let mut idx = 0;
 
         // Pull from stream until time runs out or we have enough items
-        for item in self.stream.by_ref() {
+        for (mut item, formatter) in self.stream.by_ref() {
+            if let Some(formatter) = formatter {
+                item = formatter.format(item);
+            }
+
             batch.push(item);
             idx += 1;
 
@@ -575,5 +579,72 @@ fn load_theme_from_config(config: &Config) -> TableTheme {
         "heavy" => nu_table::TableTheme::heavy(),
         "none" => nu_table::TableTheme::none(),
         _ => nu_table::TableTheme::rounded(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nu_protocol::ValueFormatter;
+
+    use super::*;
+
+    #[test]
+    fn list_stream_value_formatters() {
+        let span = Span::test_data();
+        let ctrlc = None;
+        let config = Config {
+            use_ansi_coloring: false,
+            ..<_>::default()
+        };
+
+        let hex_formatter = ValueFormatter::from_fn(|value| {
+            let (value, span) = match value {
+                Value::Int { val, span } => (val, span),
+                _ => return value,
+            };
+            let value = format!("0x{:016x}", value);
+
+            Value::string(value, span)
+        });
+
+        let stream = ListStream::from_stream(
+            [
+                (Value::int(42, span), Some(hex_formatter.clone())),
+                (Value::int(777, span), None),
+                (Value::int(-1, span), Some(hex_formatter)),
+            ]
+            .into_iter(),
+            ctrlc.clone(),
+        );
+
+        let paging_table_creator = PagingTableCreator {
+            head: span,
+            stream,
+            ctrlc,
+            config,
+            row_offset: 0,
+            width_param: Some(80),
+        };
+
+        let mut output = Vec::new();
+
+        for chunk in paging_table_creator {
+            let chunk = chunk.unwrap();
+
+            output.extend(chunk);
+        }
+
+        let output = String::from_utf8(output).unwrap();
+
+        assert_eq!(
+            output,
+            concat!(
+                "╭───┬────────────────────╮\n",
+                "│ 0 │ 0x000000000000002a │\n",
+                "│ 1 │                777 │\n",
+                "│ 2 │ 0xffffffffffffffff │\n",
+                "╰───┴────────────────────╯"
+            )
+        )
     }
 }
