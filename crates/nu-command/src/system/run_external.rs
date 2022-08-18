@@ -6,6 +6,7 @@ use nu_protocol::did_you_mean;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
 use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
+use nu_system::ForegroundProcess;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -121,7 +122,7 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let mut process = self.create_process(&input, false, head)?;
+        let mut fg_process = ForegroundProcess::new(self.create_process(&input, false, head)?);
         // mut is used in the windows branch only, suppress warning on other platforms
         #[allow(unused_mut)]
         let mut child;
@@ -136,8 +137,7 @@ impl ExternalCommand {
             // fails to be run as a normal executable:
             // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
             // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
-
-            match process.spawn() {
+            match fg_process.spawn() {
                 Err(err) => {
                     // set the default value, maybe we'll override it later
                     child = Err(err);
@@ -153,7 +153,8 @@ impl ExternalCommand {
                         .any(|&cmd| command_name_upper == cmd);
 
                     if looks_like_cmd_internal {
-                        let mut cmd_process = self.create_process(&input, true, head)?;
+                        let mut cmd_process =
+                            ForegroundProcess::new(self.create_process(&input, true, head)?);
                         child = cmd_process.spawn();
                     } else {
                         #[cfg(feature = "which-support")]
@@ -181,8 +182,10 @@ impl ExternalCommand {
                                                     item: file_name.to_string_lossy().to_string(),
                                                     span: self.name.span,
                                                 };
-                                                let mut cmd_process = new_command
-                                                    .create_process(&input, true, head)?;
+                                                let mut cmd_process = ForegroundProcess::new(
+                                                    new_command
+                                                        .create_process(&input, true, head)?,
+                                                );
                                                 child = cmd_process.spawn();
                                             }
                                         }
@@ -200,7 +203,7 @@ impl ExternalCommand {
 
         #[cfg(not(windows))]
         {
-            child = process.spawn()
+            child = fg_process.spawn()
         }
 
         match child {
@@ -252,7 +255,7 @@ impl ExternalCommand {
                     engine_state.config.use_ansi_coloring = false;
 
                     // if there is a string or a stream, that is sent to the pipe std
-                    if let Some(mut stdin_write) = child.stdin.take() {
+                    if let Some(mut stdin_write) = child.as_mut().stdin.take() {
                         std::thread::spawn(move || {
                             let input = crate::Table::run(
                                 &crate::Table,
@@ -293,7 +296,7 @@ impl ExternalCommand {
                     // and we create a ListStream that can be consumed
 
                     if redirect_stderr {
-                        let stderr = child.stderr.take().ok_or_else(|| {
+                        let stderr = child.as_mut().stderr.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stderr from external".to_string(),
                                 "Redirects need access to stderr of an external command"
@@ -332,7 +335,7 @@ impl ExternalCommand {
                     }
 
                     if redirect_stdout {
-                        let stdout = child.stdout.take().ok_or_else(|| {
+                        let stdout = child.as_mut().stdout.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stdout from external".to_string(),
                                 "Redirects need access to stdout of an external command"
@@ -370,7 +373,7 @@ impl ExternalCommand {
                         }
                     }
 
-                    match child.wait() {
+                    match child.as_mut().wait() {
                         Err(err) => Err(ShellError::ExternalCommand(
                             "External command exited with error".into(),
                             err.to_string(),
