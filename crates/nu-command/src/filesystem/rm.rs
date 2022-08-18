@@ -139,19 +139,7 @@ fn rm(
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let mut targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-
-    for (idx, path) in targets.clone().into_iter().enumerate() {
-        let corrected_path = Spanned {
-            item: match strip_ansi_escapes::strip(&path.item) {
-                Ok(item) => String::from_utf8(item).unwrap_or(path.item),
-                Err(_) => path.item,
-            },
-            span: path.span,
-        };
-        let _ = std::mem::replace(&mut targets[idx], corrected_path);
-    }
-
+    let targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
     let span = call.head;
 
     let config = engine_state.get_config();
