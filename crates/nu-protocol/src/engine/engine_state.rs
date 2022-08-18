@@ -576,8 +576,7 @@ impl EngineState {
                 return &contents[(span.start - start)..(span.end - start)];
             }
         }
-
-        panic!("internal error: span missing in file contents cache")
+        &[0u8; 0]
     }
 
     pub fn get_config(&self) -> &Config {
@@ -1292,7 +1291,13 @@ impl<'a> StateWorkingSet<'a> {
         if permanent_end <= span.start {
             for (contents, start, finish) in &self.delta.file_contents {
                 if (span.start >= *start) && (span.end <= *finish) {
-                    return &contents[(span.start - start)..(span.end - start)];
+                    let begin = span.start - start;
+                    let mut end = span.end - start;
+                    if begin > end {
+                        end = *finish - permanent_end;
+                    }
+
+                    return &contents[begin..end];
                 }
             }
         } else {
