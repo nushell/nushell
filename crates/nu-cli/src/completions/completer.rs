@@ -6,7 +6,7 @@ use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Value,
+    BlockId, PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::str;
@@ -59,7 +59,7 @@ impl NuCompleter {
 
     fn external_completion(
         &self,
-        block_id: usize,
+        block_id: BlockId,
         spans: Vec<String>,
         offset: usize,
         span: Span,
@@ -194,8 +194,8 @@ impl NuCompleter {
                         // Flags completion
                         if prefix.starts_with(b"-") {
                             // Check if external completer
-                            if let Some(decl_id) = config.external_completer {
-                                return self.external_completion(decl_id, spans, offset, new_span);
+                            if let Some(block_id) = config.external_completer {
+                                return self.external_completion(block_id, spans, offset, new_span);
                             }
 
                             let mut completer = FlagCompletion::new(expr);
@@ -292,9 +292,9 @@ impl NuCompleter {
                             }
                             flat_shape => {
                                 // Check if external completer
-                                if let Some(decl_id) = config.external_completer {
+                                if let Some(block_id) = config.external_completer {
                                     return self
-                                        .external_completion(decl_id, spans, offset, new_span);
+                                        .external_completion(block_id, spans, offset, new_span);
                                 }
 
                                 let mut completer = CommandCompletion::new(
