@@ -1,6 +1,7 @@
 use crate::{
     lex, lite_parse,
     lite_parse::LiteCommand,
+    parse_export_in_block,
     parse_keywords::{parse_extern, parse_for, parse_source},
     type_check::{math_result_type, type_compatible},
     LiteBlock, ParseError, Token, TokenContents,
@@ -4793,64 +4794,7 @@ pub fn parse_builtin_commands(
         }
         b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"export" => {
-            let full_decl = if lite_command.parts.len() > 1 {
-                let sub = working_set.get_span_contents(lite_command.parts[1]);
-                match sub {
-                    b"alias" | b"def" | b"def-env" | b"env" | b"extern" | b"use" => {
-                        [b"export ", sub].concat()
-                    }
-                    _ => b"export".to_vec(),
-                }
-            } else {
-                b"export".to_vec()
-            };
-            if let Some(decl_id) = working_set.find_decl(&full_decl, &Type::Any) {
-                let parsed_call = parse_internal_call(
-                    working_set,
-                    if full_decl == b"export" {
-                        lite_command.parts[0]
-                    } else {
-                        span(&lite_command.parts[0..2])
-                    },
-                    if full_decl == b"export" {
-                        &lite_command.parts[1..]
-                    } else {
-                        &lite_command.parts[2..]
-                    },
-                    decl_id,
-                    expand_aliases_denylist,
-                );
-
-                if parsed_call.call.has_flag("help") {
-                    (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(parsed_call.call),
-                            span: span(&lite_command.parts),
-                            ty: parsed_call.output,
-                            custom_completion: None,
-                        }]),
-                        None,
-                    )
-                } else {
-                    (
-                        garbage_pipeline(&lite_command.parts),
-                        Some(ParseError::UnexpectedKeyword(
-                            "export".into(),
-                            lite_command.parts[0],
-                        )),
-                    )
-                }
-            } else {
-                (
-                    garbage_pipeline(&lite_command.parts),
-                    Some(ParseError::UnexpectedKeyword(
-                        "export".into(),
-                        lite_command.parts[0],
-                    )),
-                )
-            }
-        }
+        b"export" => parse_export_in_block(working_set, lite_command, expand_aliases_denylist),
         b"hide" => parse_hide(working_set, &lite_command.parts, expand_aliases_denylist),
         #[cfg(feature = "plugin")]
         b"register" => parse_register(working_set, &lite_command.parts, expand_aliases_denylist),

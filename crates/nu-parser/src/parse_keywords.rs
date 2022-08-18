@@ -274,8 +274,16 @@ pub fn parse_def(
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
+    // Note: "export def" is treated the same as "def"
 
-    let def_call = working_set.get_span_contents(spans[0]).to_vec();
+    let (name_span, split_id) =
+        if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
+            (spans[1], 2)
+        } else {
+            (spans[0], 1)
+        };
+
+    let def_call = working_set.get_span_contents(name_span).to_vec();
     if def_call != b"def" && def_call != b"def-env" {
         return (
             garbage_pipeline(spans),
@@ -301,14 +309,15 @@ pub fn parse_def(
         }
         Some(decl_id) => {
             working_set.enter_scope();
+            let (command_spans, rest_spans) = spans.split_at(split_id);
             let ParsedInternalCall {
                 call,
                 error: mut err,
                 output,
             } = parse_internal_call(
                 working_set,
-                spans[0],
-                &spans[1..],
+                span(command_spans),
+                rest_spans,
                 decl_id,
                 expand_aliases_denylist,
             );
@@ -381,7 +390,7 @@ pub fn parse_def(
             error = error.or_else(|| {
                 Some(ParseError::InternalError(
                     "Predeclaration failed to add declaration".into(),
-                    spans[1],
+                    name_expr.span,
                 ))
             });
         };
@@ -602,7 +611,109 @@ pub fn parse_alias(
     )
 }
 
-pub fn parse_export(
+// This one will trigger if `export` appears during eval, e.g., in a script
+pub fn parse_export_in_block(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    let call_span = span(&lite_command.parts);
+
+    let full_name = if lite_command.parts.len() > 1 {
+        let sub = working_set.get_span_contents(lite_command.parts[1]);
+        match sub {
+            b"alias" | b"def" | b"def-env" | b"env" | b"extern" | b"use" => {
+                [b"export ", sub].concat()
+            }
+            _ => b"export".to_vec(),
+        }
+    } else {
+        b"export".to_vec()
+    };
+
+    if let Some(decl_id) = working_set.find_decl(&full_name, &Type::Any) {
+        let ParsedInternalCall {
+            call,
+            error: mut err,
+            output,
+            ..
+        } = parse_internal_call(
+            working_set,
+            if full_name == b"export" {
+                lite_command.parts[0]
+            } else {
+                span(&lite_command.parts[0..2])
+            },
+            if full_name == b"export" {
+                &lite_command.parts[1..]
+            } else {
+                &lite_command.parts[2..]
+            },
+            decl_id,
+            expand_aliases_denylist,
+        );
+
+        let decl = working_set.get_decl(decl_id);
+        err = check_call(call_span, &decl.signature(), &call).or(err);
+
+        if err.is_some() || call.has_flag("help") {
+            return (
+                Pipeline::from_vec(vec![Expression {
+                    expr: Expr::Call(call),
+                    span: call_span,
+                    ty: output,
+                    custom_completion: None,
+                }]),
+                err,
+            );
+        }
+    } else {
+        return (
+            garbage_pipeline(&lite_command.parts),
+            Some(ParseError::UnknownState(
+                format!(
+                    "internal error: '{}' declaration not found",
+                    String::from_utf8_lossy(&full_name)
+                ),
+                span(&lite_command.parts),
+            )),
+        );
+    };
+
+    if &full_name == b"export" {
+        // export by itself is meaningless
+        return (
+            garbage_pipeline(&lite_command.parts),
+            Some(ParseError::UnexpectedKeyword(
+                "export".into(),
+                lite_command.parts[0],
+            )),
+        );
+    }
+
+    match full_name.as_slice() {
+        b"export alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"export def" | b"export def-env" => {
+            parse_def(working_set, lite_command, expand_aliases_denylist)
+        }
+        b"export use" => {
+            let (pipeline, _, err) =
+                parse_use(working_set, &lite_command.parts, expand_aliases_denylist);
+            (pipeline, err)
+        }
+        b"export extern" => parse_extern(working_set, lite_command, expand_aliases_denylist),
+        _ => (
+            garbage_pipeline(&lite_command.parts),
+            Some(ParseError::UnexpectedKeyword(
+                String::from_utf8_lossy(&full_name).to_string(),
+                lite_command.parts[0],
+            )),
+        ),
+    }
+}
+
+// This one will trigger only in a module
+pub fn parse_export_in_module(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     expand_aliases_denylist: &[usize],
@@ -1163,7 +1274,7 @@ pub fn parse_module_block(
                     // will work only if you call `use foo *; b` but not with `use foo; foo b`
                     // since in the second case, the name of the env var would be $env."foo a".
                     b"export" => {
-                        let (pipe, exportables, err) = parse_export(
+                        let (pipe, exportables, err) = parse_export_in_module(
                             working_set,
                             &pipeline.commands[0],
                             expand_aliases_denylist,
