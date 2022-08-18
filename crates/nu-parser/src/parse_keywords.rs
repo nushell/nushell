@@ -1083,6 +1083,76 @@ pub fn parse_export(
     )
 }
 
+pub fn parse_export_env(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    if (spans.len() > 0 && working_set.get_span_contents(span(&[spans[0]])) != b"export-env") || (spans.len() != 2) {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong signature of 'export-env' command".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    let (call, call_span) = match working_set.find_decl(b"export-env", &Type::Any) {
+        Some(decl_id) => {
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
+                working_set,
+                span(&[spans[0]]),
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
+            let decl = working_set.get_decl(decl_id);
+
+            let call_span = span(spans);
+
+            err = check_call(call_span, &decl.signature(), &call).or(err);
+            if err.is_some() || call.has_flag("help") {
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: output,
+                        custom_completion: None,
+                    }]),
+                    err,
+                );
+            }
+
+            (call, call_span)
+        }
+        None => {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: 'export-env' declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+    };
+
+    let pipeline = Pipeline::from_vec(vec![Expression {
+        expr: Expr::Call(call),
+        span: span(spans),
+        ty: Type::Any,
+        custom_completion: None,
+    }]);
+
+    let mut error = None;
+
+    (pipeline, error)
+}
+
 pub fn parse_module_block(
     working_set: &mut StateWorkingSet,
     span: Span,

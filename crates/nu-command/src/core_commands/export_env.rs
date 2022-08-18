@@ -3,9 +3,9 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, Signature, Span, SyntaxShape, Value};
 
 #[derive(Clone)]
-pub struct ExportEnv;
+pub struct ExportEnvModule;
 
-impl Command for ExportEnv {
+impl Command for ExportEnvModule {
     fn name(&self) -> &str {
         "export env"
     }

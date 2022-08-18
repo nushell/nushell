@@ -1,7 +1,7 @@
 use crate::{
     lex, lite_parse,
     lite_parse::LiteCommand,
-    parse_keywords::{parse_extern, parse_for, parse_source},
+    parse_keywords::{parse_extern, parse_for, parse_source, parse_export_env},
     type_check::{math_result_type, type_compatible},
     LiteBlock, ParseError, Token, TokenContents,
 };
@@ -4851,6 +4851,7 @@ pub fn parse_builtin_commands(
                 )
             }
         }
+        b"export-env" => parse_export_env(working_set, &lite_command.parts, expand_aliases_denylist),
         b"hide" => parse_hide(working_set, &lite_command.parts, expand_aliases_denylist),
         #[cfg(feature = "plugin")]
         b"register" => parse_register(working_set, &lite_command.parts, expand_aliases_denylist),

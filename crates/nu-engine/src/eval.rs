@@ -159,20 +159,7 @@ pub fn eval_call(
         );
 
         if block.redirect_env {
-            let caller_env_vars = caller_stack.get_env_var_names(engine_state);
-
-            // remove env vars that are present in the caller but not in the callee
-            // (the callee hid them)
-            for var in caller_env_vars.iter() {
-                if !callee_stack.has_env_var(engine_state, var) {
-                    caller_stack.remove_env_var(engine_state, var);
-                }
-            }
-
-            // add new env vars from callee to caller
-            for (var, value) in callee_stack.get_stack_env_vars() {
-                caller_stack.add_env_var(var, value);
-            }
+            redirect_env(engine_state, caller_stack, &callee_stack);
         }
 
         result
@@ -181,6 +168,24 @@ pub fn eval_call(
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
         decl.run(engine_state, caller_stack, call, input)
+    }
+}
+
+/// Redirect the environment from callee to the caller.
+pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_stack: &Stack) {
+    let caller_env_vars = caller_stack.get_env_var_names(engine_state);
+
+    // remove env vars that are present in the caller but not in the callee
+    // (the callee hid them)
+    for var in caller_env_vars.iter() {
+        if !callee_stack.has_env_var(engine_state, var) {
+            caller_stack.remove_env_var(engine_state, var);
+        }
+    }
+
+    // add new env vars from callee to caller
+    for (var, value) in callee_stack.get_stack_env_vars() {
+        caller_stack.add_env_var(var, value);
     }
 }
 
