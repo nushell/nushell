@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-
 use nu_engine::{eval_block, redirect_env, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{CaptureBlock, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -57,9 +55,8 @@ impl Command for ExportEnv {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Set an environment",
-            example: r#"export-env { let x = 5; let-env FOO = $x }
-    $env.FOO"#,
-            result: None,
+            example: r#"export-env { let-env SPAM = 'eggs' }; $env.SPAM"#,
+            result: Some(Value::string("eggs", Span::test_data())),
         }]
     }
 }
