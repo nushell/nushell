@@ -184,6 +184,7 @@ pub fn create_default_context() -> EngineState {
             SplitChars,
             SplitColumn,
             SplitRow,
+            SplitWords,
             Str,
             StrCamelCase,
             StrCapitalize,
