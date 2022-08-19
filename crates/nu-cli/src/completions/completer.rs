@@ -193,21 +193,26 @@ impl NuCompleter {
 
                         // Flags completion
                         if prefix.starts_with(b"-") {
-                            // Check if external completer
-                            if let Some(block_id) = config.external_completer {
-                                return self.external_completion(block_id, spans, offset, new_span);
-                            }
-
+                            // Try to complete flag internally
                             let mut completer = FlagCompletion::new(expr);
-
-                            return self.process_completion(
+                            let result = self.process_completion(
                                 &mut completer,
                                 &working_set,
-                                prefix,
+                                prefix.clone(),
                                 new_span,
                                 offset,
                                 pos,
                             );
+
+                            if result.is_empty() {
+                                return result;
+                            }
+
+                            // We got no results for internal completion
+                            // now we can check if external completer is set and use it
+                            if let Some(block_id) = config.external_completer {
+                                return self.external_completion(block_id, spans, offset, new_span);
+                            }
                         }
 
                         // Completions that depends on the previous expression (e.g: use, source)
@@ -291,12 +296,6 @@ impl NuCompleter {
                                 );
                             }
                             flat_shape => {
-                                // Check if external completer
-                                if let Some(block_id) = config.external_completer {
-                                    return self
-                                        .external_completion(block_id, spans, offset, new_span);
-                                }
-
                                 let mut completer = CommandCompletion::new(
                                     self.engine_state.clone(),
                                     &working_set,
@@ -305,7 +304,7 @@ impl NuCompleter {
                                     flat_shape.clone(),
                                 );
 
-                                let out: Vec<_> = self.process_completion(
+                                let mut out: Vec<_> = self.process_completion(
                                     &mut completer,
                                     &working_set,
                                     prefix.clone(),
@@ -314,11 +313,12 @@ impl NuCompleter {
                                     pos,
                                 );
 
+                                // Check for file completion
                                 if out.is_empty() {
                                     let mut completer =
                                         FileCompletion::new(self.engine_state.clone());
 
-                                    return self.process_completion(
+                                    out = self.process_completion(
                                         &mut completer,
                                         &working_set,
                                         prefix,
@@ -326,6 +326,15 @@ impl NuCompleter {
                                         offset,
                                         pos,
                                     );
+                                }
+
+                                // Try to complete using an exnternal compelter (if set)
+                                if out.is_empty() {
+                                    if let Some(block_id) = config.external_completer {
+                                        return self.external_completion(
+                                            block_id, spans, offset, new_span,
+                                        );
+                                    }
                                 }
 
                                 return out;
