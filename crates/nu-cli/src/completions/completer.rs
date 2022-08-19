@@ -194,7 +194,7 @@ impl NuCompleter {
                         // Flags completion
                         if prefix.starts_with(b"-") {
                             // Try to complete flag internally
-                            let mut completer = FlagCompletion::new(expr);
+                            let mut completer = FlagCompletion::new(expr.clone());
                             let result = self.process_completion(
                                 &mut completer,
                                 &working_set,
@@ -204,7 +204,7 @@ impl NuCompleter {
                                 pos,
                             );
 
-                            if result.is_empty() {
+                            if !result.is_empty() {
                                 return result;
                             }
 
@@ -313,31 +313,30 @@ impl NuCompleter {
                                     pos,
                                 );
 
-                                // Check for file completion
-                                if out.is_empty() {
-                                    let mut completer =
-                                        FileCompletion::new(self.engine_state.clone());
+                                if !out.is_empty() {
+                                    return out;
+                                }
 
-                                    out = self.process_completion(
-                                        &mut completer,
-                                        &working_set,
-                                        prefix,
-                                        new_span,
-                                        offset,
-                                        pos,
-                                    );
+                                // Check for file completion
+                                let mut completer = FileCompletion::new(self.engine_state.clone());
+                                out = self.process_completion(
+                                    &mut completer,
+                                    &working_set,
+                                    prefix,
+                                    new_span,
+                                    offset,
+                                    pos,
+                                );
+
+                                if !out.is_empty() {
+                                    return out;
                                 }
 
                                 // Try to complete using an exnternal compelter (if set)
-                                if out.is_empty() {
-                                    if let Some(block_id) = config.external_completer {
-                                        return self.external_completion(
-                                            block_id, spans, offset, new_span,
-                                        );
-                                    }
+                                if let Some(block_id) = config.external_completer {
+                                    return self
+                                        .external_completion(block_id, spans, offset, new_span);
                                 }
-
-                                return out;
                             }
                         };
                     }
