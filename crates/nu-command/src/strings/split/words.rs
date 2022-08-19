@@ -104,7 +104,12 @@ fn split_words(
 }
 
 fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span) -> Vec<Value> {
-    let regex_replace = Regex::new(r"[^A-Za-z\']").expect("regular expression error");
+    // There are some options here with this regex.
+    // [^A-Za-z\'] = do not match uppercase or lowercase letters or apostrophes
+    // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or apostrophes
+    // [^\p{L}\'] = do not match any unicode uppercase or lowercase letters or apostrophes
+    // Let's go with the unicode one in hopes that it works on more than just ascii characters
+    let regex_replace = Regex::new(r"[^\p{L}\']").expect("regular expression error");
 
     match v.span() {
         Ok(v_span) => {
