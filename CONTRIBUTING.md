@@ -70,5 +70,5 @@ cargo build
 - To redirect trace logs to a file, enable the `--log-target file` switch.
   ```shell
   cargo run --release --features=extra -- --log-level trace --log-target file
-  [($nu.temp-path) nu-($nu.pid).log] | path join | open
+  open $"($nu.temp-path)/nu-($nu.pid).log"
   ```
