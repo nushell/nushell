@@ -36,6 +36,7 @@ mod last;
 mod length;
 mod let_;
 mod lines;
+mod logicals;
 mod ls;
 mod math;
 mod merge;
