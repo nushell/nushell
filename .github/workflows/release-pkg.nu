@@ -41,7 +41,7 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
     } else {
         # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
         # Actually just for x86_64-unknown-linux-musl target
-        sudo apt install musl-tools -y
+        if $os == 'ubuntu-latest' { sudo apt install musl-tools -y }
         cargo-build-nu $flags
     }
 }
@@ -113,7 +113,7 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
         cd $src; hr-line
         # Wix need the binaries be stored in target/release/
         cp -r $'($dist)/*' target/release/
-        cargo install cargo-wix --version 0.3.2
+        cargo install cargo-wix --version 0.3.3
         cargo wix --no-build --nocapture --package nu --output $wixRelease
         echo $'::set-output name=archive::($wixRelease)'
 
@@ -143,7 +143,7 @@ def 'hr-line' [
     --blank-line(-b): bool
 ] {
     print $'(ansi g)---------------------------------------------------------------------------->(ansi reset)'
-    if $blank-line { char nl }
+    if $blank_line { char nl }
 }
 
 # Get the specified env key's value or ''
