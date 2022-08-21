@@ -1,14 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use nu_plugin::{EncodingType, PluginResponse};
 use nu_protocol::{Span, Value};
-
-fn fibonacci(n: u64) -> u64 {
-    match n {
-        0 => 1,
-        1 => 1,
-        n => fibonacci(n - 1) + fibonacci(n - 2),
-    }
-}
 
 // generate a new table data with `row_cnt` rows, `col_cnt` columns.
 fn new_test_data(row_cnt: usize, col_cnt: usize) -> Value {
@@ -115,7 +107,7 @@ fn capnp_decode_response(c: &mut Criterion) {
     ];
 
     for (row_cnt, col_cnt) in test_cnt_pairs {
-        let bench_name = format!("json decode for {row_cnt} * {col_cnt}");
+        let bench_name = format!("capnp decode for {row_cnt} * {col_cnt}");
         c.bench_function(&bench_name, |b| {
             let mut res = vec![];
             let test_data = PluginResponse::Value(Box::new(new_test_data(row_cnt, col_cnt)));
@@ -128,17 +120,67 @@ fn capnp_decode_response(c: &mut Criterion) {
         });
     }
 }
-/*
-fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("fib 20", |b| b.iter(|| fibonacci(black_box(20))));
+
+fn msgpack_encode_response(c: &mut Criterion) {
+    let encoder = EncodingType::try_from_bytes(b"msgpack").unwrap();
+    let test_cnt_pairs = [
+        (100, 5),
+        (100, 10),
+        (100, 15),
+        (1000, 5),
+        (1000, 10),
+        (1000, 15),
+        (10000, 5),
+        (10000, 10),
+        (10000, 15),
+    ];
+
+    for (row_cnt, col_cnt) in test_cnt_pairs {
+        let bench_name = format!("msgpack encode for {row_cnt} * {col_cnt}");
+        c.bench_function(&bench_name, |b| {
+            let mut res = vec![];
+            let test_data = PluginResponse::Value(Box::new(new_test_data(row_cnt, col_cnt)));
+            b.iter(|| encoder.encode_response(&test_data, &mut res))
+        });
+    }
 }
-*/
+
+fn msgpack_decode_response(c: &mut Criterion) {
+    let encoder = EncodingType::try_from_bytes(b"msgpack").unwrap();
+    let test_cnt_pairs = [
+        (100, 5),
+        (100, 10),
+        (100, 15),
+        (1000, 5),
+        (1000, 10),
+        (1000, 15),
+        (10000, 5),
+        (10000, 10),
+        (10000, 15),
+    ];
+
+    for (row_cnt, col_cnt) in test_cnt_pairs {
+        let bench_name = format!("msgpack decode for {row_cnt} * {col_cnt}");
+        c.bench_function(&bench_name, |b| {
+            let mut res = vec![];
+            let test_data = PluginResponse::Value(Box::new(new_test_data(row_cnt, col_cnt)));
+            encoder.encode_response(&test_data, &mut res).unwrap();
+            let mut binary_data = std::io::Cursor::new(res);
+            b.iter(|| {
+                binary_data.set_position(0);
+                encoder.decode_response(&mut binary_data)
+            })
+        });
+    }
+}
 
 criterion_group!(
     benches,
     json_encode_response,
     json_decode_response,
     capnp_encode_response,
-    capnp_decode_response
+    capnp_decode_response,
+    msgpack_encode_response,
+    msgpack_decode_response,
 );
 criterion_main!(benches);
