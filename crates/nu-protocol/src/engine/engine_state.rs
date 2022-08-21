@@ -76,6 +76,7 @@ pub struct EngineState {
     pub plugin_signatures: Option<PathBuf>,
     #[cfg(not(windows))]
     sig_quit: Option<Arc<AtomicBool>>,
+    config_path: (Option<PathBuf>, Option<PathBuf>),
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
@@ -113,6 +114,7 @@ impl EngineState {
             plugin_signatures: None,
             #[cfg(not(windows))]
             sig_quit: None,
+            config_path: (None, None),
         }
     }
 
@@ -752,6 +754,18 @@ impl EngineState {
     #[cfg(not(windows))]
     pub fn set_sig_quit(&mut self, sig_quit: Arc<AtomicBool>) {
         self.sig_quit = Some(sig_quit)
+    }
+
+    pub fn set_config_path(
+        &mut self,
+        config_path: Option<PathBuf>,
+        env_config_path: Option<PathBuf>,
+    ) {
+        self.config_path = (config_path, env_config_path);
+    }
+
+    pub fn get_config_path(&self) -> (&Option<PathBuf>, &Option<PathBuf>) {
+        (&self.config_path.0, &self.config_path.1)
     }
 }
 

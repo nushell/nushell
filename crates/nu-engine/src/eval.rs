@@ -1298,6 +1298,24 @@ pub fn eval_variable(
             let mut output_cols = vec![];
             let mut output_vals = vec![];
 
+            let (nu_config_path, nu_env_config_path) = engine_state.get_config_path();
+
+            if let Some(path) = nu_config_path {
+                output_cols.push("config-path".into());
+                output_vals.push(Value::String {
+                    val: path.to_string_lossy().to_string(),
+                    span,
+                });
+            }
+
+            if let Some(path) = nu_env_config_path {
+                output_cols.push("env-path".into());
+                output_vals.push(Value::String {
+                    val: path.to_string_lossy().to_string(),
+                    span,
+                });
+            }
+
             if let Some(mut config_path) = nu_path::config_dir() {
                 config_path.push("nushell");
                 let mut env_config_path = config_path.clone();
@@ -1321,21 +1339,25 @@ pub fn eval_variable(
                     span,
                 });
 
-                config_path.push("config.nu");
+                if nu_config_path.is_none() {
+                    config_path.push("config.nu");
 
-                output_cols.push("config-path".into());
-                output_vals.push(Value::String {
-                    val: config_path.to_string_lossy().to_string(),
-                    span,
-                });
+                    output_cols.push("config-path".into());
+                    output_vals.push(Value::String {
+                        val: config_path.to_string_lossy().to_string(),
+                        span,
+                    });
+                }
 
-                env_config_path.push("env.nu");
+                if nu_env_config_path.is_none() {
+                    env_config_path.push("env.nu");
 
-                output_cols.push("env-path".into());
-                output_vals.push(Value::String {
-                    val: env_config_path.to_string_lossy().to_string(),
-                    span,
-                });
+                    output_cols.push("env-path".into());
+                    output_vals.push(Value::String {
+                        val: env_config_path.to_string_lossy().to_string(),
+                        span,
+                    });
+                }
 
                 loginshell_path.push("login.nu");
 
