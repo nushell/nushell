@@ -2802,7 +2802,7 @@ pub fn parse_register(
                             ParseError::IncorrectValue(
                                 "wrong encoding".into(),
                                 expr.span,
-                                "Encodings available: capnp and json".into(),
+                                "Encodings available: capnp, json, and msgpack".into(),
                             )
                         })
                 })
