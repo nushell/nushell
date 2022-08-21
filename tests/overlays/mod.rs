@@ -100,7 +100,7 @@ fn prefixed_overlay_keeps_custom_decl() {
         r#"module spam { export def foo [] { "foo" } }"#,
         r#"overlay use --prefix spam"#,
         r#"def bar [] { "bar" }"#,
-        r#"overlay remove --keep-custom spam"#,
+        r#"overlay hide --keep-custom spam"#,
         r#"bar"#,
     ];
 
@@ -241,7 +241,7 @@ fn remove_overlay() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         r#"overlay use spam"#,
-        r#"overlay remove spam"#,
+        r#"overlay hide spam"#,
         r#"foo"#,
     ];
 
@@ -260,7 +260,7 @@ fn remove_last_overlay() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         r#"overlay use spam"#,
-        r#"overlay remove"#,
+        r#"overlay hide"#,
         r#"foo"#,
     ];
 
@@ -279,7 +279,7 @@ fn remove_overlay_scoped() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         r#"overlay use spam"#,
-        r#"do { overlay remove spam }"#,
+        r#"do { overlay hide spam }"#,
         r#"foo"#,
     ];
 
@@ -295,7 +295,7 @@ fn remove_overlay_env() {
     let inp = &[
         r#"module spam { export env FOO { "foo" } }"#,
         r#"overlay use spam"#,
-        r#"overlay remove spam"#,
+        r#"overlay hide spam"#,
         r#"$env.FOO"#,
     ];
 
@@ -311,7 +311,7 @@ fn remove_overlay_scoped_env() {
     let inp = &[
         r#"module spam { export env FOO { "foo" } }"#,
         r#"overlay use spam"#,
-        r#"do { overlay remove spam }"#,
+        r#"do { overlay hide spam }"#,
         r#"$env.FOO"#,
     ];
 
@@ -368,7 +368,7 @@ fn remove_overlay_discard_decl() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"def bagr [] { "bagr" }"#,
-        r#"overlay remove spam"#,
+        r#"overlay hide spam"#,
         r#"bagr"#,
     ];
 
@@ -387,7 +387,7 @@ fn remove_overlay_discard_alias() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"alias bagr = "bagr""#,
-        r#"overlay remove spam"#,
+        r#"overlay hide spam"#,
         r#"bagr"#,
     ];
 
@@ -406,7 +406,7 @@ fn remove_overlay_discard_env() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"let-env BAGR = `bagr`"#,
-        r#"overlay remove spam"#,
+        r#"overlay hide spam"#,
         r#"$env.BAGR"#,
     ];
 
@@ -422,7 +422,7 @@ fn remove_overlay_keep_decl() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"def bagr [] { "bagr" }"#,
-        r#"overlay remove --keep-custom spam"#,
+        r#"overlay hide --keep-custom spam"#,
         r#"bagr"#,
     ];
 
@@ -438,7 +438,7 @@ fn remove_overlay_keep_alias() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"alias bagr = `bagr`"#,
-        r#"overlay remove --keep-custom spam"#,
+        r#"overlay hide --keep-custom spam"#,
         r#"bagr"#,
     ];
 
@@ -454,7 +454,7 @@ fn remove_overlay_keep_env() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"let-env BAGR = `bagr`"#,
-        r#"overlay remove --keep-custom spam"#,
+        r#"overlay hide --keep-custom spam"#,
         r#"$env.BAGR"#,
     ];
 
@@ -470,7 +470,7 @@ fn remove_overlay_keep_discard_overwritten_decl() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"def foo [] { 'bar' }"#,
-        r#"overlay remove --keep-custom spam"#,
+        r#"overlay hide --keep-custom spam"#,
         r#"foo"#,
     ];
 
@@ -489,7 +489,7 @@ fn remove_overlay_keep_discard_overwritten_alias() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"alias bar = `baz`"#,
-        r#"overlay remove --keep-custom spam"#,
+        r#"overlay hide --keep-custom spam"#,
         r#"bar"#,
     ];
 
@@ -508,7 +508,7 @@ fn remove_overlay_keep_discard_overwritten_env() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"let-env BAZ = `bagr`"#,
-        r#"overlay remove --keep-custom spam"#,
+        r#"overlay hide --keep-custom spam"#,
         r#"$env.BAZ"#,
     ];
 
@@ -526,7 +526,7 @@ fn remove_overlay_keep_decl_in_latest_overlay() {
         r#"def bagr [] { 'bagr' }"#,
         r#"module eggs { }"#,
         r#"overlay use eggs"#,
-        r#"overlay remove --keep-custom spam"#,
+        r#"overlay hide --keep-custom spam"#,
         r#"bagr"#,
     ];
 
@@ -544,7 +544,7 @@ fn remove_overlay_keep_alias_in_latest_overlay() {
         r#"alias bagr = `bagr`"#,
         r#"module eggs { }"#,
         r#"overlay use eggs"#,
-        r#"overlay remove --keep-custom spam"#,
+        r#"overlay hide --keep-custom spam"#,
         r#"bagr"#,
     ];
 
@@ -562,7 +562,7 @@ fn remove_overlay_keep_env_in_latest_overlay() {
         r#"let-env BAGR = `bagr`"#,
         r#"module eggs { }"#,
         r#"overlay use eggs"#,
-        r#"overlay remove --keep-custom spam"#,
+        r#"overlay hide --keep-custom spam"#,
         r#"$env.BAGR"#,
     ];
 
@@ -578,7 +578,7 @@ fn preserve_overrides() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"def foo [] { "new-foo" }"#,
-        r#"overlay remove spam"#,
+        r#"overlay hide spam"#,
         r#"overlay use spam"#,
         r#"foo"#,
     ];
@@ -595,7 +595,7 @@ fn reset_overrides() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"def foo [] { "new-foo" }"#,
-        r#"overlay remove spam"#,
+        r#"overlay hide spam"#,
         r#"overlay use samples/spam.nu"#,
         r#"foo"#,
     ];
@@ -623,7 +623,7 @@ fn overlay_keep_pwd() {
     let inp = &[
         r#"overlay new spam"#,
         r#"cd samples"#,
-        r#"overlay remove --keep-env [ PWD ] spam"#,
+        r#"overlay hide --keep-env [ PWD ] spam"#,
         r#"$env.PWD | path basename"#,
     ];
 
@@ -677,7 +677,7 @@ fn overlay_cant_rename_existing_overlay() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         r#"overlay use spam"#,
-        r#"overlay remove spam"#,
+        r#"overlay hide spam"#,
         r#"overlay use spam as eggs"#,
     ];
 
@@ -709,7 +709,7 @@ fn overlay_remove_renamed_overlay() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         r#"overlay use spam as eggs"#,
-        r#"overlay remove eggs"#,
+        r#"overlay hide eggs"#,
         r#"foo"#,
     ];
 
@@ -725,7 +725,7 @@ fn overlay_remove_and_add_renamed_overlay() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         r#"overlay use spam as eggs"#,
-        r#"overlay remove eggs"#,
+        r#"overlay hide eggs"#,
         r#"overlay use eggs"#,
         r#"foo"#,
     ];
