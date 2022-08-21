@@ -102,6 +102,10 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             let headers = get_columns(vals);
             if !headers.is_empty() && vals.iter().all(|x| x.columns() == headers) {
                 // Table output
+                let headers: Vec<String> = headers
+                    .iter()
+                    .map(|string| format!("\"{}\"", string))
+                    .collect();
                 let headers_output = headers.join(", ");
 
                 let mut table_output = vec![];
