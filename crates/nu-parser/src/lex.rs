@@ -252,8 +252,10 @@ pub fn lex(
             // If the next character is `|`, we're looking at a `||`.
             if let Some(c) = input.get(curr_offset) {
                 if *c == b'|' {
+                    let idx = curr_offset;
+                    curr_offset += 1;
                     output.push(Token::new(
-                        TokenContents::Or,
+                        TokenContents::Item,
                         Span::new(span_offset + prev_idx, span_offset + idx + 1),
                     ));
                     continue;
@@ -287,26 +289,26 @@ pub fn lex(
             }
 
             is_complete = false;
-        } else if c == b'&' {
-            // If the next character is `&`, it's either `&` or `&&`.
-            let idx = curr_offset;
-            let prev_idx = idx;
-            curr_offset += 1;
+        // } else if c == b'&' {
+        //     // If the next character is `&`, it's either `&` or `&&`.
+        //     let idx = curr_offset;
+        //     let prev_idx = idx;
+        //     curr_offset += 1;
 
-            // If the next character is `&`, we're looking at a `&&`.
-            // TODO: This is basically the same as semicolon right now, but it should short-circuit
-            if let Some(c) = input.get(curr_offset) {
-                if *c == b'&' {
-                    output.push(Token::new(
-                        TokenContents::Or,
-                        Span::new(span_offset + prev_idx, span_offset + idx + 1),
-                    ));
-                    continue;
-                }
-            }
+        // // If the next character is `&`, we're looking at a `&&`.
+        // // TODO: This is basically the same as semicolon right now, but it should short-circuit
+        // if let Some(c) = input.get(curr_offset) {
+        //     if *c == b'&' {
+        //         output.push(Token::new(
+        //             TokenContents::Or,
+        //             Span::new(span_offset + prev_idx, span_offset + idx + 1),
+        //         ));
+        //         continue;
+        //     }
+        // }
 
-            is_complete = false;
-            // Otherwise, it's just a regular `&` token.
+        // is_complete = false;
+        // // Otherwise, it's just a regular `&` token.
         } else if c == b';' {
             // If the next character is a `;`, we're looking at a semicolon token.
 

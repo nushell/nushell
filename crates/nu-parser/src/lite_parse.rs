@@ -99,6 +99,22 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 curr_command.push(token.span);
                 last_token = TokenContents::Item;
             }
+            TokenContents::And => {
+                if !curr_command.is_empty() {
+                    curr_pipeline.push(curr_command);
+
+                    curr_command = LiteCommand::new();
+                }
+
+                if !curr_pipeline.is_empty() {
+                    block.push(curr_pipeline);
+
+                    curr_pipeline = LitePipeline::new();
+                }
+
+                last_token = TokenContents::And;
+            }
+            TokenContents::Or => {}
             TokenContents::Pipe => {
                 if !curr_command.is_empty() {
                     curr_pipeline.push(curr_command);
@@ -143,21 +159,6 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 
                 last_token = TokenContents::Semicolon;
             }
-            TokenContents::And | TokenContents::Or => {
-                if !curr_command.is_empty() {
-                    curr_pipeline.push(curr_command);
-
-                    curr_command = LiteCommand::new();
-                }
-
-                if !curr_pipeline.is_empty() {
-                    block.push(curr_pipeline);
-
-                    curr_pipeline = LitePipeline::new();
-                }
-
-                last_token = TokenContents::And;
-            }
             TokenContents::Comment => {
                 // Comment is beside something
                 if last_token != TokenContents::Eol {
@@ -186,7 +187,8 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
     }
 
     match last_token {
-        TokenContents::Pipe | TokenContents::Or => (
+        TokenContents::Pipe => (
+            //| TokenContents::Or => (
             block,
             Some(ParseError::UnexpectedEof(
                 "pipeline missing end".into(),
