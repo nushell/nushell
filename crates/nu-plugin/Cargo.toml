@@ -12,5 +12,9 @@ bincode = "1.3.3"
 capnp = "0.14.3"
 nu-protocol = { path = "../nu-protocol", version = "0.67.1"  }
 nu-engine = { path = "../nu-engine", version = "0.67.1"  }
-serde = {version = "1.0.130", features = ["derive"]}
+serde = {version = "1.0.143", features = ["derive"]}
 serde_json = { version = "1.0"}
+byte-order = "0.3.0"
+rmp = "0.8.11"
+rmp-serde = "1.1.0"
+rmpv = "1.0.0"
