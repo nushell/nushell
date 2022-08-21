@@ -58,7 +58,7 @@ fn parse_file_relative_to_parsed_file() {
                 r#"
                     source ../../foo.nu
                     use ../lol_shell.nu
-                    overlay add ../../lol/lol_shell.nu
+                    overlay use ../../lol/lol_shell.nu
 
                     $'($env.FOO) (lol_shell ls) (ls)'
                 "#,

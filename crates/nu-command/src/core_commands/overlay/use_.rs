@@ -6,23 +6,23 @@ use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanne
 use std::path::Path;
 
 #[derive(Clone)]
-pub struct OverlayAdd;
+pub struct OverlayUse;
 
-impl Command for OverlayAdd {
+impl Command for OverlayUse {
     fn name(&self) -> &str {
-        "overlay add"
+        "overlay use"
     }
 
     fn usage(&self) -> &str {
-        "Add definitions from a module as an overlay"
+        "Use definitions from a module as an overlay"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("overlay add")
+        Signature::build("overlay use")
             .required(
                 "name",
                 SyntaxShape::String,
-                "Module name to create overlay for",
+                "Module name to use overlay for",
             )
             .optional(
                 "as",
@@ -145,21 +145,21 @@ impl Command for OverlayAdd {
             Example {
                 description: "Create an overlay from a module",
                 example: r#"module spam { export def foo [] { "foo" } }
-    overlay add spam
+    overlay use spam
     foo"#,
                 result: None,
             },
             Example {
                 description: "Create an overlay with a prefix",
                 example: r#"echo 'export def foo { "foo" }'
-    overlay add --prefix spam
+    overlay use --prefix spam
     spam foo"#,
                 result: None,
             },
             Example {
                 description: "Create an overlay from a file",
                 example: r#"echo 'export env FOO { "foo" }' | save spam.nu
-    overlay add spam.nu
+    overlay use spam.nu
     $env.FOO"#,
                 result: None,
             },
@@ -175,6 +175,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(OverlayAdd {})
+        test_examples(OverlayUse {})
     }
 }
