@@ -238,3 +238,14 @@ fn float_nan_parsed_properly() {
 
     assert_eq!(actual.out, "NaN")
 }
+
+#[test]
+fn to_nuon_converts_columns_with_spaces() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+            r#"
+    let test = [[a, b, "c d"]; [1 2 3] [4 5 6]]; $test | to nuon | from nuon
+    "#
+    ));
+    assert!(actual.err.is_empty());
+}
