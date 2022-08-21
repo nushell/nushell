@@ -112,21 +112,21 @@ impl Command for OverlayRemove {
             Example {
                 description: "Remove an overlay created from a module",
                 example: r#"module spam { export def foo [] { "foo" } }
-    overlay add spam
+    overlay use spam
     overlay remove spam"#,
                 result: None,
             },
             Example {
                 description: "Remove an overlay created from a file",
                 example: r#"echo 'export alias f = "foo"' | save spam.nu
-    overlay add spam.nu
+    overlay use spam.nu
     overlay remove spam"#,
                 result: None,
             },
             Example {
                 description: "Remove the last activated overlay",
                 example: r#"module spam { export env FOO { "foo" } }
-    overlay add spam
+    overlay use spam
     overlay remove"#,
                 result: None,
             },

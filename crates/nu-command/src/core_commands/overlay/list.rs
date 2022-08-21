@@ -74,7 +74,7 @@ impl Command for OverlayList {
         vec![Example {
             description: "Get the last activated overlay",
             example: r#"module spam { export def foo [] { "foo" } }
-    overlay add spam
+    overlay use spam
     overlay list | last"#,
             result: Some(Value::String {
                 val: "spam".to_string(),

@@ -735,7 +735,7 @@ fn parse_script_with_nested_scripts_success() {
                 r#"
                     source ../foo.nu
                     use lol_shell.nu
-                    overlay add ../lol/lol_shell.nu
+                    overlay use ../lol/lol_shell.nu
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
