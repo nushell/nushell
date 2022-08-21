@@ -152,13 +152,13 @@ pub enum ParseError {
     )]
     CantRemoveLastOverlay(#[label = "this is the last overlay, can't remove it"] Span),
 
-    #[error("Cannot remove default overlay.")]
+    #[error("Cannot hide default overlay.")]
     #[diagnostic(
-        code(nu::parser::cant_remove_default_overlay),
+        code(nu::parser::cant_hide_default_overlay),
         url(docsrs),
-        help("'{0}' is a default overlay. Default overlays cannot be removed.")
+        help("'{0}' is a default overlay. Default overlays cannot be hidden.")
     )]
-    CantRemoveDefaultOverlay(String, #[label = "can't remove overlay"] Span),
+    CantHideDefaultOverlay(String, #[label = "can't hide overlay"] Span),
 
     #[error("Cannot add overlay.")]
     #[diagnostic(code(nu::parser::cant_add_overlay_help), url(docsrs), help("{0}"))]
@@ -345,7 +345,7 @@ impl ParseError {
             ParseError::ActiveOverlayNotFound(s) => *s,
             ParseError::OverlayPrefixMismatch(_, _, s) => *s,
             ParseError::CantRemoveLastOverlay(s) => *s,
-            ParseError::CantRemoveDefaultOverlay(_, s) => *s,
+            ParseError::CantHideDefaultOverlay(_, s) => *s,
             ParseError::CantAddOverlayHelp(_, s) => *s,
             ParseError::NotFound(s) => *s,
             ParseError::DuplicateCommandDef(s) => *s,
