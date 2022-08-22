@@ -23,5 +23,5 @@ rmpv = "1.0.0"
 criterion = "0.3"
 
 [[bench]]
-name = "my_benchmark"
+name = "encoder_benchmark"
 harness = false
