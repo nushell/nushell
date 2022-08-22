@@ -39,5 +39,5 @@ let aa = (open result.json | lines | where (not ($it | str contains "group-compl
 
 4. open `result.json` file and do anything you want to gather benchmark result, e.g:
 ```
-open bb.json | select id mean | flatten mean
+open result.json | select id mean | flatten mean
 ```
