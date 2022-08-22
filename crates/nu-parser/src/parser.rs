@@ -232,7 +232,7 @@ pub fn check_name<'a>(
     working_set: &mut StateWorkingSet,
     spans: &'a [Span],
 ) -> Option<(&'a Span, ParseError)> {
-    let command_len = if spans.len() > 0 {
+    let command_len = if !spans.is_empty() {
         if working_set.get_span_contents(spans[0]) == b"export" {
             2
         } else {

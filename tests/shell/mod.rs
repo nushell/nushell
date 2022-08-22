@@ -183,7 +183,7 @@ fn run_script_that_looks_like_module() {
             r#"baz"#,
         ];
 
-        let actual= nu!(cwd: dirs.test(), inp_lines.join("; "));
+        let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
 
         assert_eq!(actual.out, "eggs");
     })
