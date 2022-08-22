@@ -147,7 +147,16 @@ fn main() -> Result<()> {
         set_config_path(
             &mut engine_state,
             &init_cwd,
+            "config.nu",
+            "config-path",
             &args.config_file,
+        );
+
+        set_config_path(
+            &mut engine_state,
+            &init_cwd,
+            "env.nu",
+            "env-path",
             &args.env_file,
         );
     }
@@ -704,32 +713,20 @@ fn set_is_perf_value(value: bool) {
 fn set_config_path(
     engine_state: &mut EngineState,
     cwd: &Path,
+    default_config_name: &str,
+    key: &str,
     config_file: &Option<Spanned<String>>,
-    env_file: &Option<Spanned<String>>,
 ) {
     let config_path = match config_file {
         Some(s) => canonicalize_with(&s.item, cwd).ok(),
         None => nu_path::config_dir().map(|mut p| {
             p.push(config_files::NUSHELL_FOLDER);
-            p.push("config.nu");
+            p.push(default_config_name);
             p
         }),
     };
 
     if let Some(path) = config_path {
-        engine_state.set_config_path("config-path", path);
-    }
-
-    let env_path = match env_file {
-        Some(s) => canonicalize_with(&s.item, cwd).ok(),
-        None => nu_path::config_dir().map(|mut p| {
-            p.push(config_files::NUSHELL_FOLDER);
-            p.push("env.nu");
-            p
-        }),
-    };
-
-    if let Some(path) = env_path {
-        engine_state.set_config_path("env-path", path);
+        engine_state.set_config_path(key, path);
     }
 }
