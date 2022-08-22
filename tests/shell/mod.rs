@@ -188,3 +188,14 @@ fn run_script_that_looks_like_module() {
         assert_eq!(actual.out, "eggs");
     })
 }
+
+#[test]
+fn run_export_extern() {
+    Playground::setup("run_script_that_looks_like_module", |dirs, _| {
+        let inp_lines = &[r#"export extern foo []"#, r#"help foo"#];
+
+        let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
+
+        assert!(actual.out.contains("Usage"));
+    })
+}

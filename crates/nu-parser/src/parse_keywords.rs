@@ -424,7 +424,7 @@ pub fn parse_extern(
     lite_command: &LiteCommand,
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    let spans = &lite_command.parts[..];
+    let spans = &lite_command.parts;
     let mut error = None;
 
     let usage = build_usage(working_set, &lite_command.comments);
@@ -432,7 +432,14 @@ pub fn parse_extern(
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
 
-    let extern_call = working_set.get_span_contents(spans[0]).to_vec();
+    let (name_span, split_id) =
+        if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
+            (spans[1], 2)
+        } else {
+            (spans[0], 1)
+        };
+
+    let extern_call = working_set.get_span_contents(name_span).to_vec();
     if extern_call != b"extern" {
         return (
             garbage_pipeline(spans),
@@ -458,12 +465,15 @@ pub fn parse_extern(
         }
         Some(decl_id) => {
             working_set.enter_scope();
+
+            let (command_spans, rest_spans) = spans.split_at(split_id);
+
             let ParsedInternalCall {
                 call, error: err, ..
             } = parse_internal_call(
                 working_set,
-                spans[0],
-                &spans[1..],
+                span(command_spans),
+                rest_spans,
                 decl_id,
                 expand_aliases_denylist,
             );
@@ -500,7 +510,7 @@ pub fn parse_extern(
                 error = error.or_else(|| {
                     Some(ParseError::InternalError(
                         "Predeclaration failed to add declaration".into(),
-                        spans[1],
+                        spans[split_id],
                     ))
                 });
             };
