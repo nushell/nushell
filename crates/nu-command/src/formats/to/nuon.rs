@@ -104,7 +104,13 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                 // Table output
                 let headers: Vec<String> = headers
                     .iter()
-                    .map(|string| format!("\"{}\"", string))
+                    .map(|string| {
+                        if string.contains(' ') || string.contains(',') {
+                            format!("\"{}\"", string)
+                        } else {
+                            string.to_string()
+                        }
+                    })
                     .collect();
                 let headers_output = headers.join(", ");
 
@@ -148,11 +154,24 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         Value::Record { cols, vals, .. } => {
             let mut collection = vec![];
             for (col, val) in cols.iter().zip(vals) {
-                collection.push(format!("\"{}\": {}", col, value_to_string(val, span)?));
+                collection.push(if col.contains(',') || col.contains(' ') {
+                    format!("\"{}\": {}", col, value_to_string(val, span)?)
+                } else {
+                    format!("{}: {}", col, value_to_string(val, span)?)
+                });
             }
             Ok(format!("{{{}}}", collection.join(", ")))
         }
-        Value::String { val, .. } => Ok(escape_quote_string(val)),
+        Value::String { val, .. } => Ok({
+            let mut quoted = escape_quote_string(val);
+            if quoted.contains(' ') || quoted.contains(',') {
+                quoted
+            } else {
+                quoted.pop();
+                quoted.remove(0);
+                quoted
+            }
+        }),
     }
 }
 
