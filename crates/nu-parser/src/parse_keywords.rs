@@ -1083,6 +1083,87 @@ pub fn parse_export(
     )
 }
 
+pub fn parse_export_env(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    // Just used to be allowed inside modules, otherwise does nothing in the parser.
+
+    if !spans.is_empty() && working_set.get_span_contents(spans[0]) != b"export-env" {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for 'export-env' command".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    if spans.len() < 2 {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::MissingPositional(
+                "block".into(),
+                span(spans),
+                "export-env <block>".into(),
+            )),
+        );
+    }
+
+    let call = match working_set.find_decl(b"export-env", &Type::Any) {
+        Some(decl_id) => {
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
+                working_set,
+                spans[0],
+                &[spans[1]],
+                decl_id,
+                expand_aliases_denylist,
+            );
+            let decl = working_set.get_decl(decl_id);
+
+            let call_span = span(spans);
+
+            err = check_call(call_span, &decl.signature(), &call).or(err);
+            if err.is_some() || call.has_flag("help") {
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: output,
+                        custom_completion: None,
+                    }]),
+                    err,
+                );
+            }
+
+            call
+        }
+        None => {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: 'export-env' declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+    };
+
+    let pipeline = Pipeline::from_vec(vec![Expression {
+        expr: Expr::Call(call),
+        span: span(spans),
+        ty: Type::Any,
+        custom_completion: None,
+    }]);
+
+    (pipeline, None)
+}
+
 pub fn parse_module_block(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -1154,14 +1235,6 @@ pub fn parse_module_block(
 
                         (pipeline, err)
                     }
-                    // TODO: Currently, it is not possible to define a private env var.
-                    // TODO: Exported env vars are usable iside the module only if correctly
-                    // exported by the user. For example:
-                    //
-                    //   > module foo { export env a { "2" }; export def b [] { $env.a } }
-                    //
-                    // will work only if you call `use foo *; b` but not with `use foo; foo b`
-                    // since in the second case, the name of the env var would be $env."foo a".
                     b"export" => {
                         let (pipe, exportables, err) = parse_export(
                             working_set,
@@ -1187,6 +1260,11 @@ pub fn parse_module_block(
 
                         (pipe, err)
                     }
+                    b"export-env" => parse_export_env(
+                        working_set,
+                        &pipeline.commands[0].parts,
+                        expand_aliases_denylist,
+                    ),
                     _ => (
                         garbage_pipeline(&pipeline.commands[0].parts),
                         Some(ParseError::ExpectedKeyword(
