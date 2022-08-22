@@ -622,9 +622,7 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"def-env" | b"extern" | b"use" => {
-                [b"export ", sub].concat()
-            }
+            b"alias" | b"def" | b"def-env" | b"extern" | b"use" => [b"export ", sub].concat(),
             _ => b"export".to_vec(),
         }
     } else {
@@ -1420,7 +1418,26 @@ pub fn parse_use(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Vec<Exportable>, Option<ParseError>) {
-    if working_set.get_span_contents(spans[0]) != b"use" {
+    let (name_span, split_id) =
+        if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
+            (spans[1], 2)
+        } else {
+            (spans[0], 1)
+        };
+
+    let use_call = working_set.get_span_contents(name_span).to_vec();
+    if use_call != b"use" {
+        return (
+            garbage_pipeline(spans),
+            vec![],
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for 'use' command".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    if working_set.get_span_contents(name_span) != b"use" {
         return (
             garbage_pipeline(spans),
             vec![],
@@ -1433,14 +1450,16 @@ pub fn parse_use(
 
     let (call, call_span, use_decl_id) = match working_set.find_decl(b"use", &Type::Any) {
         Some(decl_id) => {
+            let (command_spans, rest_spans) = spans.split_at(split_id);
+
             let ParsedInternalCall {
                 call,
                 error: mut err,
                 output,
             } = parse_internal_call(
                 working_set,
-                spans[0],
-                &spans[1..],
+                span(command_spans),
+                rest_spans,
                 decl_id,
                 expand_aliases_denylist,
             );
@@ -1531,7 +1550,7 @@ pub fn parse_use(
                                 custom_completion: None,
                             }]),
                             vec![],
-                            Some(ParseError::ModuleNotFound(spans[1])),
+                            Some(ParseError::ModuleNotFound(import_pattern.head.span)),
                         );
                     };
 
@@ -1569,7 +1588,7 @@ pub fn parse_use(
                                 head: ImportPatternHead {
                                     name: module_name.into(),
                                     id: Some(module_id),
-                                    span: spans[1],
+                                    span: import_pattern.head.span,
                                 },
                                 members: import_pattern.members,
                                 hidden: HashSet::new(),
@@ -1585,14 +1604,16 @@ pub fn parse_use(
                                 custom_completion: None,
                             }]),
                             vec![],
-                            Some(ParseError::ModuleNotFound(spans[1])),
+                            Some(ParseError::ModuleNotFound(import_pattern.head.span)),
                         );
                     }
                 } else {
                     error = error.or(Some(ParseError::ModuleNotFound(import_pattern.head.span)));
 
+                    let old_span = import_pattern.head.span;
+
                     let mut import_pattern = ImportPattern::new();
-                    import_pattern.head.span = spans[1];
+                    import_pattern.head.span = old_span;
 
                     (import_pattern, Module::new())
                 }
@@ -1600,7 +1621,7 @@ pub fn parse_use(
                 return (
                     garbage_pipeline(spans),
                     vec![],
-                    Some(ParseError::NonUtf8(spans[1])),
+                    Some(ParseError::NonUtf8(import_pattern.head.span)),
                 );
             }
         };
@@ -1676,7 +1697,7 @@ pub fn parse_use(
     };
 
     let call = Box::new(Call {
-        head: spans[0],
+        head: span(spans.split_at(split_id).0),
         decl_id: use_decl_id,
         arguments: vec![Argument::Positional(import_pattern_expr)],
         redirect_stdout: true,
