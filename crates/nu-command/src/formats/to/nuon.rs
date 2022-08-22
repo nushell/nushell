@@ -155,7 +155,11 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             let mut collection = vec![];
             for (col, val) in cols.iter().zip(vals) {
                 collection.push(if needs_quotes(col) {
-                    format!("\"{}\": {}", col, value_to_string_without_quotes(val, span)?)
+                    format!(
+                        "\"{}\": {}",
+                        col,
+                        value_to_string_without_quotes(val, span)?
+                    )
                 } else {
                     format!("{}: {}", col, value_to_string_without_quotes(val, span)?)
                 });
@@ -187,9 +191,7 @@ fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {
 }
 
 fn needs_quotes(string: &str) -> bool {
-    string.contains(' ') 
-        || string.contains(',') 
-        || string.contains(':')
+    string.contains(' ') || string.contains(',') || string.contains(':')
 }
 
 #[cfg(test)]
