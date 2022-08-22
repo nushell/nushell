@@ -29,7 +29,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "style", "snake", "underscore", "convention"]
+        vec!["convert", "style", "underscore", "convention"]
     }
 
     fn run(

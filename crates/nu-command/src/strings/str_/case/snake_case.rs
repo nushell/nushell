@@ -32,7 +32,6 @@ impl Command for SubCommand {
         vec![
             "convert",
             "style",
-            "snake",
             "underscore",
             "lower",
             "convention",

@@ -34,7 +34,7 @@ impl Command for SchemaDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "info", "SQLite", "schema"]
+        vec!["database", "info", "SQLite"]
     }
 
     fn run(

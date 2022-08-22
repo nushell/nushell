@@ -31,7 +31,7 @@ impl Command for Mv {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["mv", "move"]
+        vec!["move"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {

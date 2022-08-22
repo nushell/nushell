@@ -34,7 +34,7 @@ impl Command for CollectDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "collect"]
+        vec!["database"]
     }
 
     fn run(

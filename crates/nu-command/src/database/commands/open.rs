@@ -29,7 +29,7 @@ impl Command for OpenDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "open"]
+        vec!["database"]
     }
 
     fn examples(&self) -> Vec<Example> {

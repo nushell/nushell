@@ -33,7 +33,7 @@ impl Command for ProjectionDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "select"]
+        vec!["database"]
     }
 
     fn examples(&self) -> Vec<Example> {

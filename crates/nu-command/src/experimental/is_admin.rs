@@ -20,7 +20,7 @@ impl Command for IsAdmin {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["root", "admin", "administrator", "superuser", "supervisor"]
+        vec!["root", "administrator", "superuser", "supervisor"]
     }
 
     fn run(

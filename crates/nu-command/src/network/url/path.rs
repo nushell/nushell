@@ -25,10 +25,6 @@ impl Command for SubCommand {
         "Get the path of a URL"
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["url", "path"]
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

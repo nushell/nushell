@@ -37,7 +37,7 @@ impl Command for OrderByDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "order-by"]
+        vec!["database"]
     }
 
     fn examples(&self) -> Vec<Example> {

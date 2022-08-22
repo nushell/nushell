@@ -49,7 +49,7 @@ impl Command for IntoSqliteDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "sqlite", "database"]
+        vec!["convert", "database"]
     }
 
     fn examples(&self) -> Vec<Example> {

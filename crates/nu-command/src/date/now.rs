@@ -19,7 +19,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["date", "now", "present", "current-time"]
+        vec!["present", "current-time"]
     }
 
     fn run(

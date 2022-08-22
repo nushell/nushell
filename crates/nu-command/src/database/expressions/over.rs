@@ -92,7 +92,7 @@ impl Command for OverExpr {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "over", "expression"]
+        vec!["database", "expression"]
     }
 
     fn run(
