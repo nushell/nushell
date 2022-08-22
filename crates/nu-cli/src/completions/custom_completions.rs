@@ -8,6 +8,8 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::sync::Arc;
 
+use super::completer::map_value_completions;
+
 pub struct CustomCompletion {
     engine_state: Arc<EngineState>,
     stack: Stack,
@@ -25,69 +27,6 @@ impl CustomCompletion {
             line,
             sort_by: SortBy::None,
         }
-    }
-
-    fn map_completions<'a>(
-        &self,
-        list: impl Iterator<Item = &'a Value>,
-        span: Span,
-        offset: usize,
-    ) -> Vec<Suggestion> {
-        list.filter_map(move |x| {
-            // Match for string values
-            if let Ok(s) = x.as_string() {
-                return Some(Suggestion {
-                    value: s,
-                    description: None,
-                    extra: None,
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
-                    },
-                    append_whitespace: false,
-                });
-            }
-
-            // Match for record values
-            if let Ok((cols, vals)) = x.as_record() {
-                let mut suggestion = Suggestion {
-                    value: String::from(""), // Initialize with empty string
-                    description: None,
-                    extra: None,
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
-                    },
-                    append_whitespace: false,
-                };
-
-                // Iterate the cols looking for `value` and `description`
-                cols.iter().zip(vals).for_each(|it| {
-                    // Match `value` column
-                    if it.0 == "value" {
-                        // Convert the value to string
-                        if let Ok(val_str) = it.1.as_string() {
-                            // Update the suggestion value
-                            suggestion.value = val_str;
-                        }
-                    }
-
-                    // Match `description` column
-                    if it.0 == "description" {
-                        // Convert the value to string
-                        if let Ok(desc_str) = it.1.as_string() {
-                            // Update the suggestion value
-                            suggestion.description = Some(desc_str);
-                        }
-                    }
-                });
-
-                return Some(suggestion);
-            }
-
-            None
-        })
-        .collect()
     }
 }
 
@@ -144,7 +83,7 @@ impl Completer for CustomCompletion {
                             .and_then(|val| {
                                 val.as_list()
                                     .ok()
-                                    .map(|it| self.map_completions(it.iter(), span, offset))
+                                    .map(|it| map_value_completions(it.iter(), span, offset))
                             })
                             .unwrap_or_default();
                         let options = value.get_data_by_key("options");
@@ -189,7 +128,7 @@ impl Completer for CustomCompletion {
 
                         completions
                     }
-                    Value::List { vals, .. } => self.map_completions(vals.iter(), span, offset),
+                    Value::List { vals, .. } => map_value_completions(vals.iter(), span, offset),
                     _ => vec![],
                 }
             }
