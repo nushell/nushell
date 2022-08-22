@@ -534,7 +534,14 @@ pub fn parse_alias(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    let name = working_set.get_span_contents(spans[0]);
+    let (name_span, split_id) =
+        if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
+            (spans[1], 2)
+        } else {
+            (spans[0], 1)
+        };
+
+    let name = working_set.get_span_contents(name_span);
 
     if name == b"alias" {
         if let Some((span, err)) = check_name(working_set, spans) {
@@ -542,10 +549,12 @@ pub fn parse_alias(
         }
 
         if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
+            let (command_spans, rest_spans) = spans.split_at(split_id);
+
             let ParsedInternalCall { call, output, .. } = parse_internal_call(
                 working_set,
-                spans[0],
-                &spans[1..],
+                span(command_spans),
+                rest_spans,
                 decl_id,
                 expand_aliases_denylist,
             );
@@ -562,8 +571,8 @@ pub fn parse_alias(
                 );
             }
 
-            if spans.len() >= 4 {
-                let alias_name = working_set.get_span_contents(spans[1]);
+            if spans.len() >= split_id + 3 {
+                let alias_name = working_set.get_span_contents(spans[split_id]);
 
                 let alias_name = if alias_name.starts_with(b"\"")
                     && alias_name.ends_with(b"\"")
@@ -573,9 +582,9 @@ pub fn parse_alias(
                 } else {
                     alias_name.to_vec()
                 };
-                let _equals = working_set.get_span_contents(spans[2]);
+                let _equals = working_set.get_span_contents(spans[split_id + 1]);
 
-                let replacement = spans[3..].to_vec();
+                let replacement = spans[(split_id + 2)..].to_vec();
 
                 working_set.add_alias(alias_name, replacement);
             }
@@ -583,7 +592,7 @@ pub fn parse_alias(
             let err = if spans.len() < 4 {
                 Some(ParseError::IncorrectValue(
                     "Incomplete alias".into(),
-                    spans[0],
+                    span(&spans[..split_id]),
                     "incomplete alias".into(),
                 ))
             } else {

@@ -232,30 +232,42 @@ pub fn check_name<'a>(
     working_set: &mut StateWorkingSet,
     spans: &'a [Span],
 ) -> Option<(&'a Span, ParseError)> {
+    let command_len = if spans.len() > 0 {
+        if working_set.get_span_contents(spans[0]) == b"export" {
+            2
+        } else {
+            1
+        }
+    } else {
+        return None;
+    };
+
     if spans.len() == 1 {
         None
-    } else if spans.len() < 4 {
-        if working_set.get_span_contents(spans[1]) == b"=" {
-            let name = String::from_utf8_lossy(working_set.get_span_contents(spans[0]));
+    } else if spans.len() < command_len + 3 {
+        if working_set.get_span_contents(spans[command_len]) == b"=" {
+            let name =
+                String::from_utf8_lossy(working_set.get_span_contents(span(&spans[..command_len])));
             Some((
-                &spans[1],
+                &spans[command_len],
                 ParseError::AssignmentMismatch(
                     format!("{} missing name", name),
                     "missing name".into(),
-                    spans[1],
+                    spans[command_len],
                 ),
             ))
         } else {
             None
         }
-    } else if working_set.get_span_contents(spans[2]) != b"=" {
-        let name = String::from_utf8_lossy(working_set.get_span_contents(spans[0]));
+    } else if working_set.get_span_contents(spans[command_len + 1]) != b"=" {
+        let name =
+            String::from_utf8_lossy(working_set.get_span_contents(span(&spans[..command_len])));
         Some((
-            &spans[2],
+            &spans[command_len + 1],
             ParseError::AssignmentMismatch(
                 format!("{} missing sign", name),
                 "missing equal sign".into(),
-                spans[2],
+                spans[command_len + 1],
             ),
         ))
     } else {
