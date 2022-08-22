@@ -18,6 +18,7 @@ use nu_cli::{
 use nu_command::{create_default_context, BufferedReader};
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
+use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
@@ -25,7 +26,7 @@ use nu_protocol::{
     Spanned, SyntaxShape, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
-use std::cell::RefCell;
+use std::{cell::RefCell, path::Path};
 use std::{
     io::BufReader,
     sync::{
@@ -140,6 +141,24 @@ fn main() -> Result<()> {
         // for this shell to manage its own process group / children / etc.
         nu_system::signal::block();
         nu_system::signal::set_terminal_leader()
+    }
+
+    if let Ok(ref args) = parsed_nu_cli_args {
+        set_config_path(
+            &mut engine_state,
+            &init_cwd,
+            "config.nu",
+            "config-path",
+            &args.config_file,
+        );
+
+        set_config_path(
+            &mut engine_state,
+            &init_cwd,
+            "env.nu",
+            "env-path",
+            &args.env_file,
+        );
     }
 
     match parsed_nu_cli_args {
@@ -689,4 +708,25 @@ fn set_is_perf_value(value: bool) {
     IS_PERF.with(|new_value| {
         *new_value.borrow_mut() = value;
     });
+}
+
+fn set_config_path(
+    engine_state: &mut EngineState,
+    cwd: &Path,
+    default_config_name: &str,
+    key: &str,
+    config_file: &Option<Spanned<String>>,
+) {
+    let config_path = match config_file {
+        Some(s) => canonicalize_with(&s.item, cwd).ok(),
+        None => nu_path::config_dir().map(|mut p| {
+            p.push(config_files::NUSHELL_FOLDER);
+            p.push(default_config_name);
+            p
+        }),
+    };
+
+    if let Some(path) = config_path {
+        engine_state.set_config_path(key, path);
+    }
 }
