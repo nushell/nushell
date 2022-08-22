@@ -190,6 +190,7 @@ pub fn create_default_context() -> EngineState {
             StrCapitalize,
             StrCollect,
             StrContains,
+            StrDistance,
             StrDowncase,
             StrEndswith,
             StrReplace,
