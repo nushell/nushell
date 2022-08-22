@@ -17,8 +17,8 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for, parse_hide, 
-    parse_let, parse_module, parse_overlay, parse_source, parse_use,
+    parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
+    parse_hide, parse_let, parse_module, parse_overlay, parse_source, parse_use,
 };
 
 use itertools::Itertools;
