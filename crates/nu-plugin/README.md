@@ -18,6 +18,9 @@ The steps are as follows:
     * https://github.com/nushell/nushell/pull/4920
 
 ## Benchmark
+Here is a simple benchmark for different protocol for encoding/decoding nushell table, with different rows and columns.  You can simply run `cargo bench` to run benchmark.
+
+### If you want to gather and analysis benchmark data...
 1. It's recommended to use cargo-criterion to run benchmark for future analysing:
 ```
 cargo install cargo-criterion
