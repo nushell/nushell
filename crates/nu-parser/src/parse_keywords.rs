@@ -1823,8 +1823,8 @@ pub fn parse_overlay(
         let subcommand = working_set.get_span_contents(spans[1]);
 
         match subcommand {
-            b"add" => {
-                return parse_overlay_add(working_set, spans, expand_aliases_denylist);
+            b"use" => {
+                return parse_overlay_use(working_set, spans, expand_aliases_denylist);
             }
             b"list" => {
                 // TODO: Abstract this code blob, it's repeated all over the place:
@@ -1884,8 +1884,8 @@ pub fn parse_overlay(
             b"new" => {
                 return parse_overlay_new(working_set, spans, expand_aliases_denylist);
             }
-            b"remove" => {
-                return parse_overlay_remove(working_set, spans, expand_aliases_denylist);
+            b"hide" => {
+                return parse_overlay_hide(working_set, spans, expand_aliases_denylist);
             }
             _ => { /* continue parsing overlay */ }
         }
@@ -2045,23 +2045,23 @@ pub fn parse_overlay_new(
     (pipeline, None)
 }
 
-pub fn parse_overlay_add(
+pub fn parse_overlay_use(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    if spans.len() > 1 && working_set.get_span_contents(span(&spans[0..2])) != b"overlay add" {
+    if spans.len() > 1 && working_set.get_span_contents(span(&spans[0..2])) != b"overlay use" {
         return (
             garbage_pipeline(spans),
             Some(ParseError::UnknownState(
-                "internal error: Wrong call name for 'overlay add' command".into(),
+                "internal error: Wrong call name for 'overlay use' command".into(),
                 span(spans),
             )),
         );
     }
 
     // TODO: Allow full import pattern as argument (requires custom naming of module/overlay)
-    let (call, call_span) = match working_set.find_decl(b"overlay add", &Type::Any) {
+    let (call, call_span) = match working_set.find_decl(b"overlay use", &Type::Any) {
         Some(decl_id) => {
             let ParsedInternalCall {
                 call,
@@ -2097,7 +2097,7 @@ pub fn parse_overlay_add(
             return (
                 garbage_pipeline(spans),
                 Some(ParseError::UnknownState(
-                    "internal error: 'overlay add' declaration not found".into(),
+                    "internal error: 'overlay use' declaration not found".into(),
                     span(spans),
                 )),
             )
@@ -2321,22 +2321,22 @@ pub fn parse_overlay_add(
     (pipeline, error)
 }
 
-pub fn parse_overlay_remove(
+pub fn parse_overlay_hide(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    if spans.len() > 1 && working_set.get_span_contents(span(&spans[0..2])) != b"overlay remove" {
+    if spans.len() > 1 && working_set.get_span_contents(span(&spans[0..2])) != b"overlay hide" {
         return (
             garbage_pipeline(spans),
             Some(ParseError::UnknownState(
-                "internal error: Wrong call name for 'overlay remove' command".into(),
+                "internal error: Wrong call name for 'overlay hide' command".into(),
                 span(spans),
             )),
         );
     }
 
-    let call = match working_set.find_decl(b"overlay remove", &Type::Any) {
+    let call = match working_set.find_decl(b"overlay hide", &Type::Any) {
         Some(decl_id) => {
             let ParsedInternalCall {
                 call,
@@ -2372,7 +2372,7 @@ pub fn parse_overlay_remove(
             return (
                 garbage_pipeline(spans),
                 Some(ParseError::UnknownState(
-                    "internal error: 'overlay remove' declaration not found".into(),
+                    "internal error: 'overlay hide' declaration not found".into(),
                     span(spans),
                 )),
             )
@@ -2410,7 +2410,7 @@ pub fn parse_overlay_remove(
     if overlay_name == DEFAULT_OVERLAY_NAME {
         return (
             pipeline,
-            Some(ParseError::CantRemoveDefaultOverlay(
+            Some(ParseError::CantHideDefaultOverlay(
                 overlay_name,
                 overlay_name_span,
             )),

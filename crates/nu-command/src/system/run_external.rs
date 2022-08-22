@@ -144,8 +144,9 @@ impl ExternalCommand {
 
                     // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
                     // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
-                    const CMD_INTERNAL_COMMANDS: [&str; 8] = [
-                        "ASSOC", "DIR", "ECHO", "FTYPE", "MKLINK", "START", "VER", "VOL",
+                    const CMD_INTERNAL_COMMANDS: [&str; 10] = [
+                        "ASSOC", "CLS", "DIR", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER",
+                        "VOL",
                     ];
                     let command_name_upper = self.name.item.to_uppercase();
                     let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
