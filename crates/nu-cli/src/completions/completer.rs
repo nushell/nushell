@@ -2,10 +2,11 @@ use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
     DotNuCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, VariableCompletion,
 };
+use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Span,
+    BlockId, PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::str;
@@ -56,6 +57,67 @@ impl NuCompleter {
         suggestions
     }
 
+    fn external_completion(
+        &self,
+        block_id: BlockId,
+        spans: Vec<String>,
+        offset: usize,
+        span: Span,
+    ) -> Vec<Suggestion> {
+        let stack = self.stack.clone();
+        let block = self.engine_state.get_block(block_id);
+        let mut callee_stack = stack.gather_captures(&block.captures);
+
+        // Line
+        if let Some(pos_arg) = block.signature.required_positional.get(0) {
+            if let Some(var_id) = pos_arg.var_id {
+                callee_stack.add_var(
+                    var_id,
+                    Value::List {
+                        vals: spans
+                            .into_iter()
+                            .map(|it| Value::String {
+                                val: it,
+                                span: Span::unknown(),
+                            })
+                            .collect(),
+                        span: Span::unknown(),
+                    },
+                );
+            }
+        }
+
+        let result = eval_block(
+            &self.engine_state,
+            &mut callee_stack,
+            block,
+            PipelineData::new(span),
+            true,
+            true,
+        );
+
+        match result {
+            Ok(pd) => {
+                let value = pd.into_value(span);
+                if let Value::List { vals, span: _ } = value {
+                    let result = map_value_completions(
+                        vals.iter(),
+                        Span {
+                            start: span.start,
+                            end: span.end,
+                        },
+                        offset,
+                    );
+
+                    return result;
+                }
+            }
+            Err(err) => println!("failed to eval completer block: {}", err),
+        }
+
+        vec![]
+    }
+
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
@@ -63,14 +125,32 @@ impl NuCompleter {
         let initial_line = line.to_string();
         new_line.push(b'a');
         let pos = offset + pos;
+        let config = self.engine_state.get_config();
+
         let (output, _err) = parse(&mut working_set, Some("completer"), &new_line, false, &[]);
 
         for pipeline in output.pipelines.into_iter() {
             for expr in pipeline.expressions {
                 let flattened: Vec<_> = flatten_expression(&working_set, &expr);
                 let span_offset: usize = alias_offset.iter().sum();
+                let mut spans: Vec<String> = vec![];
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {
+                    // Read the current spam to string
+                    let current_span = working_set.get_span_contents(flat.0).to_vec();
+                    let current_span_str = String::from_utf8_lossy(&current_span);
+
+                    // Skip the last 'a' as span item
+                    if flat_idx == flattened.len() - 1 {
+                        let mut chars = current_span_str.chars();
+                        chars.next_back();
+                        let current_span_str = chars.as_str().to_owned();
+                        spans.push(current_span_str.to_string());
+                    } else {
+                        spans.push(current_span_str.to_string());
+                    }
+
+                    // Complete based on the last span
                     if pos + span_offset >= flat.0.start && pos + span_offset < flat.0.end {
                         // Context variables
                         let most_left_var =
@@ -113,16 +193,26 @@ impl NuCompleter {
 
                         // Flags completion
                         if prefix.starts_with(b"-") {
-                            let mut completer = FlagCompletion::new(expr);
-
-                            return self.process_completion(
+                            // Try to complete flag internally
+                            let mut completer = FlagCompletion::new(expr.clone());
+                            let result = self.process_completion(
                                 &mut completer,
                                 &working_set,
-                                prefix,
+                                prefix.clone(),
                                 new_span,
                                 offset,
                                 pos,
                             );
+
+                            if !result.is_empty() {
+                                return result;
+                            }
+
+                            // We got no results for internal completion
+                            // now we can check if external completer is set and use it
+                            if let Some(block_id) = config.external_completer {
+                                return self.external_completion(block_id, spans, offset, new_span);
+                            }
                         }
 
                         // Completions that depends on the previous expression (e.g: use, source)
@@ -214,7 +304,7 @@ impl NuCompleter {
                                     flat_shape.clone(),
                                 );
 
-                                let out: Vec<_> = self.process_completion(
+                                let mut out: Vec<_> = self.process_completion(
                                     &mut completer,
                                     &working_set,
                                     prefix.clone(),
@@ -223,21 +313,30 @@ impl NuCompleter {
                                     pos,
                                 );
 
-                                if out.is_empty() {
-                                    let mut completer =
-                                        FileCompletion::new(self.engine_state.clone());
-
-                                    return self.process_completion(
-                                        &mut completer,
-                                        &working_set,
-                                        prefix,
-                                        new_span,
-                                        offset,
-                                        pos,
-                                    );
+                                if !out.is_empty() {
+                                    return out;
                                 }
 
-                                return out;
+                                // Check for file completion
+                                let mut completer = FileCompletion::new(self.engine_state.clone());
+                                out = self.process_completion(
+                                    &mut completer,
+                                    &working_set,
+                                    prefix,
+                                    new_span,
+                                    offset,
+                                    pos,
+                                );
+
+                                if !out.is_empty() {
+                                    return out;
+                                }
+
+                                // Try to complete using an exnternal compelter (if set)
+                                if let Some(block_id) = config.external_completer {
+                                    return self
+                                        .external_completion(block_id, spans, offset, new_span);
+                                }
                             }
                         };
                     }
@@ -382,4 +481,66 @@ fn most_left_variable(
     let sublevels: Vec<Vec<u8>> = variables_found.into_iter().skip(1).collect();
 
     Some((var, sublevels))
+}
+
+pub fn map_value_completions<'a>(
+    list: impl Iterator<Item = &'a Value>,
+    span: Span,
+    offset: usize,
+) -> Vec<Suggestion> {
+    list.filter_map(move |x| {
+        // Match for string values
+        if let Ok(s) = x.as_string() {
+            return Some(Suggestion {
+                value: s,
+                description: None,
+                extra: None,
+                span: reedline::Span {
+                    start: span.start - offset,
+                    end: span.end - offset,
+                },
+                append_whitespace: false,
+            });
+        }
+
+        // Match for record values
+        if let Ok((cols, vals)) = x.as_record() {
+            let mut suggestion = Suggestion {
+                value: String::from(""), // Initialize with empty string
+                description: None,
+                extra: None,
+                span: reedline::Span {
+                    start: span.start - offset,
+                    end: span.end - offset,
+                },
+                append_whitespace: false,
+            };
+
+            // Iterate the cols looking for `value` and `description`
+            cols.iter().zip(vals).for_each(|it| {
+                // Match `value` column
+                if it.0 == "value" {
+                    // Convert the value to string
+                    if let Ok(val_str) = it.1.as_string() {
+                        // Update the suggestion value
+                        suggestion.value = val_str;
+                    }
+                }
+
+                // Match `description` column
+                if it.0 == "description" {
+                    // Convert the value to string
+                    if let Ok(desc_str) = it.1.as_string() {
+                        // Update the suggestion value
+                        suggestion.description = Some(desc_str);
+                    }
+                }
+            });
+
+            return Some(suggestion);
+        }
+
+        None
+    })
+    .collect()
 }

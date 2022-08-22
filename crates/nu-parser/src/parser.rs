@@ -17,8 +17,8 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_extern, parse_for, parse_hide, parse_let,
-    parse_module, parse_overlay, parse_source, parse_use,
+    parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for, parse_hide, 
+    parse_let, parse_module, parse_overlay, parse_source, parse_use,
 };
 
 use itertools::Itertools;
@@ -230,30 +230,42 @@ pub fn check_name<'a>(
     working_set: &mut StateWorkingSet,
     spans: &'a [Span],
 ) -> Option<(&'a Span, ParseError)> {
+    let command_len = if !spans.is_empty() {
+        if working_set.get_span_contents(spans[0]) == b"export" {
+            2
+        } else {
+            1
+        }
+    } else {
+        return None;
+    };
+
     if spans.len() == 1 {
         None
-    } else if spans.len() < 4 {
-        if working_set.get_span_contents(spans[1]) == b"=" {
-            let name = String::from_utf8_lossy(working_set.get_span_contents(spans[0]));
+    } else if spans.len() < command_len + 3 {
+        if working_set.get_span_contents(spans[command_len]) == b"=" {
+            let name =
+                String::from_utf8_lossy(working_set.get_span_contents(span(&spans[..command_len])));
             Some((
-                &spans[1],
+                &spans[command_len],
                 ParseError::AssignmentMismatch(
                     format!("{} missing name", name),
                     "missing name".into(),
-                    spans[1],
+                    spans[command_len],
                 ),
             ))
         } else {
             None
         }
-    } else if working_set.get_span_contents(spans[2]) != b"=" {
-        let name = String::from_utf8_lossy(working_set.get_span_contents(spans[0]));
+    } else if working_set.get_span_contents(spans[command_len + 1]) != b"=" {
+        let name =
+            String::from_utf8_lossy(working_set.get_span_contents(span(&spans[..command_len])));
         Some((
-            &spans[2],
+            &spans[command_len + 1],
             ParseError::AssignmentMismatch(
                 format!("{} missing sign", name),
                 "missing equal sign".into(),
-                spans[2],
+                spans[command_len + 1],
             ),
         ))
     } else {
@@ -4792,64 +4804,7 @@ pub fn parse_builtin_commands(
         }
         b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"export" => {
-            let full_decl = if lite_command.parts.len() > 1 {
-                let sub = working_set.get_span_contents(lite_command.parts[1]);
-                match sub {
-                    b"alias" | b"def" | b"def-env" | b"env" | b"extern" | b"use" => {
-                        [b"export ", sub].concat()
-                    }
-                    _ => b"export".to_vec(),
-                }
-            } else {
-                b"export".to_vec()
-            };
-            if let Some(decl_id) = working_set.find_decl(&full_decl, &Type::Any) {
-                let parsed_call = parse_internal_call(
-                    working_set,
-                    if full_decl == b"export" {
-                        lite_command.parts[0]
-                    } else {
-                        span(&lite_command.parts[0..2])
-                    },
-                    if full_decl == b"export" {
-                        &lite_command.parts[1..]
-                    } else {
-                        &lite_command.parts[2..]
-                    },
-                    decl_id,
-                    expand_aliases_denylist,
-                );
-
-                if parsed_call.call.has_flag("help") {
-                    (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(parsed_call.call),
-                            span: span(&lite_command.parts),
-                            ty: parsed_call.output,
-                            custom_completion: None,
-                        }]),
-                        None,
-                    )
-                } else {
-                    (
-                        garbage_pipeline(&lite_command.parts),
-                        Some(ParseError::UnexpectedKeyword(
-                            "export".into(),
-                            lite_command.parts[0],
-                        )),
-                    )
-                }
-            } else {
-                (
-                    garbage_pipeline(&lite_command.parts),
-                    Some(ParseError::UnexpectedKeyword(
-                        "export".into(),
-                        lite_command.parts[0],
-                    )),
-                )
-            }
-        }
+        b"export" => parse_export_in_block(working_set, lite_command, expand_aliases_denylist),
         b"hide" => parse_hide(working_set, &lite_command.parts, expand_aliases_denylist),
         #[cfg(feature = "plugin")]
         b"register" => parse_register(working_set, &lite_command.parts, expand_aliases_denylist),
