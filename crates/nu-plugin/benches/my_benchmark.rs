@@ -16,6 +16,7 @@ fn new_test_data(row_cnt: usize, col_cnt: usize) -> Value {
 }
 
 fn run_encode_benchmark(c: &mut Criterion, fmt: &str) {
+    let mut group = c.benchmark_group(format!("{fmt} encode"));
     let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
     let test_cnt_pairs = [
         (100, 5),
@@ -31,15 +32,17 @@ fn run_encode_benchmark(c: &mut Criterion, fmt: &str) {
 
     for (row_cnt, col_cnt) in test_cnt_pairs {
         let bench_name = format!("{fmt} encode for {row_cnt} * {col_cnt}");
-        c.bench_function(&bench_name, |b| {
+        group.bench_function(&bench_name, |b| {
             let mut res = vec![];
             let test_data = PluginResponse::Value(Box::new(new_test_data(row_cnt, col_cnt)));
             b.iter(|| encoder.encode_response(&test_data, &mut res))
         });
     }
+    group.finish();
 }
 
 fn run_decode_benchmark(c: &mut Criterion, fmt: &str) {
+    let mut group = c.benchmark_group(format!("{fmt} decode"));
     let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
     let test_cnt_pairs = [
         (100, 5),
@@ -55,7 +58,7 @@ fn run_decode_benchmark(c: &mut Criterion, fmt: &str) {
 
     for (row_cnt, col_cnt) in test_cnt_pairs {
         let bench_name = format!("{fmt} decode for {row_cnt} * {col_cnt}");
-        c.bench_function(&bench_name, |b| {
+        group.bench_function(&bench_name, |b| {
             let mut res = vec![];
             let test_data = PluginResponse::Value(Box::new(new_test_data(row_cnt, col_cnt)));
             encoder.encode_response(&test_data, &mut res).unwrap();
@@ -66,6 +69,7 @@ fn run_decode_benchmark(c: &mut Criterion, fmt: &str) {
             })
         });
     }
+    group.finish();
 }
 
 fn json_encode_response(c: &mut Criterion) {
