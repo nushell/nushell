@@ -716,7 +716,11 @@ fn set_config_path(
         }),
     };
 
-    let env_config_path = match env_file {
+    if let Some(path) = config_path {
+        engine_state.set_config_path("config-path", path);
+    }
+
+    let env_path = match env_file {
         Some(s) => canonicalize_with(&s.item, cwd).ok(),
         None => nu_path::config_dir().map(|mut p| {
             p.push(config_files::NUSHELL_FOLDER);
@@ -725,5 +729,7 @@ fn set_config_path(
         }),
     };
 
-    engine_state.set_config_path(config_path, env_config_path);
+    if let Some(path) = env_path {
+        engine_state.set_config_path("env-path", path);
+    }
 }

@@ -1298,9 +1298,7 @@ pub fn eval_variable(
             let mut output_cols = vec![];
             let mut output_vals = vec![];
 
-            let (nu_config_path, nu_env_config_path) = engine_state.get_config_path();
-
-            if let Some(path) = nu_config_path {
+            if let Some(path) = engine_state.get_config_path("config-path") {
                 output_cols.push("config-path".into());
                 output_vals.push(Value::String {
                     val: path.to_string_lossy().to_string(),
@@ -1308,7 +1306,7 @@ pub fn eval_variable(
                 });
             }
 
-            if let Some(path) = nu_env_config_path {
+            if let Some(path) = engine_state.get_config_path("env-path") {
                 output_cols.push("env-path".into());
                 output_vals.push(Value::String {
                     val: path.to_string_lossy().to_string(),
@@ -1339,7 +1337,7 @@ pub fn eval_variable(
                     span,
                 });
 
-                if nu_config_path.is_none() {
+                if engine_state.get_config_path("config-path").is_none() {
                     config_path.push("config.nu");
 
                     output_cols.push("config-path".into());
@@ -1349,7 +1347,7 @@ pub fn eval_variable(
                     });
                 }
 
-                if nu_env_config_path.is_none() {
+                if engine_state.get_config_path("env-path").is_none() {
                     env_config_path.push("env.nu");
 
                     output_cols.push("env-path".into());
