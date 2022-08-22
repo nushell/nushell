@@ -7,7 +7,9 @@ use reedline::{Completer, Suggestion};
 use support::new_engine;
 
 #[test]
+#[ignore]
 fn external_completer_trailing_space() {
+    // https://github.com/nushell/nushell/issues/6378
     let block = "let external_completer = {|spans| $spans}";
     let input = "gh alias ".to_string();
 
