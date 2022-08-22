@@ -622,7 +622,7 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"def-env" | b"env" | b"extern" | b"use" => {
+            b"alias" | b"def" | b"def-env" | b"extern" | b"use" => {
                 [b"export ", sub].concat()
             }
             _ => b"export".to_vec(),
