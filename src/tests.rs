@@ -1,4 +1,5 @@
 mod test_conditionals;
+mod test_config_path;
 mod test_converters;
 mod test_custom_commands;
 mod test_engine;
