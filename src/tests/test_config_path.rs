@@ -6,11 +6,11 @@ fn test_default_config_path() {
     let cwd = std::env::current_dir().expect("Could not get current working directory");
 
     let config_path = config_dir.join("nushell").join("config.nu");
-    let actual = nu!(cwd: &cwd, "nu -c '$nu.config-path'");
+    let actual = nu!(cwd: &cwd, "$nu.config-path");
     assert_eq!(actual.out, config_path.to_string_lossy().to_string());
 
     let env_path = config_dir.join("nushell").join("env.nu");
-    let actual = nu!(cwd: &cwd, "nu -c '$nu.env-path'");
+    let actual = nu!(cwd: &cwd, "$nu.env-path");
     assert_eq!(actual.out, env_path.to_string_lossy().to_string());
 }
 
