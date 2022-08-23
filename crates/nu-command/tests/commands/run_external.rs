@@ -198,6 +198,21 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
 
 #[cfg(windows)]
 #[test]
+fn double_quote_does_not_expand_path_glob_windows_mkdir() {
+    Playground::setup("double quote do not run the expansion", |dirs, sandbox| {
+        sandbox.with_files(vec![]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                mkdir "foo.txt" | ls | where name == 'foo.txt' | length
+            "#
+        ));
+        assert!(actual.out.contains("1"));
+    })
+}
+#[cfg(windows)]
+#[test]
 #[ignore = "fails on local Windows machines"]
 // This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
 //
