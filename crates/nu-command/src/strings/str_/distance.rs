@@ -96,8 +96,12 @@ fn action(input: &Value, compare_string: &str, head: Span) -> Value {
     match &input {
         Value::String { val, .. } => {
             let distance = levenshtein_distance(val, compare_string);
-            Value::Int {
-                val: distance as i64,
+            Value::Record {
+                cols: vec!["distance".to_string()],
+                vals: vec![Value::Int {
+                    val: distance as i64,
+                    span: head,
+                }],
                 span: head,
             }
         }
