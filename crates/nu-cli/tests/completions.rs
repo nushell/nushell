@@ -625,3 +625,36 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
 
     completer.complete(&input, input.len())
 }
+
+#[test]
+fn unknown_command_completion() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let target_dir = "thiscommanddoesnotexist ";
+    let suggestions = completer.complete(target_dir, target_dir.len());
+
+    #[cfg(windows)]
+    let expected_paths: Vec<String> = vec![
+        "nushell".to_string(),
+        "test_a\\".to_string(),
+        "test_b\\".to_string(),
+        "another\\".to_string(),
+        "custom_completion.nu".to_string(),
+        ".hidden_file".to_string(),
+        ".hidden_folder\\".to_string(),
+    ];
+    #[cfg(not(windows))]
+    let expected_paths: Vec<String> = vec![
+        "nushell".to_string(),
+        "test_a/".to_string(),
+        "test_b/".to_string(),
+        "another/".to_string(),
+        "custom_completion.nu".to_string(),
+        ".hidden_file".to_string(),
+        ".hidden_folder/".to_string(),
+    ];
+
+    match_suggestions(expected_paths, suggestions)
+}
