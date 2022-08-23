@@ -345,3 +345,21 @@ fn module_nested_imports_in_dirs_prefixed() {
         assert_eq!(actual.out, "bar");
     })
 }
+
+#[test]
+fn module_eval_export_env() {
+    Playground::setup("module_eval_export_env", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                export-env { let-env FOO = 'foo' }
+            "#,
+        )]);
+
+        let inp = &[r#"source spam.nu"#, r#"$env.FOO"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}

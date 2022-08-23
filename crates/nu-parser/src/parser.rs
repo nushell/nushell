@@ -1,8 +1,6 @@
 use crate::{
     lex, lite_parse,
     lite_parse::LiteCommand,
-    parse_export_in_block,
-    parse_keywords::{parse_extern, parse_for, parse_source},
     type_check::{math_result_type, type_compatible},
     LiteBlock, ParseError, Token, TokenContents,
 };
@@ -19,8 +17,8 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_overlay,
-    parse_use,
+    parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
+    parse_hide, parse_let, parse_module, parse_overlay, parse_source, parse_use,
 };
 
 use itertools::Itertools;
