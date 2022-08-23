@@ -30,16 +30,12 @@ fn bench_encoding(c: &mut Criterion) {
     ];
     for (row_cnt, col_cnt) in test_cnt_pairs.into_iter() {
         for fmt in ["capnp", "json", "msgpack"] {
-            group.bench_function(
-                &format!("{fmt} encode {row_cnt} * {col_cnt}"),
-                |b| {
-                    let mut res = vec![];
-                    let test_data =
-                        PluginResponse::Value(Box::new(new_test_data(row_cnt, col_cnt)));
-                    let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
-                    b.iter(|| encoder.encode_response(&test_data, &mut res))
-                },
-            );
+            group.bench_function(&format!("{fmt} encode {row_cnt} * {col_cnt}"), |b| {
+                let mut res = vec![];
+                let test_data = PluginResponse::Value(Box::new(new_test_data(row_cnt, col_cnt)));
+                let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
+                b.iter(|| encoder.encode_response(&test_data, &mut res))
+            });
         }
     }
     group.finish();
