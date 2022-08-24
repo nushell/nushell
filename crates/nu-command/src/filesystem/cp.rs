@@ -50,7 +50,7 @@ impl Command for Cp {
             )
             .switch(
                 "verbose",
-                "do copy in verbose mode (default:false)",
+                "show successful copies in addition to failed copies (default:false)",
                 Some('v'),
             )
             // TODO: add back in additional features
@@ -285,7 +285,11 @@ impl Command for Cp {
         if verbose {
             Ok(result.into_iter().into_pipeline_data(ctrlc))
         } else {
-            Ok(PipelineData::new(span))
+            // filter to only errors
+            Ok(result
+                .into_iter()
+                .filter(|v| matches!(v, Value::Error { .. }))
+                .into_pipeline_data(ctrlc))
         }
     }
 
