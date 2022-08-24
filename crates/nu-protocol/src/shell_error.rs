@@ -478,7 +478,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     ///
     /// ## Resolution
     ///
-    /// This is a failry generic error. Refer to the specific error message for further details.
+    /// This is a fairly generic error. Refer to the specific error message for further details.
     #[error("Plugin failed to load: {0}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_load), url(docsrs))]
     PluginFailedToLoad(String),
@@ -501,6 +501,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::plugin_failed_to_decode), url(docsrs))]
     PluginFailedToDecode(String),
 
+    /// I/O operation interrupted.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("I/O interrupted")]
+    #[diagnostic(code(nu::shell::io_interrupted), url(docsrs))]
+    IOInterrupted(String, #[label("{0}")] Span),
+
     /// An I/O operation failed.
     ///
     /// ## Resolution
@@ -509,6 +518,33 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("I/O error")]
     #[diagnostic(code(nu::shell::io_error), url(docsrs), help("{0}"))]
     IOError(String),
+
+    /// An I/O operation failed.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("I/O error")]
+    #[diagnostic(code(nu::shell::io_error), url(docsrs))]
+    IOErrorSpanned(String, #[label("{0}")] Span),
+
+    /// Permission for an operation was denied.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("Permission Denied")]
+    #[diagnostic(code(nu::shell::permission_denied), url(docsrs))]
+    PermissionDeniedError(String, #[label("{0}")] Span),
+
+    /// Out of memory.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("Out of memory")]
+    #[diagnostic(code(nu::shell::out_of_memory), url(docsrs))]
+    OutOfMemoryError(String, #[label("{0}")] Span),
 
     /// Tried to `cd` to a path that isn't a directory.
     ///
