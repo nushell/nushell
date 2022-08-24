@@ -11,7 +11,6 @@ pub struct CommandCompletion {
     engine_state: Arc<EngineState>,
     flattened: Vec<(Span, FlatShape)>,
     flat_shape: FlatShape,
-    force_completion_after_space: bool,
 }
 
 impl CommandCompletion {
@@ -20,13 +19,11 @@ impl CommandCompletion {
         _: &StateWorkingSet,
         flattened: Vec<(Span, FlatShape)>,
         flat_shape: FlatShape,
-        force_completion_after_space: bool,
     ) -> Self {
         Self {
             engine_state,
             flattened,
             flat_shape,
-            force_completion_after_space,
         }
     }
 
@@ -84,6 +81,9 @@ impl CommandCompletion {
         match_algorithm: MatchAlgorithm,
     ) -> Vec<Suggestion> {
         let partial = working_set.get_span_contents(span);
+        if partial.is_empty() {
+            return Vec::new();
+        }
 
         let filter_predicate = |command: &[u8]| match_algorithm.matches_u8(command, partial);
 
@@ -209,10 +209,6 @@ impl Completer for CommandCompletion {
             || ((span.end - span.start) == 0)
         {
             // we're in a gap or at a command
-            if working_set.get_span_contents(span).is_empty() && !self.force_completion_after_space
-            {
-                return vec![];
-            }
             self.complete_commands(
                 working_set,
                 span,

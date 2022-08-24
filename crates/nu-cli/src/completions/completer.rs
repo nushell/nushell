@@ -215,26 +215,6 @@ impl NuCompleter {
                             }
                         }
 
-                        // specially check if it is currently empty - always complete commands
-                        if flat_idx == 0 && working_set.get_span_contents(new_span).is_empty() {
-                            let mut completer = CommandCompletion::new(
-                                self.engine_state.clone(),
-                                &working_set,
-                                flattened.clone(),
-                                // flat_idx,
-                                FlatShape::String,
-                                true,
-                            );
-                            return self.process_completion(
-                                &mut completer,
-                                &working_set,
-                                prefix,
-                                new_span,
-                                offset,
-                                pos,
-                            );
-                        }
-
                         // Completions that depends on the previous expression (e.g: use, source)
                         if flat_idx > 0 {
                             if let Some(previous_expr) = flattened.get(flat_idx - 1) {
@@ -322,7 +302,6 @@ impl NuCompleter {
                                     flattened.clone(),
                                     // flat_idx,
                                     flat_shape.clone(),
-                                    false,
                                 );
 
                                 let mut out: Vec<_> = self.process_completion(
