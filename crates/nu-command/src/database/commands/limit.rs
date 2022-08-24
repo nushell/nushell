@@ -34,7 +34,7 @@ impl Command for LimitDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "limit"]
+        vec!["database", "head", "tail"]
     }
 
     fn examples(&self) -> Vec<Example> {

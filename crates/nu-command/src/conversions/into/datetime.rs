@@ -103,7 +103,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "date", "time", "timezone", "UTC"]
+        vec!["convert", "timezone", "UTC"]
     }
 
     fn examples(&self) -> Vec<Example> {

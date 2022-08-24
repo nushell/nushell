@@ -23,7 +23,6 @@ impl Command for Date {
 
     fn search_terms(&self) -> Vec<&str> {
         vec![
-            "date",
             "time",
             "now",
             "today",

@@ -29,7 +29,7 @@ impl Command for ErrorMake {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["err", "panic", "crash", "throw"]
+        vec!["panic", "crash", "throw"]
     }
 
     fn run(

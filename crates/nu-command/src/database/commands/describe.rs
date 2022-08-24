@@ -47,7 +47,7 @@ impl Command for DescribeDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "SQLite", "describe"]
+        vec!["database", "SQLite"]
     }
 
     fn run(

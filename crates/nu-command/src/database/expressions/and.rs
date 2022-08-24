@@ -30,7 +30,7 @@ impl Command for AndExpr {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "and", "expression"]
+        vec!["database", "expression"]
     }
 
     fn examples(&self) -> Vec<Example> {

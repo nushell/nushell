@@ -31,7 +31,7 @@ impl Command for WhereDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "where"]
+        vec!["database"]
     }
 
     fn examples(&self) -> Vec<Example> {

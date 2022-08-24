@@ -41,7 +41,7 @@ impl Command for FromDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "from"]
+        vec!["database"]
     }
 
     fn examples(&self) -> Vec<Example> {

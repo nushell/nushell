@@ -19,7 +19,7 @@ impl Command for EachWhile {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["for", "loop", "iterate", "while"]
+        vec!["for", "loop", "iterate"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {

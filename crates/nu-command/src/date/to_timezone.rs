@@ -34,9 +34,7 @@ impl Command for SubCommand {
 
     fn search_terms(&self) -> Vec<&str> {
         vec![
-            "date",
-            "to",
-            "timezone",
+            "tz",
             "transform",
             "convert",
             "UTC",
