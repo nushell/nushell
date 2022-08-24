@@ -1,4 +1,5 @@
 use nu_test_support::{nu, pipeline};
+use proptest::prelude::*;
 
 #[test]
 fn to_nuon_correct_compaction() {
@@ -266,4 +267,19 @@ fn to_nuon_does_not_quote_unnecessarily() {
     "#
     ));
     assert_eq!(actual.out, "{\"ro name\": sam, rank: 10}");
+}
+
+proptest! {
+    #[test]
+    fn to_nuon_from_nuon(c: char) {
+        if c != '\0' {
+        let actual = nu!(
+            cwd: "tests/fixtures/formats", pipeline(
+                format!(r#"
+             let a = {{"proptest{}": "sam" rank: 10}}; $a | to nuon | from nuon
+        "#, c).as_ref()
+        ));
+        assert!(actual.err.is_empty() || actual.err.contains("Unexpected end of code"));
+    }
+    }
 }

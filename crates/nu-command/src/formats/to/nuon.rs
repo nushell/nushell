@@ -192,15 +192,20 @@ fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {
 
 fn needs_quotes(string: &str) -> bool {
     string.contains(' ')
-        || string.contains(',')
+        || string.contains('[')
+        || string.contains(']')
         || string.contains(':')
+        || string.contains('`')
+        || string.contains('{')
+        || string.contains('}')
+        || string.contains('#')
+        || string.contains('\'')
         || string.contains(';')
         || string.contains('(')
         || string.contains(')')
-        || string.contains('[')
-        || string.contains(']')
-        || string.contains('{')
-        || string.contains('}')
+        || string.contains('|')
+        || string.contains('\t')
+        || string.contains('\n')
 }
 
 #[cfg(test)]
