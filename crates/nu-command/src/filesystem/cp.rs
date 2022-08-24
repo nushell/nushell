@@ -348,9 +348,22 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
             Value::String { val: msg, span }
         }
-        Err(e) => Value::Error {
-            error: ShellError::FileNotFoundCustom(format!("copy file {src:?} failed: {e}"), span),
-        },
+        Err(e) => {
+            let message = format!("copy file {src:?} failed: {e}");
+
+            use std::io::ErrorKind;
+            let shell_error = match e.kind() {
+                ErrorKind::NotFound => ShellError::FileNotFoundCustom(message, span),
+                ErrorKind::PermissionDenied => ShellError::PermissionDeniedError(message, span),
+                ErrorKind::Interrupted => ShellError::IOInterrupted(message, span),
+                ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message, span),
+                // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
+                // https://github.com/rust-lang/rust/issues/86442
+                _ => ShellError::IOErrorSpanned(message, span),
+            };
+
+            Value::Error { error: shell_error }
+        }
     }
 }
 
