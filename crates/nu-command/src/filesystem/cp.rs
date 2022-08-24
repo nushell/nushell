@@ -36,7 +36,7 @@ impl Command for Cp {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["cp", "copy", "file", "files"]
+        vec!["copy", "file", "files"]
     }
 
     fn signature(&self) -> Signature {

@@ -47,7 +47,7 @@ impl Command for JoinDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "join"]
+        vec!["database"]
     }
 
     fn examples(&self) -> Vec<Example> {

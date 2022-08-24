@@ -32,7 +32,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["network", "http", "port"]
+        vec!["network", "http"]
     }
 
     fn run(

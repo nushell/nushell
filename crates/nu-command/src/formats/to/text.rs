@@ -68,7 +68,7 @@ impl Command for ToText {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["text", "convert"]
+        vec!["convert"]
     }
 }
 

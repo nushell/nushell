@@ -35,7 +35,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["date", "format", "strftime"]
+        vec!["fmt", "strftime"]
     }
 
     fn run(
