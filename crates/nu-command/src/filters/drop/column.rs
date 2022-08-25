@@ -49,6 +49,13 @@ impl Command for DropColumn {
             1
         };
 
+        // Make columns to drop is positive
+        if columns_to_drop < 0 {
+            if let Some(expr) = call.positional_nth(0) {
+                return Err(ShellError::NeedsPositiveValue(expr.span));
+            }
+        }
+
         dropcol(engine_state, span, input, columns_to_drop)
     }
 
