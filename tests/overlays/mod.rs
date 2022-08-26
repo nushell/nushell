@@ -736,3 +736,34 @@ fn overlay_remove_and_add_renamed_overlay() {
     assert_eq!(actual.out, "foo");
     assert_eq!(actual_repl.out, "foo");
 }
+
+#[test]
+fn overlay_use_export_env() {
+    let inp = &[
+        r#"module spam { export-env { let-env FOO = 'foo' } }"#,
+        r#"overlay use spam"#,
+        r#"$env.FOO"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn overlay_use_export_env_hide() {
+    let inp = &[
+        r#"let-env FOO = 'foo'"#,
+        r#"module spam { export-env { hide-env FOO } }"#,
+        r#"overlay use spam"#,
+        r#"$env.FOO"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.err.contains("did you mean"));
+    assert!(actual_repl.err.contains("did you mean"));
+}

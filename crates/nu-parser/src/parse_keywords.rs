@@ -5,7 +5,7 @@ use nu_protocol::{
         ImportPatternMember, Pipeline,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
-    span, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
+    span, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
 };
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -1215,12 +1215,11 @@ pub fn parse_export_env(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
-) -> (Pipeline, Option<ParseError>) {
-    // Just used to be allowed inside modules, otherwise does nothing in the parser.
-
+) -> (Pipeline, Option<BlockId>, Option<ParseError>) {
     if !spans.is_empty() && working_set.get_span_contents(spans[0]) != b"export-env" {
         return (
             garbage_pipeline(spans),
+            None,
             Some(ParseError::UnknownState(
                 "internal error: Wrong call name for 'export-env' command".into(),
                 span(spans),
@@ -1231,6 +1230,7 @@ pub fn parse_export_env(
     if spans.len() < 2 {
         return (
             garbage_pipeline(spans),
+            None,
             Some(ParseError::MissingPositional(
                 "block".into(),
                 span(spans),
@@ -1265,6 +1265,7 @@ pub fn parse_export_env(
                         ty: output,
                         custom_completion: None,
                     }]),
+                    None,
                     err,
                 );
             }
@@ -1274,12 +1275,37 @@ pub fn parse_export_env(
         None => {
             return (
                 garbage_pipeline(spans),
+                None,
                 Some(ParseError::UnknownState(
                     "internal error: 'export-env' declaration not found".into(),
                     span(spans),
                 )),
             )
         }
+    };
+
+    let block_id = if let Some(block) = call.positional_nth(0) {
+        if let Some(block_id) = block.as_block() {
+            block_id
+        } else {
+            return (
+                garbage_pipeline(spans),
+                None,
+                Some(ParseError::UnknownState(
+                    "internal error: 'export-env' block is not a block".into(),
+                    block.span,
+                )),
+            );
+        }
+    } else {
+        return (
+            garbage_pipeline(spans),
+            None,
+            Some(ParseError::UnknownState(
+                "internal error: 'export-env' block is missing".into(),
+                span(spans),
+            )),
+        );
     };
 
     let pipeline = Pipeline::from_vec(vec![Expression {
@@ -1289,7 +1315,7 @@ pub fn parse_export_env(
         custom_completion: None,
     }]);
 
-    (pipeline, None)
+    (pipeline, Some(block_id), None)
 }
 
 pub fn parse_module_block(
@@ -1388,11 +1414,19 @@ pub fn parse_module_block(
 
                         (pipe, err)
                     }
-                    b"export-env" => parse_export_env(
-                        working_set,
-                        &pipeline.commands[0].parts,
-                        expand_aliases_denylist,
-                    ),
+                    b"export-env" => {
+                        let (pipe, maybe_env_block, err) = parse_export_env(
+                            working_set,
+                            &pipeline.commands[0].parts,
+                            expand_aliases_denylist,
+                        );
+
+                        if let Some(block_id) = maybe_env_block {
+                            module.add_env_block(block_id);
+                        }
+
+                        (pipe, err)
+                    }
                     _ => (
                         garbage_pipeline(&pipeline.commands[0].parts),
                         Some(ParseError::ExpectedKeyword(
