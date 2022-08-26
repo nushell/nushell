@@ -639,10 +639,10 @@ fn shell_arg_escape(arg: &str) -> String {
     }
 }
 
-/// This function returns 3 tuple:
-/// 1st element: trimmed string.
-/// 2nd element: a boolean value indicate if it's ok to run glob expansion.
-/// 3rd element: a boolean value indicate if we need to make input as a whole.
+/// This function returns a tuple with 3 items:
+/// 1st item: trimmed string.
+/// 2nd item: a boolean value indicate if it's ok to run glob expansion.
+/// 3rd item: a boolean value indicate if we need to make input as a whole.
 fn trim_enclosing_quotes(input: &str) -> (String, bool, bool) {
     let mut chars = input.chars();
 
