@@ -59,7 +59,7 @@ impl Command for Ast {
             },
             Example {
                 description: "Print the ast of a pipeline with an error",
-                example: "'for x in 1..10 { echo $x '",
+                example: "ast 'for x in 1..10 { echo $x '",
                 result: None,
             },
         ]
