@@ -138,6 +138,36 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds() {
     })
 }
 
+#[cfg(not(windows))]
+#[test]
+fn external_args_with_quoted() {
+    Playground::setup("external failed command with semicolon", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^echo "foo=bar 'hi'"
+            "#
+        ));
+
+        assert_eq!(actual.out, "foo=bar 'hi'");
+    })
+}
+
+#[cfg(not(windows))]
+#[test]
+fn external_arg_with_long_flag_value_quoted() {
+    Playground::setup("external failed command with semicolon", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^echo --foo='bar'
+            "#
+        ));
+
+        assert_eq!(actual.out, "--foo=bar");
+    })
+}
+
 #[cfg(windows)]
 #[test]
 fn explicit_glob_windows() {
