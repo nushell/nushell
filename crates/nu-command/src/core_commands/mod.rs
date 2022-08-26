@@ -1,4 +1,5 @@
 mod alias;
+mod ast;
 mod debug;
 mod def;
 mod def_env;
@@ -29,6 +30,7 @@ mod use_;
 mod version;
 
 pub use alias::Alias;
+pub use ast::Ast;
 pub use debug::Debug;
 pub use def::Def;
 pub use def_env::DefEnv;
