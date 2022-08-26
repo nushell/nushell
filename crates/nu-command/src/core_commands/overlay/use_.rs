@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
@@ -49,11 +49,11 @@ impl Command for OverlayUse {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        caller_stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
 
         let (overlay_name, overlay_name_span) = if let Some(kw_expression) = call.positional_nth(1)
         {
@@ -96,10 +96,10 @@ impl Command for OverlayUse {
         if let Some(overlay_id) = engine_state.find_overlay(overlay_name.as_bytes()) {
             let old_module_id = engine_state.get_overlay(overlay_id).origin;
 
-            stack.add_overlay(overlay_name.clone());
+            caller_stack.add_overlay(overlay_name.clone());
 
             if let Some(new_module_id) = engine_state.find_module(overlay_name.as_bytes(), &[]) {
-                if !stack.has_env_overlay(&overlay_name, engine_state)
+                if !caller_stack.has_env_overlay(&overlay_name, engine_state)
                     || (old_module_id != new_module_id)
                 {
                     // Add environment variables only if:
@@ -118,7 +118,7 @@ impl Command for OverlayUse {
 
                         let val = eval_block(
                             engine_state,
-                            stack,
+                            caller_stack,
                             block,
                             PipelineData::new(call.head),
                             false,
@@ -126,7 +126,24 @@ impl Command for OverlayUse {
                         )?
                         .into_value(call.head);
 
-                        stack.add_env_var(name, val);
+                        caller_stack.add_env_var(name, val);
+                    }
+
+                    // Evaluate the export-env block (if any) and keep its environment
+                    if let Some(block_id) = module.env_block {
+                        let block = engine_state.get_block(block_id);
+                        let mut callee_stack = caller_stack.gather_captures(&block.captures);
+
+                        let _ = eval_block(
+                            engine_state,
+                            &mut callee_stack,
+                            block,
+                            input,
+                            call.redirect_stdout,
+                            call.redirect_stderr,
+                        );
+
+                        redirect_env(engine_state, caller_stack, &callee_stack);
                     }
                 }
             }
