@@ -162,7 +162,24 @@ pub fn env_to_strings(
 
 /// Shorthand for env_to_string() for PWD with custom error
 pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<String, ShellError> {
-    if let Some(pwd) = stack.get_env_var(engine_state, "PWD") {
+    if let Some(pwd) = stack.get_env_var(engine_state, "FILE_PWD") {
+        match env_to_string("FILE_PWD", &pwd, engine_state, stack) {
+            Ok(cwd) => {
+                if Path::new(&cwd).is_absolute() {
+                    Ok(cwd)
+                } else {
+                    Err(ShellError::GenericError(
+                            "Invalid current directory".to_string(),
+                            format!("The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{}'", cwd),
+                            Some(pwd.span()?),
+                            None,
+                            Vec::new()
+                    ))
+                }
+            }
+            Err(e) => Err(e),
+        }
+    } else if let Some(pwd) = stack.get_env_var(engine_state, "PWD") {
         match env_to_string("PWD", &pwd, engine_state, stack) {
             Ok(cwd) => {
                 if Path::new(&cwd).is_absolute() {

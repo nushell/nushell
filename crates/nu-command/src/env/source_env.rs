@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use nu_engine::{current_dir, eval_block, redirect_env, CallExt};
@@ -52,11 +51,10 @@ impl Command for SourceEnv {
                 let (block, delta) = {
                     let mut working_set = StateWorkingSet::new(&new_engine_state);
 
-                    // Change currently parsed directory
+                    // Set the currently parsed directory
                     working_set.currently_parsed_cwd = Some(parent.clone());
 
-                    let (block, err) =
-                        parse(&mut working_set, None, content.as_bytes(), false, &[]);
+                    let (block, err) = parse(&mut working_set, None, content.as_bytes(), true, &[]);
 
                     if let Some(err) = err {
                         let msg = format!(
@@ -76,17 +74,19 @@ impl Command for SourceEnv {
                     }
                 };
 
+                // Merge parser changes to a temporary engine state
                 new_engine_state.merge_delta(delta)?;
 
-                let mut callee_stack = caller_stack.captures_to_stack(&HashMap::new());
+                // Set the currently evaluated directory
+                let file_pwd = Value::String {
+                    val: parent.to_string_lossy().to_string(),
+                    span: call.head,
+                };
 
-                callee_stack.add_env_var(
-                    "PWD".to_string(),
-                    Value::String {
-                        val: parent.to_string_lossy().to_string(),
-                        span: call.head,
-                    },
-                );
+                caller_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+
+                // Evaluate the parsed file's block
+                let mut callee_stack = caller_stack.gather_captures(&block.captures);
 
                 let result = eval_block(
                     &new_engine_state,
@@ -97,8 +97,11 @@ impl Command for SourceEnv {
                     true,
                 );
 
-                // add new env vars from callee to caller
-                redirect_env(&engine_state, caller_stack, &callee_stack);
+                // Merge the block's environment to the current stack
+                redirect_env(engine_state, caller_stack, &callee_stack);
+
+                // Remove the file-relative PWD
+                caller_stack.remove_env_var(engine_state, "FILE_PWD");
 
                 result
             } else {
