@@ -65,15 +65,27 @@ fn exec(
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     use std::os::unix::process::CommandExt;
 
-    use nu_engine::{current_dir, env_to_strings, CallExt};
-    use nu_protocol::Spanned;
-
     use super::run_external::ExternalCommand;
+    use nu_engine::{current_dir, env_to_strings, CallExt};
+    use nu_protocol::ast::Expr;
+    use nu_protocol::Spanned;
 
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
     let name_span = name.span;
 
     let args: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
+    let args_expr: Vec<nu_protocol::ast::Expression> =
+        call.positional_iter().skip(1).cloned().collect();
+    let mut arg_keep_raw = vec![];
+    for one_arg_expr in args_expr {
+        match one_arg_expr.expr {
+            // refer to `parse_dollar_expr` function
+            // the expression type of $variable_name, $"($variable_name)"
+            // will be Expr::StringInterpolation, Expr::FullCellPath
+            Expr::StringInterpolation(_) | Expr::FullCellPath(_) => arg_keep_raw.push(true),
+            _ => arg_keep_raw.push(false),
+        }
+    }
 
     let cwd = current_dir(engine_state, stack)?;
     let env_vars = env_to_strings(engine_state, stack)?;
@@ -82,6 +94,7 @@ fn exec(
     let external_command = ExternalCommand {
         name,
         args,
+        arg_keep_raw,
         env_vars,
         redirect_stdout: true,
         redirect_stderr: false,

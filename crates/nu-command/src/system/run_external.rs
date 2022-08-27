@@ -2,6 +2,7 @@ use fancy_regex::Regex;
 use itertools::Itertools;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
+use nu_protocol::ast::{Expr, Expression};
 use nu_protocol::did_you_mean;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
@@ -70,23 +71,40 @@ impl Command for External {
         }
 
         let mut spanned_args = vec![];
-        for one_arg in args {
+        let args_expr: Vec<Expression> = call.positional_iter().skip(1).cloned().collect();
+        let mut arg_keep_raw = vec![];
+        for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
             match one_arg {
                 Value::List { vals, .. } => {
                     // turn all the strings in the array into params.
                     // Example: one_arg may be something like ["ls" "-a"]
                     // convert it to "ls" "-a"
                     for v in vals {
-                        spanned_args.push(value_as_spanned(v)?)
+                        spanned_args.push(value_as_spanned(v)?);
+                        // for arguments in list, it's always treated as a whole arguments
+                        arg_keep_raw.push(true);
                     }
                 }
-                val => spanned_args.push(value_as_spanned(val)?),
+                val => {
+                    spanned_args.push(value_as_spanned(val)?);
+                    match one_arg_expr.expr {
+                        // refer to `parse_dollar_expr` function
+                        // the expression type of $variable_name, $"($variable_name)"
+                        // will be Expr::StringInterpolation, Expr::FullCellPath
+                        Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
+                            arg_keep_raw.push(true)
+                        }
+                        _ => arg_keep_raw.push(false),
+                    }
+                    {}
+                }
             }
         }
 
         let command = ExternalCommand {
             name,
             args: spanned_args,
+            arg_keep_raw,
             redirect_stdout,
             redirect_stderr,
             env_vars: env_vars_str,
@@ -107,6 +125,7 @@ impl Command for External {
 pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
+    pub arg_keep_raw: Vec<bool>,
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
     pub env_vars: HashMap<String, String>,
@@ -508,12 +527,17 @@ impl ExternalCommand {
 
         let mut process = std::process::Command::new(&head);
 
-        for arg in self.args.iter() {
-            // if arg is quoted, like "aa", 'aa', `aa`.
+        for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
+            // if arg is quoted, like "aa", 'aa', `aa`, or:
+            // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
             // `as_a_whole` will be true, so nu won't remove the inner quotes.
-            let (trimmed_args, run_glob_expansion, as_a_whole) = trim_enclosing_quotes(&arg.item);
+            let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
+            if *arg_keep_raw {
+                keep_raw = true;
+            }
+
             let mut arg = Spanned {
-                item: if as_a_whole {
+                item: if keep_raw {
                     trimmed_args
                 } else {
                     remove_quotes(trimmed_args)
@@ -643,7 +667,7 @@ fn shell_arg_escape(arg: &str) -> String {
 /// This function returns a tuple with 3 items:
 /// 1st item: trimmed string.
 /// 2nd item: a boolean value indicate if it's ok to run glob expansion.
-/// 3rd item: a boolean value indicate if we need to make input as a whole.
+/// 3rd item: a boolean value indicate if we need to keep raw string.
 fn trim_enclosing_quotes(input: &str) -> (String, bool, bool) {
     let mut chars = input.chars();
 
