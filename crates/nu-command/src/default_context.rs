@@ -432,6 +432,7 @@ pub fn create_default_context() -> EngineState {
         // Deprecated
         bind_command! {
             HashBase64,
+            Source,
             StrDatetimeDeprecated,
             StrDecimalDeprecated,
             StrIntDeprecated,
