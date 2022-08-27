@@ -168,6 +168,24 @@ fn external_arg_with_long_flag_value_quoted() {
     })
 }
 
+#[test]
+fn external_arg_with_variable_name() {
+    Playground::setup("external failed command with semicolon", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                let dump_command = "PGPASSWORD='db_secret' pg_dump -Fc -h 'db.host' -p '$db.port' -U postgres -d 'db_name' > '/tmp/dump_name'";
+                nu --testbin nonu $dump_command
+            "#
+        ));
+
+        assert_eq!(
+            actual.out,
+            r#"PGPASSWORD='db_secret' pg_dump -Fc -h 'db.host' -p '$db.port' -U postgres -d 'db_name' > '/tmp/dump_name'"#
+        );
+    })
+}
+
 #[cfg(windows)]
 #[test]
 fn explicit_glob_windows() {
