@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use nu_engine::{current_dir, eval_block, CallExt};
+use nu_engine::{current_dir, eval_block, redirect_env, CallExt};
 use nu_parser::{parse, LIB_DIRS_ENV};
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
@@ -42,17 +42,15 @@ impl Command for SourceEnv {
     ) -> Result<PipelineData, ShellError> {
         let source_filename: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
 
-        // let working_set = StateWorkingSet::new(&engine_state);
-
         if let Some(path) = find_in_dirs_env(&source_filename.item, engine_state, caller_stack)? {
             if let Ok(content) = std::fs::read_to_string(&path) {
                 let mut parent = PathBuf::from(&path);
                 parent.pop();
 
-                let mut engine_state = engine_state.clone();
+                let mut new_engine_state = engine_state.clone();
 
                 let (block, delta) = {
-                    let mut working_set = StateWorkingSet::new(&engine_state);
+                    let mut working_set = StateWorkingSet::new(&new_engine_state);
 
                     // Change currently parsed directory
                     working_set.currently_parsed_cwd = Some(parent.clone());
@@ -78,7 +76,7 @@ impl Command for SourceEnv {
                     }
                 };
 
-                engine_state.merge_delta(delta)?;
+                new_engine_state.merge_delta(delta)?;
 
                 let mut callee_stack = caller_stack.captures_to_stack(&HashMap::new());
 
@@ -90,13 +88,18 @@ impl Command for SourceEnv {
                     },
                 );
 
-                let result =
-                    eval_block(&engine_state, &mut callee_stack, &block, input, true, true);
+                let result = eval_block(
+                    &new_engine_state,
+                    &mut callee_stack,
+                    &block,
+                    input,
+                    true,
+                    true,
+                );
 
                 // add new env vars from callee to caller
-                for (var, value) in callee_stack.get_stack_env_vars() {
-                    caller_stack.add_env_var(var, value);
-                }
+                redirect_env(&engine_state, caller_stack, &callee_stack);
+
                 result
             } else {
                 Err(ShellError::FileNotFound(source_filename.span))

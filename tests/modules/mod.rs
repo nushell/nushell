@@ -307,3 +307,25 @@ fn source_env_eval_export_env() {
         assert_eq!(actual.out, "foo");
     })
 }
+
+#[test]
+fn source_env_eval_export_env_hide() {
+    Playground::setup("module_eval_export_env", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                export-env { hide-env FOO }
+            "#,
+        )]);
+
+        let inp = &[
+            r#"let-env FOO = 'foo'"#,
+            r#"source-env spam.nu"#,
+            r#"$env.FOO"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("did you mean"));
+    })
+}
