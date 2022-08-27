@@ -49,6 +49,13 @@ impl Command for DropColumn {
             1
         };
 
+        // Make columns to drop is positive
+        if columns_to_drop < 0 {
+            if let Some(expr) = call.positional_nth(0) {
+                return Err(ShellError::NeedsPositiveValue(expr.span));
+            }
+        }
+
         dropcol(engine_state, span, input, columns_to_drop)
     }
 
@@ -115,7 +122,7 @@ fn dropcol(
         PipelineData::ListStream(stream, ..) => {
             let mut output = vec![];
 
-            let v: Vec<_> = stream.into_iter().collect();
+            let v: Vec<_> = stream.into_iter().map(|(v, _)| v).collect();
             let input_cols = get_input_cols(v.clone());
             let kc = get_keep_columns(input_cols, columns);
             keep_columns = get_cellpath_columns(kc, span);

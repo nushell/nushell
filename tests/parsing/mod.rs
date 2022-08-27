@@ -91,7 +91,7 @@ fn parse_file_relative_to_parsed_file() {
                 r#"
                     source-env ../../foo.nu
                     use ../lol_shell.nu
-                    overlay add ../../lol/lol_shell.nu
+                    overlay use ../../lol/lol_shell.nu
 
                     let-env LOL = $'($env.FOO) (lol_shell ls) (ls)'
                 "#,
@@ -184,4 +184,24 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
 
         assert!(actual.err.contains("File not found"));
     })
+}
+
+#[test]
+fn parse_export_env_in_module() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+        r#"
+            module spam { export-env { } }
+        "#);
+
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn parse_export_env_missing_block() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+        r#"
+            module spam { export-env }
+        "#);
+
+    assert!(actual.err.contains("missing block"));
 }

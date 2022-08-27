@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod fs;
+pub mod locale_override;
 pub mod macros;
 pub mod playground;
 

@@ -46,7 +46,7 @@ impl Command for For {
 
     fn extra_usage(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nushell.html"#
+  https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
     fn is_parser_keyword(&self) -> bool {
@@ -91,7 +91,7 @@ impl Command for For {
             Value::List { vals, .. } => {
                 Ok(ListStream::from_stream(vals.into_iter(), ctrlc.clone())
                     .enumerate()
-                    .map(move |(idx, x)| {
+                    .map(move |(idx, (x, _))| {
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                         stack.add_var(

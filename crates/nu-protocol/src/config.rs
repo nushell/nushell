@@ -52,6 +52,7 @@ impl Default for Hooks {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
+    pub external_completer: Option<usize>,
     pub filesize_metric: bool,
     pub table_mode: String,
     pub use_ls_colors: bool,
@@ -82,6 +83,7 @@ pub struct Config {
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
+    pub show_clickable_links_in_ls: bool,
 }
 
 impl Default for Config {
@@ -89,6 +91,7 @@ impl Default for Config {
         Config {
             filesize_metric: false,
             table_mode: "rounded".into(),
+            external_completer: None,
             use_ls_colors: true,
             color_config: HashMap::new(),
             use_grid_icons: false,
@@ -117,6 +120,7 @@ impl Default for Config {
             enable_external_completion: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             show_banner: true,
+            show_clickable_links_in_ls: true,
         }
     }
 }
@@ -179,6 +183,11 @@ impl Value {
                             config.filesize_metric = b;
                         } else {
                             eprintln!("$config.filesize_metric is not a bool")
+                        }
+                    }
+                    "external_completer" => {
+                        if let Ok(v) = value.as_block() {
+                            config.external_completer = Some(v)
                         }
                     }
                     "table_mode" => {
@@ -395,6 +404,13 @@ impl Value {
                             config.show_banner = b;
                         } else {
                             eprintln!("$config.show_banner is not a bool")
+                        }
+                    }
+                    "show_clickable_links_in_ls" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.show_clickable_links_in_ls = b;
+                        } else {
+                            eprintln!("$config.show_clickable_links_in_ls is not a bool")
                         }
                     }
                     x => {

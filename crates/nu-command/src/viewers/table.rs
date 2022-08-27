@@ -9,12 +9,14 @@ use nu_protocol::{
 };
 use nu_table::{Alignments, StyledString, TableTheme, TextStyle};
 use nu_utils::get_ls_colors;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
+use std::{
+    path::PathBuf,
+    sync::atomic::{AtomicBool, Ordering},
+};
 use terminal_size::{Height, Width};
-
-//use super::lscolor_ansiterm::ToNuAnsiStyle;
+use url::Url;
 
 const STREAM_PAGE_SIZE: usize = 1000;
 const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
@@ -258,9 +260,10 @@ fn handle_row_stream(
                 None => None,
             };
             let ls_colors = get_ls_colors(ls_colors_env_str);
+            let show_clickable_links = config.show_clickable_links_in_ls;
 
             ListStream::from_stream(
-                stream.map(move |mut x| match &mut x {
+                stream.map(move |(mut x, _)| match &mut x {
                     Value::Record { cols, vals, .. } => {
                         let mut idx = 0;
 
@@ -279,9 +282,20 @@ fn handle_row_stream(
                                                 .unwrap_or_default();
                                             let use_ls_colors = config.use_ls_colors;
 
+                                            let full_path = PathBuf::from(path.clone())
+                                                .canonicalize()
+                                                .unwrap_or_else(|_| PathBuf::from(path));
+                                            let full_path_link = make_clickable_link(
+                                                full_path.display().to_string(),
+                                                Some(&path.clone()),
+                                                show_clickable_links,
+                                            );
+
                                             if use_ls_colors {
                                                 vals[idx] = Value::String {
-                                                    val: ansi_style.apply(path).to_string(),
+                                                    val: ansi_style
+                                                        .apply(full_path_link)
+                                                        .to_string(),
                                                     span: *span,
                                                 };
                                             }
@@ -294,9 +308,20 @@ fn handle_row_stream(
                                                 .unwrap_or_default();
                                             let use_ls_colors = config.use_ls_colors;
 
+                                            let full_path = PathBuf::from(path.clone())
+                                                .canonicalize()
+                                                .unwrap_or_else(|_| PathBuf::from(path));
+                                            let full_path_link = make_clickable_link(
+                                                full_path.display().to_string(),
+                                                Some(&path.clone()),
+                                                show_clickable_links,
+                                            );
+
                                             if use_ls_colors {
                                                 vals[idx] = Value::String {
-                                                    val: ansi_style.apply(path).to_string(),
+                                                    val: ansi_style
+                                                        .apply(full_path_link)
+                                                        .to_string(),
                                                     span: *span,
                                                 };
                                             }
@@ -339,6 +364,30 @@ fn handle_row_stream(
         span: head,
         metadata: None,
     })
+}
+
+fn make_clickable_link(
+    full_path: String,
+    link_name: Option<&str>,
+    show_clickable_links: bool,
+) -> String {
+    // uri's based on this https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+
+    if show_clickable_links {
+        format!(
+            "\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\",
+            match Url::from_file_path(full_path.clone()) {
+                Ok(url) => url.to_string(),
+                Err(_) => full_path.clone(),
+            },
+            link_name.unwrap_or(full_path.as_str())
+        )
+    } else {
+        match link_name {
+            Some(link_name) => link_name.to_string(),
+            None => full_path,
+        }
+    }
 }
 
 fn convert_to_table(
@@ -512,7 +561,11 @@ impl Iterator for PagingTableCreator {
         let mut idx = 0;
 
         // Pull from stream until time runs out or we have enough items
-        for item in self.stream.by_ref() {
+        for (mut item, formatter) in self.stream.by_ref() {
+            if let Some(formatter) = formatter {
+                item = formatter.format(item);
+            }
+
             batch.push(item);
             idx += 1;
 
@@ -575,5 +628,72 @@ fn load_theme_from_config(config: &Config) -> TableTheme {
         "heavy" => nu_table::TableTheme::heavy(),
         "none" => nu_table::TableTheme::none(),
         _ => nu_table::TableTheme::rounded(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nu_protocol::ValueFormatter;
+
+    use super::*;
+
+    #[test]
+    fn list_stream_value_formatters() {
+        let span = Span::test_data();
+        let ctrlc = None;
+        let config = Config {
+            use_ansi_coloring: false,
+            ..<_>::default()
+        };
+
+        let hex_formatter = ValueFormatter::from_fn(|value| {
+            let (value, span) = match value {
+                Value::Int { val, span } => (val, span),
+                _ => return value,
+            };
+            let value = format!("0x{:016x}", value);
+
+            Value::string(value, span)
+        });
+
+        let stream = ListStream::from_stream(
+            [
+                (Value::int(42, span), Some(hex_formatter.clone())),
+                (Value::int(777, span), None),
+                (Value::int(-1, span), Some(hex_formatter)),
+            ]
+            .into_iter(),
+            ctrlc.clone(),
+        );
+
+        let paging_table_creator = PagingTableCreator {
+            head: span,
+            stream,
+            ctrlc,
+            config,
+            row_offset: 0,
+            width_param: Some(80),
+        };
+
+        let mut output = Vec::new();
+
+        for chunk in paging_table_creator {
+            let chunk = chunk.unwrap();
+
+            output.extend(chunk);
+        }
+
+        let output = String::from_utf8(output).unwrap();
+
+        assert_eq!(
+            output,
+            concat!(
+                "╭───┬────────────────────╮\n",
+                "│ 0 │ 0x000000000000002a │\n",
+                "│ 1 │                777 │\n",
+                "│ 2 │ 0xffffffffffffffff │\n",
+                "╰───┴────────────────────╯"
+            )
+        )
     }
 }

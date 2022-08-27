@@ -66,3 +66,9 @@ cargo build
   ```shell
   cargo run --release --features=extra -- --log-level trace
   ```
+
+- To redirect trace logs to a file, enable the `--log-target file` switch.
+  ```shell
+  cargo run --release --features=extra -- --log-level trace --log-target file
+  open $"($nu.temp-path)/nu-($nu.pid).log"
+  ```

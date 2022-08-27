@@ -10,7 +10,7 @@ fn copies_a_file() {
         nu!(
             cwd: dirs.root(),
             "cp `{}` cp_test_1/sample.ini",
-            dirs.formats().join("sample.ini")
+            dirs.formats().join("sample.ini").display()
         );
 
         assert!(dirs.test().join("sample.ini").exists());
@@ -37,7 +37,7 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory() {
     Playground::setup("cp_test_3", |dirs, _| {
         let actual = nu!(
             cwd: dirs.formats(),
-            "cp ../formats {}", dirs.test()
+            "cp ../formats {}", dirs.test().display()
         );
 
         assert!(actual.err.contains("../formats"));
@@ -128,7 +128,7 @@ fn copies_using_path_with_wildcard() {
     Playground::setup("cp_test_6", |dirs, _| {
         nu!(
             cwd: dirs.formats(),
-            "cp -r ../formats/* {}", dirs.test()
+            "cp -r ../formats/* {}", dirs.test().display()
         );
 
         assert!(files_exist_at(
@@ -150,7 +150,7 @@ fn copies_using_a_glob() {
     Playground::setup("cp_test_7", |dirs, _| {
         nu!(
             cwd: dirs.formats(),
-            "cp -r * {}", dirs.test()
+            "cp -r * {}", dirs.test().display()
         );
 
         assert!(files_exist_at(
@@ -173,13 +173,13 @@ fn copies_same_file_twice() {
         nu!(
             cwd: dirs.root(),
             "cp `{}` cp_test_8/sample.ini",
-            dirs.formats().join("sample.ini")
+            dirs.formats().join("sample.ini").display()
         );
 
         nu!(
             cwd: dirs.root(),
             "cp `{}` cp_test_8/sample.ini",
-            dirs.formats().join("sample.ini")
+            dirs.formats().join("sample.ini").display()
         );
 
         assert!(dirs.test().join("sample.ini").exists());
@@ -286,7 +286,7 @@ fn copy_dir_contains_symlink() {
         // make symbolic link and copy.
         nu!(
             cwd: sandbox.cwd(),
-            "rm tmp_dir/good_bye; cp -r -p tmp_dir tmp_dir_2",
+            "rm tmp_dir/good_bye; cp -r -n tmp_dir tmp_dir_2",
         );
 
         // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` also exists inside `tmp_dir_2`.
@@ -309,7 +309,7 @@ fn copy_dir_symlink_file_body_not_changed() {
         // make symbolic link and copy.
         nu!(
             cwd: sandbox.cwd(),
-            "rm tmp_dir/good_bye; cp -r -p tmp_dir tmp_dir_2; rm -r tmp_dir; cp -r -p tmp_dir_2 tmp_dir; echo hello_data | save tmp_dir/good_bye",
+            "rm tmp_dir/good_bye; cp -r -n tmp_dir tmp_dir_2; rm -r tmp_dir; cp -r -n tmp_dir_2 tmp_dir; echo hello_data | save tmp_dir/good_bye",
         );
 
         // check dangle_symlink in tmp_dir is no longer dangling.

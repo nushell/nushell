@@ -22,7 +22,7 @@ impl Command for Url {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["url", "network", "parse"]
+        vec!["network", "parse"]
     }
 
     fn run(

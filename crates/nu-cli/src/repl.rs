@@ -16,7 +16,7 @@ use nu_protocol::{
     ast::PathMember,
     engine::{EngineState, Stack, StateWorkingSet},
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
-    Type, Value, VarId,
+    Spanned, Type, Value, VarId,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
 use std::io::{self, Write};
@@ -39,6 +39,7 @@ pub fn evaluate_repl(
     stack: &mut Stack,
     nushell_path: &str,
     is_perf_true: bool,
+    prerun_command: Option<Spanned<String>>,
 ) -> Result<()> {
     use reedline::{FileBackedHistory, Reedline, Signal};
 
@@ -138,6 +139,17 @@ pub fn evaluate_repl(
 
             println!("{}", stripped_string);
         }
+    }
+
+    if let Some(s) = prerun_command {
+        eval_source(
+            engine_state,
+            stack,
+            s.item.as_bytes(),
+            &format!("entry #{}", entry_num),
+            PipelineData::new(Span::new(0, 0)),
+        );
+        engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
     }
 
     loop {
@@ -786,9 +798,6 @@ pub fn eval_hook(
                         for var_id in var_ids.iter() {
                             stack.vars.remove(var_id);
                         }
-
-                        let cwd = get_guaranteed_cwd(engine_state, stack);
-                        engine_state.merge_env(stack, cwd)?;
                     }
                     Value::Block {
                         val: block_id,
@@ -796,8 +805,6 @@ pub fn eval_hook(
                         ..
                     } => {
                         run_hook_block(engine_state, stack, block_id, arguments, block_span)?;
-                        let cwd = get_guaranteed_cwd(engine_state, stack);
-                        engine_state.merge_env(stack, cwd)?;
                     }
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
@@ -824,6 +831,9 @@ pub fn eval_hook(
             ));
         }
     }
+
+    let cwd = get_guaranteed_cwd(engine_state, stack);
+    engine_state.merge_env(stack, cwd)?;
 
     Ok(())
 }

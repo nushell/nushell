@@ -26,7 +26,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["url", "query", "parameter"]
+        vec!["parameter"]
     }
 
     fn run(

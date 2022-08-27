@@ -40,7 +40,7 @@ impl Command for Rm {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["rm", "remove"]
+        vec!["delete", "remove"]
     }
 
     fn signature(&self) -> Signature {

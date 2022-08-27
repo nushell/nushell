@@ -8,7 +8,6 @@ use core::panic;
 use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::path::Path;
-#[cfg(feature = "plugin")]
 use std::path::PathBuf;
 use std::{
     collections::HashMap,
@@ -77,6 +76,7 @@ pub struct EngineState {
     pub plugin_signatures: Option<PathBuf>,
     #[cfg(not(windows))]
     sig_quit: Option<Arc<AtomicBool>>,
+    config_path: HashMap<String, PathBuf>,
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
@@ -101,7 +101,11 @@ impl EngineState {
             blocks: vec![],
             modules: vec![Module::new()],
             // make sure we have some default overlay:
-            scope: ScopeFrame::with_empty_overlay(DEFAULT_OVERLAY_NAME.as_bytes().to_vec(), 0),
+            scope: ScopeFrame::with_empty_overlay(
+                DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
+                0,
+                false,
+            ),
             ctrlc: None,
             env_vars: EnvVars::from([(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]),
             previous_env_vars: HashMap::new(),
@@ -110,6 +114,7 @@ impl EngineState {
             plugin_signatures: None,
             #[cfg(not(windows))]
             sig_quit: None,
+            config_path: HashMap::new(),
         }
     }
 
@@ -573,8 +578,7 @@ impl EngineState {
                 return &contents[(span.start - start)..(span.end - start)];
             }
         }
-
-        panic!("internal error: span missing in file contents cache")
+        &[0u8; 0]
     }
 
     pub fn get_config(&self) -> &Config {
@@ -751,6 +755,14 @@ impl EngineState {
     pub fn set_sig_quit(&mut self, sig_quit: Arc<AtomicBool>) {
         self.sig_quit = Some(sig_quit)
     }
+
+    pub fn set_config_path(&mut self, key: &str, val: PathBuf) {
+        self.config_path.insert(key.to_string(), val);
+    }
+
+    pub fn get_config_path(&self, key: &str) -> Option<&PathBuf> {
+        self.config_path.get(key)
+    }
 }
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
@@ -832,9 +844,11 @@ pub struct StateDelta {
 
 impl StateDelta {
     pub fn new(engine_state: &EngineState) -> Self {
+        let last_overlay = engine_state.last_overlay(&[]);
         let scope_frame = ScopeFrame::with_empty_overlay(
             engine_state.last_overlay_name(&[]).to_owned(),
-            engine_state.last_overlay(&[]).origin,
+            last_overlay.origin,
+            last_overlay.prefixed,
         );
 
         StateDelta {
@@ -1287,7 +1301,13 @@ impl<'a> StateWorkingSet<'a> {
         if permanent_end <= span.start {
             for (contents, start, finish) in &self.delta.file_contents {
                 if (span.start >= *start) && (span.end <= *finish) {
-                    return &contents[(span.start - start)..(span.end - start)];
+                    let begin = span.start - start;
+                    let mut end = span.end - start;
+                    if begin > end {
+                        end = *finish - permanent_end;
+                    }
+
+                    return &contents[begin..end];
                 }
             }
         } else {
@@ -1726,16 +1746,16 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.has_overlay(name)
     }
 
-    pub fn find_overlay_origin(&self, name: &[u8]) -> Option<ModuleId> {
+    pub fn find_overlay(&self, name: &[u8]) -> Option<&OverlayFrame> {
         for scope_frame in self.delta.scope.iter().rev() {
             if let Some(overlay_id) = scope_frame.find_overlay(name) {
-                return Some(scope_frame.get_overlay(overlay_id).origin);
+                return Some(scope_frame.get_overlay(overlay_id));
             }
         }
 
         self.permanent_state
             .find_overlay(name)
-            .map(|id| self.permanent_state.get_overlay(id).origin)
+            .map(|id| self.permanent_state.get_overlay(id))
     }
 
     pub fn last_overlay_name(&self) -> &Vec<u8> {
@@ -1775,9 +1795,11 @@ impl<'a> StateWorkingSet<'a> {
     pub fn last_overlay_mut(&mut self) -> &mut OverlayFrame {
         if self.delta.last_overlay_mut().is_none() {
             // If there is no overlay, automatically activate the last one
+            let overlay_frame = self.last_overlay();
             let name = self.last_overlay_name().to_vec();
-            let origin = self.last_overlay().origin;
-            self.add_overlay(name, origin, vec![], vec![]);
+            let origin = overlay_frame.origin;
+            let prefixed = overlay_frame.prefixed;
+            self.add_overlay(name, origin, vec![], vec![], prefixed);
         }
 
         self.delta
@@ -1841,6 +1863,7 @@ impl<'a> StateWorkingSet<'a> {
         origin: ModuleId,
         decls: Vec<(Vec<u8>, DeclId)>,
         aliases: Vec<(Vec<u8>, AliasId)>,
+        prefixed: bool,
     ) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
@@ -1855,7 +1878,7 @@ impl<'a> StateWorkingSet<'a> {
         } else {
             last_scope_frame
                 .overlays
-                .push((name, OverlayFrame::from_origin(origin)));
+                .push((name, OverlayFrame::from_origin(origin, prefixed)));
             last_scope_frame.overlays.len() - 1
         };
 
@@ -1873,7 +1896,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
 
-        let removed_overlay_origin = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
+        let maybe_module_id = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
             last_scope_frame
                 .active_overlays
                 .retain(|id| id != &overlay_id);
@@ -1885,7 +1908,7 @@ impl<'a> StateWorkingSet<'a> {
                 .map(|id| self.permanent_state.get_overlay(id).origin)
         };
 
-        if let Some(module_id) = removed_overlay_origin {
+        if let Some(module_id) = maybe_module_id {
             last_scope_frame.removed_overlays.push(name.to_owned());
 
             if keep_custom {

@@ -146,7 +146,7 @@ fn select(
                 .set_metadata(metadata))
         }
         PipelineData::ListStream(stream, metadata, ..) => Ok(stream
-            .map(move |x| {
+            .map(move |(x, _)| {
                 if !columns.is_empty() {
                     let mut cols = vec![];
                     let mut vals = vec![];
@@ -207,7 +207,7 @@ impl Iterator for NthIterator {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if !self.skip {
-                if let Some(row) = self.rows.get(0) {
+                if let Some(row) = self.rows.first() {
                     if self.current == *row {
                         self.rows.remove(0);
                         self.current += 1;
@@ -220,7 +220,7 @@ impl Iterator for NthIterator {
                 } else {
                     return None;
                 }
-            } else if let Some(row) = self.rows.get(0) {
+            } else if let Some(row) = self.rows.first() {
                 if self.current == *row {
                     self.rows.remove(0);
                     self.current += 1;

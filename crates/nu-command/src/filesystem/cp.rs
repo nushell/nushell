@@ -36,7 +36,7 @@ impl Command for Cp {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["cp", "copy", "file", "files"]
+        vec!["copy", "file", "files"]
     }
 
     fn signature(&self) -> Signature {
@@ -50,16 +50,16 @@ impl Command for Cp {
             )
             .switch(
                 "verbose",
-                "do copy in verbose mode (default:false)",
+                "show successful copies in addition to failed copies (default:false)",
                 Some('v'),
             )
             // TODO: add back in additional features
             // .switch("force", "suppress error when no file", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
             .switch(
-                "no-dereference",
-                "If the -r option is specified, no symbolic links are followed.",
-                Some('p'),
+                "no-symlink",
+                "no symbolic links are followed, only works if -r is active",
+                Some('n'),
             )
             .category(Category::FileSystem)
     }
@@ -218,7 +218,7 @@ impl Command for Cp {
                     )
                 })?;
 
-                let not_follow_symlink = call.has_flag("no-dereference");
+                let not_follow_symlink = call.has_flag("no-symlink");
                 let sources = sources.paths_applying_with(|(source_file, depth_level)| {
                     let mut dest = destination.clone();
 
@@ -285,7 +285,11 @@ impl Command for Cp {
         if verbose {
             Ok(result.into_iter().into_pipeline_data(ctrlc))
         } else {
-            Ok(PipelineData::new(span))
+            // filter to only errors
+            Ok(result
+                .into_iter()
+                .filter(|v| matches!(v, Value::Error { .. }))
+                .into_pipeline_data(ctrlc))
         }
     }
 
@@ -348,9 +352,22 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
             Value::String { val: msg, span }
         }
-        Err(e) => Value::Error {
-            error: ShellError::FileNotFoundCustom(format!("copy file {src:?} failed: {e}"), span),
-        },
+        Err(e) => {
+            let message = format!("copy file {src:?} failed: {e}");
+
+            use std::io::ErrorKind;
+            let shell_error = match e.kind() {
+                ErrorKind::NotFound => ShellError::FileNotFoundCustom(message, span),
+                ErrorKind::PermissionDenied => ShellError::PermissionDeniedError(message, span),
+                ErrorKind::Interrupted => ShellError::IOInterrupted(message, span),
+                ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message, span),
+                // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
+                // https://github.com/rust-lang/rust/issues/86442
+                _ => ShellError::IOErrorSpanned(message, span),
+            };
+
+            Value::Error { error: shell_error }
+        }
     }
 }
 

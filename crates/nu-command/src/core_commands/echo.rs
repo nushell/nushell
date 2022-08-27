@@ -34,28 +34,32 @@ impl Command for Echo {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        call.rest(engine_state, stack, 0).map(|to_be_echoed| {
-            let n = to_be_echoed.len();
-            match n.cmp(&1usize) {
-                //  More than one value is converted in a stream of values
-                std::cmp::Ordering::Greater => PipelineData::ListStream(
-                    ListStream::from_stream(to_be_echoed.into_iter(), engine_state.ctrlc.clone()),
-                    None,
-                ),
+        call.rest(engine_state, stack, 0)
+            .map(|to_be_echoed: Vec<Value>| {
+                let n = to_be_echoed.len();
+                match n.cmp(&1usize) {
+                    //  More than one value is converted in a stream of values
+                    std::cmp::Ordering::Greater => PipelineData::ListStream(
+                        ListStream::from_stream(
+                            to_be_echoed.into_iter(),
+                            engine_state.ctrlc.clone(),
+                        ),
+                        None,
+                    ),
 
-                //  But a single value can be forwarded as it is
-                std::cmp::Ordering::Equal => PipelineData::Value(to_be_echoed[0].clone(), None),
+                    //  But a single value can be forwarded as it is
+                    std::cmp::Ordering::Equal => PipelineData::Value(to_be_echoed[0].clone(), None),
 
-                //  When there are no elements, we echo the empty string
-                std::cmp::Ordering::Less => PipelineData::Value(
-                    Value::String {
-                        val: "".to_string(),
-                        span: call.head,
-                    },
-                    None,
-                ),
-            }
-        })
+                    //  When there are no elements, we echo the empty string
+                    std::cmp::Ordering::Less => PipelineData::Value(
+                        Value::String {
+                            val: "".to_string(),
+                            span: call.head,
+                        },
+                        None,
+                    ),
+                }
+            })
     }
 
     fn examples(&self) -> Vec<Example> {

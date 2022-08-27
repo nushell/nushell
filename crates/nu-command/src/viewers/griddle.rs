@@ -90,7 +90,7 @@ prints out the list properly."#
             }
             PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
-                let data = convert_to_list(stream, config, call.head);
+                let data = convert_to_list(stream.map(|(v, _)| v), config, call.head);
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,

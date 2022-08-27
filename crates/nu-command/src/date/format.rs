@@ -1,5 +1,4 @@
-use chrono::Local;
-use chrono::{DateTime, TimeZone};
+use chrono::{DateTime, Local, Locale, TimeZone};
 
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -7,6 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
+use nu_utils::locale::get_system_locale_string;
 use std::fmt::{Display, Write};
 
 use super::utils::parse_date_from_string;
@@ -35,7 +35,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["date", "format", "strftime"]
+        vec!["fmt", "strftime"]
     }
 
     fn run(
@@ -98,7 +98,13 @@ where
     Tz::Offset: Display,
 {
     let mut formatter_buf = String::new();
-    let format = date_time.format(formatter);
+    let locale: Locale = get_system_locale_string()
+        .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
+        .unwrap_or_else(|| String::from("en_US"))
+        .as_str()
+        .try_into()
+        .unwrap_or(Locale::en_US);
+    let format = date_time.format_localized(formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{}", format)) {
         Ok(_) => Value::String {

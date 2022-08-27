@@ -49,7 +49,7 @@ impl Command for IntoSqliteDb {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "sqlite", "database"]
+        vec!["convert", "database"]
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -140,7 +140,7 @@ fn action(
                                     })
                                     .join(",")
                             }
-                            // Number is formats so keep them without quotes
+                            // Number formats so keep them without quotes
                             Value::Int { val: _, span: _ }
                             | Value::Float { val: _, span: _ }
                             | Value::Filesize { val: _, span: _ }
@@ -246,7 +246,17 @@ fn nu_value_to_string(value: Value, separator: &str, config: &Config) -> String 
                 nu_value_to_string(val.to, ", ", config)
             )
         }
-        Value::String { val, .. } => val,
+        Value::String { val, .. } => {
+            // don't store ansi escape sequences in the database
+            let stripped = {
+                match strip_ansi_escapes::strip(&val) {
+                    Ok(item) => String::from_utf8(item).unwrap_or(val),
+                    Err(_) => val,
+                }
+            };
+            // escape single quotes
+            stripped.replace('\'', "''")
+        }
         Value::List { vals: val, .. } => val
             .iter()
             .map(|x| nu_value_to_string(x.clone(), ", ", config))

@@ -52,7 +52,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pattern", "match", "find", "search", "index"]
+        vec!["pattern", "match", "find", "search"]
     }
 
     fn run(
@@ -217,7 +217,7 @@ fn process_range(
         Value::String { val: s, .. } => {
             let indexes: Vec<&str> = s.split(',').collect();
 
-            let start_index = indexes.get(0).unwrap_or(&&min_index_str[..]).to_string();
+            let start_index = indexes.first().unwrap_or(&&min_index_str[..]).to_string();
 
             let end_index = indexes.get(1).unwrap_or(&&max_index_str[..]).to_string();
 

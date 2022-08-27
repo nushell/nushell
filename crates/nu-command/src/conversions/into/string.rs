@@ -5,8 +5,8 @@ use nu_protocol::{
     into_code, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature,
     Span, SyntaxShape, Value,
 };
-
-// TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
+use nu_utils::get_system_locale;
+use num_format::ToFormattedString;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -38,7 +38,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "str", "text"]
+        vec!["convert", "text"]
     }
 
     fn run(
@@ -216,21 +216,8 @@ pub fn action(
 ) -> Value {
     match input {
         Value::Int { val, .. } => {
-            let res = if group_digits {
-                format_int(*val) // int.to_formatted_string(*locale)
-            } else if let Some(dig) = digits {
-                let mut val_with_trailing_zeroes = val.to_string();
-                if dig != 0 {
-                    val_with_trailing_zeroes.push('.');
-                }
-                for _ in 0..dig {
-                    val_with_trailing_zeroes.push('0');
-                }
-                val_with_trailing_zeroes
-            } else {
-                val.to_string()
-            };
-
+            let decimal_value = digits.unwrap_or(0) as usize;
+            let res = format_int(*val, group_digits, decimal_value);
             Value::String { val: res, span }
         }
         Value::Float { val, .. } => {
@@ -305,21 +292,29 @@ pub fn action(
         },
     }
 }
-fn format_int(int: i64) -> String {
-    int.to_string()
 
-    // TODO once platform-specific dependencies are stable (see Cargo.toml)
-    // #[cfg(windows)]
-    // {
-    //     int.to_formatted_string(&Locale::en)
-    // }
-    // #[cfg(not(windows))]
-    // {
-    //     match SystemLocale::default() {
-    //         Ok(locale) => int.to_formatted_string(&locale),
-    //         Err(_) => int.to_formatted_string(&Locale::en),
-    //     }
-    // }
+fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
+    let locale = get_system_locale();
+
+    let str = if group_digits {
+        int.to_formatted_string(&locale)
+    } else {
+        int.to_string()
+    };
+
+    if decimals > 0 {
+        let decimal_point = locale.decimal();
+
+        format!(
+            "{}{decimal_point}{dummy:0<decimals$}",
+            str,
+            decimal_point = decimal_point,
+            dummy = "",
+            decimals = decimals
+        )
+    } else {
+        str
+    }
 }
 
 #[cfg(test)]

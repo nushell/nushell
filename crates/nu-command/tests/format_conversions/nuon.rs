@@ -238,3 +238,32 @@ fn float_nan_parsed_properly() {
 
     assert_eq!(actual.out, "NaN")
 }
+
+#[test]
+fn to_nuon_converts_columns_with_spaces() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+            r#"
+    let test = [[a, b, "c d"]; [1 2 3] [4 5 6]]; $test | to nuon | from nuon
+    "#
+    ));
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn to_nuon_does_not_quote_unnecessarily() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+            r#"
+        let test = [["a", "b", "c d"]; [1 2 3] [4 5 6]]; $test | to nuon
+    "#
+    ));
+    assert_eq!(actual.out, "[[a, b, \"c d\"]; [1, 2, 3], [4, 5, 6]]");
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+            r#"
+         let a = {"ro name": "sam" rank: 10}; $a | to nuon
+    "#
+    ));
+    assert_eq!(actual.out, "{\"ro name\": sam, rank: 10}");
+}

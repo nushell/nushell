@@ -25,7 +25,7 @@ impl Command for Length {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["count", "len", "size", "wc"]
+        vec!["count", "size", "wc"]
     }
 
     fn run(
@@ -107,7 +107,7 @@ fn getcol(
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         }
         PipelineData::ListStream(stream, ..) => {
-            let v: Vec<_> = stream.into_iter().collect();
+            let v: Vec<_> = stream.into_iter().map(|(v, _)| v).collect();
             let input_cols = get_columns(&v);
 
             Ok(input_cols

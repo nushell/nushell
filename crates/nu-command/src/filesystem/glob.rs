@@ -33,7 +33,7 @@ impl Command for Glob {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["glob", "files", "folders", "list", "ls"]
+        vec!["pattern", "files", "folders", "list", "ls"]
     }
 
     fn examples(&self) -> Vec<Example> {

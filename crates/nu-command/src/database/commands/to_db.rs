@@ -30,7 +30,7 @@ impl Command for ToDataBase {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "into", "db"]
+        vec!["database", "convert"]
     }
 
     fn examples(&self) -> Vec<Example> {

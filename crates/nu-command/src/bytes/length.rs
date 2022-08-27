@@ -39,7 +39,7 @@ impl Command for BytesLen {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["len", "size", "count"]
+        vec!["size", "count"]
     }
 
     fn run(

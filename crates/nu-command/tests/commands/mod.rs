@@ -48,6 +48,7 @@ mod open;
 mod p;
 mod parse;
 mod path;
+mod platform;
 mod prepend;
 mod print;
 #[cfg(feature = "database")]

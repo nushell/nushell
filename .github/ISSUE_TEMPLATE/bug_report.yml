@@ -53,7 +53,7 @@ body:
         | features           | clipboard-cli, ctrlc, dataframe, default, rustyline, term, trash, uuid, which, zip                                                                                      |
         | installed_plugins  | binaryview, chart bar, chart line, fetch, from bson, from sqlite, inc, match, post, ps, query json, s3, selector, start, sys, textview, to bson, to sqlite, tree, xpath |
     validations:
-      required: false
+      required: true
   - type: textarea
     id: context
     attributes:

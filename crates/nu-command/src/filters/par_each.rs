@@ -170,7 +170,7 @@ impl Command for ParEach {
             PipelineData::ListStream(stream, ..) => Ok(stream
                 .enumerate()
                 .par_bridge()
-                .map(move |(idx, x)| {
+                .map(move |(idx, (x, _))| {
                     let block = engine_state.get_block(block_id);
 
                     let mut stack = stack.clone();

@@ -159,20 +159,7 @@ pub fn eval_call(
         );
 
         if block.redirect_env {
-            let caller_env_vars = caller_stack.get_env_var_names(engine_state);
-
-            // remove env vars that are present in the caller but not in the callee
-            // (the callee hid them)
-            for var in caller_env_vars.iter() {
-                if !callee_stack.has_env_var(engine_state, var) {
-                    caller_stack.remove_env_var(engine_state, var);
-                }
-            }
-
-            // add new env vars from callee to caller
-            for (var, value) in callee_stack.get_stack_env_vars() {
-                caller_stack.add_env_var(var, value);
-            }
+            redirect_env(engine_state, caller_stack, &callee_stack);
         }
 
         result
@@ -181,6 +168,24 @@ pub fn eval_call(
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
         decl.run(engine_state, caller_stack, call, input)
+    }
+}
+
+/// Redirect the environment from callee to the caller.
+pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_stack: &Stack) {
+    let caller_env_vars = caller_stack.get_env_var_names(engine_state);
+
+    // remove env vars that are present in the caller but not in the callee
+    // (the callee hid them)
+    for var in caller_env_vars.iter() {
+        if !callee_stack.has_env_var(engine_state, var) {
+            caller_stack.remove_env_var(engine_state, var);
+        }
+    }
+
+    // add new env vars from callee to caller
+    for (var, value) in callee_stack.get_stack_env_vars() {
+        caller_stack.add_env_var(var, value);
     }
 }
 
@@ -248,7 +253,10 @@ fn eval_external(
         match exit_code {
             Some(exit_code_stream) => {
                 let ctrlc = exit_code_stream.ctrlc.clone();
-                let exit_code: Vec<Value> = exit_code_stream.into_iter().collect();
+                let exit_code: Vec<Value> = exit_code_stream
+                    .into_iter()
+                    .map(|(value, _)| value)
+                    .collect();
                 if let Some(Value::Int { val: code, .. }) = exit_code.last() {
                     // if exit_code is not 0, it indicates error occured, return back Err.
                     if *code != 0 {
@@ -775,7 +783,7 @@ pub fn eval_block(
                     };
 
                     if let Some(exit_code) = exit_code {
-                        let mut v: Vec<_> = exit_code.collect();
+                        let mut v: Vec<_> = exit_code.map(|(value, _)| value).collect();
 
                         if let Some(v) = v.pop() {
                             stack.add_env_var("LAST_EXIT_CODE".into(), v);
@@ -845,7 +853,7 @@ fn extract_custom_completion_from_arg(engine_state: &EngineState, shape: &Syntax
     return match shape {
         SyntaxShape::Custom(_, custom_completion_decl_id) => {
             let custom_completion_command = engine_state.get_decl(*custom_completion_decl_id);
-            let custom_completion_command_name: &str = &*custom_completion_command.name();
+            let custom_completion_command_name: &str = custom_completion_command.name();
             custom_completion_command_name.to_string()
         }
         _ => "".to_string(),
@@ -1290,6 +1298,22 @@ pub fn eval_variable(
             let mut output_cols = vec![];
             let mut output_vals = vec![];
 
+            if let Some(path) = engine_state.get_config_path("config-path") {
+                output_cols.push("config-path".into());
+                output_vals.push(Value::String {
+                    val: path.to_string_lossy().to_string(),
+                    span,
+                });
+            }
+
+            if let Some(path) = engine_state.get_config_path("env-path") {
+                output_cols.push("env-path".into());
+                output_vals.push(Value::String {
+                    val: path.to_string_lossy().to_string(),
+                    span,
+                });
+            }
+
             if let Some(mut config_path) = nu_path::config_dir() {
                 config_path.push("nushell");
                 let mut env_config_path = config_path.clone();
@@ -1313,21 +1337,25 @@ pub fn eval_variable(
                     span,
                 });
 
-                config_path.push("config.nu");
+                if engine_state.get_config_path("config-path").is_none() {
+                    config_path.push("config.nu");
 
-                output_cols.push("config-path".into());
-                output_vals.push(Value::String {
-                    val: config_path.to_string_lossy().to_string(),
-                    span,
-                });
+                    output_cols.push("config-path".into());
+                    output_vals.push(Value::String {
+                        val: config_path.to_string_lossy().to_string(),
+                        span,
+                    });
+                }
 
-                env_config_path.push("env.nu");
+                if engine_state.get_config_path("env-path").is_none() {
+                    env_config_path.push("env.nu");
 
-                output_cols.push("env-path".into());
-                output_vals.push(Value::String {
-                    val: env_config_path.to_string_lossy().to_string(),
-                    span,
-                });
+                    output_cols.push("env-path".into());
+                    output_vals.push(Value::String {
+                        val: env_config_path.to_string_lossy().to_string(),
+                        span,
+                    });
+                }
 
                 loginshell_path.push("login.nu");
 

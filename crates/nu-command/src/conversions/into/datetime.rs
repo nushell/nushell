@@ -103,7 +103,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "date", "time", "timezone", "UTC"]
+        vec!["convert", "timezone", "UTC"]
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -311,7 +311,7 @@ fn action(
                 Some(dt) => match DateTime::parse_from_str(val, &dt.0) {
                     Ok(d) => Value::Date { val: d, span: head },
                     Err(reason) => {
-                        return Value::Error {
+                        Value::Error {
                             error: ShellError::CantConvert(
                                 format!("could not parse as datetime using format '{}'", dt.0),
                                 reason.to_string(),

@@ -4,20 +4,20 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
 
 #[derive(Clone)]
-pub struct OverlayRemove;
+pub struct OverlayHide;
 
-impl Command for OverlayRemove {
+impl Command for OverlayHide {
     fn name(&self) -> &str {
-        "overlay remove"
+        "overlay hide"
     }
 
     fn usage(&self) -> &str {
-        "Remove an active overlay"
+        "Hide an active overlay"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("overlay remove")
-            .optional("name", SyntaxShape::String, "Overlay to remove")
+        Signature::build("overlay hide")
+            .optional("name", SyntaxShape::String, "Overlay to hide")
             .switch(
                 "keep-custom",
                 "Keep all newly added symbols within the next activated overlay",
@@ -26,7 +26,7 @@ impl Command for OverlayRemove {
             .named(
                 "keep-env",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "List of environment variables to keep from the removed overlay",
+                "List of environment variables to keep from the hidden overlay",
                 Some('e'),
             )
             .category(Category::Core)
@@ -34,7 +34,7 @@ impl Command for OverlayRemove {
 
     fn extra_usage(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nushell.html"#
+  https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
     fn is_parser_keyword(&self) -> bool {
@@ -110,31 +110,31 @@ impl Command for OverlayRemove {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Remove an overlay created from a module",
+                description: "Hide an overlay created from a module",
                 example: r#"module spam { export def foo [] { "foo" } }
-    overlay add spam
-    overlay remove spam"#,
+    overlay use spam
+    overlay hide spam"#,
                 result: None,
             },
             Example {
-                description: "Remove an overlay created from a file",
+                description: "Hide an overlay created from a file",
                 example: r#"echo 'export alias f = "foo"' | save spam.nu
-    overlay add spam.nu
-    overlay remove spam"#,
+    overlay use spam.nu
+    overlay hide spam"#,
                 result: None,
             },
             Example {
-                description: "Remove the last activated overlay",
+                description: "Hide the last activated overlay",
                 example: r#"module spam { export env FOO { "foo" } }
-    overlay add spam
-    overlay remove"#,
+    overlay use spam
+    overlay hide"#,
                 result: None,
             },
             Example {
                 description: "Keep the current working directory when removing an overlay",
                 example: r#"overlay new spam
     cd some-dir
-    overlay remove --keep-env [ PWD ] spam"#,
+    overlay hide --keep-env [ PWD ] spam"#,
                 result: None,
             },
         ]

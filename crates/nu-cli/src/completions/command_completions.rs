@@ -11,6 +11,7 @@ pub struct CommandCompletion {
     engine_state: Arc<EngineState>,
     flattened: Vec<(Span, FlatShape)>,
     flat_shape: FlatShape,
+    force_completion_after_space: bool,
 }
 
 impl CommandCompletion {
@@ -19,11 +20,13 @@ impl CommandCompletion {
         _: &StateWorkingSet,
         flattened: Vec<(Span, FlatShape)>,
         flat_shape: FlatShape,
+        force_completion_after_space: bool,
     ) -> Self {
         Self {
             engine_state,
             flattened,
             flat_shape,
+            force_completion_after_space,
         }
     }
 
@@ -116,7 +119,8 @@ impl CommandCompletion {
 
         let partial = working_set.get_span_contents(span);
         let partial = String::from_utf8_lossy(partial).to_string();
-        let results = if find_externals {
+
+        if find_externals {
             let results_external = self
                 .external_command_completion(&partial, match_algorithm)
                 .into_iter()
@@ -148,9 +152,7 @@ impl CommandCompletion {
             results
         } else {
             results
-        };
-
-        results
+        }
     }
 }
 
@@ -207,6 +209,10 @@ impl Completer for CommandCompletion {
             || ((span.end - span.start) == 0)
         {
             // we're in a gap or at a command
+            if working_set.get_span_contents(span).is_empty() && !self.force_completion_after_space
+            {
+                return vec![];
+            }
             self.complete_commands(
                 working_set,
                 span,

@@ -7,8 +7,8 @@ mod unit;
 
 use crate::ast::Operator;
 use crate::ast::{CellPath, PathMember};
-use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
+use crate::{ShellError, ValueFormatter};
 use byte_unit::ByteUnit;
 use chrono::{DateTime, Duration, FixedOffset};
 use chrono_humanize::HumanTime;
@@ -16,7 +16,8 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 use indexmap::map::IndexMap;
-use num_format::{Locale, ToFormattedString};
+use nu_utils::get_system_locale;
+use num_format::ToFormattedString;
 pub use range::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -28,7 +29,6 @@ use std::{
     {cmp::Ordering, fmt::Debug},
 };
 pub use stream::*;
-use sys_locale::get_locale;
 pub use unit::*;
 
 /// Core structured values that pass through the pipeline in Nushell.
@@ -1124,6 +1124,12 @@ impl Default for Value {
         Value::Nothing {
             span: Span { start: 0, end: 0 },
         }
+    }
+}
+
+impl From<Value> for (Value, Option<ValueFormatter>) {
+    fn from(val: Value) -> Self {
+        (val, None)
     }
 }
 
@@ -2760,25 +2766,7 @@ pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool
 
     match adj_byte.get_unit() {
         byte_unit::ByteUnit::B => {
-            let locale_string = get_locale().unwrap_or_else(|| String::from("en-US"));
-            // Since get_locale() and Locale::from_name() don't always return the same items
-            // we need to try and parse it to match. For instance, a valid locale is de_DE
-            // however Locale::from_name() wants only de so we split and parse it out.
-            let locale_string = locale_string.replace('_', "-"); // en_AU -> en-AU
-            let locale = match Locale::from_name(&locale_string) {
-                Ok(loc) => loc,
-                _ => {
-                    let all = num_format::Locale::available_names();
-                    let locale_prefix = &locale_string.split('-').collect::<Vec<&str>>();
-                    if all.contains(&locale_prefix[0]) {
-                        // eprintln!("Found alternate: {}", &locale_prefix[0]);
-                        Locale::from_name(locale_prefix[0]).unwrap_or(Locale::en)
-                    } else {
-                        // eprintln!("Unable to find matching locale. Defaulting to en-US");
-                        Locale::en
-                    }
-                }
-            };
+            let locale = get_system_locale();
             let locale_byte = adj_byte.get_value() as u64;
             let locale_byte_string = locale_byte.to_formatted_string(&locale);
 

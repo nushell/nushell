@@ -25,7 +25,7 @@ impl Command for Touch {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["touch"]
+        vec!["create", "file"]
     }
 
     fn signature(&self) -> Signature {

@@ -31,7 +31,7 @@ impl Command for Mv {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["mv", "move"]
+        vec!["move"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -118,6 +118,21 @@ impl Command for Mv {
                 None,
                 Vec::new(),
             ));
+        }
+
+        if source.is_dir() && destination.is_dir() {
+            if let Some(name) = source.file_name() {
+                let dst = destination.join(name);
+                if dst.is_dir() {
+                    return Err(ShellError::GenericError(
+                        format!("Can't move {:?} to {:?}", source, dst),
+                        "Directory not empty".into(),
+                        Some(spanned_destination.span),
+                        None,
+                        Vec::new(),
+                    ));
+                }
+            }
         }
 
         let some_if_source_is_destination = sources

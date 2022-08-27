@@ -18,6 +18,7 @@ use nu_cli::{
 use nu_command::{create_default_context, BufferedReader};
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
+use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
@@ -25,7 +26,7 @@ use nu_protocol::{
     Spanned, SyntaxShape, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
-use std::cell::RefCell;
+use std::{cell::RefCell, path::Path};
 use std::{
     io::BufReader,
     sync::{
@@ -101,13 +102,13 @@ fn main() -> Result<()> {
         } else if arg.starts_with('-') {
             // Cool, it's a flag
             let flag_value = match arg.as_ref() {
-                "--commands" | "-c" | "--table-mode" | "-m" => {
+                "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" => {
                     args.next().map(|a| escape_quote_string(&a))
                 }
                 "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
                 #[cfg(feature = "plugin")]
                 "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-                "--log-level" | "--testbin" | "--threads" | "-t" => args.next(),
+                "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t" => args.next(),
                 _ => None,
             };
 
@@ -134,6 +135,32 @@ fn main() -> Result<()> {
 
     let parsed_nu_cli_args = parse_commandline_args(&nushell_commandline_args, &mut engine_state);
 
+    #[cfg(target_family = "unix")]
+    {
+        // This will block SIGTSTP, SIGTTOU, SIGTTIN, and SIGCHLD, which is required
+        // for this shell to manage its own process group / children / etc.
+        nu_system::signal::block();
+        nu_system::signal::set_terminal_leader()
+    }
+
+    if let Ok(ref args) = parsed_nu_cli_args {
+        set_config_path(
+            &mut engine_state,
+            &init_cwd,
+            "config.nu",
+            "config-path",
+            &args.config_file,
+        );
+
+        set_config_path(
+            &mut engine_state,
+            &init_cwd,
+            "env.nu",
+            "env-path",
+            &args.env_file,
+        );
+    }
+
     match parsed_nu_cli_args {
         Ok(binary_args) => {
             if let Some(t) = binary_args.threads {
@@ -157,10 +184,12 @@ fn main() -> Result<()> {
                     .map(|level| level.item)
                     .unwrap_or_else(|| "info".to_string());
 
-                logger(|builder| {
-                    configure(level.as_str(), builder)?;
-                    Ok(())
-                })?;
+                let target = binary_args
+                    .log_target
+                    .map(|target| target.item)
+                    .unwrap_or_else(|| "stderr".to_string());
+
+                logger(|builder| configure(level.as_str(), target.as_str(), builder))?;
                 info!("start logging {}:{}:{}", file!(), line!(), column!());
             }
 
@@ -339,6 +368,7 @@ fn main() -> Result<()> {
                     &mut stack,
                     config_files::NUSHELL_FOLDER,
                     is_perf_true(),
+                    binary_args.execute,
                 );
                 if is_perf_true() {
                     info!("repl eval {}:{}:{}", file!(), line!(), column!());
@@ -435,6 +465,8 @@ fn parse_commandline_args(
             let config_file: Option<Expression> = call.get_flag_expr("config");
             let env_file: Option<Expression> = call.get_flag_expr("env-config");
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
+            let log_target: Option<Expression> = call.get_flag_expr("log-target");
+            let execute: Option<Expression> = call.get_flag_expr("execute");
             let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
@@ -464,6 +496,8 @@ fn parse_commandline_args(
             let config_file = extract_contents(config_file)?;
             let env_file = extract_contents(env_file)?;
             let log_level = extract_contents(log_level)?;
+            let log_target = extract_contents(log_target)?;
+            let execute = extract_contents(execute)?;
 
             let help = call.has_flag("help");
 
@@ -496,6 +530,8 @@ fn parse_commandline_args(
                 config_file,
                 env_file,
                 log_level,
+                log_target,
+                execute,
                 perf,
                 threads,
                 table_mode,
@@ -521,6 +557,8 @@ struct NushellCliArgs {
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
     log_level: Option<Spanned<String>>,
+    log_target: Option<Spanned<String>>,
+    execute: Option<Spanned<String>>,
     perf: bool,
     threads: Option<Value>,
     table_mode: Option<Value>,
@@ -575,6 +613,18 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "log level for performance logs",
                 None,
+            )
+            .named(
+                "log-target",
+                SyntaxShape::String,
+                "set the target for the log to output. stdout, stderr(default), mixed or file",
+                None,
+            )
+            .named(
+                "execute",
+                SyntaxShape::String,
+                "run the given commands and then enter an interactive shell",
+                Some('e'),
             )
             .named(
                 "threads",
@@ -658,4 +708,25 @@ fn set_is_perf_value(value: bool) {
     IS_PERF.with(|new_value| {
         *new_value.borrow_mut() = value;
     });
+}
+
+fn set_config_path(
+    engine_state: &mut EngineState,
+    cwd: &Path,
+    default_config_name: &str,
+    key: &str,
+    config_file: &Option<Spanned<String>>,
+) {
+    let config_path = match config_file {
+        Some(s) => canonicalize_with(&s.item, cwd).ok(),
+        None => nu_path::config_dir().map(|mut p| {
+            p.push(config_files::NUSHELL_FOLDER);
+            p.push(default_config_name);
+            p
+        }),
+    };
+
+    if let Some(path) = config_path {
+        engine_state.set_config_path(key, path);
+    }
 }

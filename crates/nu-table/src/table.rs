@@ -298,7 +298,7 @@ impl TableOption for FooterStyle {
             return;
         }
 
-        if let Some(line) = grid.get_split_line(1) {
+        if let Some(line) = grid.clone().get_split_line(1) {
             grid.set_split_line(grid.count_rows() - 1, line.clone());
         }
     }

@@ -1,17 +1,18 @@
-use nu_protocol::ShellError;
-
 use crate::{
     plugin::PluginEncoder,
     protocol::{PluginCall, PluginResponse},
 };
+use nu_protocol::ShellError;
 
 pub mod capnp;
 pub mod json;
+pub mod msgpack;
 
 #[derive(Clone, Debug)]
 pub enum EncodingType {
     Capnp(capnp::CapnpSerializer),
     Json(json::JsonSerializer),
+    MsgPack(msgpack::MsgPackSerializer),
 }
 
 impl EncodingType {
@@ -19,6 +20,7 @@ impl EncodingType {
         match bytes {
             b"capnp" => Some(Self::Capnp(capnp::CapnpSerializer {})),
             b"json" => Some(Self::Json(json::JsonSerializer {})),
+            b"msgpack" => Some(Self::MsgPack(msgpack::MsgPackSerializer {})),
             _ => None,
         }
     }
@@ -31,6 +33,7 @@ impl EncodingType {
         match self {
             EncodingType::Capnp(encoder) => encoder.encode_call(plugin_call, writer),
             EncodingType::Json(encoder) => encoder.encode_call(plugin_call, writer),
+            EncodingType::MsgPack(encoder) => encoder.encode_call(plugin_call, writer),
         }
     }
 
@@ -41,6 +44,7 @@ impl EncodingType {
         match self {
             EncodingType::Capnp(encoder) => encoder.decode_call(reader),
             EncodingType::Json(encoder) => encoder.decode_call(reader),
+            EncodingType::MsgPack(encoder) => encoder.decode_call(reader),
         }
     }
 
@@ -52,6 +56,7 @@ impl EncodingType {
         match self {
             EncodingType::Capnp(encoder) => encoder.encode_response(plugin_response, writer),
             EncodingType::Json(encoder) => encoder.encode_response(plugin_response, writer),
+            EncodingType::MsgPack(encoder) => encoder.encode_response(plugin_response, writer),
         }
     }
 
@@ -62,6 +67,7 @@ impl EncodingType {
         match self {
             EncodingType::Capnp(encoder) => encoder.decode_response(reader),
             EncodingType::Json(encoder) => encoder.decode_response(reader),
+            EncodingType::MsgPack(encoder) => encoder.decode_response(reader),
         }
     }
 
@@ -69,6 +75,7 @@ impl EncodingType {
         match self {
             Self::Capnp(_) => "capnp",
             Self::Json(_) => "json",
+            Self::MsgPack(_) => "msgpack",
         }
     }
 }

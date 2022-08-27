@@ -3,9 +3,9 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, Signature, Span, SyntaxShape, Value};
 
 #[derive(Clone)]
-pub struct ExportEnv;
+pub struct ExportEnvModule;
 
-impl Command for ExportEnv {
+impl Command for ExportEnvModule {
     fn name(&self) -> &str {
         "export env"
     }
@@ -31,7 +31,7 @@ impl Command for ExportEnv {
 
     fn extra_usage(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nushell.html"#
+  https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
     fn is_parser_keyword(&self) -> bool {
