@@ -28,10 +28,6 @@ impl From<Span> for SourceSpan {
 
 impl Span {
     pub fn new(start: usize, end: usize) -> Span {
-        debug_assert!(
-            start <= end,
-            "a span must reflect a valid slice (begin <= end)"
-        );
         Span { start, end }
     }
 
