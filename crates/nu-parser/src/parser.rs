@@ -74,6 +74,10 @@ pub fn is_math_expression_like(
         return true;
     }
 
+    if bytes == b"nu" {
+        return false;
+    }
+
     let b = bytes[0];
 
     if b == b'('
@@ -112,6 +116,11 @@ pub fn is_math_expression_like(
         .1
         .is_none()
     {
+        return true;
+    }
+
+    let parsed_variable = parse_variable(working_set, span);
+    if parsed_variable.0.is_some() && parsed_variable.1.is_none() {
         return true;
     }
 
@@ -4209,6 +4218,7 @@ pub fn parse_value(
                     SyntaxShape::Duration,
                     SyntaxShape::Record,
                     SyntaxShape::Block(None),
+                    SyntaxShape::Variable,
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
