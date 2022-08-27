@@ -1,3 +1,5 @@
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code, pipeline};
 
 #[test]
@@ -766,4 +768,75 @@ fn overlay_use_export_env_hide() {
 
     assert!(actual.err.contains("did you mean"));
     assert!(actual_repl.err.contains("did you mean"));
+}
+
+#[test]
+fn overlay_use_dont_cd() {
+    Playground::setup("overlay_use_dont_cd", |dirs, sandbox| {
+        sandbox
+            .mkdir("test1/test2")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "test1/test2/spam.nu",
+                r#""#,
+            )]);
+
+        let inp = &[
+            r#"overlay use test1/test2/spam.nu"#,
+            r#"$env.PWD | path basename"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "overlay_use_dont_cd");
+    })
+}
+
+#[test]
+fn overlay_use_do_cd() {
+    Playground::setup("overlay_use_do_cd", |dirs, sandbox| {
+        sandbox
+            .mkdir("test1/test2")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "test1/test2/spam.nu",
+                r#"
+                    export-env { cd .. }
+                "#,
+            )]);
+
+        let inp = &[
+            r#"overlay use test1/test2/spam.nu"#,
+            r#"$env.PWD | path basename"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "test1");
+    })
+}
+
+#[test]
+fn overlay_use_dont_cd_overlay() {
+    Playground::setup("overlay_use_dont_cd_overlay", |dirs, sandbox| {
+        sandbox
+            .mkdir("test1/test2")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "test1/test2/spam.nu",
+                r#"
+                    export-env {
+                        overlay new spam
+                        cd ..
+                        overlay hide spam
+                    }
+                "#,
+            )]);
+
+        let inp = &[
+            r#"source-env test1/test2/spam.nu"#,
+            r#"$env.PWD | path basename"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "overlay_use_dont_cd_overlay");
+    })
 }

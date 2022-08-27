@@ -1,7 +1,9 @@
-use nu_engine::{eval_block, redirect_env, CallExt};
+use nu_engine::{eval_block, find_in_dirs_env, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+};
 
 use std::path::Path;
 
@@ -79,7 +81,7 @@ impl Command for OverlayUse {
             .find_overlay(name_arg.item.as_bytes())
             .is_some()
         {
-            (name_arg.item, name_arg.span)
+            (name_arg.item.clone(), name_arg.span)
         } else if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
             if let Some(name) = os_str.to_str() {
                 (name.to_string(), name_arg.span)
@@ -131,6 +133,22 @@ impl Command for OverlayUse {
 
                     // Evaluate the export-env block (if any) and keep its environment
                     if let Some(block_id) = module.env_block {
+                        let maybe_path =
+                            find_in_dirs_env(&name_arg.item, engine_state, caller_stack)?;
+
+                        if let Some(path) = &maybe_path {
+                            // Set the currently evaluated directory, if the argument is a valid path
+                            let mut parent = path.clone();
+                            parent.pop();
+
+                            let file_pwd = Value::String {
+                                val: parent.to_string_lossy().to_string(),
+                                span: call.head,
+                            };
+
+                            caller_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+                        }
+
                         let block = engine_state.get_block(block_id);
                         let mut callee_stack = caller_stack.gather_captures(&block.captures);
 
@@ -143,7 +161,13 @@ impl Command for OverlayUse {
                             call.redirect_stderr,
                         );
 
+                        // Merge the block's environment to the current stack
                         redirect_env(engine_state, caller_stack, &callee_stack);
+
+                        if maybe_path.is_some() {
+                            // Remove the file-relative PWD, if the argument is a valid path
+                            caller_stack.remove_env_var(engine_state, "FILE_PWD");
+                        }
                     }
                 }
             }

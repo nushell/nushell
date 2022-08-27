@@ -5,6 +5,8 @@ use nu_protocol::ast::PathMember;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 
+use nu_path::canonicalize_with;
+
 use crate::eval_block;
 
 #[cfg(windows)]
@@ -15,6 +17,8 @@ const ENV_PATH_NAME_SECONDARY: &str = "PATH";
 const ENV_PATH_NAME: &str = "PATH";
 
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
+
+static LIB_DIRS_ENV: &str = "NU_LIB_DIRS";
 
 enum ConversionResult {
     Ok(Value),
@@ -242,6 +246,65 @@ pub fn path_str(
 
     env_to_string(pathname, &pathval, engine_state, stack)
 }
+
+/// This helper function is used to find files during eval
+///
+/// First, the actual current working directory is selected as
+///   a) the directory of a file currently being parsed
+///   b) current working directory (PWD)
+///
+/// Then, if the file is not found in the actual cwd, NU_LIB_DIRS is checked.
+/// If there is a relative path in NU_LIB_DIRS, it is assumed to be relative to the actual cwd
+/// determined in the first step.
+///
+/// Always returns an absolute path
+pub fn find_in_dirs_env(
+    filename: &str,
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> Result<Option<PathBuf>, ShellError> {
+    let cwd = current_dir(engine_state, stack)?;
+
+    // Choose whether to use file-relative or PWD-relative path
+    // let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
+    //     currently_parsed_cwd.as_path()
+    // } else {
+    //     Path::new(cwd)
+    // };
+
+    if let Ok(p) = canonicalize_with(filename, &cwd) {
+        Ok(Some(p))
+    } else {
+        let path = Path::new(filename);
+
+        if path.is_relative() {
+            if let Some(lib_dirs) = stack.get_env_var(engine_state, LIB_DIRS_ENV) {
+                if let Ok(dirs) = lib_dirs.as_list() {
+                    for lib_dir in dirs {
+                        if let Ok(dir) = lib_dir.as_path() {
+                            // make sure the dir is absolute path
+                            if let Ok(dir_abs) = canonicalize_with(&dir, &cwd) {
+                                if let Ok(path) = canonicalize_with(filename, dir_abs) {
+                                    return Ok(Some(path));
+                                }
+                            }
+                        }
+                    }
+
+                    Ok(None)
+                } else {
+                    Ok(None)
+                }
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+
 
 fn get_converted_value(
     engine_state: &EngineState,
