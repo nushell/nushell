@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ast::{Call, Expr},
+    ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape,
 };
@@ -65,10 +65,10 @@ fn exec(
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     use std::os::unix::process::CommandExt;
 
-    use nu_engine::{current_dir, env_to_strings, CallExt};
-    use nu_protocol::Spanned;
-
     use super::run_external::ExternalCommand;
+    use nu_engine::{current_dir, env_to_strings, CallExt};
+    use nu_protocol::ast::Expr;
+    use nu_protocol::Spanned;
 
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
     let name_span = name.span;
