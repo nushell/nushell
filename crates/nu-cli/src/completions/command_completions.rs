@@ -170,7 +170,7 @@ impl Completer for CommandCompletion {
             .flattened
             .iter()
             .rev()
-            .skip_while(|x| x.0.end > pos)
+            .skip_while(|x| x.0.start >= pos)
             .take_while(|x| {
                 matches!(
                     x.1,
@@ -185,12 +185,10 @@ impl Completer for CommandCompletion {
 
         // The last item here would be the earliest shape that could possible by part of this subcommand
         let subcommands = if let Some(last) = last {
+            let last_span = Span::new(last.0.start, pos);
             self.complete_commands(
                 working_set,
-                Span {
-                    start: last.0.start,
-                    end: pos,
-                },
+                last_span,
                 offset,
                 false,
                 options.match_algorithm,
