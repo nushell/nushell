@@ -289,3 +289,55 @@ fn module_nested_imports_in_dirs_prefixed() {
         assert_eq!(actual.out, "bar");
     })
 }
+
+#[test]
+fn module_import_env_1() {
+    Playground::setup("module_imprt_env_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    export-env { source-env spam.nu }
+
+                    export def foo [] { $env.FOO_HELPER }
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    export-env { let-env FOO_HELPER = "foo" }
+                "#,
+            )]);
+
+        let inp = &[r#"source-env main.nu"#, r#"use main.nu foo"#, r#"foo"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}
+
+#[test]
+fn module_import_env_2() {
+    Playground::setup("module_import_env_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    export-env { source-env spam.nu }
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    export-env { let-env FOO = "foo" }
+                "#,
+            )]);
+
+        let inp = &[r#"source-env main.nu"#, r#"$env.FOO"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}
