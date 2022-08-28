@@ -1,1 +1,1 @@
-alias deactivate-foo = source deactivate-foo.nu
+export alias deactivate-foo = overlay hide activate-foo
