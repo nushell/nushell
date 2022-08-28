@@ -301,6 +301,21 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     )]
     EnvVarNotAString(String, #[label("value not representable as a string")] Span),
 
+    /// This environment variable cannot be set manually.
+    ///
+    /// ## Resolution
+    ///
+    /// This environment variable is set automatically by Nushell and cannot not be set manually.
+    #[error("{0} cannot be set manually.")]
+    #[diagnostic(
+        code(nu::shell::automatic_env_var_set_manually),
+        url(docsrs),
+        help(
+            r#"The environment variable '{0}' is set automatically by Nushell and cannot not be set manually."#
+        )
+    )]
+    AutomaticEnvVarSetManually(String, #[label("cannot set '{0}' manually")] Span),
+
     /// Division by zero is not a thing.
     ///
     /// ## Resolution
