@@ -58,7 +58,7 @@ impl Command for ConfigNu {
         nu_config.push("config.nu");
 
         let name = Spanned {
-            item: get_editor(engine_state, stack),
+            item: get_editor(engine_state, stack)?,
             span: Span { start: 0, end: 0 },
         };
 
