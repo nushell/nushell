@@ -21,7 +21,7 @@ impl Command for SourceEnv {
         Signature::build("source-env")
             .required(
                 "filename",
-                SyntaxShape::String,
+                SyntaxShape::String, // type is string to avoid automatically canonicalizing the path
                 "the filepath to the script file to source the environment frome",
             )
             .category(Category::Core)
