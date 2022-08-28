@@ -42,10 +42,6 @@ impl Command for Source {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        println!(
-            "Warning: 'source' is deprecated. Please use 'source-env', 'use' or 'overlay' instead."
-        );
-
         // Note: this hidden positional is the block_id that corresponded to the 0th position
         // it is put here by the parser
         let block_id: i64 = call.req(engine_state, stack, 1)?;
