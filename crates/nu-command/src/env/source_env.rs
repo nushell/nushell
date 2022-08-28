@@ -56,6 +56,7 @@ impl Command for SourceEnv {
                     let (block, err) = parse(&mut working_set, None, content.as_bytes(), true, &[]);
 
                     if let Some(err) = err {
+                        // Because the error span points at new_engine_state, we must create the error message now
                         let msg = format!(
                             r#"Found this parser error: {:?}"#,
                             CliError(&err, &working_set)
@@ -95,6 +96,26 @@ impl Command for SourceEnv {
                     true,
                     true,
                 );
+
+                let result = if let Err(err) = result {
+                    // Because the error span points at new_engine_state, we must create the error message now
+                    let working_set = StateWorkingSet::new(&new_engine_state);
+
+                    let msg = format!(
+                        r#"Found this shell error: {:?}"#,
+                        CliError(&err, &working_set)
+                    );
+
+                    Err(ShellError::GenericError(
+                        "Failed to evaluate content".to_string(),
+                        "cannot evaluate this file".to_string(),
+                        Some(source_filename.span),
+                        Some(msg),
+                        vec![],
+                    ))
+                } else {
+                    result
+                };
 
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);

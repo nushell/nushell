@@ -112,3 +112,41 @@ fn source_env_dont_cd_overlay() {
         assert_eq!(actual.out, "source_env_dont_cd_overlay");
     })
 }
+
+#[test]
+fn source_env_nice_parse_error() {
+    Playground::setup("source_env_nice_parse_error", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                let x
+            "#,
+        )]);
+
+        let inp = &[r#"source-env spam.nu"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("cannot parse this file"));
+        assert!(actual.err.contains("───"));
+    })
+}
+
+#[test]
+fn source_env_nice_shell_error() {
+    Playground::setup("source_env_nice_shell_error", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                let-env FILE_PWD = 'foo'
+            "#,
+        )]);
+
+        let inp = &[r#"source-env spam.nu"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("cannot evaluate this file"));
+        assert!(actual.err.contains("───"));
+    })
+}
