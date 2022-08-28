@@ -184,7 +184,7 @@ impl Completer for CommandCompletion {
             .last();
 
         // The last item here would be the earliest shape that could possible by part of this subcommand
-        let subcommands = if let Some(last) = last {
+        if let Some(subcommands) = last.map(|last| {
             let last_span = Span::new(last.0.start, pos);
             self.complete_commands(
                 working_set,
@@ -193,18 +193,15 @@ impl Completer for CommandCompletion {
                 false,
                 options.match_algorithm,
             )
-        } else {
-            vec![]
-        };
-
-        if !subcommands.is_empty() {
+        }) {
             return subcommands;
         }
 
         let config = working_set.get_config();
-        let commands = if matches!(self.flat_shape, nu_parser::FlatShape::External)
-            || matches!(self.flat_shape, nu_parser::FlatShape::InternalCall)
-            || ((span.end - span.start) == 0)
+        let commands = if matches!(
+            self.flat_shape,
+            nu_parser::FlatShape::External | nu_parser::FlatShape::InternalCall
+        ) || ((span.end - span.start) == 0)
         {
             // we're in a gap or at a command
             if working_set.get_span_contents(span).is_empty() && !self.force_completion_after_space
@@ -222,10 +219,7 @@ impl Completer for CommandCompletion {
             vec![]
         };
 
-        subcommands
-            .into_iter()
-            .chain(commands.into_iter())
-            .collect::<Vec<_>>()
+        commands
     }
 
     fn get_sort_by(&self) -> SortBy {
