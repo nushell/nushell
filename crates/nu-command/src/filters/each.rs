@@ -31,11 +31,6 @@ impl Command for Each {
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
             .switch("numbered", "iterate with an index", Some('n'))
-            .switch(
-                "wrong-item",
-                "point out the wrong item when each runs to failed",
-                Some('w'),
-            )
             .category(Category::Filters)
     }
 
@@ -107,12 +102,6 @@ impl Command for Each {
                     span: Span::test_data(),
                 }),
             },
-            Example {
-                example: r#"[1 2 3] | each --wrong-item { |it| $it + "afjiodsf" }"#,
-                description:
-                    "Iterate over each element, and point out wrong input item when runs to failed.",
-                result: None,
-            },
         ]
     }
 
@@ -139,7 +128,6 @@ impl Command for Each {
         let span = call.head;
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
-        let point_wrong_item = call.has_flag("wrong-item");
 
         match input {
             PipelineData::Value(Value::Range { .. }, ..)
@@ -184,7 +172,7 @@ impl Command for Each {
                     ) {
                         Ok(v) => v.into_value(span),
                         Err(error) => {
-                            let error = each_cmd_error(point_wrong_item, error, input_span);
+                            let error = each_cmd_error(error, input_span);
                             Value::Error { error }
                         }
                     }
@@ -239,7 +227,7 @@ impl Command for Each {
                     ) {
                         Ok(v) => v.into_value(span),
                         Err(error) => {
-                            let error = each_cmd_error(point_wrong_item, error, input_span);
+                            let error = each_cmd_error(error, input_span);
                             Value::Error { error }
                         }
                     }
@@ -272,18 +260,9 @@ impl Command for Each {
     }
 }
 
-fn each_cmd_error(
-    point_wrong_item: bool,
-    error_source: ShellError,
-    input_span: Result<Span, ShellError>,
-) -> ShellError {
-    if point_wrong_item {
-        if let Ok(span) = input_span {
-            return ShellError::UnsupportedInput(
-                format!("Run each failed for the given input: {error_source}"),
-                span,
-            );
-        }
+fn each_cmd_error(error_source: ShellError, input_span: Result<Span, ShellError>) -> ShellError {
+    if let Ok(span) = input_span {
+        return ShellError::EvalBlockWithInput(span, vec![error_source]);
     }
     error_source
 }
