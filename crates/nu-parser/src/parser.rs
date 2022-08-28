@@ -4235,7 +4235,6 @@ pub fn parse_value(
                     SyntaxShape::Duration,
                     SyntaxShape::Record,
                     SyntaxShape::Block(None),
-                    SyntaxShape::Variable,
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
