@@ -22,7 +22,7 @@ impl Command for SourceEnv {
             .required(
                 "filename",
                 SyntaxShape::String, // type is string to avoid automatically canonicalizing the path
-                "the filepath to the script file to source the environment frome",
+                "the filepath to the script file to source the environment from",
             )
             .category(Category::Core)
     }
