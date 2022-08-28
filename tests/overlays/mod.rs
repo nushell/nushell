@@ -843,6 +843,7 @@ fn overlay_use_dont_cd_overlay() {
     })
 }
 
+#[ignore]
 #[test]
 fn overlay_use_find_module_scoped() {
     Playground::setup("overlay_use_find_module_scoped", |dirs, _| {

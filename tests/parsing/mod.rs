@@ -80,6 +80,7 @@ fn parse_file_relative_to_parsed_file_simple() {
     })
 }
 
+#[ignore]
 #[test]
 fn parse_file_relative_to_parsed_file() {
     Playground::setup("relative_files", |dirs, sandbox| {
