@@ -771,13 +771,15 @@ fn overlay_use_export_env_hide() {
 }
 
 #[test]
-fn overlay_use_dont_cd() {
-    Playground::setup("overlay_use_dont_cd", |dirs, sandbox| {
+fn overlay_use_do_cd() {
+    Playground::setup("overlay_use_do_cd", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
             .with_files(vec![FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
-                r#""#,
+                r#"
+                    export-env { cd test1/test2 }
+                "#,
             )]);
 
         let inp = &[
@@ -787,19 +789,19 @@ fn overlay_use_dont_cd() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "overlay_use_dont_cd");
+        assert_eq!(actual.out, "test2");
     })
 }
 
 #[test]
-fn overlay_use_do_cd() {
-    Playground::setup("overlay_use_do_cd", |dirs, sandbox| {
+fn overlay_use_do_cd_file_relative() {
+    Playground::setup("overlay_use_do_cd_file_relative", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
             .with_files(vec![FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
                 r#"
-                    export-env { cd .. }
+                    export-env { cd ($env.FILE_PWD | path join '..') }
                 "#,
             )]);
 
@@ -824,7 +826,7 @@ fn overlay_use_dont_cd_overlay() {
                 r#"
                     export-env {
                         overlay new spam
-                        cd ..
+                        cd test1/test2
                         overlay hide spam
                     }
                 "#,
@@ -838,5 +840,25 @@ fn overlay_use_dont_cd_overlay() {
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
         assert_eq!(actual.out, "overlay_use_dont_cd_overlay");
+    })
+}
+
+#[test]
+fn overlay_use_find_module_scoped() {
+    Playground::setup("overlay_use_find_module_scoped", |dirs, _| {
+        let inp = &[r#"
+                do {
+                    module spam { export def foo [] { 'foo' } }
+
+                    overlay use spam
+                    foo
+                }
+            "#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+        assert_eq!(actual.out, "foo");
+        assert_eq!(actual_repl.out, "foo");
     })
 }

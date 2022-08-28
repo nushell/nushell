@@ -1,7 +1,7 @@
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
-use nu_engine::{eval_block, redirect_env, CallExt, find_in_dirs_env};
-use nu_parser::{parse};
+use nu_engine::{eval_block, find_in_dirs_env, redirect_env, CallExt};
+use nu_parser::parse;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{

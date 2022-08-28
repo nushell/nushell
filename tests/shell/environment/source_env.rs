@@ -43,13 +43,15 @@ fn source_env_eval_export_env_hide() {
 }
 
 #[test]
-fn source_env_dont_cd() {
-    Playground::setup("source_env_dont_cd", |dirs, sandbox| {
+fn source_env_do_cd() {
+    Playground::setup("source_env_do_cd", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
             .with_files(vec![FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
-                r#""#,
+                r#"
+                    cd test1/test2
+                "#,
             )]);
 
         let inp = &[
@@ -59,19 +61,19 @@ fn source_env_dont_cd() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "source_env_dont_cd");
+        assert_eq!(actual.out, "test2");
     })
 }
 
 #[test]
-fn source_env_do_cd() {
-    Playground::setup("source_env_do_cd", |dirs, sandbox| {
+fn source_env_do_cd_file_relative() {
+    Playground::setup("source_env_do_cd_file_relative", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
             .with_files(vec![FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
                 r#"
-                    cd ..
+                    cd ($env.FILE_PWD | path join '..')
                 "#,
             )]);
 
@@ -95,7 +97,7 @@ fn source_env_dont_cd_overlay() {
                 "test1/test2/spam.nu",
                 r#"
                     overlay new spam
-                    cd ..
+                    cd test1/test2
                     overlay hide spam
                 "#,
             )]);
