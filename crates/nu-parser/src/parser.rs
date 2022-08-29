@@ -74,6 +74,10 @@ pub fn is_math_expression_like(
         return true;
     }
 
+    if bytes == b"nu" {
+        return false;
+    }
+
     let b = bytes[0];
 
     if b == b'('
@@ -112,6 +116,11 @@ pub fn is_math_expression_like(
         .1
         .is_none()
     {
+        return true;
+    }
+
+    let parsed_variable = parse_variable(working_set, span);
+    if parsed_variable.0.is_some() && parsed_variable.1.is_none() {
         return true;
     }
 
@@ -4007,6 +4016,23 @@ pub fn parse_value(
 
         return parse_variable_expr(working_set, span);
     }
+
+    let parsed_variable = parse_variable(working_set, span);
+    if parsed_variable.0.is_some() && parsed_variable.1.is_none() {
+        let var_id = parsed_variable
+            .0
+            .expect("internal error: already checked var id exists");
+        return (
+            Expression {
+                expr: Expr::Var(var_id),
+                span,
+                custom_completion: None,
+                ty: working_set.get_variable(var_id).ty.clone(),
+            },
+            None,
+        );
+    }
+    let bytes = working_set.get_span_contents(span);
 
     // Check for reserved keyword values
     match bytes {
