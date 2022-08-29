@@ -7,6 +7,8 @@ use nu_protocol::{
 };
 use rayon::prelude::*;
 
+use super::utils::chain_error_with_input;
+
 #[derive(Clone)]
 pub struct ParEach;
 
@@ -103,6 +105,7 @@ impl Command for ParEach {
                         }
                     }
 
+                    let val_span = x.span();
                     match eval_block(
                         &engine_state,
                         &mut stack,
@@ -112,7 +115,10 @@ impl Command for ParEach {
                         redirect_stderr,
                     ) {
                         Ok(v) => v,
-                        Err(error) => Value::Error { error }.into_pipeline_data(),
+                        Err(error) => Value::Error {
+                            error: chain_error_with_input(error, val_span),
+                        }
+                        .into_pipeline_data(),
                     }
                 })
                 .collect::<Vec<_>>()
@@ -151,6 +157,7 @@ impl Command for ParEach {
                         }
                     }
 
+                    let val_span = x.span();
                     match eval_block(
                         &engine_state,
                         &mut stack,
@@ -160,7 +167,10 @@ impl Command for ParEach {
                         redirect_stderr,
                     ) {
                         Ok(v) => v,
-                        Err(error) => Value::Error { error }.into_pipeline_data(),
+                        Err(error) => Value::Error {
+                            error: chain_error_with_input(error, val_span),
+                        }
+                        .into_pipeline_data(),
                     }
                 })
                 .collect::<Vec<_>>()
@@ -198,6 +208,7 @@ impl Command for ParEach {
                         }
                     }
 
+                    let val_span = x.span();
                     match eval_block(
                         &engine_state,
                         &mut stack,
@@ -207,7 +218,10 @@ impl Command for ParEach {
                         redirect_stderr,
                     ) {
                         Ok(v) => v,
-                        Err(error) => Value::Error { error }.into_pipeline_data(),
+                        Err(error) => Value::Error {
+                            error: chain_error_with_input(error, val_span),
+                        }
+                        .into_pipeline_data(),
                     }
                 })
                 .collect::<Vec<_>>()

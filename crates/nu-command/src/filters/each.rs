@@ -1,9 +1,10 @@
+use super::utils::chain_error_with_input;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
+    Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -172,7 +173,7 @@ impl Command for Each {
                     ) {
                         Ok(v) => v.into_value(span),
                         Err(error) => {
-                            let error = each_cmd_error(error, input_span);
+                            let error = chain_error_with_input(error, input_span);
                             Value::Error { error }
                         }
                     }
@@ -227,7 +228,7 @@ impl Command for Each {
                     ) {
                         Ok(v) => v.into_value(span),
                         Err(error) => {
-                            let error = each_cmd_error(error, input_span);
+                            let error = chain_error_with_input(error, input_span);
                             Value::Error { error }
                         }
                     }
@@ -258,13 +259,6 @@ impl Command for Each {
         })
         .map(|x| x.set_metadata(metadata))
     }
-}
-
-fn each_cmd_error(error_source: ShellError, input_span: Result<Span, ShellError>) -> ShellError {
-    if let Ok(span) = input_span {
-        return ShellError::EvalBlockWithInput(span, vec![error_source]);
-    }
-    error_source
 }
 
 #[cfg(test)]
