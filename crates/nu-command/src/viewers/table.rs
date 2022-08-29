@@ -261,14 +261,9 @@ fn handle_row_stream(
             };
             let ls_colors = get_ls_colors(ls_colors_env_str);
 
-            // clickable links don't work in WSL or remote SSH sessions, disable them accordingly
+            // clickable links don't work in remote SSH sessions
             let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
-            #[cfg(target_os = "linux")]
-            let in_wsl = nu_system::is_wsl();
-            #[cfg(not(target_os = "linux"))]
-            let in_wsl = false;
-            let show_clickable_links =
-                config.show_clickable_links_in_ls && !in_ssh_session && !in_wsl;
+            let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session;
 
             ListStream::from_stream(
                 stream.map(move |(mut x, _)| match &mut x {

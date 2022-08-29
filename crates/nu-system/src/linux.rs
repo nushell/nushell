@@ -1,4 +1,3 @@
-use once_cell::sync::OnceCell;
 use procfs::process::{FDInfo, Io, Process, Stat, Status, TasksIter};
 use procfs::{ProcError, ProcessCgroup};
 use std::collections::HashMap;
@@ -293,21 +292,4 @@ impl ProcessInfo {
             Err(_) => 0u64,
         }
     }
-}
-
-/// Check whether we're in the Windows Subsystem for Linux
-/// Attribution: from `wsl-rs` by Hannes Karppila with caching added
-/// https://github.com/Dentosal/wsl-rs
-pub fn is_wsl() -> bool {
-    static CACHED_RESULT: OnceCell<bool> = OnceCell::new();
-
-    *CACHED_RESULT.get_or_init(|| {
-        if let Ok(b) = std::fs::read("/proc/sys/kernel/osrelease") {
-            if let Ok(s) = std::str::from_utf8(&b) {
-                let a = s.to_ascii_lowercase();
-                return a.contains("microsoft") || a.contains("wsl");
-            }
-        }
-        false
-    })
 }
