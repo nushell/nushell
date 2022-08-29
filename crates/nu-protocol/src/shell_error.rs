@@ -765,6 +765,12 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Unexpected abbr component `{0}`.")]
     #[diagnostic(code(nu::shell::unexpected_path_abbreviateion), url(docsrs))]
     UnexpectedAbbrComponent(String),
+
+    // It should be only used by commands accepts block, and accept inputs from pipeline.
+    /// Failed to eval block with specific pipeline input.
+    #[error("Eval block failed with pipeline input")]
+    #[diagnostic(code(nu::shell::eval_block_with_input), url(docsrs))]
+    EvalBlockWithInput(#[label("Invalid item")] Span, #[related] Vec<ShellError>),
 }
 
 impl From<std::io::Error> for ShellError {
