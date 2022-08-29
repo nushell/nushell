@@ -260,7 +260,10 @@ fn handle_row_stream(
                 None => None,
             };
             let ls_colors = get_ls_colors(ls_colors_env_str);
-            let show_clickable_links = config.show_clickable_links_in_ls;
+
+            // clickable links don't work in remote SSH sessions
+            let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
+            let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session;
 
             ListStream::from_stream(
                 stream.map(move |(mut x, _)| match &mut x {
