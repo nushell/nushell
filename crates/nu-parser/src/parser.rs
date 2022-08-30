@@ -3104,9 +3104,7 @@ pub fn parse_signature(
         });
     }
 
-    if has_paren && bytes.ends_with(b")") {
-        end -= 1;
-    } else if !has_paren && bytes.ends_with(b"]") {
+    if (has_paren && bytes.ends_with(b")")) || (!has_paren && bytes.ends_with(b"]")) {
         end -= 1;
     } else {
         error = error.or_else(|| {
