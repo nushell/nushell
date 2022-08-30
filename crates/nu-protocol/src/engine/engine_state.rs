@@ -1508,21 +1508,13 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
         let mut removed_overlays = vec![];
 
-        let name = if name.starts_with(&[b'$']) {
-            name.to_vec()
-        } else {
-            let mut new_name = name.to_vec();
-            new_name.insert(0, b'$');
-            new_name
-        };
-
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_frame in scope_frame
                 .active_overlays(&mut removed_overlays)
                 .iter()
                 .rev()
             {
-                if let Some(var_id) = overlay_frame.vars.get(&name) {
+                if let Some(var_id) = overlay_frame.vars.get(name) {
                     return Some(*var_id);
                 }
             }
@@ -1534,7 +1526,7 @@ impl<'a> StateWorkingSet<'a> {
             .iter()
             .rev()
         {
-            if let Some(var_id) = overlay_frame.vars.get(&name) {
+            if let Some(var_id) = overlay_frame.vars.get(name) {
                 return Some(*var_id);
             }
         }
