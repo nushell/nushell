@@ -3085,12 +3085,17 @@ pub fn parse_signature(
     let mut start = span.start;
     let mut end = span.end;
 
+    let mut has_paren = false;
+
     if bytes.starts_with(b"[") {
+        start += 1;
+    } else if bytes.starts_with(b"(") {
+        has_paren = true;
         start += 1;
     } else {
         error = error.or_else(|| {
             Some(ParseError::Expected(
-                "[".into(),
+                "[ or (".into(),
                 Span {
                     start,
                     end: start + 1,
@@ -3099,10 +3104,15 @@ pub fn parse_signature(
         });
     }
 
-    if bytes.ends_with(b"]") {
+    if (has_paren && bytes.ends_with(b")")) || (!has_paren && bytes.ends_with(b"]")) {
         end -= 1;
     } else {
-        error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span { start: end, end })));
+        error = error.or_else(|| {
+            Some(ParseError::Unclosed(
+                "] or )".into(),
+                Span { start: end, end },
+            ))
+        });
     }
 
     let (sig, err) =
@@ -4092,6 +4102,8 @@ pub fn parse_value(
         b'(' => {
             if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
                 return (expr, None);
+            } else if matches!(shape, SyntaxShape::Signature) {
+                return parse_signature(working_set, span, expand_aliases_denylist);
             } else {
                 return parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
             }
