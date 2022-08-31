@@ -77,6 +77,20 @@ fn env_shorthand_multi() {
     assert_eq!(actual.out, "barbaz");
 }
 
+#[test]
+fn let_env_file_pwd_env_var_fails() {
+    let actual = nu!(cwd: ".", r#"let-env FILE_PWD = 'foo'"#);
+
+    assert!(actual.err.contains("automatic_env_var_set_manually"));
+}
+
+#[test]
+fn load_env_file_pwd_env_var_fails() {
+    let actual = nu!(cwd: ".", r#"load-env { FILE_PWD : 'foo' }"#);
+
+    assert!(actual.err.contains("automatic_env_var_set_manually"));
+}
+
 // FIXME: for some reason Nu is attempting to execute foo in `let-env FOO = foo`
 #[ignore]
 #[test]

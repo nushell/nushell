@@ -79,7 +79,7 @@ fn dotnu_completions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test source completion
-    let completion_str = "source ".to_string();
+    let completion_str = "source-env ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     assert_eq!(1, suggestions.len());

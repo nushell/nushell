@@ -38,6 +38,10 @@ impl Command for LoadEnv {
         match arg {
             Some((cols, vals)) => {
                 for (env_var, rhs) in cols.into_iter().zip(vals) {
+                    if env_var == "FILE_PWD" {
+                        return Err(ShellError::AutomaticEnvVarSetManually(env_var, call.head));
+                    }
+
                     if env_var == "PWD" {
                         let cwd = current_dir(engine_state, stack)?;
                         let rhs = rhs.as_string()?;
@@ -58,6 +62,10 @@ impl Command for LoadEnv {
             None => match input {
                 PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                     for (env_var, rhs) in cols.into_iter().zip(vals) {
+                        if env_var == "FILE_PWD" {
+                            return Err(ShellError::AutomaticEnvVarSetManually(env_var, call.head));
+                        }
+
                         if env_var == "PWD" {
                             let cwd = current_dir(engine_state, stack)?;
                             let rhs = rhs.as_string()?;
