@@ -91,7 +91,7 @@ impl Command for For {
             Value::List { vals, .. } => {
                 Ok(ListStream::from_stream(vals.into_iter(), ctrlc.clone())
                     .enumerate()
-                    .map(move |(idx, (x, _))| {
+                    .map(move |(idx, x)| {
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                         stack.add_var(
