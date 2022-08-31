@@ -69,7 +69,7 @@ impl Command for Lines {
 
                 let iter = stream
                     .into_iter()
-                    .filter_map(move |(value, _)| {
+                    .filter_map(move |value| {
                         if let Value::String { val, span } = value {
                             if split_char != "\r\n" && val.contains("\r\n") {
                                 split_char = "\r\n";
