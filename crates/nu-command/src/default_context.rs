@@ -59,7 +59,6 @@ pub fn create_default_context() -> EngineState {
             Let,
             Metadata,
             Module,
-            Source,
             Use,
             Version,
         };
@@ -358,6 +357,7 @@ pub fn create_default_context() -> EngineState {
             ExportEnv,
             LetEnv,
             LoadEnv,
+            SourceEnv,
             WithEnv,
             ConfigNu,
             ConfigEnv,
@@ -432,6 +432,7 @@ pub fn create_default_context() -> EngineState {
         // Deprecated
         bind_command! {
             HashBase64,
+            Source,
             StrDatetimeDeprecated,
             StrDecimalDeprecated,
             StrIntDeprecated,

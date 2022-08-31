@@ -48,6 +48,40 @@ fn run_nu_script_multiline_end_pipe_win() {
 }
 
 #[test]
+fn parse_file_relative_to_parsed_file_simple() {
+    Playground::setup("relative_files_simple", |dirs, sandbox| {
+        sandbox
+            .mkdir("lol")
+            .mkdir("lol/lol")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/lol/lol.nu",
+                r#"
+                    use ../lol_shell.nu
+
+                    let-env LOL = (lol_shell ls)
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/lol_shell.nu",
+                r#"
+                    export def ls [] { "lol" }
+                "#,
+            )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                source-env lol/lol/lol.nu;
+                $env.LOL
+            "#
+        ));
+
+        assert_eq!(actual.out, "lol");
+    })
+}
+
+#[ignore]
+#[test]
 fn parse_file_relative_to_parsed_file() {
     Playground::setup("relative_files", |dirs, sandbox| {
         sandbox
@@ -56,11 +90,11 @@ fn parse_file_relative_to_parsed_file() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol/lol.nu",
                 r#"
-                    source ../../foo.nu
+                    source-env ../../foo.nu
                     use ../lol_shell.nu
                     overlay use ../../lol/lol_shell.nu
 
-                    $'($env.FOO) (lol_shell ls) (ls)'
+                    let-env LOL = $'($env.FOO) (lol_shell ls) (ls)'
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -79,7 +113,8 @@ fn parse_file_relative_to_parsed_file() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                source lol/lol/lol.nu
+                source-env lol/lol/lol.nu;
+                $env.LOL
             "#
         ));
 
@@ -95,7 +130,7 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_1() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 r#"
-                    source foo.nu
+                    source-env foo.nu
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -114,7 +149,7 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_1() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                source lol/lol.nu;
+                source-env lol/lol.nu;
                 $env.FOO
             "#
         ));
@@ -131,7 +166,7 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 r#"
-                    source foo.nu
+                    source-env foo.nu
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -144,7 +179,7 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                source lol/lol.nu
+                source-env lol/lol.nu
             "#
         ));
 

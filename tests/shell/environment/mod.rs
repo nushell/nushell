@@ -1,4 +1,5 @@
 mod env;
+mod source_env;
 
 // FIXME: nu_env tests depend on autoenv which hasn't been ported yet
 // mod nu_env;

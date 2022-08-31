@@ -1,1 +1,0 @@
-hide deactivate-foo

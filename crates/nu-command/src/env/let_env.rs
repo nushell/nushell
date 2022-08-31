@@ -1,7 +1,9 @@
 use nu_engine::{current_dir, eval_expression_with_input, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct LetEnv;
@@ -34,7 +36,7 @@ impl Command for LetEnv {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         // TODO: find and require the crossplatform restrictions on environment names
-        let env_var = call.req(engine_state, stack, 0)?;
+        let env_var: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         let keyword_expr = call
             .positional_nth(1)
@@ -47,19 +49,26 @@ impl Command for LetEnv {
                 .0
                 .into_value(call.head);
 
-        if env_var == "PWD" {
+        if env_var.item == "FILE_PWD" {
+            return Err(ShellError::AutomaticEnvVarSetManually(
+                env_var.item,
+                env_var.span,
+            ));
+        }
+
+        if env_var.item == "PWD" {
             let cwd = current_dir(engine_state, stack)?;
             let rhs = rhs.as_string()?;
             let rhs = nu_path::expand_path_with(rhs, cwd);
             stack.add_env_var(
-                env_var,
+                env_var.item,
                 Value::String {
                     val: rhs.to_string_lossy().to_string(),
                     span: call.head,
                 },
             );
         } else {
-            stack.add_env_var(env_var, rhs);
+            stack.add_env_var(env_var.item, rhs);
         }
         Ok(PipelineData::new(call.head))
     }

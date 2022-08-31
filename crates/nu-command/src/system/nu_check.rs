@@ -1,12 +1,10 @@
-use nu_engine::{current_dir, CallExt};
+use nu_engine::{find_in_dirs_env, CallExt};
 use nu_parser::{parse, parse_module_block, unescape_unquote_string};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
-
-use std::path::Path;
 
 #[derive(Clone)]
 pub struct NuCheck;
@@ -18,7 +16,8 @@ impl Command for NuCheck {
 
     fn signature(&self) -> Signature {
         Signature::build("nu-check")
-            .optional("path", SyntaxShape::Filepath, "File path to parse")
+            // type is string to avoid automatically canonicalizing the path
+            .optional("path", SyntaxShape::String, "File path to parse")
             .switch("as-module", "Parse content as module", Some('m'))
             .switch("debug", "Show error messages", Some('d'))
             .switch("all", "Parse content as script first, returns result if success, otherwise, try with module", Some('a'))
@@ -102,13 +101,23 @@ impl Command for NuCheck {
                 }
             }
             _ => {
-                if path.is_some() {
-                    let path = match find_path(path, engine_state, stack, call.head) {
-                        Ok(path) => path,
+                if let Some(path_str) = path {
+                    // look up the path as relative to FILE_PWD or inside NU_LIB_DIRS (same process as source-env)
+                    let path = match find_in_dirs_env(&path_str.item, engine_state, stack) {
+                        Ok(path) => {
+                            if let Some(path) = path {
+                                path
+                            } else {
+                                return Err(ShellError::FileNotFound(path_str.span));
+                            }
+                        }
                         Err(error) => return Err(error),
                     };
 
-                    let ext: Vec<_> = path.rsplitn(2, '.').collect();
+                    // get the expanded path as a string
+                    let path_str = path.to_string_lossy().to_string();
+
+                    let ext: Vec<_> = path_str.rsplitn(2, '.').collect();
                     if ext[0] != "nu" {
                         return Err(ShellError::GenericError(
                             "Cannot parse input".to_string(),
@@ -120,8 +129,7 @@ impl Command for NuCheck {
                     }
 
                     // Change currently parsed directory
-                    let prev_currently_parsed_cwd = if let Some(parent) = Path::new(&path).parent()
-                    {
+                    let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
                         let prev = working_set.currently_parsed_cwd.clone();
 
                         working_set.currently_parsed_cwd = Some(parent.into());
@@ -132,11 +140,11 @@ impl Command for NuCheck {
                     };
 
                     let result = if is_all {
-                        heuristic_parse_file(path, &mut working_set, call, is_debug)
+                        heuristic_parse_file(path_str, &mut working_set, call, is_debug)
                     } else if is_module {
-                        parse_file_module(path, &mut working_set, call, is_debug)
+                        parse_file_module(path_str, &mut working_set, call, is_debug)
                     } else {
-                        parse_file_script(path, &mut working_set, call, is_debug)
+                        parse_file_script(path_str, &mut working_set, call, is_debug)
                     };
 
                     // Restore the currently parsed directory back
@@ -200,46 +208,6 @@ impl Command for NuCheck {
             },
         ]
     }
-}
-
-fn find_path(
-    path: Option<Spanned<String>>,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    span: Span,
-) -> Result<String, ShellError> {
-    let cwd = current_dir(engine_state, stack)?;
-
-    let path = match path {
-        Some(s) => {
-            let path_no_whitespace = &s.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
-
-            let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
-                Ok(p) => {
-                    if !p.is_file() {
-                        return Err(ShellError::GenericError(
-                            "Cannot parse input".to_string(),
-                            "Path is not a file".to_string(),
-                            Some(s.span),
-                            None,
-                            Vec::new(),
-                        ));
-                    } else {
-                        p
-                    }
-                }
-
-                Err(_) => {
-                    return Err(ShellError::FileNotFound(s.span));
-                }
-            };
-            path.to_string_lossy().to_string()
-        }
-        None => {
-            return Err(ShellError::NotFound(span));
-        }
-    };
-    Ok(path)
 }
 
 fn heuristic_parse(

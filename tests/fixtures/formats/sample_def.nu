@@ -1,3 +1,3 @@
-def greet [] {
+export def greet [] {
   "hello"
 }

@@ -5,7 +5,9 @@ fn alias_simple() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        alias bar = source sample_def.nu; bar; greet
+            alias bar = use sample_def.nu greet;
+            bar;
+            greet
         "#
     ));
 
@@ -13,12 +15,12 @@ fn alias_simple() {
 }
 
 #[test]
-fn alias_hiding1() {
+fn alias_hiding_1() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        source ./activate-foo.nu;
-        $nu.scope.aliases | find deactivate-foo | length
+            overlay use ./activate-foo.nu;
+            $nu.scope.aliases | find deactivate-foo | length
         "#
     ));
 
@@ -26,13 +28,13 @@ fn alias_hiding1() {
 }
 
 #[test]
-fn alias_hiding2() {
+fn alias_hiding_2() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        source ./activate-foo.nu;
-        deactivate-foo;
-        $nu.scope.aliases | find deactivate-foo | length
+            overlay use ./activate-foo.nu;
+            deactivate-foo;
+            $nu.scope.aliases | find deactivate-foo | length
         "#
     ));
 

@@ -173,6 +173,7 @@ pub fn eval_call(
 
 /// Redirect the environment from callee to the caller.
 pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_stack: &Stack) {
+    // Grab all environment variables from the callee
     let caller_env_vars = caller_stack.get_env_var_names(engine_state);
 
     // remove env vars that are present in the caller but not in the callee

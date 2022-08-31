@@ -1,3 +1,5 @@
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code, pipeline};
 
 #[test]
@@ -766,4 +768,98 @@ fn overlay_use_export_env_hide() {
 
     assert!(actual.err.contains("did you mean"));
     assert!(actual_repl.err.contains("did you mean"));
+}
+
+#[test]
+fn overlay_use_do_cd() {
+    Playground::setup("overlay_use_do_cd", |dirs, sandbox| {
+        sandbox
+            .mkdir("test1/test2")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "test1/test2/spam.nu",
+                r#"
+                    export-env { cd test1/test2 }
+                "#,
+            )]);
+
+        let inp = &[
+            r#"overlay use test1/test2/spam.nu"#,
+            r#"$env.PWD | path basename"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "test2");
+    })
+}
+
+#[test]
+fn overlay_use_do_cd_file_relative() {
+    Playground::setup("overlay_use_do_cd_file_relative", |dirs, sandbox| {
+        sandbox
+            .mkdir("test1/test2")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "test1/test2/spam.nu",
+                r#"
+                    export-env { cd ($env.FILE_PWD | path join '..') }
+                "#,
+            )]);
+
+        let inp = &[
+            r#"overlay use test1/test2/spam.nu"#,
+            r#"$env.PWD | path basename"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "test1");
+    })
+}
+
+#[test]
+fn overlay_use_dont_cd_overlay() {
+    Playground::setup("overlay_use_dont_cd_overlay", |dirs, sandbox| {
+        sandbox
+            .mkdir("test1/test2")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "test1/test2/spam.nu",
+                r#"
+                    export-env {
+                        overlay new spam
+                        cd test1/test2
+                        overlay hide spam
+                    }
+                "#,
+            )]);
+
+        let inp = &[
+            r#"source-env test1/test2/spam.nu"#,
+            r#"$env.PWD | path basename"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "overlay_use_dont_cd_overlay");
+    })
+}
+
+#[ignore]
+#[test]
+fn overlay_use_find_module_scoped() {
+    Playground::setup("overlay_use_find_module_scoped", |dirs, _| {
+        let inp = &[r#"
+                do {
+                    module spam { export def foo [] { 'foo' } }
+
+                    overlay use spam
+                    foo
+                }
+            "#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+        assert_eq!(actual.out, "foo");
+        assert_eq!(actual_repl.out, "foo");
+    })
 }

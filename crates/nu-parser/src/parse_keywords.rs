@@ -3190,7 +3190,7 @@ pub fn parse_register(
 /// determined in the first step.
 ///
 /// Always returns an absolute path
-fn find_in_dirs(
+pub fn find_in_dirs(
     filename: &str,
     working_set: &StateWorkingSet,
     cwd: &str,
