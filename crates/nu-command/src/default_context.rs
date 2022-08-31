@@ -160,9 +160,16 @@ pub fn create_default_context() -> EngineState {
             Exec,
             External,
             NuCheck,
-            Ps,
             Sys,
         };
+
+        #[cfg(any(
+            target_os = "android",
+            target_os = "linux",
+            target_os = "macos",
+            target_os = "windows"
+        ))]
+        bind_command! { Ps };
 
         #[cfg(feature = "which-support")]
         bind_command! { Which };
