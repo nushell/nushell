@@ -500,12 +500,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "capnp"
-version = "0.14.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82efa3b0ab5e7e32b786334b052560ec0094135f906975d7481651b9ecf31a6a"
-
-[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2820,7 +2814,6 @@ version = "0.67.1"
 dependencies = [
  "bincode",
  "byte-order",
- "capnp",
  "criterion",
  "nu-engine",
  "nu-protocol",
