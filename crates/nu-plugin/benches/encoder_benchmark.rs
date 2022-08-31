@@ -29,7 +29,7 @@ fn bench_encoding(c: &mut Criterion) {
         (10000, 15),
     ];
     for (row_cnt, col_cnt) in test_cnt_pairs.into_iter() {
-        for fmt in ["capnp", "json", "msgpack"] {
+        for fmt in ["json", "msgpack"] {
             group.bench_function(&format!("{fmt} encode {row_cnt} * {col_cnt}"), |b| {
                 let mut res = vec![];
                 let test_data = PluginResponse::Value(Box::new(new_test_data(row_cnt, col_cnt)));
@@ -55,7 +55,7 @@ fn bench_decoding(c: &mut Criterion) {
         (10000, 15),
     ];
     for (row_cnt, col_cnt) in test_cnt_pairs.into_iter() {
-        for fmt in ["capnp", "json", "msgpack"] {
+        for fmt in ["json", "msgpack"] {
             group.bench_function(&format!("{fmt} decode for {row_cnt} * {col_cnt}"), |b| {
                 let mut res = vec![];
                 let test_data = PluginResponse::Value(Box::new(new_test_data(row_cnt, col_cnt)));

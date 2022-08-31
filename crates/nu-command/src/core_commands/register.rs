@@ -24,7 +24,7 @@ impl Command for Register {
             .required_named(
                 "encoding",
                 SyntaxShape::String,
-                "Encoding used to communicate with plugin. Options: [capnp, json, msgpack]",
+                "Encoding used to communicate with plugin. Options: [json, msgpack]",
                 Some('e'),
             )
             .optional(
