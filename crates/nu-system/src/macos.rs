@@ -6,12 +6,12 @@ use libproc::libproc::pid_rusage::{pidrusage, RUsageInfoV2};
 use libproc::libproc::proc_pid::{listpidinfo, listpids, pidinfo, ListThreads, ProcType};
 use libproc::libproc::task_info::{TaskAllInfo, TaskInfo};
 use libproc::libproc::thread_info::ThreadInfo;
+use mach2::mach_time;
 use std::cmp;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
-use mach2::mach_time;
 
 pub struct ProcessInfo {
     pub pid: i32,
@@ -401,6 +401,6 @@ fn mach_ticktime() -> f64 {
         timebase.numer as f64 / timebase.denom as f64
     } else {
         // assume times are in nanoseconds then...
-        return 1.0
+        return 1.0;
     }
 }
