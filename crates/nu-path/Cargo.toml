@@ -11,5 +11,5 @@ version = "0.67.1"
 dirs-next = "2.0.0"
 dunce = "1.0.1"
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 pwd = "1.3.1"
