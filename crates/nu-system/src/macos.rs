@@ -401,6 +401,6 @@ fn mach_ticktime() -> f64 {
         timebase.numer as f64 / timebase.denom as f64
     } else {
         // assume times are in nanoseconds then...
-        return 1.0;
+        1.0
     }
 }
