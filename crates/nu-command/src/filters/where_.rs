@@ -1,3 +1,4 @@
+use super::utils::chain_error_with_input;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
@@ -83,7 +84,9 @@ impl Command for Where {
                                     None
                                 }
                             }
-                            Err(error) => Some(Value::Error { error }),
+                            Err(error) => Some(Value::Error {
+                                error: chain_error_with_input(error, x.span()),
+                            }),
                         }
                     })
                     .into_pipeline_data(ctrlc)),
@@ -124,7 +127,9 @@ impl Command for Where {
                                     None
                                 }
                             }
-                            Err(error) => Some(Value::Error { error }),
+                            Err(error) => Some(Value::Error {
+                                error: chain_error_with_input(error, x.span()),
+                            }),
                         }
                     })
                     .into_pipeline_data(ctrlc)),
@@ -149,7 +154,9 @@ impl Command for Where {
                                 None
                             }
                         }
-                        Err(error) => Some(Value::Error { error }),
+                        Err(error) => Some(Value::Error {
+                            error: chain_error_with_input(error, x.span()),
+                        }),
                     }
                     .into_pipeline_data(ctrlc))
                 }
