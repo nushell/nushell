@@ -152,6 +152,7 @@ shadow-rs = { version = "0.16.1", default-features = false }
 [dev-dependencies]
 hamcrest2 = "0.3.0"
 dirs-next = "2.0.0"
+proptest = "1.0.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
 rstest = {version = "0.15.0", default-features = false}
