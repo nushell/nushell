@@ -6,6 +6,7 @@ use libproc::libproc::pid_rusage::{pidrusage, RUsageInfoV2};
 use libproc::libproc::proc_pid::{listpidinfo, listpids, pidinfo, ListThreads, ProcType};
 use libproc::libproc::task_info::{TaskAllInfo, TaskInfo};
 use libproc::libproc::thread_info::ThreadInfo;
+use mach2::mach_time;
 use std::cmp;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -372,9 +373,10 @@ impl ProcessInfo {
             self.curr_task.ptinfo.pti_total_user + self.curr_task.ptinfo.pti_total_system;
         let prev_time =
             self.prev_task.ptinfo.pti_total_user + self.prev_task.ptinfo.pti_total_system;
-        let usage_ms = (curr_time - prev_time) / 1000000u64;
-        let interval_ms = self.interval.as_secs() * 1000 + u64::from(self.interval.subsec_millis());
-        usage_ms as f64 * 100.0 / interval_ms as f64
+        let usage_ticks = curr_time - prev_time;
+        let interval_us = self.interval.as_micros();
+        let ticktime_us = mach_ticktime() / 1000.0;
+        usage_ticks as f64 * 100.0 * ticktime_us / interval_us as f64
     }
 
     /// Memory size in number of bytes
@@ -385,5 +387,20 @@ impl ProcessInfo {
     /// Virtual memory size in bytes
     pub fn virtual_size(&self) -> u64 {
         self.curr_task.ptinfo.pti_virtual_size
+    }
+}
+
+/// The Macos kernel returns process times in mach ticks rather than nanoseconds.  To get times in
+/// nanoseconds, we need to multiply by the mach timebase, a fractional value reported by the
+/// kernel.  It is uncertain if the kernel returns the same value on each call to
+/// mach_timebase_info; if it does, it may be worth reimplementing this as a lazy_static value.
+fn mach_ticktime() -> f64 {
+    let mut timebase = mach_time::mach_timebase_info_data_t::default();
+    let err = unsafe { mach_time::mach_timebase_info(&mut timebase) };
+    if err == 0 {
+        timebase.numer as f64 / timebase.denom as f64
+    } else {
+        // assume times are in nanoseconds then...
+        1.0
     }
 }
