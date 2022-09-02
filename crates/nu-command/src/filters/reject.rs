@@ -83,10 +83,16 @@ fn reject(
     _engine_state: &EngineState,
     span: Span,
     input: PipelineData,
-    columns: Vec<CellPath>,
+    cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
     let val = input.into_value(span);
     let mut val = val;
+    let mut columns = vec![];
+    for c in cell_paths {
+        if !columns.contains(&c) {
+            columns.push(c);
+        }
+    }
     for cell_path in columns {
         val.remove_data_at_cell_path(&cell_path.members)?;
     }

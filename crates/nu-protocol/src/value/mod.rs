@@ -1003,14 +1003,17 @@ impl Value {
                                     vals,
                                     span: v_span,
                                 } => {
-                                    for (i, col) in cols.iter().enumerate() {
+                                    let mut found = false;
+                                    for (i, col) in cols.clone().iter().enumerate() {
                                         if col == col_name {
                                             cols.remove(i);
                                             vals.remove(i);
-                                            return Ok(());
+                                            found = true;
                                         }
                                     }
-                                    return Err(ShellError::CantFindColumn(*span, *v_span));
+                                    if !found {
+                                        return Err(ShellError::CantFindColumn(*span, *v_span));
+                                    }
                                 }
                                 v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
                             }
@@ -1021,14 +1024,17 @@ impl Value {
                         vals,
                         span: v_span,
                     } => {
-                        for (i, col) in cols.iter().enumerate() {
+                        let mut found = false;
+                        for (i, col) in cols.clone().iter().enumerate() {
                             if col == col_name {
                                 cols.remove(i);
                                 vals.remove(i);
-                                return Ok(());
+                                found = true;
                             }
                         }
-                        return Err(ShellError::CantFindColumn(*span, *v_span));
+                        if !found {
+                            return Err(ShellError::CantFindColumn(*span, *v_span));
+                        }
                     }
                     v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
                 },
