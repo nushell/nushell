@@ -1034,7 +1034,7 @@ impl Value {
                 },
                 PathMember::Int { val: row_num, span } => match self {
                     Value::List { vals, .. } => {
-                        if let Some(_) = vals.get_mut(*row_num) {
+                        if vals.get_mut(*row_num).is_some() {
                             vals.remove(*row_num);
                             return Ok(());
                         } else {
