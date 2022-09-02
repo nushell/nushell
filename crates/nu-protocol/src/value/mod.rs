@@ -925,12 +925,9 @@ impl Value {
         }
         Ok(())
     }
-    
-    pub fn remove_data_at_cell_path(
-        &mut self,
-        cell_path: &[PathMember],
-    ) -> Result<(), ShellError> {
-    	if cell_path.len() > 1 {
+
+    pub fn remove_data_at_cell_path(&mut self, cell_path: &[PathMember]) -> Result<(), ShellError> {
+        if cell_path.len() > 1 {
             let path_member = cell_path.first().expect("there is a first");
             match path_member {
                 PathMember::String {
@@ -949,9 +946,7 @@ impl Value {
                                     for col in cols.iter().zip(vals.iter_mut()) {
                                         if col.0 == col_name {
                                             found = true;
-                                            col.1.remove_data_at_cell_path(
-                                                &cell_path[1..],
-                                            )?
+                                            col.1.remove_data_at_cell_path(&cell_path[1..])?
                                         }
                                     }
                                     if !found {
@@ -973,8 +968,7 @@ impl Value {
                             if col.0 == col_name {
                                 found = true;
 
-                                col.1
-                                    .remove_data_at_cell_path(&cell_path[1..])?
+                                col.1.remove_data_at_cell_path(&cell_path[1..])?
                             }
                         }
                         if !found {
@@ -1013,7 +1007,7 @@ impl Value {
                                         if col == col_name {
                                             cols.remove(i);
                                             vals.remove(i);
-                                            return Ok(())
+                                            return Ok(());
                                         }
                                     }
                                     return Err(ShellError::CantFindColumn(*span, *v_span));
@@ -1031,7 +1025,7 @@ impl Value {
                             if col == col_name {
                                 cols.remove(i);
                                 vals.remove(i);
-                                return Ok(())
+                                return Ok(());
                             }
                         }
                         return Err(ShellError::CantFindColumn(*span, *v_span));
@@ -1050,7 +1044,7 @@ impl Value {
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
                 },
             }
-        } 
+        }
         Ok(())
     }
 

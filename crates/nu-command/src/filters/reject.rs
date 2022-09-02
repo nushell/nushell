@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Value,
 };
 
 #[derive(Clone)]
@@ -66,8 +66,11 @@ impl Command for Reject {
                     cols: vec!["a".into()],
                     vals: vec![Value::Record {
                         cols: vec!["c".into()],
-                        vals: vec![Value::Int { val: 5, span: Span::test_data() }],
-                        span: Span::test_data()
+                        vals: vec![Value::Int {
+                            val: 5,
+                            span: Span::test_data(),
+                        }],
+                        span: Span::test_data(),
                     }],
                     span: Span::test_data(),
                 }),
