@@ -10,7 +10,7 @@ pub struct All;
 
 impl Command for All {
     fn name(&self) -> &str {
-        "all?"
+        "all"
     }
 
     fn signature(&self) -> Signature {
@@ -35,12 +35,12 @@ impl Command for All {
         vec![
             Example {
                 description: "Find if services are running",
-                example: "echo [[status]; [UP] [UP]] | all? status == UP",
+                example: "echo [[status]; [UP] [UP]] | all status == UP",
                 result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check that all values are even",
-                example: "echo [2 4 6 8] | all? ($it mod 2) == 0",
+                example: "echo [2 4 6 8] | all ($it mod 2) == 0",
                 result: Some(Value::test_bool(true)),
             },
         ]

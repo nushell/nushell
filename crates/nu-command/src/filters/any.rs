@@ -10,7 +10,7 @@ pub struct Any;
 
 impl Command for Any {
     fn name(&self) -> &str {
-        "any?"
+        "any"
     }
 
     fn signature(&self) -> Signature {
@@ -35,12 +35,12 @@ impl Command for Any {
         vec![
             Example {
                 description: "Find if a service is not running",
-                example: "echo [[status]; [UP] [DOWN] [UP]] | any? status == DOWN",
+                example: "echo [[status]; [UP] [DOWN] [UP]] | any status == DOWN",
                 result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check if any of the values is odd",
-                example: "echo [2 4 1 6 8] | any? ($it mod 2) == 1",
+                example: "echo [2 4 1 6 8] | any ($it mod 2) == 1",
                 result: Some(Value::test_bool(true)),
             },
         ]

@@ -36,7 +36,7 @@ fn more_columns_than_table_has() {
               [3,  white]
               [8, yellow]
               [4,  white]
-            ] | drop column 3 | columns | empty?
+            ] | drop column 3 | columns | is-empty
         "#)
     );
 
