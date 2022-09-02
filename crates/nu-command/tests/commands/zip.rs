@@ -8,7 +8,7 @@ export def expect [
     --to-eq,
     right
 ] {
-    $left | zip $right | all? {|row|
+    $left | zip $right | all {|row|
         $row.name.0 == $row.name.1 && $row.commits.0 == $row.commits.1
     }
 }

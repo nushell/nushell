@@ -373,7 +373,7 @@ fn parse_script_success_with_complex_internal_stream() {
                   #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
-                  if ($entrada | empty?) {
+                  if ($entrada | empty) {
                     if ($in | column? name) {
                       grep -ihHn $search ($in | get name)
                     } else {
@@ -422,7 +422,7 @@ fn parse_script_failure_with_complex_internal_stream() {
                   #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ]
-                  if ($entrada | empty?) {
+                  if ($entrada | empty) {
                     if ($in | column? name) {
                       grep -ihHn $search ($in | get name)
                     } else {
@@ -471,7 +471,7 @@ fn parse_script_success_with_complex_external_stream() {
                   #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
-                  if ($entrada | empty?) {
+                  if ($entrada | empty) {
                     if ($in | column? name) {
                       grep -ihHn $search ($in | get name)
                     } else {
@@ -520,7 +520,7 @@ fn parse_module_success_with_complex_external_stream() {
                   #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
-                  if ($entrada | empty?) {
+                  if ($entrada | empty) {
                     if ($in | column? name) {
                       grep -ihHn $search ($in | get name)
                     } else {
@@ -569,7 +569,7 @@ fn parse_with_flag_all_success_for_complex_external_stream() {
                   #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
-                  if ($entrada | empty?) {
+                  if ($entrada | empty) {
                     if ($in | column? name) {
                       grep -ihHn $search ($in | get name)
                     } else {
@@ -618,7 +618,7 @@ fn parse_with_flag_all_failure_for_complex_external_stream() {
                   #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
-                  if ($entrada | empty?) {
+                  if ($entrada | empty) {
                     if ($in | column? name) {
                       grep -ihHn $search ($in | get name)
                     } else {
@@ -667,7 +667,7 @@ fn parse_with_flag_all_failure_for_complex_list_stream() {
                   #ls **/* | some_filter | grep-nu search
                   #open file.txt | grep-nu search
                 ] {
-                  if ($entrada | empty?) {
+                  if ($entrada | empty) {
                     if ($in | column? name) {
                       grep -ihHn $search ($in | get name)
                     } else {

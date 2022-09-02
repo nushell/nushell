@@ -191,7 +191,7 @@ fn run_custom_command_with_flag() {
     let actual = nu!(
         cwd: ".",
         r#"
-        def foo [--bar:number] { if ($bar | empty?) { echo "empty" } else { echo $bar } }; foo --bar 10
+        def foo [--bar:number] { if ($bar | empty) { echo "empty" } else { echo $bar } }; foo --bar 10
         "#
     );
 
@@ -203,7 +203,7 @@ fn run_custom_command_with_flag_missing() {
     let actual = nu!(
         cwd: ".",
         r#"
-        def foo [--bar:number] { if ($bar | empty?) { echo "empty" } else { echo $bar } }; foo
+        def foo [--bar:number] { if ($bar | empty) { echo "empty" } else { echo $bar } }; foo
         "#
     );
 
