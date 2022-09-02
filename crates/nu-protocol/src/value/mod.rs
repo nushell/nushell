@@ -927,131 +927,138 @@ impl Value {
     }
 
     pub fn remove_data_at_cell_path(&mut self, cell_path: &[PathMember]) -> Result<(), ShellError> {
-        if cell_path.len() > 1 {
-            let path_member = cell_path.first().expect("there is a first");
-            match path_member {
-                PathMember::String {
-                    val: col_name,
-                    span,
-                } => match self {
-                    Value::List { vals, .. } => {
-                        for val in vals.iter_mut() {
-                            match val {
-                                Value::Record {
-                                    cols,
-                                    vals,
-                                    span: v_span,
-                                } => {
-                                    let mut found = false;
-                                    for col in cols.iter().zip(vals.iter_mut()) {
-                                        if col.0 == col_name {
-                                            found = true;
-                                            col.1.remove_data_at_cell_path(&cell_path[1..])?
+        match cell_path.len() {
+            0 => Ok(()),
+            1 => {
+                let path_member = cell_path.first().expect("there is a first");
+                match path_member {
+                    PathMember::String {
+                        val: col_name,
+                        span,
+                    } => match self {
+                        Value::List { vals, .. } => {
+                            for val in vals.iter_mut() {
+                                match val {
+                                    Value::Record {
+                                        cols,
+                                        vals,
+                                        span: v_span,
+                                    } => {
+                                        let mut found = false;
+                                        for (i, col) in cols.clone().iter().enumerate() {
+                                            if col == col_name {
+                                                cols.remove(i);
+                                                vals.remove(i);
+                                                found = true;
+                                            }
+                                        }
+                                        if !found {
+                                            return Err(ShellError::CantFindColumn(*span, *v_span));
                                         }
                                     }
-                                    if !found {
-                                        return Err(ShellError::CantFindColumn(*span, *v_span));
-                                    }
+                                    v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
                                 }
-                                v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
                             }
-                        }
-                    }
-                    Value::Record {
-                        cols,
-                        vals,
-                        span: v_span,
-                    } => {
-                        let mut found = false;
-
-                        for col in cols.iter().zip(vals.iter_mut()) {
-                            if col.0 == col_name {
-                                found = true;
-
-                                col.1.remove_data_at_cell_path(&cell_path[1..])?
-                            }
-                        }
-                        if !found {
-                            return Err(ShellError::CantFindColumn(*span, *v_span));
-                        }
-                    }
-                    v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
-                },
-                PathMember::Int { val: row_num, span } => match self {
-                    Value::List { vals, .. } => {
-                        if let Some(v) = vals.get_mut(*row_num) {
-                            v.remove_data_at_cell_path(&cell_path[1..])?
-                        } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
-                        }
-                    }
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
-                },
-            }
-        } else if cell_path.len() == 1 {
-            let path_member = cell_path.first().expect("there is a first");
-            match path_member {
-                PathMember::String {
-                    val: col_name,
-                    span,
-                } => match self {
-                    Value::List { vals, .. } => {
-                        for val in vals.iter_mut() {
-                            match val {
-                                Value::Record {
-                                    cols,
-                                    vals,
-                                    span: v_span,
-                                } => {
-                                    let mut found = false;
-                                    for (i, col) in cols.clone().iter().enumerate() {
-                                        if col == col_name {
-                                            cols.remove(i);
-                                            vals.remove(i);
-                                            found = true;
-                                        }
-                                    }
-                                    if !found {
-                                        return Err(ShellError::CantFindColumn(*span, *v_span));
-                                    }
-                                }
-                                v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
-                            }
-                        }
-                    }
-                    Value::Record {
-                        cols,
-                        vals,
-                        span: v_span,
-                    } => {
-                        let mut found = false;
-                        for (i, col) in cols.clone().iter().enumerate() {
-                            if col == col_name {
-                                cols.remove(i);
-                                vals.remove(i);
-                                found = true;
-                            }
-                        }
-                        if !found {
-                            return Err(ShellError::CantFindColumn(*span, *v_span));
-                        }
-                    }
-                    v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
-                },
-                PathMember::Int { val: row_num, span } => match self {
-                    Value::List { vals, .. } => {
-                        if vals.get_mut(*row_num).is_some() {
-                            vals.remove(*row_num);
                             return Ok(());
-                        } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
                         }
-                    }
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
-                },
+                        Value::Record {
+                            cols,
+                            vals,
+                            span: v_span,
+                        } => {
+                            let mut found = false;
+                            for (i, col) in cols.clone().iter().enumerate() {
+                                if col == col_name {
+                                    cols.remove(i);
+                                    vals.remove(i);
+                                    found = true;
+                                }
+                            }
+                            if !found {
+                                return Err(ShellError::CantFindColumn(*span, *v_span));
+                            }
+                            Ok(())
+                        }
+                        v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                    },
+                    PathMember::Int { val: row_num, span } => match self {
+                        Value::List { vals, .. } => {
+                            if vals.get_mut(*row_num).is_some() {
+                                vals.remove(*row_num);
+                                return Ok(());
+                            } else {
+                                return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
+                            }
+                        }
+                        v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    },
+                }
+            }
+            _ => {
+                let path_member = cell_path.first().expect("there is a first");
+                match path_member {
+                    PathMember::String {
+                        val: col_name,
+                        span,
+                    } => match self {
+                        Value::List { vals, .. } => {
+                            for val in vals.iter_mut() {
+                                match val {
+                                    Value::Record {
+                                        cols,
+                                        vals,
+                                        span: v_span,
+                                    } => {
+                                        let mut found = false;
+                                        for col in cols.iter().zip(vals.iter_mut()) {
+                                            if col.0 == col_name {
+                                                found = true;
+                                                col.1.remove_data_at_cell_path(&cell_path[1..])?
+                                            }
+                                        }
+                                        if !found {
+                                            return Err(ShellError::CantFindColumn(*span, *v_span));
+                                        }
+                                    }
+                                    v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                                }
+                            }
+                            return Ok(());
+                        }
+                        Value::Record {
+                            cols,
+                            vals,
+                            span: v_span,
+                        } => {
+                            let mut found = false;
+
+                            for col in cols.iter().zip(vals.iter_mut()) {
+                                if col.0 == col_name {
+                                    found = true;
+
+                                    col.1.remove_data_at_cell_path(&cell_path[1..])?
+                                }
+                            }
+                            if !found {
+                                return Err(ShellError::CantFindColumn(*span, *v_span));
+                            }
+                            Ok(())
+                        }
+                        v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                    },
+                    PathMember::Int { val: row_num, span } => match self {
+                        Value::List { vals, .. } => {
+                            if let Some(v) = vals.get_mut(*row_num) {
+                                v.remove_data_at_cell_path(&cell_path[1..])
+                            } else {
+                                return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
+                            }
+                        }
+                        v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    },
+                }
             }
         }
-        Ok(())
     }
 
     pub fn insert_data_at_cell_path(
