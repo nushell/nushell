@@ -959,7 +959,7 @@ impl Value {
                                     v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
                                 }
                             }
-                            return Ok(());
+                            Ok(())
                         }
                         Value::Record {
                             cols,
@@ -979,18 +979,18 @@ impl Value {
                             }
                             Ok(())
                         }
-                        v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                        v => Err(ShellError::CantFindColumn(*span, v.span()?)),
                     },
                     PathMember::Int { val: row_num, span } => match self {
                         Value::List { vals, .. } => {
                             if vals.get_mut(*row_num).is_some() {
                                 vals.remove(*row_num);
-                                return Ok(());
+                                Ok(())
                             } else {
-                                return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
+                                Err(ShellError::AccessBeyondEnd(vals.len(), *span))
                             }
                         }
-                        v => return Err(ShellError::NotAList(*span, v.span()?)),
+                        v => Err(ShellError::NotAList(*span, v.span()?)),
                     },
                 }
             }
@@ -1023,7 +1023,7 @@ impl Value {
                                     v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
                                 }
                             }
-                            return Ok(());
+                            Ok(())
                         }
                         Value::Record {
                             cols,
@@ -1044,17 +1044,17 @@ impl Value {
                             }
                             Ok(())
                         }
-                        v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                        v => Err(ShellError::CantFindColumn(*span, v.span()?)),
                     },
                     PathMember::Int { val: row_num, span } => match self {
                         Value::List { vals, .. } => {
                             if let Some(v) = vals.get_mut(*row_num) {
                                 v.remove_data_at_cell_path(&cell_path[1..])
                             } else {
-                                return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
+                                Err(ShellError::AccessBeyondEnd(vals.len(), *span))
                             }
                         }
-                        v => return Err(ShellError::NotAList(*span, v.span()?)),
+                        v => Err(ShellError::NotAList(*span, v.span()?)),
                     },
                 }
             }
