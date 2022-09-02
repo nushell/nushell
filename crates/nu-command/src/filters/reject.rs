@@ -59,6 +59,19 @@ impl Command for Reject {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Reject a nested field in a record",
+                example: "echo {a: {b: 3,c: 5}} | reject a.b",
+                result: Some(Value::Record {
+                    cols: vec!["a".into()],
+                    vals: vec![Value::Record {
+                        cols: vec!["c".into()],
+                        vals: vec![Value::Int { val: 5, span: Span::test_data() }],
+                        span: Span::test_data()
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
