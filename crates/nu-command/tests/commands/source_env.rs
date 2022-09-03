@@ -141,3 +141,17 @@ fn sources_unicode_file_in_unicode_dir_with_spaces_2() {
 fn sources_unicode_file_in_non_utf8_dir() {
     // How do I create non-UTF-8 path???
 }
+
+#[test]
+fn can_source_dynamic_path() {
+    Playground::setup("can_source_dynamic_path", |dirs, sandbox| {
+        let foo_file = "foo.nu";
+
+        sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
+
+        let cmd = format!("let file = `{}`; source-env $file", foo_file);
+        let actual = nu!(cwd: dirs.test(), &cmd);
+
+        assert_eq!(actual.out, "foo");
+    });
+}
