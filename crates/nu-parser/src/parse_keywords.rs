@@ -19,9 +19,9 @@ use crate::{
     lex, lite_parse,
     lite_parse::LiteCommand,
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, parse, parse_block_expression,
-        parse_internal_call, parse_multispan_value, parse_signature, parse_string,
-        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
+        check_call, check_name, garbage, garbage_pipeline, parse, parse_internal_call,
+        parse_multispan_value, parse_signature, parse_string, parse_var_with_opt_type, trim_quotes,
+        ParsedInternalCall,
     },
     unescape_unquote_string, ParseError,
 };
