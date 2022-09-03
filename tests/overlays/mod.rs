@@ -506,7 +506,6 @@ fn remove_overlay_keep_discard_overwritten_alias() {
 }
 
 #[test]
-#[ignore]
 fn remove_overlay_keep_discard_overwritten_env() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
