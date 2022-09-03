@@ -125,7 +125,7 @@ impl Command for OverlayHide {
             },
             Example {
                 description: "Hide the last activated overlay",
-                example: r#"module spam { export env FOO { "foo" } }
+                example: r#"module spam { export-env { let-env FOO = "foo" } }
     overlay use spam
     overlay hide"#,
                 result: None,

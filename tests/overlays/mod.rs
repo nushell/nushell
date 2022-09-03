@@ -116,7 +116,7 @@ fn prefixed_overlay_keeps_custom_decl() {
 #[test]
 fn add_overlay_env() {
     let inp = &[
-        r#"module spam { export env FOO { "foo" } }"#,
+        r#"module spam { export-env { let-env FOO = "foo" } }"#,
         r#"overlay use spam"#,
         r#"$env.FOO"#,
     ];
@@ -131,7 +131,7 @@ fn add_overlay_env() {
 #[test]
 fn add_prefixed_overlay_env_no_prefix() {
     let inp = &[
-        r#"module spam { export env FOO { "foo" } }"#,
+        r#"module spam { export-env { let-env FOO = "foo" } }"#,
         r#"overlay use --prefix spam"#,
         r#"$env.FOO"#,
     ];
@@ -224,9 +224,9 @@ fn update_overlay_from_module() {
 #[test]
 fn update_overlay_from_module_env() {
     let inp = &[
-        r#"module spam { export env FOO { "foo" } }"#,
+        r#"module spam { export-env { let-env FOO = "foo" } }"#,
         r#"overlay use spam"#,
-        r#"module spam { export env FOO { "bar" } }"#,
+        r#"module spam { export-env { let-env FOO = "bar" } }"#,
         r#"overlay use spam"#,
         r#"$env.FOO"#,
     ];
@@ -295,7 +295,7 @@ fn remove_overlay_scoped() {
 #[test]
 fn remove_overlay_env() {
     let inp = &[
-        r#"module spam { export env FOO { "foo" } }"#,
+        r#"module spam { export-env { let-env FOO = "foo" } }"#,
         r#"overlay use spam"#,
         r#"overlay hide spam"#,
         r#"$env.FOO"#,
@@ -311,7 +311,7 @@ fn remove_overlay_env() {
 #[test]
 fn remove_overlay_scoped_env() {
     let inp = &[
-        r#"module spam { export env FOO { "foo" } }"#,
+        r#"module spam { export-env { let-env FOO = "foo" } }"#,
         r#"overlay use spam"#,
         r#"do { overlay hide spam }"#,
         r#"$env.FOO"#,

@@ -230,7 +230,7 @@ fn parse_module_success_2() {
             r#"
                 # foo.nu
 
-                export env MYNAME { "Arthur, King of the Britons" }
+                export-env { let-env MYNAME = "Arthur, King of the Britons" }
             "#,
         )]);
 
