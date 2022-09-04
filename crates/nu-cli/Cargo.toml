@@ -30,6 +30,7 @@ is_executable = "1.0.1"
 lazy_static = "1.4.0"
 log = "0.4"
 miette = { version = "5.1.0", features = ["fancy"] }
+percent-encoding = "2"
 strip-ansi-escapes = "0.1.1"
 sysinfo = "0.25.2"
 thiserror = "1.0.31"
