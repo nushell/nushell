@@ -82,6 +82,10 @@ impl Call {
         self.positional_iter().nth(i)
     }
 
+    pub fn positional_nth_mut(&mut self, i: usize) -> Option<&mut Expression> {
+        self.positional_iter_mut().nth(i)
+    }
+
     pub fn positional_len(&self) -> usize {
         self.positional_iter().count()
     }

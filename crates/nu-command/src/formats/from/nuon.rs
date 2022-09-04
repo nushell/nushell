@@ -265,6 +265,12 @@ fn convert_to_value(
             "imports not supported in nuon".into(),
             expr.span,
         )),
+        Expr::Overlay(..) => Err(ShellError::OutsideSpannedLabeledError(
+            original_text.to_string(),
+            "Error when loading".into(),
+            "overlays not supported in nuon".into(),
+            expr.span,
+        )),
         Expr::Int(val) => Ok(Value::Int { val, span }),
         Expr::Keyword(kw, ..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),

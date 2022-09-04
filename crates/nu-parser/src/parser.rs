@@ -5221,6 +5221,7 @@ pub fn discover_captures_in_expr(
             output.extend(&result);
         }
         Expr::ImportPattern(_) => {}
+        Expr::Overlay(_) => {}
         Expr::Garbage => {}
         Expr::Nothing => {}
         Expr::GlobPattern(_) => {}
