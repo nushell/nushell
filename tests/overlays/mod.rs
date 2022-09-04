@@ -920,6 +920,26 @@ fn overlay_preserve_hidden_env_2() {
     assert_eq!(actual_repl.out, "foo");
 }
 
+#[test]
+fn overlay_reset_hidden_env() {
+    let inp = &[
+        r#"overlay new spam"#,
+        r#"let-env FOO = 'foo'"#,
+        r#"overlay new eggs"#,
+        r#"let-env FOO = 'bar'"#,
+        r#"hide-env FOO"#,
+        r#"module eggs { export-env { let-env FOO = 'bar' } }"#,
+        r#"overlay use eggs"#,
+        r#"$env.FOO"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "bar");
+    assert_eq!(actual_repl.out, "bar");
+}
+
 #[ignore = "TODO: For this to work, we'd need to make predecls respect overlays"]
 #[test]
 fn overlay_preserve_hidden_decl() {
