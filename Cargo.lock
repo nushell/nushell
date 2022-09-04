@@ -2630,6 +2630,7 @@ dependencies = [
 name = "nu-cli"
 version = "0.67.1"
 dependencies = [
+ "atty",
  "chrono",
  "crossterm 0.24.0",
  "fancy-regex",

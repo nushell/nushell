@@ -43,6 +43,16 @@ pub fn evaluate_repl(
 ) -> Result<()> {
     use reedline::{FileBackedHistory, Reedline, Signal};
 
+    // Guard against invocation without a connected terminal.
+    // reedline / crossterm event polling will fail without a connected tty
+    if !atty::is(atty::Stream::Stdin) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "STDIN is not a TTY",
+        ))
+        .into_diagnostic();
+    }
+
     let mut entry_num = 0;
 
     let mut nu_prompt = NushellPrompt::new();
@@ -496,6 +506,10 @@ pub fn evaluate_repl(
                 let message = err.to_string();
                 if !message.contains("duration") {
                     println!("Error: {:?}", err);
+                    // TODO: Identify possible error cases where a hard failure is preferable
+                    // Ignoring and reporting could hide bigger problems
+                    // e.g. https://github.com/nushell/nushell/issues/6452
+                    // Alternatively only allow expected failures to let the REPL to loop
                 }
                 if shell_integration {
                     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
