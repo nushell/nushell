@@ -118,6 +118,7 @@ impl Command for OverlayUse {
             // Add environment variables only if:
             // a) adding a new overlay
             // b) refreshing an active overlay (the origin module changed)
+
             let module = engine_state.get_module(module_id);
 
             for (name, block_id) in module.env_vars() {

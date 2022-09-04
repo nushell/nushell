@@ -379,8 +379,6 @@ impl Stack {
     }
 
     pub fn add_overlay(&mut self, name: String) {
-        self.env_hidden.remove(&name);
-
         self.active_overlays.retain(|o| o != &name);
         self.active_overlays.push(name);
     }

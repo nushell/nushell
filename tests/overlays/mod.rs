@@ -878,3 +878,103 @@ fn overlay_use_find_scoped_module() {
         assert_eq!(actual.out, "spam");
     })
 }
+
+#[test]
+fn overlay_preserve_hidden_env_1() {
+    let inp = &[
+        r#"overlay new spam"#,
+        r#"let-env FOO = 'foo'"#,
+        r#"overlay new eggs"#,
+        r#"let-env FOO = 'bar'"#,
+        r#"hide-env FOO"#,
+        r#"overlay use eggs"#,
+        r#"$env.FOO"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn overlay_preserve_hidden_env_2() {
+    let inp = &[
+        r#"overlay new spam"#,
+        r#"let-env FOO = 'foo'"#,
+        r#"overlay hide spam"#,
+        r#"overlay new eggs"#,
+        r#"let-env FOO = 'bar'"#,
+        r#"hide-env FOO"#,
+        r#"overlay hide eggs"#,
+        r#"overlay use spam"#,
+        r#"overlay use eggs"#,
+        r#"$env.FOO"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn overlay_reset_hidden_env() {
+    let inp = &[
+        r#"overlay new spam"#,
+        r#"let-env FOO = 'foo'"#,
+        r#"overlay new eggs"#,
+        r#"let-env FOO = 'bar'"#,
+        r#"hide-env FOO"#,
+        r#"module eggs { export-env { let-env FOO = 'bar' } }"#,
+        r#"overlay use eggs"#,
+        r#"$env.FOO"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "bar");
+    assert_eq!(actual_repl.out, "bar");
+}
+
+#[ignore = "TODO: For this to work, we'd need to make predecls respect overlays"]
+#[test]
+fn overlay_preserve_hidden_decl() {
+    let inp = &[
+        r#"overlay new spam"#,
+        r#"def foo [] { 'foo' }"#,
+        r#"overlay new eggs"#,
+        r#"def foo [] { 'bar' }"#,
+        r#"hide foo"#,
+        r#"overlay use eggs"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn overlay_preserve_hidden_alias() {
+    let inp = &[
+        r#"overlay new spam"#,
+        r#"alias foo = 'foo'"#,
+        r#"overlay new eggs"#,
+        r#"alias foo = 'bar'"#,
+        r#"hide foo"#,
+        r#"overlay use eggs"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
