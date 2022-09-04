@@ -239,6 +239,24 @@ fn update_overlay_from_module_env() {
 }
 
 #[test]
+fn overlay_use_do_not_eval_twice() {
+    let inp = &[
+        r#"module spam { export env FOO { "foo" } }"#,
+        r#"overlay use spam"#,
+        r#"let-env FOO = "bar""#,
+        r#"overlay hide spam"#,
+        r#"overlay use spam"#,
+        r#"$env.FOO"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "bar");
+    assert_eq!(actual_repl.out, "bar");
+}
+
+#[test]
 fn remove_overlay() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
@@ -843,23 +861,22 @@ fn overlay_use_dont_cd_overlay() {
     })
 }
 
-#[ignore]
 #[test]
-fn overlay_use_find_module_scoped() {
+fn overlay_use_find_scoped_module() {
     Playground::setup("overlay_use_find_module_scoped", |dirs, _| {
-        let inp = &[r#"
+        let inp = r#"
                 do {
-                    module spam { export def foo [] { 'foo' } }
+                    module spam { }
 
                     overlay use spam
-                    foo
+                    overlay list | last
                 }
-            "#];
+            "#;
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
-        let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+        let actual = nu!(cwd: dirs.test(), inp);
+        // let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-        assert_eq!(actual.out, "foo");
-        assert_eq!(actual_repl.out, "foo");
+        assert_eq!(actual.out, "spam");
+        // assert_eq!(actual_repl.out, "foo");
     })
 }

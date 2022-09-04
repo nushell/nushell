@@ -260,6 +260,9 @@ pub fn flatten_expression(
 
             output
         }
+        Expr::Overlay(_) => {
+            vec![(expr.span, FlatShape::String)]
+        }
         Expr::Range(from, next, to, op) => {
             let mut output = vec![];
             if let Some(f) = from {
