@@ -1660,8 +1660,8 @@ pub fn parse_use(
         if let Some(module_id) = working_set.find_module(&import_pattern.head.name) {
             (import_pattern, working_set.get_module(module_id).clone())
         } else {
-            // TODO: Do not close over when loading module from file?
             // It could be a file
+            // TODO: Do not close over when loading module from file?
 
             let (module_filename, err) =
                 unescape_unquote_string(&import_pattern.head.name, import_pattern.head.span);
@@ -1670,6 +1670,37 @@ pub fn parse_use(
                 if let Some(module_path) =
                     find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
                 {
+                    if let Some(i) = working_set
+                        .parsed_module_files
+                        .iter()
+                        .rposition(|p| p == &module_path)
+                    {
+                        let mut files: Vec<String> = working_set
+                            .parsed_module_files
+                            .split_off(i)
+                            .iter()
+                            .map(|p| p.to_string_lossy().to_string())
+                            .collect();
+
+                        files.push(module_path.to_string_lossy().to_string());
+
+                        let msg = files.join("\nuses ");
+
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            vec![],
+                            Some(ParseError::CyclicalModuleImport(
+                                msg,
+                                import_pattern.head.span,
+                            )),
+                        );
+                    }
+
                     let module_name = if let Some(stem) = module_path.file_stem() {
                         stem.to_string_lossy().to_string()
                     } else {
@@ -1690,7 +1721,7 @@ pub fn parse_use(
                         working_set.add_file(module_filename, &contents);
                         let span_end = working_set.next_span_start();
 
-                        // Change currently parsed directory
+                        // Change the currently parsed directory
                         let prev_currently_parsed_cwd = if let Some(parent) = module_path.parent() {
                             let prev = working_set.currently_parsed_cwd.clone();
 
@@ -1701,12 +1732,19 @@ pub fn parse_use(
                             working_set.currently_parsed_cwd.clone()
                         };
 
+                        // Add the file to the stack of parsed module files
+                        working_set.parsed_module_files.push(module_path);
+
+                        // Parse the module
                         let (block, module, err) = parse_module_block(
                             working_set,
                             Span::new(span_start, span_end),
                             expand_aliases_denylist,
                         );
                         error = error.or(err);
+
+                        // Remove the file from the stack of parsed module files
+                        working_set.parsed_module_files.pop();
 
                         // Restore the currently parsed directory back
                         working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
