@@ -3197,37 +3197,55 @@ pub fn parse_register(
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
     let error = match signature {
         Some(signature) => arguments.and_then(|(path, encoding)| {
-            signature.map(|signature| {
-                let plugin_decl = PluginDeclaration::new(path, signature, encoding, shell);
-                working_set.add_decl(Box::new(plugin_decl));
-                working_set.mark_plugins_file_dirty();
-            })
-        }),
-        None => arguments.and_then(|(path, encoding)| {
-            get_signature(path.as_path(), &encoding, &shell, &current_envs)
-                .map_err(|err| {
-                    ParseError::LabeledError(
-                        "Error getting signatures".into(),
-                        err.to_string(),
-                        spans[0],
-                    )
-                })
-                .map(|signatures| {
-                    for signature in signatures {
-                        // create plugin command declaration (need struct impl Command)
-                        // store declaration in working set
-                        let plugin_decl = PluginDeclaration::new(
-                            path.clone(),
-                            signature,
-                            encoding.clone(),
-                            shell.clone(),
-                        );
+            // restrict plugin file name starts with `nu_plugin_`
+            let f_name = path
+                .file_name()
+                .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-                        working_set.add_decl(Box::new(plugin_decl));
-                    }
-
+            if let Some(true) = f_name {
+                signature.map(|signature| {
+                    let plugin_decl = PluginDeclaration::new(path, signature, encoding, shell);
+                    working_set.add_decl(Box::new(plugin_decl));
                     working_set.mark_plugins_file_dirty();
                 })
+            } else {
+                Ok(())
+            }
+        }),
+        None => arguments.and_then(|(path, encoding)| {
+            // restrict plugin file name starts with `nu_plugin_`
+            let f_name = path
+                .file_name()
+                .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
+
+            if let Some(true) = f_name {
+                get_signature(path.as_path(), &encoding, &shell, &current_envs)
+                    .map_err(|err| {
+                        ParseError::LabeledError(
+                            "Error getting signatures".into(),
+                            err.to_string(),
+                            spans[0],
+                        )
+                    })
+                    .map(|signatures| {
+                        for signature in signatures {
+                            // create plugin command declaration (need struct impl Command)
+                            // store declaration in working set
+                            let plugin_decl = PluginDeclaration::new(
+                                path.clone(),
+                                signature,
+                                encoding.clone(),
+                                shell.clone(),
+                            );
+
+                            working_set.add_decl(Box::new(plugin_decl));
+                        }
+
+                        working_set.mark_plugins_file_dirty();
+                    })
+            } else {
+                Ok(())
+            }
         }),
     }
     .err();
