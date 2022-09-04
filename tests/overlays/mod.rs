@@ -874,9 +874,7 @@ fn overlay_use_find_scoped_module() {
             "#;
 
         let actual = nu!(cwd: dirs.test(), inp);
-        // let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
         assert_eq!(actual.out, "spam");
-        // assert_eq!(actual_repl.out, "foo");
     })
 }
