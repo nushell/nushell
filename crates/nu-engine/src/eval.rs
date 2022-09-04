@@ -355,6 +355,15 @@ pub fn eval_expression(
             value.follow_cell_path(&cell_path.tail, false)
         }
         Expr::ImportPattern(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::Overlay(_) => {
+            let name =
+                String::from_utf8_lossy(engine_state.get_span_contents(&expr.span)).to_string();
+
+            Ok(Value::String {
+                val: name,
+                span: expr.span,
+            })
+        }
         Expr::Call(call) => {
             // FIXME: protect this collect with ctrl-c
             Ok(

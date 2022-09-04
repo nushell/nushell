@@ -777,6 +777,8 @@ pub struct StateWorkingSet<'a> {
     pub type_scope: TypeScope,
     /// Current working directory relative to the file being parsed right now
     pub currently_parsed_cwd: Option<PathBuf>,
+    /// All previously parsed module files. Used to protect against circular imports.
+    pub parsed_module_files: Vec<PathBuf>,
 }
 
 /// A temporary placeholder for expression types. It is used to keep track of the input types
@@ -952,6 +954,7 @@ impl<'a> StateWorkingSet<'a> {
             external_commands: vec![],
             type_scope: TypeScope::default(),
             currently_parsed_cwd: None,
+            parsed_module_files: vec![],
         }
     }
 

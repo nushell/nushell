@@ -341,3 +341,95 @@ fn module_import_env_2() {
         assert_eq!(actual.out, "foo");
     })
 }
+
+#[test]
+fn module_cyclical_imports_0() {
+    Playground::setup("module_cyclical_imports_0", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                    use eggs.nu
+                "#,
+        )]);
+
+        let inp = &[r#"module eggs { use spam.nu }"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("module not found"));
+    })
+}
+
+#[test]
+fn module_cyclical_imports_1() {
+    Playground::setup("module_cyclical_imports_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                    use spam.nu
+                "#,
+        )]);
+
+        let inp = &[r#"use spam.nu"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("cyclical"));
+    })
+}
+
+#[test]
+fn module_cyclical_imports_2() {
+    Playground::setup("module_cyclical_imports_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    use eggs.nu
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "eggs.nu",
+                r#"
+                    use spam.nu
+                "#,
+            )]);
+
+        let inp = &[r#"use spam.nu"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("cyclical"));
+    })
+}
+
+#[test]
+fn module_cyclical_imports_3() {
+    Playground::setup("module_cyclical_imports_3", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    use eggs.nu
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "eggs.nu",
+                r#"
+                    use bacon.nu
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "bacon.nu",
+                r#"
+                    use spam.nu
+                "#,
+            )]);
+
+        let inp = &[r#"use spam.nu"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("cyclical"));
+    })
+}

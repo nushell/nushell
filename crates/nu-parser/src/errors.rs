@@ -120,6 +120,10 @@ pub enum ParseError {
     )]
     ModuleNotFound(#[label = "module not found"] Span),
 
+    #[error("Cyclical module import.")]
+    #[diagnostic(code(nu::parser::cyclical_module_import), url(docsrs), help("{0}"))]
+    CyclicalModuleImport(String, #[label = "detected cyclical module import"] Span),
+
     #[error("Active overlay not found.")]
     #[diagnostic(code(nu::parser::active_overlay_not_found), url(docsrs))]
     ActiveOverlayNotFound(#[label = "not an active overlay"] Span),
@@ -341,6 +345,7 @@ impl ParseError {
             ParseError::VariableNotFound(s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
+            ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
             ParseError::ActiveOverlayNotFound(s) => *s,
             ParseError::OverlayPrefixMismatch(_, _, s) => *s,

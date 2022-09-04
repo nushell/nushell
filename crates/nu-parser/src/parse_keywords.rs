@@ -1571,8 +1571,8 @@ pub fn parse_use(
         if let Some(module_id) = working_set.find_module(&import_pattern.head.name) {
             (import_pattern, working_set.get_module(module_id).clone())
         } else {
-            // TODO: Do not close over when loading module from file?
             // It could be a file
+            // TODO: Do not close over when loading module from file?
 
             let (module_filename, err) =
                 unescape_unquote_string(&import_pattern.head.name, import_pattern.head.span);
@@ -1581,6 +1581,37 @@ pub fn parse_use(
                 if let Some(module_path) =
                     find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
                 {
+                    if let Some(i) = working_set
+                        .parsed_module_files
+                        .iter()
+                        .rposition(|p| p == &module_path)
+                    {
+                        let mut files: Vec<String> = working_set
+                            .parsed_module_files
+                            .split_off(i)
+                            .iter()
+                            .map(|p| p.to_string_lossy().to_string())
+                            .collect();
+
+                        files.push(module_path.to_string_lossy().to_string());
+
+                        let msg = files.join("\nuses ");
+
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            vec![],
+                            Some(ParseError::CyclicalModuleImport(
+                                msg,
+                                import_pattern.head.span,
+                            )),
+                        );
+                    }
+
                     let module_name = if let Some(stem) = module_path.file_stem() {
                         stem.to_string_lossy().to_string()
                     } else {
@@ -1601,7 +1632,7 @@ pub fn parse_use(
                         working_set.add_file(module_filename, &contents);
                         let span_end = working_set.next_span_start();
 
-                        // Change currently parsed directory
+                        // Change the currently parsed directory
                         let prev_currently_parsed_cwd = if let Some(parent) = module_path.parent() {
                             let prev = working_set.currently_parsed_cwd.clone();
 
@@ -1612,12 +1643,19 @@ pub fn parse_use(
                             working_set.currently_parsed_cwd.clone()
                         };
 
+                        // Add the file to the stack of parsed module files
+                        working_set.parsed_module_files.push(module_path);
+
+                        // Parse the module
                         let (block, module, err) = parse_module_block(
                             working_set,
                             Span::new(span_start, span_end),
                             expand_aliases_denylist,
                         );
                         error = error.or(err);
+
+                        // Remove the file from the stack of parsed module files
+                        working_set.parsed_module_files.pop();
 
                         // Restore the currently parsed directory back
                         working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
@@ -2333,7 +2371,7 @@ pub fn parse_overlay_use(
     let has_prefix = call.has_flag("prefix");
 
     let pipeline = Pipeline::from_vec(vec![Expression {
-        expr: Expr::Call(call),
+        expr: Expr::Call(call.clone()),
         span: span(spans),
         ty: Type::Any,
         custom_completion: None,
@@ -2343,7 +2381,14 @@ pub fn parse_overlay_use(
 
     let mut error = None;
 
-    let result = if let Some(overlay_frame) = working_set.find_overlay(overlay_name.as_bytes()) {
+    let (final_overlay_name, origin_module, origin_module_id, is_module_updated) = if let Some(
+        overlay_frame,
+    ) =
+        working_set.find_overlay(overlay_name.as_bytes())
+    {
+        // Activate existing overlay
+
+        // First, check for errors
         if has_prefix && !overlay_frame.prefixed {
             return (
                 pipeline,
@@ -2378,22 +2423,22 @@ pub fn parse_overlay_use(
             }
         }
 
-        // Activate existing overlay
         let module_id = overlay_frame.origin;
 
         if let Some(new_module_id) = working_set.find_module(overlay_name.as_bytes()) {
             if module_id == new_module_id {
-                Some((overlay_name, Module::new(), module_id))
+                (overlay_name, Module::new(), module_id, false)
             } else {
                 // The origin module of an overlay changed => update it
-                Some((
+                (
                     overlay_name,
                     working_set.get_module(new_module_id).clone(),
                     new_module_id,
-                ))
+                    true,
+                )
             }
         } else {
-            Some((overlay_name, Module::new(), module_id))
+            (overlay_name, Module::new(), module_id, true)
         }
     } else {
         // Create a new overlay from a module
@@ -2401,11 +2446,12 @@ pub fn parse_overlay_use(
             // the name is a module
             working_set.find_module(overlay_name.as_bytes())
         {
-            Some((
+            (
                 new_name.map(|spanned| spanned.item).unwrap_or(overlay_name),
                 working_set.get_module(module_id).clone(),
                 module_id,
-            ))
+                true,
+            )
         } else {
             // try if the name is a file
             if let Ok(module_filename) =
@@ -2452,11 +2498,12 @@ pub fn parse_overlay_use(
                         let _ = working_set.add_block(block);
                         let module_id = working_set.add_module(&overlay_name, module.clone());
 
-                        Some((
+                        (
                             new_name.map(|spanned| spanned.item).unwrap_or(overlay_name),
                             module,
                             module_id,
-                        ))
+                            true,
+                        )
                     } else {
                         return (
                             pipeline,
@@ -2464,8 +2511,10 @@ pub fn parse_overlay_use(
                         );
                     }
                 } else {
-                    error = error.or(Some(ParseError::ModuleOrOverlayNotFound(overlay_name_span)));
-                    None
+                    return (
+                        pipeline,
+                        Some(ParseError::ModuleOrOverlayNotFound(overlay_name_span)),
+                    );
                 }
             } else {
                 return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
@@ -2473,24 +2522,39 @@ pub fn parse_overlay_use(
         }
     };
 
-    if let Some((name, module, module_id)) = result {
-        let (decls_to_lay, aliases_to_lay) = if has_prefix {
-            (
-                module.decls_with_head(name.as_bytes()),
-                module.aliases_with_head(name.as_bytes()),
-            )
-        } else {
-            (module.decls(), module.aliases())
-        };
+    let (decls_to_lay, aliases_to_lay) = if has_prefix {
+        (
+            origin_module.decls_with_head(final_overlay_name.as_bytes()),
+            origin_module.aliases_with_head(final_overlay_name.as_bytes()),
+        )
+    } else {
+        (origin_module.decls(), origin_module.aliases())
+    };
 
-        working_set.add_overlay(
-            name.as_bytes().to_vec(),
-            module_id,
-            decls_to_lay,
-            aliases_to_lay,
-            has_prefix,
-        );
-    }
+    working_set.add_overlay(
+        final_overlay_name.as_bytes().to_vec(),
+        origin_module_id,
+        decls_to_lay,
+        aliases_to_lay,
+        has_prefix,
+    );
+
+    // Change the call argument to include the Overlay expression with the module ID
+    let mut call = call;
+    if let Some(overlay_expr) = call.positional_nth_mut(0) {
+        overlay_expr.expr = Expr::Overlay(if is_module_updated {
+            Some(origin_module_id)
+        } else {
+            None
+        });
+    } // no need to check for else since it was already checked
+
+    let pipeline = Pipeline::from_vec(vec![Expression {
+        expr: Expr::Call(call),
+        span: span(spans),
+        ty: Type::Any,
+        custom_completion: None,
+    }]);
 
     (pipeline, error)
 }
