@@ -361,7 +361,7 @@ pub fn get_plugin_encoding(child_stdout: &mut ChildStdout) -> Result<EncodingTyp
     })?;
 
     EncodingType::try_from_bytes(&buf).ok_or_else(|| {
-        let encoding_for_debug = String::from_utf8_lossy(buf);
+        let encoding_for_debug = String::from_utf8_lossy(&buf);
         ShellError::PluginFailedToLoad(format!(
             "get unsupported plugin encoding: {encoding_for_debug}"
         ))
