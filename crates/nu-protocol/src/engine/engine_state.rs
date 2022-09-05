@@ -366,7 +366,7 @@ impl EngineState {
                 self.plugin_decls().try_for_each(|decl| {
                     // A successful plugin registration already includes the plugin filename
                     // No need to check the None option
-                    let (path, encoding, shell) =
+                    let (path, shell) =
                         decl.is_plugin().expect("plugin should have file name");
                     let mut file_name = path
                         .to_str()
@@ -394,13 +394,12 @@ impl EngineState {
                                 None => "".into(),
                             };
 
-                            // Each signature is stored in the plugin file with the required
-                            // encoding, shell and signature
+                            // Each signature is stored in the plugin file with the shell and signature
                             // This information will be used when loading the plugin
                             // information when nushell starts
                             format!(
-                                "register {} -e {} {} {}\n\n",
-                                file_name, encoding, shell_str, signature
+                                "register {} {} {}\n\n",
+                                file_name, shell_str, signature
                             )
                         })
                         .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))

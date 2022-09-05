@@ -116,7 +116,6 @@ pub(crate) fn call_plugin(
 
 pub fn get_signature(
     path: &Path,
-    encoding: &EncodingType,
     shell: &Option<PathBuf>,
     current_envs: &HashMap<String, String>,
 ) -> Result<Vec<Signature>, ShellError> {

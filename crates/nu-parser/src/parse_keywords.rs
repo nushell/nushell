@@ -3120,22 +3120,7 @@ pub fn parse_register(
                 }
             }
         })
-        .expect("required positional has being checked")
-        .and_then(|path| {
-            call.get_flag_expr("encoding")
-                .map(|expr| {
-                    EncodingType::try_from_bytes(working_set.get_span_contents(expr.span))
-                        .ok_or_else(|| {
-                            ParseError::IncorrectValue(
-                                "wrong encoding".into(),
-                                expr.span,
-                                "Encodings available: json, and msgpack".into(),
-                            )
-                        })
-                })
-                .expect("required named has being checked")
-                .map(|encoding| (path, encoding))
-        });
+        .expect("required positional has being checked");
 
     // Signature is an optional value from the call and will be used to decide if
     // the plugin is called to get the signatures or to use the given signature
@@ -3196,7 +3181,7 @@ pub fn parse_register(
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
     let error = match signature {
-        Some(signature) => arguments.and_then(|(path, encoding)| {
+        Some(signature) => arguments.and_then(|path| {
             // restrict plugin file name starts with `nu_plugin_`
             let f_name = path
                 .file_name()
@@ -3204,7 +3189,7 @@ pub fn parse_register(
 
             if let Some(true) = f_name {
                 signature.map(|signature| {
-                    let plugin_decl = PluginDeclaration::new(path, signature, encoding, shell);
+                    let plugin_decl = PluginDeclaration::new(path, signature, shell);
                     working_set.add_decl(Box::new(plugin_decl));
                     working_set.mark_plugins_file_dirty();
                 })
@@ -3212,14 +3197,14 @@ pub fn parse_register(
                 Ok(())
             }
         }),
-        None => arguments.and_then(|(path, encoding)| {
+        None => arguments.and_then(|path| {
             // restrict plugin file name starts with `nu_plugin_`
             let f_name = path
                 .file_name()
                 .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
             if let Some(true) = f_name {
-                get_signature(path.as_path(), &encoding, &shell, &current_envs)
+                get_signature(path.as_path(), &shell, &current_envs)
                     .map_err(|err| {
                         ParseError::LabeledError(
                             "Error getting signatures".into(),
@@ -3228,13 +3213,13 @@ pub fn parse_register(
                         )
                     })
                     .map(|signatures| {
+                        println!("inside get signatures....");
                         for signature in signatures {
                             // create plugin command declaration (need struct impl Command)
                             // store declaration in working set
                             let plugin_decl = PluginDeclaration::new(
                                 path.clone(),
                                 signature,
-                                encoding.clone(),
                                 shell.clone(),
                             );
 
