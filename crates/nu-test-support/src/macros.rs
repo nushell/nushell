@@ -254,6 +254,8 @@ macro_rules! nu_with_plugins {
 
         $($crate::commands::ensure_binary_present($plugin_name);)+
 
+        // FIXME: the `$format` is a dummy empty string, but `plugin_name` is repeatable
+        // just keep it here for now.  Need to find a way to remove it.
         let registrations = format!(
             concat!($(concat!("register ", $format, " {};")),+),
             $(
