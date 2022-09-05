@@ -225,11 +225,11 @@ macro_rules! with_exe {
 
 #[macro_export]
 macro_rules! nu_with_plugins {
-    (cwd: $cwd:expr, plugins: [$(($format:expr, $plugin_name:expr)),+$(,)?], $command:expr) => {{
-        nu_with_plugins!($cwd, [$(($format, $plugin_name)),+], $command)
+    (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),+$(,)?], $command:expr) => {{
+        nu_with_plugins!($cwd, [$(("", $plugin_name)),+], $command)
     }};
-    (cwd: $cwd:expr, plugin: ($format:expr, $plugin_name:expr), $command:expr) => {{
-        nu_with_plugins!($cwd, [($format, $plugin_name)], $command)
+    (cwd: $cwd:expr, plugin: ($plugin_name:expr), $command:expr) => {{
+        nu_with_plugins!($cwd, [("", $plugin_name)], $command)
     }};
 
     ($cwd:expr, [$(($format:expr, $plugin_name:expr)),+$(,)?], $command:expr) => {{
@@ -255,7 +255,7 @@ macro_rules! nu_with_plugins {
         $($crate::commands::ensure_binary_present($plugin_name);)+
 
         let registrations = format!(
-            concat!($(concat!("register -e ", $format, " {};")),+),
+            concat!($(concat!("register ", $format, " {};")),+),
             $(
                 nu_path::canonicalize_with(with_exe!($plugin_name), &test_bins)
                     .unwrap_or_else(|e| {

@@ -3,10 +3,7 @@ use std::path::PathBuf;
 use nu_protocol::{CustomValue, ShellError, Value};
 use serde::Serialize;
 
-use crate::{
-    plugin::{call_plugin, create_command},
-    EncodingType,
-};
+use crate::plugin::{call_plugin, create_command, get_plugin_encoding};
 
 use super::{PluginCall, PluginData, PluginResponse};
 
@@ -31,8 +28,6 @@ pub struct PluginCustomValue {
     // between that boundary
     #[serde(skip)]
     pub shell: Option<PathBuf>,
-    #[serde(skip)]
-    pub encoding: EncodingType,
     #[serde(skip)]
     pub source: String,
 }
@@ -72,8 +67,20 @@ impl CustomValue for PluginCustomValue {
             data: self.data.clone(),
             span,
         });
+        let encoding = {
+            let mut stdout_reader = match &mut child.stdout {
+                Some(out) => out,
+                None => {
+                    return Err(ShellError::PluginFailedToLoad(
+                        "Plugin missing stdout reader".into(),
+                    ))
+                }
+            };
+            let e = get_plugin_encoding(&mut stdout_reader)?;
+            e
+        };
 
-        let response = call_plugin(&mut child, plugin_call, &self.encoding, span).map_err(|err| {
+        let response = call_plugin(&mut child, plugin_call, &encoding, span).map_err(|err| {
             ShellError::GenericError(
                 format!(
                     "Unable to decode call for {} to get base value",

@@ -1,4 +1,4 @@
-use crate::{EncodingType, EvaluatedCall};
+use crate::{EvaluatedCall};
 
 use super::{call_plugin, create_command, get_plugin_encoding};
 use crate::protocol::{
@@ -138,7 +138,6 @@ impl Command for PluginDeclaration {
                         data: plugin_data.data,
                         filename: self.filename.clone(),
                         shell: self.shell.clone(),
-                        encoding: encoding.clone(),
                         source: engine_state.get_decl(call.decl_id).name().to_owned(),
                     }),
                     span: plugin_data.span,

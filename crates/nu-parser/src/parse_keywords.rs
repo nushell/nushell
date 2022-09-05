@@ -3027,7 +3027,7 @@ pub fn parse_register(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    use nu_plugin::{get_signature, EncodingType, PluginDeclaration};
+    use nu_plugin::{get_signature, PluginDeclaration};
     use nu_protocol::{engine::Stack, Signature};
 
     let cwd = working_set.get_cwd();
@@ -3213,7 +3213,6 @@ pub fn parse_register(
                         )
                     })
                     .map(|signatures| {
-                        println!("inside get signatures....");
                         for signature in signatures {
                             // create plugin command declaration (need struct impl Command)
                             // store declaration in working set
