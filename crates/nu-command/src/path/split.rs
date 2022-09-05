@@ -1,4 +1,4 @@
-use std::path::{Path, Component};
+use std::path::{Component, Path};
 
 use nu_engine::CallExt;
 use nu_protocol::{engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Value};
@@ -111,8 +111,7 @@ fn split(path: &Path, span: Span, _: &Arguments) -> Value {
                 let comp = process_component(comp);
                 if let Some(s) = comp {
                     Some(Value::string(s, span))
-                }
-                else {
+                } else {
                     None
                 }
             })
@@ -128,9 +127,9 @@ fn process_component(comp: Component) -> Option<String> {
         Prefix => {
             let mut s = comp.as_os_str().to_string_lossy().to_string();
             s.push('\\');
-            Some(s) 
+            Some(s)
         }
-        comp => Some(comp.as_os_str().to_string_lossy().to_string())
+        comp => Some(comp.as_os_str().to_string_lossy().to_string()),
     }
 }
 
@@ -138,7 +137,6 @@ fn process_component(comp: Component) -> Option<String> {
 fn process_component(comp: Component) -> Option<String> {
     Some(comp.as_os_str().to_string_lossy().to_string())
 }
-
 
 #[cfg(test)]
 mod tests {
