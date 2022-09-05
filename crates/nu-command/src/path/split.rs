@@ -119,8 +119,8 @@ fn split(path: &Path, span: Span, _: &Arguments) -> Value {
 #[cfg(windows)]
 fn process_component(comp: Component) -> Option<String> {
     match comp {
-        RootDir => None,
-        Prefix => {
+        Component::RootDir => None,
+        Component::Prefix(_) => {
             let mut s = comp.as_os_str().to_string_lossy().to_string();
             s.push('\\');
             Some(s)
