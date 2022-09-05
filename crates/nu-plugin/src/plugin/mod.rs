@@ -207,7 +207,7 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
         let mut encoding_content: Vec<u8> = encoding.as_bytes().to_vec();
         encoding_content.insert(0, length);
         stdout
-            .write_all(&[length; 1])
+            .write_all(&encoding_content)
             .expect("Failed to tell nushell my encoding");
         stdout.flush().unwrap();
     }
