@@ -48,7 +48,7 @@ pub fn evaluate_repl(
     if !atty::is(atty::Stream::Stdin) {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            "STDIN is not a TTY",
+            "Nushell launched as interactive REPL but STDIN is not a TTY, either launch in a valid terminal or provide arguments to invoke a script!",
         ))
         .into_diagnostic();
     }
@@ -509,7 +509,7 @@ pub fn evaluate_repl(
                     // TODO: Identify possible error cases where a hard failure is preferable
                     // Ignoring and reporting could hide bigger problems
                     // e.g. https://github.com/nushell/nushell/issues/6452
-                    // Alternatively only allow expected failures to let the REPL to loop
+                    // Alternatively only allow that expected failures let the REPL loop
                 }
                 if shell_integration {
                     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
