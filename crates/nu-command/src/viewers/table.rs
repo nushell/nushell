@@ -9,17 +9,12 @@ use nu_protocol::{
 };
 use nu_table::{Alignment, Alignments, Table as NuTable, TableTheme, TextStyle};
 use nu_utils::get_ls_colors;
-<<<<<<< HEAD
-use std::time::Instant;
-use std::{cmp::max, sync::Arc};
-use std::{
-    collections::HashMap,
-=======
 use std::sync::Arc;
 use std::time::Instant;
 use std::{
+    cmp::max,
+    collections::HashMap,
     path::PathBuf,
->>>>>>> 33e1120addaa271cba36bd58af78077595ebe60e
     sync::atomic::{AtomicBool, Ordering},
 };
 use terminal_size::{Height, Width};

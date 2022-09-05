@@ -1,6 +1,6 @@
 use tabled::{
     raw_style::RawStyle,
-    style::{Line, Style},
+    style::{HorizontalLine, Line, Style},
 };
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,10 @@ impl TableTheme {
     pub fn light() -> TableTheme {
         Self {
             theme: Style::blank()
-                .lines([(1, Line::new(Some('─'), Some('─'), None, None))])
+                .lines([HorizontalLine::new(
+                    1,
+                    Line::new(Some('─'), Some('─'), None, None),
+                )])
                 .into(),
         }
     }
@@ -35,7 +38,10 @@ impl TableTheme {
                 .off_left()
                 .off_right()
                 .off_horizontal()
-                .lines([(1, Style::modern().get_horizontal().left(None).right(None))])
+                .lines([HorizontalLine::new(
+                    1,
+                    Style::modern().get_horizontal().left(None).right(None),
+                )])
                 .into(),
         }
     }
@@ -46,7 +52,10 @@ impl TableTheme {
                 .top('❤')
                 .bottom('❤')
                 .vertical('❤')
-                .lines([(1, Line::new(Some('❤'), Some('❤'), None, None))])
+                .lines([HorizontalLine::new(
+                    1,
+                    Line::new(Some('❤'), Some('❤'), None, None),
+                )])
                 .into(),
         }
     }
@@ -57,7 +66,10 @@ impl TableTheme {
                 .off_left()
                 .off_right()
                 .off_horizontal()
-                .lines([(1, Style::extended().get_horizontal().left(None).right(None))])
+                .lines([HorizontalLine::new(
+                    1,
+                    Style::extended().get_horizontal().left(None).right(None),
+                )])
                 .into(),
         }
     }
@@ -94,7 +106,7 @@ impl TableTheme {
                 .top_right_corner('┓')
                 .bottom_left_corner('┗')
                 .bottom_right_corner('┛')
-                .lines([(1, Line::full('━', '╋', '┣', '┫'))])
+                .lines([HorizontalLine::new(1, Line::full('━', '╋', '┣', '┫'))])
                 .into(),
         }
     }

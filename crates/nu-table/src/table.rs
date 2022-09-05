@@ -103,7 +103,7 @@ fn draw_table(
         table.data.duplicate_row(0);
     }
 
-    let table: tabled::Table<_> = Builder::custom(table.data).build();
+    let table = Builder::custom(table.data).build();
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
     let table = align_table(table, alignments, with_index, with_header, with_footer);
     let table = table_trim_columns(table, termwidth, &config.trim_strategy);
@@ -242,7 +242,7 @@ struct FooterStyle;
 
 impl<R> TableOption<R> for FooterStyle
 where
-    for<'a> &'a R: Records,
+    R: Records,
 {
     fn change(&mut self, table: &mut tabled::Table<R>) {
         if table.is_empty() {
