@@ -17,6 +17,17 @@ fn columns() {
 }
 
 #[test]
+fn drop_columns_positive_value() {
+    let actual = nu!(
+    cwd: ".", pipeline(r#"
+            echo [[a, b];[1,2]] | drop column -1
+            "#)
+    );
+
+    assert!(actual.err.contains("use a positive value"));
+}
+
+#[test]
 fn more_columns_than_table_has() {
     let actual = nu!(
         cwd: ".", pipeline(r#"

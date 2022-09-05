@@ -2,10 +2,12 @@ use fancy_regex::Regex;
 use itertools::Itertools;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
+use nu_protocol::ast::{Expr, Expression};
 use nu_protocol::did_you_mean;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
 use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
+use nu_system::ForegroundProcess;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -33,7 +35,8 @@ impl Command for External {
         Signature::build(self.name())
             .switch("redirect-stdout", "redirect-stdout", None)
             .switch("redirect-stderr", "redirect-stderr", None)
-            .rest("rest", SyntaxShape::Any, "external command to run")
+            .required("command", SyntaxShape::Any, "external comamdn to run")
+            .rest("args", SyntaxShape::Any, "arguments for external command")
             .category(Category::System)
     }
 
@@ -68,23 +71,40 @@ impl Command for External {
         }
 
         let mut spanned_args = vec![];
-        for one_arg in args {
+        let args_expr: Vec<Expression> = call.positional_iter().skip(1).cloned().collect();
+        let mut arg_keep_raw = vec![];
+        for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
             match one_arg {
                 Value::List { vals, .. } => {
                     // turn all the strings in the array into params.
                     // Example: one_arg may be something like ["ls" "-a"]
                     // convert it to "ls" "-a"
                     for v in vals {
-                        spanned_args.push(value_as_spanned(v)?)
+                        spanned_args.push(value_as_spanned(v)?);
+                        // for arguments in list, it's always treated as a whole arguments
+                        arg_keep_raw.push(true);
                     }
                 }
-                val => spanned_args.push(value_as_spanned(val)?),
+                val => {
+                    spanned_args.push(value_as_spanned(val)?);
+                    match one_arg_expr.expr {
+                        // refer to `parse_dollar_expr` function
+                        // the expression type of $variable_name, $"($variable_name)"
+                        // will be Expr::StringInterpolation, Expr::FullCellPath
+                        Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
+                            arg_keep_raw.push(true)
+                        }
+                        _ => arg_keep_raw.push(false),
+                    }
+                    {}
+                }
             }
         }
 
         let command = ExternalCommand {
             name,
             args: spanned_args,
+            arg_keep_raw,
             redirect_stdout,
             redirect_stderr,
             env_vars: env_vars_str,
@@ -105,6 +125,7 @@ impl Command for External {
 pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
+    pub arg_keep_raw: Vec<bool>,
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
     pub env_vars: HashMap<String, String>,
@@ -121,7 +142,7 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let mut process = self.create_process(&input, false, head)?;
+        let mut fg_process = ForegroundProcess::new(self.create_process(&input, false, head)?);
         // mut is used in the windows branch only, suppress warning on other platforms
         #[allow(unused_mut)]
         let mut child;
@@ -136,16 +157,16 @@ impl ExternalCommand {
             // fails to be run as a normal executable:
             // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
             // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
-
-            match process.spawn() {
+            match fg_process.spawn() {
                 Err(err) => {
                     // set the default value, maybe we'll override it later
                     child = Err(err);
 
                     // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
                     // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
-                    const CMD_INTERNAL_COMMANDS: [&str; 8] = [
-                        "ASSOC", "DIR", "ECHO", "FTYPE", "MKLINK", "START", "VER", "VOL",
+                    const CMD_INTERNAL_COMMANDS: [&str; 10] = [
+                        "ASSOC", "CLS", "DIR", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER",
+                        "VOL",
                     ];
                     let command_name_upper = self.name.item.to_uppercase();
                     let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
@@ -153,7 +174,8 @@ impl ExternalCommand {
                         .any(|&cmd| command_name_upper == cmd);
 
                     if looks_like_cmd_internal {
-                        let mut cmd_process = self.create_process(&input, true, head)?;
+                        let mut cmd_process =
+                            ForegroundProcess::new(self.create_process(&input, true, head)?);
                         child = cmd_process.spawn();
                     } else {
                         #[cfg(feature = "which-support")]
@@ -181,8 +203,10 @@ impl ExternalCommand {
                                                     item: file_name.to_string_lossy().to_string(),
                                                     span: self.name.span,
                                                 };
-                                                let mut cmd_process = new_command
-                                                    .create_process(&input, true, head)?;
+                                                let mut cmd_process = ForegroundProcess::new(
+                                                    new_command
+                                                        .create_process(&input, true, head)?,
+                                                );
                                                 child = cmd_process.spawn();
                                             }
                                         }
@@ -200,7 +224,7 @@ impl ExternalCommand {
 
         #[cfg(not(windows))]
         {
-            child = process.spawn()
+            child = fg_process.spawn()
         }
 
         match child {
@@ -252,7 +276,7 @@ impl ExternalCommand {
                     engine_state.config.use_ansi_coloring = false;
 
                     // if there is a string or a stream, that is sent to the pipe std
-                    if let Some(mut stdin_write) = child.stdin.take() {
+                    if let Some(mut stdin_write) = child.as_mut().stdin.take() {
                         std::thread::spawn(move || {
                             let input = crate::Table::run(
                                 &crate::Table,
@@ -293,7 +317,7 @@ impl ExternalCommand {
                     // and we create a ListStream that can be consumed
 
                     if redirect_stderr {
-                        let stderr = child.stderr.take().ok_or_else(|| {
+                        let stderr = child.as_mut().stderr.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stderr from external".to_string(),
                                 "Redirects need access to stderr of an external command"
@@ -332,7 +356,7 @@ impl ExternalCommand {
                     }
 
                     if redirect_stdout {
-                        let stdout = child.stdout.take().ok_or_else(|| {
+                        let stdout = child.as_mut().stdout.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stdout from external".to_string(),
                                 "Redirects need access to stdout of an external command"
@@ -370,7 +394,7 @@ impl ExternalCommand {
                         }
                     }
 
-                    match child.wait() {
+                    match child.as_mut().wait() {
                         Err(err) => Err(ShellError::ExternalCommand(
                             "External command exited with error".into(),
                             err.to_string(),
@@ -496,17 +520,28 @@ impl ExternalCommand {
 
     /// Spawn a command without shelling out to an external shell
     pub fn spawn_simple_command(&self, cwd: &str) -> Result<std::process::Command, ShellError> {
-        let (head, _) = trim_enclosing_quotes(&self.name.item);
+        let (head, _, _) = trim_enclosing_quotes(&self.name.item);
         let head = nu_path::expand_to_real_path(head)
             .to_string_lossy()
             .to_string();
 
         let mut process = std::process::Command::new(&head);
 
-        for arg in self.args.iter() {
-            let (trimmed_args, run_glob_expansion) = trim_enclosing_quotes(&arg.item);
+        for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
+            // if arg is quoted, like "aa", 'aa', `aa`, or:
+            // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
+            // `as_a_whole` will be true, so nu won't remove the inner quotes.
+            let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
+            if *arg_keep_raw {
+                keep_raw = true;
+            }
+
             let mut arg = Spanned {
-                item: remove_quotes(trimmed_args),
+                item: if keep_raw {
+                    trimmed_args
+                } else {
+                    remove_quotes(trimmed_args)
+                },
                 span: arg.span,
             };
 
@@ -629,14 +664,18 @@ fn shell_arg_escape(arg: &str) -> String {
     }
 }
 
-fn trim_enclosing_quotes(input: &str) -> (String, bool) {
+/// This function returns a tuple with 3 items:
+/// 1st item: trimmed string.
+/// 2nd item: a boolean value indicate if it's ok to run glob expansion.
+/// 3rd item: a boolean value indicate if we need to keep raw string.
+fn trim_enclosing_quotes(input: &str) -> (String, bool, bool) {
     let mut chars = input.chars();
 
     match (chars.next(), chars.next_back()) {
-        (Some('"'), Some('"')) => (chars.collect(), false),
-        (Some('\''), Some('\'')) => (chars.collect(), false),
-        (Some('`'), Some('`')) => (chars.collect(), true),
-        _ => (input.to_string(), true),
+        (Some('"'), Some('"')) => (chars.collect(), false, true),
+        (Some('\''), Some('\'')) => (chars.collect(), false, true),
+        (Some('`'), Some('`')) => (chars.collect(), true, true),
+        _ => (input.to_string(), true, false),
     }
 }
 

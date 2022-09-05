@@ -35,7 +35,7 @@ impl Command for FileSize {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "display", "pattern", "file", "size"]
+        vec!["convert", "display", "pattern", "human readable"]
     }
 
     fn run(

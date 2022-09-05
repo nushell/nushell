@@ -83,35 +83,6 @@ fn module_private_import_decl_not_public() {
     })
 }
 
-// TODO -- doesn't work because modules are never evaluated
-#[ignore]
-#[test]
-fn module_private_import_env() {
-    Playground::setup("module_private_import_env", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
-                "main.nu",
-                r#"
-                    use spam.nu FOO_HELPER
-
-                    export def foo [] { $env.FOO_HELPER }
-                "#,
-            )])
-            .with_files(vec![FileWithContentToBeTrimmed(
-                "spam.nu",
-                r#"
-                    export env FOO_HELPER { "foo" }
-                "#,
-            )]);
-
-        let inp = &[r#"use main.nu foo"#, r#"foo"#];
-
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
-
-        assert_eq!(actual.out, "foo");
-    })
-}
-
 #[test]
 fn module_public_import_decl() {
     Playground::setup("module_public_import_decl", |dirs, sandbox| {
@@ -156,33 +127,6 @@ fn module_public_import_alias() {
             )]);
 
         let inp = &[r#"use main.nu foo"#, r#"foo"#];
-
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
-
-        assert_eq!(actual.out, "foo");
-    })
-}
-
-// TODO -- doesn't work because modules are never evaluated
-#[ignore]
-#[test]
-fn module_public_import_env() {
-    Playground::setup("module_public_import_decl", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
-                "main.nu",
-                r#"
-                    export use spam.nu FOO
-                "#,
-            )])
-            .with_files(vec![FileWithContentToBeTrimmed(
-                "spam.nu",
-                r#"
-                    export env FOO { "foo" }
-                "#,
-            )]);
-
-        let inp = &[r#"use main.nu FOO"#, r#"$env.FOO"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
@@ -343,5 +287,149 @@ fn module_nested_imports_in_dirs_prefixed() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp2.join("; ")));
         assert_eq!(actual.out, "bar");
+    })
+}
+
+#[test]
+fn module_import_env_1() {
+    Playground::setup("module_imprt_env_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    export-env { source-env spam.nu }
+
+                    export def foo [] { $env.FOO_HELPER }
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    export-env { let-env FOO_HELPER = "foo" }
+                "#,
+            )]);
+
+        let inp = &[r#"source-env main.nu"#, r#"use main.nu foo"#, r#"foo"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}
+
+#[test]
+fn module_import_env_2() {
+    Playground::setup("module_import_env_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    export-env { source-env spam.nu }
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    export-env { let-env FOO = "foo" }
+                "#,
+            )]);
+
+        let inp = &[r#"source-env main.nu"#, r#"$env.FOO"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}
+
+#[test]
+fn module_cyclical_imports_0() {
+    Playground::setup("module_cyclical_imports_0", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                    use eggs.nu
+                "#,
+        )]);
+
+        let inp = &[r#"module eggs { use spam.nu }"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("module not found"));
+    })
+}
+
+#[test]
+fn module_cyclical_imports_1() {
+    Playground::setup("module_cyclical_imports_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                    use spam.nu
+                "#,
+        )]);
+
+        let inp = &[r#"use spam.nu"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("cyclical"));
+    })
+}
+
+#[test]
+fn module_cyclical_imports_2() {
+    Playground::setup("module_cyclical_imports_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    use eggs.nu
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "eggs.nu",
+                r#"
+                    use spam.nu
+                "#,
+            )]);
+
+        let inp = &[r#"use spam.nu"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("cyclical"));
+    })
+}
+
+#[test]
+fn module_cyclical_imports_3() {
+    Playground::setup("module_cyclical_imports_3", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "spam.nu",
+                r#"
+                    use eggs.nu
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "eggs.nu",
+                r#"
+                    use bacon.nu
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "bacon.nu",
+                r#"
+                    use spam.nu
+                "#,
+            )]);
+
+        let inp = &[r#"use spam.nu"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual.err.contains("cyclical"));
     })
 }

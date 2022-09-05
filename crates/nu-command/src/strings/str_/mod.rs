@@ -1,6 +1,7 @@
 mod case;
 mod collect;
 mod contains;
+mod distance;
 mod ends_with;
 mod index_of;
 mod length;
@@ -15,6 +16,7 @@ mod trim;
 pub use case::*;
 pub use collect::*;
 pub use contains::SubCommand as StrContains;
+pub use distance::SubCommand as StrDistance;
 pub use ends_with::SubCommand as StrEndswith;
 pub use index_of::SubCommand as StrIndexOf;
 pub use length::SubCommand as StrLength;

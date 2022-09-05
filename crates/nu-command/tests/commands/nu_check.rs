@@ -216,7 +216,9 @@ fn parse_dir_failure() {
             "#
         ));
 
-        assert!(actual.err.contains("Path is not a file"));
+        assert!(actual
+            .err
+            .contains("File extension must be the type of .nu"));
     })
 }
 
@@ -733,9 +735,9 @@ fn parse_script_with_nested_scripts_success() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 r#"
-                    source ../foo.nu
+                    source-env ../foo.nu
                     use lol_shell.nu
-                    overlay add ../lol/lol_shell.nu
+                    overlay use ../lol/lol_shell.nu
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -755,6 +757,36 @@ fn parse_script_with_nested_scripts_success() {
             cwd: dirs.test(), pipeline(
             r#"
                 nu-check lol/lol.nu
+            "#
+        ));
+
+        assert_eq!(actual.out, "true");
+    })
+}
+
+#[test]
+fn nu_check_respects_file_pwd() {
+    Playground::setup("nu_check_test_25", |dirs, sandbox| {
+        sandbox
+            .mkdir("lol")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/lol.nu",
+                r#"
+                    let-env RETURN = (nu-check ../foo.nu)
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "foo.nu",
+                r#"
+                    echo 'foo'
+                "#,
+            )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                source-env lol/lol.nu;
+                $env.RETURN
             "#
         ));
 

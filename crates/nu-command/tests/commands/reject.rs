@@ -107,3 +107,16 @@ fn reject_table_from_raw_eval() {
 
     assert!(actual.out.contains("record 0 fields"));
 }
+
+#[test]
+fn reject_nested_field() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+            r#"
+            {a:{b:3,c:5}} | reject a.b | debug
+            "#
+        )
+    );
+
+    assert_eq!(actual.out, "{a: {c: 5}}");
+}

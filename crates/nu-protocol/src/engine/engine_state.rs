@@ -8,7 +8,6 @@ use core::panic;
 use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::path::Path;
-#[cfg(feature = "plugin")]
 use std::path::PathBuf;
 use std::{
     collections::HashMap,
@@ -77,6 +76,7 @@ pub struct EngineState {
     pub plugin_signatures: Option<PathBuf>,
     #[cfg(not(windows))]
     sig_quit: Option<Arc<AtomicBool>>,
+    config_path: HashMap<String, PathBuf>,
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
@@ -114,6 +114,7 @@ impl EngineState {
             plugin_signatures: None,
             #[cfg(not(windows))]
             sig_quit: None,
+            config_path: HashMap::new(),
         }
     }
 
@@ -577,8 +578,7 @@ impl EngineState {
                 return &contents[(span.start - start)..(span.end - start)];
             }
         }
-
-        panic!("internal error: span missing in file contents cache")
+        &[0u8; 0]
     }
 
     pub fn get_config(&self) -> &Config {
@@ -755,6 +755,14 @@ impl EngineState {
     pub fn set_sig_quit(&mut self, sig_quit: Arc<AtomicBool>) {
         self.sig_quit = Some(sig_quit)
     }
+
+    pub fn set_config_path(&mut self, key: &str, val: PathBuf) {
+        self.config_path.insert(key.to_string(), val);
+    }
+
+    pub fn get_config_path(&self, key: &str) -> Option<&PathBuf> {
+        self.config_path.get(key)
+    }
 }
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
@@ -769,6 +777,8 @@ pub struct StateWorkingSet<'a> {
     pub type_scope: TypeScope,
     /// Current working directory relative to the file being parsed right now
     pub currently_parsed_cwd: Option<PathBuf>,
+    /// All previously parsed module files. Used to protect against circular imports.
+    pub parsed_module_files: Vec<PathBuf>,
 }
 
 /// A temporary placeholder for expression types. It is used to keep track of the input types
@@ -944,6 +954,7 @@ impl<'a> StateWorkingSet<'a> {
             external_commands: vec![],
             type_scope: TypeScope::default(),
             currently_parsed_cwd: None,
+            parsed_module_files: vec![],
         }
     }
 
@@ -1293,7 +1304,13 @@ impl<'a> StateWorkingSet<'a> {
         if permanent_end <= span.start {
             for (contents, start, finish) in &self.delta.file_contents {
                 if (span.start >= *start) && (span.end <= *finish) {
-                    return &contents[(span.start - start)..(span.end - start)];
+                    let begin = span.start - start;
+                    let mut end = span.end - start;
+                    if begin > end {
+                        end = *finish - permanent_end;
+                    }
+
+                    return &contents[begin..end];
                 }
             }
         } else {
@@ -1494,13 +1511,21 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
         let mut removed_overlays = vec![];
 
+        let name = if name.starts_with(&[b'$']) {
+            name.to_vec()
+        } else {
+            let mut new_name = name.to_vec();
+            new_name.insert(0, b'$');
+            new_name
+        };
+
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_frame in scope_frame
                 .active_overlays(&mut removed_overlays)
                 .iter()
                 .rev()
             {
-                if let Some(var_id) = overlay_frame.vars.get(name) {
+                if let Some(var_id) = overlay_frame.vars.get(&name) {
                     return Some(*var_id);
                 }
             }
@@ -1512,7 +1537,7 @@ impl<'a> StateWorkingSet<'a> {
             .iter()
             .rev()
         {
-            if let Some(var_id) = overlay_frame.vars.get(name) {
+            if let Some(var_id) = overlay_frame.vars.get(&name) {
                 return Some(*var_id);
             }
         }

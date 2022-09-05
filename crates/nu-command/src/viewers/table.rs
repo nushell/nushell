@@ -9,15 +9,21 @@ use nu_protocol::{
 };
 use nu_table::{Alignment, Alignments, Table as NuTable, TableTheme, TextStyle};
 use nu_utils::get_ls_colors;
+<<<<<<< HEAD
 use std::time::Instant;
 use std::{cmp::max, sync::Arc};
 use std::{
     collections::HashMap,
+=======
+use std::sync::Arc;
+use std::time::Instant;
+use std::{
+    path::PathBuf,
+>>>>>>> 33e1120addaa271cba36bd58af78077595ebe60e
     sync::atomic::{AtomicBool, Ordering},
 };
 use terminal_size::{Height, Width};
-
-//use super::lscolor_ansiterm::ToNuAnsiStyle;
+use url::Url;
 
 const STREAM_PAGE_SIZE: usize = 1000;
 const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
@@ -262,6 +268,10 @@ fn handle_row_stream(
             };
             let ls_colors = get_ls_colors(ls_colors_env_str);
 
+            // clickable links don't work in remote SSH sessions
+            let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
+            let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session;
+
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
                     Value::Record { cols, vals, .. } => {
@@ -282,9 +292,20 @@ fn handle_row_stream(
                                                 .unwrap_or_default();
                                             let use_ls_colors = config.use_ls_colors;
 
+                                            let full_path = PathBuf::from(path.clone())
+                                                .canonicalize()
+                                                .unwrap_or_else(|_| PathBuf::from(path));
+                                            let full_path_link = make_clickable_link(
+                                                full_path.display().to_string(),
+                                                Some(&path.clone()),
+                                                show_clickable_links,
+                                            );
+
                                             if use_ls_colors {
                                                 vals[idx] = Value::String {
-                                                    val: ansi_style.apply(path).to_string(),
+                                                    val: ansi_style
+                                                        .apply(full_path_link)
+                                                        .to_string(),
                                                     span: *span,
                                                 };
                                             }
@@ -297,9 +318,20 @@ fn handle_row_stream(
                                                 .unwrap_or_default();
                                             let use_ls_colors = config.use_ls_colors;
 
+                                            let full_path = PathBuf::from(path.clone())
+                                                .canonicalize()
+                                                .unwrap_or_else(|_| PathBuf::from(path));
+                                            let full_path_link = make_clickable_link(
+                                                full_path.display().to_string(),
+                                                Some(&path.clone()),
+                                                show_clickable_links,
+                                            );
+
                                             if use_ls_colors {
                                                 vals[idx] = Value::String {
-                                                    val: ansi_style.apply(path).to_string(),
+                                                    val: ansi_style
+                                                        .apply(full_path_link)
+                                                        .to_string(),
                                                     span: *span,
                                                 };
                                             }
@@ -342,6 +374,30 @@ fn handle_row_stream(
         span: head,
         metadata: None,
     })
+}
+
+fn make_clickable_link(
+    full_path: String,
+    link_name: Option<&str>,
+    show_clickable_links: bool,
+) -> String {
+    // uri's based on this https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+
+    if show_clickable_links {
+        format!(
+            "\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\",
+            match Url::from_file_path(full_path.clone()) {
+                Ok(url) => url.to_string(),
+                Err(_) => full_path.clone(),
+            },
+            link_name.unwrap_or(full_path.as_str())
+        )
+    } else {
+        match link_name {
+            Some(link_name) => link_name.to_string(),
+            None => full_path,
+        }
+    }
 }
 
 fn convert_to_table(

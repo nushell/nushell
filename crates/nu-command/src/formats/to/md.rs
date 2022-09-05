@@ -169,7 +169,7 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
                     let data = row.get_data_by_key(&headers[i]);
                     let value_string = data
                         .unwrap_or_else(|| Value::nothing(span))
-                        .into_string("|", config);
+                        .into_string(", ", config);
                     let new_column_width = value_string.len();
 
                     escaped_row.push(value_string);

@@ -44,6 +44,7 @@ mod uniq;
 mod update;
 mod update_cells;
 mod upsert;
+mod utils;
 mod where_;
 mod window;
 mod wrap;

@@ -29,6 +29,7 @@ pub fn create_default_context() -> EngineState {
         // Core
         bind_command! {
             Alias,
+            Ast,
             Debug,
             Def,
             DefEnv,
@@ -40,7 +41,7 @@ pub fn create_default_context() -> EngineState {
             ExportCommand,
             ExportDef,
             ExportDefEnv,
-            ExportEnv,
+            ExportEnvModule,
             ExportExtern,
             ExportUse,
             Extern,
@@ -51,14 +52,13 @@ pub fn create_default_context() -> EngineState {
             If,
             Ignore,
             Overlay,
-            OverlayAdd,
+            OverlayUse,
             OverlayList,
             OverlayNew,
-            OverlayRemove,
+            OverlayHide,
             Let,
             Metadata,
             Module,
-            Source,
             Use,
             Version,
         };
@@ -160,9 +160,16 @@ pub fn create_default_context() -> EngineState {
             Exec,
             External,
             NuCheck,
-            Ps,
             Sys,
         };
+
+        #[cfg(any(
+            target_os = "android",
+            target_os = "linux",
+            target_os = "macos",
+            target_os = "windows"
+        ))]
+        bind_command! { Ps };
 
         #[cfg(feature = "which-support")]
         bind_command! { Which };
@@ -184,11 +191,13 @@ pub fn create_default_context() -> EngineState {
             SplitChars,
             SplitColumn,
             SplitRow,
+            SplitWords,
             Str,
             StrCamelCase,
             StrCapitalize,
             StrCollect,
             StrContains,
+            StrDistance,
             StrDowncase,
             StrEndswith,
             StrReplace,
@@ -352,8 +361,10 @@ pub fn create_default_context() -> EngineState {
         // Env
         bind_command! {
             Env,
+            ExportEnv,
             LetEnv,
             LoadEnv,
+            SourceEnv,
             WithEnv,
             ConfigNu,
             ConfigEnv,
@@ -428,6 +439,7 @@ pub fn create_default_context() -> EngineState {
         // Deprecated
         bind_command! {
             HashBase64,
+            Source,
             StrDatetimeDeprecated,
             StrDecimalDeprecated,
             StrIntDeprecated,

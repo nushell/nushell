@@ -46,6 +46,7 @@ fn out_html_table() {
 }
 
 #[test]
+#[ignore]
 fn test_cd_html_color_flag_dark_false() {
     let actual = nu!(
         cwd: ".", pipeline(
@@ -71,6 +72,6 @@ fn test_no_color_flag() {
     );
     assert_eq!(
         actual.out,
-        r"<html><style>body { background-color:white;color:black; }</style><body>Change directory.<br><br>Usage:<br>  &gt; cd (path) <br><br>Flags:<br>  -h, --help<br>      Display this help message<br><br>Parameters:<br>  (optional) path &lt;Directory&gt;: the path to change to<br><br>Examples:<br>  Change to your home directory<br>  &gt; cd ~<br><br>  Change to a directory via abbreviations<br>  &gt; cd d/s/9<br><br>  Change to the previous working directory ($OLDPWD)<br>  &gt; cd -<br><br></body></html>"
+        r"<html><style>body { background-color:white;color:black; }</style><body>Change directory.<br><br>Usage:<br>  &gt; cd (path) <br><br>Flags:<br>  -h, --help - Display this help message<br><br>Parameters:<br>  (optional) path &lt;Directory&gt;: the path to change to<br><br>Examples:<br>  Change to your home directory<br>  &gt; cd ~<br><br>  Change to a directory via abbreviations<br>  &gt; cd d/s/9<br><br>  Change to the previous working directory ($OLDPWD)<br>  &gt; cd -<br><br></body></html>"
     );
 }

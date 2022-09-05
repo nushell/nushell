@@ -23,7 +23,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["middle", "median"]
+        vec!["middle", "statistics"]
     }
 
     fn run(

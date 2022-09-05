@@ -16,7 +16,7 @@ use nu_protocol::{
     ast::PathMember,
     engine::{EngineState, Stack, StateWorkingSet},
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
-    Type, Value, VarId,
+    Spanned, Type, Value, VarId,
 };
 use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
 use std::io::{self, Write};
@@ -39,8 +39,19 @@ pub fn evaluate_repl(
     stack: &mut Stack,
     nushell_path: &str,
     is_perf_true: bool,
+    prerun_command: Option<Spanned<String>>,
 ) -> Result<()> {
     use reedline::{FileBackedHistory, Reedline, Signal};
+
+    // Guard against invocation without a connected terminal.
+    // reedline / crossterm event polling will fail without a connected tty
+    if !atty::is(atty::Stream::Stdin) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Nushell launched as interactive REPL but STDIN is not a TTY, either launch in a valid terminal or provide arguments to invoke a script!",
+        ))
+        .into_diagnostic();
+    }
 
     let mut entry_num = 0;
 
@@ -138,6 +149,17 @@ pub fn evaluate_repl(
 
             println!("{}", stripped_string);
         }
+    }
+
+    if let Some(s) = prerun_command {
+        eval_source(
+            engine_state,
+            stack,
+            s.item.as_bytes(),
+            &format!("entry #{}", entry_num),
+            PipelineData::new(Span::new(0, 0)),
+        );
+        engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
     }
 
     loop {
@@ -312,7 +334,8 @@ pub fn evaluate_repl(
             Ok(Signal::Success(s)) => {
                 let history_supports_meta =
                     matches!(config.history_file_format, HistoryFileFormat::Sqlite);
-                if history_supports_meta && !s.is_empty() {
+                if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
+                {
                     line_editor
                         .update_last_command_context(&|mut c| {
                             c.start_timestamp = Some(chrono::Utc::now());
@@ -433,7 +456,8 @@ pub fn evaluate_repl(
                     },
                 );
 
-                if history_supports_meta && !s.is_empty() {
+                if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
+                {
                     line_editor
                         .update_last_command_context(&|mut c| {
                             c.duration = Some(cmd_duration);
@@ -484,6 +508,10 @@ pub fn evaluate_repl(
                 let message = err.to_string();
                 if !message.contains("duration") {
                     println!("Error: {:?}", err);
+                    // TODO: Identify possible error cases where a hard failure is preferable
+                    // Ignoring and reporting could hide bigger problems
+                    // e.g. https://github.com/nushell/nushell/issues/6452
+                    // Alternatively only allow that expected failures let the REPL loop
                 }
                 if shell_integration {
                     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;

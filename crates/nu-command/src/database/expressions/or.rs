@@ -30,7 +30,7 @@ impl Command for OrExpr {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["database", "or", "expression"]
+        vec!["database", "expression"]
     }
 
     fn examples(&self) -> Vec<Example> {

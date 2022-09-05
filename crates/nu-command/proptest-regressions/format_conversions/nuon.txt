@@ -1,0 +1,23 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 96a80ecd19729fb43a7b7bb2766b37d6083ba73b16abb97075875e3cfcdc763f # shrinks to c = '"'
+cc 4146602559ea717a02bcef3c6d73cdf613c30d0c3f92c48e26c79b9a1544e027 # shrinks to c = '\\'
+cc 80532a0ee73df456a719b9e3cce1ae5f3d26009dde819cbaf16f8e0cb6709705 # shrinks to c = ':'
+cc cdb88505686eea3c74c36f282fd29b2b68bc118ded4ebfc36f9838d174bd7653 # shrinks to c = '`'
+cc 0f534d55f9771e8810b9c4252a4168abfaec1a35e1b0cac12dbaf726d295a08c # shrinks to c = '\0'
+cc 5d31bcbab722acd1f4e23ca3a4f95ff309a636b45a73ca8ae9f820d93ff57acc # shrinks to c = '{'
+cc 5afec063bc96160d681d77f90041b67ef5cfdea4dcbd12d984fd828fbeb4b421 # shrinks to c = '#'
+cc f919beb3ee5c70e756a15635d65ded7d44f3ae58b5e86b6c09e814d5d8cdd506 # shrinks to c = ';'
+cc ec00f39b8d45dfd8808947a56af5e50ba5a0ef7c951723b45377815a02e515b1 # shrinks to c = '('
+cc 25b773cdf4c24179151fa86244c7de4136e05df9e94e6ee77a336ebfd8764444 # shrinks to c = '|'
+cc 94dc0d54b97d59e1c0f4cb11bdccb3823a1bb908cbc3fd643ee8f067169fad72 # shrinks to c = '0'
+cc c9d0051fb1e5a8bdc1d4f5a3dceac1b4b465827d1dff4fc3a3755baae6a7bb48 # shrinks to c = '$'
+cc 14ec40d2eb5bd2663e9b11bb49fb2120852f9ea71678c69d732161412b55a3ec # shrinks to s = ""
+cc d4afccc51ed9d421bdb7e1723e273dfb6e77c3a449489671a496db234e87c5ed # shrinks to c = '\r'
+cc 515a56d73eb1b69290ef4c714b629421989879aebd57991bd2c2bf11294353b1 # shrinks to s = "\\\\𐊀{"
+cc 111566990fffa432acd2dbc845141b0e7870f97125c7621e3ddf142204568246 # shrinks to s = "'\":`"
+cc 0424c33000d9188be96b3049046eb052770b2158bf5ebb0c98656d7145e8aca9 # shrinks to s = "0"

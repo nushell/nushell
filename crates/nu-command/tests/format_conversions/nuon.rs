@@ -1,4 +1,5 @@
 use nu_test_support::{nu, pipeline};
+use proptest::prelude::*;
 
 #[test]
 fn to_nuon_correct_compaction() {
@@ -237,4 +238,69 @@ fn float_nan_parsed_properly() {
     ));
 
     assert_eq!(actual.out, "NaN")
+}
+
+#[test]
+fn to_nuon_converts_columns_with_spaces() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+            r#"
+    let test = [[a, b, "c d"]; [1 2 3] [4 5 6]]; $test | to nuon | from nuon
+    "#
+    ));
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn to_nuon_does_not_quote_unnecessarily() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+            r#"
+        let test = [["a", "b", "c d"]; [1 2 3] [4 5 6]]; $test | to nuon
+    "#
+    ));
+    assert_eq!(actual.out, "[[a, b, \"c d\"]; [1, 2, 3], [4, 5, 6]]");
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+            r#"
+         let a = {"ro name": "sam" rank: 10}; $a | to nuon
+    "#
+    ));
+    assert_eq!(actual.out, "{\"ro name\": sam, rank: 10}");
+}
+
+proptest! {
+    #[test]
+    fn to_nuon_from_nuon(c: char) {
+        if c != '\0' && c!='\r' {
+        let actual = nu!(
+            cwd: "tests/fixtures/formats", pipeline(
+                format!(r#"
+             {{"prop{0}test": "sam"}} | to nuon | from nuon;
+             [ [ "prop{0}test" ]; [ 'test' ] ] | to nuon | from nuon;
+             [ [ "{0}" ]; [ 'test' ] ] | to nuon | from nuon;
+             {{"{0}": "sam"}} | to nuon | from nuon;
+        "#, c).as_ref()
+        ));
+        assert!(actual.err.is_empty() || actual.err.contains("Unexpected end of code") || actual.err.contains("only strings can be keys"));
+        // The second is for weird escapes due to backslashes
+        // The third is for chars like '0'
+        }
+    }
+    #[test]
+    fn to_nuon_from_nuon_string(s: String) {
+        if s != "\\0" && s!= "" && !s.contains('\\') && !s.contains('"'){
+        let actual = nu!(
+            cwd: "tests/fixtures/formats", pipeline(
+                format!(r#"
+             {{"prop{0}test": "sam"}} | to nuon | from nuon;
+             [ [ "prop{0}test" ]; [ 'test' ] ] | to nuon | from nuon;
+             [ [ "{0}" ]; [ 'test' ] ] | to nuon | from nuon;
+             {{"{0}": "sam"}} | to nuon | from nuon;
+        "#, s).as_ref()
+        ));
+        assert!(actual.err.is_empty() || actual.err.contains("only strings can be keys") || actual.err.contains("unknown command"));
+        // TODO: fix parser error for "unknown command" when '=$' is the name
+    }
+    }
 }

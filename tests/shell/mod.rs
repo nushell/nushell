@@ -73,7 +73,7 @@ fn nu_lib_dirs_repl() {
 
         let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
-            r#"source foo.nu"#,
+            r#"source-env foo.nu"#,
             r#"$env.FOO"#,
         ];
 
@@ -98,13 +98,13 @@ fn nu_lib_dirs_script() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "main.nu",
                 r#"
-                    source foo.nu
+                    source-env foo.nu
                 "#,
             )]);
 
         let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
-            r#"source main.nu"#,
+            r#"source-env main.nu"#,
             r#"$env.FOO"#,
         ];
 
@@ -129,7 +129,7 @@ fn nu_lib_dirs_relative_repl() {
 
         let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
-            r#"source foo.nu"#,
+            r#"source-env foo.nu"#,
             r#"$env.FOO"#,
         ];
 
@@ -148,7 +148,7 @@ fn nu_lib_dirs_relative_script() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/main.nu",
                 r#"
-                    source ../foo.nu
+                    source-env ../foo.nu
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -160,7 +160,7 @@ fn nu_lib_dirs_relative_script() {
 
         let inp_lines = &[
             r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
-            r#"source scripts/main.nu"#,
+            r#"source-env scripts/main.nu"#,
             r#"$env.FOO"#,
         ];
 
@@ -168,5 +168,34 @@ fn nu_lib_dirs_relative_script() {
 
         assert!(actual_repl.err.is_empty());
         assert_eq!(actual_repl.out, "foo");
+    })
+}
+
+#[test]
+fn run_script_that_looks_like_module() {
+    Playground::setup("run_script_that_looks_like_module", |dirs, _| {
+        let inp_lines = &[
+            r#"module spam { export def eggs [] { 'eggs' } }"#,
+            r#"export use spam eggs"#,
+            r#"export def foo [] { eggs }"#,
+            r#"export alias bar = foo"#,
+            r#"export def-env baz [] { bar }"#,
+            r#"baz"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
+
+        assert_eq!(actual.out, "eggs");
+    })
+}
+
+#[test]
+fn run_export_extern() {
+    Playground::setup("run_script_that_looks_like_module", |dirs, _| {
+        let inp_lines = &[r#"export extern foo []"#, r#"help foo"#];
+
+        let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
+
+        assert!(actual.out.contains("Usage"));
     })
 }

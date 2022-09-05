@@ -132,10 +132,37 @@ impl Command for Kill {
                 .stderr(Stdio::null());
         }
 
-        let output = cmd.output().expect("failed to execute shell command");
+        let output = cmd.output().map_err(|e| {
+            ShellError::GenericError(
+                "failed to execute shell command".into(),
+                e.to_string(),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )
+        })?;
+
+        if !quiet && !output.status.success() {
+            return Err(ShellError::GenericError(
+                "process didn't terminate successfully".into(),
+                String::from_utf8(output.stderr).unwrap_or_default(),
+                Some(call.head),
+                None,
+                Vec::new(),
+            ));
+        }
+
         let val = String::from(
             String::from_utf8(output.stdout)
-                .expect("failed to convert output to string")
+                .map_err(|e| {
+                    ShellError::GenericError(
+                        "failed to convert output to string".into(),
+                        e.to_string(),
+                        Some(call.head),
+                        None,
+                        Vec::new(),
+                    )
+                })?
                 .trim_end(),
         );
         if val.is_empty() {

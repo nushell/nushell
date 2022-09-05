@@ -52,7 +52,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pattern", "match", "find", "search", "index"]
+        vec!["pattern", "match", "find", "search"]
     }
 
     fn run(

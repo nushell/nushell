@@ -1,4 +1,5 @@
 mod alias;
+mod ast;
 mod debug;
 mod def;
 mod def_env;
@@ -24,11 +25,11 @@ mod let_;
 mod metadata;
 mod module;
 pub(crate) mod overlay;
-mod source;
 mod use_;
 mod version;
 
 pub use alias::Alias;
+pub use ast::Ast;
 pub use debug::Debug;
 pub use def::Def;
 pub use def_env::DefEnv;
@@ -40,7 +41,7 @@ pub use export::ExportCommand;
 pub use export_alias::ExportAlias;
 pub use export_def::ExportDef;
 pub use export_def_env::ExportDefEnv;
-pub use export_env::ExportEnv;
+pub use export_env::ExportEnvModule;
 pub use export_extern::ExportExtern;
 pub use export_use::ExportUse;
 pub use extern_::Extern;
@@ -54,7 +55,6 @@ pub use let_::Let;
 pub use metadata::Metadata;
 pub use module::Module;
 pub use overlay::*;
-pub use source::Source;
 pub use use_::Use;
 pub use version::Version;
 #[cfg(feature = "plugin")]

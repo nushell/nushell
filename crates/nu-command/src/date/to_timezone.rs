@@ -34,9 +34,7 @@ impl Command for SubCommand {
 
     fn search_terms(&self) -> Vec<&str> {
         vec![
-            "date",
-            "to",
-            "timezone",
+            "tz",
             "transform",
             "convert",
             "UTC",
@@ -128,7 +126,7 @@ fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Spa
     match datetime_in_timezone(&dt, timezone.item.as_str()) {
         Ok(dt) => Value::Date { val: dt, span },
         Err(_) => Value::Error {
-            error: ShellError::UnsupportedInput(String::from("invalid time zone"), span),
+            error: ShellError::UnsupportedInput(String::from("invalid time zone"), timezone.span),
         },
     }
 }

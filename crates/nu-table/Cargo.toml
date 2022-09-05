@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-table"
 edition = "2021"
 license = "MIT"
 name = "nu-table"
-version = "0.66.4"
+version = "0.67.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 nu-ansi-term = "0.46.0"
-nu-protocol = { path = "../nu-protocol", version = "0.66.4" }
+nu-protocol = { path = "../nu-protocol", version = "0.67.1" }
 strip-ansi-escapes = "0.1.1"
 atty = "0.2.14"
 tabled = { git = "https://github.com/zhiburt/tabled", rev = "964f9c083bf4329d8712033af5fbf957612a0b48", features = ["color"], default-features = false }

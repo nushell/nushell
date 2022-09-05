@@ -80,7 +80,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["network", "post", "send", "push", "http"]
+        vec!["network", "send", "push", "http"]
     }
 
     fn run(

@@ -3,7 +3,7 @@ use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 const ZIP_POWERED_TEST_ASSERTION_SCRIPT: &str = r#"
-def expect [
+export def expect [
     left,
     --to-eq,
     right
@@ -26,7 +26,7 @@ fn zips_two_tables() {
             cwd: ".", pipeline(
             &format!(
                 r#"
-                source {} ;
+                use {} expect ;
 
                 let contributors = ([
                   [name, commits];
@@ -51,8 +51,8 @@ fn zips_two_lists() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-                echo [0 2 4 6 8] | zip [1 3 5 7 9] | flatten | into string | str collect '-'
-            "#
+            echo [0 2 4 6 8] | zip [1 3 5 7 9] | flatten | into string | str collect '-'
+        "#
     ));
 
     assert_eq!(actual.out, "0-1-2-3-4-5-6-7-8-9");

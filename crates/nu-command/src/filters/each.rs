@@ -1,3 +1,4 @@
+use super::utils::chain_error_with_input;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
@@ -161,6 +162,7 @@ impl Command for Each {
                         }
                     }
 
+                    let input_span = x.span();
                     match eval_block(
                         &engine_state,
                         &mut stack,
@@ -170,7 +172,10 @@ impl Command for Each {
                         redirect_stderr,
                     ) {
                         Ok(v) => v.into_value(span),
-                        Err(error) => Value::Error { error },
+                        Err(error) => {
+                            let error = chain_error_with_input(error, input_span);
+                            Value::Error { error }
+                        }
                     }
                 })
                 .into_pipeline_data(ctrlc)),
@@ -212,6 +217,7 @@ impl Command for Each {
                         }
                     }
 
+                    let input_span = x.span();
                     match eval_block(
                         &engine_state,
                         &mut stack,
@@ -221,7 +227,10 @@ impl Command for Each {
                         redirect_stderr,
                     ) {
                         Ok(v) => v.into_value(span),
-                        Err(error) => Value::Error { error },
+                        Err(error) => {
+                            let error = chain_error_with_input(error, input_span);
+                            Value::Error { error }
+                        }
                     }
                 })
                 .into_pipeline_data(ctrlc)),

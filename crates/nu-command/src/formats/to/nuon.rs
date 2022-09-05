@@ -102,6 +102,16 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             let headers = get_columns(vals);
             if !headers.is_empty() && vals.iter().all(|x| x.columns() == headers) {
                 // Table output
+                let headers: Vec<String> = headers
+                    .iter()
+                    .map(|string| {
+                        if needs_quotes(string) {
+                            format!("\"{}\"", string)
+                        } else {
+                            string.to_string()
+                        }
+                    })
+                    .collect();
                 let headers_output = headers.join(", ");
 
                 let mut table_output = vec![];
@@ -110,7 +120,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
 
                     if let Value::Record { vals, .. } = val {
                         for val in vals {
-                            row.push(value_to_string(val, span)?);
+                            row.push(value_to_string_without_quotes(val, span)?);
                         }
                     }
 
@@ -125,7 +135,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             } else {
                 let mut collection = vec![];
                 for val in vals {
-                    collection.push(value_to_string(val, span)?);
+                    collection.push(value_to_string_without_quotes(val, span)?);
                 }
                 Ok(format!("[{}]", collection.join(", ")))
             }
@@ -144,7 +154,15 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         Value::Record { cols, vals, .. } => {
             let mut collection = vec![];
             for (col, val) in cols.iter().zip(vals) {
-                collection.push(format!("\"{}\": {}", col, value_to_string(val, span)?));
+                collection.push(if needs_quotes(col) {
+                    format!(
+                        "\"{}\": {}",
+                        col,
+                        value_to_string_without_quotes(val, span)?
+                    )
+                } else {
+                    format!("{}: {}", col, value_to_string_without_quotes(val, span)?)
+                });
             }
             Ok(format!("{{{}}}", collection.join(", ")))
         }
@@ -152,10 +170,45 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     }
 }
 
+fn value_to_string_without_quotes(v: &Value, span: Span) -> Result<String, ShellError> {
+    match v {
+        Value::String { val, .. } => Ok({
+            let mut quoted = escape_quote_string(val);
+            if !needs_quotes(val) {
+                quoted.remove(0);
+                quoted.pop();
+            }
+            quoted
+        }),
+        _ => value_to_string(v, span),
+    }
+}
+
 fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {
     let v = input.into_value(call.head);
 
     value_to_string(&v, call.head)
+}
+
+fn needs_quotes(string: &str) -> bool {
+    string.contains(' ')
+        || string.contains('[')
+        || string.contains(']')
+        || string.contains(':')
+        || string.contains('`')
+        || string.contains('{')
+        || string.contains('}')
+        || string.contains('#')
+        || string.contains('\'')
+        || string.contains(';')
+        || string.contains('(')
+        || string.contains(')')
+        || string.contains('|')
+        || string.contains('$')
+        || string.contains(',')
+        || string.contains('\t')
+        || string.contains('\n')
+        || string.contains('\r')
 }
 
 #[cfg(test)]

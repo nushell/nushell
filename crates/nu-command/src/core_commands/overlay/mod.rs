@@ -1,11 +1,11 @@
-mod add;
 mod command;
+mod hide;
 mod list;
 mod new;
-mod remove;
+mod use_;
 
-pub use add::OverlayAdd;
 pub use command::Overlay;
+pub use hide::OverlayHide;
 pub use list::OverlayList;
 pub use new::OverlayNew;
-pub use remove::OverlayRemove;
+pub use use_::OverlayUse;

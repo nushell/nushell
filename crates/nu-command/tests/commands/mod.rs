@@ -48,6 +48,7 @@ mod open;
 mod p;
 mod parse;
 mod path;
+mod platform;
 mod prepend;
 mod print;
 #[cfg(feature = "database")]
@@ -68,7 +69,7 @@ mod semicolon;
 mod shells;
 mod skip;
 mod sort_by;
-mod source;
+mod source_env;
 mod split_by;
 mod split_column;
 mod split_row;

@@ -1,4 +1,4 @@
-#[cfg(target_os = "linux")]
+#[cfg(all(unix, not(target_os = "macos")))]
 use pwd::Passwd;
 use std::path::{Path, PathBuf};
 
@@ -45,7 +45,7 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(unix, not(target_os = "macos")))]
 fn user_home_dir(username: &str) -> PathBuf {
     let passwd = Passwd::from_name(username);
     match &passwd.ok() {

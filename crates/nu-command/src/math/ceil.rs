@@ -19,7 +19,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["ceiling"]
+        vec!["ceiling", "round up", "rounding", "integer"]
     }
 
     fn run(

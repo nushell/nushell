@@ -301,6 +301,21 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     )]
     EnvVarNotAString(String, #[label("value not representable as a string")] Span),
 
+    /// This environment variable cannot be set manually.
+    ///
+    /// ## Resolution
+    ///
+    /// This environment variable is set automatically by Nushell and cannot not be set manually.
+    #[error("{0} cannot be set manually.")]
+    #[diagnostic(
+        code(nu::shell::automatic_env_var_set_manually),
+        url(docsrs),
+        help(
+            r#"The environment variable '{0}' is set automatically by Nushell and cannot not be set manually."#
+        )
+    )]
+    AutomaticEnvVarSetManually(String, #[label("cannot set '{0}' manually")] Span),
+
     /// Division by zero is not a thing.
     ///
     /// ## Resolution
@@ -478,7 +493,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     ///
     /// ## Resolution
     ///
-    /// This is a failry generic error. Refer to the specific error message for further details.
+    /// This is a fairly generic error. Refer to the specific error message for further details.
     #[error("Plugin failed to load: {0}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_load), url(docsrs))]
     PluginFailedToLoad(String),
@@ -501,6 +516,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::plugin_failed_to_decode), url(docsrs))]
     PluginFailedToDecode(String),
 
+    /// I/O operation interrupted.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("I/O interrupted")]
+    #[diagnostic(code(nu::shell::io_interrupted), url(docsrs))]
+    IOInterrupted(String, #[label("{0}")] Span),
+
     /// An I/O operation failed.
     ///
     /// ## Resolution
@@ -509,6 +533,33 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("I/O error")]
     #[diagnostic(code(nu::shell::io_error), url(docsrs), help("{0}"))]
     IOError(String),
+
+    /// An I/O operation failed.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("I/O error")]
+    #[diagnostic(code(nu::shell::io_error), url(docsrs))]
+    IOErrorSpanned(String, #[label("{0}")] Span),
+
+    /// Permission for an operation was denied.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("Permission Denied")]
+    #[diagnostic(code(nu::shell::permission_denied), url(docsrs))]
+    PermissionDeniedError(String, #[label("{0}")] Span),
+
+    /// Out of memory.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("Out of memory")]
+    #[diagnostic(code(nu::shell::out_of_memory), url(docsrs))]
+    OutOfMemoryError(String, #[label("{0}")] Span),
 
     /// Tried to `cd` to a path that isn't a directory.
     ///
@@ -729,6 +780,12 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Unexpected abbr component `{0}`.")]
     #[diagnostic(code(nu::shell::unexpected_path_abbreviateion), url(docsrs))]
     UnexpectedAbbrComponent(String),
+
+    // It should be only used by commands accepts block, and accept inputs from pipeline.
+    /// Failed to eval block with specific pipeline input.
+    #[error("Eval block failed with pipeline input")]
+    #[diagnostic(code(nu::shell::eval_block_with_input), url(docsrs))]
+    EvalBlockWithInput(#[label("source value")] Span, #[related] Vec<ShellError>),
 }
 
 impl From<std::io::Error> for ShellError {

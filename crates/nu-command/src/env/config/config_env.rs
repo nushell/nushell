@@ -58,7 +58,7 @@ impl Command for ConfigEnv {
         nu_config.push("env.nu");
 
         let name = Spanned {
-            item: get_editor(engine_state, stack),
+            item: get_editor(engine_state, stack)?,
             span: Span { start: 0, end: 0 },
         };
 
@@ -70,6 +70,7 @@ impl Command for ConfigEnv {
         let command = ExternalCommand {
             name,
             args,
+            arg_keep_raw: vec![false],
             redirect_stdout: false,
             redirect_stderr: false,
             env_vars: env_vars_str,
