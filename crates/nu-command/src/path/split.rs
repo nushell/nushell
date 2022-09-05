@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Component, Path};
 
 use nu_engine::CallExt;
 use nu_protocol::{engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Value};
@@ -62,8 +62,7 @@ impl Command for SubCommand {
                 example: r"'C:\Users\viking\spam.txt' | path split",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_string("C:"),
-                        Value::test_string(r"\"),
+                        Value::test_string(r"C:\"),
                         Value::test_string("Users"),
                         Value::test_string("viking"),
                         Value::test_string("spam.txt"),
@@ -108,13 +107,31 @@ fn split(path: &Path, span: Span, _: &Arguments) -> Value {
     Value::List {
         vals: path
             .components()
-            .map(|comp| {
-                let s = comp.as_os_str().to_string_lossy();
-                Value::string(s, span)
+            .filter_map(|comp| {
+                let comp = process_component(comp);
+                comp.map(|s| Value::string(s, span))
             })
             .collect(),
         span,
     }
+}
+
+#[cfg(windows)]
+fn process_component(comp: Component) -> Option<String> {
+    match comp {
+        Component::RootDir => None,
+        Component::Prefix(_) => {
+            let mut s = comp.as_os_str().to_string_lossy().to_string();
+            s.push('\\');
+            Some(s)
+        }
+        comp => Some(comp.as_os_str().to_string_lossy().to_string()),
+    }
+}
+
+#[cfg(not(windows))]
+fn process_component(comp: Component) -> Option<String> {
+    Some(comp.as_os_str().to_string_lossy().to_string())
 }
 
 #[cfg(test)]
