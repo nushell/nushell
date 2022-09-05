@@ -105,7 +105,7 @@ impl Command for PluginDeclaration {
         });
 
         let encoding = {
-            let mut stdout_reader = match &mut child.stdout {
+            let stdout_reader = match &mut child.stdout {
                 Some(out) => out,
                 None => {
                     return Err(ShellError::PluginFailedToLoad(
@@ -113,8 +113,7 @@ impl Command for PluginDeclaration {
                     ))
                 }
             };
-            let e = get_plugin_encoding(&mut stdout_reader)?;
-            e
+            get_plugin_encoding(stdout_reader)?
         };
         let response = call_plugin(&mut child, plugin_call, &encoding, call.head).map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);

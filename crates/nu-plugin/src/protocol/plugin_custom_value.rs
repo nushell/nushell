@@ -68,7 +68,7 @@ impl CustomValue for PluginCustomValue {
             span,
         });
         let encoding = {
-            let mut stdout_reader = match &mut child.stdout {
+            let stdout_reader = match &mut child.stdout {
                 Some(out) => out,
                 None => {
                     return Err(ShellError::PluginFailedToLoad(
@@ -76,8 +76,7 @@ impl CustomValue for PluginCustomValue {
                     ))
                 }
             };
-            let e = get_plugin_encoding(&mut stdout_reader)?;
-            e
+            get_plugin_encoding(stdout_reader)?
         };
 
         let response = call_plugin(&mut child, plugin_call, &encoding, span).map_err(|err| {

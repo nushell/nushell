@@ -126,12 +126,14 @@ pub fn get_signature(
         ShellError::PluginFailedToLoad(format!("Error spawning child process: {}", err))
     })?;
 
-    let mut stdin_writer = child.stdin.take().ok_or(ShellError::PluginFailedToLoad(
-        "plugin missing stdin writer".into(),
-    ))?;
-    let mut stdout_reader = child.stdout.take().ok_or(ShellError::PluginFailedToLoad(
-        "Plugin missing stdout reader".into(),
-    ))?;
+    let mut stdin_writer = child
+        .stdin
+        .take()
+        .ok_or_else(|| ShellError::PluginFailedToLoad("plugin missing stdin writer".into()))?;
+    let mut stdout_reader = child
+        .stdout
+        .take()
+        .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin missing stdout reader".into()))?;
     let encoding = get_plugin_encoding(&mut stdout_reader)?;
 
     // Create message to plugin to indicate that signature is required and
@@ -208,7 +210,9 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
         stdout
             .write_all(&encoding_content)
             .expect("Failed to tell nushell my encoding");
-        stdout.flush().unwrap();
+        stdout
+            .flush()
+            .expect("Failed to tell nushell my encoding when flushing stdout");
     }
 
     let mut stdin_buf = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, std::io::stdin());
