@@ -109,11 +109,7 @@ fn split(path: &Path, span: Span, _: &Arguments) -> Value {
             .components()
             .filter_map(|comp| {
                 let comp = process_component(comp);
-                if let Some(s) = comp {
-                    Some(Value::string(s, span))
-                } else {
-                    None
-                }
+                comp.map(|s| Value::string(s, span))
             })
             .collect(),
         span,
