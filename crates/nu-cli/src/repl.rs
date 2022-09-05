@@ -14,11 +14,11 @@ use nu_engine::{convert_env_values, eval_block};
 use nu_parser::{lex, parse};
 use nu_protocol::{
     ast::PathMember,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, ReplOperation, Stack, StateWorkingSet},
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
     Spanned, Type, Value, VarId,
 };
-use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
+use reedline::{DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
 use std::io::{self, Write};
 use std::{sync::atomic::Ordering, time::Instant};
 use strip_ansi_escapes::strip;
@@ -347,6 +347,12 @@ pub fn evaluate_repl(
                         .into_diagnostic()?; // todo: don't stop repl if error here?
                 }
 
+                engine_state
+                    .repl_buffer_state
+                    .lock()
+                    .expect("repl buffer state mutex")
+                    .replace(line_editor.current_buffer_contents().to_string());
+
                 // Right before we start running the code the user gave us,
                 // fire the "pre_execution" hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
@@ -488,6 +494,24 @@ pub fn evaluate_repl(
                         run_ansi_sequence(&format!("\x1b]2;{}\x07", maybe_abbrev_path))?;
                     }
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
+                }
+
+                let mut ops = engine_state
+                    .repl_operation_queue
+                    .lock()
+                    .expect("repl op queue mutex");
+                while let Some(op) = ops.pop_front() {
+                    match op {
+                        ReplOperation::Append(s) => line_editor.run_edit_commands(&[
+                            EditCommand::MoveToEnd,
+                            EditCommand::InsertString(s),
+                        ]),
+                        ReplOperation::Insert(s) => {
+                            line_editor.run_edit_commands(&[EditCommand::InsertString(s)])
+                        }
+                        ReplOperation::Replace(s) => line_editor
+                            .run_edit_commands(&[EditCommand::Clear, EditCommand::InsertString(s)]),
+                    }
                 }
             }
             Ok(Signal::CtrlC) => {
