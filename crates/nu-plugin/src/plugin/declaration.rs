@@ -1,4 +1,4 @@
-use crate::{EvaluatedCall};
+use crate::EvaluatedCall;
 
 use super::{call_plugin, create_command, get_plugin_encoding};
 use crate::protocol::{

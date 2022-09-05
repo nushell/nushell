@@ -7,7 +7,7 @@ use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginRes
 use crate::EncodingType;
 use std::env;
 use std::fmt::Write;
-use std::io::{Read, BufReader, Write as WriteTrait};
+use std::io::{BufReader, Read, Write as WriteTrait};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 

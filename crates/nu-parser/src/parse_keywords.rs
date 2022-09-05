@@ -3216,11 +3216,8 @@ pub fn parse_register(
                         for signature in signatures {
                             // create plugin command declaration (need struct impl Command)
                             // store declaration in working set
-                            let plugin_decl = PluginDeclaration::new(
-                                path.clone(),
-                                signature,
-                                shell.clone(),
-                            );
+                            let plugin_decl =
+                                PluginDeclaration::new(path.clone(), signature, shell.clone());
 
                             working_set.add_decl(Box::new(plugin_decl));
                         }
