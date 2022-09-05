@@ -6,7 +6,7 @@ pub struct MsgPackSerializer;
 
 impl PluginEncoder for MsgPackSerializer {
     fn name(&self) -> &str {
-        "MsgPack Serializer"
+        "msgpack"
     }
 
     fn encode_call(
@@ -23,7 +23,7 @@ impl PluginEncoder for MsgPackSerializer {
         reader: &mut impl std::io::BufRead,
     ) -> Result<crate::protocol::PluginCall, nu_protocol::ShellError> {
         rmp_serde::from_read(reader)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+            .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
     }
 
     fn encode_response(
@@ -40,7 +40,7 @@ impl PluginEncoder for MsgPackSerializer {
         reader: &mut impl std::io::BufRead,
     ) -> Result<PluginResponse, ShellError> {
         rmp_serde::from_read(reader)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+            .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
     }
 }
 
