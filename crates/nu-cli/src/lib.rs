@@ -1,6 +1,7 @@
 mod commands;
 mod completions;
 mod config_files;
+mod cwd_hinter;
 mod eval_file;
 mod menus;
 mod nu_highlight;
