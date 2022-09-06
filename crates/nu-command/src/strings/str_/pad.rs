@@ -25,7 +25,7 @@ impl Command for SubCommand {
             .required_named(
                 "length",
                 SyntaxShape::Int,
-                "string size to pad to",
+                "string length to pad to",
                 Some('l'),
             )
             .required_named(
