@@ -32,7 +32,7 @@ impl Command for Clear {
             CommandSys::new("cmd")
                 .args(["/C", "cls"])
                 .status()
-                .expect("failed to execute process");
+                .map_err(|e| ShellError::IOError(e.to_string()))?;
         } else if cfg!(unix) {
             let mut cmd = CommandSys::new("/bin/sh");
 
@@ -42,7 +42,7 @@ impl Command for Clear {
 
             cmd.args(["-c", "clear"])
                 .status()
-                .expect("failed to execute process");
+                .map_err(|e| ShellError::IOError(e.to_string()))?;
         }
 
         Ok(Value::Nothing { span: call.head }.into_pipeline_data())
