@@ -50,7 +50,7 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
 # Build for Windows without static-link-openssl feature
 # ----------------------------------------------------------------------------
 if $os in ['windows-latest'] {
-    if ($flags | str trim | is-empty) {
+    if ($flags | str trim | empty?) {
         cargo build --release --all --target $target --features=extra
     } else {
         cargo build --release --all --target $target --features=extra $flags
@@ -80,7 +80,7 @@ let ver = if $os == 'windows-latest' {
 } else {
     (do -i { ./output/nu -c 'version' }) | str collect
 }
-if ($ver | str trim | is-empty) {
+if ($ver | str trim | empty?) {
     $'(ansi r)Incompatible nu binary...(ansi reset)'
 } else { $ver }
 
@@ -124,14 +124,14 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
         7z a $archive *
         print $'archive: ---> ($archive)';
         let pkg = (ls -f $archive | get name)
-        if not ($pkg | is-empty) {
+        if not ($pkg | empty?) {
             echo $'::set-output name=archive::($pkg | get 0)'
         }
     }
 }
 
 def 'cargo-build-nu' [ options: string ] {
-    if ($options | str trim | is-empty) {
+    if ($options | str trim | empty?) {
         cargo build --release --all --target $target --features=extra,static-link-openssl
     } else {
         cargo build --release --all --target $target --features=extra,static-link-openssl $options
