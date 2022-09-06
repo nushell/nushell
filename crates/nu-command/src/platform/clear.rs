@@ -23,8 +23,8 @@ impl Command for Clear {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -34,8 +34,13 @@ impl Command for Clear {
                 .status()
                 .expect("failed to execute process");
         } else if cfg!(unix) {
-            CommandSys::new("/bin/sh")
-                .args(["-c", "clear"])
+            let mut cmd = CommandSys::new("/bin/sh");
+
+            if let Some(Value::String { val, .. }) = stack.get_env_var(engine_state, "TERM") {
+                cmd.env("TERM", val);
+            }
+
+            cmd.args(["-c", "clear"])
                 .status()
                 .expect("failed to execute process");
         }
