@@ -4,7 +4,7 @@ use nu_test_support::nu_with_plugins;
 fn can_get_custom_value_from_plugin_and_instantly_collapse_it() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("msgpack", "nu_plugin_custom_values"),
+        plugin: ("nu_plugin_custom_values"),
         "custom-value generate"
     );
 
@@ -15,7 +15,7 @@ fn can_get_custom_value_from_plugin_and_instantly_collapse_it() {
 fn can_get_custom_value_from_plugin_and_pass_it_over() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("msgpack", "nu_plugin_custom_values"),
+        plugin: ("nu_plugin_custom_values"),
         "custom-value generate | custom-value update"
     );
 
@@ -29,7 +29,7 @@ fn can_get_custom_value_from_plugin_and_pass_it_over() {
 fn can_generate_and_updated_multiple_types_of_custom_values() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("msgpack", "nu_plugin_custom_values"),
+        plugin: ("nu_plugin_custom_values"),
         "custom-value generate2 | custom-value update"
     );
 
@@ -43,7 +43,7 @@ fn can_generate_and_updated_multiple_types_of_custom_values() {
 fn can_get_describe_plugin_custom_values() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("msgpack", "nu_plugin_custom_values"),
+        plugin: ("nu_plugin_custom_values"),
         "custom-value generate | describe"
     );
 
@@ -58,7 +58,7 @@ fn can_get_describe_plugin_custom_values() {
 fn fails_if_passing_engine_custom_values_to_plugins() {
     let actual = nu_with_plugins!(
         cwd: "tests/fixtures/formats",
-        plugin: ("msgpack", "nu_plugin_custom_values"),
+        plugin: ("nu_plugin_custom_values"),
         "open-db sample.db | custom-value update"
     );
 
@@ -72,8 +72,8 @@ fn fails_if_passing_custom_values_across_plugins() {
     let actual = nu_with_plugins!(
         cwd: "tests",
         plugins: [
-            ("msgpack", "nu_plugin_custom_values"),
-            ("json", "nu_plugin_inc")
+            ("nu_plugin_custom_values"),
+            ("nu_plugin_inc")
         ],
         "custom-value generate | inc --major"
     );

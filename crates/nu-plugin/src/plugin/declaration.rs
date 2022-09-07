@@ -1,6 +1,6 @@
-use crate::{EncodingType, EvaluatedCall};
+use crate::EvaluatedCall;
 
-use super::{call_plugin, create_command};
+use super::{call_plugin, create_command, get_plugin_encoding};
 use crate::protocol::{
     CallInfo, CallInput, PluginCall, PluginCustomValue, PluginData, PluginResponse,
 };
@@ -16,21 +16,14 @@ pub struct PluginDeclaration {
     signature: Signature,
     filename: PathBuf,
     shell: Option<PathBuf>,
-    encoding: EncodingType,
 }
 
 impl PluginDeclaration {
-    pub fn new(
-        filename: PathBuf,
-        signature: Signature,
-        encoding: EncodingType,
-        shell: Option<PathBuf>,
-    ) -> Self {
+    pub fn new(filename: PathBuf, signature: Signature, shell: Option<PathBuf>) -> Self {
         Self {
             name: signature.name.clone(),
             signature,
             filename,
-            encoding,
             shell,
         }
     }
@@ -111,17 +104,27 @@ impl Command for PluginDeclaration {
             input,
         });
 
-        let response =
-            call_plugin(&mut child, plugin_call, &self.encoding, call.head).map_err(|err| {
-                let decl = engine_state.get_decl(call.decl_id);
-                ShellError::GenericError(
-                    format!("Unable to decode call for {}", decl.name()),
-                    err.to_string(),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                )
-            });
+        let encoding = {
+            let stdout_reader = match &mut child.stdout {
+                Some(out) => out,
+                None => {
+                    return Err(ShellError::PluginFailedToLoad(
+                        "Plugin missing stdout reader".into(),
+                    ))
+                }
+            };
+            get_plugin_encoding(stdout_reader)?
+        };
+        let response = call_plugin(&mut child, plugin_call, &encoding, call.head).map_err(|err| {
+            let decl = engine_state.get_decl(call.decl_id);
+            ShellError::GenericError(
+                format!("Unable to decode call for {}", decl.name()),
+                err.to_string(),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )
+        });
 
         let pipeline_data = match response {
             Ok(PluginResponse::Value(value)) => {
@@ -134,7 +137,6 @@ impl Command for PluginDeclaration {
                         data: plugin_data.data,
                         filename: self.filename.clone(),
                         shell: self.shell.clone(),
-                        encoding: self.encoding.clone(),
                         source: engine_state.get_decl(call.decl_id).name().to_owned(),
                     }),
                     span: plugin_data.span,
@@ -158,7 +160,7 @@ impl Command for PluginDeclaration {
         pipeline_data
     }
 
-    fn is_plugin(&self) -> Option<(&PathBuf, &str, &Option<PathBuf>)> {
-        Some((&self.filename, self.encoding.to_str(), &self.shell))
+    fn is_plugin(&self) -> Option<(&PathBuf, &Option<PathBuf>)> {
+        Some((&self.filename, &self.shell))
     }
 }
