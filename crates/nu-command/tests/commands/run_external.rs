@@ -253,7 +253,7 @@ fn double_quote_does_not_expand_path_glob_windows() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^ren "*.sh" nu.txt
+                ren "*.sh" nu.txt
             "#
         ));
         assert!(actual
@@ -271,7 +271,7 @@ fn single_quote_does_not_expand_path_glob_windows() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^ren '*.sh' nu.txt
+                ren '*.sh' nu.txt
             "#
         ));
         assert!(actual
