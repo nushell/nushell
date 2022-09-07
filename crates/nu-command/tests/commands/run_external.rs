@@ -248,9 +248,7 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
 #[test]
 fn double_quote_does_not_expand_path_glob_windows() {
     Playground::setup("double quote do not run the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("foo.sh"),
-        ]);
+        sandbox.with_files(vec![EmptyFile("foo.sh")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -258,7 +256,9 @@ fn double_quote_does_not_expand_path_glob_windows() {
                 ^ren "*.sh" nu.txt
             "#
         ));
-        assert!(actual.err.contains("The filename, directory name, or volume label syntax is incorrect"));
+        assert!(actual
+            .err
+            .contains("The filename, directory name, or volume label syntax is incorrect"));
     })
 }
 
@@ -266,9 +266,7 @@ fn double_quote_does_not_expand_path_glob_windows() {
 #[test]
 fn single_quote_does_not_expand_path_glob_windows() {
     Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("foo.sh"),
-        ]);
+        sandbox.with_files(vec![EmptyFile("foo.sh")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -276,7 +274,9 @@ fn single_quote_does_not_expand_path_glob_windows() {
                 ^ren '*.sh' nu.txt
             "#
         ));
-        assert!(actual.err.contains("The system cannot find the file specified"));
+        assert!(actual
+            .err
+            .contains("The system cannot find the file specified"));
     });
 }
 
