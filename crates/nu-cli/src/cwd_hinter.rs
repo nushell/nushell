@@ -1,35 +1,25 @@
 use nu_ansi_term::{Color, Style};
-use nu_protocol::engine::EngineState;
 use reedline::{CommandLineSearch, Hinter, SearchDirection, SearchFilter, SearchQuery};
 
-struct CwdHinter {
+pub(crate) struct CwdHinter {
     style: Style,
     current_hint: String,
     min_chars: usize,
-    engine_state: Arc<EngineState>,
+    cwd: Option<String>,
 }
 
 impl Hinter for CwdHinter {
     fn handle(
         &mut self,
         line: &str,
-        pos: usize,
+        #[allow(unused_variables)] pos: usize,
         history: &dyn reedline::History,
         use_ansi_coloring: bool,
     ) -> String {
         self.current_hint = if line.chars().count() >= self.min_chars {
-            let cwd = if let Some(d) = self.engine_state.get_env_var("PWD") {
-                match d.as_string() {
-                    Ok(s) => s,
-                    Err(_) => "".to_string(),
-                }
-            } else {
-                "".to_string()
-            };
-            
             let mut search_filter = SearchFilter::anything();
             search_filter.command_line = Some(CommandLineSearch::Prefix(line.to_string()));
-            search_filter.cwd_exact = Some(cwd);
+            search_filter.cwd_exact = self.cwd.clone();
 
             history
                 .search(SearchQuery {
@@ -62,10 +52,49 @@ impl Hinter for CwdHinter {
     }
 
     fn complete_hint(&self) -> String {
-        todo!()
+        self.current_hint.clone()
     }
 
     fn next_hint_token(&self) -> String {
-        todo!()
+        let mut reached_content = false;
+        let result: String = self
+            .current_hint
+            .chars()
+            .take_while(|c| match (c.is_whitespace(), reached_content) {
+                (true, true) => false,
+                (true, false) => true,
+                (false, true) => true,
+                (false, false) => {
+                    reached_content = true;
+                    true
+                }
+            })
+            .collect();
+        result
+    }
+}
+
+impl Default for CwdHinter {
+    fn default() -> Self {
+        CwdHinter {
+            style: Style::new().fg(Color::LightGray),
+            current_hint: String::new(),
+            min_chars: 1,
+            cwd: None,
+        }
+    }
+}
+
+impl CwdHinter {
+    /// A builder that sets the style applied to the hint as part of the buffer
+    pub fn with_style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// A builder that sets the current working directory to filter history completions by.
+    pub fn with_cwd(mut self, cwd: Option<String>) -> Self {
+        self.cwd = cwd;
+        self
     }
 }

@@ -3,7 +3,7 @@ use crate::{
     prompt_update,
     reedline_config::{add_menus, create_keybindings, KeybindingsMode},
     util::{eval_source, get_guaranteed_cwd, report_error, report_error_new},
-    NuHighlighter, NuValidator, NushellPrompt,
+    NuHighlighter, NuValidator, NushellPrompt, cwd_hinter::CwdHinter,
 };
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
@@ -217,9 +217,13 @@ pub fn evaluate_repl(
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring);
 
+        let cwd = engine_state
+            .get_env_var("PWD")
+            .and_then(|d| d.as_string().ok());
         line_editor = if config.use_ansi_coloring {
             line_editor.with_hinter(Box::new(
-                DefaultHinter::default().with_style(color_hm["hints"]),
+                // DefaultHinter::default().with_style(color_hm["hints"]),
+                CwdHinter::default().with_style(color_hm["hints"]).with_cwd(cwd)
             ))
         } else {
             line_editor.disable_hints()
