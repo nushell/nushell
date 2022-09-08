@@ -5,6 +5,7 @@ pub mod engine;
 mod example;
 mod exportable;
 mod id;
+mod lev_distance;
 mod module;
 mod pipeline_data;
 mod shell_error;
