@@ -9,8 +9,8 @@ use nu_protocol::{
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 use polars::prelude::{
-    CsvEncoding, CsvReader, JsonReader, LazyCsvReader, LazyFrame, ParallelStrategy, ParquetReader,
-    ScanArgsParquet, SerReader,
+    CsvEncoding, CsvReader, IpcReader, JsonReader, LazyCsvReader, LazyFrame, ParallelStrategy,
+    ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
 
 #[derive(Clone)]
@@ -22,7 +22,7 @@ impl Command for OpenDataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Opens csv, json or parquet file to create dataframe"
+        "Opens csv, json, arrow, or parquet file to create dataframe"
     }
 
     fn signature(&self) -> Signature {
@@ -97,9 +97,10 @@ fn command(
         Some(e) => match e.to_str() {
             Some("csv") | Some("tsv") => from_csv(engine_state, stack, call),
             Some("parquet") => from_parquet(engine_state, stack, call),
+            Some("ipc") | Some("arrow") => from_ipc(engine_state, stack, call),
             Some("json") => from_json(engine_state, stack, call),
             _ => Err(ShellError::FileNotFoundCustom(
-                "Not a csv, tsv, parquet or json file".into(),
+                "Not a csv, tsv, parquet, ipc, arrow, or json file".into(),
                 file.span,
             )),
         },
@@ -165,6 +166,70 @@ fn from_parquet(
             .map_err(|e| {
                 ShellError::GenericError(
                     "Parquet reader error".into(),
+                    format!("{:?}", e),
+                    Some(call.head),
+                    None,
+                    Vec::new(),
+                )
+            })?
+            .into();
+
+        Ok(df.into_value(call.head))
+    }
+}
+
+fn from_ipc(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<Value, ShellError> {
+    if call.has_flag("lazy") {
+        let file: String = call.req(engine_state, stack, 0)?;
+        let args = ScanArgsIpc {
+            n_rows: None,
+            cache: true,
+            rechunk: false,
+            row_count: None,
+        };
+
+        let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)
+            .map_err(|e| {
+                ShellError::GenericError(
+                    "IPC reader error".into(),
+                    format!("{:?}", e),
+                    Some(call.head),
+                    None,
+                    Vec::new(),
+                )
+            })?
+            .into();
+
+        df.into_value(call.head)
+    } else {
+        let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
+        let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
+
+        let r = File::open(&file.item).map_err(|e| {
+            ShellError::GenericError(
+                "Error opening file".into(),
+                e.to_string(),
+                Some(file.span),
+                None,
+                Vec::new(),
+            )
+        })?;
+        let reader = IpcReader::new(r);
+
+        let reader = match columns {
+            None => reader,
+            Some(columns) => reader.with_columns(Some(columns)),
+        };
+
+        let df: NuDataFrame = reader
+            .finish()
+            .map_err(|e| {
+                ShellError::GenericError(
+                    "IPC reader error".into(),
                     format!("{:?}", e),
                     Some(call.head),
                     None,

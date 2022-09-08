@@ -167,12 +167,14 @@ dependencies = [
  "indexmap",
  "json-deserializer",
  "lexical-core",
+ "lz4",
  "multiversion",
  "num-traits",
  "parquet2",
  "simdutf8",
  "streaming-iterator",
  "strength_reduce",
+ "zstd",
 ]
 
 [[package]]
