@@ -18,17 +18,17 @@ impl Command for Any {
             .required(
                 "predicate",
                 SyntaxShape::RowCondition,
-                "the predicate that must match",
+                "the predicate expression that should return a boolean",
             )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Tests if any element of the input matches a predicate."
+        "Tests if any element of the input fulfils a predicate expression."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["some"]
+        vec!["some", "or"]
     }
 
     fn examples(&self) -> Vec<Example> {
