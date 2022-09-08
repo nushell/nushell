@@ -4815,7 +4815,9 @@ pub fn parse_builtin_commands(
             (pipeline, err)
         }
         b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"source" | b"source-env" => {
+            parse_source(working_set, &lite_command.parts, expand_aliases_denylist)
+        }
         b"export" => parse_export_in_block(working_set, lite_command, expand_aliases_denylist),
         b"hide" => parse_hide(working_set, &lite_command.parts, expand_aliases_denylist),
         #[cfg(feature = "plugin")]
