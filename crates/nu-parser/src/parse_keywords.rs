@@ -896,7 +896,7 @@ pub fn parse_export_in_module(
                 let mut result = vec![];
 
                 let decl_name = match spans.get(2) {
-                    Some(span) => { working_set.get_span_contents(*span) },
+                    Some(span) => working_set.get_span_contents(*span),
                     None => &[],
                 };
                 let decl_name = trim_quotes(decl_name);
@@ -962,7 +962,7 @@ pub fn parse_export_in_module(
                 let mut result = vec![];
 
                 let decl_name = match spans.get(2) {
-                    Some(span) => { working_set.get_span_contents(*span) },
+                    Some(span) => working_set.get_span_contents(*span),
                     None => &[],
                 };
                 let decl_name = trim_quotes(decl_name);
@@ -1028,7 +1028,7 @@ pub fn parse_export_in_module(
                 let mut result = vec![];
 
                 let alias_name = match spans.get(2) {
-                    Some(span) => { working_set.get_span_contents(*span) },
+                    Some(span) => working_set.get_span_contents(*span),
                     None => &[],
                 };
                 let alias_name = trim_quotes(alias_name);
