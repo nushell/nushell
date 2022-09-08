@@ -895,7 +895,10 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                let decl_name = working_set.get_span_contents(spans[2]);
+                let decl_name = match spans.get(2) {
+                    Some(span) => working_set.get_span_contents(*span),
+                    None => &[],
+                };
                 let decl_name = trim_quotes(decl_name);
 
                 if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
@@ -958,7 +961,10 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                let decl_name = working_set.get_span_contents(spans[2]);
+                let decl_name = match spans.get(2) {
+                    Some(span) => working_set.get_span_contents(*span),
+                    None => &[],
+                };
                 let decl_name = trim_quotes(decl_name);
 
                 if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
@@ -1021,7 +1027,10 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                let alias_name = working_set.get_span_contents(spans[2]);
+                let alias_name = match spans.get(2) {
+                    Some(span) => working_set.get_span_contents(*span),
+                    None => &[],
+                };
                 let alias_name = trim_quotes(alias_name);
 
                 if let Some(alias_id) = working_set.find_alias(alias_name) {
