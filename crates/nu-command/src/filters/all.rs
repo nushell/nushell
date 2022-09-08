@@ -24,7 +24,7 @@ impl Command for All {
     }
 
     fn usage(&self) -> &str {
-        "Test if every element of the input fulfils a predicate expression."
+        "Test if every element of the input fulfills a predicate expression."
     }
 
     fn search_terms(&self) -> Vec<&str> {
