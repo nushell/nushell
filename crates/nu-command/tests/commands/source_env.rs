@@ -143,6 +143,7 @@ fn sources_unicode_file_in_non_utf8_dir() {
     // How do I create non-UTF-8 path???
 }
 
+#[ignore]
 #[test]
 fn can_source_dynamic_path() {
     Playground::setup("can_source_dynamic_path", |dirs, sandbox| {
@@ -269,39 +270,26 @@ fn source_env_dont_cd_overlay() {
 }
 
 #[test]
-fn source_env_nice_parse_error() {
-    Playground::setup("source_env_nice_parse_error", |dirs, sandbox| {
+fn source_env_is_scoped() {
+    Playground::setup("source_env_is_scoped", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
-                let x
-            "#,
+                    def foo [] { 'foo' }
+                    alias bar = 'bar'
+                "#,
         )]);
 
-        let inp = &[r#"source-env spam.nu"#];
+        let inp = &[r#"source-env spam.nu"#, r#"foo"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert!(actual.err.contains("cannot parse this file"));
-        assert!(actual.err.contains("───"));
-    })
-}
+        assert!(actual.err.contains("did you mean"));
 
-#[test]
-fn source_env_nice_shell_error() {
-    Playground::setup("source_env_nice_shell_error", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "spam.nu",
-            r#"
-                let-env FILE_PWD = 'foo'
-            "#,
-        )]);
-
-        let inp = &[r#"source-env spam.nu"#];
+        let inp = &[r#"source-env spam.nu"#, r#"bar"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert!(actual.err.contains("cannot evaluate this file"));
-        assert!(actual.err.contains("───"));
+        assert!(actual.err.contains("did you mean"));
     })
 }

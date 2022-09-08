@@ -2902,8 +2902,10 @@ pub fn parse_source(
     let mut error = None;
     let name = working_set.get_span_contents(spans[0]);
 
-    if name == b"source" {
-        if let Some(decl_id) = working_set.find_decl(b"source", &Type::Any) {
+    if name == b"source" || name == b"source-env" {
+        let scoped = name == b"source-env";
+
+        if let Some(decl_id) = working_set.find_decl(name, &Type::Any) {
             let cwd = working_set.get_cwd();
 
             // Is this the right call to be using here?
@@ -2958,7 +2960,7 @@ pub fn parse_source(
                                 working_set,
                                 path.file_name().and_then(|x| x.to_str()),
                                 &contents,
-                                false,
+                                scoped,
                                 expand_aliases_denylist,
                             );
 
@@ -2983,7 +2985,7 @@ pub fn parse_source(
 
                                 let mut call_with_block = call;
 
-                                // Adding this expression to the positional creates a syntax highlighting error
+                                // FIXME: Adding this expression to the positional creates a syntax highlighting error
                                 // after writing `source example.nu`
                                 call_with_block.add_positional(Expression {
                                     expr: Expr::Int(block_id as i64),
