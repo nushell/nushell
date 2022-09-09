@@ -5,7 +5,7 @@ fn test_1() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1..5 | into string | str collect
+        echo 1..5 | into string | str join
         "#
         )
     );
@@ -18,7 +18,7 @@ fn test_2() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo [a b c d] | str collect "<sep>"
+        echo [a b c d] | str join "<sep>"
         "#
         )
     );
@@ -31,7 +31,7 @@ fn construct_a_path() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo [sample txt] | str collect "."
+        echo [sample txt] | str join "."
         "#
         )
     );
@@ -44,7 +44,7 @@ fn sum_one_to_four() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        1..4 | each { |it| $it } | into string | str collect "+" | math eval
+        1..4 | each { |it| $it } | into string | str join "+" | math eval
         "#
         )
     );

@@ -96,7 +96,7 @@ fn column_names_with_spaces() {
             ]
             | select "last name"
             | get "last name"
-            | str collect " "
+            | str join " "
         "#
     ));
 
@@ -115,7 +115,7 @@ fn ignores_duplicate_columns_selected() {
             ]
             | select "first name" "last name" "first name"
             | columns
-            | str collect " "
+            | str join " "
         "#
     ));
 
