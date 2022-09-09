@@ -25,11 +25,7 @@ impl Command for StrCollect {
     }
 
     fn usage(&self) -> &str {
-        "Concatenate multiple strings into a single string, with an optional separator between each"
-    }
-
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["join", "concatenate"]
+        "'str collect' is deprecated. Please use 'str join' instead."
     }
 
     fn run(
