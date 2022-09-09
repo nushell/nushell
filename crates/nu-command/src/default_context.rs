@@ -195,7 +195,7 @@ pub fn create_default_context() -> EngineState {
             Str,
             StrCamelCase,
             StrCapitalize,
-            StrCollectDeprecated,
+            StrCollect,
             StrContains,
             StrDistance,
             StrDowncase,
