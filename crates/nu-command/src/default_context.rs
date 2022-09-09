@@ -30,6 +30,7 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Alias,
             Ast,
+            Commandline,
             Debug,
             Def,
             DefEnv,

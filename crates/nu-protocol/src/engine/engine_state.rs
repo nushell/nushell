@@ -6,15 +6,23 @@ use crate::{
 };
 use core::panic;
 use std::borrow::Borrow;
-use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
+    collections::{HashMap, HashSet, VecDeque},
+    sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
 static PWD_ENV: &str = "PWD";
+
+// TODO: move to different file? where?
+/// An operation to be performed with the current buffer of the interactive shell.
+#[derive(Clone)]
+pub enum ReplOperation {
+    Append(String),
+    Insert(String),
+    Replace(String),
+}
 
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
@@ -72,6 +80,8 @@ pub struct EngineState {
     pub env_vars: EnvVars,
     pub previous_env_vars: HashMap<String, Value>,
     pub config: Config,
+    pub repl_buffer_state: Arc<Mutex<Option<String>>>,
+    pub repl_operation_queue: Arc<Mutex<VecDeque<ReplOperation>>>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
     #[cfg(not(windows))]
@@ -110,6 +120,8 @@ impl EngineState {
             env_vars: EnvVars::from([(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]),
             previous_env_vars: HashMap::new(),
             config: Config::default(),
+            repl_buffer_state: Arc::new(Mutex::new(None)),
+            repl_operation_queue: Arc::new(Mutex::new(VecDeque::new())),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
             #[cfg(not(windows))]
