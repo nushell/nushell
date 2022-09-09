@@ -200,6 +200,7 @@ pub fn create_default_context() -> EngineState {
             StrDistance,
             StrDowncase,
             StrEndswith,
+            StrJoin,
             StrReplace,
             StrIndexOf,
             StrKebabCase,
