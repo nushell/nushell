@@ -34,6 +34,12 @@ impl Command for OpenDataFrame {
             )
             .switch("lazy", "creates a lazy dataframe", Some('l'))
             .named(
+                "type",
+                SyntaxShape::String,
+                "File type: csv, tsv, json, parquet, arrow. If omitted, derive from file extension",
+                Some('t'),
+            )
+            .named(
                 "delimiter",
                 SyntaxShape::String,
                 "file delimiter character. CSV file",
@@ -93,15 +99,32 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
 
-    match file.item.extension() {
-        Some(e) => match e.to_str() {
-            Some("csv") | Some("tsv") => from_csv(engine_state, stack, call),
-            Some("parquet") => from_parquet(engine_state, stack, call),
-            Some("ipc") | Some("arrow") => from_ipc(engine_state, stack, call),
-            Some("json") => from_json(engine_state, stack, call),
-            _ => Err(ShellError::FileNotFoundCustom(
-                "Not a csv, tsv, parquet, ipc, arrow, or json file".into(),
+    let type_option: Option<Spanned<String>> = call.get_flag(engine_state, stack, "type")?;
+
+    let type_id = match &type_option {
+        Some(ref t) => Some((t.item.to_owned(), "Invalid type", t.span)),
+        None => match file.item.extension() {
+            Some(e) => Some((
+                e.to_string_lossy().into_owned(),
+                "Invalid extension",
                 file.span,
+            )),
+            None => None,
+        },
+    };
+
+    match type_id {
+        Some((e, msg, blamed)) => match e.as_str() {
+            "csv" | "tsv" => from_csv(engine_state, stack, call),
+            "parquet" => from_parquet(engine_state, stack, call),
+            "ipc" | "arrow" => from_ipc(engine_state, stack, call),
+            "json" => from_json(engine_state, stack, call),
+            _ => Err(ShellError::FileNotFoundCustom(
+                format!(
+                    "{}. Supported values: csv, tsv, parquet, ipc, arrow, json",
+                    msg
+                ),
+                blamed,
             )),
         },
         None => Err(ShellError::FileNotFoundCustom(
