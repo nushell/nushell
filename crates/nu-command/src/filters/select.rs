@@ -136,7 +136,7 @@ fn select(
                         if let Ok(fetcher) = fetcher {
                             vals.push(fetcher);
                             if !columns_with_value.contains(&path) {
-                                columns_with_value.push(&path);
+                                columns_with_value.push(path);
                             }
                         } else {
                             vals.push(Value::nothing(span));
