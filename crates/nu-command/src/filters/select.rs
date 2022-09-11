@@ -129,13 +129,12 @@ fn select(
                     for path in &columns {
                         //FIXME: improve implementation to not clone
                         let fetcher = input_val.clone().follow_cell_path(&path.members, false);
-                        
+
                         cols.push(path.into_string().replace('.', "_"));
                         if let Ok(fetcher) = fetcher {
-                        vals.push(fetcher);
-                        }
-                        else { 
-                        vals.push(Value::nothing(span))
+                            vals.push(fetcher);
+                        } else {
+                            vals.push(Value::nothing(span))
                         }
                     }
 
