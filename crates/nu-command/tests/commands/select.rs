@@ -159,3 +159,15 @@ fn selects_many_rows() {
         assert_eq!(actual.out, "2");
     });
 }
+
+#[test]
+fn selects_where_record_is_missing() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select b
+            "#
+    ));
+
+    assert!(actual.err.is_empty());
+}
