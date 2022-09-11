@@ -36,7 +36,7 @@ fn condition_is_met() {
                 | lines
                 | skip 2
                 | str trim
-                | str collect (char nl)
+                | str join (char nl)
                 | from csv
                 | skip while "Chicken Collection" != "Blue Chickens"
                 | take until "Chicken Collection" == "Red Chickens"

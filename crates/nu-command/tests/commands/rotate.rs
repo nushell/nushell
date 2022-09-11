@@ -25,7 +25,7 @@ fn counter_clockwise() {
         ]
         | where column0 == EXPECTED
         | get column1 column2 column3
-        | str collect "-"
+        | str join "-"
         "#,
     ));
 
@@ -35,7 +35,7 @@ fn counter_clockwise() {
             rotate --ccw
             | where column0 == EXPECTED
             | get column1 column2 column3
-            | str collect "-"
+            | str join "-"
         "#)));
 
     assert_eq!(actual.out, expected.out);
@@ -66,7 +66,7 @@ fn clockwise() {
         ]
         | where column3 == EXPECTED
         | get column0 column1 column2
-        | str collect "-"
+        | str join "-"
         "#,
     ));
 
@@ -76,7 +76,7 @@ fn clockwise() {
             rotate
             | where column3 == EXPECTED
             | get column0 column1 column2
-            | str collect "-"
+            | str join "-"
         "#)));
 
     assert_eq!(actual.out, expected.out);

@@ -14,7 +14,7 @@ use crate::To;
 #[cfg(test)]
 use super::{
     Ansi, Date, From, If, Into, LetEnv, Math, Path, Random, Split, SplitColumn, SplitRow, Str,
-    StrCollect, StrLength, StrReplace, Url, Wrap,
+    StrJoin, StrLength, StrReplace, Url, Wrap,
 };
 
 #[cfg(test)]
@@ -29,7 +29,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         // Try to keep this working set small to keep tests running as fast as possible
         let mut working_set = StateWorkingSet::new(&*engine_state);
         working_set.add_decl(Box::new(Str));
-        working_set.add_decl(Box::new(StrCollect));
+        working_set.add_decl(Box::new(StrJoin));
         working_set.add_decl(Box::new(StrLength));
         working_set.add_decl(Box::new(StrReplace));
         working_set.add_decl(Box::new(BuildString));

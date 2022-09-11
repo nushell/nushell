@@ -335,7 +335,7 @@ fn in_means_input() -> TestResult {
 #[test]
 fn in_iteration() -> TestResult {
     run_test(
-        r#"[3, 4, 5] | each { echo $"hi ($in)" } | str collect"#,
+        r#"[3, 4, 5] | each { echo $"hi ($in)" } | str join"#,
         "hi 3hi 4hi 5",
     )
 }

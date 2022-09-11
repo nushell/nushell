@@ -69,7 +69,7 @@ mod columns {
         format!("{} | {}", table(), pipeline(r#"
             roll left
             | columns
-            | str collect "-"
+            | str join "-"
         "#)));
 
         assert_eq!(actual.out, "origin-stars-commit_author");
@@ -82,7 +82,7 @@ mod columns {
         format!("{} | {}", table(), pipeline(r#"
             roll right --by 2
             | columns
-            | str collect "-"
+            | str join "-"
         "#)));
 
         assert_eq!(actual.out, "origin-stars-commit_author");
@@ -97,7 +97,7 @@ mod columns {
 
         let actual = nu!(
             cwd: ".",
-            format!("{} | roll right --by 3 --cells-only | columns | str collect '-' ", four_bitstring)
+            format!("{} | roll right --by 3 --cells-only | columns | str join '-' ", four_bitstring)
         );
 
         assert_eq!(actual.out, expected_value.1);

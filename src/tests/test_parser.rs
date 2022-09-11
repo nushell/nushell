@@ -245,7 +245,7 @@ def 'call-me' [] {
     echo $CONST_A
 }
 
-[(say-hi) (call-me)] | str collect
+[(say-hi) (call-me)] | str join
 
     "#,
         "HelloHello",
@@ -266,7 +266,7 @@ def 'say-hi' [] {
     echo (call-me)
 }
 
-[(say-hi) (call-me)] | str collect
+[(say-hi) (call-me)] | str join
 
     "#,
         "HelloHello",
@@ -287,7 +287,7 @@ def 'call-me' [] {
     echo $CONST_A
 }
 
-[(call-me) (say-hi)] | str collect
+[(call-me) (say-hi)] | str join
 
     "#,
         "HelloHello",
@@ -308,7 +308,7 @@ def 'say-hi' [] {
     echo (call-me)
 }
 
-[(call-me) (say-hi)] | str collect
+[(call-me) (say-hi)] | str join
 
     "#,
         "HelloHello",
@@ -318,7 +318,7 @@ def 'say-hi' [] {
 #[test]
 fn capture_row_condition() -> TestResult {
     run_test(
-        r#"let name = "foo"; [foo] | where $'($name)' =~ $it | str collect"#,
+        r#"let name = "foo"; [foo] | where $'($name)' =~ $it | str join"#,
         "foo",
     )
 }
@@ -326,7 +326,7 @@ fn capture_row_condition() -> TestResult {
 #[test]
 fn starts_with_operator_succeeds() -> TestResult {
     run_test(
-        r#"[Moe Larry Curly] | where $it starts-with L | str collect"#,
+        r#"[Moe Larry Curly] | where $it starts-with L | str join"#,
         "Larry",
     )
 }
@@ -334,7 +334,7 @@ fn starts_with_operator_succeeds() -> TestResult {
 #[test]
 fn ends_with_operator_succeeds() -> TestResult {
     run_test(
-        r#"[Moe Larry Curly] | where $it ends-with ly | str collect"#,
+        r#"[Moe Larry Curly] | where $it ends-with ly | str join"#,
         "Curly",
     )
 }

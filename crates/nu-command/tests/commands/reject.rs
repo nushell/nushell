@@ -13,7 +13,7 @@ fn regular_columns() {
             ]
             | reject type first_name
             | columns
-            | str collect ", "
+            | str join ", "
         "#
     ));
 
@@ -56,7 +56,7 @@ fn complex_nested_columns() {
             | reject nu."0xATYKARNU" nu.committers
             | get nu
             | columns
-            | str collect ", "
+            | str join ", "
         "#,
     ));
 
@@ -75,7 +75,7 @@ fn ignores_duplicate_columns_rejected() {
             ]
             | reject "first name" "first name"
             | columns
-            | str collect ", "
+            | str join ", "
         "#
     ));
 
