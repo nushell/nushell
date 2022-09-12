@@ -208,6 +208,22 @@ fn parses_utf16_ini() {
     assert_eq!(actual.out, "-236")
 }
 
+#[cfg(feature = "database")]
+#[test]
+fn parses_arrow_ipc() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open-df caco3_plastics.arrow
+            | into nu
+            | first 1
+            | get origin
+        "#
+    ));
+
+    assert_eq!(actual.out, "SPAIN")
+}
+
 #[test]
 fn errors_if_file_not_found() {
     let actual = nu!(

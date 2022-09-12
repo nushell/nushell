@@ -115,6 +115,7 @@ features = [
 	"dtype-struct",
 	"dtype-categorical",
 	"dynamic_groupby",
+	"ipc",
 	"is_in",
 	"json",
 	"lazy",
