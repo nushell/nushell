@@ -195,6 +195,13 @@ impl Command for OverlayUse {
                 result: None,
             },
             Example {
+                description: "Create an overlay from a module and rename it",
+                example: r#"module spam { export def foo [] { "foo" } }
+    overlay use spam as spam_new
+    foo"#,
+                result: None,
+            },
+            Example {
                 description: "Create an overlay with a prefix",
                 example: r#"echo 'export def foo { "foo" }'
     overlay use --prefix spam
