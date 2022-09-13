@@ -222,7 +222,6 @@ pub fn evaluate_repl(
             .and_then(|d| d.as_string().ok());
         line_editor = if config.use_ansi_coloring {
             line_editor.with_hinter(Box::new(
-                // DefaultHinter::default().with_style(color_hm["hints"]),
                 CwdHinter::default().with_style(color_hm["hints"]).with_cwd(cwd)
             ))
         } else {
