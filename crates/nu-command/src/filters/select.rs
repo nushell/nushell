@@ -129,7 +129,6 @@ fn select(
         ) => {
             let mut output = vec![];
             let mut columns_with_value = Vec::new();
-            let mut error_forwarded = None;
 
             for input_val in input_vals {
                 if !columns.is_empty() {
@@ -148,7 +147,6 @@ fn select(
                                 }
                             } else {
                                 vals.push(Value::nothing(span));
-                                error_forwarded = Some(fetcher.expect_err("this should be Err"));
                             }
                         } else {
                             let fetcher =
@@ -162,16 +160,6 @@ fn select(
                     output.push(Value::Record { cols, vals, span })
                 } else {
                     output.push(input_val)
-                }
-            }
-
-            if ignore_empty {
-                for path in &columns {
-                    if !columns_with_value.contains(&path) {
-                        if let Some(err) = error_forwarded {
-                            return Err(err);
-                        }
-                    }
                 }
             }
 
