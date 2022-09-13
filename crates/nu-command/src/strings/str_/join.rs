@@ -7,15 +7,15 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct StrCollect;
+pub struct StrJoin;
 
-impl Command for StrCollect {
+impl Command for StrJoin {
     fn name(&self) -> &str {
-        "str collect"
+        "str join"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str collect")
+        Signature::build("str join")
             .optional(
                 "separator",
                 SyntaxShape::String,
@@ -25,7 +25,11 @@ impl Command for StrCollect {
     }
 
     fn usage(&self) -> &str {
-        "'str collect' is deprecated. Please use 'str join' instead."
+        "Concatenate multiple strings into a single string, with an optional separator between each"
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["collect", "concatenate"]
     }
 
     fn run(
@@ -72,7 +76,7 @@ impl Command for StrCollect {
         vec![
             Example {
                 description: "Create a string from input",
-                example: "['nu', 'shell'] | str collect",
+                example: "['nu', 'shell'] | str join",
                 result: Some(Value::String {
                     val: "nushell".to_string(),
                     span: Span::test_data(),
@@ -80,7 +84,7 @@ impl Command for StrCollect {
             },
             Example {
                 description: "Create a string from input with a separator",
-                example: "['nu', 'shell'] | str collect '-'",
+                example: "['nu', 'shell'] | str join '-'",
                 result: Some(Value::String {
                     val: "nu-shell".to_string(),
                     span: Span::test_data(),
@@ -97,6 +101,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(StrCollect {})
+        test_examples(StrJoin {})
     }
 }

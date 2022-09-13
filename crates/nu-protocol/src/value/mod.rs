@@ -610,6 +610,23 @@ impl Value {
         cell_path: &[PathMember],
         insensitive: bool,
     ) -> Result<Value, ShellError> {
+        self.follow_cell_path_helper(cell_path, insensitive, true)
+    }
+
+    pub fn follow_cell_path_not_from_user_input(
+        self,
+        cell_path: &[PathMember],
+        insensitive: bool,
+    ) -> Result<Value, ShellError> {
+        self.follow_cell_path_helper(cell_path, insensitive, false)
+    }
+
+    fn follow_cell_path_helper(
+        self,
+        cell_path: &[PathMember],
+        insensitive: bool,
+        from_user_input: bool,
+    ) -> Result<Value, ShellError> {
         let mut current = self;
         for member in cell_path {
             // FIXME: this uses a few extra clones for simplicity, but there may be a way
@@ -673,9 +690,12 @@ impl Value {
                             }
                         }) {
                             current = found.1.clone();
-                        } else if let Some(suggestion) = did_you_mean(&cols, column_name) {
-                            return Err(ShellError::DidYouMean(suggestion, *origin_span));
                         } else {
+                            if from_user_input {
+                                if let Some(suggestion) = did_you_mean(&cols, column_name) {
+                                    return Err(ShellError::DidYouMean(suggestion, *origin_span));
+                                }
+                            }
                             return Err(ShellError::CantFindColumn(*origin_span, span));
                         }
                     }

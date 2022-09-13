@@ -18,6 +18,7 @@ mod sample;
 mod shape;
 mod slice;
 mod take;
+mod to_arrow;
 mod to_csv;
 mod to_df;
 mod to_nu;
@@ -46,6 +47,7 @@ pub use sample::SampleDF;
 pub use shape::ShapeDF;
 pub use slice::SliceDF;
 pub use take::TakeDF;
+pub use to_arrow::ToArrow;
 pub use to_csv::ToCSV;
 pub use to_df::ToDataFrame;
 pub use to_nu::ToNu;
@@ -84,6 +86,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         ShapeDF,
         SliceDF,
         TakeDF,
+        ToArrow,
         ToCSV,
         ToDataFrame,
         ToNu,

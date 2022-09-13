@@ -18,6 +18,21 @@ fn add_overlay() {
 }
 
 #[test]
+fn add_overlay_as_new_name() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use spam as spam_new"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
 fn add_overlay_twice() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,

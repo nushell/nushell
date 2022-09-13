@@ -74,7 +74,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Use rpad to truncate a string",
+                description: "Use rpad to truncate a string to its first three characters",
                 example: "'123456789' | str rpad -l 3 -c '0'",
                 result: Some(Value::String {
                     val: "123".to_string(),
@@ -104,6 +104,13 @@ fn operate(
         character: call.get_flag(engine_state, stack, "character")?,
         column_paths: call.rest(engine_state, stack, 0)?,
     });
+
+    if options.length.expect("this exists") < 0 {
+        return Err(ShellError::UnsupportedInput(
+            String::from("The length of the string cannot be negative"),
+            call.head,
+        ));
+    }
 
     let head = call.head;
     input.map(

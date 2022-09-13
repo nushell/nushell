@@ -12,7 +12,7 @@ fn bits_and_negative() -> TestResult {
 
 #[test]
 fn bits_and_list() -> TestResult {
-    run_test("[1 2 3 8 9 10] | bits and 2 | str collect '.'", "0.2.2.0.0.2")
+    run_test("[1 2 3 8 9 10] | bits and 2 | str join '.'", "0.2.2.0.0.2")
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn bits_or_negative() -> TestResult {
 
 #[test]
 fn bits_or_list() -> TestResult {
-    run_test("[1 2 3 8 9 10] | bits or 2 | str collect '.'", "3.2.3.10.11.10")
+    run_test("[1 2 3 8 9 10] | bits or 2 | str join '.'", "3.2.3.10.11.10")
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn bits_xor_negative() -> TestResult {
 
 #[test]
 fn bits_xor_list() -> TestResult {
-    run_test("[1 2 3 8 9 10] | bits xor 2 | str collect '.'", "3.0.1.10.11.8")
+    run_test("[1 2 3 8 9 10] | bits xor 2 | str join '.'", "3.0.1.10.11.8")
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn bits_shift_left_negative() -> TestResult {
 
 #[test]
 fn bits_shift_left_list() -> TestResult {
-    run_test("[1 2 7 32 9 10] | bits shl 3 | str collect '.'", "8.16.56.256.72.80")
+    run_test("[1 2 7 32 9 10] | bits shl 3 | str join '.'", "8.16.56.256.72.80")
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn bits_shift_right_negative() -> TestResult {
 
 #[test]
 fn bits_shift_right_list() -> TestResult {
-    run_test("[12 98 7 64 900 10] | bits shr 3 | str collect '.'", "1.12.0.8.112.1")
+    run_test("[12 98 7 64 900 10] | bits shr 3 | str join '.'", "1.12.0.8.112.1")
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn bits_rotate_left_negative() -> TestResult {
 
 #[test]
 fn bits_rotate_left_list() -> TestResult {
-    run_test("[1 2 7 32 9 10] | bits rol 3 | str collect '.'", "8.16.56.256.72.80")
+    run_test("[1 2 7 32 9 10] | bits rol 3 | str join '.'", "8.16.56.256.72.80")
 }
 
 #[test]
@@ -102,5 +102,5 @@ fn bits_rotate_right_negative() -> TestResult {
 
 #[test]
 fn bits_rotate_right_list() -> TestResult {
-    run_test("[1 2 7 32 23 10] | bits ror 60 | str collect '.'", "16.32.112.512.368.160")
+    run_test("[1 2 7 32 23 10] | bits ror 60 | str join '.'", "16.32.112.512.368.160")
 }

@@ -7,9 +7,9 @@ use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginRes
 use crate::EncodingType;
 use std::env;
 use std::fmt::Write;
-use std::io::BufReader;
+use std::io::{BufReader, Read, Write as WriteTrait};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command as CommandSys, Stdio};
+use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 
 use nu_protocol::{CustomValue, ShellError, Span};
 use nu_protocol::{Signature, Value};
@@ -116,7 +116,6 @@ pub(crate) fn call_plugin(
 
 pub fn get_signature(
     path: &Path,
-    encoding: &EncodingType,
     shell: &Option<PathBuf>,
     current_envs: &HashMap<String, String>,
 ) -> Result<Vec<Signature>, ShellError> {
@@ -127,32 +126,34 @@ pub fn get_signature(
         ShellError::PluginFailedToLoad(format!("Error spawning child process: {}", err))
     })?;
 
+    let mut stdin_writer = child
+        .stdin
+        .take()
+        .ok_or_else(|| ShellError::PluginFailedToLoad("plugin missing stdin writer".into()))?;
+    let mut stdout_reader = child
+        .stdout
+        .take()
+        .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin missing stdout reader".into()))?;
+    let encoding = get_plugin_encoding(&mut stdout_reader)?;
+
     // Create message to plugin to indicate that signature is required and
     // send call to plugin asking for signature
-    if let Some(mut stdin_writer) = child.stdin.take() {
-        let encoding_clone = encoding.clone();
-        std::thread::spawn(move || {
-            encoding_clone.encode_call(&PluginCall::Signature, &mut stdin_writer)
-        });
-    }
+    let encoding_clone = encoding.clone();
+    std::thread::spawn(move || {
+        encoding_clone.encode_call(&PluginCall::Signature, &mut stdin_writer)
+    });
 
     // deserialize response from plugin to extract the signature
-    let signatures = if let Some(stdout_reader) = &mut child.stdout {
-        let reader = stdout_reader;
-        let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
-        let response = encoding.decode_response(&mut buf_read)?;
+    let reader = stdout_reader;
+    let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
+    let response = encoding.decode_response(&mut buf_read)?;
 
-        match response {
-            PluginResponse::Signature(sign) => Ok(sign),
-            PluginResponse::Error(err) => Err(err.into()),
-            _ => Err(ShellError::PluginFailedToLoad(
-                "Plugin missing signature".into(),
-            )),
-        }
-    } else {
-        Err(ShellError::PluginFailedToLoad(
-            "Plugin missing stdout reader".into(),
-        ))
+    let signatures = match response {
+        PluginResponse::Signature(sign) => Ok(sign),
+        PluginResponse::Error(err) => Err(err.into()),
+        _ => Err(ShellError::PluginFailedToLoad(
+            "Plugin missing signature".into(),
+        )),
     }?;
 
     match child.wait() {
@@ -194,6 +195,24 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     if env::args().any(|arg| (arg == "-h") || (arg == "--help")) {
         print_help(plugin, encoder);
         std::process::exit(0)
+    }
+
+    // tell nushell encoding.
+    //
+    //                         1 byte
+    // encoding format: |  content-length  | content    |
+    {
+        let mut stdout = std::io::stdout();
+        let encoding = encoder.name();
+        let length = encoding.len() as u8;
+        let mut encoding_content: Vec<u8> = encoding.as_bytes().to_vec();
+        encoding_content.insert(0, length);
+        stdout
+            .write_all(&encoding_content)
+            .expect("Failed to tell nushell my encoding");
+        stdout
+            .flush()
+            .expect("Failed to tell nushell my encoding when flushing stdout");
     }
 
     let mut stdin_buf = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, std::io::stdin());
@@ -331,4 +350,23 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     });
 
     println!("{}", help)
+}
+
+pub fn get_plugin_encoding(child_stdout: &mut ChildStdout) -> Result<EncodingType, ShellError> {
+    let mut length_buf = [0u8; 1];
+    child_stdout.read_exact(&mut length_buf).map_err(|e| {
+        ShellError::PluginFailedToLoad(format!("unable to get encoding from plugin: {e}"))
+    })?;
+
+    let mut buf = vec![0u8; length_buf[0] as usize];
+    child_stdout.read_exact(&mut buf).map_err(|e| {
+        ShellError::PluginFailedToLoad(format!("unable to get encoding from plugin: {e}"))
+    })?;
+
+    EncodingType::try_from_bytes(&buf).ok_or_else(|| {
+        let encoding_for_debug = String::from_utf8_lossy(&buf);
+        ShellError::PluginFailedToLoad(format!(
+            "get unsupported plugin encoding: {encoding_for_debug}"
+        ))
+    })
 }

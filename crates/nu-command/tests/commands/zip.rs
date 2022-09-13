@@ -8,7 +8,7 @@ export def expect [
     --to-eq,
     right
 ] {
-    $left | zip $right | all? {|row|
+    $left | zip $right | all {|row|
         $row.name.0 == $row.name.1 && $row.commits.0 == $row.commits.1
     }
 }
@@ -51,7 +51,7 @@ fn zips_two_lists() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo [0 2 4 6 8] | zip [1 3 5 7 9] | flatten | into string | str collect '-'
+            echo [0 2 4 6 8] | zip [1 3 5 7 9] | flatten | into string | str join '-'
         "#
     ));
 

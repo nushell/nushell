@@ -75,7 +75,7 @@ impl Command for Env {
             },
             Example {
                 description: "Check whether the env variable `MY_ENV_ABC` exists",
-                example: r#"env | any? name == MY_ENV_ABC"#,
+                example: r#"env | any name == MY_ENV_ABC"#,
                 result: Some(Value::test_bool(false)),
             },
             Example {

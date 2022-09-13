@@ -23,24 +23,31 @@ impl Command for Clear {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let span = call.head;
+
         if cfg!(windows) {
             CommandSys::new("cmd")
                 .args(["/C", "cls"])
                 .status()
-                .expect("failed to execute process");
+                .map_err(|e| ShellError::IOErrorSpanned(e.to_string(), span))?;
         } else if cfg!(unix) {
-            CommandSys::new("/bin/sh")
-                .args(["-c", "clear"])
+            let mut cmd = CommandSys::new("/bin/sh");
+
+            if let Some(Value::String { val, .. }) = stack.get_env_var(engine_state, "TERM") {
+                cmd.env("TERM", val);
+            }
+
+            cmd.args(["-c", "clear"])
                 .status()
-                .expect("failed to execute process");
+                .map_err(|e| ShellError::IOErrorSpanned(e.to_string(), span))?;
         }
 
-        Ok(Value::Nothing { span: call.head }.into_pipeline_data())
+        Ok(Value::Nothing { span }.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

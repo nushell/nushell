@@ -6,7 +6,7 @@ fn checks_any_row_is_true() {
         cwd: ".", pipeline(
         r#"
                 echo  [ "Ecuador", "USA", "New Zealand" ]
-                | any? $it == "New Zealand"
+                | any $it == "New Zealand"
         "#
     ));
 
@@ -25,7 +25,7 @@ fn checks_any_column_of_a_table_is_true() {
                         [      Darren, Schroeder, 10/11/2013,   1    ]
                         [      Yehuda,      Katz, 10/11/2013,   1    ]
                 ]
-                | any? rusty_at == 10/12/2013
+                | any rusty_at == 10/12/2013
         "#
     ));
 
@@ -37,7 +37,7 @@ fn checks_if_any_returns_error_with_invalid_command() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            [red orange yellow green blue purple] | any? ($it | st length) > 4
+            [red orange yellow green blue purple] | any ($it | st length) > 4
         "#
     ));
 

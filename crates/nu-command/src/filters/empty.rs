@@ -10,11 +10,11 @@ pub struct Empty;
 
 impl Command for Empty {
     fn name(&self) -> &str {
-        "empty?"
+        "is-empty"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("empty?")
+        Signature::build("is-empty")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -41,7 +41,7 @@ impl Command for Empty {
         vec![
             Example {
                 description: "Check if a string is empty",
-                example: "'' | empty?",
+                example: "'' | is-empty",
                 result: Some(Value::Bool {
                     val: true,
                     span: Span::test_data(),
@@ -49,7 +49,7 @@ impl Command for Empty {
             },
             Example {
                 description: "Check if a list is empty",
-                example: "[] | empty?",
+                example: "[] | is-empty",
                 result: Some(Value::Bool {
                     val: true,
                     span: Span::test_data(),
@@ -58,7 +58,7 @@ impl Command for Empty {
             Example {
                 // TODO: revisit empty cell path semantics for a record.
                 description: "Check if more than one column are empty",
-                example: "[[meal size]; [arepa small] [taco '']] | empty? meal size",
+                example: "[[meal size]; [arepa small] [taco '']] | is-empty meal size",
                 result: Some(Value::Bool {
                     val: false,
                     span: Span::test_data(),

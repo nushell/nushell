@@ -6,15 +6,23 @@ use crate::{
 };
 use core::panic;
 use std::borrow::Borrow;
-use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
+    collections::{HashMap, HashSet, VecDeque},
+    sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
 static PWD_ENV: &str = "PWD";
+
+// TODO: move to different file? where?
+/// An operation to be performed with the current buffer of the interactive shell.
+#[derive(Clone)]
+pub enum ReplOperation {
+    Append(String),
+    Insert(String),
+    Replace(String),
+}
 
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
@@ -72,6 +80,8 @@ pub struct EngineState {
     pub env_vars: EnvVars,
     pub previous_env_vars: HashMap<String, Value>,
     pub config: Config,
+    pub repl_buffer_state: Arc<Mutex<Option<String>>>,
+    pub repl_operation_queue: Arc<Mutex<VecDeque<ReplOperation>>>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
     #[cfg(not(windows))]
@@ -110,6 +120,8 @@ impl EngineState {
             env_vars: EnvVars::from([(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]),
             previous_env_vars: HashMap::new(),
             config: Config::default(),
+            repl_buffer_state: Arc::new(Mutex::new(None)),
+            repl_operation_queue: Arc::new(Mutex::new(VecDeque::new())),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
             #[cfg(not(windows))]
@@ -366,8 +378,7 @@ impl EngineState {
                 self.plugin_decls().try_for_each(|decl| {
                     // A successful plugin registration already includes the plugin filename
                     // No need to check the None option
-                    let (path, encoding, shell) =
-                        decl.is_plugin().expect("plugin should have file name");
+                    let (path, shell) = decl.is_plugin().expect("plugin should have file name");
                     let mut file_name = path
                         .to_str()
                         .expect("path was checked during registration as a str")
@@ -394,14 +405,10 @@ impl EngineState {
                                 None => "".into(),
                             };
 
-                            // Each signature is stored in the plugin file with the required
-                            // encoding, shell and signature
+                            // Each signature is stored in the plugin file with the shell and signature
                             // This information will be used when loading the plugin
                             // information when nushell starts
-                            format!(
-                                "register {} -e {} {} {}\n\n",
-                                file_name, encoding, shell_str, signature
-                            )
+                            format!("register {} {} {}\n\n", file_name, shell_str, signature)
                         })
                         .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
                         .and_then(|line| {
@@ -1511,21 +1518,13 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
         let mut removed_overlays = vec![];
 
-        let name = if name.starts_with(&[b'$']) {
-            name.to_vec()
-        } else {
-            let mut new_name = name.to_vec();
-            new_name.insert(0, b'$');
-            new_name
-        };
-
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_frame in scope_frame
                 .active_overlays(&mut removed_overlays)
                 .iter()
                 .rev()
             {
-                if let Some(var_id) = overlay_frame.vars.get(&name) {
+                if let Some(var_id) = overlay_frame.vars.get(name) {
                     return Some(*var_id);
                 }
             }
@@ -1537,7 +1536,7 @@ impl<'a> StateWorkingSet<'a> {
             .iter()
             .rev()
         {
-            if let Some(var_id) = overlay_frame.vars.get(&name) {
+            if let Some(var_id) = overlay_frame.vars.get(name) {
                 return Some(*var_id);
             }
         }
