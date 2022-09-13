@@ -129,7 +129,7 @@ fn select(
         ) => {
             let mut output = vec![];
             let mut columns_with_value = Vec::new();
-            let mut error_forwarded = ShellError::NushellFailed("error in select".to_string());
+            let mut error_forwarded = None;
 
             for input_val in input_vals {
                 if !columns.is_empty() {
@@ -148,7 +148,7 @@ fn select(
                                 }
                             } else {
                                 vals.push(Value::nothing(span));
-                                error_forwarded = fetcher.expect_err("this should be Err");
+                                error_forwarded = Some(fetcher.expect_err("this should be Err"));
                             }
                         } else {
                             let fetcher =
@@ -168,7 +168,9 @@ fn select(
             if ignore_empty {
                 for path in &columns {
                     if !columns_with_value.contains(&path) {
-                        return Err(error_forwarded);
+                        if let Some(err) = error_forwarded {
+                            return Err(err);
+                        }
                     }
                 }
             }
