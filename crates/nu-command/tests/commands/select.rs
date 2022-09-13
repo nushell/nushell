@@ -176,7 +176,7 @@ fn select_ignores_errors_succesfully1() {
 fn select_ignores_errors_succesfully2() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#" 
+        r#"
         [{a: 1} {a: 2} {a: 3}] | select -i b
             "#
     ));
