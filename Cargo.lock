@@ -2649,6 +2649,7 @@ dependencies = [
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
+ "percent-encoding",
  "reedline",
  "rstest",
  "strip-ansi-escapes",

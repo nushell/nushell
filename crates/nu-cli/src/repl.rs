@@ -332,6 +332,7 @@ pub fn evaluate_repl(
 
         match input {
             Ok(Signal::Success(s)) => {
+                let hostname = sys.host_name();
                 let history_supports_meta =
                     matches!(config.history_file_format, HistoryFileFormat::Sqlite);
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
@@ -339,7 +340,7 @@ pub fn evaluate_repl(
                     line_editor
                         .update_last_command_context(&|mut c| {
                             c.start_timestamp = Some(chrono::Utc::now());
-                            c.hostname = sys.host_name();
+                            c.hostname = hostname.clone();
 
                             c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
                             c
@@ -479,6 +480,21 @@ pub fn evaluate_repl(
                     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
                         let path = cwd.as_string()?;
+
+                        // Communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
+                        run_ansi_sequence(&format!(
+                            "\x1b]7;file://{}{}{}\x1b\\",
+                            percent_encoding::utf8_percent_encode(
+                                &hostname.unwrap_or_else(|| "localhost".to_string()),
+                                percent_encoding::CONTROLS
+                            ),
+                            if path.starts_with('/') { "" } else { "/" },
+                            percent_encoding::utf8_percent_encode(
+                                &path,
+                                percent_encoding::CONTROLS
+                            )
+                        ))?;
+
                         // Try to abbreviate string for windows title
                         let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
                             path.replace(&p.as_path().display().to_string(), "~")
