@@ -55,7 +55,8 @@ impl Command for OverlayUse {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
+        let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
+        name_arg.item = trim_quotes_string(name_arg.item).to_string();
 
         let origin_module_id = if let Some(overlay_expr) = call.positional_nth(0) {
             if let Expr::Overlay(module_id) = overlay_expr.expr {
@@ -209,6 +210,17 @@ impl Command for OverlayUse {
                 result: None,
             },
         ]
+    }
+}
+
+fn trim_quotes_string(s: String) -> String {
+    if (s.starts_with('"') && s.ends_with('"') && s.len() > 1)
+        || (s.starts_with('\'') && s.ends_with('\'') && s.len() > 1)
+        || (s.starts_with('`') && s.ends_with('`') && s.len() > 1)
+    {
+        s[1..(s.len() - 1)].to_string()
+    } else {
+        s
     }
 }
 

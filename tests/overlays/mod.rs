@@ -978,3 +978,29 @@ fn overlay_preserve_hidden_alias() {
     assert_eq!(actual.out, "foo");
     assert_eq!(actual_repl.out, "foo");
 }
+
+#[test]
+fn overlay_trim_signle_quote() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use 'spam'"#,
+        r#"overlay list | last "#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn overlay_trim_double_quote() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use "spam" "#,
+        r#"overlay list | last "#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
