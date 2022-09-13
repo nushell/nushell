@@ -159,3 +159,27 @@ fn selects_many_rows() {
         assert_eq!(actual.out, "2");
     });
 }
+
+#[test]
+fn select_ignores_errors_succesfully1() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select -i b
+            "#
+    ));
+
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn select_ignores_errors_succesfully2() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        [{a: 1} {a: 2} {a: 3}] | select -i b
+            "#
+    ));
+
+    assert!(actual.err.is_empty());
+}

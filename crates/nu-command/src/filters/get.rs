@@ -28,7 +28,7 @@ impl Command for Get {
             .rest("rest", SyntaxShape::CellPath, "additional cell paths")
             .switch(
                 "ignore-errors",
-                "return nothing if path can't be found",
+                "when there are empty cells, instead of erroring out, replace them with nothing",
                 Some('i'),
             )
             .switch(
