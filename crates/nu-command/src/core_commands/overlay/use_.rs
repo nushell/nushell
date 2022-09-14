@@ -1,4 +1,5 @@
 use nu_engine::{eval_block, find_in_dirs_env, redirect_env, CallExt};
+use nu_parser::trim_quotes_str;
 use nu_protocol::ast::{Call, Expr};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -56,7 +57,7 @@ impl Command for OverlayUse {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
-        name_arg.item = trim_quotes_string(name_arg.item);
+        name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 
         let origin_module_id = if let Some(overlay_expr) = call.positional_nth(0) {
             if let Expr::Overlay(module_id) = overlay_expr.expr {
@@ -210,17 +211,6 @@ impl Command for OverlayUse {
                 result: None,
             },
         ]
-    }
-}
-
-fn trim_quotes_string(s: String) -> String {
-    if (s.starts_with('"') && s.ends_with('"') && s.len() > 1)
-        || (s.starts_with('\'') && s.ends_with('\'') && s.len() > 1)
-        || (s.starts_with('`') && s.ends_with('`') && s.len() > 1)
-    {
-        s[1..(s.len() - 1)].to_string()
-    } else {
-        s
     }
 }
 
