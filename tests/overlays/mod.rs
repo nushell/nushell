@@ -980,7 +980,7 @@ fn overlay_preserve_hidden_alias() {
 }
 
 #[test]
-fn overlay_trim_signle_quote() {
+fn overlay_trim_single_quote() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         r#"overlay use 'spam'"#,
