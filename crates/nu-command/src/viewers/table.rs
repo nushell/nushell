@@ -317,7 +317,7 @@ fn handle_row_stream(
                                             let full_path_link = make_clickable_link(
                                                 full_path.display().to_string(),
                                                 Some(&path.clone()),
-                                                show_clickable_links,
+                                                false,
                                             );
 
                                             if use_ls_colors {
