@@ -587,10 +587,10 @@ fn render_path_name(
 
     let (style, has_metadata) = match std::fs::symlink_metadata(&stripped_path) {
         Ok(metadata) => (
-            ls_colors.style_for_path_with_metadata(path.clone(), Some(&metadata)),
+            ls_colors.style_for_path_with_metadata(path, Some(&metadata)),
             true,
         ),
-        Err(_) => (ls_colors.style_for_path(path.clone()), false),
+        Err(_) => (ls_colors.style_for_path(path), false),
     };
 
     // clickable links don't work in remote SSH sessions
@@ -603,13 +603,13 @@ fn render_path_name(
         .unwrap_or_default();
     let use_ls_colors = config.use_ls_colors;
 
-    let full_path = PathBuf::from(stripped_path.clone())
+    let full_path = PathBuf::from(&stripped_path)
         .canonicalize()
         .unwrap_or_else(|_| PathBuf::from(&stripped_path));
 
     let full_path_link = make_clickable_link(
         full_path.display().to_string(),
-        Some(&path.clone()),
+        Some(path),
         show_clickable_links,
     );
 
