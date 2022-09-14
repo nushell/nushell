@@ -580,7 +580,12 @@ fn render_path_name(
     ls_colors: &LsColors,
     span: Span,
 ) -> Option<Value> {
-    let (style, has_metadata) = match std::fs::symlink_metadata(path) {
+    let stripped_path = match strip_ansi_escapes::strip(path) {
+        Ok(v) => String::from_utf8(v).unwrap_or_else(|_| path.to_owned()),
+        Err(_) => path.to_owned(),
+    };
+
+    let (style, has_metadata) = match std::fs::symlink_metadata(&stripped_path) {
         Ok(metadata) => (
             ls_colors.style_for_path_with_metadata(path.clone(), Some(&metadata)),
             true,
@@ -598,9 +603,9 @@ fn render_path_name(
         .unwrap_or_default();
     let use_ls_colors = config.use_ls_colors;
 
-    let full_path = PathBuf::from(path.clone())
+    let full_path = PathBuf::from(stripped_path.clone())
         .canonicalize()
-        .unwrap_or_else(|_| PathBuf::from(path));
+        .unwrap_or_else(|_| PathBuf::from(&stripped_path));
 
     let full_path_link = make_clickable_link(
         full_path.display().to_string(),
