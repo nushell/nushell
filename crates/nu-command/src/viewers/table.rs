@@ -580,6 +580,10 @@ fn render_path_name(
     ls_colors: &LsColors,
     span: Span,
 ) -> Option<Value> {
+    if !config.use_ls_colors {
+        return None;
+    }
+
     let stripped_path = match strip_ansi_escapes::strip(path) {
         Ok(v) => String::from_utf8(v).unwrap_or_else(|_| path.to_owned()),
         Err(_) => path.to_owned(),
@@ -601,7 +605,6 @@ fn render_path_name(
         .map(Style::to_crossterm_style)
         // .map(ToNuAnsiStyle::to_nu_ansi_style)
         .unwrap_or_default();
-    let use_ls_colors = config.use_ls_colors;
 
     let full_path = PathBuf::from(&stripped_path)
         .canonicalize()
@@ -613,10 +616,6 @@ fn render_path_name(
         show_clickable_links,
     );
 
-    if use_ls_colors {
-        let val = ansi_style.apply(full_path_link).to_string();
-        Some(Value::String { val, span })
-    } else {
-        None
-    }
+    let val = ansi_style.apply(full_path_link).to_string();
+    Some(Value::String { val, span })
 }
