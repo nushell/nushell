@@ -603,6 +603,10 @@ impl ExternalCommand {
         process.arg("/c");
         process.arg(&self.name.item);
         for arg in &self.args {
+            // Clean the args before we use them:
+            // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
+            // cmd.exe needs to have a caret to escape a pipe
+            let arg = arg.item.replace('|', "^|");
             process.arg(&arg);
         }
         /*
