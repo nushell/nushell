@@ -387,7 +387,7 @@ fn find_with_rest_and_highlight(
 
                                             let ansi_term_style = style
                                                 .map(to_nu_ansi_term_style)
-                                                .unwrap_or(string_style.clone());
+                                                .unwrap_or_else(|| string_style);
 
                                             let hi = match highlight_search_string(
                                                 &ls_colored_val,
