@@ -108,7 +108,7 @@ impl Command for ProjectionDb {
 fn create_statement(expressions: Vec<SelectItem>) -> Statement {
     let query = Query {
         with: None,
-        body: SetExpr::Select(Box::new(create_select(expressions))),
+        body: Box::new(SetExpr::Select(Box::new(create_select(expressions)))),
         order_by: Vec::new(),
         limit: None,
         offset: None,
@@ -126,10 +126,11 @@ fn modify_statement(
 ) -> Result<Statement, ShellError> {
     match statement {
         Statement::Query(ref mut query) => {
-            match query.body {
+            match *query.body {
                 SetExpr::Select(ref mut select) => select.as_mut().projection = expressions,
                 _ => {
-                    query.as_mut().body = SetExpr::Select(Box::new(create_select(expressions)));
+                    query.as_mut().body =
+                        Box::new(SetExpr::Select(Box::new(create_select(expressions))));
                 }
             };
 
@@ -159,6 +160,7 @@ fn create_select(projection: Vec<SelectItem>) -> Select {
         distribute_by: Vec::new(),
         sort_by: Vec::new(),
         having: None,
+        qualify: None,
     }
 }
 

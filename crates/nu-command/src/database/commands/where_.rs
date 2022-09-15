@@ -99,10 +99,10 @@ impl Command for WhereDb {
 }
 
 fn modify_query(query: &mut Box<Query>, expression: Expr) {
-    match query.body {
+    match *query.body {
         SetExpr::Select(ref mut select) => modify_select(select, expression),
         _ => {
-            query.as_mut().body = SetExpr::Select(Box::new(create_select(expression)));
+            query.as_mut().body = Box::new(SetExpr::Select(Box::new(create_select(expression))));
         }
     };
 }
@@ -125,6 +125,7 @@ fn create_select(expression: Expr) -> Select {
         distribute_by: Vec::new(),
         sort_by: Vec::new(),
         having: None,
+        qualify: None,
     }
 }
 

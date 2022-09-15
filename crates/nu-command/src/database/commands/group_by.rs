@@ -104,7 +104,7 @@ impl Command for GroupByDb {
         let mut db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
         match db.statement.as_mut() {
             Some(statement) => match statement {
-                Statement::Query(ref mut query) => match &mut query.body {
+                Statement::Query(ref mut query) => match &mut *query.body {
                     SetExpr::Select(ref mut select) => select.group_by = expressions,
                     s => {
                         return Err(ShellError::GenericError(

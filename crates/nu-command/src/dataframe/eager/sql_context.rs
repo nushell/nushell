@@ -184,7 +184,7 @@ impl SQLContext {
                 .ok_or_else(|| PolarsError::NotFound("No statement found".to_string()))?;
             Ok(match ast {
                 Statement::Query(query) => {
-                    let rs = match &query.body {
+                    let rs = match &*query.body {
                         SetExpr::Select(select_stmt) => self.execute_select(&*select_stmt)?,
                         _ => {
                             return Err(PolarsError::ComputeError(

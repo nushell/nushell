@@ -79,9 +79,9 @@ winres = "0.1"
 
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
+extra = ["default", "dataframe", "database"]
 default = ["plugin", "which-support", "trash-support"]
 stable = ["default"]
-extra = ["default", "dataframe", "database"]
 wasi = []
 # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl"]
