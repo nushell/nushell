@@ -602,6 +602,10 @@ impl ExternalCommand {
 
         process.arg("/c");
         process.arg(&self.name.item);
+        for arg in &self.args {
+            process.arg(&arg);
+        }
+        /*
         for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
             // if arg is quoted, like "aa", 'aa', `aa`, or:
             // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
@@ -621,6 +625,7 @@ impl ExternalCommand {
             };
             process.arg(&arg);
         }
+        */
         process
     }
 
