@@ -303,3 +303,18 @@ fn can_run_batch_files_without_bat_extension() {
         },
     );
 }
+
+#[cfg(windows)]
+#[test]
+fn external_echo_wont_pass_extra_quote() {
+    Playground::setup("external echo wont pass extra quote", |dirs, sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^echo "X"
+            "#
+        ));
+
+        assert_eq!(actual.out, "X");
+    })
+}

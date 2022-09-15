@@ -602,11 +602,25 @@ impl ExternalCommand {
 
         process.arg("/c");
         process.arg(&self.name.item);
-        for arg in &self.args {
+        for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
             // Clean the args before we use them:
             // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
             // cmd.exe needs to have a caret to escape a pipe
             let arg = arg.item.replace('|', "^|");
+
+            // if arg is quoted, like "aa", 'aa', `aa`, or:
+            // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
+            // `as_a_whole` will be true, so nu won't remove the inner quotes.
+            let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
+            if *arg_keep_raw {
+                keep_raw = true;
+            }
+
+            let mut arg = if keep_raw {
+                trimmed_args.replace('|', "^|")
+            } else {
+                remove_quotes(trimmed_args).replace('|', "^|")
+            };
             process.arg(&arg);
         }
         process
