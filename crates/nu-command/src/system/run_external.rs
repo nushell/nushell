@@ -606,7 +606,7 @@ impl ExternalCommand {
             // if arg is quoted, like "aa", 'aa', `aa`, or:
             // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
             // `as_a_whole` will be true, so nu won't remove the inner quotes.
-            let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
+            let (trimmed_args, _, mut keep_raw) = trim_enclosing_quotes(&arg.item);
             if *arg_keep_raw {
                 keep_raw = true;
             }
@@ -614,7 +614,7 @@ impl ExternalCommand {
             // Clean the args before we use them:
             // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
             // cmd.exe needs to have a caret to escape a pipe
-            let mut arg = if keep_raw {
+            let arg = if keep_raw {
                 trimmed_args.replace('|', "^|")
             } else {
                 remove_quotes(trimmed_args).replace('|', "^|")
