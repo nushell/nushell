@@ -993,3 +993,65 @@ fn overlay_preserve_hidden_alias() {
     assert_eq!(actual.out, "foo");
     assert_eq!(actual_repl.out, "foo");
 }
+
+#[test]
+fn overlay_trim_single_quote() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use 'spam'"#,
+        r#"overlay list | last "#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn overlay_trim_single_quote_hide() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use 'spam'"#,
+        r#"overlay hide spam "#,
+        r#"foo"#,
+    ];
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert!(actual_repl.out != "foo");
+    #[cfg(not(windows))]
+    assert!(!actual_repl.err.is_empty());
+}
+
+#[test]
+fn overlay_trim_double_quote() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use "spam" "#,
+        r#"overlay list | last "#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn overlay_trim_double_quote_hide() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use "spam" "#,
+        r#"overlay hide spam "#,
+        r#"foo"#,
+    ];
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert!(actual_repl.out != "foo");
+    #[cfg(not(windows))]
+    assert!(!actual_repl.err.is_empty());
+}
