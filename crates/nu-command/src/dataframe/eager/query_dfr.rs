@@ -40,7 +40,7 @@ impl Command for QueryDfr {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Query dataframe using SQL",
-            example: "[[a b]; [1 2] [3 4]] | into df | with-sql 'select a from df'",
+            example: "[[a b]; [1 2] [3 4]] | into df | query dfr 'select a from df'",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "a".to_string(),
