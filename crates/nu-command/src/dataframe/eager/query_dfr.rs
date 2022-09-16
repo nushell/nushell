@@ -14,15 +14,15 @@ use nu_protocol::{
 // https://github.com/pola-rs/polars/tree/master/polars-sql
 
 #[derive(Clone)]
-pub struct WithSql;
+pub struct QueryDfr;
 
-impl Command for WithSql {
+impl Command for QueryDfr {
     fn name(&self) -> &str {
-        "with-sql"
+        "query dfr"
     }
 
     fn usage(&self) -> &str {
-        "Query dataframe using SQL. Note: The dataframe is always named df in your query."
+        "Query dataframe using SQL. Note: The dataframe is always named 'df' in your query's from clause."
     }
 
     fn signature(&self) -> Signature {
@@ -33,10 +33,14 @@ impl Command for WithSql {
             .category(Category::Custom("dataframe".into()))
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["dataframe", "sql", "search"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Query dataframe using SQL",
-            example: "[[a b]; [1 2] [3 4]] | into df | with-sql 'select a from df'",
+            example: "[[a b]; [1 2] [3 4]] | into df | query dfr 'select a from df'",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "a".to_string(),
@@ -97,6 +101,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(WithSql {})])
+        test_dataframe(vec![Box::new(QueryDfr {})])
     }
 }

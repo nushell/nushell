@@ -13,6 +13,7 @@ mod last;
 mod list;
 mod melt;
 mod open;
+mod query_dfr;
 mod rename;
 mod sample;
 mod shape;
@@ -26,7 +27,6 @@ mod to_df;
 mod to_nu;
 mod to_parquet;
 mod with_column;
-mod with_sql;
 
 use nu_protocol::engine::StateWorkingSet;
 
@@ -45,6 +45,7 @@ pub use last::LastDF;
 pub use list::ListDF;
 pub use melt::MeltDF;
 pub use open::OpenDataFrame;
+pub use query_dfr::QueryDfr;
 pub use rename::RenameDF;
 pub use sample::SampleDF;
 pub use shape::ShapeDF;
@@ -58,7 +59,6 @@ pub use to_df::ToDataFrame;
 pub use to_nu::ToNu;
 pub use to_parquet::ToParquet;
 pub use with_column::WithColumn;
-pub use with_sql::WithSql;
 
 pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {
@@ -87,6 +87,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         ListDF,
         MeltDF,
         OpenDataFrame,
+        QueryDfr,
         RenameDF,
         SampleDF,
         ShapeDF,
@@ -97,7 +98,6 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         ToDataFrame,
         ToNu,
         ToParquet,
-        WithColumn,
-        WithSql
+        WithColumn
     );
 }
