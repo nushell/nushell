@@ -773,6 +773,7 @@ pub fn parse_internal_call(
 
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
+    let is_external_completion = signature.external_completion;
     let output = signature.output_type.clone();
 
     working_set.type_scope.add_type(output.clone());
@@ -967,6 +968,10 @@ pub fn parse_internal_call(
 
     if signature.creates_scope {
         working_set.exit_scope();
+    }
+
+    if is_external_completion {
+        error = None;
     }
 
     ParsedInternalCall {

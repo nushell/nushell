@@ -117,6 +117,7 @@ pub struct Signature {
     pub creates_scope: bool,
     // Signature category used to classify commands stored in the list of declarations
     pub category: Category,
+    pub external_completion: bool,
 }
 
 impl PartialEq for Signature {
@@ -148,6 +149,7 @@ impl Signature {
             is_filter: false,
             creates_scope: false,
             category: Category::Default,
+            external_completion: false,
         }
     }
 
