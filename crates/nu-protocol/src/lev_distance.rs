@@ -1,6 +1,9 @@
 // This file is copied from the rust compiler project:
 // https://github.com/rust-lang/rust/blob/cf9ed0dd5836201843d28bbad50abfbe1913af2a/compiler/rustc_span/src/lev_distance.rs#L1
 // https://github.com/rust-lang/rust/blob/cf9ed0dd5836201843d28bbad50abfbe1913af2a/LICENSE-MIT
+//
+// - the rust compiler-specific symbol::Symbol has been replaced by &str
+// - unstable feature .then_some has been replaced by an if ... else expression
 
 //! Levenshtein distances.
 //!
@@ -8,11 +11,7 @@
 //!
 //! [Levenshtein distance]: https://en.wikipedia.org/wiki/Levenshtein_distance
 
-use crate::symbol::Symbol;
 use std::cmp;
-
-#[cfg(test)]
-mod tests;
 
 /// Finds the Levenshtein distance between two strings.
 ///
@@ -26,7 +25,11 @@ pub fn lev_distance(a: &str, b: &str, limit: usize) -> Option<usize> {
         return None;
     }
     if n == 0 || m == 0 {
-        return (min_dist <= limit).then_some(min_dist);
+        return if min_dist <= limit {
+            Some(min_dist)
+        } else {
+            None
+        };
     }
 
     let mut dcol: Vec<_> = (0..=m).collect();
@@ -47,7 +50,11 @@ pub fn lev_distance(a: &str, b: &str, limit: usize) -> Option<usize> {
         }
     }
 
-    (dcol[m] <= limit).then_some(dcol[m])
+    if dcol[m] <= limit {
+        Some(dcol[m])
+    } else {
+        None
+    }
 }
 
 /// Provides a word similarity score between two words that accounts for substrings being more
@@ -87,7 +94,11 @@ pub fn lev_distance_with_substrings(a: &str, b: &str, limit: usize) -> Option<us
         score + len_diff
     };
 
-    (score <= limit).then_some(score)
+    if score <= limit {
+        Some(score)
+    } else {
+        None
+    }
 }
 
 /// Finds the best match for given word in the given iterator where substrings are meaningful.
@@ -98,11 +109,11 @@ pub fn lev_distance_with_substrings(a: &str, b: &str, limit: usize) -> Option<us
 ///
 /// Besides the modified Levenshtein, we use case insensitive comparison to improve accuracy
 /// on an edge case with a lower(upper)case letters mismatch.
-pub fn find_best_match_for_name_with_substrings(
-    candidates: &[Symbol],
-    lookup: Symbol,
+pub fn find_best_match_for_name_with_substrings<'c>(
+    candidates: &[&'c str],
+    lookup: &str,
     dist: Option<usize>,
-) -> Option<Symbol> {
+) -> Option<&'c str> {
     find_best_match_for_name_impl(true, candidates, lookup, dist)
 }
 
@@ -114,22 +125,22 @@ pub fn find_best_match_for_name_with_substrings(
 ///
 /// Besides Levenshtein, we use case insensitive comparison to improve accuracy
 /// on an edge case with a lower(upper)case letters mismatch.
-pub fn find_best_match_for_name(
-    candidates: &[Symbol],
-    lookup: Symbol,
+#[allow(dead_code)]
+pub fn find_best_match_for_name<'c>(
+    candidates: &[&'c str],
+    lookup: &str,
     dist: Option<usize>,
-) -> Option<Symbol> {
+) -> Option<&'c str> {
     find_best_match_for_name_impl(false, candidates, lookup, dist)
 }
 
 #[cold]
-fn find_best_match_for_name_impl(
+fn find_best_match_for_name_impl<'c>(
     use_substring_score: bool,
-    candidates: &[Symbol],
-    lookup: Symbol,
+    candidates: &[&'c str],
+    lookup: &str,
     dist: Option<usize>,
-) -> Option<Symbol> {
-    let lookup = lookup.as_str();
+) -> Option<&'c str> {
     let lookup_uppercase = lookup.to_uppercase();
 
     // Priority of matches:
@@ -138,7 +149,7 @@ fn find_best_match_for_name_impl(
     // 3. Sorted word match
     if let Some(c) = candidates
         .iter()
-        .find(|c| c.as_str().to_uppercase() == lookup_uppercase)
+        .find(|c| c.to_uppercase() == lookup_uppercase)
     {
         return Some(*c);
     }
@@ -147,9 +158,9 @@ fn find_best_match_for_name_impl(
     let mut best = None;
     for c in candidates {
         match if use_substring_score {
-            lev_distance_with_substrings(lookup, c.as_str(), dist)
+            lev_distance_with_substrings(lookup, c, dist)
         } else {
-            lev_distance(lookup, c.as_str(), dist)
+            lev_distance(lookup, c, dist)
         } {
             Some(0) => return Some(*c),
             Some(d) => {
@@ -166,9 +177,9 @@ fn find_best_match_for_name_impl(
     find_match_by_sorted_words(candidates, lookup)
 }
 
-fn find_match_by_sorted_words(iter_names: &[Symbol], lookup: &str) -> Option<Symbol> {
+fn find_match_by_sorted_words<'c>(iter_names: &[&'c str], lookup: &str) -> Option<&'c str> {
     iter_names.iter().fold(None, |result, candidate| {
-        if sort_by_words(candidate.as_str()) == sort_by_words(lookup) {
+        if sort_by_words(candidate) == sort_by_words(lookup) {
             Some(*candidate)
         } else {
             result
@@ -182,3 +193,32 @@ fn sort_by_words(name: &str) -> String {
     split_words.sort_unstable();
     split_words.join("_")
 }
+
+// This file is copied from the rust compiler project:
+// https://github.com/rust-lang/rust/blob/cf9ed0dd5836201843d28bbad50abfbe1913af2a/compiler/rustc_span/src/lev_distance.rs#L1
+// https://github.com/rust-lang/rust/blob/cf9ed0dd5836201843d28bbad50abfbe1913af2a/LICENSE-MIT
+
+// Permission is hereby granted, free of charge, to any
+// person obtaining a copy of this software and associated
+// documentation files (the "Software"), to deal in the
+// Software without restriction, including without
+// limitation the rights to use, copy, modify, merge,
+// publish, distribute, sublicense, and/or sell copies of
+// the Software, and to permit persons to whom the Software
+// is furnished to do so, subject to the following
+// conditions:
+
+// The above copyright notice and this permission notice
+// shall be included in all copies or substantial portions
+// of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+// ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+// TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+// PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+// SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+// CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+// IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+// Footer
