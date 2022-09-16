@@ -33,6 +33,10 @@ impl Command for QueryDfr {
             .category(Category::Custom("dataframe".into()))
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["dataframe", "sql", "search"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Query dataframe using SQL",
