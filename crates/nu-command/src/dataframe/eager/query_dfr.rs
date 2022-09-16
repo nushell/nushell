@@ -14,15 +14,15 @@ use nu_protocol::{
 // https://github.com/pola-rs/polars/tree/master/polars-sql
 
 #[derive(Clone)]
-pub struct WithSql;
+pub struct QueryDfr;
 
-impl Command for WithSql {
+impl Command for QueryDfr {
     fn name(&self) -> &str {
-        "with-sql"
+        "query dfr"
     }
 
     fn usage(&self) -> &str {
-        "Query dataframe using SQL. Note: The dataframe is always named df in your query."
+        "Query dataframe using SQL. Note: The dataframe is always named 'df' in your query's from clause."
     }
 
     fn signature(&self) -> Signature {
@@ -97,6 +97,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(WithSql {})])
+        test_dataframe(vec![Box::new(QueryDfr {})])
     }
 }
