@@ -36,7 +36,7 @@ impl Command for Save {
         Signature::build("save")
             .required("filename", SyntaxShape::Filepath, "the filename to use")
             .switch("raw", "save file as raw binary", Some('r'))
-            .switch("append", "append input to the end of the file", None)
+            .switch("append", "append input to the end of the file", Some('a'))
             .category(Category::FileSystem)
     }
 
