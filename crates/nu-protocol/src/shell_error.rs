@@ -810,24 +810,6 @@ pub fn into_code(err: &ShellError) -> Option<String> {
     err.code().map(|code| code.to_string())
 }
 
-pub fn did_you_mean_orig(possibilities: &[String], tried: &str) -> Option<String> {
-    let mut possible_matches: Vec<_> = possibilities
-        .iter()
-        .map(|word| {
-            let edit_distance = levenshtein_distance(&word.to_lowercase(), &tried.to_lowercase());
-            (edit_distance, word.to_owned())
-        })
-        .collect();
-
-    possible_matches.sort();
-
-    if let Some((_, first)) = possible_matches.into_iter().next() {
-        Some(first)
-    } else {
-        None
-    }
-}
-
 pub fn did_you_mean(possibilities: &[String], input: &str) -> Option<String> {
     let possibilities: Vec<&str> = possibilities.iter().map(|s| s.as_str()).collect();
 
@@ -917,7 +899,6 @@ mod tests {
                 ]
             ),
         ];
-        write_did_you_mean_examples_markdown(&all_cases);
         for (possibilities, cases) in all_cases {
             let possibilities: Vec<String> = possibilities.iter().map(|s| s.to_string()).collect();
             for (input, expected_suggestion, discussion) in cases {
@@ -928,55 +909,6 @@ mod tests {
                     "Expected the following reasoning to hold but it did not: '{}'",
                     discussion
                 );
-            }
-        }
-    }
-
-    use super::did_you_mean_orig;
-
-    #[allow(dead_code)]
-    fn write_did_you_mean_examples_markdown(
-        all_cases: &[(Vec<&str>, Vec<(&str, Option<&str>, &str)>); 3],
-    ) {
-        use std::io::Write;
-        let mut file = std::io::stdout();
-
-        for (possibilities, cases) in all_cases {
-            let possibilities: Vec<String> = possibilities.iter().map(|s| s.to_string()).collect();
-            writeln!(
-                file,
-                "-------------------------------------------------------------------\n\
-            \n\
-            \n\
-            ### Possibilities\n\
-            \n\
-            ```\n\
-            {}\n\
-            ```\n",
-                possibilities.join(", ")
-            )
-            .unwrap();
-
-            writeln!(
-                file,
-                "| Input |  |Old Suggestion|New Suggestion  |Discussion|\n\
-                 |-------|--|--------------|----------------|-----------|"
-            )
-            .unwrap();
-            for (input, _, discussion) in cases {
-                let v0 =
-                    did_you_mean_orig(&possibilities, input).unwrap_or("(no suggestion)".into());
-                let v1 = did_you_mean(&possibilities, input).unwrap_or("(no suggestion)".into());
-                writeln!(
-                    file,
-                    "| {} | {} | {} | {} | {} |",
-                    input,
-                    if v0 == v1 { "✅" } else { "❌" },
-                    v0,
-                    v1,
-                    discussion
-                )
-                .unwrap();
             }
         }
     }
