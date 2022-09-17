@@ -249,7 +249,7 @@ impl ExtractedExpr {
 
 impl ExprDb {
     pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
-        match &*expr {
+        match expr {
             Expr::Identifier(ident) => {
                 let cols = vec!["value".into(), "quoted_style".into()];
                 let val = Value::String {

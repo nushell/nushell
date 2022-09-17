@@ -185,7 +185,7 @@ impl SQLContext {
             Ok(match ast {
                 Statement::Query(query) => {
                     let rs = match &*query.body {
-                        SetExpr::Select(select_stmt) => self.execute_select(&*select_stmt)?,
+                        SetExpr::Select(select_stmt) => self.execute_select(select_stmt)?,
                         _ => {
                             return Err(PolarsError::ComputeError(
                                 "INSERT, UPDATE is not supported for polars".into(),
