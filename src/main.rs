@@ -135,6 +135,14 @@ fn main() -> Result<()> {
 
     let parsed_nu_cli_args = parse_commandline_args(&nushell_commandline_args, &mut engine_state);
 
+    #[cfg(target_family = "unix")]
+    {
+        // This will block SIGTSTP, SIGTTOU, SIGTTIN, and SIGCHLD, which is required
+        // for this shell to manage its own process group / children / etc.
+        nu_system::signal::block();
+        nu_system::signal::set_terminal_leader()
+    }
+
     if let Ok(ref args) = parsed_nu_cli_args {
         set_config_path(
             &mut engine_state,

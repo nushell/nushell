@@ -2511,6 +2511,7 @@ dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
  "libc",
+ "memoffset",
 ]
 
 [[package]]
@@ -2871,11 +2872,13 @@ dependencies = [
 name = "nu-system"
 version = "0.68.2"
 dependencies = [
+ "atty",
  "chrono",
  "errno",
  "libc",
  "libproc",
  "mach2",
+ "nix",
  "ntapi",
  "once_cell",
  "procfs",
