@@ -137,8 +137,8 @@ fn errors_fetching_by_column_not_present() {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
-                [taconushell]
-                sentence_words = ["Yo", "quiero", "taconushell"]
+                [tacos]
+                sentence_words = ["Yo", "quiero", "tacos"]
                 [pizzanushell]
                 sentence-words = ["I", "want", "pizza"]
             "#,
@@ -153,7 +153,7 @@ fn errors_fetching_by_column_not_present() {
         ));
 
         assert!(actual.err.contains("Name not found"),);
-        assert!(actual.err.contains("did you mean 'taconushell'"),);
+        assert!(actual.err.contains("did you mean 'tacos'"),);
     })
 }
 
