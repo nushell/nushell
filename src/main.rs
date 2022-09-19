@@ -86,6 +86,31 @@ fn main() -> Result<()> {
     }
     // End SIGQUIT protection section
 
+    // Shell init sequence as suggested by the glibc manual:
+    // https://www.gnu.org/software/libc/manual/html_node/Initializing-the-Shell.html
+    #[cfg(target_family = "unix")]
+    if atty::is(atty::Stream::Stdin) {
+        use nix::{
+            sys::signal::{self, SigHandler, Signal},
+            unistd::{self, Pid},
+        };
+        let mut shell_pgid = unistd::getpgrp();
+        while unistd::tcgetpgrp(nix::libc::STDIN_FILENO).expect("tcgetpgrp") != shell_pgid {
+            let _ = signal::kill(Pid::from_raw(-shell_pgid.as_raw()), Signal::SIGTTIN);
+            shell_pgid = nix::unistd::getpgrp();
+        }
+        unsafe {
+            // SIGINT and SIGQUIT have special handling above
+            signal::signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
+            signal::signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
+            signal::signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
+            // signal::signal(Signal::SIGCHLD, SigHandler::SigIgn).expect("signal ignore"); // needed for std::command's waitpid usage
+        }
+        unistd::setpgid(Pid::from_raw(0), Pid::from_raw(0)).expect("shell process group");
+        unistd::tcsetpgrp(nix::libc::STDIN_FILENO, unistd::getpgrp())
+            .expect("shell terminal control");
+    }
+
     let mut args_to_nushell = vec![];
     let mut script_name = String::new();
     let mut args_to_script = vec![];
@@ -134,14 +159,6 @@ fn main() -> Result<()> {
     let nushell_commandline_args = args_to_nushell.join(" ");
 
     let parsed_nu_cli_args = parse_commandline_args(&nushell_commandline_args, &mut engine_state);
-
-    #[cfg(target_family = "unix")]
-    {
-        // This will block SIGTSTP, SIGTTOU, SIGTTIN, and SIGCHLD, which is required
-        // for this shell to manage its own process group / children / etc.
-        nu_system::signal::block();
-        nu_system::signal::set_terminal_leader()
-    }
 
     if let Ok(ref args) = parsed_nu_cli_args {
         set_config_path(

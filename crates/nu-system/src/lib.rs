@@ -3,9 +3,6 @@ mod foreground;
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(target_family = "unix")]
-pub mod signal;
-
 #[cfg(target_os = "windows")]
 mod windows;
 
