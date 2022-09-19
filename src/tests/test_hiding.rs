@@ -385,7 +385,7 @@ fn use_def_import_after_hide() -> TestResult {
 #[test]
 fn use_env_import_after_hide() -> TestResult {
     run_test(
-        r#"module spam { export-env { let-env foo = "foo" } }; overlay use spam; hide-env foo; overlay use spam; $env.foo"#,
+        r#"module spam { export-env { let-env foo = "foo" } }; use spam; hide-env foo; use spam; $env.foo"#,
         "foo",
     )
 }
@@ -417,7 +417,7 @@ fn hides_all_decls_within_scope() -> TestResult {
 #[test]
 fn hides_all_envs_within_scope() -> TestResult {
     fail_test(
-        r#"module spam { export-env { let-env foo = "bar" } }; let-env foo = "foo"; overlay use spam; hide-env foo; $env.foo"#,
+        r#"module spam { export-env { let-env foo = "bar" } }; let-env foo = "foo"; use spam; hide-env foo; $env.foo"#,
         "did you mean",
     )
 }
