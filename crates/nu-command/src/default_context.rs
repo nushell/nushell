@@ -138,6 +138,7 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             History,
             Tutor,
+            HistorySession,
         };
 
         // Path
