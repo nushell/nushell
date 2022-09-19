@@ -35,7 +35,7 @@ impl Command for External {
         Signature::build(self.name())
             .switch("redirect-stdout", "redirect-stdout", None)
             .switch("redirect-stderr", "redirect-stderr", None)
-            .required("command", SyntaxShape::Any, "external comamdn to run")
+            .required("command", SyntaxShape::Any, "external command to run")
             .rest("args", SyntaxShape::Any, "arguments for external command")
             .category(Category::System)
     }
