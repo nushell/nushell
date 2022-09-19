@@ -142,7 +142,10 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let mut fg_process = ForegroundProcess::new(self.create_process(&input, false, head)?);
+        let mut fg_process = ForegroundProcess::new(
+            self.create_process(&input, false, head)?,
+            engine_state.pipeline_externals_state.clone(),
+        );
         // mut is used in the windows branch only, suppress warning on other platforms
         #[allow(unused_mut)]
         let mut child;
@@ -174,8 +177,10 @@ impl ExternalCommand {
                         .any(|&cmd| command_name_upper == cmd);
 
                     if looks_like_cmd_internal {
-                        let mut cmd_process =
-                            ForegroundProcess::new(self.create_process(&input, true, head)?);
+                        let mut cmd_process = ForegroundProcess::new(
+                            self.create_process(&input, true, head)?,
+                            engine_state.pipeline_externals_state.clone(),
+                        );
                         child = cmd_process.spawn();
                     } else {
                         #[cfg(feature = "which-support")]
@@ -206,6 +211,7 @@ impl ExternalCommand {
                                                 let mut cmd_process = ForegroundProcess::new(
                                                     new_command
                                                         .create_process(&input, true, head)?,
+                                                    engine_state.pipeline_externals_state.clone(),
                                                 );
                                                 child = cmd_process.spawn();
                                             }
