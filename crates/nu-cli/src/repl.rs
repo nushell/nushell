@@ -19,8 +19,11 @@ use nu_protocol::{
     Spanned, Type, Value, VarId,
 };
 use reedline::{DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
-use std::io::{self, Write};
-use std::{sync::atomic::Ordering, time::Instant};
+use std::{
+    io::{self, Write},
+    sync::atomic::Ordering,
+    time::Instant,
+};
 use strip_ansi_escapes::strip;
 use sysinfo::SystemExt;
 
@@ -98,14 +101,21 @@ pub fn evaluate_repl(
         );
     }
 
-    // Get the config once for the history `max_history_size`
-    // Updating that will not be possible in one session
-    let config = engine_state.get_config();
-
     if is_perf_true {
         info!("setup reedline {}:{}:{}", file!(), line!(), column!());
     }
+
     let mut line_editor = Reedline::create();
+
+    // Now that reedline is created, get the history session id and store it in engine_state
+    let hist_sesh = match line_editor.get_history_session_id() {
+        Some(id) => i64::from(id),
+        None => 0,
+    };
+    engine_state.history_session_id = hist_sesh;
+
+    let config = engine_state.get_config();
+
     let history_path = crate::config_files::get_history_path(
         nushell_path,
         engine_state.config.history_file_format,
