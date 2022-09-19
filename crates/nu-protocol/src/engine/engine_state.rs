@@ -87,6 +87,7 @@ pub struct EngineState {
     #[cfg(not(windows))]
     sig_quit: Option<Arc<AtomicBool>>,
     config_path: HashMap<String, PathBuf>,
+    pub history_session_id: i64,
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
@@ -127,6 +128,7 @@ impl EngineState {
             #[cfg(not(windows))]
             sig_quit: None,
             config_path: HashMap::new(),
+            history_session_id: 0,
         }
     }
 
