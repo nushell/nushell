@@ -1,4 +1,5 @@
 use nu_engine::{eval_block, find_in_dirs_env, redirect_env, CallExt};
+use nu_parser::trim_quotes_str;
 use nu_protocol::ast::{Call, Expr};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -55,7 +56,8 @@ impl Command for OverlayUse {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
+        let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
+        name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 
         let origin_module_id = if let Some(overlay_expr) = call.positional_nth(0) {
             if let Expr::Overlay(module_id) = overlay_expr.expr {
@@ -191,6 +193,13 @@ impl Command for OverlayUse {
                 description: "Create an overlay from a module",
                 example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam
+    foo"#,
+                result: None,
+            },
+            Example {
+                description: "Create an overlay from a module and rename it",
+                example: r#"module spam { export def foo [] { "foo" } }
+    overlay use spam as spam_new
     foo"#,
                 result: None,
             },

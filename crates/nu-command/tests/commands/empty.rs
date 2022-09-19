@@ -11,8 +11,8 @@ fn reports_emptiness() {
                      [([[check]; [{}] ])]
             ]
             | get are_empty
-            | all? {
-              empty? check
+            | all {
+              is-empty check
             }
         "#
     ));

@@ -50,7 +50,7 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
 # Build for Windows without static-link-openssl feature
 # ----------------------------------------------------------------------------
 if $os in ['windows-latest'] {
-    if ($flags | str trim | empty?) {
+    if ($flags | str trim | is-empty) {
         cargo build --release --all --target $target --features=extra
     } else {
         cargo build --release --all --target $target --features=extra $flags
@@ -76,11 +76,11 @@ cp -v README.release.txt $'($dist)/README.txt'
 
 $'(char nl)Check binary release version detail:'; hr-line
 let ver = if $os == 'windows-latest' {
-    (do -i { ./output/nu.exe -c 'version' }) | str collect
+    (do -i { ./output/nu.exe -c 'version' }) | str join
 } else {
-    (do -i { ./output/nu -c 'version' }) | str collect
+    (do -i { ./output/nu -c 'version' }) | str join
 }
-if ($ver | str trim | empty?) {
+if ($ver | str trim | is-empty) {
     $'(ansi r)Incompatible nu binary...(ansi reset)'
 } else { $ver }
 
@@ -124,14 +124,14 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
         7z a $archive *
         print $'archive: ---> ($archive)';
         let pkg = (ls -f $archive | get name)
-        if not ($pkg | empty?) {
+        if not ($pkg | is-empty) {
             echo $'::set-output name=archive::($pkg | get 0)'
         }
     }
 }
 
 def 'cargo-build-nu' [ options: string ] {
-    if ($options | str trim | empty?) {
+    if ($options | str trim | is-empty) {
         cargo build --release --all --target $target --features=extra,static-link-openssl
     } else {
         cargo build --release --all --target $target --features=extra,static-link-openssl $options

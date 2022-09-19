@@ -125,7 +125,7 @@ impl Command for OrDb {
 }
 
 fn modify_query(query: &mut Box<Query>, expression: Expr, span: Span) -> Result<(), ShellError> {
-    match query.body {
+    match *query.body {
         SetExpr::Select(ref mut select) => modify_select(select, expression, span)?,
         _ => {
             return Err(ShellError::GenericError(

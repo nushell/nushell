@@ -13,11 +13,15 @@ mod last;
 mod list;
 mod melt;
 mod open;
+mod query_dfr;
 mod rename;
 mod sample;
 mod shape;
 mod slice;
+mod sql_context;
+mod sql_expr;
 mod take;
+mod to_arrow;
 mod to_csv;
 mod to_df;
 mod to_nu;
@@ -41,11 +45,15 @@ pub use last::LastDF;
 pub use list::ListDF;
 pub use melt::MeltDF;
 pub use open::OpenDataFrame;
+pub use query_dfr::QueryDfr;
 pub use rename::RenameDF;
 pub use sample::SampleDF;
 pub use shape::ShapeDF;
 pub use slice::SliceDF;
+pub use sql_context::SQLContext;
+pub use sql_expr::parse_sql_expr;
 pub use take::TakeDF;
+pub use to_arrow::ToArrow;
 pub use to_csv::ToCSV;
 pub use to_df::ToDataFrame;
 pub use to_nu::ToNu;
@@ -79,11 +87,13 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         ListDF,
         MeltDF,
         OpenDataFrame,
+        QueryDfr,
         RenameDF,
         SampleDF,
         ShapeDF,
         SliceDF,
         TakeDF,
+        ToArrow,
         ToCSV,
         ToDataFrame,
         ToNu,

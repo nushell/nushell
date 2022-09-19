@@ -132,6 +132,7 @@ impl Command for FunctionExpr {
             args,
             over: None,
             distinct: call.has_flag("distinct"),
+            special: false,
         })
         .into();
 

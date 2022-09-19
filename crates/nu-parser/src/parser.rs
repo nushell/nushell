@@ -74,10 +74,6 @@ pub fn is_math_expression_like(
         return true;
     }
 
-    if bytes == b"nu" {
-        return false;
-    }
-
     let b = bytes[0];
 
     if b == b'('
@@ -116,11 +112,6 @@ pub fn is_math_expression_like(
         .1
         .is_none()
     {
-        return true;
-    }
-
-    let parsed_variable = parse_variable(working_set, span);
-    if parsed_variable.0.is_some() && parsed_variable.1.is_none() {
         return true;
     }
 
@@ -340,7 +331,13 @@ pub fn parse_external_call(
             args.push(arg);
         } else {
             // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
-            let contents = String::from_utf8_lossy(contents).to_string();
+            let contents = if contents.starts_with(b"\"") {
+                let (contents, err) = unescape_string(contents, *span);
+                error = error.or(err);
+                String::from_utf8_lossy(&contents).to_string()
+            } else {
+                String::from_utf8_lossy(contents).to_string()
+            };
 
             args.push(Expression {
                 expr: Expr::String(contents),
@@ -4027,23 +4024,6 @@ pub fn parse_value(
         return parse_variable_expr(working_set, span);
     }
 
-    let parsed_variable = parse_variable(working_set, span);
-    if parsed_variable.0.is_some() && parsed_variable.1.is_none() {
-        let var_id = parsed_variable
-            .0
-            .expect("internal error: already checked var id exists");
-        return (
-            Expression {
-                expr: Expr::Var(var_id),
-                span,
-                custom_completion: None,
-                ty: working_set.get_variable(var_id).ty.clone(),
-            },
-            None,
-        );
-    }
-    let bytes = working_set.get_span_contents(span);
-
     // Check for reserved keyword values
     match bytes {
         b"true" => {
@@ -4841,7 +4821,9 @@ pub fn parse_builtin_commands(
             (pipeline, err)
         }
         b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"source" => parse_source(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"source" | b"source-env" => {
+            parse_source(working_set, &lite_command.parts, expand_aliases_denylist)
+        }
         b"export" => parse_export_in_block(working_set, lite_command, expand_aliases_denylist),
         b"hide" => parse_hide(working_set, &lite_command.parts, expand_aliases_denylist),
         #[cfg(feature = "plugin")]

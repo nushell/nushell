@@ -7,7 +7,7 @@ pub struct JsonSerializer;
 
 impl PluginEncoder for JsonSerializer {
     fn name(&self) -> &str {
-        "Json Serializer"
+        "json"
     }
 
     fn encode_call(

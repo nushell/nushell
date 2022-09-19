@@ -64,7 +64,7 @@ fn subexpression_properly_redirects() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo (nu --testbin cococo "hello") | str collect
+            echo (nu --testbin cococo "hello") | str join
         "#
     );
 
@@ -191,7 +191,7 @@ fn run_custom_command_with_flag() {
     let actual = nu!(
         cwd: ".",
         r#"
-        def foo [--bar:number] { if ($bar | empty?) { echo "empty" } else { echo $bar } }; foo --bar 10
+        def foo [--bar:number] { if ($bar | is-empty) { echo "empty" } else { echo $bar } }; foo --bar 10
         "#
     );
 
@@ -203,7 +203,7 @@ fn run_custom_command_with_flag_missing() {
     let actual = nu!(
         cwd: ".",
         r#"
-        def foo [--bar:number] { if ($bar | empty?) { echo "empty" } else { echo $bar } }; foo
+        def foo [--bar:number] { if ($bar | is-empty) { echo "empty" } else { echo $bar } }; foo
         "#
     );
 
@@ -215,7 +215,7 @@ fn run_custom_subcommand() {
     let actual = nu!(
         cwd: ".",
         r#"
-        def "str double" [x] { echo $x $x | str collect }; str double bob
+        def "str double" [x] { echo $x $x | str join }; str double bob
         "#
     );
 
@@ -306,7 +306,7 @@ fn run_custom_command_with_rest_other_name() {
                 greeting:string,
                 ...names:string # All of the names
                 ] {
-                    echo $"($greeting), ($names | sort-by | str collect)"
+                    echo $"($greeting), ($names | sort-by | str join)"
                 }
             say-hello Salutations E D C A B
         "#

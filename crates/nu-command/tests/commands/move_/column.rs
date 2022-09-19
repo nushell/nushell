@@ -26,7 +26,7 @@ fn moves_a_column_before() {
                 | rename chars
                 | get chars
                 | str trim
-                | str collect
+                | str join
             "#
         ));
 
@@ -59,9 +59,9 @@ fn moves_columns_before() {
                 | move column99 column3 --before column2
                 | rename _ chars_1 chars_2
                 | select chars_2 chars_1
-                | upsert new_col {|f| $f | transpose | get column1 | str trim | str collect}
+                | upsert new_col {|f| $f | transpose | get column1 | str trim | str join}
                 | get new_col
-                | str collect
+                | str join
             "#
         ));
 
@@ -95,9 +95,9 @@ fn moves_a_column_after() {
                 | move letters and_more --before column2
                 | rename _ chars_1 chars_2
                 | select chars_1 chars_2
-                | upsert new_col {|f| $f | transpose | get column1 | str trim | str collect}
+                | upsert new_col {|f| $f | transpose | get column1 | str trim | str join}
                 | get new_col
-                | str collect
+                | str join
             "#
         ));
 
@@ -130,7 +130,7 @@ fn moves_columns_after() {
                 | move letters and_more --after column1
                 | columns
                 | select 1 2
-                | str collect
+                | str join
             "#
         ));
 

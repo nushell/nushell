@@ -96,12 +96,12 @@ fn create_statement(
 ) -> Result<Statement, ShellError> {
     let query = Query {
         with: None,
-        body: SetExpr::Select(Box::new(create_select(
+        body: Box::new(SetExpr::Select(Box::new(create_select(
             connection,
             engine_state,
             stack,
             call,
-        )?)),
+        )?))),
         order_by: Vec::new(),
         limit: None,
         offset: None,
@@ -121,18 +121,18 @@ fn modify_statement(
 ) -> Result<Statement, ShellError> {
     match statement {
         Statement::Query(ref mut query) => {
-            match query.body {
+            match *query.body {
                 SetExpr::Select(ref mut select) => {
                     let table = create_table(connection, engine_state, stack, call)?;
                     select.from.push(table);
                 }
                 _ => {
-                    query.as_mut().body = SetExpr::Select(Box::new(create_select(
+                    query.as_mut().body = Box::new(SetExpr::Select(Box::new(create_select(
                         connection,
                         engine_state,
                         stack,
                         call,
-                    )?));
+                    )?)));
                 }
             };
 
@@ -167,6 +167,7 @@ fn create_select(
         distribute_by: Vec::new(),
         sort_by: Vec::new(),
         having: None,
+        qualify: None,
     })
 }
 

@@ -14,11 +14,11 @@ use nu_engine::{convert_env_values, eval_block};
 use nu_parser::{lex, parse};
 use nu_protocol::{
     ast::PathMember,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, ReplOperation, Stack, StateWorkingSet},
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
     Spanned, Type, Value, VarId,
 };
-use reedline::{DefaultHinter, Emacs, SqliteBackedHistory, Vi};
+use reedline::{DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
 use std::io::{self, Write};
 use std::{sync::atomic::Ordering, time::Instant};
 use strip_ansi_escapes::strip;
@@ -42,6 +42,16 @@ pub fn evaluate_repl(
     prerun_command: Option<Spanned<String>>,
 ) -> Result<()> {
     use reedline::{FileBackedHistory, Reedline, Signal};
+
+    // Guard against invocation without a connected terminal.
+    // reedline / crossterm event polling will fail without a connected tty
+    if !atty::is(atty::Stream::Stdin) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Nushell launched as interactive REPL but STDIN is not a TTY, either launch in a valid terminal or provide arguments to invoke a script!",
+        ))
+        .into_diagnostic();
+    }
 
     let mut entry_num = 0;
 
@@ -322,19 +332,27 @@ pub fn evaluate_repl(
 
         match input {
             Ok(Signal::Success(s)) => {
+                let hostname = sys.host_name();
                 let history_supports_meta =
                     matches!(config.history_file_format, HistoryFileFormat::Sqlite);
-                if history_supports_meta && !s.is_empty() {
+                if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
+                {
                     line_editor
                         .update_last_command_context(&|mut c| {
                             c.start_timestamp = Some(chrono::Utc::now());
-                            c.hostname = sys.host_name();
+                            c.hostname = hostname.clone();
 
                             c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
                             c
                         })
                         .into_diagnostic()?; // todo: don't stop repl if error here?
                 }
+
+                engine_state
+                    .repl_buffer_state
+                    .lock()
+                    .expect("repl buffer state mutex")
+                    .replace(line_editor.current_buffer_contents().to_string());
 
                 // Right before we start running the code the user gave us,
                 // fire the "pre_execution" hook
@@ -445,7 +463,8 @@ pub fn evaluate_repl(
                     },
                 );
 
-                if history_supports_meta && !s.is_empty() {
+                if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
+                {
                     line_editor
                         .update_last_command_context(&|mut c| {
                             c.duration = Some(cmd_duration);
@@ -461,6 +480,21 @@ pub fn evaluate_repl(
                     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
                         let path = cwd.as_string()?;
+
+                        // Communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
+                        run_ansi_sequence(&format!(
+                            "\x1b]7;file://{}{}{}\x1b\\",
+                            percent_encoding::utf8_percent_encode(
+                                &hostname.unwrap_or_else(|| "localhost".to_string()),
+                                percent_encoding::CONTROLS
+                            ),
+                            if path.starts_with('/') { "" } else { "/" },
+                            percent_encoding::utf8_percent_encode(
+                                &path,
+                                percent_encoding::CONTROLS
+                            )
+                        ))?;
+
                         // Try to abbreviate string for windows title
                         let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
                             path.replace(&p.as_path().display().to_string(), "~")
@@ -476,6 +510,24 @@ pub fn evaluate_repl(
                         run_ansi_sequence(&format!("\x1b]2;{}\x07", maybe_abbrev_path))?;
                     }
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
+                }
+
+                let mut ops = engine_state
+                    .repl_operation_queue
+                    .lock()
+                    .expect("repl op queue mutex");
+                while let Some(op) = ops.pop_front() {
+                    match op {
+                        ReplOperation::Append(s) => line_editor.run_edit_commands(&[
+                            EditCommand::MoveToEnd,
+                            EditCommand::InsertString(s),
+                        ]),
+                        ReplOperation::Insert(s) => {
+                            line_editor.run_edit_commands(&[EditCommand::InsertString(s)])
+                        }
+                        ReplOperation::Replace(s) => line_editor
+                            .run_edit_commands(&[EditCommand::Clear, EditCommand::InsertString(s)]),
+                    }
                 }
             }
             Ok(Signal::CtrlC) => {
@@ -496,6 +548,10 @@ pub fn evaluate_repl(
                 let message = err.to_string();
                 if !message.contains("duration") {
                     println!("Error: {:?}", err);
+                    // TODO: Identify possible error cases where a hard failure is preferable
+                    // Ignoring and reporting could hide bigger problems
+                    // e.g. https://github.com/nushell/nushell/issues/6452
+                    // Alternatively only allow that expected failures let the REPL loop
                 }
                 if shell_integration {
                     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;

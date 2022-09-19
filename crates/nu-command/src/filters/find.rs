@@ -1,7 +1,7 @@
 use crate::help::highlight_search_string;
 use fancy_regex::Regex;
-use lscolors::Style as LsColors_Style;
-use nu_ansi_term::{Color::Default, Style};
+use lscolors::{Color as LsColors_Color, Style as LsColors_Style};
+use nu_ansi_term::{Color, Color::Default, Style};
 use nu_color_config::get_color_config;
 use nu_engine::{env_to_string, eval_block, CallExt};
 use nu_protocol::{
@@ -384,10 +384,15 @@ fn find_with_rest_and_highlight(
 
                                             let ls_colored_val =
                                                 ansi_style.apply(&val_str).to_string();
+
+                                            let ansi_term_style = style
+                                                .map(to_nu_ansi_term_style)
+                                                .unwrap_or_else(|| string_style);
+
                                             let hi = match highlight_search_string(
                                                 &ls_colored_val,
                                                 &term_str,
-                                                &string_style,
+                                                &ansi_term_style,
                                             ) {
                                                 Ok(hi) => hi,
                                                 Err(_) => string_style
@@ -532,6 +537,47 @@ fn find_with_rest_and_highlight(
             }
             Ok(output.into_pipeline_data(ctrlc))
         }
+    }
+}
+
+fn to_nu_ansi_term_style(style: &LsColors_Style) -> Style {
+    fn to_nu_ansi_term_color(color: &LsColors_Color) -> Color {
+        match *color {
+            LsColors_Color::Fixed(n) => Color::Fixed(n),
+            LsColors_Color::RGB(r, g, b) => Color::Rgb(r, g, b),
+            LsColors_Color::Black => Color::Black,
+            LsColors_Color::Red => Color::Red,
+            LsColors_Color::Green => Color::Green,
+            LsColors_Color::Yellow => Color::Yellow,
+            LsColors_Color::Blue => Color::Blue,
+            LsColors_Color::Magenta => Color::Magenta,
+            LsColors_Color::Cyan => Color::Cyan,
+            LsColors_Color::White => Color::White,
+
+            // Below items are a rough translations to 256 colors as
+            // nu-ansi-term do not have bright varients
+            LsColors_Color::BrightBlack => Color::Fixed(8),
+            LsColors_Color::BrightRed => Color::Fixed(9),
+            LsColors_Color::BrightGreen => Color::Fixed(10),
+            LsColors_Color::BrightYellow => Color::Fixed(11),
+            LsColors_Color::BrightBlue => Color::Fixed(12),
+            LsColors_Color::BrightMagenta => Color::Fixed(13),
+            LsColors_Color::BrightCyan => Color::Fixed(14),
+            LsColors_Color::BrightWhite => Color::Fixed(15),
+        }
+    }
+
+    Style {
+        foreground: style.foreground.as_ref().map(to_nu_ansi_term_color),
+        background: style.background.as_ref().map(to_nu_ansi_term_color),
+        is_bold: style.font_style.bold,
+        is_dimmed: style.font_style.dimmed,
+        is_italic: style.font_style.italic,
+        is_underline: style.font_style.underline,
+        is_blink: style.font_style.slow_blink || style.font_style.rapid_blink,
+        is_reverse: style.font_style.reverse,
+        is_hidden: style.font_style.hidden,
+        is_strikethrough: style.font_style.strikethrough,
     }
 }
 

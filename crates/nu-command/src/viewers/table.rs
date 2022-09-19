@@ -1,4 +1,4 @@
-use lscolors::Style;
+use lscolors::{LsColors, Style};
 use nu_color_config::{get_color_config, style_primitive};
 use nu_engine::{column::get_columns, env_to_string, CallExt};
 use nu_protocol::{
@@ -261,10 +261,6 @@ fn handle_row_stream(
             };
             let ls_colors = get_ls_colors(ls_colors_env_str);
 
-            // clickable links don't work in remote SSH sessions
-            let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
-            let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session;
-
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
                     Value::Record { cols, vals, .. } => {
@@ -273,62 +269,10 @@ fn handle_row_stream(
                         while idx < cols.len() {
                             if cols[idx] == "name" {
                                 if let Some(Value::String { val: path, span }) = vals.get(idx) {
-                                    match std::fs::symlink_metadata(&path) {
-                                        Ok(metadata) => {
-                                            let style = ls_colors.style_for_path_with_metadata(
-                                                path.clone(),
-                                                Some(&metadata),
-                                            );
-                                            let ansi_style = style
-                                                .map(Style::to_crossterm_style)
-                                                // .map(ToNuAnsiStyle::to_nu_ansi_style)
-                                                .unwrap_or_default();
-                                            let use_ls_colors = config.use_ls_colors;
-
-                                            let full_path = PathBuf::from(path.clone())
-                                                .canonicalize()
-                                                .unwrap_or_else(|_| PathBuf::from(path));
-                                            let full_path_link = make_clickable_link(
-                                                full_path.display().to_string(),
-                                                Some(&path.clone()),
-                                                show_clickable_links,
-                                            );
-
-                                            if use_ls_colors {
-                                                vals[idx] = Value::String {
-                                                    val: ansi_style
-                                                        .apply(full_path_link)
-                                                        .to_string(),
-                                                    span: *span,
-                                                };
-                                            }
-                                        }
-                                        Err(_) => {
-                                            let style = ls_colors.style_for_path(path.clone());
-                                            let ansi_style = style
-                                                .map(Style::to_crossterm_style)
-                                                // .map(ToNuAnsiStyle::to_nu_ansi_style)
-                                                .unwrap_or_default();
-                                            let use_ls_colors = config.use_ls_colors;
-
-                                            let full_path = PathBuf::from(path.clone())
-                                                .canonicalize()
-                                                .unwrap_or_else(|_| PathBuf::from(path));
-                                            let full_path_link = make_clickable_link(
-                                                full_path.display().to_string(),
-                                                Some(&path.clone()),
-                                                show_clickable_links,
-                                            );
-
-                                            if use_ls_colors {
-                                                vals[idx] = Value::String {
-                                                    val: ansi_style
-                                                        .apply(full_path_link)
-                                                        .to_string(),
-                                                    span: *span,
-                                                };
-                                            }
-                                        }
+                                    if let Some(val) =
+                                        render_path_name(path, &config, &ls_colors, *span)
+                                    {
+                                        vals[idx] = val;
                                     }
                                 }
                             }
@@ -628,4 +572,50 @@ fn load_theme_from_config(config: &Config) -> TableTheme {
         "none" => nu_table::TableTheme::none(),
         _ => nu_table::TableTheme::rounded(),
     }
+}
+
+fn render_path_name(
+    path: &String,
+    config: &Config,
+    ls_colors: &LsColors,
+    span: Span,
+) -> Option<Value> {
+    if !config.use_ls_colors {
+        return None;
+    }
+
+    let stripped_path = match strip_ansi_escapes::strip(path) {
+        Ok(v) => String::from_utf8(v).unwrap_or_else(|_| path.to_owned()),
+        Err(_) => path.to_owned(),
+    };
+
+    let (style, has_metadata) = match std::fs::symlink_metadata(&stripped_path) {
+        Ok(metadata) => (
+            ls_colors.style_for_path_with_metadata(&stripped_path, Some(&metadata)),
+            true,
+        ),
+        Err(_) => (ls_colors.style_for_path(&stripped_path), false),
+    };
+
+    // clickable links don't work in remote SSH sessions
+    let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
+    let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session && has_metadata;
+
+    let ansi_style = style
+        .map(Style::to_crossterm_style)
+        // .map(ToNuAnsiStyle::to_nu_ansi_style)
+        .unwrap_or_default();
+
+    let full_path = PathBuf::from(&stripped_path)
+        .canonicalize()
+        .unwrap_or_else(|_| PathBuf::from(&stripped_path));
+
+    let full_path_link = make_clickable_link(
+        full_path.display().to_string(),
+        Some(path),
+        show_clickable_links,
+    );
+
+    let val = ansi_style.apply(full_path_link).to_string();
+    Some(Value::String { val, span })
 }

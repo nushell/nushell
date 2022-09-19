@@ -23,7 +23,7 @@ fn cell_path_var2() -> TestResult {
 #[test]
 fn flatten_simple_list() -> TestResult {
     run_test(
-        "[[N, u, s, h, e, l, l]] | flatten | str collect (char nl)",
+        "[[N, u, s, h, e, l, l]] | flatten | str join (char nl)",
         "N\nu\ns\nh\ne\nl\nl",
     )
 }

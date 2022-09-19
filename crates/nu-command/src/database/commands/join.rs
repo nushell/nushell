@@ -146,7 +146,7 @@ fn modify_statement(
 ) -> Result<Statement, ShellError> {
     match statement {
         Statement::Query(ref mut query) => {
-            match &mut query.body {
+            match &mut *query.body {
                 SetExpr::Select(ref mut select) => {
                     modify_from(connection, select, engine_state, stack, call)?
                 }

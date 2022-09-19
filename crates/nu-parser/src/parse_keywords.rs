@@ -895,7 +895,10 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                let decl_name = working_set.get_span_contents(spans[2]);
+                let decl_name = match spans.get(2) {
+                    Some(span) => working_set.get_span_contents(*span),
+                    None => &[],
+                };
                 let decl_name = trim_quotes(decl_name);
 
                 if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
@@ -958,7 +961,10 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                let decl_name = working_set.get_span_contents(spans[2]);
+                let decl_name = match spans.get(2) {
+                    Some(span) => working_set.get_span_contents(*span),
+                    None => &[],
+                };
                 let decl_name = trim_quotes(decl_name);
 
                 if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
@@ -1021,7 +1027,10 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                let alias_name = working_set.get_span_contents(spans[2]);
+                let alias_name = match spans.get(2) {
+                    Some(span) => working_set.get_span_contents(*span),
+                    None => &[],
+                };
                 let alias_name = trim_quotes(alias_name);
 
                 if let Some(alias_id) = working_set.find_alias(alias_name) {
@@ -2804,8 +2813,10 @@ pub fn parse_source(
     let mut error = None;
     let name = working_set.get_span_contents(spans[0]);
 
-    if name == b"source" {
-        if let Some(decl_id) = working_set.find_decl(b"source", &Type::Any) {
+    if name == b"source" || name == b"source-env" {
+        let scoped = name == b"source-env";
+
+        if let Some(decl_id) = working_set.find_decl(name, &Type::Any) {
             let cwd = working_set.get_cwd();
 
             // Is this the right call to be using here?
@@ -2860,7 +2871,7 @@ pub fn parse_source(
                                 working_set,
                                 path.file_name().and_then(|x| x.to_str()),
                                 &contents,
-                                false,
+                                scoped,
                                 expand_aliases_denylist,
                             );
 
@@ -2885,7 +2896,7 @@ pub fn parse_source(
 
                                 let mut call_with_block = call;
 
-                                // Adding this expression to the positional creates a syntax highlighting error
+                                // FIXME: Adding this expression to the positional creates a syntax highlighting error
                                 // after writing `source example.nu`
                                 call_with_block.add_positional(Expression {
                                     expr: Expr::Int(block_id as i64),
@@ -2938,7 +2949,7 @@ pub fn parse_register(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    use nu_plugin::{get_signature, EncodingType, PluginDeclaration};
+    use nu_plugin::{get_signature, PluginDeclaration};
     use nu_protocol::{engine::Stack, Signature};
 
     let cwd = working_set.get_cwd();
@@ -3031,22 +3042,7 @@ pub fn parse_register(
                 }
             }
         })
-        .expect("required positional has being checked")
-        .and_then(|path| {
-            call.get_flag_expr("encoding")
-                .map(|expr| {
-                    EncodingType::try_from_bytes(working_set.get_span_contents(expr.span))
-                        .ok_or_else(|| {
-                            ParseError::IncorrectValue(
-                                "wrong encoding".into(),
-                                expr.span,
-                                "Encodings available: json, and msgpack".into(),
-                            )
-                        })
-                })
-                .expect("required named has being checked")
-                .map(|encoding| (path, encoding))
-        });
+        .expect("required positional has being checked");
 
     // Signature is an optional value from the call and will be used to decide if
     // the plugin is called to get the signatures or to use the given signature
@@ -3107,38 +3103,52 @@ pub fn parse_register(
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
     let error = match signature {
-        Some(signature) => arguments.and_then(|(path, encoding)| {
-            signature.map(|signature| {
-                let plugin_decl = PluginDeclaration::new(path, signature, encoding, shell);
-                working_set.add_decl(Box::new(plugin_decl));
-                working_set.mark_plugins_file_dirty();
-            })
-        }),
-        None => arguments.and_then(|(path, encoding)| {
-            get_signature(path.as_path(), &encoding, &shell, &current_envs)
-                .map_err(|err| {
-                    ParseError::LabeledError(
-                        "Error getting signatures".into(),
-                        err.to_string(),
-                        spans[0],
-                    )
-                })
-                .map(|signatures| {
-                    for signature in signatures {
-                        // create plugin command declaration (need struct impl Command)
-                        // store declaration in working set
-                        let plugin_decl = PluginDeclaration::new(
-                            path.clone(),
-                            signature,
-                            encoding.clone(),
-                            shell.clone(),
-                        );
+        Some(signature) => arguments.and_then(|path| {
+            // restrict plugin file name starts with `nu_plugin_`
+            let f_name = path
+                .file_name()
+                .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-                        working_set.add_decl(Box::new(plugin_decl));
-                    }
-
+            if let Some(true) = f_name {
+                signature.map(|signature| {
+                    let plugin_decl = PluginDeclaration::new(path, signature, shell);
+                    working_set.add_decl(Box::new(plugin_decl));
                     working_set.mark_plugins_file_dirty();
                 })
+            } else {
+                Ok(())
+            }
+        }),
+        None => arguments.and_then(|path| {
+            // restrict plugin file name starts with `nu_plugin_`
+            let f_name = path
+                .file_name()
+                .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
+
+            if let Some(true) = f_name {
+                get_signature(path.as_path(), &shell, &current_envs)
+                    .map_err(|err| {
+                        ParseError::LabeledError(
+                            "Error getting signatures".into(),
+                            err.to_string(),
+                            spans[0],
+                        )
+                    })
+                    .map(|signatures| {
+                        for signature in signatures {
+                            // create plugin command declaration (need struct impl Command)
+                            // store declaration in working set
+                            let plugin_decl =
+                                PluginDeclaration::new(path.clone(), signature, shell.clone());
+
+                            working_set.add_decl(Box::new(plugin_decl));
+                        }
+
+                        working_set.mark_plugins_file_dirty();
+                    })
+            } else {
+                Ok(())
+            }
         }),
     }
     .err();

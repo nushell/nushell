@@ -1,45 +1,45 @@
 // Conversions between value and sqlparser objects
 pub mod conversions;
 
-mod alias;
 mod and;
+mod as_;
 mod collect;
 mod describe;
-mod from;
+mod from_table;
 mod group_by;
+mod into_db;
 mod into_sqlite;
 mod join;
 mod limit;
-mod open;
+mod open_db;
 mod or;
 mod order_by;
-mod query;
+mod query_db;
 mod schema;
 mod select;
-mod to_db;
 mod where_;
 
 // Temporal module to create Query objects
-mod testing;
-use testing::TestingDb;
+mod testing_db;
+use testing_db::TestingDb;
 
-use alias::AliasDb;
 use and::AndDb;
+use as_::AliasDb;
 use collect::CollectDb;
 pub(crate) use describe::DescribeDb;
-pub(crate) use from::FromDb;
+pub(crate) use from_table::FromDb;
 use group_by::GroupByDb;
+pub(crate) use into_db::ToDataBase;
 use into_sqlite::IntoSqliteDb;
 use join::JoinDb;
 use limit::LimitDb;
 use nu_protocol::engine::StateWorkingSet;
-use open::OpenDb;
+use open_db::OpenDb;
 use or::OrDb;
 use order_by::OrderByDb;
-use query::QueryDb;
+use query_db::QueryDb;
 use schema::SchemaDb;
 pub(crate) use select::ProjectionDb;
-pub(crate) use to_db::ToDataBase;
 use where_::WhereDb;
 
 pub fn add_commands_decls(working_set: &mut StateWorkingSet) {

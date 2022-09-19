@@ -11,7 +11,7 @@ fn flatten_nested_tables_with_columns() {
                  [[origin, people]; [Nu, ('nuno' | wrap name)]]
             | flatten --all | flatten --all
             | get name
-            | str collect ','
+            | str join ','
         "#
     ));
 
@@ -27,7 +27,7 @@ fn flatten_nested_tables_that_have_many_columns() {
             [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]]
             | flatten --all | flatten --all
             | get meal
-            | str collect ','
+            | str join ','
         "#
     ));
 

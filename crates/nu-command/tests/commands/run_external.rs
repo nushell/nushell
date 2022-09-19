@@ -186,6 +186,20 @@ fn external_arg_with_variable_name() {
     })
 }
 
+#[test]
+fn external_command_escape_args() {
+    Playground::setup("external failed command with semicolon", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^echo "\"abcd"
+            "#
+        ));
+
+        assert_eq!(actual.out, r#""abcd"#);
+    })
+}
+
 #[cfg(windows)]
 #[test]
 fn explicit_glob_windows() {
@@ -242,72 +256,6 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
 
         assert!(!actual.out.contains("done"));
     })
-}
-
-#[cfg(windows)]
-#[test]
-#[ignore = "fails on local Windows machines"]
-// This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
-//
-// Test command 1 - `dir * `
-// Test command 2 - `dir '*'`
-// Test command 3 - `dir "*"`
-//
-// In CMD, command 2 and 3 will give you an error of 'File Not Found'
-// In Poweshell, all three commands will do the path expansion with any errors whatsoever
-//
-// With current Windows CI build(Microsoft Windows 2022 with version 10.0.20348),
-// the unit test runs agaisnt PowerShell
-fn double_quote_does_not_expand_path_glob_windows() {
-    Playground::setup("double quote do not run the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("D&D_volume_1.txt"),
-            EmptyFile("D&D_volume_2.txt"),
-            EmptyFile("foo.sh"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                dir "*.txt"
-            "#
-        ));
-        assert!(actual.out.contains("D&D_volume_1.txt"));
-        assert!(actual.out.contains("D&D_volume_2.txt"));
-    })
-}
-
-#[cfg(windows)]
-#[test]
-#[ignore = "fails on local Windows machines"]
-// This test case might fail based on the running shell on Windows - CMD vs PowerShell, the reason is
-//
-// Test command 1 - `dir * `
-// Test command 2 - `dir '*'`
-// Test command 3 - `dir "*"`
-//
-// In CMD, command 2 and 3 will give you an error of 'File Not Found'
-// In Poweshell, all three commands will do the path expansion with any errors whatsoever
-//
-// With current Windows CI build(Microsoft Windows 2022 with version 10.0.20348),
-// the unit test runs agaisnt PowerShell
-fn single_quote_does_not_expand_path_glob_windows() {
-    Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("D&D_volume_1.txt"),
-            EmptyFile("D&D_volume_2.txt"),
-            EmptyFile("foo.sh"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                dir '*.txt'
-            "#
-        ));
-        assert!(actual.out.contains("D&D_volume_1.txt"));
-        assert!(actual.out.contains("D&D_volume_2.txt"));
-    });
 }
 
 #[cfg(windows)]
