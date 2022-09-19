@@ -1434,9 +1434,6 @@ pub fn eval_variable(
             output_cols.push("os-info".into());
             output_vals.push(os_record);
 
-            output_cols.push("history-session-id".into());
-            output_vals.push(Value::int(engine_state.history_session_id, span));
-
             Ok(Value::Record {
                 cols: output_cols,
                 vals: output_vals,
