@@ -20,13 +20,13 @@ impl Command for OverlayHide {
             .optional("name", SyntaxShape::String, "Overlay to hide")
             .switch(
                 "keep-custom",
-                "Keep all newly added symbols within the next activated overlay",
+                "Keep all newly added commands, aliases and environment variables in the next activated overlay",
                 Some('k'),
             )
             .named(
                 "keep-env",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "List of environment variables to keep from the hidden overlay",
+                "List of environment variables to keep in the next activated overlay",
                 Some('e'),
             )
             .category(Category::Core)
@@ -110,10 +110,13 @@ impl Command for OverlayHide {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Hide an overlay created from a module",
+                description: "Keep a custom command after hiding the overlay",
                 example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam
-    overlay hide spam"#,
+    def bar [] { "bar" }
+    overlay hide spam --keep-custom
+    bar
+    "#,
                 result: None,
             },
             Example {

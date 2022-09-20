@@ -550,8 +550,8 @@ fn remove_overlay_keep_discard_overwritten_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.err.contains("did you mean"));
-    assert!(actual_repl.err.contains("did you mean"));
+    assert_eq!(actual.out, "bagr");
+    assert_eq!(actual_repl.out, "bagr");
 }
 
 #[test]
