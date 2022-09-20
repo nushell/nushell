@@ -1325,9 +1325,6 @@ pub fn parse_module_block(
                                     Exportable::Alias { name, id } => {
                                         module.add_alias(name, id);
                                     }
-                                    Exportable::EnvVar { name, id } => {
-                                        module.add_env_var(name, id);
-                                    }
                                 }
                             }
                         }
@@ -1731,7 +1728,7 @@ pub fn parse_use(
                     decl_output.push((name.clone(), id));
                 } else if let Some(id) = module.get_alias_id(name) {
                     alias_output.push((name.clone(), id));
-                } else if !module.has_env_var(name) {
+                } else {
                     error = error.or(Some(ParseError::ExportNotFound(*span)))
                 }
 
@@ -1746,7 +1743,7 @@ pub fn parse_use(
                         decl_output.push((name.clone(), id));
                     } else if let Some(id) = module.get_alias_id(name) {
                         alias_output.push((name.clone(), id));
-                    } else if !module.has_env_var(name) {
+                    } else {
                         error = error.or(Some(ParseError::ExportNotFound(*span)));
                         break;
                     }
@@ -1947,7 +1944,7 @@ pub fn parse_hide(
                         module.decl_name_with_head(name, &import_pattern.head.name)
                     {
                         decls.push(item);
-                    } else if !module.has_env_var(name) {
+                    } else {
                         error = error.or(Some(ParseError::ExportNotFound(*span)));
                     }
 
@@ -1966,7 +1963,7 @@ pub fn parse_hide(
                             module.decl_name_with_head(name, &import_pattern.head.name)
                         {
                             decls.push(item);
-                        } else if !module.has_env_var(name) {
+                        } else {
                             error = error.or(Some(ParseError::ExportNotFound(*span)));
                             break;
                         }

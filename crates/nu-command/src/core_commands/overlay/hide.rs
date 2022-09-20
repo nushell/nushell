@@ -20,7 +20,7 @@ impl Command for OverlayHide {
             .optional("name", SyntaxShape::String, "Overlay to hide")
             .switch(
                 "keep-custom",
-                "Keep all newly added commands, aliases and environment variables in the next activated overlay",
+                "Keep all newly added commands and aliases in the next activated overlay",
                 Some('k'),
             )
             .named(
@@ -67,23 +67,7 @@ impl Command for OverlayHide {
         let keep_env: Option<Vec<Spanned<String>>> =
             call.get_flag(engine_state, stack, "keep-env")?;
 
-        let env_vars_to_keep = if call.has_flag("keep-custom") {
-            if let Some(overlay_id) = engine_state.find_overlay(overlay_name.item.as_bytes()) {
-                let overlay_frame = engine_state.get_overlay(overlay_id);
-                let origin_module = engine_state.get_module(overlay_frame.origin);
-
-                stack
-                    .get_overlay_env_vars(engine_state, &overlay_name.item)
-                    .into_iter()
-                    .filter(|(name, _)| !origin_module.has_env_var(name.as_bytes()))
-                    .collect()
-            } else {
-                return Err(ShellError::OverlayNotFoundAtRuntime(
-                    overlay_name.item,
-                    overlay_name.span,
-                ));
-            }
-        } else if let Some(env_var_names_to_keep) = keep_env {
+        let env_vars_to_keep = if let Some(env_var_names_to_keep) = keep_env {
             let mut env_vars_to_keep = vec![];
 
             for name in env_var_names_to_keep.into_iter() {

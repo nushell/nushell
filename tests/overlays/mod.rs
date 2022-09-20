@@ -485,7 +485,7 @@ fn remove_overlay_keep_alias() {
 }
 
 #[test]
-fn remove_overlay_keep_env() {
+fn remove_overlay_dont_keep_env() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"let-env BAGR = `bagr`"#,
@@ -496,12 +496,12 @@ fn remove_overlay_keep_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.out.contains("bagr"));
-    assert!(actual_repl.out.contains("bagr"));
+    assert!(actual.err.contains("did you mean"));
+    assert!(actual_repl.err.contains("did you mean"));
 }
 
 #[test]
-fn remove_overlay_keep_discard_overwritten_decl() {
+fn remove_overlay_dont_keep_overwritten_decl() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"def foo [] { 'bar' }"#,
@@ -520,7 +520,7 @@ fn remove_overlay_keep_discard_overwritten_decl() {
 }
 
 #[test]
-fn remove_overlay_keep_discard_overwritten_alias() {
+fn remove_overlay_dont_keep_overwritten_alias() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"alias bar = `baz`"#,
@@ -539,7 +539,7 @@ fn remove_overlay_keep_discard_overwritten_alias() {
 }
 
 #[test]
-fn remove_overlay_keep_discard_overwritten_env() {
+fn remove_overlay_dont_keep_overwritten_env() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"let-env BAZ = `bagr`"#,
@@ -550,8 +550,8 @@ fn remove_overlay_keep_discard_overwritten_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "bagr");
-    assert_eq!(actual_repl.out, "bagr");
+    assert!(actual.err.contains("did you mean"));
+    assert!(actual_repl.err.contains("did you mean"));
 }
 
 #[test]
@@ -591,7 +591,7 @@ fn remove_overlay_keep_alias_in_latest_overlay() {
 }
 
 #[test]
-fn remove_overlay_keep_env_in_latest_overlay() {
+fn remove_overlay_dont_keep_env_in_latest_overlay() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
         r#"let-env BAGR = `bagr`"#,
@@ -604,8 +604,8 @@ fn remove_overlay_keep_env_in_latest_overlay() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.out.contains("bagr"));
-    assert!(actual_repl.out.contains("bagr"));
+    assert!(actual.err.contains("did you mean"));
+    assert!(actual_repl.err.contains("did you mean"));
 }
 
 #[test]
