@@ -110,7 +110,7 @@ pub enum ParseError {
 
     #[error("Variable name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
-    VariableNotValid(#[label = "variable name can't contain spaces or quotes"] Span),
+    VariableNotValid(#[label = "variable name can't contain spaces or quotes or be a number"] Span),
 
     #[error("Module not found.")]
     #[diagnostic(

@@ -2922,6 +2922,13 @@ pub fn parse_var_with_opt_type(
         );
     }
 
+    if String::from_utf8_lossy(&bytes).parse::<f64>().is_ok() || String::from_utf8_lossy(&bytes).parse::<i64>().is_ok() {
+        return (
+            garbage(spans[*spans_idx]),
+            Some(ParseError::VariableNotValid(spans[*spans_idx])),
+        );
+    }
+
     if bytes.ends_with(b":") {
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
