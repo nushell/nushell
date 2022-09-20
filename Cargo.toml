@@ -53,8 +53,7 @@ nu-system = { path = "./crates/nu-system", version = "0.68.2" }
 nu-table = { path = "./crates/nu-table", version = "0.68.2"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.68.2"  }
 nu-utils = { path = "./crates/nu-utils", version = "0.68.2"  }
-# reedline = { version = "0.11.0", features = ["bashisms", "sqlite"]}
-reedline = { git = "http://github.com/nushell/reedline", rev = "9a6fdd7", features = ["bashisms", "sqlite"]}
+reedline = { version = "0.11.0", features = ["bashisms", "sqlite"]}
 
 rayon = "1.5.1"
 is_executable = "1.0.1"
@@ -124,5 +123,5 @@ debug = false
 name = "nu"
 path = "src/main.rs"
 
-# [patch.crates-io]
-# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+[patch.crates-io]
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
