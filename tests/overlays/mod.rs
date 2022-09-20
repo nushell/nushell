@@ -256,7 +256,7 @@ fn update_overlay_from_module_env() {
 #[test]
 fn overlay_use_do_not_eval_twice() {
     let inp = &[
-        r#"module spam { export-env { let-env FOO = "foo" } }"#,
+        r#"module spam { export env FOO { "foo" } }"#,
         r#"overlay use spam"#,
         r#"let-env FOO = "bar""#,
         r#"overlay hide spam"#,
