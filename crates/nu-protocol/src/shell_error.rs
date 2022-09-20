@@ -834,30 +834,6 @@ mod tests {
     use super::did_you_mean;
 
     #[test]
-    fn did_you_mean_works_with_wrong_case() {
-        let possibilities = &["OS".into(), "PWD".into()];
-        let actual = did_you_mean(possibilities, "pwd");
-        let expected = Some(String::from("PWD"));
-        assert_eq!(actual, expected)
-    }
-
-    #[test]
-    fn did_you_mean_works_with_typo() {
-        let possibilities = &["OS".into(), "PWD".into()];
-        let actual = did_you_mean(possibilities, "PWF");
-        let expected = Some(String::from("PWD"));
-        assert_eq!(actual, expected)
-    }
-
-    #[test]
-    fn did_you_mean_works_with_wrong_case_and_typo() {
-        let possibilities = &["OS".into(), "PWD".into()];
-        let actual = did_you_mean(possibilities, "pwf");
-        let expected = Some(String::from("PWD"));
-        assert_eq!(actual, expected)
-    }
-
-    #[test]
     fn did_you_mean_examples() {
         let all_cases = [
             (
@@ -874,9 +850,21 @@ mod tests {
                 ],
             ),
             (
+                vec!["OS", "PWD", "PWDPWDPWDPWD"],
+                vec![
+                    ("pwd", Some("PWD"), "Exact case insensitive match yields a match"),
+                    ("pwdpwdpwdpwd", Some("PWDPWDPWDPWD"), "Exact case insensitive match yields a match"),
+                    ("PWF", Some("PWD"), "One-letter typo yields a match"),
+                    ("pwf", None, "Case difference plus typo yields no match"),
+                    ("Xwdpwdpwdpwd", None, "Case difference plus typo yields no match"),
+                ]
+            ),
+            (
                 vec!["foo", "bar", "baz"],
                 vec![
                     ("fox", Some("foo"), ""),
+                    ("FOO", Some("foo"), ""),
+                    ("FOX", None, ""),
                     (
                         "ccc",
                         None,
