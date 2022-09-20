@@ -256,7 +256,7 @@ fn update_overlay_from_module_env() {
 #[test]
 fn overlay_use_do_not_eval_twice() {
     let inp = &[
-        r#"module spam { export env FOO { "foo" } }"#,
+        r#"module spam { export-env { let-env FOO = "foo" } }"#,
         r#"overlay use spam"#,
         r#"let-env FOO = "bar""#,
         r#"overlay hide spam"#,
@@ -551,7 +551,7 @@ fn remove_overlay_keep_discard_overwritten_env() {
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
     assert!(actual.err.contains("did you mean"));
-    assert!(actual_repl.err.contains("DidYouMean"));
+    assert!(actual_repl.err.contains("did you mean"));
 }
 
 #[test]

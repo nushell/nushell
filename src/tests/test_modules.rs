@@ -43,7 +43,7 @@ fn module_def_imports_5() -> TestResult {
 #[test]
 fn module_env_imports_1() -> TestResult {
     run_test(
-        r#"module foo { export-env { let-env a = '1' } }; overlay use foo; $env.a"#,
+        r#"module foo { export-env { let-env a = '1' } }; use foo; $env.a"#,
         "1",
     )
 }
@@ -51,7 +51,7 @@ fn module_env_imports_1() -> TestResult {
 #[test]
 fn module_env_imports_2() -> TestResult {
     run_test(
-        r#"module foo { export-env { let-env a = '1'; let-env b = '2' } }; overlay use foo; $env.b"#,
+        r#"module foo { export-env { let-env a = '1'; let-env b = '2' } }; use foo; $env.b"#,
         "2",
     )
 }
@@ -59,7 +59,7 @@ fn module_env_imports_2() -> TestResult {
 #[test]
 fn module_env_imports_3() -> TestResult {
     run_test(
-        r#"module foo { export-env { let-env a = '1' }; export-env { let-env b = '2' }; export-env {let-env c = '3'} }; overlay use foo; $env.c"#,
+        r#"module foo { export-env { let-env a = '1' }; export-env { let-env b = '2' }; export-env {let-env c = '3'} }; use foo; $env.c"#,
         "3",
     )
 }
@@ -67,7 +67,7 @@ fn module_env_imports_3() -> TestResult {
 #[test]
 fn module_def_and_env_imports_1() -> TestResult {
     run_test(
-        r#"module spam { export-env { let-env foo = "foo" }; export def foo [] { "bar" } }; overlay use spam; $env.foo"#,
+        r#"module spam { export-env { let-env foo = "foo" }; export def foo [] { "bar" } }; use spam; $env.foo"#,
         "foo",
     )
 }
@@ -91,7 +91,7 @@ fn module_def_import_uses_internal_command() -> TestResult {
 #[test]
 fn module_env_import_uses_internal_command() -> TestResult {
     run_test(
-        r#"module foo { def b [] { "2" }; export-env { let-env a = b }  }; use foo; overlay use foo; $env.a"#,
+        r#"module foo { def b [] { "2" }; export-env { let-env a = b }  }; use foo; $env.a"#,
         "2",
     )
 }
