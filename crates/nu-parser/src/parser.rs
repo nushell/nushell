@@ -2915,14 +2915,9 @@ pub fn parse_var_with_opt_type(
         || bytes.contains(&b'"')
         || bytes.contains(&b'\'')
         || bytes.contains(&b'`')
+        || String::from_utf8_lossy(&bytes).parse::<f64>().is_ok()
+        || String::from_utf8_lossy(&bytes).parse::<i64>().is_ok()
     {
-        return (
-            garbage(spans[*spans_idx]),
-            Some(ParseError::VariableNotValid(spans[*spans_idx])),
-        );
-    }
-
-    if String::from_utf8_lossy(&bytes).parse::<f64>().is_ok() || String::from_utf8_lossy(&bytes).parse::<i64>().is_ok() {
         return (
             garbage(spans[*spans_idx]),
             Some(ParseError::VariableNotValid(spans[*spans_idx])),
