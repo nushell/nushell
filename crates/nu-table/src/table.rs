@@ -103,10 +103,10 @@ fn draw_table(
         table.data.duplicate_row(0);
     }
 
-    let table = Builder::custom(table.data).build();
-    let table = load_theme(table, color_hm, theme, with_footer, with_header);
-    let table = align_table(table, alignments, with_index, with_header, with_footer);
-    let table = table_trim_columns(table, termwidth, &config.trim_strategy);
+    let mut table = Builder::custom(table.data).build();
+    load_theme(&mut table, color_hm, theme, with_footer, with_header);
+    align_table(&mut table, alignments, with_index, with_header, with_footer);
+    table_trim_columns(&mut table, termwidth, &config.trim_strategy);
 
     let table = print_table(table, config);
     if table_width(&table) > termwidth {
@@ -140,13 +140,13 @@ fn table_width(table: &str) -> usize {
 }
 
 fn align_table(
-    mut table: tabled::Table<Data>,
+    table: &mut tabled::Table<Data>,
     alignments: Alignments,
     with_index: bool,
     with_header: bool,
     with_footer: bool,
-) -> tabled::Table<Data> {
-    table = table.with(
+) {
+    table.with(
         Modify::new(Segment::all())
             .with(Alignment::Horizontal(alignments.data))
             .with(AlignmentStrategy::PerLine),
@@ -155,28 +155,25 @@ fn align_table(
     if with_header {
         let alignment = Alignment::Horizontal(alignments.header);
         if with_footer {
-            table = table.with(Modify::new(Rows::last()).with(alignment.clone()));
+            table.with(Modify::new(Rows::last()).with(alignment.clone()));
         }
 
-        table = table.with(Modify::new(Rows::first()).with(alignment));
+        table.with(Modify::new(Rows::first()).with(alignment));
     }
 
     if with_index {
-        table =
-            table.with(Modify::new(Columns::first()).with(Alignment::Horizontal(alignments.index)));
+        table.with(Modify::new(Columns::first()).with(Alignment::Horizontal(alignments.index)));
     }
 
-    table = override_alignments(table, with_header, with_index, alignments);
-
-    table
+    override_alignments(table, with_header, with_index, alignments);
 }
 
 fn override_alignments(
-    mut table: tabled::Table<Data>,
+    table: &mut tabled::Table<Data>,
     header_present: bool,
     index_present: bool,
     alignments: Alignments,
-) -> tabled::Table<Data> {
+) {
     let offset = if header_present { 1 } else { 0 };
     let (count_rows, count_columns) = table.shape();
     for row in offset..count_rows {
@@ -190,47 +187,43 @@ fn override_alignments(
                 continue;
             }
 
-            table = table.with(
+            table.with(
                 Cell(row, col)
                     .modify()
                     .with(Alignment::Horizontal(alignment)),
             );
         }
     }
-
-    table
 }
 
 fn load_theme(
-    mut table: tabled::Table<Data>,
+    table: &mut tabled::Table<Data>,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
     theme: &TableTheme,
     with_footer: bool,
     with_header: bool,
-) -> tabled::Table<Data> {
+) {
     let mut theme = theme.theme.clone();
     if !with_header {
-        theme.set_lines(HashMap::default());
+        theme.set_horizontals(HashMap::default());
     }
 
-    table = table.with(theme);
+    table.with(theme);
 
     if let Some(color) = color_hm.get("separator") {
         let color = color.paint(" ").to_string();
         if let Ok(color) = Color::try_from(color) {
-            table = table.with(color);
+            table.with(color);
         }
     }
 
     if with_footer {
-        table = table.with(FooterStyle).with(
+        table.with(FooterStyle).with(
             Modify::new(Rows::last())
                 .with(Alignment::center())
                 .with(AlignmentStrategy::PerCell),
         );
     }
-
-    table
 }
 
 fn need_footer(config: &Config, count_records: u64) -> bool {
@@ -249,22 +242,24 @@ where
             return;
         }
 
-        if let Some(line) = table.get_config().get_split_line(1).cloned() {
+        if let Some(line) = table.get_config().get_horizontal_line(1).cloned() {
             let count_rows = table.shape().0;
-            table.get_config_mut().set_split_line(count_rows - 1, line);
+            table
+                .get_config_mut()
+                .set_horizontal_line(count_rows - 1, line);
         }
     }
 }
 
 fn table_trim_columns(
-    table: tabled::Table<Data>,
+    table: &mut tabled::Table<Data>,
     termwidth: usize,
     trim_strategy: &TrimStrategy,
-) -> tabled::Table<Data> {
+) {
     table.with(TrimStrategyModifier {
         termwidth,
         trim_strategy,
-    })
+    });
 }
 
 pub struct TrimStrategyModifier<'a> {
@@ -276,7 +271,7 @@ impl tabled::TableOption<Data> for TrimStrategyModifier<'_> {
     fn change(&mut self, table: &mut tabled::Table<Data>) {
         match self.trim_strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
-                let mut w = Width::wrap(self.termwidth).priority::<tabled::width::PriorityMax>();
+                let mut w = Width::wrap(self.termwidth).priority::<tabled::peaker::PriorityMax>();
                 if *try_to_keep_words {
                     w = w.keep_words();
                 }
@@ -285,7 +280,7 @@ impl tabled::TableOption<Data> for TrimStrategyModifier<'_> {
             }
             TrimStrategy::Truncate { suffix } => {
                 let mut w =
-                    Width::truncate(self.termwidth).priority::<tabled::width::PriorityMax>();
+                    Width::truncate(self.termwidth).priority::<tabled::peaker::PriorityMax>();
                 if let Some(suffix) = suffix {
                     w = w.suffix(suffix).suffix_try_color(true);
                 }
