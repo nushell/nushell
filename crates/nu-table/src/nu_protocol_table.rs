@@ -53,13 +53,14 @@ pub(crate) fn nu_protocol_value_to_json(value: Value) -> serde_json::Value {
                     arr.push(serde_json::Value::Object(head));
 
                     for value in &vals {
-                        let vals = value.as_record().unwrap().1;
-                        let vals = build_map(vals.iter().cloned());
+                        if let Ok((_, vals)) = value.as_record() {
+                            let vals = build_map(vals.iter().cloned());
 
-                        let mut map = serde_json::Map::new();
-                        connect_maps(&mut map, serde_json::Value::Object(vals));
+                            let mut map = serde_json::Map::new();
+                            connect_maps(&mut map, serde_json::Value::Object(vals));
 
-                        arr.push(serde_json::Value::Object(map));
+                            arr.push(serde_json::Value::Object(map));
+                        }
                     }
 
                     return serde_json::Value::Array(arr);
