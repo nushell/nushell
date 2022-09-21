@@ -1941,9 +1941,10 @@ checksum = "47631885425c482fcf2dc4b182fc973c3c5b81a8f43a028055559bd24cccfa6e"
 [[package]]
 name = "json_to_table"
 version = "0.1.0"
+source = "git+https://github.com/zhiburt/tabled/?branch=master#233c397b477dc3a3c4ecae77a30d3122a2187ba0"
 dependencies = [
  "serde_json",
- "tabled 0.8.0",
+ "tabled",
 ]
 
 [[package]]
@@ -2674,7 +2675,6 @@ dependencies = [
  "indexmap",
  "is-root",
  "itertools",
- "json_to_table",
  "lazy_static",
  "log",
  "lscolors",
@@ -2716,7 +2716,6 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_ini",
- "serde_json",
  "serde_urlencoded",
  "serde_yaml",
  "sha2",
@@ -2864,10 +2863,12 @@ name = "nu-table"
 version = "0.68.2"
 dependencies = [
  "atty",
+ "json_to_table",
  "nu-ansi-term",
  "nu-protocol",
+ "serde_json",
  "strip-ansi-escapes",
- "tabled 0.8.0 (git+https://github.com/zhiburt/tabled?branch=master)",
+ "tabled",
 ]
 
 [[package]]
@@ -3216,17 +3217,7 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 [[package]]
 name = "papergrid"
 version = "0.5.1"
-dependencies = [
- "bytecount",
- "fnv",
- "strip-ansi-escapes",
- "unicode-width",
-]
-
-[[package]]
-name = "papergrid"
-version = "0.5.1"
-source = "git+https://github.com/zhiburt/tabled?branch=master#233c397b477dc3a3c4ecae77a30d3122a2187ba0"
+source = "git+https://github.com/zhiburt/tabled/?branch=master#233c397b477dc3a3c4ecae77a30d3122a2187ba0"
 dependencies = [
  "ansi-str",
  "ansitok",
@@ -4949,25 +4940,18 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.8.0"
-dependencies = [
- "papergrid 0.5.1",
- "tabled_derive",
- "unicode-width",
-]
-
-[[package]]
-name = "tabled"
-version = "0.8.0"
-source = "git+https://github.com/zhiburt/tabled?branch=master#233c397b477dc3a3c4ecae77a30d3122a2187ba0"
+source = "git+https://github.com/zhiburt/tabled/?branch=master#233c397b477dc3a3c4ecae77a30d3122a2187ba0"
 dependencies = [
  "ansi-str",
- "papergrid 0.5.1 (git+https://github.com/zhiburt/tabled?branch=master)",
+ "papergrid",
+ "tabled_derive",
  "unicode-width",
 ]
 
 [[package]]
 name = "tabled_derive"
 version = "0.4.0"
+source = "git+https://github.com/zhiburt/tabled/?branch=master#233c397b477dc3a3c4ecae77a30d3122a2187ba0"
 dependencies = [
  "heck 0.4.0",
  "proc-macro-error",

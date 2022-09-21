@@ -70,6 +70,12 @@ impl Command for Table {
                 "number of terminal columns wide (not output columns)",
                 Some('w'),
             )
+            .switch("expand", "expand the table structure", Some('e'))
+            .switch(
+                "collapse",
+                "expand the table structure in colapse mode",
+                Some('c'),
+            )
             .category(Category::Viewers)
     }
 
@@ -87,6 +93,15 @@ impl Command for Table {
         let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
         let row_offset = start_num.unwrap_or_default() as usize;
         let list: bool = call.has_flag("list");
+
+        let expand: bool = call.has_flag("expand");
+        let collapse: bool = call.has_flag("collapse");
+        let table_view = match (expand, collapse) {
+            (true, true) => TableView::Collapsed,
+            (false, true) => TableView::Collapsed,
+            (true, false) => TableView::Expanded,
+            (false, false) => TableView::General,
+        };
 
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
         let term_width = get_width_param(width_param);
@@ -157,27 +172,62 @@ impl Command for Table {
                 metadata,
             ),
             PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
-                let output = cols
-                    .into_iter()
-                    .zip(vals.into_iter())
-                    .map(|(c, v)| {
-                        vec![
-                            NuTable::create_cell(c, TextStyle::default_field()),
-                            NuTable::create_cell(
-                                v.into_abbreviated_string(config),
-                                TextStyle::default(),
-                            ),
-                        ]
-                    })
-                    .collect::<Vec<_>>();
-
-                let output_len = output.len();
-                let table = NuTable::new(output, (output_len, 2), term_width, false);
-
                 let theme = load_theme_from_config(config);
-                let result = table
-                    .draw_table(config, &color_hm, Alignments::default(), &theme, term_width)
-                    .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
+
+                let result = match table_view {
+                    TableView::General => {
+                        let output = cols
+                            .into_iter()
+                            .zip(vals.into_iter())
+                            .map(|(c, v)| {
+                                vec![
+                                    NuTable::create_cell(c, TextStyle::default_field()),
+                                    NuTable::create_cell(
+                                        v.into_abbreviated_string(config),
+                                        TextStyle::default(),
+                                    ),
+                                ]
+                            })
+                            .collect::<Vec<_>>();
+
+                        let output_len = output.len();
+                        let table = NuTable::new(output, (output_len, 2), term_width, false);
+
+                        table
+                            .draw_table(
+                                config,
+                                &color_hm,
+                                Alignments::default(),
+                                &theme,
+                                term_width,
+                            )
+                            .unwrap_or_else(|| {
+                                format!("Couldn't fit table into {} columns!", term_width)
+                            })
+                    }
+                    TableView::Expanded | TableView::Collapsed => {
+                        let value = Value::Record {
+                            cols,
+                            vals,
+                            span: Span::new(0, 0),
+                        };
+
+                        let collapse = matches!(table_view, TableView::Collapsed);
+                        let table = nu_table::NuTable::new(
+                            value,
+                            config,
+                            &color_hm,
+                            Alignments::default(),
+                            &theme,
+                            collapse,
+                            term_width,
+                        );
+
+                        table.draw().unwrap_or_else(|| {
+                            format!("Couldn't fit table into {} columns!", term_width)
+                        })
+                    }
+                };
 
                 Ok(Value::String {
                     val: result,
@@ -295,6 +345,15 @@ fn handle_row_stream(
     let head = call.head;
     let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
 
+    let expand: bool = call.has_flag("expand");
+    let collapse: bool = call.has_flag("collapse");
+    let table_view = match (expand, collapse) {
+        (true, true) => TableView::Collapsed,
+        (false, true) => TableView::Collapsed,
+        (true, false) => TableView::Expanded,
+        (false, false) => TableView::General,
+    };
+
     Ok(PipelineData::ExternalStream {
         stdout: Some(RawStream::new(
             Box::new(PagingTableCreator {
@@ -304,6 +363,7 @@ fn handle_row_stream(
                 head,
                 stream,
                 width_param,
+                view: table_view,
             }),
             ctrlc,
             head,
@@ -530,6 +590,7 @@ struct PagingTableCreator {
     config: Config,
     row_offset: usize,
     width_param: Option<i64>,
+    view: TableView,
 }
 
 impl Iterator for PagingTableCreator {
@@ -567,9 +628,40 @@ impl Iterator for PagingTableCreator {
             }
         }
 
-        let color_hm = get_color_config(&self.config);
-        let term_width = get_width_param(self.width_param);
+        if let TableView::Collapsed | TableView::Expanded = self.view {
+            if batch.is_empty() {
+                return None;
+            }
 
+            let value = Value::List {
+                vals: batch,
+                span: Span::new(0, 0),
+            };
+
+            let color_hm = get_color_config(&self.config);
+            let theme = load_theme_from_config(&self.config);
+            let term_width = usize::MAX;
+
+            let collapse = matches!(self.view, TableView::Collapsed);
+            let table = nu_table::NuTable::new(
+                value,
+                &self.config,
+                &color_hm,
+                Alignments::default(),
+                &theme,
+                collapse,
+                term_width,
+            );
+
+            let result = table
+                .draw()
+                .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
+
+            return Some(Ok(result.as_bytes().to_vec()));
+        }
+
+        let term_width = get_width_param(self.width_param);
+        let color_hm = get_color_config(&self.config);
         let table = convert_to_table(
             self.row_offset,
             &batch,
@@ -662,4 +754,10 @@ fn render_path_name(
 
     let val = ansi_style.apply(full_path_link).to_string();
     Some(Value::String { val, span })
+}
+
+enum TableView {
+    General,
+    Expanded,
+    Collapsed,
 }

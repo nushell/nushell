@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use nu_protocol::{Config, FooterMode, TrimStrategy};
+use nu_protocol::{Config, FooterMode, TrimStrategy, Value};
 use tabled::{
     alignment::AlignmentHorizontal,
     builder::Builder,
@@ -17,6 +17,42 @@ use tabled::{
 
 use crate::{table_theme::TableTheme, TextStyle};
 
+pub struct NuTable {
+    inner: tabled::Table,
+}
+
+impl NuTable {
+    pub fn new(
+        value: Value,
+        config: &Config,
+        color_hm: &HashMap<String, nu_ansi_term::Style>,
+        alignments: Alignments,
+        theme: &TableTheme,
+        collapse: bool,
+        termwidth: usize,
+    ) -> Self {
+        let mut table = tabled::Table::new([""]);
+        load_theme(&mut table, color_hm, theme, true, true);
+        let cfg = table.get_config().clone();
+
+        let val = crate::nu_protocol_table::nu_protocol_value_to_json(value);
+        let mut table = json_to_table::json_to_table(&val);
+        table.set_config(cfg);
+
+        if collapse {
+            table.collapse();
+        }
+
+        let table = table.into();
+
+        Self { inner: table }
+    }
+
+    pub fn draw(&self) -> Option<String> {
+        return Some(self.inner.to_string());
+    }
+}
+
 /// Table represent a table view.
 #[derive(Debug)]
 pub struct Table {
@@ -26,23 +62,6 @@ pub struct Table {
 }
 
 type Data = VecRecords<TCell<CellInfo<'static>, TextStyle>>;
-
-#[derive(Debug)]
-pub struct Alignments {
-    data: AlignmentHorizontal,
-    index: AlignmentHorizontal,
-    header: AlignmentHorizontal,
-}
-
-impl Default for Alignments {
-    fn default() -> Self {
-        Self {
-            data: AlignmentHorizontal::Center,
-            index: AlignmentHorizontal::Right,
-            header: AlignmentHorizontal::Center,
-        }
-    }
-}
 
 impl Table {
     /// Creates a [Table] instance.
@@ -80,6 +99,23 @@ impl Table {
         termwidth: usize,
     ) -> Option<String> {
         draw_table(self, config, color_hm, alignments, theme, termwidth)
+    }
+}
+
+#[derive(Debug)]
+pub struct Alignments {
+    data: AlignmentHorizontal,
+    index: AlignmentHorizontal,
+    header: AlignmentHorizontal,
+}
+
+impl Default for Alignments {
+    fn default() -> Self {
+        Self {
+            data: AlignmentHorizontal::Center,
+            index: AlignmentHorizontal::Right,
+            header: AlignmentHorizontal::Center,
+        }
     }
 }
 
@@ -196,13 +232,15 @@ fn override_alignments(
     }
 }
 
-fn load_theme(
-    table: &mut tabled::Table<Data>,
+fn load_theme<R>(
+    table: &mut tabled::Table<R>,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
     theme: &TableTheme,
     with_footer: bool,
     with_header: bool,
-) {
+) where
+    R: Records,
+{
     let mut theme = theme.theme.clone();
     if !with_header {
         theme.set_horizontals(HashMap::default());
