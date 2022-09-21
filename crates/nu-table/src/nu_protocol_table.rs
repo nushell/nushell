@@ -2,15 +2,16 @@ use nu_protocol::{Config, Span, Value};
 
 pub(crate) fn nu_protocol_value_to_json(value: Value) -> serde_json::Value {
     match value {
-        Value::Bool { val, span } => serde_json::Value::Bool(val),
-        Value::Int { val, span } => serde_json::Value::Number(val.into()),
-        Value::Float { val, span } => serde_json::Value::String(val.to_string()),
-        Value::Filesize { val, span } => serde_json::Value::Number(val.into()),
-        Value::Duration { val, span } => serde_json::Value::Number(val.into()),
-        Value::Date { val, span } => serde_json::Value::String(val.to_string()),
-        Value::Range { val, span } => todo!(),
-        Value::String { val, span } => serde_json::Value::String(val.to_string()),
-        Value::Record { cols, vals, span } => {
+        Value::Bool { val, .. } => serde_json::Value::Bool(val),
+        Value::Int { val, .. } => serde_json::Value::Number(val.into()),
+        Value::Float { val, .. } => serde_json::Value::String(val.to_string()),
+        Value::Filesize { val, .. } => serde_json::Value::Number(val.into()),
+        Value::Duration { val, .. } => serde_json::Value::Number(val.into()),
+        Value::Date { val, .. } => serde_json::Value::String(val.to_string()),
+        Value::Error { error } => serde_json::Value::String(error.to_string()),
+        Value::Range { .. } => todo!(),
+        Value::String { val, .. } => serde_json::Value::String(val),
+        Value::Record { cols, vals, .. } => {
             let mut map = serde_json::Map::new();
             for (key, value) in cols.into_iter().zip(vals) {
                 let val = nu_protocol_value_to_json(value);
@@ -19,7 +20,7 @@ pub(crate) fn nu_protocol_value_to_json(value: Value) -> serde_json::Value {
 
             serde_json::Value::Object(map)
         }
-        Value::List { vals, span } => {
+        Value::List { vals, .. } => {
             let mut used_cols: Option<&[String]> = None;
             for val in &vals {
                 match val {
@@ -44,7 +45,7 @@ pub(crate) fn nu_protocol_value_to_json(value: Value) -> serde_json::Value {
                 if cols.len() > 1 {
                     let mut arr = vec![];
 
-                    let mut head = build_map(cols.iter().map(|s| Value::String {
+                    let head = build_map(cols.iter().map(|s| Value::String {
                         val: s.to_owned(),
                         span: Span::new(0, 0),
                     }));
@@ -92,16 +93,11 @@ pub(crate) fn nu_protocol_value_to_json(value: Value) -> serde_json::Value {
 
             serde_json::Value::Array(map)
         }
-        Value::Block {
-            val,
-            captures,
-            span,
-        } => todo!(),
-        Value::Nothing { span } => todo!(),
-        Value::Error { error } => todo!(),
-        Value::Binary { val, span } => todo!(),
-        Value::CellPath { val, span } => todo!(),
-        Value::CustomValue { val, span } => todo!(),
+        Value::Block { .. } => todo!(),
+        Value::Nothing { .. } => todo!(),
+        Value::Binary { .. } => todo!(),
+        Value::CellPath { .. } => todo!(),
+        Value::CustomValue { .. } => todo!(),
     }
 }
 

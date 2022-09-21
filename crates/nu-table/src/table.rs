@@ -24,12 +24,12 @@ pub struct NuTable {
 impl NuTable {
     pub fn new(
         value: Value,
-        config: &Config,
+        _config: &Config,
         color_hm: &HashMap<String, nu_ansi_term::Style>,
-        alignments: Alignments,
+        _alignments: Alignments,
         theme: &TableTheme,
         collapse: bool,
-        termwidth: usize,
+        _termwidth: usize,
     ) -> Self {
         let mut table = tabled::Table::new([""]);
         load_theme(&mut table, color_hm, theme, true, true);
@@ -49,7 +49,7 @@ impl NuTable {
     }
 
     pub fn draw(&self) -> Option<String> {
-        return Some(self.inner.to_string());
+        Some(self.inner.to_string())
     }
 }
 
