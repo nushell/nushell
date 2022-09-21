@@ -181,7 +181,7 @@ fn from_error() {
         "#
     ));
 
-    assert_eq!(actual.out, "nu::shell::name_not_found");
+    assert_eq!(actual.out, "nu::shell::column_not_found");
 }
 
 #[test]
