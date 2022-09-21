@@ -79,7 +79,7 @@ fn get_documentation(
     let _ = write!(long_desc, "{}", text);
 
     if !subcommands.is_empty() {
-        long_desc.push_str(&format!("\n{G}Subcommands{RESET}:\n"));
+        let _ = write!(long_desc, "\n{G}Subcommands{RESET}:\n");
         subcommands.sort();
         long_desc.push_str(&subcommands.join("\n"));
         long_desc.push('\n');
@@ -93,7 +93,7 @@ fn get_documentation(
         || !sig.optional_positional.is_empty()
         || sig.rest_positional.is_some()
     {
-        long_desc.push_str(&format!("\n{G}Parameters{RESET}:\n"));
+        let _ = write!(long_desc, "\n{G}Parameters{RESET}:\n");
         for positional in &sig.required_positional {
             let text = format!(
                 "  {C}{}{RESET} <{BB}{:?}{RESET}>: {}",
@@ -125,7 +125,7 @@ fn get_documentation(
     }
 
     if !examples.is_empty() {
-        long_desc.push_str(&format!("\n{}Examples{}:", G, RESET));
+        let _ = write!(long_desc, "\n{}Examples{}:", G, RESET);
     }
 
     for example in examples {
@@ -199,7 +199,7 @@ pub fn get_flags_section(signature: &Signature) -> String {
     const D: &str = "\x1b[39m"; // default
 
     let mut long_desc = String::new();
-    long_desc.push_str(&format!("\n{}Flags{}:\n", G, RESET));
+    let _ = write!(long_desc, "\n{}Flags{}:\n", G, RESET);
     for flag in &signature.named {
         let msg = if let Some(arg) = &flag.arg {
             if let Some(short) = flag.short {

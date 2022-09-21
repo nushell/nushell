@@ -1,4 +1,4 @@
-use nu_engine::eval_block;
+use nu_engine::{eval_block, find_in_dirs_env, redirect_env};
 use nu_protocol::ast::{Call, Expr, Expression, ImportPatternMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -35,9 +35,9 @@ impl Command for Use {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        caller_stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let import_pattern = if let Some(Expression {
             expr: Expr::ImportPattern(pat),
@@ -107,7 +107,7 @@ impl Command for Use {
 
                 let val = eval_block(
                     engine_state,
-                    stack,
+                    caller_stack,
                     block,
                     PipelineData::new(call.head),
                     false,
@@ -115,11 +115,50 @@ impl Command for Use {
                 )?
                 .into_value(call.head);
 
-                stack.add_env_var(name, val);
+                caller_stack.add_env_var(name, val);
+            }
+
+            // Evaluate the export-env block if there is one
+            if let Some(block_id) = module.env_block {
+                let block = engine_state.get_block(block_id);
+
+                // See if the module is a file
+                let module_arg_str = String::from_utf8_lossy(
+                    engine_state.get_span_contents(&import_pattern.head.span),
+                );
+                let maybe_parent = if let Some(path) =
+                    find_in_dirs_env(&module_arg_str, engine_state, caller_stack)?
+                {
+                    path.parent().map(|p| p.to_path_buf()).or(None)
+                } else {
+                    None
+                };
+
+                let mut callee_stack = caller_stack.gather_captures(&block.captures);
+
+                // If so, set the currently evaluated directory (file-relative PWD)
+                if let Some(parent) = maybe_parent {
+                    let file_pwd = Value::String {
+                        val: parent.to_string_lossy().to_string(),
+                        span: call.head,
+                    };
+                    callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+                }
+
+                // Run the block (discard the result)
+                let _ = eval_block(
+                    engine_state,
+                    &mut callee_stack,
+                    block,
+                    input,
+                    call.redirect_stdout,
+                    call.redirect_stderr,
+                )?;
+
+                // Merge the block's environment to the current stack
+                redirect_env(engine_state, caller_stack, &callee_stack);
             }
         } else {
-            // TODO: This is a workaround since call.positional[0].span points at 0 for some reason
-            // when this error is triggered
             return Err(ShellError::GenericError(
                 format!(
                     "Could not import from '{}'",

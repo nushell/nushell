@@ -331,7 +331,13 @@ pub fn parse_external_call(
             args.push(arg);
         } else {
             // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
-            let contents = String::from_utf8_lossy(contents).to_string();
+            let contents = if contents.starts_with(b"\"") {
+                let (contents, err) = unescape_string(contents, *span);
+                error = error.or(err);
+                String::from_utf8_lossy(&contents).to_string()
+            } else {
+                String::from_utf8_lossy(contents).to_string()
+            };
 
             args.push(Expression {
                 expr: Expr::String(contents),

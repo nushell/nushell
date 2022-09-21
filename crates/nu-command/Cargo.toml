@@ -78,7 +78,7 @@ sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
 shadow-rs = { version = "0.16.1", default-features = false }
 strip-ansi-escapes = "0.1.1"
-sysinfo = "0.25.2"
+sysinfo = "0.26.2"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"
 titlecase = "2.0.0"
@@ -90,7 +90,7 @@ which = { version = "4.3.0", optional = true }
 reedline = { version = "0.11.0", features = ["bashisms", "sqlite"]}
 wax = { version =  "0.5.0", features = ["diagnostics"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
-sqlparser = { version = "0.16.0", features = ["serde"], optional = true }
+sqlparser = { version = "0.23.0", features = ["serde"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
 umask = "2.0.0"

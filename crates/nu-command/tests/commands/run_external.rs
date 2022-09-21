@@ -186,6 +186,20 @@ fn external_arg_with_variable_name() {
     })
 }
 
+#[test]
+fn external_command_escape_args() {
+    Playground::setup("external failed command with semicolon", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^echo "\"abcd"
+            "#
+        ));
+
+        assert_eq!(actual.out, r#""abcd"#);
+    })
+}
+
 #[cfg(windows)]
 #[test]
 fn explicit_glob_windows() {

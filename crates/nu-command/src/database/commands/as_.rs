@@ -113,7 +113,7 @@ fn alias_db(
             Vec::new(),
         )),
         Some(statement) => match statement {
-            Statement::Query(query) => match &mut query.body {
+            Statement::Query(query) => match &mut *query.body {
                 SetExpr::Select(select) => {
                     select.as_mut().from.iter_mut().for_each(|table| {
                         let new_alias = Some(TableAlias {

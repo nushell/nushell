@@ -17,7 +17,7 @@ pub fn value_into_table_factor(
             Ok(TableFactor::Table {
                 name: ObjectName(vec![ident]),
                 alias,
-                args: Vec::new(),
+                args: None,
                 with_hints: Vec::new(),
             })
         }

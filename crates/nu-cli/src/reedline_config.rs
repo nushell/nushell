@@ -666,6 +666,7 @@ fn add_parsed_keybinding(
 
             KeyCode::Char(char)
         }
+        "space" => KeyCode::Char(' '),
         "down" => KeyCode::Down,
         "up" => KeyCode::Up,
         "left" => KeyCode::Left,

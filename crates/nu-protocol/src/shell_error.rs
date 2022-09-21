@@ -810,83 +810,23 @@ pub fn into_code(err: &ShellError) -> Option<String> {
     err.code().map(|code| code.to_string())
 }
 
-pub fn did_you_mean(possibilities: &[String], tried: &str) -> Option<String> {
-    let mut possible_matches: Vec<_> = possibilities
-        .iter()
-        .map(|word| {
-            let edit_distance = levenshtein_distance(&word.to_lowercase(), &tried.to_lowercase());
-            (edit_distance, word.to_owned())
-        })
-        .collect();
+pub fn did_you_mean(possibilities: &[String], input: &str) -> Option<String> {
+    let possibilities: Vec<&str> = possibilities.iter().map(|s| s.as_str()).collect();
 
-    possible_matches.sort();
-
-    if let Some((_, first)) = possible_matches.into_iter().next() {
-        Some(first)
-    } else {
-        None
-    }
-}
-
-// Borrowed from here https://github.com/wooorm/levenshtein-rs
-pub fn levenshtein_distance(a: &str, b: &str) -> usize {
-    let mut result = 0;
-
-    /* Shortcut optimizations / degenerate cases. */
-    if a == b {
-        return result;
-    }
-
-    let length_a = a.chars().count();
-    let length_b = b.chars().count();
-
-    if length_a == 0 {
-        return length_b;
-    }
-
-    if length_b == 0 {
-        return length_a;
-    }
-
-    /* Initialize the vector.
-     *
-     * This is why it’s fast, normally a matrix is used,
-     * here we use a single vector. */
-    let mut cache: Vec<usize> = (1..).take(length_a).collect();
-    let mut distance_a;
-    let mut distance_b;
-
-    /* Loop. */
-    for (index_b, code_b) in b.chars().enumerate() {
-        result = index_b;
-        distance_a = index_b;
-
-        for (index_a, code_a) in a.chars().enumerate() {
-            distance_b = if code_a == code_b {
-                distance_a
-            } else {
-                distance_a + 1
-            };
-
-            distance_a = cache[index_a];
-
-            result = if distance_a > result {
-                if distance_b > result {
-                    result + 1
-                } else {
-                    distance_b
-                }
-            } else if distance_b > distance_a {
-                distance_a + 1
-            } else {
-                distance_b
-            };
-
-            cache[index_a] = result;
+    let suggestion =
+        crate::lev_distance::find_best_match_for_name_with_substrings(&possibilities, input, None)
+            .map(|s| s.to_string());
+    if let Some(suggestion) = &suggestion {
+        if suggestion.len() == 1 && suggestion.to_lowercase() != input.to_lowercase() {
+            return None;
         }
     }
+    suggestion
+}
 
-    result
+pub fn levenshtein_distance(a: &str, b: &str) -> usize {
+    crate::lev_distance::lev_distance(a, b, usize::max_value())
+        .expect("It is impossible to exceed the supplied limit since all types involved are usize.")
 }
 
 #[cfg(test)]
@@ -894,26 +834,70 @@ mod tests {
     use super::did_you_mean;
 
     #[test]
-    fn did_you_mean_works_with_wrong_case() {
-        let possibilities = &["OS".into(), "PWD".into()];
-        let actual = did_you_mean(possibilities, "pwd");
-        let expected = Some(String::from("PWD"));
-        assert_eq!(actual, expected)
-    }
-
-    #[test]
-    fn did_you_mean_works_with_typo() {
-        let possibilities = &["OS".into(), "PWD".into()];
-        let actual = did_you_mean(possibilities, "PWF");
-        let expected = Some(String::from("PWD"));
-        assert_eq!(actual, expected)
-    }
-
-    #[test]
-    fn did_you_mean_works_with_wrong_case_and_typo() {
-        let possibilities = &["OS".into(), "PWD".into()];
-        let actual = did_you_mean(possibilities, "pwf");
-        let expected = Some(String::from("PWD"));
-        assert_eq!(actual, expected)
+    fn did_you_mean_examples() {
+        let all_cases = [
+            (
+                vec!["a", "b"],
+                vec![
+                    ("a", Some("a"), ""),
+                    ("A", Some("a"), ""),
+                    (
+                        "c",
+                        None,
+                        "Not helpful to suggest an arbitrary choice when none are close",
+                    ),
+                    ("ccccccccccccccccccccccc", None, "Not helpful to suggest an arbitrary choice when none are close"),
+                ],
+            ),
+            (
+                vec!["OS", "PWD", "PWDPWDPWDPWD"],
+                vec![
+                    ("pwd", Some("PWD"), "Exact case insensitive match yields a match"),
+                    ("pwdpwdpwdpwd", Some("PWDPWDPWDPWD"), "Exact case insensitive match yields a match"),
+                    ("PWF", Some("PWD"), "One-letter typo yields a match"),
+                    ("pwf", None, "Case difference plus typo yields no match"),
+                    ("Xwdpwdpwdpwd", None, "Case difference plus typo yields no match"),
+                ]
+            ),
+            (
+                vec!["foo", "bar", "baz"],
+                vec![
+                    ("fox", Some("foo"), ""),
+                    ("FOO", Some("foo"), ""),
+                    ("FOX", None, ""),
+                    (
+                        "ccc",
+                        None,
+                        "Not helpful to suggest an arbitrary choice when none are close",
+                    ),
+                    (
+                        "zzz",
+                        None,
+                        "'baz' does share a character, but rustc rule is edit distance must be <= 1/3 of the length of the user input",
+                    ),
+                ],
+            ),
+            (
+                vec!["aaaaaa"],
+                vec![
+                    ("XXaaaa", Some("aaaaaa"), "Distance of 2 out of 6 chars: close enough to meet rustc's rule"),
+                    ("XXXaaa", None,  "Distance of 3 out of 6 chars: not close enough to meet rustc's rule"),
+                    ("XaaaaX", Some("aaaaaa"), "Distance of 2 out of 6 chars: close enough to meet rustc's rule"),
+                    ("XXaaaaXX", None, "Distance of 4 out of 6 chars: not close enough to meet rustc's rule")
+                ]
+            ),
+        ];
+        for (possibilities, cases) in all_cases {
+            let possibilities: Vec<String> = possibilities.iter().map(|s| s.to_string()).collect();
+            for (input, expected_suggestion, discussion) in cases {
+                let suggestion = did_you_mean(&possibilities, input);
+                assert_eq!(
+                    suggestion.as_deref(),
+                    expected_suggestion,
+                    "Expected the following reasoning to hold but it did not: '{}'",
+                    discussion
+                );
+            }
+        }
     }
 }

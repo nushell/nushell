@@ -54,6 +54,7 @@ nu-table = { path = "./crates/nu-table", version = "0.68.2"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.68.2"  }
 nu-utils = { path = "./crates/nu-utils", version = "0.68.2"  }
 reedline = { version = "0.11.0", features = ["bashisms", "sqlite"]}
+
 rayon = "1.5.1"
 is_executable = "1.0.1"
 simplelog = "0.12.0"
@@ -79,9 +80,9 @@ winres = "0.1"
 
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
+extra = ["default", "dataframe", "database"]
 default = ["plugin", "which-support", "trash-support"]
 stable = ["default"]
-extra = ["default", "dataframe", "database"]
 wasi = []
 # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl"]

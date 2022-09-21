@@ -4082,7 +4082,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.11.0"
-source = "git+https://github.com/nushell/reedline?branch=main#dc091e828590de6fd335af3f1d001ede851ac20a"
+source = "git+https://github.com/nushell/reedline?branch=main#710393a0375860709e368d0ba8c5883a6e44e673"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
@@ -4776,9 +4776,9 @@ dependencies = [
 
 [[package]]
 name = "sqlparser"
-version = "0.16.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e9a527b68048eb95495a1508f6c8395c8defcff5ecdbe8ad4106d08a2ef2a3c"
+checksum = "0beb13adabbdda01b63d595f38c8bfd19a361e697fd94ce0098a634077bc5b25"
 dependencies = [
  "log",
  "serde",
@@ -4967,9 +4967,15 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
+<<<<<<< HEAD
 version = "0.25.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71eb43e528fdc239f08717ec2a378fdb017dddbc3412de15fff527554591a66c"
+=======
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ae2421f3e16b3afd4aa692d23b83d0ba42ee9b0081d5deeb7d21428d7195fb1"
+>>>>>>> ad0c6bf7d587848399fab06595b026154e474752
 dependencies = [
  "cfg-if 1.0.0",
  "core-foundation-sys",
