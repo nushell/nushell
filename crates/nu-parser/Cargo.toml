@@ -8,6 +8,7 @@ name = "nu-parser"
 version = "0.68.2"
 
 [dependencies]
+bytesize = "1.1.0"
 chrono = "0.4.21"
 itertools = "0.10"
 miette = "5.1.0"
