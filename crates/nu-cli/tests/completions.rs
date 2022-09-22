@@ -47,7 +47,7 @@ fn variables_dollar_sign_with_varialblecompletion() {
 }
 
 #[rstest]
-fn variables_double_dash_argument_with_customcompletion(mut completer: NuCompleter) {
+fn variables_double_dash_argument_with_flagcompletion(mut completer: NuCompleter) {
     let suggestions = completer.complete("tst --", 6);
     let expected: Vec<String> = vec!["--help".into(), "--mod".into()];
     // dbg!(&expected, &suggestions);
@@ -55,14 +55,14 @@ fn variables_double_dash_argument_with_customcompletion(mut completer: NuComplet
 }
 
 #[rstest]
-fn variables_single_dash_argument_with_customcompletion(mut completer: NuCompleter) {
+fn variables_single_dash_argument_with_flagcompletion(mut completer: NuCompleter) {
     let suggestions = completer.complete("tst -", 5);
     let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
     match_suggestions(expected, suggestions);
 }
 
 #[rstest]
-fn variables_command_with_customcompletion(mut completer_strings: NuCompleter) {
+fn variables_command_with_commandcompletion(mut completer_strings: NuCompleter) {
     let suggestions = completer_strings.complete("my-command ", 9);
     let expected: Vec<String> = vec!["my-command".into()];
     match_suggestions(expected, suggestions);
