@@ -169,9 +169,10 @@ impl NuCompleter {
                             }
                         };
 
-                        // Parses the prefix
+                        // Parses the prefix. Completion should look up to the cursor position, not after.
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
-                        prefix.remove(pos - (flat.0.start - span_offset));
+                        let index = pos - (flat.0.start - span_offset);
+                        prefix.drain(index..);
 
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {
