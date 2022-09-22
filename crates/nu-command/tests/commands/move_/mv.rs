@@ -393,3 +393,61 @@ fn mv_directory_with_same_name() {
         assert!(actual.err.contains("Directory not empty"));
     })
 }
+
+#[test]
+// Test that changing the case of a file/directory name works;
+// this is an important edge case on Windows (and any other case-insensitive file systems).
+// We were bitten badly by this once: https://github.com/nushell/nushell/issues/6583
+fn mv_change_case_of_directory() {
+    Playground::setup("mv_change_case_of_directory", |dirs, sandbox| {
+        sandbox
+            .mkdir("somedir")
+            .with_files(vec![EmptyFile("somedir/somefile.txt")]);
+
+        let original_dir = String::from("somedir");
+        let new_dir = String::from("SomeDir");
+
+        nu!(
+            cwd: dirs.test(),
+            format!("mv {original_dir} {new_dir}")
+        );
+
+        // Doing this instead of `Path::exists()` because we need to check file existence in
+        // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
+        let files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
+            .unwrap()
+            .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(!files_in_test_directory.contains(&original_dir));
+        assert!(files_in_test_directory.contains(&new_dir));
+
+        assert!(files_exist_at(
+            vec!["somefile.txt",],
+            dirs.test().join(new_dir)
+        ));
+    })
+}
+
+#[test]
+fn mv_change_case_of_file() {
+    Playground::setup("mv_change_case_of_file", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("somefile.txt")]);
+
+        let original_file_name = String::from("somefile.txt");
+        let new_file_name = String::from("SomeFile.txt");
+
+        nu!(
+            cwd: dirs.test(),
+            format!("mv {original_file_name} {new_file_name}")
+        );
+
+        // Doing this instead of `Path::exists()` because we need to check file existence in
+        // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
+        let files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
+            .unwrap()
+            .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(!files_in_test_directory.contains(&original_file_name));
+        assert!(files_in_test_directory.contains(&new_file_name));
+    })
+}

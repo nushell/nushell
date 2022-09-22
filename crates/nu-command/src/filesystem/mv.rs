@@ -254,7 +254,7 @@ fn move_file(
     }
 
     let mut to = to;
-    if to.is_dir() {
+    if !from.is_dir() && to.is_dir() {
         let from_file_name = match from.file_name() {
             Some(name) => name,
             None => return Err(ShellError::DirectoryNotFound(to_span, None)),
