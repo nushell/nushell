@@ -49,6 +49,9 @@ pub enum SyntaxShape {
     /// A block is allowed, eg `{start this thing}`
     Block(Option<Vec<SyntaxShape>>),
 
+    /// A block is allowed, and the relative block contains source code.
+    BlockWithSource,
+
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table,
 
@@ -104,6 +107,7 @@ impl SyntaxShape {
         match self {
             SyntaxShape::Any => Type::Any,
             SyntaxShape::Block(_) => Type::Block,
+            SyntaxShape::BlockWithSource => Type::Block,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
             SyntaxShape::Custom(custom, _) => custom.to_type(),
@@ -157,6 +161,7 @@ impl Display for SyntaxShape {
             SyntaxShape::GlobPattern => write!(f, "glob"),
             SyntaxShape::ImportPattern => write!(f, "import"),
             SyntaxShape::Block(_) => write!(f, "block"),
+            SyntaxShape::BlockWithSource => write!(f, "block"),
             SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
             SyntaxShape::List(x) => write!(f, "list<{}>", x),

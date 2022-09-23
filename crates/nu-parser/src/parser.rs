@@ -3876,6 +3876,7 @@ pub fn parse_block_expression(
     let inner_span = Span { start, end };
 
     let source = working_set.get_span_contents(inner_span);
+    let source_vec = source.to_vec();
 
     let (output, err) = lex(source, start, &[], &[], false);
     error = error.or(err);
@@ -3986,7 +3987,13 @@ pub fn parse_block_expression(
     output.span = Some(span);
 
     working_set.exit_scope();
-
+    if let SyntaxShape::BlockWithSource = shape {
+        let source_code = String::from_utf8(source_vec);
+        match source_code {
+            Err(_) => error = Some(ParseError::NonUtf8(span)),
+            Ok(code) => output.source = Some(code),
+        }
+    }
     let block_id = working_set.add_block(output);
 
     (
@@ -4096,7 +4103,10 @@ pub fn parse_value(
                     return (expr, None);
                 }
             }
-            if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
+            if matches!(shape, SyntaxShape::Block(_))
+                || matches!(shape, SyntaxShape::Any)
+                || matches!(shape, SyntaxShape::BlockWithSource)
+            {
                 return parse_block_expression(working_set, shape, span, expand_aliases_denylist);
             } else if matches!(shape, SyntaxShape::Record) {
                 return parse_record(working_set, span, expand_aliases_denylist);
