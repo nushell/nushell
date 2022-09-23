@@ -276,43 +276,43 @@ pub fn mem(sys: &mut System, span: Span) -> Option<Value> {
 
     cols.push("total".into());
     vals.push(Value::Filesize {
-        val: total_mem as i64 * 1000,
+        val: total_mem as i64,
         span,
     });
 
     cols.push("free".into());
     vals.push(Value::Filesize {
-        val: free_mem as i64 * 1000,
+        val: free_mem as i64,
         span,
     });
 
     cols.push("used".into());
     vals.push(Value::Filesize {
-        val: used_mem as i64 * 1000,
+        val: used_mem as i64,
         span,
     });
 
     cols.push("available".into());
     vals.push(Value::Filesize {
-        val: avail_mem as i64 * 1000,
+        val: avail_mem as i64,
         span,
     });
 
     cols.push("swap total".into());
     vals.push(Value::Filesize {
-        val: total_swap as i64 * 1000,
+        val: total_swap as i64,
         span,
     });
 
     cols.push("swap free".into());
     vals.push(Value::Filesize {
-        val: free_swap as i64 * 1000,
+        val: free_swap as i64,
         span,
     });
 
     cols.push("swap used".into());
     vals.push(Value::Filesize {
-        val: used_swap as i64 * 1000,
+        val: used_swap as i64,
         span,
     });
 
