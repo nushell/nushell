@@ -18,7 +18,7 @@ impl Command for BlockSource {
             .required(
                 "block",
                 SyntaxShape::BlockWithSource,
-                "block with source code",
+                "the input block to get source code",
             )
             .category(Category::System)
     }
