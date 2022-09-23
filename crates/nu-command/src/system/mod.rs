@@ -1,4 +1,5 @@
 mod benchmark;
+mod block_source;
 mod complete;
 mod exec;
 mod nu_check;
@@ -14,6 +15,7 @@ mod sys;
 mod which_;
 
 pub use benchmark::Benchmark;
+pub use block_source::BlockSource;
 pub use complete::Complete;
 pub use exec::Exec;
 pub use nu_check::NuCheck;
