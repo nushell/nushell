@@ -48,7 +48,7 @@ impl Command for BlockSource {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Get source code from block { echo $x }",
+            description: "Get source code from block { echo 300 }",
             example: " bs { echo 300 } ",
             result: Some(Value::String {
                 val: " echo 300 ".to_string(),
