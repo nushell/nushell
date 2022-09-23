@@ -365,7 +365,7 @@ pub fn highlight_search_string(
     // strip haystack to remove existing ansi style
     let stripped_haystack: String = match strip_ansi_escapes::strip(haystack) {
         Ok(i) => String::from_utf8(i).unwrap_or_else(|_| String::from(haystack)),
-        Err(_) => String::from(haystack)
+        Err(_) => String::from(haystack),
     };
     let mut last_match_end = 0;
     let style = Style::new().fg(White).on(Red);
@@ -402,6 +402,10 @@ pub fn highlight_search_string(
         }
     }
 
-    highlighted.push_str(&string_style.paint(&stripped_haystack[last_match_end..]).to_string());
+    highlighted.push_str(
+        &string_style
+            .paint(&stripped_haystack[last_match_end..])
+            .to_string(),
+    );
     Ok(highlighted)
 }
