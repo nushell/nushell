@@ -8,7 +8,7 @@ use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShap
 use std::sync::Arc;
 
 struct Arguments {
-    pattern: String,
+    substring: String,
     column_paths: Vec<CellPath>,
 }
 
@@ -23,7 +23,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str starts-with")
-            .required("pattern", SyntaxShape::String, "the pattern to match")
+            .required("string", SyntaxShape::String, "the string to match")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -33,11 +33,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Check if string starts with a pattern"
+        "Check if an input starts with a string"
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pattern", "match", "find", "search"]
+        vec!["prefix", "match", "find", "search"]
     }
 
     fn run(
@@ -53,7 +53,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Checks if string starts with 'my' pattern",
+                description: "Checks if input string starts with 'my'",
                 example: "'my_library.rb' | str starts-with 'my'",
                 result: Some(Value::Bool {
                     val: true,
@@ -61,7 +61,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Checks if string starts with 'my' pattern",
+                description: "Checks if input string starts with 'my'",
                 example: "'Cargo.toml' | str starts-with 'Car'",
                 result: Some(Value::Bool {
                     val: true,
@@ -69,7 +69,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Checks if string starts with 'my' pattern",
+                description: "Checks if input string starts with 'my'",
                 example: "'Cargo.toml' | str starts-with '.toml'",
                 result: Some(Value::Bool {
                     val: false,
@@ -86,10 +86,10 @@ fn operate(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
+    let substring: Spanned<String> = call.req(engine_state, stack, 0)?;
 
     let options = Arc::new(Arguments {
-        pattern: pattern.item,
+        substring: substring.item,
         column_paths: call.rest(engine_state, stack, 1)?,
     });
     let head = call.head;
@@ -116,10 +116,10 @@ fn operate(
     )
 }
 
-fn action(input: &Value, Arguments { pattern, .. }: &Arguments, head: Span) -> Value {
+fn action(input: &Value, Arguments { substring, .. }: &Arguments, head: Span) -> Value {
     match input {
         Value::String { val: s, .. } => {
-            let starts_with = s.starts_with(pattern);
+            let starts_with = s.starts_with(substring);
             Value::Bool {
                 val: starts_with,
                 span: head,

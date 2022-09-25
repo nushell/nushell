@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 struct Arguments {
     end: bool,
-    pattern: String,
+    substring: String,
     range: Option<Value>,
     column_paths: Vec<CellPath>,
 }
@@ -27,15 +27,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str index-of")
-            .required(
-                "pattern",
-                SyntaxShape::String,
-                "the pattern to find index of",
-            )
+            .required("string", SyntaxShape::String, "the string to find index of")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally returns index of pattern in string by column paths",
+                "optionally returns index of string in input by column paths",
             )
             .named(
                 "range",
@@ -43,16 +39,16 @@ impl Command for SubCommand {
                 "optional start and/or end index",
                 Some('r'),
             )
-            .switch("end", "search from the end of the string", Some('e'))
+            .switch("end", "search from the end of the input", Some('e'))
             .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {
-        "Returns start index of first occurrence of pattern in string, or -1 if no match"
+        "Returns start index of first occurrence of string in input, or -1 if no match"
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pattern", "match", "find", "search"]
+        vec!["match", "find", "search"]
     }
 
     fn run(
@@ -68,22 +64,22 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Returns index of pattern in string",
+                description: "Returns index of string in input",
                 example: " 'my_library.rb' | str index-of '.rb'",
                 result: Some(Value::test_int(10)),
             },
             Example {
-                description: "Returns index of pattern in string with start index",
+                description: "Returns index of string in input with start index",
                 example: " '.rb.rb' | str index-of '.rb' -r '1,'",
                 result: Some(Value::test_int(3)),
             },
             Example {
-                description: "Returns index of pattern in string with end index",
+                description: "Returns index of string in input with end index",
                 example: " '123456' | str index-of '6' -r ',4'",
                 result: Some(Value::test_int(-1)),
             },
             Example {
-                description: "Returns index of pattern in string with start and end index",
+                description: "Returns index of string in input with start and end index",
                 example: " '123456' | str index-of '3' -r '1,4'",
                 result: Some(Value::test_int(2)),
             },
@@ -93,7 +89,7 @@ impl Command for SubCommand {
                 result: Some(Value::test_int(2)),
             },
             Example {
-                description: "Returns index of pattern in string",
+                description: "Returns index of string in input",
                 example: " '/this/is/some/path/file.txt' | str index-of '/' -e",
                 result: Some(Value::test_int(18)),
             },
@@ -107,10 +103,10 @@ fn operate(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
+    let substring: Spanned<String> = call.req(engine_state, stack, 0)?;
 
     let options = Arc::new(Arguments {
-        pattern: pattern.item,
+        substring: substring.item,
         range: call.get_flag(engine_state, stack, "range")?,
         end: call.has_flag("end"),
         column_paths: call.rest(engine_state, stack, 1)?,
@@ -142,7 +138,7 @@ fn operate(
 fn action(
     input: &Value,
     Arguments {
-        ref pattern,
+        ref substring,
         range,
         end,
         ..
@@ -167,7 +163,7 @@ fn action(
             };
 
             if *end {
-                if let Some(result) = s[start_index..end_index].rfind(&**pattern) {
+                if let Some(result) = s[start_index..end_index].rfind(&**substring) {
                     Value::Int {
                         val: result as i64 + start_index as i64,
                         span: head,
@@ -178,7 +174,7 @@ fn action(
                         span: head,
                     }
                 }
-            } else if let Some(result) = s[start_index..end_index].find(&**pattern) {
+            } else if let Some(result) = s[start_index..end_index].find(&**substring) {
                 Value::Int {
                     val: result as i64 + start_index as i64,
                     span: head,
@@ -292,7 +288,7 @@ mod tests {
         };
 
         let options = Arguments {
-            pattern: String::from(".tomL"),
+            substring: String::from(".tomL"),
 
             range: Some(Value::String {
                 val: String::from(""),
@@ -314,7 +310,7 @@ mod tests {
         };
 
         let options = Arguments {
-            pattern: String::from("Lm"),
+            substring: String::from("Lm"),
 
             range: Some(Value::String {
                 val: String::from(""),
@@ -337,7 +333,7 @@ mod tests {
         };
 
         let options = Arguments {
-            pattern: String::from("Cargo"),
+            substring: String::from("Cargo"),
 
             range: Some(Value::String {
                 val: String::from("1"),
@@ -359,7 +355,7 @@ mod tests {
         };
 
         let options = Arguments {
-            pattern: String::from("Banana"),
+            substring: String::from("Banana"),
 
             range: Some(Value::String {
                 val: String::from(",5"),
@@ -381,7 +377,7 @@ mod tests {
         };
 
         let options = Arguments {
-            pattern: String::from("123"),
+            substring: String::from("123"),
 
             range: Some(Value::String {
                 val: String::from("2,6"),
@@ -403,7 +399,7 @@ mod tests {
         };
 
         let options = Arguments {
-            pattern: String::from("1"),
+            substring: String::from("1"),
 
             range: Some(Value::String {
                 val: String::from("2,4"),
