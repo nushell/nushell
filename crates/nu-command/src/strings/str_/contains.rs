@@ -222,9 +222,11 @@ fn action(
             val: match case_insensitive {
                 true => {
                     if not_contain {
-                        !val.to_lowercase().contains(substring.to_lowercase().as_str())
+                        !val.to_lowercase()
+                            .contains(substring.to_lowercase().as_str())
                     } else {
-                        val.to_lowercase().contains(substring.to_lowercase().as_str())
+                        val.to_lowercase()
+                            .contains(substring.to_lowercase().as_str())
                     }
                 }
                 false => {
