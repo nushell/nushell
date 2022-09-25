@@ -149,7 +149,7 @@ fn can_source_dynamic_path() {
     Playground::setup("can_source_dynamic_path", |dirs, sandbox| {
         let foo_file = "foo.nu";
 
-        sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
+        sandbox.with_files(vec![FileWithContent(foo_file, "echo foo")]);
 
         let cmd = format!("let file = `{}`; source-env $file", foo_file);
         let actual = nu!(cwd: dirs.test(), &cmd);

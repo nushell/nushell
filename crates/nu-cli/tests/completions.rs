@@ -114,7 +114,7 @@ fn external_completer_trailing_space() {
     let block = "let external_completer = {|spans| $spans}";
     let input = "gh alias ".to_string();
 
-    let suggestions = run_external_completion(&block, &input);
+    let suggestions = run_external_completion(block, &input);
     assert_eq!(3, suggestions.len());
     assert_eq!("gh", suggestions.get(0).unwrap().value);
     assert_eq!("alias", suggestions.get(1).unwrap().value);
@@ -126,7 +126,7 @@ fn external_completer_no_trailing_space() {
     let block = "let external_completer = {|spans| $spans}";
     let input = "gh alias".to_string();
 
-    let suggestions = run_external_completion(&block, &input);
+    let suggestions = run_external_completion(block, &input);
     assert_eq!(2, suggestions.len());
     assert_eq!("gh", suggestions.get(0).unwrap().value);
     assert_eq!("alias", suggestions.get(1).unwrap().value);
@@ -137,7 +137,7 @@ fn external_completer_pass_flags() {
     let block = "let external_completer = {|spans| $spans}";
     let input = "gh api --".to_string();
 
-    let suggestions = run_external_completion(&block, &input);
+    let suggestions = run_external_completion(block, &input);
     assert_eq!(3, suggestions.len());
     assert_eq!("gh", suggestions.get(0).unwrap().value);
     assert_eq!("api", suggestions.get(1).unwrap().value);
@@ -637,7 +637,7 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     // Instatiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine_state), stack);
 
-    completer.complete(&input, input.len())
+    completer.complete(input, input.len())
 }
 
 #[test]

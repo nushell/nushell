@@ -289,7 +289,7 @@ proptest! {
     }
     #[test]
     fn to_nuon_from_nuon_string(s: String) {
-        if s != "\\0" && s!= "" && !s.contains('\\') && !s.contains('"'){
+        if s != "\\0" && !s.is_empty() && !s.contains('\\') && !s.contains('"'){
         let actual = nu!(
             cwd: "tests/fixtures/formats", pipeline(
                 format!(r#"
