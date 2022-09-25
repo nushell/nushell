@@ -2201,9 +2201,6 @@ pub fn parse_duration_bytes(bytes: &[u8], span: Span) -> Option<Expression> {
         (Unit::Hour, "HR", Some((Unit::Minute, 60))),
         (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
         (Unit::Week, "WK", Some((Unit::Day, 7))),
-        (Unit::Month, "MONTH", Some((Unit::Day, 30))), //30 day month
-        (Unit::Year, "YR", Some((Unit::Day, 365))),    //365 day year
-        (Unit::Decade, "DEC", Some((Unit::Year, 10))), //365 day years
     ];
     if let Some(unit) = unit_groups.iter().find(|&x| upper.ends_with(x.1)) {
         let mut lhs = token;
