@@ -339,10 +339,7 @@ fn duration_decimal_math_with_all_units() {
         "#
     ));
 
-    assert_eq!(
-        actual.out,
-        "1wk 3day 8hr 10min 16sec 121ms 11µs 12ns"
-    );
+    assert_eq!(actual.out, "1wk 3day 8hr 10min 16sec 121ms 11µs 12ns");
 }
 
 #[test]
