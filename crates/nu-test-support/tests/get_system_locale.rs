@@ -4,7 +4,7 @@ use num_format::Grouping;
 
 #[test]
 fn test_get_system_locale_en() {
-    let locale = with_locale_override("en_US.UTF-8", || get_system_locale());
+    let locale = with_locale_override("en_US.UTF-8", get_system_locale);
 
     assert_eq!(locale.name(), "en");
     assert_eq!(locale.grouping(), Grouping::Standard)
@@ -12,7 +12,7 @@ fn test_get_system_locale_en() {
 
 #[test]
 fn test_get_system_locale_de() {
-    let locale = with_locale_override("de_DE.UTF-8", || get_system_locale());
+    let locale = with_locale_override("de_DE.UTF-8", get_system_locale);
 
     assert_eq!(locale.name(), "de");
     assert_eq!(locale.grouping(), Grouping::Standard)
