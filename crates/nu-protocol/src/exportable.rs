@@ -1,7 +1,6 @@
-use crate::{AliasId, BlockId, DeclId};
+use crate::{AliasId, DeclId};
 
 pub enum Exportable {
     Decl { name: Vec<u8>, id: DeclId },
     Alias { name: Vec<u8>, id: AliasId },
-    EnvVar { name: Vec<u8>, id: BlockId },
 }

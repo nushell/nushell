@@ -10,7 +10,6 @@ use indexmap::IndexMap;
 pub struct Module {
     pub decls: IndexMap<Vec<u8>, DeclId>,
     pub aliases: IndexMap<Vec<u8>, AliasId>,
-    pub env_vars: IndexMap<Vec<u8>, BlockId>,
     pub env_block: Option<BlockId>,
     pub span: Option<Span>,
 }
@@ -20,7 +19,6 @@ impl Module {
         Module {
             decls: IndexMap::new(),
             aliases: IndexMap::new(),
-            env_vars: IndexMap::new(),
             env_block: None,
             span: None,
         }
@@ -30,7 +28,6 @@ impl Module {
         Module {
             decls: IndexMap::new(),
             aliases: IndexMap::new(),
-            env_vars: IndexMap::new(),
             env_block: None,
             span: Some(span),
         }
@@ -44,21 +41,17 @@ impl Module {
         self.aliases.insert(name, alias_id)
     }
 
-    pub fn add_env_var(&mut self, name: Vec<u8>, block_id: BlockId) -> Option<BlockId> {
-        self.env_vars.insert(name, block_id)
-    }
-
     pub fn add_env_block(&mut self, block_id: BlockId) {
         self.env_block = Some(block_id);
     }
 
     pub fn extend(&mut self, other: &Module) {
         self.decls.extend(other.decls.clone());
-        self.env_vars.extend(other.env_vars.clone());
+        self.aliases.extend(other.aliases.clone());
     }
 
     pub fn is_empty(&self) -> bool {
-        self.decls.is_empty() && self.env_vars.is_empty()
+        self.decls.is_empty() && self.aliases.is_empty()
     }
 
     pub fn get_decl_id(&self, name: &[u8]) -> Option<DeclId> {
@@ -164,44 +157,6 @@ impl Module {
 
     pub fn aliases(&self) -> Vec<(Vec<u8>, AliasId)> {
         self.aliases
-            .iter()
-            .map(|(name, id)| (name.clone(), *id))
-            .collect()
-    }
-
-    pub fn get_env_var_id(&self, name: &[u8]) -> Option<BlockId> {
-        self.env_vars.get(name).copied()
-    }
-
-    pub fn has_env_var(&self, name: &[u8]) -> bool {
-        self.env_vars.contains_key(name)
-    }
-
-    pub fn env_var_with_head(&self, name: &[u8], head: &[u8]) -> Option<(Vec<u8>, BlockId)> {
-        if let Some(id) = self.get_env_var_id(name) {
-            let mut new_name = head.to_vec();
-            new_name.push(b' ');
-            new_name.extend(name);
-            Some((new_name, id))
-        } else {
-            None
-        }
-    }
-
-    pub fn env_vars_with_head(&self, head: &[u8]) -> Vec<(Vec<u8>, BlockId)> {
-        self.env_vars
-            .iter()
-            .map(|(name, id)| {
-                let mut new_name = head.to_vec();
-                new_name.push(b' ');
-                new_name.extend(name);
-                (new_name, *id)
-            })
-            .collect()
-    }
-
-    pub fn env_vars(&self) -> Vec<(Vec<u8>, BlockId)> {
-        self.env_vars
             .iter()
             .map(|(name, id)| (name.clone(), *id))
             .collect()

@@ -114,7 +114,10 @@ fn hides_alias_in_scope_4() -> TestResult {
 
 #[test]
 fn hides_env_in_scope_1() -> TestResult {
-    fail_test(r#"let-env foo = "foo"; do { hide-env foo; $env.foo }"#, "")
+    fail_test(
+        r#"let-env foo = "foo"; do { hide-env foo; $env.foo }"#,
+        "cannot find column",
+    )
 }
 
 #[test]
@@ -173,6 +176,7 @@ fn hide_env_twice_allowed() -> TestResult {
 }
 
 #[test]
+#[ignore = "Re-enable after virtualenv update"]
 fn hides_def_runs_env_1() -> TestResult {
     run_test(
         r#"let-env foo = "bar"; def foo [] { "foo" }; hide foo; $env.foo"#,
@@ -181,6 +185,7 @@ fn hides_def_runs_env_1() -> TestResult {
 }
 
 #[test]
+#[ignore = "Re-enable after virtualenv update"]
 fn hides_def_runs_env_2() -> TestResult {
     run_test(
         r#"def foo [] { "foo" }; let-env foo = "bar"; hide foo; $env.foo"#,
@@ -327,58 +332,16 @@ fn hides_alias_import_then_reimports() -> TestResult {
 #[test]
 fn hides_env_import_1() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam; hide-env 'spam foo'; $env.'spam foo'"#,
+        r#"module spam { export-env { let-env foo = "foo" } }; use spam; hide-env foo; $env.foo"#,
         "",
     )
 }
 
 #[test]
-#[ignore]
-fn hides_env_import_2() -> TestResult {
-    fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam; hide-env spam; $env.'spam foo'"#,
-        "",
-    )
-}
-
-#[test]
-#[ignore]
-fn hides_env_import_3() -> TestResult {
-    fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam; hide-env spam [foo]; $env.'spam foo'"#,
-        "",
-    )
-}
-
-#[test]
-fn hides_env_import_4() -> TestResult {
-    fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam foo; hide-env foo; $env.foo"#,
-        "",
-    )
-}
-
-#[test]
-fn hides_env_import_5() -> TestResult {
-    fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam *; hide-env foo; $env.foo"#,
-        "",
-    )
-}
-
-#[test]
-#[ignore]
-fn hides_env_import_6() -> TestResult {
-    fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam *; hide-env spam *; $env.foo"#,
-        "",
-    )
-}
-
-#[test]
+#[ignore = "Re-enable after virtualenv update"]
 fn hides_def_runs_env_import() -> TestResult {
     run_test(
-        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use spam foo; hide foo; $env.foo"#,
+        r#"module spam { export-env { let-env foo = "foo" }; export def foo [] { "bar" } }; use spam foo; hide foo; $env.foo"#,
         "foo",
     )
 }
@@ -386,16 +349,8 @@ fn hides_def_runs_env_import() -> TestResult {
 #[test]
 fn hides_def_and_env_import_1() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use spam foo; hide foo; hide-env foo; $env.foo"#,
+        r#"module spam { export-env { let-env foo = "foo" }; export def foo [] { "bar" } }; use spam foo; hide foo; hide-env foo; $env.foo"#,
         "",
-    )
-}
-
-#[test]
-fn hides_def_and_env_import_2() -> TestResult {
-    fail_test(
-        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use spam foo; hide foo; hide-env foo; foo"#,
-        "", // we just care if it errors
     )
 }
 
@@ -410,7 +365,7 @@ fn use_def_import_after_hide() -> TestResult {
 #[test]
 fn use_env_import_after_hide() -> TestResult {
     run_test(
-        r#"module spam { export env foo { "foo" } }; use spam foo; hide-env foo; use spam foo; $env.foo"#,
+        r#"module spam { export-env { let-env foo = "foo" } }; use spam; hide-env foo; use spam; $env.foo"#,
         "foo",
     )
 }
@@ -426,7 +381,7 @@ fn hide_shadowed_decl() -> TestResult {
 #[test]
 fn hide_shadowed_env() -> TestResult {
     run_test(
-        r#"module spam { export env foo { "bar" } }; let-env foo = "foo"; do { use spam foo; hide-env foo; $env.foo }"#,
+        r#"module spam { export-env { let-env foo = "bar" } }; let-env foo = "foo"; do { use spam; hide-env foo; $env.foo }"#,
         "foo",
     )
 }
@@ -442,7 +397,7 @@ fn hides_all_decls_within_scope() -> TestResult {
 #[test]
 fn hides_all_envs_within_scope() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "bar" } }; let-env foo = "foo"; use spam foo; hide-env foo; $env.foo"#,
+        r#"module spam { export-env { let-env foo = "bar" } }; let-env foo = "foo"; use spam; hide-env foo; $env.foo"#,
         "",
     )
 }

@@ -19,9 +19,9 @@ use crate::{
     lex, lite_parse,
     lite_parse::LiteCommand,
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, parse, parse_block_expression,
-        parse_internal_call, parse_multispan_value, parse_signature, parse_string,
-        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
+        check_call, check_name, garbage, garbage_pipeline, parse, parse_internal_call,
+        parse_multispan_value, parse_signature, parse_string, parse_var_with_opt_type, trim_quotes,
+        ParsedInternalCall,
     },
     unescape_unquote_string, ParseError,
 };
@@ -1093,94 +1093,6 @@ pub fn parse_export_in_module(
 
                 exportables
             }
-            b"env" => {
-                if let Some(id) = working_set.find_decl(b"export env", &Type::Any) {
-                    call.decl_id = id;
-                } else {
-                    return (
-                        garbage_pipeline(spans),
-                        vec![],
-                        Some(ParseError::InternalError(
-                            "missing 'export env' command".into(),
-                            export_span,
-                        )),
-                    );
-                }
-
-                let sig = working_set.get_decl(call.decl_id);
-                let call_signature = sig.signature().call_signature();
-
-                call.head = span(&spans[0..=1]);
-
-                let mut result = vec![];
-
-                if let Some(name_span) = spans.get(2) {
-                    let (name_expr, err) =
-                        parse_string(working_set, *name_span, expand_aliases_denylist);
-                    error = error.or(err);
-                    call.add_positional(name_expr);
-
-                    let env_var_name = working_set.get_span_contents(*name_span).to_vec();
-
-                    if let Some(block_span) = spans.get(3) {
-                        let (block_expr, err) = parse_block_expression(
-                            working_set,
-                            &SyntaxShape::Block(None),
-                            *block_span,
-                            expand_aliases_denylist,
-                        );
-                        error = error.or(err);
-
-                        if let Expression {
-                            expr: Expr::Block(block_id),
-                            ..
-                        } = block_expr
-                        {
-                            result.push(Exportable::EnvVar {
-                                name: env_var_name,
-                                id: block_id,
-                            });
-                        } else {
-                            error = error.or_else(|| {
-                                Some(ParseError::InternalError(
-                                    "block was not parsed as a block".into(),
-                                    *block_span,
-                                ))
-                            });
-                        }
-
-                        call.add_positional(block_expr);
-                    } else {
-                        let err_span = Span {
-                            start: name_span.end,
-                            end: name_span.end,
-                        };
-
-                        error = error.or_else(|| {
-                            Some(ParseError::MissingPositional(
-                                "block".into(),
-                                err_span,
-                                call_signature,
-                            ))
-                        });
-                    }
-                } else {
-                    let err_span = Span {
-                        start: kw_span.end,
-                        end: kw_span.end,
-                    };
-
-                    error = error.or_else(|| {
-                        Some(ParseError::MissingPositional(
-                            "environment variable name".into(),
-                            err_span,
-                            call_signature,
-                        ))
-                    });
-                }
-
-                result
-            }
             _ => {
                 error = error.or_else(|| {
                     Some(ParseError::Expected(
@@ -1345,7 +1257,6 @@ pub fn parse_module_block(
     error = error.or(err);
 
     for pipeline in &output.block {
-        // TODO: Should we add export env predecls as well?
         if pipeline.commands.len() == 1 {
             parse_def_predecl(
                 working_set,
@@ -1413,9 +1324,6 @@ pub fn parse_module_block(
                                     }
                                     Exportable::Alias { name, id } => {
                                         module.add_alias(name, id);
-                                    }
-                                    Exportable::EnvVar { name, id } => {
-                                        module.add_env_var(name, id);
                                     }
                                 }
                             }
@@ -1820,7 +1728,7 @@ pub fn parse_use(
                     decl_output.push((name.clone(), id));
                 } else if let Some(id) = module.get_alias_id(name) {
                     alias_output.push((name.clone(), id));
-                } else if !module.has_env_var(name) {
+                } else {
                     error = error.or(Some(ParseError::ExportNotFound(*span)))
                 }
 
@@ -1835,7 +1743,7 @@ pub fn parse_use(
                         decl_output.push((name.clone(), id));
                     } else if let Some(id) = module.get_alias_id(name) {
                         alias_output.push((name.clone(), id));
-                    } else if !module.has_env_var(name) {
+                    } else {
                         error = error.or(Some(ParseError::ExportNotFound(*span)));
                         break;
                     }
@@ -2036,7 +1944,7 @@ pub fn parse_hide(
                         module.decl_name_with_head(name, &import_pattern.head.name)
                     {
                         decls.push(item);
-                    } else if !module.has_env_var(name) {
+                    } else {
                         error = error.or(Some(ParseError::ExportNotFound(*span)));
                     }
 
@@ -2055,7 +1963,7 @@ pub fn parse_hide(
                             module.decl_name_with_head(name, &import_pattern.head.name)
                         {
                             decls.push(item);
-                        } else if !module.has_env_var(name) {
+                        } else {
                             error = error.or(Some(ParseError::ExportNotFound(*span)));
                             break;
                         }
