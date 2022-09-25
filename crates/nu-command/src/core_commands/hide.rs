@@ -1,8 +1,7 @@
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    did_you_mean, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -60,28 +59,7 @@ This command is a parser keyword. For details, check:
             ));
         };
 
-        if stack
-            .remove_env_var(engine_state, &env_var_name.item)
-            .is_none()
-        {
-            let all_names: Vec<String> = stack
-                .get_env_var_names(engine_state)
-                .iter()
-                .cloned()
-                .collect();
-            if let Some(closest_match) = did_you_mean(&all_names, &env_var_name.item) {
-                return Err(ShellError::DidYouMeanCustom(
-                    format!("Environment variable '{}' not found", env_var_name.item),
-                    closest_match,
-                    env_var_name.span,
-                ));
-            } else {
-                return Err(ShellError::EnvVarNotFoundAtRuntime(
-                    env_var_name.item,
-                    env_var_name.span,
-                ));
-            }
-        }
+        stack.remove_env_var(engine_state, &env_var_name.item);
 
         Ok(PipelineData::new(call.head))
     }

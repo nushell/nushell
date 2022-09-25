@@ -116,7 +116,7 @@ fn hides_alias_in_scope_4() -> TestResult {
 fn hides_env_in_scope_1() -> TestResult {
     fail_test(
         r#"let-env foo = "foo"; do { hide-env foo; $env.foo }"#,
-        "did you mean",
+        "cannot find column",
     )
 }
 
@@ -176,6 +176,7 @@ fn hide_env_twice_allowed() -> TestResult {
 }
 
 #[test]
+#[ignore = "Re-enable after virtualenv update"]
 fn hides_def_runs_env_1() -> TestResult {
     run_test(
         r#"let-env foo = "bar"; def foo [] { "foo" }; hide foo; $env.foo"#,
@@ -184,6 +185,7 @@ fn hides_def_runs_env_1() -> TestResult {
 }
 
 #[test]
+#[ignore = "Re-enable after virtualenv update"]
 fn hides_def_runs_env_2() -> TestResult {
     run_test(
         r#"def foo [] { "foo" }; let-env foo = "bar"; hide foo; $env.foo"#,
@@ -336,6 +338,7 @@ fn hides_env_import_1() -> TestResult {
 }
 
 #[test]
+#[ignore = "Re-enable after virtualenv update"]
 fn hides_def_runs_env_import() -> TestResult {
     run_test(
         r#"module spam { export-env { let-env foo = "foo" }; export def foo [] { "bar" } }; use spam foo; hide foo; $env.foo"#,
