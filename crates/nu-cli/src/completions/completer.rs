@@ -422,7 +422,7 @@ fn search_alias(input: &[u8], working_set: &StateWorkingSet) -> Option<MatchedAl
     }
     // Push the rest to names vector.
     if pos < input.len() {
-        vec_names.push((&input[pos..]).to_owned());
+        vec_names.push(input[pos..].to_owned());
     }
 
     for name in &vec_names {

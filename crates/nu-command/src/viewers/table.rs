@@ -357,10 +357,7 @@ fn convert_to_table(
 
         // The header with the INDEX is removed from the table headers since
         // it is added to the natural table index
-        headers = headers
-            .into_iter()
-            .filter(|header| header != INDEX_COLUMN_NAME)
-            .collect();
+        headers.retain(|header| header != INDEX_COLUMN_NAME);
 
         // Vec of Vec of String1, String2 where String1 is datatype and String2 is value
         let mut data: Vec<Vec<(String, String)>> = Vec::new();
@@ -408,7 +405,7 @@ fn convert_to_table(
 
                     match result {
                         Ok(value) => row.push((
-                            (&value.get_type()).to_string(),
+                            value.get_type().to_string(),
                             value.into_abbreviated_string(config),
                         )),
                         Err(_) => row.push(("empty".to_string(), "❎".into())),
