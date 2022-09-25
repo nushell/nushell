@@ -54,6 +54,7 @@ nu-table = { path = "./crates/nu-table", version = "0.68.2"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.68.2"  }
 nu-utils = { path = "./crates/nu-utils", version = "0.68.2"  }
 reedline = { version = "0.11.0", features = ["bashisms", "sqlite"]}
+
 rayon = "1.5.1"
 is_executable = "1.0.1"
 simplelog = "0.12.0"

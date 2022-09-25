@@ -2738,6 +2738,7 @@ dependencies = [
  "rstest",
  "rusqlite",
  "rust-embed",
+ "same-file",
  "serde",
  "serde_ini",
  "serde_urlencoded",
@@ -4079,7 +4080,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.11.0"
-source = "git+https://github.com/nushell/reedline?branch=main#dc091e828590de6fd335af3f1d001ede851ac20a"
+source = "git+https://github.com/nushell/reedline?branch=main#710393a0375860709e368d0ba8c5883a6e44e673"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
