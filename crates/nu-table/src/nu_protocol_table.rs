@@ -1,20 +1,57 @@
-use nu_protocol::{Config, Span, Value};
+use std::collections::HashMap;
 
-pub(crate) fn nu_protocol_value_to_json(value: Value) -> serde_json::Value {
+use nu_protocol::{Config, Span, Value};
+use tabled::{color::Color, papergrid::records::Records, Table};
+
+use crate::{table::TrimStrategyModifier, TableTheme};
+
+/// NuTable has a recursive table representation of nu_prorocol::Value.
+/// 
+/// It doesn't support alignement and width controll.
+pub struct NuTable {
+    inner: tabled::Table,
+}
+
+impl NuTable {
+    pub fn new(
+        value: Value,
+        config: &Config,
+        color_hm: &HashMap<String, nu_ansi_term::Style>,
+        theme: &TableTheme,
+        collapse: bool,
+        termwidth: usize,
+    ) -> Self {
+        let mut table = tabled::Table::new([""]);
+        load_theme(&mut table, color_hm, theme);
+        let cfg = table.get_config().clone();
+
+        let val = crate::nu_protocol_table::nu_protocol_value_to_json(value, config);
+        let mut table = json_to_table::json_to_table(&val);
+        table.set_config(cfg);
+
+        if collapse {
+            table.collapse();
+        }
+
+        let mut table: Table<_> = table.into();
+        table.with(TrimStrategyModifier::new(termwidth, &config.trim_strategy));
+
+        println!("{} {}", termwidth, table.total_width());
+
+        Self { inner: table }
+    }
+
+    pub fn draw(&self) -> Option<String> {
+        Some(self.inner.to_string())
+    }
+}
+
+fn nu_protocol_value_to_json(value: Value, config: &Config) -> serde_json::Value {
     match value {
-        Value::Bool { val, .. } => serde_json::Value::Bool(val),
-        Value::Int { val, .. } => serde_json::Value::Number(val.into()),
-        Value::Float { val, .. } => serde_json::Value::String(val.to_string()),
-        Value::Filesize { val, .. } => serde_json::Value::Number(val.into()),
-        Value::Duration { val, .. } => serde_json::Value::Number(val.into()),
-        Value::Date { val, .. } => serde_json::Value::String(val.to_string()),
-        Value::Error { error } => serde_json::Value::String(error.to_string()),
-        Value::Range { .. } => todo!(),
-        Value::String { val, .. } => serde_json::Value::String(val),
         Value::Record { cols, vals, .. } => {
             let mut map = serde_json::Map::new();
             for (key, value) in cols.into_iter().zip(vals) {
-                let val = nu_protocol_value_to_json(value);
+                let val = nu_protocol_value_to_json(value, config);
                 map.insert(key, val);
             }
 
@@ -45,16 +82,17 @@ pub(crate) fn nu_protocol_value_to_json(value: Value) -> serde_json::Value {
                 if cols.len() > 1 {
                     let mut arr = vec![];
 
-                    let head = build_map(cols.iter().map(|s| Value::String {
+                    let cols = cols.iter().map(|s| Value::String {
                         val: s.to_owned(),
                         span: Span::new(0, 0),
-                    }));
+                    });
+                    let head = build_map(cols, config);
 
                     arr.push(serde_json::Value::Object(head));
 
                     for value in &vals {
                         if let Ok((_, vals)) = value.as_record() {
-                            let vals = build_map(vals.iter().cloned());
+                            let vals = build_map(vals.iter().cloned(), config);
 
                             let mut map = serde_json::Map::new();
                             connect_maps(&mut map, serde_json::Value::Object(vals));
@@ -73,10 +111,11 @@ pub(crate) fn nu_protocol_value_to_json(value: Value) -> serde_json::Value {
                     map.push(cols);
                     for value in vals {
                         if let Value::Record { vals, .. } = value {
-                            let val = nu_protocol_value_to_json(Value::List {
+                            let list = Value::List {
                                 vals,
                                 span: Span::new(0, 0),
-                            }); // rebuild array as a map
+                            };
+                            let val = nu_protocol_value_to_json(list, config); // rebuild array as a map
 
                             map.push(val);
                         }
@@ -88,22 +127,19 @@ pub(crate) fn nu_protocol_value_to_json(value: Value) -> serde_json::Value {
 
             let mut map = Vec::new();
             for value in vals {
-                let val = nu_protocol_value_to_json(value);
+                let val = nu_protocol_value_to_json(value, config);
                 map.push(val);
             }
 
             serde_json::Value::Array(map)
         }
-        Value::Block { .. } => todo!(),
-        Value::Nothing { .. } => todo!(),
-        Value::Binary { .. } => todo!(),
-        Value::CellPath { .. } => todo!(),
-        Value::CustomValue { .. } => todo!(),
+        val => serde_json::Value::String(val.into_abbreviated_string(config)),
     }
 }
 
 fn build_map(
     values: impl Iterator<Item = Value> + DoubleEndedIterator,
+    config: &Config,
 ) -> serde_json::Map<String, serde_json::Value> {
     let mut map = serde_json::Map::new();
     let mut last_val: Option<Value> = None;
@@ -112,7 +148,7 @@ fn build_map(
             match last_val.take() {
                 Some(prev_val) => {
                     let col = val.into_abbreviated_string(&Config::default());
-                    let prev = nu_protocol_value_to_json(prev_val);
+                    let prev = nu_protocol_value_to_json(prev_val, config);
                     map.insert(col, prev);
                 }
                 None => {
@@ -146,6 +182,26 @@ fn connect_maps(map: &mut serde_json::Map<String, serde_json::Value>, value: ser
             } else {
                 map.insert(key, value);
             }
+        }
+    }
+}
+
+fn load_theme<R>(
+    table: &mut tabled::Table<R>,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    theme: &TableTheme,
+) where
+    R: Records,
+{
+    let mut theme = theme.theme.clone();
+    theme.set_horizontals(HashMap::default());
+
+    table.with(theme);
+
+    if let Some(color) = color_hm.get("separator") {
+        let color = color.paint(" ").to_string();
+        if let Ok(color) = Color::try_from(color) {
+            table.with(color);
         }
     }
 }

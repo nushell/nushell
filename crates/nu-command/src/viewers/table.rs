@@ -214,13 +214,7 @@ impl Command for Table {
 
                         let collapse = matches!(table_view, TableView::Collapsed);
                         let table = nu_table::NuTable::new(
-                            value,
-                            config,
-                            &color_hm,
-                            Alignments::default(),
-                            &theme,
-                            collapse,
-                            term_width,
+                            value, config, &color_hm, &theme, collapse, term_width,
                         );
 
                         table.draw().unwrap_or_else(|| {
@@ -322,7 +316,7 @@ fn handle_row_stream(
                             if cols[idx] == "name" {
                                 if let Some(Value::String { val: path, span }) = vals.get(idx) {
                                     if let Some(val) =
-                                        render_path_name(path, &config, &ls_colors, *span)
+                                        render_path_name(&path, &config, &ls_colors, *span)
                                     {
                                         vals[idx] = val;
                                     }
@@ -640,14 +634,13 @@ impl Iterator for PagingTableCreator {
 
             let color_hm = get_color_config(&self.config);
             let theme = load_theme_from_config(&self.config);
-            let term_width = usize::MAX;
+            let term_width = get_width_param(self.width_param);
 
             let collapse = matches!(self.view, TableView::Collapsed);
             let table = nu_table::NuTable::new(
                 value,
                 &self.config,
                 &color_hm,
-                Alignments::default(),
                 &theme,
                 collapse,
                 term_width,

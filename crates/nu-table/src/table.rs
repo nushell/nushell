@@ -9,49 +9,15 @@ use tabled::{
     object::{Cell, Columns, Rows, Segment},
     papergrid::{
         self,
-        records::{cell_info::CellInfo, tcell::TCell, vec_records::VecRecords, Records},
+        records::{
+            cell_info::CellInfo, tcell::TCell, vec_records::VecRecords, Records, RecordsMut,
+        },
         width::CfgWidthFunction,
     },
     Alignment, Modify, ModifyObject, TableOption, Width,
 };
 
 use crate::{table_theme::TableTheme, TextStyle};
-
-pub struct NuTable {
-    inner: tabled::Table,
-}
-
-impl NuTable {
-    pub fn new(
-        value: Value,
-        _config: &Config,
-        color_hm: &HashMap<String, nu_ansi_term::Style>,
-        _alignments: Alignments,
-        theme: &TableTheme,
-        collapse: bool,
-        _termwidth: usize,
-    ) -> Self {
-        let mut table = tabled::Table::new([""]);
-        load_theme(&mut table, color_hm, theme, true, true);
-        let cfg = table.get_config().clone();
-
-        let val = crate::nu_protocol_table::nu_protocol_value_to_json(value);
-        let mut table = json_to_table::json_to_table(&val);
-        table.set_config(cfg);
-
-        if collapse {
-            table.collapse();
-        }
-
-        let table = table.into();
-
-        Self { inner: table }
-    }
-
-    pub fn draw(&self) -> Option<String> {
-        Some(self.inner.to_string())
-    }
-}
 
 /// Table represent a table view.
 #[derive(Debug)]
@@ -104,9 +70,9 @@ impl Table {
 
 #[derive(Debug)]
 pub struct Alignments {
-    data: AlignmentHorizontal,
-    index: AlignmentHorizontal,
-    header: AlignmentHorizontal,
+    pub(crate) data: AlignmentHorizontal,
+    pub(crate) index: AlignmentHorizontal,
+    pub(crate) header: AlignmentHorizontal,
 }
 
 impl Default for Alignments {
@@ -294,10 +260,7 @@ fn table_trim_columns(
     termwidth: usize,
     trim_strategy: &TrimStrategy,
 ) {
-    table.with(TrimStrategyModifier {
-        termwidth,
-        trim_strategy,
-    });
+    table.with(TrimStrategyModifier::new(termwidth, trim_strategy));
 }
 
 pub struct TrimStrategyModifier<'a> {
@@ -305,8 +268,20 @@ pub struct TrimStrategyModifier<'a> {
     trim_strategy: &'a TrimStrategy,
 }
 
-impl tabled::TableOption<Data> for TrimStrategyModifier<'_> {
-    fn change(&mut self, table: &mut tabled::Table<Data>) {
+impl<'a> TrimStrategyModifier<'a> {
+    pub fn new(termwidth: usize, trim_strategy: &'a TrimStrategy) -> Self {
+        Self {
+            termwidth,
+            trim_strategy,
+        }
+    }
+}
+
+impl<R> tabled::TableOption<R> for TrimStrategyModifier<'_>
+where
+    R: Records + RecordsMut<String>,
+{
+    fn change(&mut self, table: &mut tabled::Table<R>) {
         match self.trim_strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
                 let mut w = Width::wrap(self.termwidth).priority::<tabled::peaker::PriorityMax>();
