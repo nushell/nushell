@@ -1822,6 +1822,12 @@ impl Value {
                     span,
                 })
             }
+            (Value::Float { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Duration {
+                    val: (*lhs * *rhs as f64) as i64,
+                    span,
+                })
+            }
             (Value::CustomValue { val: lhs, span }, rhs) => {
                 lhs.operation(*span, Operator::Multiply, op, rhs)
             }

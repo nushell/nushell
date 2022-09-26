@@ -108,6 +108,7 @@ pub fn math_result_type(
                 (Type::Duration, Type::Int) => (Type::Duration, None),
                 (Type::Int, Type::Duration) => (Type::Duration, None),
                 (Type::Duration, Type::Float) => (Type::Duration, None),
+                (Type::Float, Type::Duration) => (Type::Duration, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
