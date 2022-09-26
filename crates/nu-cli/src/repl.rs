@@ -662,9 +662,7 @@ pub fn eval_string_with_input(
         (output, working_set.render())
     };
 
-    if let Err(err) = engine_state.merge_delta(delta) {
-        return Err(err);
-    }
+    engine_state.merge_delta(delta)?;
 
     let input_as_pipeline_data = match input {
         Some(input) => PipelineData::Value(input, None),

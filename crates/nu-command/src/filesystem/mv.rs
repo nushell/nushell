@@ -154,10 +154,7 @@ impl Command for Mv {
         }
 
         if let Some(Ok(_filename)) = some_if_source_is_destination {
-            sources = sources
-                .into_iter()
-                .filter(|f| matches!(f, Ok(f) if !destination.starts_with(f)))
-                .collect();
+            sources.retain(|f| matches!(f, Ok(f) if !destination.starts_with(f)));
         }
 
         let span = call.head;
