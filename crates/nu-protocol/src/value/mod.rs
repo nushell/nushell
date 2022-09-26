@@ -1676,6 +1676,7 @@ impl Value {
             }),
         }
     }
+
     pub fn sub(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -1754,6 +1755,7 @@ impl Value {
             }),
         }
     }
+
     pub fn mul(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -1814,6 +1816,12 @@ impl Value {
                     span,
                 })
             }
+            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::Duration {
+                    val: (*lhs as f64 * *rhs) as i64,
+                    span,
+                })
+            }
             (Value::CustomValue { val: lhs, span }, rhs) => {
                 lhs.operation(*span, Operator::Multiply, op, rhs)
             }
@@ -1827,6 +1835,7 @@ impl Value {
             }),
         }
     }
+
     pub fn div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -1879,13 +1888,13 @@ impl Value {
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if *rhs != 0 {
                     if lhs % rhs == 0 {
-                        Ok(Value::Int {
+                        Ok(Value::Filesize {
                             val: lhs / rhs,
                             span,
                         })
                     } else {
-                        Ok(Value::Float {
-                            val: (*lhs as f64) / (*rhs as f64),
+                        Ok(Value::Filesize {
+                            val: ((*lhs as f64) / (*rhs as f64)) as i64,
                             span,
                         })
                     }
@@ -1896,7 +1905,7 @@ impl Value {
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
                     Ok(Value::Filesize {
-                        val: lhs / rhs,
+                        val: ((*lhs as f64) / (*rhs as f64)) as i64,
                         span,
                     })
                 } else {
@@ -1916,13 +1925,13 @@ impl Value {
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if *rhs != 0 {
                     if lhs % rhs == 0 {
-                        Ok(Value::Int {
+                        Ok(Value::Duration {
                             val: lhs / rhs,
                             span,
                         })
                     } else {
-                        Ok(Value::Float {
-                            val: (*lhs as f64) / (*rhs as f64),
+                        Ok(Value::Duration {
+                            val: ((*lhs as f64) / (*rhs as f64)) as i64,
                             span,
                         })
                     }
@@ -1933,7 +1942,17 @@ impl Value {
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
                     Ok(Value::Duration {
-                        val: lhs / rhs,
+                        val: ((*lhs as f64) / (*rhs as f64)) as i64,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::Duration {
+                        val: ((*lhs as f64) / rhs) as i64,
                         span,
                     })
                 } else {
@@ -1953,6 +1972,7 @@ impl Value {
             }),
         }
     }
+
     pub fn floor_div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2023,7 +2043,10 @@ impl Value {
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
                     Ok(Value::Filesize {
-                        val: lhs / rhs,
+                        val: ((*lhs as f64) / (*rhs as f64))
+                            .max(std::i64::MIN as f64)
+                            .min(std::i64::MAX as f64)
+                            .floor() as i64,
                         span,
                     })
                 } else {
@@ -2033,7 +2056,7 @@ impl Value {
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
                     Ok(Value::Filesize {
-                        val: (*lhs as f64 / *rhs as f64)
+                        val: (*lhs as f64 / *rhs)
                             .max(std::i64::MIN as f64)
                             .min(std::i64::MAX as f64)
                             .floor() as i64,
@@ -2045,7 +2068,7 @@ impl Value {
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
+                    Ok(Value::Duration {
                         val: (*lhs as f64 / *rhs as f64)
                             .max(std::i64::MIN as f64)
                             .min(std::i64::MAX as f64)
@@ -2059,7 +2082,23 @@ impl Value {
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
                     Ok(Value::Duration {
-                        val: lhs / rhs,
+                        val: (*lhs as f64 / *rhs as f64)
+                            .max(std::i64::MIN as f64)
+                            .min(std::i64::MAX as f64)
+                            .floor() as i64,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::Duration {
+                        val: (*lhs as f64 / *rhs)
+                            .max(std::i64::MIN as f64)
+                            .min(std::i64::MAX as f64)
+                            .floor() as i64,
                         span,
                     })
                 } else {
@@ -2079,6 +2118,7 @@ impl Value {
             }),
         }
     }
+
     pub fn lt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::LessThan, op, rhs);
@@ -2105,6 +2145,7 @@ impl Value {
             }),
         }
     }
+
     pub fn lte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::LessThanOrEqual, op, rhs);
@@ -2131,6 +2172,7 @@ impl Value {
             }),
         }
     }
+
     pub fn gt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::GreaterThan, op, rhs);
@@ -2157,6 +2199,7 @@ impl Value {
             }),
         }
     }
+
     pub fn gte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::GreaterThanOrEqual, op, rhs);
@@ -2183,6 +2226,7 @@ impl Value {
             }),
         }
     }
+
     pub fn eq(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::Equal, op, rhs);
@@ -2207,6 +2251,7 @@ impl Value {
             },
         }
     }
+
     pub fn ne(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
             return lhs.operation(*span, Operator::NotEqual, op, rhs);
