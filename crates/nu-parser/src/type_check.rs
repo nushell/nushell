@@ -189,7 +189,7 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Int, None),
                 (Type::Int, Type::Float) => (Type::Int, None),
                 (Type::Float, Type::Float) => (Type::Int, None),
-                (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
+                (Type::Filesize, Type::Filesize) => (Type::Int, None),
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
                 (Type::Filesize, Type::Float) => (Type::Filesize, None),
                 (Type::Duration, Type::Duration) => (Type::Int, None),
