@@ -672,3 +672,17 @@ fn unknown_command_completion() {
 
     match_suggestions(expected_paths, suggestions)
 }
+
+#[rstest]
+fn flagcompletion_triggers_after_cursor(mut completer: NuCompleter) {
+    let suggestions = completer.complete("tst -h", 5);
+    let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn customcompletion_triggers_after_cursor(mut completer_strings: NuCompleter) {
+    let suggestions = completer_strings.complete("my-command c", 11);
+    let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(expected, suggestions);
+}
