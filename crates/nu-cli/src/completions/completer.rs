@@ -123,7 +123,8 @@ impl NuCompleter {
         let offset = working_set.next_span_start();
         let (mut new_line, alias_offset) = try_find_alias(line.as_bytes(), &working_set);
         let initial_line = line.to_string();
-        new_line.push(b'a');
+        let alias_total_offset: usize = alias_offset.iter().sum();
+        new_line.insert(alias_total_offset + pos, b'a');
         let pos = offset + pos;
         let config = self.engine_state.get_config();
 

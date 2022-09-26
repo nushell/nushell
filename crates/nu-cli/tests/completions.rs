@@ -63,7 +63,7 @@ fn variables_single_dash_argument_with_flagcompletion(mut completer: NuCompleter
 
 #[rstest]
 fn variables_command_with_commandcompletion(mut completer_strings: NuCompleter) {
-    let suggestions = completer_strings.complete("my-command ", 9);
+    let suggestions = completer_strings.complete("my-c ", 4);
     let expected: Vec<String> = vec!["my-command".into()];
     match_suggestions(expected, suggestions);
 }
@@ -684,5 +684,19 @@ fn flagcompletion_triggers_after_cursor(mut completer: NuCompleter) {
 fn customcompletion_triggers_after_cursor(mut completer_strings: NuCompleter) {
     let suggestions = completer_strings.complete("my-command c", 11);
     let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn customcompletion_triggers_after_cursor_piped(mut completer_strings: NuCompleter) {
+    let suggestions = completer_strings.complete("my-command c | ls", 11);
+    let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn flagcompletion_triggers_after_cursor_piped(mut completer: NuCompleter) {
+    let suggestions = completer.complete("tst -h | ls", 5);
+    let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
     match_suggestions(expected, suggestions);
 }
