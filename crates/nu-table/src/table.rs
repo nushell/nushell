@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use nu_ansi_term::Style;
-use nu_protocol::{Config, FooterMode, TrimStrategy};
+use nu_protocol::{Config, FooterMode, TableIndexes, TrimStrategy};
 use tabled::{
     builder::Builder,
     formatting_settings::AlignmentStrategy,
@@ -95,7 +95,15 @@ fn draw_table(
     let theme = &table.theme;
     let with_header = headers.is_some();
     let with_footer = with_header && need_footer(config, data.len() as u64);
-    let with_index = !config.disable_table_indexes;
+    let with_index = match config.table_indexes {
+        TableIndexes::Always => true,
+        TableIndexes::Never => false,
+        TableIndexes::Auto => table
+            .headers
+            .iter()
+            .flatten()
+            .any(|header| header.contents == "index"),
+    };
 
     let table = build_table(data, headers, with_footer);
     let table = load_theme(table, color_hm, theme, with_footer, with_header);
