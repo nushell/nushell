@@ -34,11 +34,22 @@ impl Table {
     ///
     /// If `headers.is_empty` then no headers will be rendered.
     pub fn new(
-        data: Vec<Vec<TCell<CellInfo<'static>, TextStyle>>>,
+        mut data: Vec<Vec<TCell<CellInfo<'static>, TextStyle>>>,
         size: (usize, usize),
         termwidth: usize,
         with_header: bool,
     ) -> Table {
+        // it's not guaranted that data will have all rows with the same number of columns.
+        // but VecRecords::with_hint require this constrain.
+        for row in &mut data {
+            if row.len() < size.1 {
+                row.extend(
+                    std::iter::repeat(Self::create_cell(String::default(), TextStyle::default()))
+                        .take(size.1 - row.len()),
+                );
+            }
+        }
+
         let mut data = VecRecords::with_hint(data, size.1);
         let is_empty = maybe_truncate_columns(&mut data, size.1, termwidth);
 
@@ -333,8 +344,10 @@ impl papergrid::Color for TextStyle {
     }
 
     fn fmt_suffix(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.color_style.is_some() {
-            f.write_str("\u{1b}[0m")?;
+        if let Some(color) = &self.color_style {
+            if !color.is_plain() {
+                f.write_str("\u{1b}[0m")?;
+            }
         }
 
         Ok(())

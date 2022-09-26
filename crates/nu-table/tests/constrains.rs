@@ -8,6 +8,8 @@ use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 fn data_and_header_has_different_size() {
     let table = Table::new(vec![row(3), row(5), row(5)], (3, 5), usize::MAX, true);
 
+    let table = draw_table(table, usize::MAX, &Config::default());
+
     let expected = "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
                          ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
                          ┣━━━╋━━━╋━━━╋━━━╋━━━┫\n\
@@ -15,12 +17,10 @@ fn data_and_header_has_different_size() {
                          ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
                          ┗━━━┻━━━┻━━━┻━━━┻━━━┛";
 
-    assert_eq!(
-        draw_table(table, usize::MAX, &Config::default()).as_deref(),
-        Some(expected)
-    );
+    assert_eq!(table.as_deref(), Some(expected));
 
     let table = Table::new(vec![row(5), row(3), row(3)], (3, 5), usize::MAX, true);
+    let table = draw_table(table, usize::MAX, &Config::default());
 
     let expected = "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
                          ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
@@ -29,10 +29,7 @@ fn data_and_header_has_different_size() {
                          ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
                          ┗━━━┻━━━┻━━━┻━━━┻━━━┛";
 
-    assert_eq!(
-        draw_table(table, usize::MAX, &Config::default()).as_deref(),
-        Some(expected)
-    );
+    assert_eq!(table.as_deref(), Some(expected));
 }
 
 #[test]
@@ -101,7 +98,7 @@ fn wrap_keep_words_test() {
         assert!(draw_table(table_with_data(i), i, &cfg).is_none());
     }
 
-    assert_eq!(draw_table(table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 34 ┃ . ┃\n┃ 56 ┃ . ┃\n┃ 78 ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
+    assert_eq!(draw_table(table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 3  ┃ . ┃\n┃ 45 ┃ . ┃\n┃ 67 ┃   ┃\n┃ 8  ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
     assert_eq!(
         draw_table(table_with_data(21), 21, &cfg).unwrap(),
         "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃ w    ┃     ┃\n┃ 8    ┃ eqwe ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
@@ -112,7 +109,7 @@ fn wrap_keep_words_test() {
     );
     assert_eq!(
         draw_table(table_with_data(49), 49, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123      ┃ qweqw    ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃ xx x xx ┃ qqqq    ┃     ┃\n┃          ┃          ┃ x xx xx ┃ qqq qq  ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
+        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123      ┃ qweqw    ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃ xx x xx ┃  qqqq   ┃     ┃\n┃          ┃          ┃  x xx   ┃ qqq qq  ┃     ┃\n┃          ┃          ┃ xx      ┃         ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
     );
 }
 
