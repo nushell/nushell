@@ -316,7 +316,7 @@ fn handle_row_stream(
                             if cols[idx] == "name" {
                                 if let Some(Value::String { val: path, span }) = vals.get(idx) {
                                     if let Some(val) =
-                                        render_path_name(&path, &config, &ls_colors, *span)
+                                        render_path_name(path, &config, &ls_colors, *span)
                                     {
                                         vals[idx] = val;
                                     }

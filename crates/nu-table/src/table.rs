@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use nu_protocol::{Config, FooterMode, TrimStrategy, Value};
+use nu_protocol::{Config, FooterMode, TrimStrategy};
 use tabled::{
     alignment::AlignmentHorizontal,
     builder::Builder,

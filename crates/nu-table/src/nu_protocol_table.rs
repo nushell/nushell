@@ -6,8 +6,8 @@ use tabled::{color::Color, papergrid::records::Records, Table};
 use crate::{table::TrimStrategyModifier, TableTheme};
 
 /// NuTable has a recursive table representation of nu_prorocol::Value.
-/// 
-/// It doesn't support alignement and width controll.
+///
+/// It doesn't support alignement and a proper width controll.
 pub struct NuTable {
     inner: tabled::Table,
 }
@@ -35,8 +35,6 @@ impl NuTable {
 
         let mut table: Table<_> = table.into();
         table.with(TrimStrategyModifier::new(termwidth, &config.trim_strategy));
-
-        println!("{} {}", termwidth, table.total_width());
 
         Self { inner: table }
     }
