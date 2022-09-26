@@ -1790,6 +1790,18 @@ impl Value {
                     span,
                 })
             }
+            (Value::Float { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                Ok(Value::Filesize {
+                    val: (*lhs * *rhs as f64) as i64,
+                    span,
+                })
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::Filesize {
+                    val: (*lhs as f64 * *rhs) as i64,
+                    span,
+                })
+            }
             (Value::Int { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 Ok(Value::Duration {
                     val: *lhs * *rhs,
@@ -1881,6 +1893,26 @@ impl Value {
                     Err(ShellError::DivisionByZero(op))
                 }
             }
+            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Filesize {
+                        val: lhs / rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::Filesize {
+                        val: (*lhs as f64 / rhs) as i64,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if *rhs != 0 {
                     if lhs % rhs == 0 {
@@ -1894,16 +1926,6 @@ impl Value {
                             span,
                         })
                     }
-                } else {
-                    Err(ShellError::DivisionByZero(op))
-                }
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::Filesize {
-                        val: lhs / rhs,
-                        span,
-                    })
                 } else {
                     Err(ShellError::DivisionByZero(op))
                 }
@@ -1987,7 +2009,30 @@ impl Value {
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
+                    Ok(Value::Filesize {
+                        val: (*lhs as f64 / *rhs as f64)
+                            .max(std::i64::MIN as f64)
+                            .min(std::i64::MAX as f64)
+                            .floor() as i64,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Filesize {
+                        val: lhs / rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::Filesize {
                         val: (*lhs as f64 / *rhs as f64)
                             .max(std::i64::MIN as f64)
                             .min(std::i64::MAX as f64)
@@ -2005,16 +2050,6 @@ impl Value {
                             .max(std::i64::MIN as f64)
                             .min(std::i64::MAX as f64)
                             .floor() as i64,
-                        span,
-                    })
-                } else {
-                    Err(ShellError::DivisionByZero(op))
-                }
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::Filesize {
-                        val: lhs / rhs,
                         span,
                     })
                 } else {
