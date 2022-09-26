@@ -1888,13 +1888,13 @@ impl Value {
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if *rhs != 0 {
                     if lhs % rhs == 0 {
-                        Ok(Value::Filesize {
+                        Ok(Value::Int {
                             val: lhs / rhs,
                             span,
                         })
                     } else {
-                        Ok(Value::Filesize {
-                            val: ((*lhs as f64) / (*rhs as f64)) as i64,
+                        Ok(Value::Float {
+                            val: (*lhs as f64) / (*rhs as f64),
                             span,
                         })
                     }
@@ -1925,13 +1925,13 @@ impl Value {
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if *rhs != 0 {
                     if lhs % rhs == 0 {
-                        Ok(Value::Duration {
+                        Ok(Value::Int {
                             val: lhs / rhs,
                             span,
                         })
                     } else {
-                        Ok(Value::Duration {
-                            val: ((*lhs as f64) / (*rhs as f64)) as i64,
+                        Ok(Value::Float {
+                            val: (*lhs as f64) / (*rhs as f64),
                             span,
                         })
                     }
@@ -2029,7 +2029,7 @@ impl Value {
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Filesize {
+                    Ok(Value::Int {
                         val: (*lhs as f64 / *rhs as f64)
                             .max(std::i64::MIN as f64)
                             .min(std::i64::MAX as f64)
@@ -2068,7 +2068,7 @@ impl Value {
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Duration {
+                    Ok(Value::Int {
                         val: (*lhs as f64 / *rhs as f64)
                             .max(std::i64::MIN as f64)
                             .min(std::i64::MAX as f64)

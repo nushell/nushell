@@ -158,10 +158,10 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
-                (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
+                (Type::Filesize, Type::Filesize) => (Type::Float, None),
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
                 (Type::Filesize, Type::Float) => (Type::Filesize, None),
-                (Type::Duration, Type::Duration) => (Type::Duration, None),
+                (Type::Duration, Type::Duration) => (Type::Float, None),
                 (Type::Duration, Type::Int) => (Type::Duration, None),
                 (Type::Duration, Type::Float) => (Type::Duration, None),
 
@@ -192,7 +192,7 @@ pub fn math_result_type(
                 (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
                 (Type::Filesize, Type::Float) => (Type::Filesize, None),
-                (Type::Duration, Type::Duration) => (Type::Duration, None),
+                (Type::Duration, Type::Duration) => (Type::Int, None),
                 (Type::Duration, Type::Int) => (Type::Duration, None),
                 (Type::Duration, Type::Float) => (Type::Duration, None),
 
