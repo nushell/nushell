@@ -121,15 +121,7 @@ impl Command for Touch {
 
                 // Checks for the seconds stamp and removes the '.' delimiter if any
                 let (val, has_sec): (String, bool) = match stamp.split_once('.') {
-                    Some((dtime, sec)) => match sec.parse::<u8>() {
-                        Ok(sec) if sec < 60 => (format!("{}{}", dtime, sec), true),
-                        _ => {
-                            return Err(ShellError::UnsupportedInput(
-                                "input has an invalid timestamp".to_string(),
-                                span,
-                            ))
-                        }
-                    },
+                    Some((dtime, sec)) => (format!("{}{}", dtime, sec), true),
                     None => (stamp.to_string(), false),
                 };
 
