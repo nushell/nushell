@@ -850,20 +850,3 @@ fn not_create_file_if_it_not_exists() {
         assert!(!path.exists());
     })
 }
-
-#[test]
-fn test_invalid_timestamp() {
-    Playground::setup("test_invalid_timestamp", |dirs, _sandbox| {
-        let outcome = nu!(
-            cwd: dirs.test(),
-            r#"touch -t 20220729. file.txt"#
-        );
-        assert!(outcome.err.contains("input has an invalid timestamp"));
-
-        let outcome = nu!(
-            cwd: dirs.test(),
-            r#"touch -t 20220729120099 file.txt"#
-        );
-        assert!(outcome.err.contains("input has an invalid timestamp"));
-    })
-}

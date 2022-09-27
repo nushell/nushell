@@ -148,24 +148,14 @@ impl Command for Touch {
                         10 => Some(AddYear::Full),
                         12 => Some(AddYear::FirstDigits),
                         14 => None,
-                        _ => {
-                            return Err(ShellError::UnsupportedInput(
-                                "input has an invalid timestamp".to_string(),
-                                span,
-                            ))
-                        }
+                        _ => unreachable!(), // This should never happen as the check above should catch it
                     }
                 } else {
                     match size {
                         8 => Some(AddYear::Full),
                         10 => Some(AddYear::FirstDigits),
                         12 => None,
-                        _ => {
-                            return Err(ShellError::UnsupportedInput(
-                                "input has an invalid timestamp".to_string(),
-                                span,
-                            ))
-                        }
+                        _ => unreachable!(), // This should never happen as the check above should catch it
                     }
                 };
 
