@@ -15,17 +15,18 @@ pub struct NuTable {
 impl NuTable {
     pub fn new(
         value: Value,
+        collapse: bool,
+        termwidth: usize,
         config: &Config,
         color_hm: &HashMap<String, nu_ansi_term::Style>,
         theme: &TableTheme,
-        collapse: bool,
-        termwidth: usize,
+        with_footer: bool,
     ) -> Self {
         let mut table = tabled::Table::new([""]);
         load_theme(&mut table, color_hm, theme);
         let cfg = table.get_config().clone();
 
-        let val = crate::nu_protocol_table::nu_protocol_value_to_json(value, config);
+        let val = nu_protocol_value_to_json(value, config, with_footer);
         let mut table = json_to_table::json_to_table(&val);
         table.set_config(cfg);
 
@@ -44,12 +45,16 @@ impl NuTable {
     }
 }
 
-fn nu_protocol_value_to_json(value: Value, config: &Config) -> serde_json::Value {
+fn nu_protocol_value_to_json(
+    value: Value,
+    config: &Config,
+    with_footer: bool,
+) -> serde_json::Value {
     match value {
         Value::Record { cols, vals, .. } => {
             let mut map = serde_json::Map::new();
             for (key, value) in cols.into_iter().zip(vals) {
-                let val = nu_protocol_value_to_json(value, config);
+                let val = nu_protocol_value_to_json(value, config, false);
                 map.insert(key, val);
             }
 
@@ -80,13 +85,13 @@ fn nu_protocol_value_to_json(value: Value, config: &Config) -> serde_json::Value
                 if cols.len() > 1 {
                     let mut arr = vec![];
 
-                    let cols = cols.iter().map(|s| Value::String {
+                    let head = cols.iter().map(|s| Value::String {
                         val: s.to_owned(),
                         span: Span::new(0, 0),
                     });
-                    let head = build_map(cols, config);
+                    let head = build_map(head, config);
 
-                    arr.push(serde_json::Value::Object(head));
+                    arr.push(serde_json::Value::Object(head.clone()));
 
                     for value in &vals {
                         if let Ok((_, vals)) = value.as_record() {
@@ -99,24 +104,32 @@ fn nu_protocol_value_to_json(value: Value, config: &Config) -> serde_json::Value
                         }
                     }
 
+                    if with_footer {
+                        arr.push(serde_json::Value::Object(head));
+                    }
+
                     return serde_json::Value::Array(arr);
                 } else {
                     let mut map = vec![];
-                    let cols = serde_json::Value::Array(vec![serde_json::Value::String(
+                    let head = serde_json::Value::Array(vec![serde_json::Value::String(
                         cols[0].to_owned(),
                     )]);
 
-                    map.push(cols);
+                    map.push(head.clone());
                     for value in vals {
                         if let Value::Record { vals, .. } = value {
                             let list = Value::List {
                                 vals,
                                 span: Span::new(0, 0),
                             };
-                            let val = nu_protocol_value_to_json(list, config); // rebuild array as a map
+                            let val = nu_protocol_value_to_json(list, config, false); // rebuild array as a map
 
                             map.push(val);
                         }
+                    }
+
+                    if with_footer {
+                        map.push(head);
                     }
 
                     return serde_json::Value::Array(map);
@@ -125,7 +138,7 @@ fn nu_protocol_value_to_json(value: Value, config: &Config) -> serde_json::Value
 
             let mut map = Vec::new();
             for value in vals {
-                let val = nu_protocol_value_to_json(value, config);
+                let val = nu_protocol_value_to_json(value, config, false);
                 map.push(val);
             }
 
@@ -146,7 +159,7 @@ fn build_map(
             match last_val.take() {
                 Some(prev_val) => {
                     let col = val.into_abbreviated_string(&Config::default());
-                    let prev = nu_protocol_value_to_json(prev_val, config);
+                    let prev = nu_protocol_value_to_json(prev_val, config, false);
                     map.insert(col, prev);
                 }
                 None => {

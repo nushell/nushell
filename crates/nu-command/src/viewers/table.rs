@@ -4,7 +4,7 @@ use nu_engine::{column::get_columns, env_to_string, CallExt};
 use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    format_error, Category, Config, DataSource, Example, IntoPipelineData, ListStream,
+    format_error, Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream,
     PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use nu_table::{Alignment, Alignments, Table as NuTable, TableTheme, TextStyle};
@@ -214,7 +214,7 @@ impl Command for Table {
 
                         let collapse = matches!(table_view, TableView::Collapsed);
                         let table = nu_table::NuTable::new(
-                            value, config, &color_hm, &theme, collapse, term_width,
+                            value, collapse, term_width, config, &color_hm, &theme, false,
                         );
 
                         table.draw().unwrap_or_else(|| {
@@ -316,7 +316,7 @@ fn handle_row_stream(
                             if cols[idx] == "name" {
                                 if let Some(Value::String { val: path, span }) = vals.get(idx) {
                                     if let Some(val) =
-                                        render_path_name(path, &config, &ls_colors, *span)
+                                        render_path_name(&path, &config, &ls_colors, *span)
                                     {
                                         vals[idx] = val;
                                     }
@@ -627,23 +627,26 @@ impl Iterator for PagingTableCreator {
                 return None;
             }
 
+            let color_hm = get_color_config(&self.config);
+            let theme = load_theme_from_config(&self.config);
+            let term_width = get_width_param(self.width_param);
+            let collapse = matches!(self.view, TableView::Collapsed);
+            let need_footer = matches!(self.config.footer_mode, FooterMode::RowCount(limit) if batch.len() as u64 > limit)
+                || matches!(self.config.footer_mode, FooterMode::Always);
+
             let value = Value::List {
                 vals: batch,
                 span: Span::new(0, 0),
             };
 
-            let color_hm = get_color_config(&self.config);
-            let theme = load_theme_from_config(&self.config);
-            let term_width = get_width_param(self.width_param);
-
-            let collapse = matches!(self.view, TableView::Collapsed);
             let table = nu_table::NuTable::new(
                 value,
+                collapse,
+                term_width,
                 &self.config,
                 &color_hm,
                 &theme,
-                collapse,
-                term_width,
+                need_footer,
             );
 
             let result = table
