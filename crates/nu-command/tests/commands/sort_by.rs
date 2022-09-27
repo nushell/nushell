@@ -12,7 +12,7 @@ fn by_column() {
             | split column "="
             | sort-by column1
             | skip 1
-            | first 1
+            | first
             | get column1
             | str trim
         "#
@@ -33,7 +33,7 @@ fn by_invalid_column() {
             | split column "="
             | sort-by ColumnThatDoesNotExist
             | skip 1
-            | first 1
+            | first
             | get column1
             | str trim
         "#
@@ -69,7 +69,7 @@ fn sort_primitive_values() {
             | skip 1
             | first 6
             | sort-by
-            | first 1
+            | first
         "#
     ));
 

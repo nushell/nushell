@@ -232,7 +232,7 @@ mod stdin_evaluation {
                 | nu --testbin chop
                 | nu --testbin chop
                 | lines
-                | first 1 )
+                | first )
             "#
         ))
         .out;
