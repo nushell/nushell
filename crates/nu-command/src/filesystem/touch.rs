@@ -1,20 +1,13 @@
 use std::fs::OpenOptions;
 use std::path::Path;
 
-use chrono::{DateTime, Datelike, Local};
+use chrono::{DateTime, Local};
 use filetime::FileTime;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
-
-use crate::parse_date_from_string;
-
-enum AddYear {
-    Full,
-    FirstDigits,
-}
 
 #[derive(Clone)]
 pub struct Touch;
@@ -34,18 +27,6 @@ impl Command for Touch {
                 "filename",
                 SyntaxShape::Filepath,
                 "the path of the file you want to create",
-            )
-            .named(
-                "timestamp",
-                SyntaxShape::String,
-                "change the file or directory time to a timestamp. Format: [[CC]YY]MMDDhhmm[.ss]\n\n      If neither YY or CC is given, the current year will be assumed. If YY is specified, but CC is not, CC will be derived as follows:\n      \tIf YY is between [69, 99], CC is 19\n      \tIf YY is between [00, 68], CC is 20\n      Note: It is expected that in a future version of this standard the default century inferred from a 2-digit year will change",
-                Some('t'),
-            )
-            .named(
-                "date",
-                SyntaxShape::String,
-                "change the file or directory time to a date",
-                Some('d'),
             )
             .named(
                 "reference",
@@ -85,8 +66,6 @@ impl Command for Touch {
     ) -> Result<PipelineData, ShellError> {
         let mut change_mtime: bool = call.has_flag("modified");
         let mut change_atime: bool = call.has_flag("access");
-        let use_stamp: bool = call.has_flag("timestamp");
-        let use_date: bool = call.has_flag("date");
         let use_reference: bool = call.has_flag("reference");
         let no_create: bool = call.has_flag("no-create");
         let target: String = call.req(engine_state, stack, 0)?;
@@ -103,111 +82,6 @@ impl Command for Touch {
 
         if change_mtime || change_atime {
             date = Some(Local::now());
-        }
-
-        if use_stamp || use_date {
-            let (val, span) = if use_stamp {
-                let stamp: Option<Spanned<String>> =
-                    call.get_flag(engine_state, stack, "timestamp")?;
-                let (stamp, span) = match stamp {
-                    Some(stamp) => (stamp.item, stamp.span),
-                    None => {
-                        return Err(ShellError::MissingParameter(
-                            "timestamp".to_string(),
-                            call.head,
-                        ));
-                    }
-                };
-
-                // Checks for the seconds stamp and removes the '.' delimiter if any
-                let (val, has_sec): (String, bool) = match stamp.split_once('.') {
-                    Some((dtime, sec)) => match sec.parse::<u8>() {
-                        Ok(sec) if sec < 60 => (format!("{}{}", dtime, sec), true),
-                        _ => {
-                            return Err(ShellError::UnsupportedInput(
-                                "input has an invalid timestamp".to_string(),
-                                span,
-                            ))
-                        }
-                    },
-                    None => (stamp.to_string(), false),
-                };
-
-                let size = val.len();
-
-                // Each stamp is a 2 digit number and the whole stamp must not be less than 4 or greater than 7 pairs
-                if (size % 2 != 0 || !(8..=14).contains(&size)) || val.parse::<u64>().is_err() {
-                    return Err(ShellError::UnsupportedInput(
-                        "input has an invalid timestamp".to_string(),
-                        span,
-                    ));
-                }
-
-                let add_year: Option<AddYear> = if has_sec {
-                    match size {
-                        10 => Some(AddYear::Full),
-                        12 => Some(AddYear::FirstDigits),
-                        14 => None,
-                        _ => {
-                            return Err(ShellError::UnsupportedInput(
-                                "input has an invalid timestamp".to_string(),
-                                span,
-                            ))
-                        }
-                    }
-                } else {
-                    match size {
-                        8 => Some(AddYear::Full),
-                        10 => Some(AddYear::FirstDigits),
-                        12 => None,
-                        _ => {
-                            return Err(ShellError::UnsupportedInput(
-                                "input has an invalid timestamp".to_string(),
-                                span,
-                            ))
-                        }
-                    }
-                };
-
-                if let Some(add_year) = add_year {
-                    let year = Local::now().year();
-                    match add_year {
-                        AddYear::Full => (format!("{}{}", year, val), span),
-                        AddYear::FirstDigits => {
-                            // Compliance with the Unix version of touch
-                            let yy = val[0..2]
-                                .parse::<u8>()
-                                .expect("should be a valid 2 digit number");
-                            let mut year = 20;
-                            if (69..=99).contains(&yy) {
-                                year = 19;
-                            }
-                            (format!("{}{}", year, val), span)
-                        }
-                    }
-                } else {
-                    (val, span)
-                }
-            } else {
-                let date_string: Option<Spanned<String>> =
-                    call.get_flag(engine_state, stack, "date")?;
-                match date_string {
-                    Some(date_string) => (date_string.item, date_string.span),
-                    None => {
-                        return Err(ShellError::MissingParameter("date".to_string(), call.head));
-                    }
-                }
-            };
-
-            date = if let Ok(parsed_date) = parse_date_from_string(&val, span) {
-                Some(parsed_date.into())
-            } else {
-                let flag = if use_stamp { "timestamp" } else { "date" };
-                return Err(ShellError::UnsupportedInput(
-                    format!("input has an invalid {}", flag),
-                    span,
-                ));
-            };
         }
 
         if use_reference {
@@ -337,11 +211,6 @@ impl Command for Touch {
                 result: None,
             },
             Example {
-                description: "Creates files d and e and set its last modified time to a timestamp",
-                example: "touch -m -t 201908241230.30 d e",
-                result: None,
-            },
-            Example {
                 description: "Changes the last modified time of files a, b and c to a date",
                 example: r#"touch -m -d "yesterday" a b c"#,
                 result: None,
@@ -354,11 +223,6 @@ impl Command for Touch {
             Example {
                 description: r#"Changes the last accessed time of "fixture.json" to a date"#,
                 example: r#"touch -a -d "August 24, 2019; 12:30:30" fixture.json"#,
-                result: None,
-            },
-            Example {
-                description: "Changes both last modified and accessed time of a, b and c to a timestamp only if they exist",
-                example: r#"touch -c -t 201908241230.30 a b c"#,
                 result: None,
             },
         ]
