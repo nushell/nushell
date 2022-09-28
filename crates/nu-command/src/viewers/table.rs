@@ -5,8 +5,8 @@ use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     format_error, Category, Config, DataSource, Example, IntoPipelineData, ListStream,
-    PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
-    TableIndexes, Value,
+    PipelineData, PipelineMetadata, RawStream, ShellError, ShowTableIndexes, Signature, Span,
+    SyntaxShape, Value,
 };
 use nu_table::{Alignments, StyledString, TableTheme, TextStyle};
 use nu_utils::get_ls_colors;
@@ -349,10 +349,10 @@ fn convert_to_table(
     let mut input = input.iter().peekable();
     let color_hm = get_color_config(config);
     let float_precision = config.float_precision as usize;
-    let with_index = match config.table_indexes {
-        TableIndexes::Always => true,
-        TableIndexes::Never => false,
-        TableIndexes::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
+    let with_index = match config.show_table_indexes {
+        ShowTableIndexes::Always => true,
+        ShowTableIndexes::Never => false,
+        ShowTableIndexes::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
     };
 
     if input.peek().is_some() {

@@ -77,7 +77,7 @@ pub struct Config {
     pub rm_always_trash: bool,
     pub shell_integration: bool,
     pub buffer_editor: String,
-    pub table_indexes: TableIndexes,
+    pub show_table_indexes: ShowTableIndexes,
     pub cd_with_abbreviations: bool,
     pub case_sensitive_completions: bool,
     pub enable_external_completion: bool,
@@ -114,7 +114,7 @@ impl Default for Config {
             rm_always_trash: false,
             shell_integration: false,
             buffer_editor: String::new(),
-            table_indexes: TableIndexes::Always,
+            show_table_indexes: ShowTableIndexes::Always,
             cd_with_abbreviations: false,
             case_sensitive_completions: false,
             enable_external_completion: true,
@@ -146,7 +146,7 @@ pub enum HistoryFileFormat {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum TableIndexes {
+pub enum ShowTableIndexes {
     /// Always show indexes
     Always,
     /// Never show indexes
@@ -380,19 +380,19 @@ impl Value {
                             eprintln!("$config.buffer_editor is not a string")
                         }
                     }
-                    "table_indexes" => {
+                    "show_table_indexes" => {
                         if let Ok(b) = value.as_string() {
                             let val_str = b.to_lowercase();
                             match val_str.as_ref() {
-                                "always" => config.table_indexes = TableIndexes::Always,
-                                "never" => config.table_indexes = TableIndexes::Never,
-                                "auto" => config.table_indexes = TableIndexes::Auto,
+                                "always" => config.show_table_indexes = ShowTableIndexes::Always,
+                                "never" => config.show_table_indexes = ShowTableIndexes::Never,
+                                "auto" => config.show_table_indexes = ShowTableIndexes::Auto,
                                 _ => eprintln!(
-                                    "$config.table_indexes must be a never, always or auto"
+                                    "$config.show_table_indexes must be a never, always or auto"
                                 ),
                             }
                         } else {
-                            eprintln!("$config.table_indexes is not a string")
+                            eprintln!("$config.show_table_indexes is not a string")
                         }
                     }
                     "cd_with_abbreviations" => {
