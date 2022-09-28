@@ -392,7 +392,15 @@ def process_call(plugin_call):
     }
 
 
+def tell_nushell_encoding():
+    sys.stdout.write(chr(4))
+    for ch in "json":
+        sys.stdout.write(chr(ord(ch)))
+    sys.stdout.flush()
+
+
 def plugin():
+    tell_nushell_encoding()
     call_str = ",".join(sys.stdin.readlines())
     plugin_call = json.loads(call_str)
 
