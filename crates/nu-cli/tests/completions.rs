@@ -700,3 +700,24 @@ fn flagcompletion_triggers_after_cursor_piped(mut completer: NuCompleter) {
     let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
     match_suggestions(expected, suggestions);
 }
+
+#[test]
+fn filecompletions_triggers_after_cursor() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let suggestions = completer.complete("cp   test_c", 3);
+
+    let expected_paths: Vec<String> = vec![
+        String::from("nushell"),
+        String::from("test_a/"),
+        String::from("test_b/"),
+        String::from("another/"),
+        String::from("custom_completion.nu"),
+        String::from(".hidden_file"),
+        String::from(".hidden_folder/"),
+    ];
+
+    match_suggestions(expected_paths, suggestions);
+}
