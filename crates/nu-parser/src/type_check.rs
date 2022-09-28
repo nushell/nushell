@@ -101,11 +101,14 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
-
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
                 (Type::Int, Type::Filesize) => (Type::Filesize, None),
-                (Type::Duration, Type::Int) => (Type::Filesize, None),
-                (Type::Int, Type::Duration) => (Type::Filesize, None),
+                (Type::Filesize, Type::Float) => (Type::Filesize, None),
+                (Type::Float, Type::Filesize) => (Type::Filesize, None),
+                (Type::Duration, Type::Int) => (Type::Duration, None),
+                (Type::Int, Type::Duration) => (Type::Duration, None),
+                (Type::Duration, Type::Float) => (Type::Duration, None),
+                (Type::Float, Type::Duration) => (Type::Duration, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
@@ -157,10 +160,11 @@ pub fn math_result_type(
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
                 (Type::Filesize, Type::Filesize) => (Type::Float, None),
-                (Type::Duration, Type::Duration) => (Type::Float, None),
-
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
+                (Type::Filesize, Type::Float) => (Type::Filesize, None),
+                (Type::Duration, Type::Duration) => (Type::Float, None),
                 (Type::Duration, Type::Int) => (Type::Duration, None),
+                (Type::Duration, Type::Float) => (Type::Duration, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
@@ -187,10 +191,11 @@ pub fn math_result_type(
                 (Type::Int, Type::Float) => (Type::Int, None),
                 (Type::Float, Type::Float) => (Type::Int, None),
                 (Type::Filesize, Type::Filesize) => (Type::Int, None),
-                (Type::Duration, Type::Duration) => (Type::Int, None),
-
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
+                (Type::Filesize, Type::Float) => (Type::Filesize, None),
+                (Type::Duration, Type::Duration) => (Type::Int, None),
                 (Type::Duration, Type::Int) => (Type::Duration, None),
+                (Type::Duration, Type::Float) => (Type::Duration, None),
 
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
