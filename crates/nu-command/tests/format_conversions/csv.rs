@@ -6,7 +6,7 @@ use nu_test_support::{nu, pipeline};
 fn table_to_csv_text_and_from_csv_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open caco3_plastics.csv | to csv | from csv | first 1 | get origin "
+        "open caco3_plastics.csv | to csv | from csv | first | get origin "
     );
 
     assert_eq!(actual.out, "SPAIN");

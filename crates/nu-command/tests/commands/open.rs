@@ -154,7 +154,7 @@ fn parses_tsv() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open caco3_plastics.tsv
-            | first 1
+            | first
             | get origin
         "#
     ));
@@ -216,7 +216,7 @@ fn parses_arrow_ipc() {
         r#"
             open-df caco3_plastics.arrow
             | into nu
-            | first 1
+            | first
             | get origin
         "#
     ));

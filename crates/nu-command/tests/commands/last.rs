@@ -64,3 +64,17 @@ fn requests_more_rows_than_table_has() {
 
     assert_eq!(actual.out, "1");
 }
+
+#[test]
+fn gets_last_row_as_list_when_amount_given() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+                [1, 2, 3]
+                | last 1
+                | describe
+            "#
+    ));
+
+    assert_eq!(actual.out, "list<int>");
+}
