@@ -112,6 +112,10 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
     VariableNotValid(#[label = "variable name can't contain spaces or quotes"] Span),
 
+    #[error("Alias name not supported.")]
+    #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
+    AliasNotValid(#[label = "alias name can't be a number or a filesize"] Span),
+
     #[error("Module not found.")]
     #[diagnostic(
         code(nu::parser::module_not_found),
@@ -344,6 +348,7 @@ impl ParseError {
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(s) => *s,
             ParseError::VariableNotValid(s) => *s,
+            ParseError::AliasNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,

@@ -544,16 +544,27 @@ pub fn parse_alias(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    let (name_span, split_id) =
+    let (name_span, alias_name, split_id) =
         if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
-            (spans[1], 2)
+            (spans[1], spans.get(2), 2)
         } else {
-            (spans[0], 1)
+            (spans[0], spans.get(1), 1)
         };
 
     let name = working_set.get_span_contents(name_span);
 
     if name == b"alias" {
+        if let Some(alias_name) = alias_name {
+            let alias_name = String::from_utf8_lossy(working_set.get_span_contents(*alias_name));
+            if alias_name.parse::<bytesize::ByteSize>().is_ok() || alias_name.parse::<f64>().is_ok()
+            {
+                return (
+                    Pipeline::from_vec(vec![garbage(name_span)]),
+                    Some(ParseError::AliasNotValid(name_span)),
+                );
+            }
+        }
+
         if let Some((span, err)) = check_name(working_set, spans) {
             return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
         }
