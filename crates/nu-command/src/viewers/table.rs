@@ -70,7 +70,24 @@ impl Command for Table {
                 "number of terminal columns wide (not output columns)",
                 Some('w'),
             )
-            .switch("expand", "expand the table structure", Some('e'))
+            .switch(
+                "expand",
+                "expand the table structure in a light mode",
+                Some('e'),
+            )
+            .named(
+                "expand-deep",
+                SyntaxShape::Int,
+                "an expand limit of recursion which will take place",
+                Some('d'),
+            )
+            .switch("flatten", "Flatten simple arrays", None)
+            .named(
+                "flatten-separator",
+                SyntaxShape::String,
+                "sets a seperator when 'flatten' used",
+                None,
+            )
             .switch(
                 "collapse",
                 "expand the table structure in colapse mode",
@@ -95,12 +112,16 @@ impl Command for Table {
         let list: bool = call.has_flag("list");
 
         let expand: bool = call.has_flag("expand");
+        let expand_limit: Option<usize> = call.get_flag(engine_state, stack, "expand-deep")?;
         let collapse: bool = call.has_flag("collapse");
+        let flatten: bool = call.has_flag("flatten");
+        let flatten_separator: Option<String> =
+            call.get_flag(engine_state, stack, "flatten-separator")?;
+
         let table_view = match (expand, collapse) {
-            (true, true) => TableView::Collapsed,
-            (false, true) => TableView::Collapsed,
-            (true, false) => TableView::Expanded,
             (false, false) => TableView::General,
+            (true, _) => TableView::Expanded,
+            (_, true) => TableView::Collapsed,
         };
 
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
@@ -171,9 +192,8 @@ impl Command for Table {
                 ctrlc,
                 metadata,
             ),
-            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
+            PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
                 let theme = load_theme_from_config(config);
-
                 let result = match table_view {
                     TableView::General => {
                         let output = cols
@@ -205,16 +225,114 @@ impl Command for Table {
                                 format!("Couldn't fit table into {} columns!", term_width)
                             })
                     }
-                    TableView::Expanded | TableView::Collapsed => {
+                    TableView::Expanded => {
+                        let output = vals
+                            .into_iter()
+                            .zip(cols)
+                            .map(|(value, key)| {
+                                let value = if matches!(expand_limit, Some(0)) {
+                                    let float_precision = config.float_precision as usize;
+                                    let disable_index = config.disable_table_indexes;
+
+                                    make_styled_string(
+                                        value.into_abbreviated_string(config),
+                                        &value.get_type().to_string(),
+                                        0,
+                                        disable_index,
+                                        &color_hm,
+                                        float_precision,
+                                    )
+                                    .0
+                                } else {
+                                    let vals = match value {
+                                        Value::List { vals, span } => vals,
+                                        value => vec![value],
+                                    };
+
+                                    let deep = expand_limit.map(|i| i - 1);
+                                    let table = convert_to_table2(
+                                        0,
+                                        &vals,
+                                        ctrlc.clone(),
+                                        &config,
+                                        span,
+                                        term_width,
+                                        &color_hm,
+                                        Alignments::default(),
+                                        &theme,
+                                        deep,
+                                        flatten,
+                                        flatten_separator.as_ref().map(|s| s.as_str()),
+                                    )
+                                    .unwrap()
+                                    .unwrap();
+
+                                    let theme = load_theme_from_config(&config);
+                                    let result = table
+                                        .draw_table(
+                                            &config,
+                                            &color_hm,
+                                            Alignments::default(),
+                                            &theme,
+                                            term_width,
+                                        )
+                                        .unwrap_or_else(|| {
+                                            format!(
+                                                "Couldn't fit table into {} columns!",
+                                                term_width
+                                            )
+                                        });
+
+                                    result
+                                };
+
+                                let float_precision = config.float_precision as usize;
+                                let disable_index = config.disable_table_indexes;
+
+                                let key = Value::String {
+                                    val: key,
+                                    span: Span::new(0, 0),
+                                };
+                                let key = make_styled_string(
+                                    key.into_abbreviated_string(config),
+                                    &key.get_type().to_string(),
+                                    0,
+                                    disable_index,
+                                    &color_hm,
+                                    float_precision,
+                                );
+
+                                let key = NuTable::create_cell(key.0, key.1);
+                                let val = NuTable::create_cell(value, TextStyle::default());
+
+                                vec![key, val]
+                            })
+                            .collect::<Vec<_>>();
+
+                        let output_len = output.len();
+                        let table = NuTable::new(output, (output_len, 2), term_width, false);
+
+                        table
+                            .draw_table(
+                                config,
+                                &color_hm,
+                                Alignments::default(),
+                                &theme,
+                                term_width,
+                            )
+                            .unwrap_or_else(|| {
+                                format!("Couldn't fit table into {} columns!", term_width)
+                            })
+                    }
+                    TableView::Collapsed => {
                         let value = Value::Record {
                             cols,
                             vals,
                             span: Span::new(0, 0),
                         };
 
-                        let collapse = matches!(table_view, TableView::Collapsed);
                         let table = nu_table::NuTable::new(
-                            value, collapse, term_width, config, &color_hm, &theme, false,
+                            value, true, term_width, config, &color_hm, &theme, false,
                         );
 
                         table.draw().unwrap_or_else(|| {
@@ -532,6 +650,229 @@ fn convert_to_table(
     Ok(Some(table))
 }
 
+fn convert_to_table2(
+    row_offset: usize,
+    input: &[Value],
+    ctrlc: Option<Arc<AtomicBool>>,
+    config: &Config,
+    head: Span,
+    termwidth: usize,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    alignments: Alignments,
+    theme: &TableTheme,
+    deep: Option<usize>,
+    flatten: bool,
+    flatten_sep: Option<&str>,
+) -> Result<Option<NuTable>, ShellError> {
+    let mut headers = get_columns(input);
+    let mut input = input.iter().peekable();
+    let float_precision = config.float_precision as usize;
+    let disable_index = config.disable_table_indexes;
+
+    if input.peek().is_none() {
+        return Ok(None);
+    }
+
+    if !headers.is_empty() && !disable_index {
+        headers.insert(0, "#".into());
+    }
+
+    // The header with the INDEX is removed from the table headers since
+    // it is added to the natural table index
+    let headers: Vec<_> = headers
+        .into_iter()
+        .filter(|header| header != INDEX_COLUMN_NAME)
+        .map(|text| {
+            NuTable::create_cell(
+                text,
+                TextStyle {
+                    alignment: Alignment::Center,
+                    color_style: Some(color_hm["header"]),
+                },
+            )
+        })
+        .collect();
+
+    let with_header = !headers.is_empty();
+    let mut count_columns = headers.len();
+
+    let mut data: Vec<Vec<_>> = if headers.is_empty() {
+        Vec::new()
+    } else {
+        vec![headers]
+    };
+
+    for (row_num, item) in input.enumerate() {
+        if let Some(ctrlc) = &ctrlc {
+            if ctrlc.load(Ordering::SeqCst) {
+                return Ok(None);
+            }
+        }
+
+        if let Value::Error { error } = item {
+            return Err(error.clone());
+        }
+
+        let mut row = vec![];
+        if !disable_index {
+            let text = match &item {
+                Value::Record { .. } => item
+                    .get_data_by_key(INDEX_COLUMN_NAME)
+                    .map(|value| value.into_string("", config)),
+                _ => None,
+            }
+            .unwrap_or_else(|| (row_num + row_offset).to_string());
+
+            let value =
+                make_styled_string(text, "string", 0, disable_index, color_hm, float_precision);
+            let value = NuTable::create_cell(value.0, value.1);
+
+            row.push(value);
+        }
+
+        if !with_header {
+            let text = item.into_abbreviated_string(config);
+            let text_type = item.get_type().to_string();
+            let col = if !disable_index { 1 } else { 0 };
+            let value = make_styled_string(
+                text,
+                &text_type,
+                col,
+                disable_index,
+                color_hm,
+                float_precision,
+            );
+            let value = NuTable::create_cell(value.0, value.1);
+
+            row.push(value);
+        } else {
+            let skip_num = if !disable_index { 1 } else { 0 };
+            for (col, header) in data[0].iter().enumerate().skip(skip_num) {
+                let result = match item {
+                    Value::Record { .. } => item.clone().follow_cell_path(
+                        &[PathMember::String {
+                            val: header.as_ref().to_owned(),
+                            span: head,
+                        }],
+                        false,
+                    ),
+                    _ => Ok(item.clone()),
+                };
+
+                let value = match result {
+                    Ok(Value::List { vals, span })
+                        if !matches!(deep, Some(0))
+                            && flatten
+                            && vals.iter().all(|v| {
+                                !matches!(v, Value::Record { .. } | Value::List { .. })
+                            }) =>
+                    {
+                        let sep = flatten_sep.unwrap_or(" ");
+
+                        let mut buf = Vec::new();
+                        for value in vals {
+                            let (text, _) = make_styled_string(
+                                value.into_abbreviated_string(config),
+                                &value.get_type().to_string(),
+                                col,
+                                disable_index,
+                                color_hm,
+                                float_precision,
+                            );
+
+                            buf.push(text);
+                        }
+
+                        let text = buf.join(sep);
+                        (text, TextStyle::default())
+                    }
+                    Ok(Value::List { vals, span }) if !matches!(deep, Some(0)) => {
+                        let table = convert_to_table2(
+                            0,
+                            &vals,
+                            ctrlc.clone(),
+                            config,
+                            span.clone(),
+                            termwidth,
+                            color_hm,
+                            alignments.clone(),
+                            theme,
+                            deep.map(|i| i - 1),
+                            flatten,
+                            flatten_sep,
+                        );
+
+                        match table {
+                            Ok(Some(table)) => {
+                                let table = table.draw_table(
+                                    config,
+                                    color_hm,
+                                    alignments.clone(),
+                                    theme,
+                                    termwidth,
+                                );
+                                match table {
+                                    Some(table) => (table, TextStyle::default()),
+                                    None => {
+                                        let value = Value::List { vals, span };
+                                        make_styled_string(
+                                            value.into_abbreviated_string(config),
+                                            &value.get_type().to_string(),
+                                            col,
+                                            disable_index,
+                                            color_hm,
+                                            float_precision,
+                                        )
+                                    }
+                                }
+                            }
+                            _ => {
+                                let value = Value::List { vals, span };
+                                make_styled_string(
+                                    value.into_abbreviated_string(config),
+                                    &value.get_type().to_string(),
+                                    col,
+                                    disable_index,
+                                    color_hm,
+                                    float_precision,
+                                )
+                            }
+                        }
+                    }
+                    Ok(value) => make_styled_string(
+                        value.into_abbreviated_string(config),
+                        &value.get_type().to_string(),
+                        col,
+                        disable_index,
+                        color_hm,
+                        float_precision,
+                    ),
+                    Err(_) => make_styled_string(
+                        String::from("❎"),
+                        "empty",
+                        col,
+                        disable_index,
+                        color_hm,
+                        float_precision,
+                    ),
+                };
+
+                let value = NuTable::create_cell(value.0, value.1);
+                row.push(value);
+            }
+        }
+
+        count_columns = max(count_columns, row.len());
+
+        data.push(row);
+    }
+
+    let count_rows = data.len();
+    let table = NuTable::new(data, (count_rows, count_columns), termwidth, with_header);
+
+    Ok(Some(table))
+}
+
 fn make_styled_string(
     text: String,
     text_type: &str,
@@ -622,7 +963,7 @@ impl Iterator for PagingTableCreator {
             }
         }
 
-        if let TableView::Collapsed | TableView::Expanded = self.view {
+        if let TableView::Expanded = self.view {
             if batch.is_empty() {
                 return None;
             }
@@ -752,6 +1093,7 @@ fn render_path_name(
     Some(Value::String { val, span })
 }
 
+#[derive(Debug)]
 enum TableView {
     General,
     Expanded,

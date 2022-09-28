@@ -79,7 +79,7 @@ impl Table {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Alignments {
     pub(crate) data: AlignmentHorizontal,
     pub(crate) index: AlignmentHorizontal,
