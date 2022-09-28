@@ -5,7 +5,8 @@ use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     format_error, Category, Config, DataSource, Example, IntoPipelineData, ListStream,
-    PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
+    PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
+    TableIndexMode, Value,
 };
 use nu_table::{Alignments, StyledString, TableTheme, TextStyle};
 use nu_utils::get_ls_colors;
@@ -348,10 +349,14 @@ fn convert_to_table(
     let mut input = input.iter().peekable();
     let color_hm = get_color_config(config);
     let float_precision = config.float_precision as usize;
-    let disable_index = config.disable_table_indexes;
+    let with_index = match config.table_index_mode {
+        TableIndexMode::Always => true,
+        TableIndexMode::Never => false,
+        TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
+    };
 
     if input.peek().is_some() {
-        if !headers.is_empty() && !disable_index {
+        if !headers.is_empty() && with_index {
             headers.insert(0, "#".into());
         }
 
@@ -373,7 +378,7 @@ fn convert_to_table(
             }
             // String1 = datatype, String2 = value as string
             let mut row: Vec<(String, String)> = vec![];
-            if !disable_index {
+            if with_index {
                 let row_val = match &item {
                     Value::Record { .. } => item
                         .get_data_by_key(INDEX_COLUMN_NAME)
@@ -390,7 +395,7 @@ fn convert_to_table(
                     item.into_abbreviated_string(config),
                 ));
             } else {
-                let skip_num = if !disable_index { 1 } else { 0 };
+                let skip_num = if with_index { 1 } else { 0 };
                 for header in headers.iter().skip(skip_num) {
                     let result = match item {
                         Value::Record { .. } => item.clone().follow_cell_path(
@@ -432,7 +437,7 @@ fn convert_to_table(
                     x.into_iter()
                         .enumerate()
                         .map(|(col, y)| {
-                            if col == 0 && !disable_index {
+                            if col == 0 && with_index {
                                 StyledString {
                                     contents: y.1,
                                     style: TextStyle {
