@@ -1,12 +1,12 @@
 # Example of using a Python script as a Nushell plugin
 #
 # The example uses JSON encoding but it should be a similar process using
-# Cap'n Proto to move data between Nushell and the plugin. The only difference
-# would be that you need to compile the schema file in order have the objects
-# that decode and encode information that is read and written to stdin and stdout
+# msgpack to move data between Nushell and the plugin. The only difference
+# would be that you need to use msgpack relative lib(like msgpack) to
+# decode and encode information that is read and written to stdin and stdout
 #
 # To register the plugin use:
-# 	register <path-to-py-file> -e json
+# 	register <path-to-py-file>
 #
 # Be carefull with the spans. Miette will crash if a span is outside the
 # size of the contents vector. For this example we are using 0 and 1, which will
@@ -392,7 +392,15 @@ def process_call(plugin_call):
     }
 
 
+def tell_nushell_encoding():
+    sys.stdout.write(chr(4))
+    for ch in "json":
+        sys.stdout.write(chr(ord(ch)))
+    sys.stdout.flush()
+
+
 def plugin():
+    tell_nushell_encoding()
     call_str = ",".join(sys.stdin.readlines())
     plugin_call = json.loads(call_str)
 
