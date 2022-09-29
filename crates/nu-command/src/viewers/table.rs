@@ -90,7 +90,7 @@ impl Command for Table {
             )
             .switch(
                 "collapse",
-                "expand the table structure in colapse mode",
+                "expand the table structure in colapse mode.\nBe aware collapse mode currently doesn't support width controll",
                 Some('c'),
             )
             .category(Category::Viewers)
@@ -165,6 +165,44 @@ impl Command for Table {
             Example {
                 description: "Render data in table view",
                 example: r#"echo [[a b]; [1 2] [3 4]] | table"#,
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["a".to_string(), "b".to_string()],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                            span,
+                        },
+                        Value::Record {
+                            cols: vec!["a".to_string(), "b".to_string()],
+                            vals: vec![Value::test_int(3), Value::test_int(4)],
+                            span,
+                        },
+                    ],
+                    span,
+                }),
+            },
+            Example {
+                description: "Render data in table view (expanded)",
+                example: r#"echo [[a b]; [1 2] [2 [4 4]]] | table --expand"#,
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["a".to_string(), "b".to_string()],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                            span,
+                        },
+                        Value::Record {
+                            cols: vec!["a".to_string(), "b".to_string()],
+                            vals: vec![Value::test_int(3), Value::test_int(4)],
+                            span,
+                        },
+                    ],
+                    span,
+                }),
+            },
+            Example {
+                description: "Render data in table view (collapsed)",
+                example: r#"echo [[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -514,10 +552,21 @@ fn handle_row_stream(
     let head = call.head;
     let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
 
-    let expand: bool = call.has_flag("expand");
     let collapse: bool = call.has_flag("collapse");
+
+    let expand: bool = call.has_flag("expand");
+    let limit: Option<usize> = call.get_flag(engine_state, stack, "expand-deep")?;
+    let flatten: bool = call.has_flag("flatten");
+    let flatten_separator: Option<String> =
+        call.get_flag(engine_state, stack, "flatten-separator")?;
+
     let table_view = match (expand, collapse) {
         (_, true) => TableView::Collapsed,
+        (true, _) => TableView::Expanded {
+            flatten,
+            flatten_separator,
+            limit,
+        },
         _ => TableView::General,
     };
 
@@ -998,6 +1047,109 @@ struct PagingTableCreator {
     view: TableView,
 }
 
+impl PagingTableCreator {
+    fn build_extended(
+        &self,
+        batch: &[Value],
+        limit: Option<usize>,
+        flatten: bool,
+        flatten_separator: Option<String>,
+    ) -> Result<Option<String>, ShellError> {
+        let theme = load_theme_from_config(&self.config);
+        let term_width = get_width_param(self.width_param);
+        let color_hm = get_color_config(&self.config);
+        let table = convert_to_table2(
+            self.row_offset,
+            batch,
+            self.ctrlc.clone(),
+            &self.config,
+            self.head,
+            &color_hm,
+            Alignments::default(),
+            &theme,
+            limit,
+            flatten,
+            flatten_separator.as_deref().unwrap_or(""),
+        )?;
+
+        let mut table = match table {
+            Some(table) => table,
+            None => return Ok(None),
+        };
+
+        table.truncate(term_width, &theme);
+
+        let table = table.draw_table(
+            &self.config,
+            &color_hm,
+            Alignments::default(),
+            &theme,
+            term_width,
+        );
+
+        Ok(table)
+    }
+
+    fn build_collapsed(&self, batch: Vec<Value>) -> Result<Option<String>, ShellError> {
+        if batch.is_empty() {
+            return Ok(None);
+        }
+
+        let color_hm = get_color_config(&self.config);
+        let theme = load_theme_from_config(&self.config);
+        let term_width = get_width_param(self.width_param);
+        let need_footer = matches!(self.config.footer_mode, FooterMode::RowCount(limit) if batch.len() as u64 > limit)
+            || matches!(self.config.footer_mode, FooterMode::Always);
+        let value = Value::List {
+            vals: batch,
+            span: Span::new(0, 0),
+        };
+
+        let table = nu_table::NuTable::new(
+            value,
+            true,
+            term_width,
+            &self.config,
+            &color_hm,
+            &theme,
+            need_footer,
+        );
+
+        Ok(table.draw())
+    }
+
+    fn build_general(&self, batch: &[Value]) -> Result<Option<String>, ShellError> {
+        let term_width = get_width_param(self.width_param);
+        let color_hm = get_color_config(&self.config);
+        let theme = load_theme_from_config(&self.config);
+
+        let table = convert_to_table(
+            self.row_offset,
+            batch,
+            self.ctrlc.clone(),
+            &self.config,
+            self.head,
+            term_width,
+            &color_hm,
+        )?;
+
+        let table = match table {
+            Some(table) => table,
+            None => return Ok(None),
+        };
+
+        let table = table.draw_table(
+            &self.config,
+            &color_hm,
+            Alignments::default(),
+            &theme,
+            term_width,
+        );
+
+        Ok(table)
+    }
+}
+
 impl Iterator for PagingTableCreator {
     type Item = Result<Vec<u8>, ShellError>;
 
@@ -1033,67 +1185,18 @@ impl Iterator for PagingTableCreator {
             }
         }
 
-        if let TableView::Collapsed = self.view {
-            if batch.is_empty() {
-                return None;
-            }
-
-            let color_hm = get_color_config(&self.config);
-            let theme = load_theme_from_config(&self.config);
-            let term_width = get_width_param(self.width_param);
-            let need_footer = matches!(self.config.footer_mode, FooterMode::RowCount(limit) if batch.len() as u64 > limit)
-                || matches!(self.config.footer_mode, FooterMode::Always);
-
-            let value = Value::List {
-                vals: batch,
-                span: Span::new(0, 0),
-            };
-
-            let table = nu_table::NuTable::new(
-                value,
-                true,
-                term_width,
-                &self.config,
-                &color_hm,
-                &theme,
-                need_footer,
-            );
-
-            let result = table
-                .draw()
-                .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
-
-            return Some(Ok(result.as_bytes().to_vec()));
-        }
-
-        let term_width = get_width_param(self.width_param);
-        let color_hm = get_color_config(&self.config);
-        let table = convert_to_table(
-            self.row_offset,
-            &batch,
-            self.ctrlc.clone(),
-            &self.config,
-            self.head,
-            term_width,
-            &color_hm,
-        );
-        self.row_offset += idx;
+        let table = match &self.view {
+            TableView::General => self.build_general(&batch),
+            TableView::Collapsed => self.build_collapsed(batch),
+            TableView::Expanded {
+                limit,
+                flatten,
+                flatten_separator,
+            } => self.build_extended(&batch, *limit, *flatten, flatten_separator.clone()),
+        };
 
         match table {
-            Ok(Some(table)) => {
-                let theme = load_theme_from_config(&self.config);
-                let result = table
-                    .draw_table(
-                        &self.config,
-                        &color_hm,
-                        Alignments::default(),
-                        &theme,
-                        term_width,
-                    )
-                    .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
-
-                Some(Ok(result.as_bytes().to_vec()))
-            }
+            Ok(Some(table)) => Some(Ok(table.as_bytes().to_vec())),
             Err(err) => Some(Err(err)),
             _ => None,
         }
