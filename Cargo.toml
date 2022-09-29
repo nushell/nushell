@@ -36,7 +36,7 @@ chrono = { version = "0.4.21", features = ["serde"] }
 crossterm = "0.24.0"
 ctrlc = "3.2.1"
 log = "0.4"
-miette = "5.1.0"
+miette = { version = "5.1.0", features = ["fancy-no-backtrace"] }
 nu-ansi-term = "0.46.0"
 nu-cli = { path="./crates/nu-cli", version = "0.70.1"  }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.70.1"  }

@@ -89,7 +89,7 @@ url = "2.2.1"
 uuid = { version = "1.1.2", features = ["v4"] }
 which = { version = "4.3.0", optional = true }
 reedline = { version = "0.13.0", features = ["bashisms", "sqlite"]}
-wax = { version =  "0.5.0", features = ["diagnostics"] }
+wax = { version =  "0.5.0" }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.23.0", features = ["serde"], optional = true }
 
