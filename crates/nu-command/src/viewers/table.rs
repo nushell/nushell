@@ -226,103 +226,131 @@ impl Command for Table {
                             })
                     }
                     TableView::Expanded => {
-                        let output = vals
-                            .into_iter()
-                            .zip(cols)
-                            .map(|(value, key)| {
-                                let value = if matches!(expand_limit, Some(0)) {
-                                    let float_precision = config.float_precision as usize;
-                                    let disable_index = config.disable_table_indexes;
-
-                                    make_styled_string(
-                                        value.into_abbreviated_string(config),
-                                        &value.get_type().to_string(),
-                                        0,
-                                        disable_index,
-                                        &color_hm,
-                                        float_precision,
-                                    )
-                                    .0
-                                } else {
-                                    let vals = match value {
-                                        Value::List { vals, span } => vals,
-                                        value => vec![value],
-                                    };
-
-                                    let deep = expand_limit.map(|i| i - 1);
-                                    let table = convert_to_table2(
-                                        0,
-                                        &vals,
-                                        ctrlc.clone(),
-                                        &config,
-                                        span,
-                                        term_width,
-                                        &color_hm,
-                                        Alignments::default(),
-                                        &theme,
-                                        deep,
-                                        flatten,
-                                        flatten_separator.as_ref().map(|s| s.as_str()),
-                                    )
-                                    .unwrap()
-                                    .unwrap();
-
-                                    let theme = load_theme_from_config(&config);
-                                    let result = table
-                                        .draw_table(
-                                            &config,
-                                            &color_hm,
-                                            Alignments::default(),
-                                            &theme,
-                                            term_width,
-                                        )
-                                        .unwrap_or_else(|| {
-                                            format!(
-                                                "Couldn't fit table into {} columns!",
-                                                term_width
-                                            )
-                                        });
-
-                                    result
-                                };
-
-                                let float_precision = config.float_precision as usize;
-                                let disable_index = config.disable_table_indexes;
-
-                                let key = Value::String {
-                                    val: key,
-                                    span: Span::new(0, 0),
-                                };
-                                let key = make_styled_string(
-                                    key.into_abbreviated_string(config),
-                                    &key.get_type().to_string(),
-                                    0,
-                                    disable_index,
-                                    &color_hm,
-                                    float_precision,
-                                );
-
-                                let key = NuTable::create_cell(key.0, key.1);
-                                let val = NuTable::create_cell(value, TextStyle::default());
-
-                                vec![key, val]
-                            })
-                            .collect::<Vec<_>>();
-
-                        let output_len = output.len();
-                        let table = NuTable::new(output, (output_len, 2), term_width, false);
-
-                        table
+                        // calculate the width of a key part + the rest of table so we know the rest of the table width available for value.
+                        let key_width = cols
+                            .iter()
+                            .map(|col| nu_table::string_width(&col))
+                            .max()
+                            .unwrap_or(0);
+                        let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
+                        let key_table = NuTable::new(vec![vec![key]], (1, 2), term_width, false);
+                        let key_width = key_table
                             .draw_table(
                                 config,
                                 &color_hm,
                                 Alignments::default(),
                                 &theme,
-                                term_width,
+                                usize::MAX,
                             )
-                            .unwrap_or_else(|| {
-                                format!("Couldn't fit table into {} columns!", term_width)
-                            })
+                            .map(|table| nu_table::string_width(&table))
+                            .unwrap_or(0);
+
+                        if key_width > term_width {
+                            format!("Couldn't fit table into {} columns!", term_width)
+                        } else {
+                            let remaining_width = term_width - key_width;
+                            let output = vals
+                                .into_iter()
+                                .zip(cols)
+                                .map(|(value, key)| {
+                                    let value = if matches!(expand_limit, Some(0)) {
+                                        let float_precision = config.float_precision as usize;
+                                        let disable_index = config.disable_table_indexes;
+
+                                        make_styled_string(
+                                            value.into_abbreviated_string(config),
+                                            &value.get_type().to_string(),
+                                            0,
+                                            disable_index,
+                                            &color_hm,
+                                            float_precision,
+                                        )
+                                        .0
+                                    } else {
+                                        let vals = match value {
+                                            Value::List { vals, span } => vals,
+                                            value => vec![value],
+                                        };
+
+                                        let deep = expand_limit.map(|i| i - 1);
+                                        let mut table = convert_to_table2(
+                                            0,
+                                            &vals,
+                                            ctrlc.clone(),
+                                            &config,
+                                            span,
+                                            None,
+                                            &color_hm,
+                                            Alignments::default(),
+                                            &theme,
+                                            deep,
+                                            flatten,
+                                            flatten_separator.as_ref().map(|s| s.as_str()),
+                                        )
+                                        .unwrap()
+                                        .unwrap();
+
+                                        // controll width via removing table columns.
+
+                                        let theme = load_theme_from_config(&config);
+                                        table.truncate(remaining_width, &theme);
+
+                                        let result = table
+                                            .draw_table(
+                                                &config,
+                                                &color_hm,
+                                                Alignments::default(),
+                                                &theme,
+                                                remaining_width,
+                                            )
+                                            .unwrap_or_else(|| {
+                                                format!(
+                                                    "Couldn't fit table into {} columns!",
+                                                    term_width
+                                                )
+                                            });
+
+                                        result
+                                    };
+
+                                    let float_precision = config.float_precision as usize;
+                                    let disable_index = config.disable_table_indexes;
+
+                                    let key = Value::String {
+                                        val: key,
+                                        span: Span::new(0, 0),
+                                    };
+                                    let key = make_styled_string(
+                                        key.into_abbreviated_string(config),
+                                        &key.get_type().to_string(),
+                                        0,
+                                        disable_index,
+                                        &color_hm,
+                                        float_precision,
+                                    );
+
+                                    let key = NuTable::create_cell(key.0, key.1);
+                                    let val = NuTable::create_cell(value, TextStyle::default());
+
+                                    vec![key, val]
+                                })
+                                .collect::<Vec<_>>();
+
+                            let output_len = output.len();
+                            let table = NuTable::new(output, (output_len, 2), term_width, false);
+
+                            table
+                                .draw_table(
+                                    config,
+                                    &color_hm,
+                                    Alignments::default(),
+                                    &theme,
+                                    usize::MAX,
+                                )
+                                .unwrap_or_else(|| {
+                                    format!("Couldn't fit table into {} columns!", term_width)
+                                })
+                        }
                     }
                     TableView::Collapsed => {
                         let value = Value::Record {
@@ -656,7 +684,7 @@ fn convert_to_table2(
     ctrlc: Option<Arc<AtomicBool>>,
     config: &Config,
     head: Span,
-    termwidth: usize,
+    termwidth: Option<usize>,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
     alignments: Alignments,
     theme: &TableTheme,
@@ -793,9 +821,9 @@ fn convert_to_table2(
                             ctrlc.clone(),
                             config,
                             span.clone(),
-                            termwidth,
+                            None,
                             color_hm,
-                            alignments.clone(),
+                            alignments,
                             theme,
                             deep.map(|i| i - 1),
                             flatten,
@@ -807,9 +835,9 @@ fn convert_to_table2(
                                 let table = table.draw_table(
                                     config,
                                     color_hm,
-                                    alignments.clone(),
+                                    alignments,
                                     theme,
-                                    termwidth,
+                                    usize::MAX,
                                 );
                                 match table {
                                     Some(table) => (table, TextStyle::default()),
@@ -868,7 +896,7 @@ fn convert_to_table2(
     }
 
     let count_rows = data.len();
-    let table = NuTable::new(data, (count_rows, count_columns), termwidth, with_header);
+    let table = NuTable::new(data, (count_rows, count_columns), usize::MAX, with_header);
 
     Ok(Some(table))
 }

@@ -64,6 +64,41 @@ impl Table {
         TCell::new(CellInfo::new(text, CfgWidthFunction::new(4)), style)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.is_empty
+    }
+
+    pub fn truncate(&mut self, width: usize, theme: &TableTheme) -> bool {
+        let mut truncated = false;
+        while self.data.count_rows() > 0 && self.data.count_columns() > 0 {
+            let mut table = Builder::custom(self.data.clone()).build();
+            load_theme(&mut table, &HashMap::new(), theme, false, false);
+            let total = table.total_width();
+            drop(table);
+
+            if total > width {
+                truncated = true;
+                self.data.truncate(self.data.count_columns() - 1);
+            } else {
+                break;
+            }
+        }
+
+        let is_empty = self.data.count_rows() == 0 || self.data.count_columns() == 0;
+        if is_empty {
+            return true;
+        }
+
+        if truncated {
+            self.data.push(Table::create_cell(
+                String::from("..."),
+                TextStyle::default(),
+            ));
+        }
+
+        false
+    }
+
     /// Draws a trable on a String.
     ///
     /// It returns None in case where table cannot be fit to a terminal width.
