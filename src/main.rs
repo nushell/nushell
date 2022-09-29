@@ -37,6 +37,100 @@ use std::{
 
 thread_local! { static IS_PERF: RefCell<bool> = RefCell::new(false) }
 
+// Inspired by fish's acquire_tty_or_exit
+#[cfg(unix)]
+fn take_control(interactive: bool) {
+    use nix::{
+        errno::Errno,
+        sys::signal::{self, SaFlags, SigAction, SigHandler, SigSet, Signal},
+        unistd::{self, Pid},
+    };
+
+    let shell_pgid = unistd::getpgrp();
+    let owner_pgid = unistd::tcgetpgrp(nix::libc::STDIN_FILENO).expect("tcgetpgrp");
+
+    // Common case, nothing to do
+    if owner_pgid == shell_pgid {
+        return;
+    }
+
+    // This can apparently happen with sudo: https://github.com/fish-shell/fish-shell/issues/7388
+    if owner_pgid == unistd::getpid() {
+        let _ = unistd::setpgid(owner_pgid, owner_pgid);
+        return;
+    }
+
+    // Reset all signal handlers to default
+    for sig in Signal::iterator() {
+        unsafe {
+            if let Ok(old_act) = signal::sigaction(
+                sig,
+                &SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty()),
+            ) {
+                // fish preserves ignored SIGHUP, presumably for nohup support, so let's do the same
+                if sig == Signal::SIGHUP && old_act.handler() == SigHandler::SigIgn {
+                    let _ = signal::sigaction(sig, &old_act);
+                }
+            }
+        }
+    }
+
+    let mut success = false;
+    for _ in 0..4096 {
+        match unistd::tcgetpgrp(nix::libc::STDIN_FILENO) {
+            Ok(owner_pgid) if owner_pgid == shell_pgid => {
+                success = true;
+                break;
+            }
+            Ok(owner_pgid) if owner_pgid == Pid::from_raw(0) => {
+                // Zero basically means something like "not owned" and we can just take it
+                let _ = unistd::tcsetpgrp(nix::libc::STDIN_FILENO, shell_pgid);
+            }
+            Err(Errno::ENOTTY) => {
+                if !interactive {
+                    // that's fine
+                    return;
+                }
+                eprintln!("ERROR: no TTY for interactive shell");
+                std::process::exit(1);
+            }
+            _ => {
+                // fish also has other heuristics than "too many attempts" for the orphan check, but they're optional
+                if signal::killpg(Pid::from_raw(-shell_pgid.as_raw()), Signal::SIGTTIN).is_err() {
+                    eprintln!("ERROR: failed to SIGTTIN ourselves");
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+    if !success {
+        eprintln!("ERROR: failed take control of the terminal, we might be orphaned");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(unix)]
+fn acquire_terminal(interactive: bool) {
+    use nix::sys::signal::{signal, SigHandler, Signal};
+
+    if !atty::is(atty::Stream::Stdin) {
+        return;
+    }
+
+    take_control(interactive);
+
+    unsafe {
+        // SIGINT and SIGQUIT have special handling above
+        signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
+        signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
+        signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
+        // signal::signal(Signal::SIGCHLD, SigHandler::SigIgn).expect("signal ignore"); // needed for std::command's waitpid usage
+    }
+}
+
+#[cfg(not(unix))]
+fn acquire_terminal(_: bool) {}
+
 fn main() -> Result<()> {
     // miette::set_panic_hook();
     let miette_hook = std::panic::take_hook();
@@ -155,6 +249,12 @@ fn main() -> Result<()> {
 
     match parsed_nu_cli_args {
         Ok(binary_args) => {
+            // keep this condition in sync with the branches below
+            acquire_terminal(
+                binary_args.commands.is_none()
+                    && (script_name.is_empty() || binary_args.interactive_shell.is_some()),
+            );
+
             if let Some(t) = binary_args.threads {
                 // 0 means to let rayon decide how many threads to use
                 let threads = t.as_i64().unwrap_or(0);

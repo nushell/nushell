@@ -2511,6 +2511,7 @@ dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
  "libc",
+ "memoffset",
 ]
 
 [[package]]
@@ -2580,6 +2581,7 @@ name = "nu"
 version = "0.69.2"
 dependencies = [
  "assert_cmd",
+ "atty",
  "chrono",
  "crossterm 0.24.0",
  "ctrlc",
@@ -2588,6 +2590,7 @@ dependencies = [
  "itertools",
  "log",
  "miette 5.1.1",
+ "nix",
  "nu-ansi-term",
  "nu-cli",
  "nu-color-config",
@@ -2873,11 +2876,13 @@ dependencies = [
 name = "nu-system"
 version = "0.69.2"
 dependencies = [
+ "atty",
  "chrono",
  "errno",
  "libc",
  "libproc",
  "mach2",
+ "nix",
  "ntapi",
  "once_cell",
  "procfs",
