@@ -578,7 +578,7 @@ fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
         engine_state,
         stack,
         None,
-        "(date now) - ('05/10/2019' | into datetime)",
+        "(date now) - ('2019-05-10 09:59:12-0700' | into datetime)",
     ) {
         Ok(Value::Duration { val, .. }) => format_duration(val),
         _ => "".to_string(),
@@ -595,7 +595,7 @@ Our {}GitHub{} repository is at {}https://github.com/nushell/nushell{}
 Our {}Documentation{} is located at {}http://nushell.sh{}
 {}Tweet{} us at {}@nu_shell{}
 
-{}Nushell{} has been around for:
+It's been this long since {}Nushell{}'s first commit:
 {}
 
 {}You can disable this banner using the {}config nu{}{} command
