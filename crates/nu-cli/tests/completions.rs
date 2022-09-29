@@ -63,7 +63,7 @@ fn variables_single_dash_argument_with_flagcompletion(mut completer: NuCompleter
 
 #[rstest]
 fn variables_command_with_commandcompletion(mut completer_strings: NuCompleter) {
-    let suggestions = completer_strings.complete("my-command ", 9);
+    let suggestions = completer_strings.complete("my-c ", 4);
     let expected: Vec<String> = vec!["my-command".into()];
     match_suggestions(expected, suggestions);
 }
@@ -671,4 +671,64 @@ fn unknown_command_completion() {
     ];
 
     match_suggestions(expected_paths, suggestions)
+}
+
+#[rstest]
+fn flagcompletion_triggers_after_cursor(mut completer: NuCompleter) {
+    let suggestions = completer.complete("tst -h", 5);
+    let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn customcompletion_triggers_after_cursor(mut completer_strings: NuCompleter) {
+    let suggestions = completer_strings.complete("my-command c", 11);
+    let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn customcompletion_triggers_after_cursor_piped(mut completer_strings: NuCompleter) {
+    let suggestions = completer_strings.complete("my-command c | ls", 11);
+    let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn flagcompletion_triggers_after_cursor_piped(mut completer: NuCompleter) {
+    let suggestions = completer.complete("tst -h | ls", 5);
+    let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[test]
+fn filecompletions_triggers_after_cursor() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let suggestions = completer.complete("cp   test_c", 3);
+
+    #[cfg(windows)]
+    let expected_paths: Vec<String> = vec![
+        "nushell".to_string(),
+        "test_a\\".to_string(),
+        "test_b\\".to_string(),
+        "another\\".to_string(),
+        "custom_completion.nu".to_string(),
+        ".hidden_file".to_string(),
+        ".hidden_folder\\".to_string(),
+    ];
+    #[cfg(not(windows))]
+    let expected_paths: Vec<String> = vec![
+        "nushell".to_string(),
+        "test_a/".to_string(),
+        "test_b/".to_string(),
+        "another/".to_string(),
+        "custom_completion.nu".to_string(),
+        ".hidden_file".to_string(),
+        ".hidden_folder/".to_string(),
+    ];
+
+    match_suggestions(expected_paths, suggestions);
 }
