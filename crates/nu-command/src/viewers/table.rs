@@ -768,11 +768,10 @@ fn convert_to_table2(
     flatten_sep: &str,
 ) -> Result<Option<NuTable>, ShellError> {
     let mut headers = get_columns(input);
-    let mut input = input.iter().peekable();
     let float_precision = config.float_precision as usize;
     let disable_index = config.disable_table_indexes;
 
-    if input.peek().is_none() {
+    if input.is_empty() {
         return Ok(None);
     }
 
@@ -805,7 +804,7 @@ fn convert_to_table2(
         vec![headers]
     };
 
-    for (row_num, item) in input.enumerate() {
+    for (row_num, item) in input.iter().enumerate() {
         if let Some(ctrlc) = &ctrlc {
             if ctrlc.load(Ordering::SeqCst) {
                 return Ok(None);
@@ -834,19 +833,88 @@ fn convert_to_table2(
         }
 
         if !with_header {
-            let text = item.into_abbreviated_string(config);
-            let text_type = item.get_type().to_string();
-            let col = if !disable_index { 1 } else { 0 };
-            let value = make_styled_string(
-                text,
-                &text_type,
-                col,
-                disable_index,
-                color_hm,
-                float_precision,
-            );
-            let value = NuTable::create_cell(value.0, value.1);
+            let value = match item {
+                Value::List { vals, span } if !matches!(deep, Some(0)) => {
+                    if flatten
+                        && vals
+                            .iter()
+                            .all(|v| !matches!(v, Value::Record { .. } | Value::List { .. }))
+                    {
+                        let mut buf = Vec::new();
+                        for value in vals {
+                            let (text, _) = make_styled_string(
+                                value.into_abbreviated_string(config),
+                                &value.get_type().to_string(),
+                                0,
+                                disable_index,
+                                color_hm,
+                                float_precision,
+                            );
 
+                            buf.push(text);
+                        }
+
+                        let text = buf.join(flatten_sep);
+                        (text, TextStyle::default())
+                    } else {
+                        let table = convert_to_table2(
+                            0,
+                            &vals,
+                            ctrlc.clone(),
+                            config,
+                            span.clone(),
+                            color_hm,
+                            alignments,
+                            theme,
+                            deep.map(|i| i - 1),
+                            flatten,
+                            flatten_sep,
+                        );
+
+                        match table {
+                            Ok(Some(table)) => {
+                                let table = table.draw_table(
+                                    config,
+                                    color_hm,
+                                    alignments,
+                                    theme,
+                                    usize::MAX,
+                                );
+
+                                match table {
+                                    Some(table) => (table, TextStyle::default()),
+                                    None => make_styled_string(
+                                        item.into_abbreviated_string(config),
+                                        &item.get_type().to_string(),
+                                        0,
+                                        disable_index,
+                                        color_hm,
+                                        float_precision,
+                                    ),
+                                }
+                            }
+                            _ => make_styled_string(
+                                item.into_abbreviated_string(config),
+                                &item.get_type().to_string(),
+                                0,
+                                disable_index,
+                                color_hm,
+                                float_precision,
+                            ),
+                        }
+                    }
+                }
+                value => make_styled_string(
+                    value.into_abbreviated_string(config),
+                    &value.get_type().to_string(),
+                    0,
+                    disable_index,
+                    color_hm,
+                    float_precision,
+                ),
+            };
+
+            let value = NuTable::create_cell(value.0, value.1);
             row.push(value);
         } else {
             let skip_num = if !disable_index { 1 } else { 0 };
@@ -911,6 +979,7 @@ fn convert_to_table2(
                                     theme,
                                     usize::MAX,
                                 );
+
                                 match table {
                                     Some(table) => (table, TextStyle::default()),
                                     None => {
@@ -1069,7 +1138,7 @@ impl PagingTableCreator {
             &theme,
             limit,
             flatten,
-            flatten_separator.as_deref().unwrap_or(""),
+            flatten_separator.as_deref().unwrap_or(" "),
         )?;
 
         let mut table = match table {
