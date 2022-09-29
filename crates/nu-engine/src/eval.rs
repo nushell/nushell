@@ -408,7 +408,7 @@ pub fn eval_expression(
 
             match op {
                 Operator::And => {
-                    if !lhs.is_true() {
+                    if lhs.is_false() {
                         Ok(Value::Bool {
                             val: false,
                             span: expr.span,

@@ -1176,6 +1176,10 @@ impl Value {
         matches!(self, Value::Bool { val: true, .. })
     }
 
+    pub fn is_false(&self) -> bool {
+        matches!(self, Value::Bool { val: false, .. })
+    }
+
     pub fn columns(&self) -> Vec<String> {
         match self {
             Value::Record { cols, .. } => cols.clone(),
