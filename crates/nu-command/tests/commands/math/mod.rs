@@ -403,6 +403,18 @@ fn duration_decimal_math_with_all_units() {
 }
 
 #[test]
+fn duration_decimal_dans_test() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            3.14sec
+        "#
+    ));
+
+    assert_eq!(actual.out, "3sec 140ms");
+}
+
+#[test]
 fn duration_math_with_negative() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
