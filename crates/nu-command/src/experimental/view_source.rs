@@ -189,9 +189,9 @@ impl Command for ViewSource {
             },
             Example {
                 description: "View the source of a module",
-                example: r#"module mod-foo { export env FOO_ENV { 'BAZ' } }; view-source mod-foo"#,
+                example: r#"module mod-foo { export-env { let-env FOO_ENV = 'BAZ' } }; view-source mod-foo"#,
                 result: Some(Value::String {
-                    val: " export env FOO_ENV { 'BAZ' }".to_string(),
+                    val: " export-env { let-env FOO_ENV = 'BAZ' }".to_string(),
                     span: Span::test_data(),
                 }),
             },

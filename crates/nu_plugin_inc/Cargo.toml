@@ -5,13 +5,13 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_inc"
 edition = "2021"
 license = "MIT"
 name = "nu_plugin_inc"
-version = "0.68.2"
+version = "0.69.2"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-plugin = { path="../nu-plugin", version = "0.68.2" }
-nu-protocol = { path="../nu-protocol", version = "0.68.2", features = ["plugin"]}
+nu-plugin = { path="../nu-plugin", version = "0.69.2" }
+nu-protocol = { path="../nu-protocol", version = "0.69.2", features = ["plugin"]}
 
 semver = "0.11.0"

@@ -215,8 +215,8 @@ fn histogram_impl(
     const MAX_FREQ_COUNT: f64 = 100.0;
     for (val, count) in counter.into_iter() {
         let quantile = match calc_method {
-            PercentageCalcMethod::Normalize => (count as f64 / total_cnt as f64),
-            PercentageCalcMethod::Relative => (count as f64 / max_cnt as f64),
+            PercentageCalcMethod::Normalize => count as f64 / total_cnt as f64,
+            PercentageCalcMethod::Relative => count as f64 / max_cnt as f64,
         };
 
         let percentage = format!("{:.2}%", quantile * 100_f64);

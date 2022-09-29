@@ -149,7 +149,7 @@ fn can_source_dynamic_path() {
     Playground::setup("can_source_dynamic_path", |dirs, sandbox| {
         let foo_file = "foo.nu";
 
-        sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
+        sandbox.with_files(vec![FileWithContent(foo_file, "echo foo")]);
 
         let cmd = format!("let file = `{}`; source-env $file", foo_file);
         let actual = nu!(cwd: dirs.test(), &cmd);
@@ -194,7 +194,7 @@ fn source_env_eval_export_env_hide() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert!(actual.err.contains("did you mean"));
+        assert!(actual.err.contains("cannot find column"));
     })
 }
 
@@ -275,21 +275,21 @@ fn source_env_is_scoped() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
-                    def foo [] { 'foo' }
-                    alias bar = 'bar'
+                    def no-name-similar-to-this [] { 'no-name-similar-to-this' }
+                    alias nor-similar-to-this = 'nor-similar-to-this'
                 "#,
         )]);
 
-        let inp = &[r#"source-env spam.nu"#, r#"foo"#];
+        let inp = &[r#"source-env spam.nu"#, r#"no-name-similar-to-this"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert!(actual.err.contains("did you mean"));
+        assert!(actual.err.contains("can't run executable"));
 
-        let inp = &[r#"source-env spam.nu"#, r#"bar"#];
+        let inp = &[r#"source-env spam.nu"#, r#"nor-similar-to-this"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert!(actual.err.contains("did you mean"));
+        assert!(actual.err.contains("can't run executable"));
     })
 }

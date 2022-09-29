@@ -186,6 +186,7 @@ fn external_arg_with_variable_name() {
     })
 }
 
+#[cfg(not(windows))]
 #[test]
 fn external_command_escape_args() {
     Playground::setup("external failed command with semicolon", |dirs, _| {

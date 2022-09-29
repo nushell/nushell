@@ -380,7 +380,7 @@ fn let_env_hides_variable() {
     );
 
     assert_eq!(actual.out, "hello world");
-    assert!(actual.err.contains("did you mean"));
+    assert!(actual.err.contains("cannot find column"));
 }
 
 #[test]
@@ -399,7 +399,7 @@ fn let_env_hides_variable_in_parent_scope() {
     );
 
     assert_eq!(actual.out, "hello world");
-    assert!(actual.err.contains("did you mean"));
+    assert!(actual.err.contains("cannot find column"));
 }
 
 #[test]
@@ -412,7 +412,7 @@ fn unlet_env_variable() {
             echo $env.TEST_VAR
         "#
     );
-    assert!(actual.err.contains("did you mean"));
+    assert!(actual.err.contains("cannot find column"));
 }
 
 #[test]
@@ -457,7 +457,7 @@ fn let_env_doesnt_leak() {
         "#
     );
 
-    assert!(actual.err.contains("did you mean"));
+    assert!(actual.err.contains("cannot find column"));
 }
 
 #[test]
@@ -506,7 +506,7 @@ fn load_env_doesnt_leak() {
         "#
     );
 
-    assert!(actual.err.contains("did you mean"));
+    assert!(actual.err.contains("cannot find column"));
 }
 
 #[test]
@@ -1219,7 +1219,7 @@ fn hide_alias_hides_alias() {
         "#)
     );
 
-    assert!(actual.err.contains("did you mean"));
+    assert!(actual.err.contains("did you mean 'all'?"));
 }
 
 mod parse {

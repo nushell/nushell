@@ -148,7 +148,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.68.2"
+version = "0.69.2"
 dependencies = [
  "errno",
  "libproc",

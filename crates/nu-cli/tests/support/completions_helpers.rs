@@ -104,9 +104,7 @@ pub fn merge_input(
         (block, working_set.render())
     };
 
-    if let Err(err) = engine_state.merge_delta(delta) {
-        return Err(err);
-    }
+    engine_state.merge_delta(delta)?;
 
     assert!(eval_block(
         engine_state,

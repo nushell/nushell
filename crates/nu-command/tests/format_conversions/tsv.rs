@@ -6,7 +6,7 @@ use nu_test_support::{nu, pipeline};
 fn table_to_tsv_text_and_from_tsv_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open caco3_plastics.tsv | to tsv | from tsv | first 1 | get origin"
+        "open caco3_plastics.tsv | to tsv | from tsv | first | get origin"
     );
 
     assert_eq!(actual.out, "SPAIN");
@@ -16,7 +16,7 @@ fn table_to_tsv_text_and_from_tsv_text_back_into_table() {
 fn table_to_tsv_text_and_from_tsv_text_back_into_table_using_csv_separator() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r"open caco3_plastics.tsv | to tsv | from csv --separator '\t' | first 1 | get origin"
+        r"open caco3_plastics.tsv | to tsv | from csv --separator '\t' | first | get origin"
     );
 
     assert_eq!(actual.out, "SPAIN");

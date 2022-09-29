@@ -9,7 +9,7 @@ fn lines() {
             | lines
             | skip while $it != "[dependencies]"
             | skip 1
-            | first 1
+            | first
             | split column "="
             | get column1.0
             | str trim

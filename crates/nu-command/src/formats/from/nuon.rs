@@ -526,35 +526,6 @@ fn convert_to_value(
                         expr.span,
                     )),
                 },
-                Unit::Month => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 30) {
-                    Some(val) => Ok(Value::Duration { val, span }),
-                    None => Err(ShellError::OutsideSpannedLabeledError(
-                        original_text.to_string(),
-                        "month duration too large".into(),
-                        "month duration too large".into(),
-                        expr.span,
-                    )),
-                },
-                Unit::Year => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 365) {
-                    Some(val) => Ok(Value::Duration { val, span }),
-                    None => Err(ShellError::OutsideSpannedLabeledError(
-                        original_text.to_string(),
-                        "year duration too large".into(),
-                        "year duration too large".into(),
-                        expr.span,
-                    )),
-                },
-                Unit::Decade => {
-                    match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 365 * 10) {
-                        Some(val) => Ok(Value::Duration { val, span }),
-                        None => Err(ShellError::OutsideSpannedLabeledError(
-                            original_text.to_string(),
-                            "decade duration too large".into(),
-                            "decade duration too large".into(),
-                            expr.span,
-                        )),
-                    }
-                }
             }
         }
         Expr::Var(..) => Err(ShellError::OutsideSpannedLabeledError(

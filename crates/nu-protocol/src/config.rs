@@ -77,7 +77,7 @@ pub struct Config {
     pub rm_always_trash: bool,
     pub shell_integration: bool,
     pub buffer_editor: String,
-    pub disable_table_indexes: bool,
+    pub table_index_mode: TableIndexMode,
     pub cd_with_abbreviations: bool,
     pub case_sensitive_completions: bool,
     pub enable_external_completion: bool,
@@ -114,7 +114,7 @@ impl Default for Config {
             rm_always_trash: false,
             shell_integration: false,
             buffer_editor: String::new(),
-            disable_table_indexes: false,
+            table_index_mode: TableIndexMode::Always,
             cd_with_abbreviations: false,
             case_sensitive_completions: false,
             enable_external_completion: true,
@@ -143,6 +143,16 @@ pub enum HistoryFileFormat {
     Sqlite,
     /// store history as a plain text file where every line is one command (without any context such as timestamps)
     PlainText,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum TableIndexMode {
+    /// Always show indexes
+    Always,
+    /// Never show indexes
+    Never,
+    /// Show indexes when a table has "index" column
+    Auto,
 }
 
 /// A Table view configuration, for a situation where
@@ -370,11 +380,19 @@ impl Value {
                             eprintln!("$config.buffer_editor is not a string")
                         }
                     }
-                    "disable_table_indexes" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.disable_table_indexes = b;
+                    "table_index_mode" => {
+                        if let Ok(b) = value.as_string() {
+                            let val_str = b.to_lowercase();
+                            match val_str.as_ref() {
+                                "always" => config.table_index_mode = TableIndexMode::Always,
+                                "never" => config.table_index_mode = TableIndexMode::Never,
+                                "auto" => config.table_index_mode = TableIndexMode::Auto,
+                                _ => eprintln!(
+                                    "$config.table_index_mode must be a never, always or auto"
+                                ),
+                            }
                         } else {
-                            eprintln!("$config.disable_table_indexes is not a bool")
+                            eprintln!("$config.table_index_mode is not a string")
                         }
                     }
                     "cd_with_abbreviations" => {

@@ -315,9 +315,6 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
                     Unit::Hour => return Ok(x * 60 * 60 * 1000 * 1000 * 1000),
                     Unit::Day => return Ok(x * 24 * 60 * 60 * 1000 * 1000 * 1000),
                     Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000),
-                    Unit::Month => return Ok(x * 30 * 24 * 60 * 60 * 1000 * 1000 * 1000), //30 days to a month
-                    Unit::Year => return Ok(x * 365 * 24 * 60 * 60 * 1000 * 1000 * 1000), //365 days to a year
-                    Unit::Decade => return Ok(x * 10 * 365 * 24 * 60 * 60 * 1000 * 1000 * 1000), //365 days to a year
                     _ => {}
                 }
             }
@@ -353,9 +350,6 @@ fn string_to_unit_duration(
                     Unit::Hour => return Ok(("hr", x)),
                     Unit::Day => return Ok(("day", x)),
                     Unit::Week => return Ok(("wk", x)),
-                    Unit::Month => return Ok(("month", x)), //30 days to a month
-                    Unit::Year => return Ok(("yr", x)),     //365 days to a year
-                    Unit::Decade => return Ok(("dec", x)),  //365 days to a year
 
                     _ => return Ok(("ns", 0)),
                 }
