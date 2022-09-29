@@ -1538,20 +1538,36 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             val: size * 1000 * 1000 * 1000,
             span,
         },
-        Unit::Minute => Value::Duration {
-            val: size * 1000 * 1000 * 1000 * 60,
-            span,
+        Unit::Minute => match size.checked_mul(1000 * 1000 * 1000 * 60) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::GenericError(
+                    "duration too large".into(),
+                    "duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
         },
-        Unit::Hour => Value::Duration {
-            val: size * 1000 * 1000 * 1000 * 60 * 60,
-            span,
+        Unit::Hour => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::GenericError(
+                    "duration too large".into(),
+                    "duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
         },
         Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
                 error: ShellError::GenericError(
-                    "day duration too large".into(),
-                    "day duration too large".into(),
+                    "duration too large".into(),
+                    "duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),
@@ -1562,8 +1578,8 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
                 error: ShellError::GenericError(
-                    "week duration too large".into(),
-                    "week duration too large".into(),
+                    "duration too large".into(),
+                    "duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),
