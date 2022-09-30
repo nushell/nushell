@@ -744,7 +744,8 @@ pub fn eval_expression_with_input(
         }
 
         elem => {
-            input = eval_expression_recording_pipeline(engine_state, stack, elem)?.into_pipeline_data();
+            input =
+                eval_expression_recording_pipeline(engine_state, stack, elem)?.into_pipeline_data();
         }
     }
 
@@ -1321,12 +1322,10 @@ pub fn eval_variable(
     span: Span,
 ) -> Result<Value, ShellError> {
     match var_id {
-        nu_protocol::IN_VARIABLE_ID => {
-            match stack.get_env_var(engine_state, "LAST_PIPED_VALUE") {
-                Some(v) => Ok(v),
-                None => Err(ShellError::EnvVarNotFoundAtRuntime("$in".to_string(), span)),
-            }
-        }
+        nu_protocol::IN_VARIABLE_ID => match stack.get_env_var(engine_state, "LAST_PIPED_VALUE") {
+            Some(v) => Ok(v),
+            None => Err(ShellError::EnvVarNotFoundAtRuntime("$in".to_string(), span)),
+        },
         nu_protocol::NU_VARIABLE_ID => {
             // $nu
             let mut output_cols = vec![];
