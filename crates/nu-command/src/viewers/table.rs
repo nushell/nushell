@@ -5,7 +5,8 @@ use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     format_error, Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream,
-    PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Value,
+    PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
+    TableIndexMode, Value,
 };
 use nu_table::{Alignment, Alignments, Table as NuTable, TableTheme, TextStyle};
 use nu_utils::get_ls_colors;
@@ -279,10 +280,7 @@ fn handle_table_command(
                     flatten,
                     flatten_separator,
                 } => {
-                    let sep = flatten_separator
-                        .as_ref()
-                        .map(|sep| sep.as_str())
-                        .unwrap_or(" ");
+                    let sep = flatten_separator.as_deref().unwrap_or(" ");
                     build_expanded_table(
                         cols, vals, span, ctrlc, config, term_width, limit, flatten, sep,
                     )
@@ -397,6 +395,7 @@ fn build_general_table2(
     Ok(table)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_expanded_table(
     cols: Vec<String>,
     vals: Vec<Value>,
@@ -415,7 +414,7 @@ fn build_expanded_table(
     // calculate the width of a key part + the rest of table so we know the rest of the table width available for value.
     let key_width = cols
         .iter()
-        .map(|col| nu_table::string_width(&col))
+        .map(|col| nu_table::string_width(col))
         .max()
         .unwrap_or(0);
     let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
@@ -453,7 +452,7 @@ fn build_expanded_table(
                 0,
                 &vals,
                 ctrlc.clone(),
-                &config,
+                config,
                 span,
                 &color_hm,
                 alignments,
@@ -466,10 +465,10 @@ fn build_expanded_table(
 
             // controll width via removing table columns.
 
-            let theme = load_theme_from_config(&config);
+            let theme = load_theme_from_config(config);
             table.truncate(remaining_width, &theme);
 
-            let result = table.draw_table(&config, &color_hm, alignments, &theme, remaining_width);
+            let result = table.draw_table(config, &color_hm, alignments, &theme, remaining_width);
             match result {
                 Some(result) => result,
                 None => return Ok(None),
@@ -527,10 +526,9 @@ fn handle_row_stream(
 
                         while idx < cols.len() {
                             if cols[idx] == "name" {
-                                if let Some(Value::String { val: path, span }) = vals.get(idx) {
-                                    if let Some(val) =
-                                        render_path_name(&path, &config, &ls_colors, *span)
-                                    {
+                                if let Some(Value::String { val, span }) = vals.get(idx) {
+                                    let val = render_path_name(&val, &config, &ls_colors, *span);
+                                    if let Some(val) = val {
                                         vals[idx] = val;
                                     }
                                 }
@@ -637,7 +635,7 @@ fn convert_to_table(
         return Ok(None);
     }
 
-    if !headers.is_empty() && !disable_index {
+    if !headers.is_empty() && with_index {
         headers.insert(0, "#".into());
     }
 
@@ -678,7 +676,7 @@ fn convert_to_table(
         }
 
         let mut row = vec![];
-        if !disable_index {
+        if with_index {
             let text = match &item {
                 Value::Record { .. } => item
                     .get_data_by_key(INDEX_COLUMN_NAME)
@@ -688,7 +686,7 @@ fn convert_to_table(
             .unwrap_or_else(|| (row_num + row_offset).to_string());
 
             let value =
-                make_styled_string(text, "string", 0, disable_index, color_hm, float_precision);
+                make_styled_string(text, "string", 0, with_index, color_hm, float_precision);
             let value = NuTable::create_cell(value.0, value.1);
 
             row.push(value);
@@ -697,20 +695,14 @@ fn convert_to_table(
         if !with_header {
             let text = item.into_abbreviated_string(config);
             let text_type = item.get_type().to_string();
-            let col = if !disable_index { 1 } else { 0 };
-            let value = make_styled_string(
-                text,
-                &text_type,
-                col,
-                disable_index,
-                color_hm,
-                float_precision,
-            );
+            let col = if with_index { 1 } else { 0 };
+            let value =
+                make_styled_string(text, &text_type, col, with_index, color_hm, float_precision);
             let value = NuTable::create_cell(value.0, value.1);
 
             row.push(value);
         } else {
-            let skip_num = if !disable_index { 1 } else { 0 };
+            let skip_num = if with_index { 1 } else { 0 };
             for (col, header) in data[0].iter().enumerate().skip(skip_num) {
                 let result = match item {
                     Value::Record { .. } => item.clone().follow_cell_path(
@@ -728,7 +720,7 @@ fn convert_to_table(
                         value.into_abbreviated_string(config),
                         &value.get_type().to_string(),
                         col,
-                        disable_index,
+                        with_index,
                         color_hm,
                         float_precision,
                     ),
@@ -736,7 +728,7 @@ fn convert_to_table(
                         String::from("❎"),
                         "empty",
                         col,
-                        disable_index,
+                        with_index,
                         color_hm,
                         float_precision,
                     ),
@@ -758,6 +750,7 @@ fn convert_to_table(
     Ok(Some(table))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn convert_to_table2(
     row_offset: usize,
     input: &[Value],
@@ -773,13 +766,17 @@ fn convert_to_table2(
 ) -> Result<Option<NuTable>, ShellError> {
     let mut headers = get_columns(input);
     let float_precision = config.float_precision as usize;
-    let disable_index = config.disable_table_indexes;
+    let with_index = match config.table_index_mode {
+        TableIndexMode::Always => true,
+        TableIndexMode::Never => false,
+        TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
+    };
 
     if input.is_empty() {
         return Ok(None);
     }
 
-    if !headers.is_empty() && !disable_index {
+    if !headers.is_empty() && with_index {
         headers.insert(0, "#".into());
     }
 
@@ -820,7 +817,7 @@ fn convert_to_table2(
         }
 
         let mut row = vec![];
-        if !disable_index {
+        if with_index {
             let text = match &item {
                 Value::Record { .. } => item
                     .get_data_by_key(INDEX_COLUMN_NAME)
@@ -830,7 +827,7 @@ fn convert_to_table2(
             .unwrap_or_else(|| (row_num + row_offset).to_string());
 
             let value =
-                make_styled_string(text, "string", 0, disable_index, color_hm, float_precision);
+                make_styled_string(text, "string", 0, with_index, color_hm, float_precision);
             let value = NuTable::create_cell(value.0, value.1);
 
             row.push(value);
@@ -850,7 +847,7 @@ fn convert_to_table2(
                                 value.into_abbreviated_string(config),
                                 &value.get_type().to_string(),
                                 0,
-                                disable_index,
+                                with_index,
                                 color_hm,
                                 float_precision,
                             );
@@ -863,10 +860,10 @@ fn convert_to_table2(
                     } else {
                         let table = convert_to_table2(
                             0,
-                            &vals,
+                            vals,
                             ctrlc.clone(),
                             config,
-                            span.clone(),
+                            *span,
                             color_hm,
                             alignments,
                             theme,
@@ -891,7 +888,7 @@ fn convert_to_table2(
                                         item.into_abbreviated_string(config),
                                         &item.get_type().to_string(),
                                         0,
-                                        disable_index,
+                                        with_index,
                                         color_hm,
                                         float_precision,
                                     ),
@@ -901,7 +898,7 @@ fn convert_to_table2(
                                 item.into_abbreviated_string(config),
                                 &item.get_type().to_string(),
                                 0,
-                                disable_index,
+                                with_index,
                                 color_hm,
                                 float_precision,
                             ),
@@ -912,7 +909,7 @@ fn convert_to_table2(
                     value.into_abbreviated_string(config),
                     &value.get_type().to_string(),
                     0,
-                    disable_index,
+                    with_index,
                     color_hm,
                     float_precision,
                 ),
@@ -921,7 +918,7 @@ fn convert_to_table2(
             let value = NuTable::create_cell(value.0, value.1);
             row.push(value);
         } else {
-            let skip_num = if !disable_index { 1 } else { 0 };
+            let skip_num = if with_index { 1 } else { 0 };
             for (col, header) in data[0].iter().enumerate().skip(skip_num) {
                 let result = match item {
                     Value::Record { .. } => item.clone().follow_cell_path(
@@ -948,7 +945,7 @@ fn convert_to_table2(
                                 value.into_abbreviated_string(config),
                                 &value.get_type().to_string(),
                                 col,
-                                disable_index,
+                                with_index,
                                 color_hm,
                                 float_precision,
                             );
@@ -965,7 +962,7 @@ fn convert_to_table2(
                             &vals,
                             ctrlc.clone(),
                             config,
-                            span.clone(),
+                            span,
                             color_hm,
                             alignments,
                             theme,
@@ -992,7 +989,7 @@ fn convert_to_table2(
                                             value.into_abbreviated_string(config),
                                             &value.get_type().to_string(),
                                             col,
-                                            disable_index,
+                                            with_index,
                                             color_hm,
                                             float_precision,
                                         )
@@ -1005,7 +1002,7 @@ fn convert_to_table2(
                                     value.into_abbreviated_string(config),
                                     &value.get_type().to_string(),
                                     col,
-                                    disable_index,
+                                    with_index,
                                     color_hm,
                                     float_precision,
                                 )
@@ -1016,7 +1013,7 @@ fn convert_to_table2(
                         value.into_abbreviated_string(config),
                         &value.get_type().to_string(),
                         col,
-                        disable_index,
+                        with_index,
                         color_hm,
                         float_precision,
                     ),
@@ -1024,7 +1021,7 @@ fn convert_to_table2(
                         String::from("❎"),
                         "empty",
                         col,
-                        disable_index,
+                        with_index,
                         color_hm,
                         float_precision,
                     ),
@@ -1053,13 +1050,11 @@ fn value_to_styled_string(
     color_hm: &HashMap<String, nu_ansi_term::Style>,
 ) -> (String, TextStyle) {
     let float_precision = config.float_precision as usize;
-    let disable_index = config.disable_table_indexes;
-
     make_styled_string(
         value.into_abbreviated_string(config),
         &value.get_type().to_string(),
         col,
-        disable_index,
+        false,
         color_hm,
         float_precision,
     )
@@ -1069,11 +1064,11 @@ fn make_styled_string(
     text: String,
     text_type: &str,
     col: usize,
-    disable_index: bool,
+    with_index: bool,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
     float_precision: usize,
 ) -> (String, TextStyle) {
-    if col == 0 && !disable_index {
+    if col == 0 && with_index {
         (
             text,
             TextStyle {

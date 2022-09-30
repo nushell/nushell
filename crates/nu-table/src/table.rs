@@ -148,11 +148,13 @@ fn draw_table(
     let with_index = match config.table_index_mode {
         TableIndexMode::Always => true,
         TableIndexMode::Never => false,
-        TableIndexMode::Auto => table
-            .headers
-            .iter()
-            .flatten()
-            .any(|header| header.contents == "index"),
+        TableIndexMode::Auto => {
+            if with_header && table.data.count_rows() > 0 {
+                (0..table.data.count_columns()).any(|col| table.data.get_text((0, col)) == "index")
+            } else {
+                false
+            }
+        }
     };
 
     if with_footer {
