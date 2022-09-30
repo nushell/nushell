@@ -4,16 +4,16 @@ description = "A converter plugin to the mp4 format for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_from_mp4"
-version = "0.68.2"
+version = "0.69.2"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-errors = { path="../nu-errors", version = "0.68.2" }
-nu-plugin = { path="../nu-plugin", version = "0.68.2" }
-nu-protocol = { path="../nu-protocol", version = "0.68.2" }
-nu-source = { path="../nu-source", version = "0.68.2" }
+nu-errors = { path="../nu-errors", version = "0.69.2" }
+nu-plugin = { path="../nu-plugin", version = "0.69.2" }
+nu-protocol = { path="../nu-protocol", version = "0.69.2" }
+nu-source = { path="../nu-source", version = "0.69.2" }
 tempfile = "3.2.0"
 mp4 = "0.9.0"
 

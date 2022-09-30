@@ -110,7 +110,7 @@ fn fragment(input: Value, pretty: bool, config: &Config) -> String {
     let mut out = String::new();
 
     if headers.len() == 1 {
-        let markup = match (&headers[0]).to_ascii_lowercase().as_ref() {
+        let markup = match headers[0].to_ascii_lowercase().as_ref() {
             "h1" => "# ".to_string(),
             "h2" => "## ".to_string(),
             "h3" => "### ".to_string(),

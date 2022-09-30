@@ -283,6 +283,66 @@ fn modulo() {
 }
 
 #[test]
+fn unit_multiplication_math() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1mb * 2
+        "#
+    ));
+
+    assert_eq!(actual.out, "1.9 MiB");
+}
+
+#[test]
+fn unit_multiplication_float_math() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1mb * 1.2
+        "#
+    ));
+
+    assert_eq!(actual.out, "1.1 MiB");
+}
+
+#[test]
+fn unit_float_floor_division_math() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1mb // 3.0
+        "#
+    ));
+
+    assert_eq!(actual.out, "325.5 KiB");
+}
+
+#[test]
+fn unit_division_math() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1mb / 4
+        "#
+    ));
+
+    assert_eq!(actual.out, "244.1 KiB");
+}
+
+#[test]
+fn unit_float_division_math() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1mb / 3.1
+        "#
+    ));
+
+    assert_eq!(actual.out, "315.0 KiB");
+}
+
+#[test]
 fn duration_math() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -335,14 +395,23 @@ fn duration_decimal_math_with_all_units() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            5dec + 3yr + 2month + 1wk + 3day + 8hr + 10min + 16sec + 121ms + 11us + 12ns
+            1wk + 3day + 8hr + 10min + 16sec + 121ms + 11us + 12ns
         "#
     ));
 
-    assert_eq!(
-        actual.out,
-        "53yr 2month 1wk 3day 8hr 10min 16sec 121ms 11µs 12ns"
-    );
+    assert_eq!(actual.out, "1wk 3day 8hr 10min 16sec 121ms 11µs 12ns");
+}
+
+#[test]
+fn duration_decimal_dans_test() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            3.14sec
+        "#
+    ));
+
+    assert_eq!(actual.out, "3sec 140ms");
 }
 
 #[test]

@@ -59,7 +59,7 @@ pub fn version(
 
     cols.push("branch".to_string());
     vals.push(Value::String {
-        val: shadow_rs::branch(),
+        val: shadow::BRANCH.to_string(),
         span: call.head,
     });
 

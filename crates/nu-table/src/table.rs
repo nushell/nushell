@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use nu_protocol::{Config, FooterMode, TrimStrategy};
+use nu_protocol::{Config, FooterMode, TableIndexMode, TrimStrategy};
 use tabled::{
     alignment::AlignmentHorizontal,
     builder::Builder,
@@ -145,7 +145,15 @@ fn draw_table(
 
     let with_header = table.with_header;
     let with_footer = with_header && need_footer(config, (&table.data).size().0 as u64);
-    let with_index = !config.disable_table_indexes;
+    let with_index = match config.table_index_mode {
+        TableIndexMode::Always => true,
+        TableIndexMode::Never => false,
+        TableIndexMode::Auto => table
+            .headers
+            .iter()
+            .flatten()
+            .any(|header| header.contents == "index"),
+    };
 
     if with_footer {
         table.data.duplicate_row(0);

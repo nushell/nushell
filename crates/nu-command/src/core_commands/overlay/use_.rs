@@ -123,28 +123,6 @@ impl Command for OverlayUse {
 
             let module = engine_state.get_module(module_id);
 
-            for (name, block_id) in module.env_vars() {
-                let name = if let Ok(s) = String::from_utf8(name.clone()) {
-                    s
-                } else {
-                    return Err(ShellError::NonUtf8(call.head));
-                };
-
-                let block = engine_state.get_block(block_id);
-
-                let val = eval_block(
-                    engine_state,
-                    caller_stack,
-                    block,
-                    PipelineData::new(call.head),
-                    false,
-                    true,
-                )?
-                .into_value(call.head);
-
-                caller_stack.add_env_var(name, val);
-            }
-
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
                 let maybe_path = find_in_dirs_env(&name_arg.item, engine_state, caller_stack)?;
@@ -212,7 +190,7 @@ impl Command for OverlayUse {
             },
             Example {
                 description: "Create an overlay from a file",
-                example: r#"echo 'export env FOO { "foo" }' | save spam.nu
+                example: r#"echo 'export-env { let-env FOO = "foo" }' | save spam.nu
     overlay use spam.nu
     $env.FOO"#,
                 result: None,

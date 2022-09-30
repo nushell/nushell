@@ -2175,23 +2175,50 @@ pub fn parse_duration(
     }
 }
 
-pub fn parse_duration_bytes(bytes: &[u8], span: Span) -> Option<Expression> {
-    fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
-        let string_to_parse = format!("0.{}", decimal);
-        if let Ok(x) = string_to_parse.parse::<f64>() {
-            return Some((1_f64 / x) as i64);
+// Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs
+pub fn modf(x: f64) -> (f64, f64) {
+    let rv2: f64;
+    let mut u = x.to_bits();
+    let e = ((u >> 52 & 0x7ff) as i32) - 0x3ff;
+
+    /* no fractional part */
+    if e >= 52 {
+        rv2 = x;
+        if e == 0x400 && (u << 12) != 0 {
+            /* nan */
+            return (x, rv2);
         }
-        None
+        u &= 1 << 63;
+        return (f64::from_bits(u), rv2);
     }
 
-    if bytes.is_empty() || (!bytes[0].is_ascii_digit() && bytes[0] != b'-') {
+    /* no integral part*/
+    if e < 0 {
+        u &= 1 << 63;
+        rv2 = f64::from_bits(u);
+        return (x, rv2);
+    }
+
+    let mask = ((!0) >> 12) >> e;
+    if (u & mask) == 0 {
+        rv2 = x;
+        u &= 1 << 63;
+        return (f64::from_bits(u), rv2);
+    }
+    u &= !mask;
+    rv2 = f64::from_bits(u);
+    (x - rv2, rv2)
+}
+
+pub fn parse_duration_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Expression> {
+    if num_with_unit_bytes.is_empty()
+        || (!num_with_unit_bytes[0].is_ascii_digit() && num_with_unit_bytes[0] != b'-')
+    {
         return None;
     }
 
-    let token = String::from_utf8_lossy(bytes).to_string();
-
-    let upper = token.to_uppercase();
-
+    let num_with_unit = String::from_utf8_lossy(num_with_unit_bytes).to_string();
+    let uppercase_num_with_unit = num_with_unit.to_uppercase();
     let unit_groups = [
         (Unit::Nanosecond, "NS", None),
         (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
@@ -2201,38 +2228,34 @@ pub fn parse_duration_bytes(bytes: &[u8], span: Span) -> Option<Expression> {
         (Unit::Hour, "HR", Some((Unit::Minute, 60))),
         (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
         (Unit::Week, "WK", Some((Unit::Day, 7))),
-        (Unit::Month, "MONTH", Some((Unit::Day, 30))), //30 day month
-        (Unit::Year, "YR", Some((Unit::Day, 365))),    //365 day year
-        (Unit::Decade, "DEC", Some((Unit::Year, 10))), //365 day years
     ];
-    if let Some(unit) = unit_groups.iter().find(|&x| upper.ends_with(x.1)) {
-        let mut lhs = token;
+
+    if let Some(unit) = unit_groups
+        .iter()
+        .find(|&x| uppercase_num_with_unit.ends_with(x.1))
+    {
+        let mut lhs = num_with_unit;
         for _ in 0..unit.1.len() {
             lhs.pop();
         }
 
-        let input: Vec<&str> = lhs.split('.').collect();
-        let (value, unit_to_use) = match &input[..] {
-            [number_str] => (number_str.parse::<i64>().ok(), unit.0),
-            [number_str, decimal_part_str] => match unit.2 {
-                Some(unit_to_convert_to) => match (
-                    number_str.parse::<i64>(),
-                    parse_decimal_str_to_number(decimal_part_str),
-                ) {
-                    (Ok(number), Some(decimal_part)) => (
-                        Some(
-                            (number * unit_to_convert_to.1) + (unit_to_convert_to.1 / decimal_part),
-                        ),
-                        unit_to_convert_to.0,
-                    ),
-                    _ => (None, unit.0),
-                },
-                None => (None, unit.0),
-            },
-            _ => (None, unit.0),
+        let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
+            Ok(x) => x,
+            Err(_) => return None,
+        });
+
+        let (num, unit_to_use) = match unit.2 {
+            Some(unit_to_convert_to) => (
+                Some(
+                    ((number_part * unit_to_convert_to.1 as f64)
+                        + (decimal_part * unit_to_convert_to.1 as f64)) as i64,
+                ),
+                unit_to_convert_to.0,
+            ),
+            None => (Some(number_part as i64), unit.0),
         };
 
-        if let Some(x) = value {
+        if let Some(x) = num {
             trace!("-- found {} {:?}", x, unit_to_use);
 
             let lhs_span = Span::new(span.start, span.start + lhs.len());
@@ -2265,33 +2288,32 @@ pub fn parse_filesize(
     working_set: &StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
-    trace!("parsing: duration");
-
-    fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
-        let string_to_parse = format!("0.{}", decimal);
-        if let Ok(x) = string_to_parse.parse::<f64>() {
-            return Some((1_f64 / x) as i64);
-        }
-        None
-    }
+    trace!("parsing: filesize");
 
     let bytes = working_set.get_span_contents(span);
 
-    if bytes.is_empty() || (!bytes[0].is_ascii_digit() && bytes[0] != b'-') {
-        return (
+    match parse_filesize_bytes(bytes, span) {
+        Some(expression) => (expression, None),
+        None => (
             garbage(span),
             Some(ParseError::Mismatch(
                 "filesize".into(),
                 "non-filesize unit".into(),
                 span,
             )),
-        );
+        ),
+    }
+}
+
+pub fn parse_filesize_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Expression> {
+    if num_with_unit_bytes.is_empty()
+        || (!num_with_unit_bytes[0].is_ascii_digit() && num_with_unit_bytes[0] != b'-')
+    {
+        return None;
     }
 
-    let token = String::from_utf8_lossy(bytes).to_string();
-
-    let upper = token.to_uppercase();
-
+    let num_with_unit = String::from_utf8_lossy(num_with_unit_bytes).to_string();
+    let uppercase_num_with_unit = num_with_unit.to_uppercase();
     let unit_groups = [
         (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
         (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
@@ -2309,69 +2331,58 @@ pub fn parse_filesize(
         (Unit::Zebibyte, "ZIB", Some((Unit::Exbibyte, 1024))),
         (Unit::Byte, "B", None),
     ];
-    if let Some(unit) = unit_groups.iter().find(|&x| upper.ends_with(x.1)) {
-        let mut lhs = token;
+
+    if let Some(unit) = unit_groups
+        .iter()
+        .find(|&x| uppercase_num_with_unit.ends_with(x.1))
+    {
+        let mut lhs = num_with_unit;
         for _ in 0..unit.1.len() {
             lhs.pop();
         }
 
-        let input: Vec<&str> = lhs.split('.').collect();
-        let (value, unit_to_use) = match &input[..] {
-            [number_str] => (number_str.parse::<i64>().ok(), unit.0),
-            [number_str, decimal_part_str] => match unit.2 {
-                Some(unit_to_convert_to) => match (
-                    number_str.parse::<i64>(),
-                    parse_decimal_str_to_number(decimal_part_str),
-                ) {
-                    (Ok(number), Some(decimal_part)) => (
-                        Some(
-                            (number * unit_to_convert_to.1) + (unit_to_convert_to.1 / decimal_part),
-                        ),
-                        unit_to_convert_to.0,
-                    ),
-                    _ => (None, unit.0),
-                },
-                None => (None, unit.0),
-            },
-            _ => (None, unit.0),
+        let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
+            Ok(x) => x,
+            Err(_) => return None,
+        });
+
+        let (num, unit_to_use) = match unit.2 {
+            Some(unit_to_convert_to) => (
+                Some(
+                    ((number_part * unit_to_convert_to.1 as f64)
+                        + (decimal_part * unit_to_convert_to.1 as f64)) as i64,
+                ),
+                unit_to_convert_to.0,
+            ),
+            None => (Some(number_part as i64), unit.0),
         };
 
-        if let Some(x) = value {
+        if let Some(x) = num {
             trace!("-- found {} {:?}", x, unit_to_use);
 
             let lhs_span = Span::new(span.start, span.start + lhs.len());
             let unit_span = Span::new(span.start + lhs.len(), span.end);
-            return (
-                Expression {
-                    expr: Expr::ValueWithUnit(
-                        Box::new(Expression {
-                            expr: Expr::Int(x),
-                            span: lhs_span,
-                            ty: Type::Number,
-                            custom_completion: None,
-                        }),
-                        Spanned {
-                            item: unit_to_use,
-                            span: unit_span,
-                        },
-                    ),
-                    span,
-                    ty: Type::Filesize,
-                    custom_completion: None,
-                },
-                None,
-            );
+            return Some(Expression {
+                expr: Expr::ValueWithUnit(
+                    Box::new(Expression {
+                        expr: Expr::Int(x),
+                        span: lhs_span,
+                        ty: Type::Number,
+                        custom_completion: None,
+                    }),
+                    Spanned {
+                        item: unit_to_use,
+                        span: unit_span,
+                    },
+                ),
+                span,
+                ty: Type::Filesize,
+                custom_completion: None,
+            });
         }
     }
 
-    (
-        garbage(span),
-        Some(ParseError::Mismatch(
-            "filesize".into(),
-            "non-filesize unit".into(),
-            span,
-        )),
-    )
+    None
 }
 
 pub fn parse_glob_pattern(

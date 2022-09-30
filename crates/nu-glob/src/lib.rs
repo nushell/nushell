@@ -199,9 +199,7 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
     }
 
     // make sure that the pattern is valid first, else early return with error
-    if let Err(err) = Pattern::new(pattern) {
-        return Err(err);
-    }
+    Pattern::new(pattern)?;
 
     let mut components = Path::new(pattern).components().peekable();
     while let Some(&Component::Prefix(..)) | Some(&Component::RootDir) = components.peek() {

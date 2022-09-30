@@ -65,3 +65,17 @@ fn gets_first_row_when_no_amount_given() {
         assert_eq!(actual.out, "1");
     })
 }
+
+#[test]
+fn gets_first_row_as_list_when_amount_given() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+                [1, 2, 3]
+                | first 1
+                | describe
+            "#
+    ));
+
+    assert_eq!(actual.out, "list<int>");
+}

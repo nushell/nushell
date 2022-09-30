@@ -627,7 +627,11 @@ fn convert_to_table(
     let mut headers = get_columns(input);
     let mut input = input.iter().peekable();
     let float_precision = config.float_precision as usize;
-    let disable_index = config.disable_table_indexes;
+    let with_index = match config.table_index_mode {
+        TableIndexMode::Always => true,
+        TableIndexMode::Never => false,
+        TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
+    };
 
     if input.peek().is_none() {
         return Ok(None);

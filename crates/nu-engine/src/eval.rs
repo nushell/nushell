@@ -408,7 +408,7 @@ pub fn eval_expression(
 
             match op {
                 Operator::And => {
-                    if !lhs.is_true() {
+                    if lhs.is_false() {
                         Ok(Value::Bool {
                             val: false,
                             span: expr.span,
@@ -1538,20 +1538,36 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             val: size * 1000 * 1000 * 1000,
             span,
         },
-        Unit::Minute => Value::Duration {
-            val: size * 1000 * 1000 * 1000 * 60,
-            span,
+        Unit::Minute => match size.checked_mul(1000 * 1000 * 1000 * 60) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::GenericError(
+                    "duration too large".into(),
+                    "duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
         },
-        Unit::Hour => Value::Duration {
-            val: size * 1000 * 1000 * 1000 * 60 * 60,
-            span,
+        Unit::Hour => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::GenericError(
+                    "duration too large".into(),
+                    "duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ),
+            },
         },
         Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
                 error: ShellError::GenericError(
-                    "day duration too large".into(),
-                    "day duration too large".into(),
+                    "duration too large".into(),
+                    "duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),
@@ -1562,44 +1578,8 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
                 error: ShellError::GenericError(
-                    "week duration too large".into(),
-                    "week duration too large".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                ),
-            },
-        },
-        Unit::Month => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 30) {
-            Some(val) => Value::Duration { val, span },
-            None => Value::Error {
-                error: ShellError::GenericError(
-                    "month duration too large".into(),
-                    "month duration too large".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                ),
-            },
-        },
-        Unit::Year => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 365) {
-            Some(val) => Value::Duration { val, span },
-            None => Value::Error {
-                error: ShellError::GenericError(
-                    "year duration too large".into(),
-                    "year duration too large".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                ),
-            },
-        },
-        Unit::Decade => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 365 * 10) {
-            Some(val) => Value::Duration { val, span },
-            None => Value::Error {
-                error: ShellError::GenericError(
-                    "decade duration too large".into(),
-                    "decade duration too large".into(),
+                    "duration too large".into(),
+                    "duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),

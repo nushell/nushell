@@ -146,7 +146,7 @@ fn first_helper(
                 }
             }
             _ => {
-                if rows_desired == 1 {
+                if rows_desired == 1 && rows.is_none() {
                     match input_peek.next() {
                         Some(val) => Ok(val.into_pipeline_data()),
                         None => Err(ShellError::AccessBeyondEndOfStream(head)),

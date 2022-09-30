@@ -16,7 +16,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str ends-with")
-            .required("pattern", SyntaxShape::String, "the pattern to match")
+            .required("string", SyntaxShape::String, "the string to match")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -26,11 +26,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Check if a string ends with a pattern"
+        "Check if an input ends with a string"
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pattern", "match", "find", "search"]
+        vec!["suffix", "match", "find", "search"]
     }
 
     fn run(
@@ -46,7 +46,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Checks if string ends with '.rb' pattern",
+                description: "Checks if string ends with '.rb'",
                 example: "'my_library.rb' | str ends-with '.rb'",
                 result: Some(Value::Bool {
                     val: true,
@@ -54,7 +54,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Checks if string ends with '.txt' pattern",
+                description: "Checks if string ends with '.txt'",
                 example: "'my_library.rb' | str ends-with '.txt'",
                 result: Some(Value::Bool {
                     val: false,
@@ -72,17 +72,17 @@ fn operate(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
+    let substring: Spanned<String> = call.req(engine_state, stack, 0)?;
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
 
     input.map(
         move |v| {
             if column_paths.is_empty() {
-                action(&v, &pattern.item, head)
+                action(&v, &substring.item, head)
             } else {
                 let mut ret = v;
                 for path in &column_paths {
-                    let p = pattern.item.clone();
+                    let p = substring.item.clone();
                     let r = ret.update_cell_path(
                         &path.members,
                         Box::new(move |old| action(old, &p, head)),
@@ -98,10 +98,10 @@ fn operate(
     )
 }
 
-fn action(input: &Value, pattern: &str, head: Span) -> Value {
+fn action(input: &Value, substring: &str, head: Span) -> Value {
     match input {
         Value::String { val, .. } => Value::Bool {
-            val: val.ends_with(pattern),
+            val: val.ends_with(substring),
             span: head,
         },
         other => Value::Error {

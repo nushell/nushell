@@ -154,10 +154,7 @@ impl Command for Mv {
         }
 
         if let Some(Ok(_filename)) = some_if_source_is_destination {
-            sources = sources
-                .into_iter()
-                .filter(|f| matches!(f, Ok(f) if !destination.starts_with(f)))
-                .collect();
+            sources.retain(|f| matches!(f, Ok(f) if !destination.starts_with(f)));
         }
 
         let span = call.head;
@@ -253,8 +250,12 @@ fn move_file(
         return Err(ShellError::DirectoryNotFound(to_span, None));
     }
 
+    // This can happen when changing case on a case-insensitive filesystem (ex: changing foo to Foo on Windows)
+    // When it does, we want to do a plain rename instead of moving `from` into `to`
+    let from_to_are_same_file = same_file::is_same_file(&from, &to).unwrap_or(false);
+
     let mut to = to;
-    if to.is_dir() {
+    if !from_to_are_same_file && to.is_dir() {
         let from_file_name = match from.file_name() {
             Some(name) => name,
             None => return Err(ShellError::DirectoryNotFound(to_span, None)),

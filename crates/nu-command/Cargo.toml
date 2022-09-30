@@ -5,25 +5,25 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
 edition = "2021"
 license = "MIT"
 name = "nu-command"
-version = "0.68.2"
+version = "0.69.2"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-color-config = { path = "../nu-color-config", version = "0.68.2"  }
-nu-engine = { path = "../nu-engine", version = "0.68.2"  }
-nu-glob = { path = "../nu-glob", version = "0.68.2" }
-nu-json = { path = "../nu-json", version = "0.68.2"  }
-nu-parser = { path = "../nu-parser", version = "0.68.2"  }
-nu-path = { path = "../nu-path", version = "0.68.2"  }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.68.2"  }
-nu-protocol = { path = "../nu-protocol", version = "0.68.2"  }
-nu-system = { path = "../nu-system", version = "0.68.2"  }
-nu-table = { path = "../nu-table", version = "0.68.2"  }
-nu-term-grid = { path = "../nu-term-grid", version = "0.68.2"  }
-nu-test-support = { path = "../nu-test-support", version = "0.68.2"  }
-nu-utils = { path = "../nu-utils", version = "0.68.2" }
+nu-color-config = { path = "../nu-color-config", version = "0.69.2"  }
+nu-engine = { path = "../nu-engine", version = "0.69.2"  }
+nu-glob = { path = "../nu-glob", version = "0.69.2" }
+nu-json = { path = "../nu-json", version = "0.69.2"  }
+nu-parser = { path = "../nu-parser", version = "0.69.2"  }
+nu-path = { path = "../nu-path", version = "0.69.2"  }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.69.2"  }
+nu-protocol = { path = "../nu-protocol", version = "0.69.2"  }
+nu-system = { path = "../nu-system", version = "0.69.2"  }
+nu-table = { path = "../nu-table", version = "0.69.2"  }
+nu-term-grid = { path = "../nu-term-grid", version = "0.69.2"  }
+nu-test-support = { path = "../nu-test-support", version = "0.69.2"  }
+nu-utils = { path = "../nu-utils", version = "0.69.2" }
 nu-ansi-term = "0.46.0"
 num-format = { version = "0.4.0" }
 
@@ -70,6 +70,7 @@ rayon = "1.5.1"
 reqwest = {version = "0.11", features = ["blocking", "json"] }
 roxmltree = "0.14.0"
 rust-embed = "6.3.0"
+same-file = "1.0.6"
 serde = { version="1.0.123", features=["derive"] }
 serde_ini = "0.2.0"
 serde_urlencoded = "0.7.0"
@@ -87,7 +88,7 @@ unicode-segmentation = "1.8.0"
 url = "2.2.1"
 uuid = { version = "1.1.2", features = ["v4"] }
 which = { version = "4.3.0", optional = true }
-reedline = { version = "0.11.0", features = ["bashisms", "sqlite"]}
+reedline = { version = "0.12.0", features = ["bashisms", "sqlite"]}
 wax = { version =  "0.5.0", features = ["diagnostics"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.23.0", features = ["serde"], optional = true }

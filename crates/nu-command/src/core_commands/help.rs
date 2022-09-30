@@ -362,11 +362,16 @@ pub fn highlight_search_string(
             ));
         }
     };
+    // strip haystack to remove existing ansi style
+    let stripped_haystack: String = match strip_ansi_escapes::strip(haystack) {
+        Ok(i) => String::from_utf8(i).unwrap_or_else(|_| String::from(haystack)),
+        Err(_) => String::from(haystack),
+    };
     let mut last_match_end = 0;
     let style = Style::new().fg(White).on(Red);
     let mut highlighted = String::new();
 
-    for cap in regex.captures_iter(haystack) {
+    for cap in regex.captures_iter(stripped_haystack.as_str()) {
         match cap {
             Ok(capture) => {
                 let start = match capture.get(0) {
@@ -379,10 +384,10 @@ pub fn highlight_search_string(
                 };
                 highlighted.push_str(
                     &string_style
-                        .paint(&haystack[last_match_end..start])
+                        .paint(&stripped_haystack[last_match_end..start])
                         .to_string(),
                 );
-                highlighted.push_str(&style.paint(&haystack[start..end]).to_string());
+                highlighted.push_str(&style.paint(&stripped_haystack[start..end]).to_string());
                 last_match_end = end;
             }
             Err(e) => {
@@ -397,6 +402,10 @@ pub fn highlight_search_string(
         }
     }
 
-    highlighted.push_str(&string_style.paint(&haystack[last_match_end..]).to_string());
+    highlighted.push_str(
+        &string_style
+            .paint(&stripped_haystack[last_match_end..])
+            .to_string(),
+    );
     Ok(highlighted)
 }

@@ -7,7 +7,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.68.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.68.2", features = ["plugin"] }
+nu-plugin = { path = "../nu-plugin", version = "0.69.2" }
+nu-protocol = { path = "../nu-protocol", version = "0.69.2", features = ["plugin"] }
 serde = { version = "1.0", features = ["derive"] }
 typetag = "0.1.8"

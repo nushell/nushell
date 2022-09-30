@@ -17,11 +17,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str contains")
-            .required("pattern", SyntaxShape::String, "the pattern to find")
+            .required("string", SyntaxShape::String, "the string to find")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally check if string contains pattern by column paths",
+                "optionally check if input contains string by column paths",
             )
             .switch("insensitive", "search is case insensitive", Some('i'))
             .switch("not", "does not contain", Some('n'))
@@ -29,11 +29,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Checks if string contains pattern"
+        "Checks if input contains string"
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pattern", "match", "find", "search"]
+        vec!["substring", "match", "find", "search"]
     }
 
     fn run(
@@ -49,7 +49,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Check if string contains pattern",
+                description: "Check if input contains string",
                 example: "'my_library.rb' | str contains '.rb'",
                 result: Some(Value::Bool {
                     val: true,
@@ -57,7 +57,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Check if string contains pattern case insensitive",
+                description: "Check if input contains string case insensitive",
                 example: "'my_library.rb' | str contains -i '.RB'",
                 result: Some(Value::Bool {
                     val: true,
@@ -65,7 +65,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Check if string contains pattern in a table",
+                description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test 100]] | str contains 'e' ColA",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
@@ -83,7 +83,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Check if string contains pattern in a table",
+                description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test 100]] | str contains -i 'E' ColA",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
@@ -101,7 +101,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Check if string contains pattern in a table",
+                description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test hello]] | str contains 'e' ColA ColB",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
@@ -122,7 +122,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Check if string contains pattern",
+                description: "Check if input string contains 'banana'",
                 example: "'hello' | str contains 'banana'",
                 result: Some(Value::Bool {
                     val: false,
@@ -130,7 +130,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Check if list contains pattern",
+                description: "Check if list contains string",
                 example: "[one two three] | str contains o",
                 result: Some(Value::List {
                     vals: vec![
@@ -151,7 +151,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Check if list does not contain pattern",
+                description: "Check if list does not contain string",
                 example: "[one two three] | str contains -n o",
                 result: Some(Value::List {
                     vals: vec![
@@ -182,7 +182,7 @@ fn operate(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
+    let substring: Spanned<String> = call.req(engine_state, stack, 0)?;
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
     let case_insensitive = call.has_flag("insensitive");
     let not_contain = call.has_flag("not");
@@ -190,11 +190,11 @@ fn operate(
     input.map(
         move |v| {
             if column_paths.is_empty() {
-                action(&v, case_insensitive, not_contain, &pattern.item, head)
+                action(&v, case_insensitive, not_contain, &substring.item, head)
             } else {
                 let mut ret = v;
                 for path in &column_paths {
-                    let p = pattern.item.clone();
+                    let p = substring.item.clone();
                     let r = ret.update_cell_path(
                         &path.members,
                         Box::new(move |old| action(old, case_insensitive, not_contain, &p, head)),
@@ -214,7 +214,7 @@ fn action(
     input: &Value,
     case_insensitive: bool,
     not_contain: bool,
-    pattern: &str,
+    substring: &str,
     head: Span,
 ) -> Value {
     match input {
@@ -222,16 +222,18 @@ fn action(
             val: match case_insensitive {
                 true => {
                     if not_contain {
-                        !val.to_lowercase().contains(pattern.to_lowercase().as_str())
+                        !val.to_lowercase()
+                            .contains(substring.to_lowercase().as_str())
                     } else {
-                        val.to_lowercase().contains(pattern.to_lowercase().as_str())
+                        val.to_lowercase()
+                            .contains(substring.to_lowercase().as_str())
                     }
                 }
                 false => {
                     if not_contain {
-                        !val.contains(pattern)
+                        !val.contains(substring)
                     } else {
-                        val.contains(pattern)
+                        val.contains(substring)
                     }
                 }
             },

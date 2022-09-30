@@ -10,7 +10,10 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, AtomicU32},
+        Arc, Mutex,
+    },
 };
 
 static PWD_ENV: &str = "PWD";
@@ -80,6 +83,7 @@ pub struct EngineState {
     pub env_vars: EnvVars,
     pub previous_env_vars: HashMap<String, Value>,
     pub config: Config,
+    pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_buffer_state: Arc<Mutex<Option<String>>>,
     pub repl_operation_queue: Arc<Mutex<VecDeque<ReplOperation>>>,
     #[cfg(feature = "plugin")]
@@ -121,6 +125,7 @@ impl EngineState {
             env_vars: EnvVars::from([(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]),
             previous_env_vars: HashMap::new(),
             config: Config::default(),
+            pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
             repl_buffer_state: Arc::new(Mutex::new(None)),
             repl_operation_queue: Arc::new(Mutex::new(VecDeque::new())),
             #[cfg(feature = "plugin")]
