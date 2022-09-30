@@ -173,18 +173,6 @@ fn from_nothing() {
 }
 
 #[test]
-fn from_error() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        do -c {$env.use} | into string
-        "#
-    ));
-
-    assert_eq!(actual.out, "nu::shell::column_not_found");
-}
-
-#[test]
 fn int_into_string() {
     let actual = nu!(
         cwd: ".", pipeline(
