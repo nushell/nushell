@@ -43,7 +43,7 @@ fn table_expand_0() {
 
 #[test]
 fn table_expand_deep_0() {
-    let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --expand --expand-deep=2"#);
+    let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --expand --expand-deep=1"#);
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬────────────────────────╮\
