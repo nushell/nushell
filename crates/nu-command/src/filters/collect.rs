@@ -20,6 +20,11 @@ impl Command for Collect {
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
                 "the block to run once the stream is collected",
             )
+            .switch(
+                "affect-env",
+                "let the block affect environment variables",
+                None,
+            )
             .category(Category::Filters)
     }
 
@@ -37,26 +42,30 @@ impl Command for Collect {
         let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
 
         let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack_captures = stack.captures_to_stack(&capture_block.captures);
 
         let metadata = input.metadata();
         let input: Value = input.into_value(call.head);
 
         if let Some(var) = block.signature.get_positional(0) {
             if let Some(var_id) = &var.var_id {
-                stack.add_var(*var_id, input.clone());
+                stack_captures.add_var(*var_id, input.clone());
             }
         }
 
-        eval_block(
+        let result = eval_block(
             engine_state,
-            &mut stack,
+            &mut stack_captures,
             &block,
             input.into_pipeline_data(),
             call.redirect_stdout,
             call.redirect_stderr,
         )
-        .map(|x| x.set_metadata(metadata))
+        .map(|x| x.set_metadata(metadata));
+        if call.has_flag("affect-env") {
+            stack.env_vars = stack_captures.env_vars;
+        }
+        result
     }
 
     fn examples(&self) -> Vec<Example> {

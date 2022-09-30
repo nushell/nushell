@@ -5367,6 +5367,15 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             custom_completion: None,
         }));
 
+        output.push(Argument::Named((
+            Spanned {
+                item: "affect-env".to_string(),
+                span: Span::new(0, 0),
+            },
+            None,
+            None,
+        )));
+
         // The containing, synthetic call to `collect`.
         // We don't want to have a real span as it will confuse flattening
         // The args are where we'll get the real info
