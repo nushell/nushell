@@ -288,12 +288,24 @@ fn eval_external(
     }
 }
 
+pub fn eval_expression_recording_pipeline(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    expr: &Expression,
+) -> Result<Value, ShellError> {
+    let v = eval_expression(engine_state, stack, expr);
+    if let Ok(val) = &v {
+        stack.add_env_var("LAST_PIPELINE_EXIT_CODE".to_string(), val.clone());
+    }
+    v
+}
+
 pub fn eval_expression(
     engine_state: &EngineState,
     stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    let v = match &expr.expr {
+    match &expr.expr {
         Expr::Bool(b) => Ok(Value::Bool {
             val: *b,
             span: expr.span,
@@ -665,11 +677,7 @@ pub fn eval_expression(
         Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Garbage => Ok(Value::Nothing { span: expr.span }),
         Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
-    };
-    if let Ok(val) = &v {
-        stack.add_env_var("LAST_PIPELINE_EXIT_CODE".to_string(), val.clone());
     }
-    v
 }
 
 /// Checks the expression to see if it's a internal or external call. If so, passes the input
@@ -730,7 +738,7 @@ pub fn eval_expression_with_input(
         }
 
         elem => {
-            input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
+            input = eval_expression_recording_pipeline(engine_state, stack, elem)?.into_pipeline_data();
         }
     }
 
