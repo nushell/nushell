@@ -553,7 +553,9 @@ pub fn eval_expression(
             let block = engine_state.get_block(*block_id);
 
             for var_id in &block.captures {
-                captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
+                if var_id != &nu_protocol::IN_VARIABLE_ID {
+                    captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
+                }
             }
             Ok(Value::Block {
                 val: *block_id,
