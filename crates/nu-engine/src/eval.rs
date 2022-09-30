@@ -682,10 +682,13 @@ pub fn eval_expression_with_input(
     Ok(might_consume_external_result(input))
 }
 
+// if the result is ExternalStream without redirecting output.
+// that indicates we have no more commands to execute currently.
+// we can try to catch and detect if external command runs to failed.
+//
+// This is useful to commands with semicolon, we can detect errors early to avoid
+// commands after semicolon running.
 fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
-    // if the result is ExternalStream without redirecting output.
-    // that indicates we have no more commands to execute currently.
-    // we can try to catch and detect if external command runs to failed.
     let mut runs_to_failed = false;
     if let PipelineData::ExternalStream {
         stdout: None,
