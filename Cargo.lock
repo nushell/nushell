@@ -79,8 +79,9 @@ dependencies = [
 
 [[package]]
 name = "ansi-str"
-version = "0.3.0"
-source = "git+https://github.com/zhiburt/ansi-str?branch=master#0138641055adc70b056b9e91a77ce982374e09b3"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "132f03d534a71638c1be79251027872d5dda24aa5eeeb6886960351f3087bdde"
 dependencies = [
  "ansitok",
 ]
@@ -1938,7 +1939,8 @@ checksum = "47631885425c482fcf2dc4b182fc973c3c5b81a8f43a028055559bd24cccfa6e"
 [[package]]
 name = "json_to_table"
 version = "0.1.0"
-source = "git+https://github.com/zhiburt/tabled/?branch=master#fa313912a1da2fda40733f2db47371e1e84e2776"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fe97d58ab96691e90f26c10ecc1fc098a4c072714d2d126cc8a2234b89f3456"
 dependencies = [
  "serde_json",
  "tabled",
@@ -3240,8 +3242,9 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
 name = "papergrid"
-version = "0.5.1"
-source = "git+https://github.com/zhiburt/tabled/?branch=master#fa313912a1da2fda40733f2db47371e1e84e2776"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae9bed2481d5ab6e31056945f4704ca7348a3858148c30725b8946b7a7818498"
 dependencies = [
  "ansi-str",
  "ansitok",
@@ -4964,8 +4967,9 @@ dependencies = [
 
 [[package]]
 name = "tabled"
-version = "0.8.0"
-source = "git+https://github.com/zhiburt/tabled/?branch=master#fa313912a1da2fda40733f2db47371e1e84e2776"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c8a1ea336f84dc7dfae1025b73904551b3c6a42347f4243387e990f94325895"
 dependencies = [
  "ansi-str",
  "papergrid",
@@ -4976,8 +4980,9 @@ dependencies = [
 
 [[package]]
 name = "tabled_derive"
-version = "0.4.0"
-source = "git+https://github.com/zhiburt/tabled/?branch=master#fa313912a1da2fda40733f2db47371e1e84e2776"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "beca1b4eaceb4f2755df858b88d9b9315b7ccfd1ffd0d7a48a52602301f01a57"
 dependencies = [
  "heck 0.4.0",
  "proc-macro-error",
