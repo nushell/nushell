@@ -295,7 +295,7 @@ pub fn eval_expression_recording_pipeline(
 ) -> Result<Value, ShellError> {
     let v = eval_expression(engine_state, stack, expr);
     if let Ok(val) = &v {
-        stack.add_env_var("LAST_PIPELINE_EXIT_CODE".to_string(), val.clone());
+        stack.add_env_var("LAST_PIPED_VALUE".to_string(), val.clone());
     }
     v
 }
@@ -1315,7 +1315,7 @@ pub fn eval_variable(
 ) -> Result<Value, ShellError> {
     match var_id {
         nu_protocol::IN_VARIABLE_ID => {
-            match stack.get_env_var(engine_state, "LAST_PIPELINE_EXIT_CODE") {
+            match stack.get_env_var(engine_state, "LAST_PIPED_VALUE") {
                 Some(v) => Ok(v),
                 None => Err(ShellError::EnvVarNotFoundAtRuntime("$in".to_string(), span)),
             }

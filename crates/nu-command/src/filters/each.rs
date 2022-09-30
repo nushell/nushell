@@ -161,7 +161,7 @@ impl Command for Each {
                             }
                         }
                     }
-
+                    stack.add_env_var("LAST_PIPED_VALUE".to_string(), x.clone());
                     let input_span = x.span();
                     match eval_block(
                         &engine_state,

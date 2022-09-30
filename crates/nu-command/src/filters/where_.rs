@@ -69,6 +69,8 @@ impl Command for Where {
                             }
                         }
 
+                        stack.add_env_var("LAST_PIPED_VALUE".to_string(), x.clone());
+
                         match eval_block(
                             &engine_state,
                             &mut stack,
