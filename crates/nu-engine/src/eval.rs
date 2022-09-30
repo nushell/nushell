@@ -167,7 +167,11 @@ pub fn eval_call(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        decl.run(engine_state, caller_stack, call, input)
+        let decl_option = decl.run(engine_state, caller_stack, call, input);
+        if let Ok(PipelineData::Value(v, _)) = &decl_option {
+            caller_stack.add_env_var("LAST_PIPED_VALUE".to_string(), v.clone());
+        }
+        decl_option
     }
 }
 
@@ -861,12 +865,15 @@ pub fn eval_subexpression(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let saved_last_pipe = stack.get_env_var(engine_state, "LAST_PIPED_VALUE");
     for pipeline in block.pipelines.iter() {
         for expr in pipeline.expressions.iter() {
             input = eval_expression_with_input(engine_state, stack, expr, input, true, false)?.0
         }
     }
-
+    if let Some(pipe_value) = saved_last_pipe {
+        stack.add_env_var("LAST_PIPED_VALUE".to_string(), pipe_value);
+    }
     Ok(input)
 }
 
