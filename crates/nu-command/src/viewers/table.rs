@@ -448,7 +448,7 @@ fn build_expanded_table(
             };
 
             let deep = expand_limit.map(|i| i - 1);
-            let mut table = convert_to_table2(
+            let table = convert_to_table2(
                 0,
                 &vals,
                 ctrlc.clone(),
@@ -460,8 +460,12 @@ fn build_expanded_table(
                 deep,
                 flatten,
                 flatten_sep,
-            )?
-            .unwrap();
+            )?;
+
+            let mut table = match table {
+                Some(table) => table,
+                None => return Ok(None), // must never happen
+            };
 
             // controll width via removing table columns.
 
@@ -527,7 +531,7 @@ fn handle_row_stream(
                         while idx < cols.len() {
                             if cols[idx] == "name" {
                                 if let Some(Value::String { val, span }) = vals.get(idx) {
-                                    let val = render_path_name(&val, &config, &ls_colors, *span);
+                                    let val = render_path_name(val, &config, &ls_colors, *span);
                                     if let Some(val) = val {
                                         vals[idx] = val;
                                     }
@@ -1288,7 +1292,7 @@ fn load_theme_from_config(config: &Config) -> TableTheme {
 }
 
 fn render_path_name(
-    path: &String,
+    path: &str,
     config: &Config,
     ls_colors: &LsColors,
     span: Span,
