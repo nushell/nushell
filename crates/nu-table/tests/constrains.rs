@@ -6,7 +6,13 @@ use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 
 #[test]
 fn data_and_header_has_different_size() {
-    let table = Table::new(vec![row(3), row(5), row(5)], (3, 5), usize::MAX, true);
+    let table = Table::new(
+        vec![row(3), row(5), row(5)],
+        (3, 5),
+        usize::MAX,
+        true,
+        false,
+    );
 
     let table = draw_table(table, usize::MAX, &Config::default());
 
@@ -19,7 +25,13 @@ fn data_and_header_has_different_size() {
 
     assert_eq!(table.as_deref(), Some(expected));
 
-    let table = Table::new(vec![row(5), row(3), row(3)], (3, 5), usize::MAX, true);
+    let table = Table::new(
+        vec![row(5), row(3), row(3)],
+        (3, 5),
+        usize::MAX,
+        true,
+        false,
+    );
     let table = draw_table(table, usize::MAX, &Config::default());
 
     let expected = "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
@@ -36,11 +48,11 @@ fn data_and_header_has_different_size() {
 fn termwidth_too_small() {
     let cfg = Config::default();
     for i in 0..10 {
-        let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), i, true);
+        let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), i, true, false);
         assert!(draw_table(table, i, &cfg).is_none());
     }
 
-    let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), 11, true);
+    let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), 11, true, false);
     assert!(draw_table(table, 11, &cfg).is_some());
 
     let cfg = Config {
@@ -49,11 +61,11 @@ fn termwidth_too_small() {
     };
 
     for i in 0..10 {
-        let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), i, true);
+        let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), i, true, false);
         assert!(draw_table(table, i, &cfg).is_none());
     }
 
-    let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), 11, true);
+    let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), 11, true, false);
     assert!(draw_table(table, 11, &cfg).is_some());
 }
 
@@ -70,18 +82,18 @@ fn wrap_test() {
         assert!(draw_table(table_with_data(i), i, &cfg).is_none());
     }
 
-    assert_eq!(draw_table(table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 3  ┃ . ┃\n┃ 45 ┃ . ┃\n┃ 67 ┃   ┃\n┃  8 ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
+    assert_eq!(draw_table(table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 3  ┃ . ┃\n┃ 45 ┃ . ┃\n┃ 67 ┃   ┃\n┃ 8  ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
     assert_eq!(
         draw_table(table_with_data(21), 21, &cfg).unwrap(),
-        "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃ w eq ┃     ┃\n┃    8 ┃  we  ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
+        "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃ w eq ┃     ┃\n┃  8   ┃  we  ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
     );
     assert_eq!(
         draw_table(table_with_data(29), 29, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ ... ┃\n┃        8 ┃    we    ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
+        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ ... ┃\n┃    8     ┃    we    ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
     );
     assert_eq!(
         draw_table(table_with_data(49), 49, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┃        8 ┃    we    ┃ xx x xx ┃  qqqq q ┃     ┃\n┃          ┃          ┃  x xx x ┃  qq qq  ┃     ┃\n┃          ┃          ┃    x    ┃         ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
+        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┃    8     ┃    we    ┃ xx x xx ┃  qqqq q ┃     ┃\n┃          ┃          ┃  x xx x ┃  qq qq  ┃     ┃\n┃          ┃          ┃    x    ┃         ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
     );
 }
 
@@ -101,15 +113,15 @@ fn wrap_keep_words_test() {
     assert_eq!(draw_table(table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 3  ┃ . ┃\n┃ 45 ┃ . ┃\n┃ 67 ┃   ┃\n┃ 8  ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
     assert_eq!(
         draw_table(table_with_data(21), 21, &cfg).unwrap(),
-        "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃ w    ┃     ┃\n┃ 8    ┃ eqwe ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
+        "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃  w   ┃     ┃\n┃ 8    ┃ eqwe ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
     );
     assert_eq!(
         draw_table(table_with_data(29), 29, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123      ┃ qweqw    ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
+        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃   123    ┃  qweqw   ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
     );
     assert_eq!(
         draw_table(table_with_data(49), 49, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123      ┃ qweqw    ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃ xx x xx ┃  qqqq   ┃     ┃\n┃          ┃          ┃  x xx   ┃ qqq qq  ┃     ┃\n┃          ┃          ┃ xx      ┃         ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
+        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃   123    ┃  qweqw   ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃ xx x xx ┃  qqqq   ┃     ┃\n┃          ┃          ┃  x xx   ┃ qqq qq  ┃     ┃\n┃          ┃          ┃ xx      ┃         ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
     );
 }
 
@@ -203,5 +215,5 @@ fn table_with_data(termwidth: usize) -> Table {
     ];
     let data = vec![header, row(5), row(5)];
 
-    Table::new(data, (3, 5), termwidth, true)
+    Table::new(data, (3, 5), termwidth, true, false)
 }

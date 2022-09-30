@@ -27,7 +27,7 @@ fn main() {
     let count_cols = std::cmp::max(rows.len(), headers.len());
     let mut rows = vec![rows; 3];
     rows.insert(0, headers);
-    let table = Table::new(rows, (3, count_cols), width, true);
+    let table = Table::new(rows, (3, count_cols), width, true, false);
     // FIXME: Config isn't available from here so just put these here to compile
     let color_hm: HashMap<String, nu_ansi_term::Style> = HashMap::new();
     // get the default config

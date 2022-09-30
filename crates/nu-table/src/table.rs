@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use nu_protocol::{Config, FooterMode, TableIndexMode, TrimStrategy};
+use nu_protocol::{Config, FooterMode, TrimStrategy};
 use tabled::{
     alignment::AlignmentHorizontal,
     builder::Builder,
@@ -23,8 +23,9 @@ use crate::{table_theme::TableTheme, TextStyle};
 #[derive(Debug)]
 pub struct Table {
     data: Data,
-    with_header: bool,
     is_empty: bool,
+    with_header: bool,
+    with_index: bool,
 }
 
 type Data = VecRecords<TCell<CellInfo<'static>, TextStyle>>;
@@ -38,6 +39,7 @@ impl Table {
         size: (usize, usize),
         termwidth: usize,
         with_header: bool,
+        with_index: bool,
     ) -> Table {
         // it's not guaranted that data will have all rows with the same number of columns.
         // but VecRecords::with_hint require this constrain.
@@ -57,6 +59,7 @@ impl Table {
             data,
             is_empty,
             with_header,
+            with_index,
         }
     }
 
@@ -145,17 +148,7 @@ fn draw_table(
 
     let with_header = table.with_header;
     let with_footer = with_header && need_footer(config, (&table.data).size().0 as u64);
-    let with_index = match config.table_index_mode {
-        TableIndexMode::Always => true,
-        TableIndexMode::Never => false,
-        TableIndexMode::Auto => {
-            if with_header && table.data.count_rows() > 0 {
-                (0..table.data.count_columns()).any(|col| table.data.get_text((0, col)) == "index")
-            } else {
-                false
-            }
-        }
-    };
+    let with_index = table.with_index;
 
     if with_footer {
         table.data.duplicate_row(0);

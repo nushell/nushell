@@ -385,7 +385,7 @@ fn build_general_table2(
     }
 
     let data_len = data.len();
-    let table = NuTable::new(data, (data_len, 2), term_width, false);
+    let table = NuTable::new(data, (data_len, 2), term_width, false, false);
 
     let theme = load_theme_from_config(config);
     let color_hm = get_color_config(config);
@@ -418,7 +418,7 @@ fn build_expanded_table(
         .max()
         .unwrap_or(0);
     let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
-    let key_table = NuTable::new(vec![vec![key]], (1, 2), term_width, false);
+    let key_table = NuTable::new(vec![vec![key]], (1, 2), term_width, false, false);
     let key_width = key_table
         .draw_table(config, &color_hm, alignments, &theme, usize::MAX)
         .map(|table| nu_table::string_width(&table))
@@ -494,7 +494,7 @@ fn build_expanded_table(
     }
 
     let data_len = data.len();
-    let table = NuTable::new(data, (data_len, 2), term_width, false);
+    let table = NuTable::new(data, (data_len, 2), term_width, false, false);
 
     let table = table.draw_table(config, &color_hm, alignments, &theme, usize::MAX);
 
@@ -749,7 +749,13 @@ fn convert_to_table(
     }
 
     let count_rows = data.len();
-    let table = NuTable::new(data, (count_rows, count_columns), termwidth, with_header);
+    let table = NuTable::new(
+        data,
+        (count_rows, count_columns),
+        termwidth,
+        with_header,
+        with_index,
+    );
 
     Ok(Some(table))
 }
@@ -1042,7 +1048,13 @@ fn convert_to_table2(
     }
 
     let count_rows = data.len();
-    let table = NuTable::new(data, (count_rows, count_columns), usize::MAX, with_header);
+    let table = NuTable::new(
+        data,
+        (count_rows, count_columns),
+        usize::MAX,
+        with_header,
+        with_index,
+    );
 
     Ok(Some(table))
 }

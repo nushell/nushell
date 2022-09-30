@@ -458,7 +458,7 @@ fn draw_table(
     theme: theme,
 ) -> String {
     let size = (data.len(), count_columns);
-    let table = Table::new(data, size, usize::MAX, with_header);
+    let table = Table::new(data, size, usize::MAX, with_header, false);
 
     let cfg = Config::default();
     let styles = HashMap::default();
