@@ -117,6 +117,7 @@ impl Expression {
     }
 
     pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
+        return false;
         match &self.expr {
             Expr::BinaryOp(left, _, right) => {
                 left.has_in_variable(working_set) || right.has_in_variable(working_set)

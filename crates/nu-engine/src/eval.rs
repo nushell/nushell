@@ -293,7 +293,7 @@ pub fn eval_expression(
     stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    match &expr.expr {
+    let v = match &expr.expr {
         Expr::Bool(b) => Ok(Value::Bool {
             val: *b,
             span: expr.span,
@@ -665,7 +665,11 @@ pub fn eval_expression(
         Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Garbage => Ok(Value::Nothing { span: expr.span }),
         Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
+    };
+    if let Ok(val) = &v {
+        stack.add_env_var("LAST_PIPELINE_EXIT_CODE".to_string(), val.clone());
     }
+    v
 }
 
 /// Checks the expression to see if it's a internal or external call. If so, passes the input
@@ -1300,6 +1304,12 @@ pub fn eval_variable(
     span: Span,
 ) -> Result<Value, ShellError> {
     match var_id {
+        nu_protocol::IN_VARIABLE_ID => {
+            match stack.get_env_var(engine_state, "LAST_PIPELINE_EXIT_CODE") {
+                Some(v) => Ok(v),
+                None => Err(ShellError::EnvVarNotFoundAtRuntime("$in".to_string(), span)),
+            }
+        }
         nu_protocol::NU_VARIABLE_ID => {
             // $nu
             let mut output_cols = vec![];
