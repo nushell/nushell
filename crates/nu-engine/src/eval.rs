@@ -682,8 +682,7 @@ pub fn eval_expression_with_input(
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<(PipelineData, bool), ShellError> {
-    let mut external_failed = false;
-    match expr {
+    let external_failed = match expr {
         Expression {
             expr: Expr::Call(call),
             ..
@@ -697,6 +696,9 @@ pub fn eval_expression_with_input(
             } else {
                 input = eval_call(engine_state, stack, call, input)?;
             }
+            let res = might_consume_external_result(input);
+            input = res.0;
+            res.1
         }
         Expression {
             expr: Expr::ExternalCall(head, args),
@@ -712,7 +714,7 @@ pub fn eval_expression_with_input(
                 redirect_stderr,
             )?;
             input = external_result.0;
-            external_failed = external_result.1
+            external_result.1
         }
 
         Expression {
@@ -723,14 +725,71 @@ pub fn eval_expression_with_input(
 
             // FIXME: protect this collect with ctrl-c
             input = eval_subexpression(engine_state, stack, block, input)?;
+            let res = might_consume_external_result(input);
+            input = res.0;
+            res.1
         }
 
         elem => {
             input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
+            let res = might_consume_external_result(input);
+            input = res.0;
+            res.1
         }
-    }
+    };
 
     Ok((input, external_failed))
+}
+
+fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
+    // if the result is ExternalStream without redirecting output.
+    // that indicates we have no more commands to execute currently.
+    // we can try to catch and detect if external command runs to failed.
+    let mut runs_to_failed = false;
+    if let PipelineData::ExternalStream {
+        stdout: None,
+        stderr,
+        mut exit_code,
+        span,
+        metadata,
+    } = input
+    {
+        let exit_code = exit_code.take();
+        match exit_code {
+            Some(exit_code_stream) => {
+                let ctrlc = exit_code_stream.ctrlc.clone();
+                let exit_code: Vec<Value> = exit_code_stream.into_iter().collect();
+                if let Some(Value::Int { val: code, .. }) = exit_code.last() {
+                    // if exit_code is not 0, it indicates error occured, return back Err.
+                    if *code != 0 {
+                        runs_to_failed = true;
+                    }
+                }
+                (
+                    PipelineData::ExternalStream {
+                        stdout: None,
+                        stderr,
+                        exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
+                        span,
+                        metadata,
+                    },
+                    runs_to_failed,
+                )
+            }
+            None => (
+                PipelineData::ExternalStream {
+                    stdout: None,
+                    stderr,
+                    exit_code: None,
+                    span,
+                    metadata,
+                },
+                runs_to_failed,
+            ),
+        }
+    } else {
+        (input, false)
+    }
 }
 
 pub fn eval_block(
