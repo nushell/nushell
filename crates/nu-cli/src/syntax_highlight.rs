@@ -152,7 +152,7 @@ fn find_matching_bracket_in_block(
             }
         }
     }
-    return None;
+    None
 }
 
 fn find_matching_bracket_in_expr(
@@ -302,5 +302,5 @@ fn find_matching_bracket_in_expr(
             }
         };
     }
-    return None;
+    None
 }
