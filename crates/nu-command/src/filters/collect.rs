@@ -46,10 +46,12 @@ impl Command for Collect {
 
         let metadata = input.metadata();
         let input: Value = input.into_value(call.head);
-
+        
+        let mut saved_positional = None;
         if let Some(var) = block.signature.get_positional(0) {
             if let Some(var_id) = &var.var_id {
                 stack_captures.add_var(*var_id, input.clone());
+                saved_positional = Some(*var_id);
             }
         }
 
@@ -63,7 +65,16 @@ impl Command for Collect {
         )
         .map(|x| x.set_metadata(metadata));
         if call.has_flag("affect-env") {
+            for var_id in capture_block.captures.keys() {
+                stack_captures.vars.remove(var_id); 
+            }
+            if let Some(u) = saved_positional {
+                stack_captures.vars.remove(&u); 
+            }
+            stack.vars = stack_captures.vars;
             stack.env_vars = stack_captures.env_vars;
+            stack.active_overlays = stack_captures.active_overlays;
+            stack.env_hidden.extend(stack_captures.env_hidden);
         }
         result
     }
