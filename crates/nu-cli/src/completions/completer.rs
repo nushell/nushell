@@ -60,10 +60,10 @@ impl NuCompleter {
     fn external_completion(
         &self,
         block_id: BlockId,
-        spans: Vec<String>,
+        spans: &[String],
         offset: usize,
         span: Span,
-    ) -> Vec<Suggestion> {
+    ) -> Option<Vec<Suggestion>> {
         let stack = self.stack.clone();
         let block = self.engine_state.get_block(block_id);
         let mut callee_stack = stack.gather_captures(&block.captures);
@@ -75,9 +75,9 @@ impl NuCompleter {
                     var_id,
                     Value::List {
                         vals: spans
-                            .into_iter()
+                            .iter()
                             .map(|it| Value::String {
-                                val: it,
+                                val: it.to_string(),
                                 span: Span::unknown(),
                             })
                             .collect(),
@@ -109,13 +109,13 @@ impl NuCompleter {
                         offset,
                     );
 
-                    return result;
+                    return Some(result);
                 }
             }
             Err(err) => println!("failed to eval completer block: {}", err),
         }
 
-        vec![]
+        None
     }
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
@@ -213,7 +213,11 @@ impl NuCompleter {
                             // We got no results for internal completion
                             // now we can check if external completer is set and use it
                             if let Some(block_id) = config.external_completer {
-                                return self.external_completion(block_id, spans, offset, new_span);
+                                if let Some(external_result) =
+                                    self.external_completion(block_id, &spans, offset, new_span)
+                                {
+                                    return external_result;
+                                }
                             }
                         }
 
@@ -340,6 +344,15 @@ impl NuCompleter {
                                     return out;
                                 }
 
+                                // Try to complete using an external completer (if set)
+                                if let Some(block_id) = config.external_completer {
+                                    if let Some(external_result) =
+                                        self.external_completion(block_id, &spans, offset, new_span)
+                                    {
+                                        return external_result;
+                                    }
+                                }
+
                                 // Check for file completion
                                 let mut completer = FileCompletion::new(self.engine_state.clone());
                                 out = self.process_completion(
@@ -353,12 +366,6 @@ impl NuCompleter {
 
                                 if !out.is_empty() {
                                     return out;
-                                }
-
-                                // Try to complete using an exnternal compelter (if set)
-                                if let Some(block_id) = config.external_completer {
-                                    return self
-                                        .external_completion(block_id, spans, offset, new_span);
                                 }
                             }
                         };
