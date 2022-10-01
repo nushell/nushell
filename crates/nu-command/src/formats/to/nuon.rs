@@ -209,6 +209,7 @@ fn needs_quotes(string: &str) -> bool {
         || string.contains('\t')
         || string.contains('\n')
         || string.contains('\r')
+        || string.contains('\"')
 }
 
 #[cfg(test)]
