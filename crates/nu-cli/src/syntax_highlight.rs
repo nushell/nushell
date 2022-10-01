@@ -32,10 +32,6 @@ impl Highlighter for NuHighlighter {
         let global_cursor_offset = _cursor + global_span_offset;
         let matching_bracket_pos =
             find_matching_bracket_in_block(&working_set, &block, global_cursor_offset);
-        println!(
-            "Cursor: {:?}, match: {:?}",
-            global_cursor_offset, matching_bracket_pos
-        ); // FIXME:
 
         for shape in &shapes {
             if shape.0.end <= last_seen_span
@@ -56,89 +52,77 @@ impl Highlighter for NuHighlighter {
                 [(shape.0.start - global_span_offset)..(shape.0.end - global_span_offset)]
                 .to_string();
 
+            macro_rules! add_colored_token_with_bracket_highlight {
+                ($shape:expr, $span:expr, $text:expr) => {{
+                    if let Some(pos) = matching_bracket_pos {
+                        if $span.contains(pos) {
+                            let pos_in_text = pos - $span.start;
+                            if pos_in_text > 0 {
+                                let left = (&next_token[..pos_in_text]).to_string();
+                                add_colored_token!($shape, left);
+                            }
+                            let highlighted =
+                                (&next_token[pos_in_text..pos_in_text + 1]).to_string();
+                            output.push((
+                                get_shape_color($shape.to_string(), &self.config).reverse(),
+                                highlighted,
+                            ));
+                            if pos_in_text < next_token.len() {
+                                let right = (&next_token[pos_in_text + 1..]).to_string();
+                                add_colored_token!($shape, right);
+                            }
+                        } else {
+                            add_colored_token!($shape, next_token);
+                        }
+                    } else {
+                        add_colored_token!($shape, next_token);
+                    }
+                }};
+            }
+
             macro_rules! add_colored_token {
-                ($shape:ident) => {
-                    output.push((
-                        get_shape_color($shape.1.to_string(), &self.config),
-                        next_token,
-                    ))
+                ($shape:expr, $text:expr) => {
+                    output.push((get_shape_color($shape.to_string(), &self.config), $text))
                 };
             }
 
             match shape.1 {
-                FlatShape::Garbage => add_colored_token!(shape),
-                FlatShape::Nothing => add_colored_token!(shape),
-                FlatShape::Binary => add_colored_token!(shape),
-                FlatShape::Bool => add_colored_token!(shape),
-                FlatShape::Int => add_colored_token!(shape),
-                FlatShape::Float => add_colored_token!(shape),
-                FlatShape::Range => add_colored_token!(shape),
-                FlatShape::InternalCall => add_colored_token!(shape),
-                FlatShape::External => add_colored_token!(shape),
-                FlatShape::ExternalArg => add_colored_token!(shape),
-                FlatShape::Literal => add_colored_token!(shape),
-                FlatShape::Operator => add_colored_token!(shape),
-                FlatShape::Signature => add_colored_token!(shape),
-                FlatShape::String => add_colored_token!(shape),
-                FlatShape::StringInterpolation => add_colored_token!(shape),
-                FlatShape::DateTime => add_colored_token!(shape),
-                FlatShape::List => output.push((
-                    if let Some(pos) = matching_bracket_pos {
-                        if shape.0.contains(pos) {
-                            get_shape_color(shape.1.to_string(), &self.config).reverse()
-                        } else {
-                            get_shape_color(shape.1.to_string(), &self.config)
-                        }
-                    } else {
-                        get_shape_color(shape.1.to_string(), &self.config)
-                    },
-                    next_token,
-                )),
-                FlatShape::Table => output.push((
-                    if let Some(pos) = matching_bracket_pos {
-                        if shape.0.contains(pos) {
-                            get_shape_color(shape.1.to_string(), &self.config).reverse()
-                        } else {
-                            get_shape_color(shape.1.to_string(), &self.config)
-                        }
-                    } else {
-                        get_shape_color(shape.1.to_string(), &self.config)
-                    },
-                    next_token,
-                )),
-                FlatShape::Record => output.push((
-                    if let Some(pos) = matching_bracket_pos {
-                        if shape.0.contains(pos) {
-                            get_shape_color(shape.1.to_string(), &self.config).reverse()
-                        } else {
-                            get_shape_color(shape.1.to_string(), &self.config)
-                        }
-                    } else {
-                        get_shape_color(shape.1.to_string(), &self.config)
-                    },
-                    next_token,
-                )),
+                FlatShape::Garbage => add_colored_token!(shape.1, next_token),
+                FlatShape::Nothing => add_colored_token!(shape.1, next_token),
+                FlatShape::Binary => add_colored_token!(shape.1, next_token),
+                FlatShape::Bool => add_colored_token!(shape.1, next_token),
+                FlatShape::Int => add_colored_token!(shape.1, next_token),
+                FlatShape::Float => add_colored_token!(shape.1, next_token),
+                FlatShape::Range => add_colored_token!(shape.1, next_token),
+                FlatShape::InternalCall => add_colored_token!(shape.1, next_token),
+                FlatShape::External => add_colored_token!(shape.1, next_token),
+                FlatShape::ExternalArg => add_colored_token!(shape.1, next_token),
+                FlatShape::Literal => add_colored_token!(shape.1, next_token),
+                FlatShape::Operator => add_colored_token!(shape.1, next_token),
+                FlatShape::Signature => add_colored_token!(shape.1, next_token),
+                FlatShape::String => add_colored_token!(shape.1, next_token),
+                FlatShape::StringInterpolation => add_colored_token!(shape.1, next_token),
+                FlatShape::DateTime => add_colored_token!(shape.1, next_token),
+                FlatShape::List => {
+                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
+                }
+                FlatShape::Table => {
+                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
+                }
+                FlatShape::Record => {
+                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
+                }
 
-                // FIXME: highlight only matching_bracket_pos
-                FlatShape::Block => output.push((
-                    if let Some(pos) = matching_bracket_pos {
-                        if shape.0.contains(pos) {
-                            get_shape_color(shape.1.to_string(), &self.config).reverse()
-                        } else {
-                            get_shape_color(shape.1.to_string(), &self.config)
-                        }
-                    } else {
-                        get_shape_color(shape.1.to_string(), &self.config)
-                    },
-                    next_token,
-                )),
+                FlatShape::Block => {
+                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
+                }
 
-                FlatShape::Filepath => add_colored_token!(shape),
-                FlatShape::Directory => add_colored_token!(shape),
-                FlatShape::GlobPattern => add_colored_token!(shape),
-                FlatShape::Variable => add_colored_token!(shape),
-                FlatShape::Flag => add_colored_token!(shape),
-                FlatShape::Custom(..) => add_colored_token!(shape),
+                FlatShape::Filepath => add_colored_token!(shape.1, next_token),
+                FlatShape::Directory => add_colored_token!(shape.1, next_token),
+                FlatShape::GlobPattern => add_colored_token!(shape.1, next_token),
+                FlatShape::Variable => add_colored_token!(shape.1, next_token),
+                FlatShape::Flag => add_colored_token!(shape.1, next_token),
+                FlatShape::Custom(..) => add_colored_token!(shape.1, next_token),
             }
             last_seen_span = shape.0.end;
         }
@@ -157,7 +141,6 @@ fn find_matching_bracket_in_block(
     block: &Block,
     global_cursor_offset: usize,
 ) -> Option<usize> {
-    println!("Block: {:?}", block);
     for p in &block.pipelines {
         for e in &p.expressions {
             if e.span.contains(global_cursor_offset) {
