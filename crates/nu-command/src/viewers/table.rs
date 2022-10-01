@@ -462,20 +462,24 @@ fn build_expanded_table(
                 flatten_sep,
             )?;
 
-            let mut table = match table {
-                Some(table) => table,
-                None => return Ok(None), // must never happen
-            };
+            match table {
+                Some(mut table) => {
+                    // controll width via removing table columns.
+                    let theme = load_theme_from_config(config);
+                    table.truncate(remaining_width, &theme);
 
-            // controll width via removing table columns.
-
-            let theme = load_theme_from_config(config);
-            table.truncate(remaining_width, &theme);
-
-            let result = table.draw_table(config, &color_hm, alignments, &theme, remaining_width);
-            match result {
-                Some(result) => result,
-                None => return Ok(None),
+                    let result =
+                        table.draw_table(config, &color_hm, alignments, &theme, remaining_width);
+                    match result {
+                        Some(result) => result,
+                        None => return Ok(None),
+                    }
+                }
+                None => {
+                    // it means that the list is empty
+                    let value = Value::List { vals, span };
+                    value_to_styled_string(&value, 0, config, &color_hm).0
+                }
             }
         };
 
@@ -845,6 +849,48 @@ fn convert_to_table2(
 
         if !with_header {
             let value = match item {
+                Value::Record { .. } if !matches!(deep, Some(0)) => {
+                    let table = convert_to_table2(
+                        0,
+                        &[item.clone()],
+                        ctrlc.clone(),
+                        config,
+                        head,
+                        color_hm,
+                        alignments,
+                        theme,
+                        deep.map(|i| i - 1),
+                        flatten,
+                        flatten_sep,
+                    );
+
+                    match table {
+                        Ok(Some(table)) => {
+                            let table =
+                                table.draw_table(config, color_hm, alignments, theme, usize::MAX);
+
+                            match table {
+                                Some(table) => (table, TextStyle::default()),
+                                None => make_styled_string(
+                                    item.into_abbreviated_string(config),
+                                    &item.get_type().to_string(),
+                                    0,
+                                    with_index,
+                                    color_hm,
+                                    float_precision,
+                                ),
+                            }
+                        }
+                        _ => make_styled_string(
+                            item.into_abbreviated_string(config),
+                            &item.get_type().to_string(),
+                            0,
+                            with_index,
+                            color_hm,
+                            float_precision,
+                        ),
+                    }
+                }
                 Value::List { vals, span } if !matches!(deep, Some(0)) => {
                     if flatten
                         && vals
@@ -942,6 +988,53 @@ fn convert_to_table2(
                 };
 
                 let value = match result {
+                    Ok(item @ Value::Record { .. }) if !matches!(deep, Some(0)) => {
+                        let table = convert_to_table2(
+                            0,
+                            &[item.clone()],
+                            ctrlc.clone(),
+                            config,
+                            head,
+                            color_hm,
+                            alignments,
+                            theme,
+                            deep.map(|i| i - 1),
+                            flatten,
+                            flatten_sep,
+                        );
+
+                        match table {
+                            Ok(Some(table)) => {
+                                let table = table.draw_table(
+                                    config,
+                                    color_hm,
+                                    alignments,
+                                    theme,
+                                    usize::MAX,
+                                );
+
+                                match table {
+                                    Some(table) => (table, TextStyle::default()),
+                                    None => make_styled_string(
+                                        item.into_abbreviated_string(config),
+                                        &item.get_type().to_string(),
+                                        0,
+                                        with_index,
+                                        color_hm,
+                                        float_precision,
+                                    ),
+                                }
+                            }
+                            _ => make_styled_string(
+                                item.into_abbreviated_string(config),
+                                &item.get_type().to_string(),
+                                0,
+                                with_index,
+                                color_hm,
+                                float_precision,
+                            ),
+                        }
+                    }
                     Ok(Value::List { vals, .. })
                         if !matches!(deep, Some(0))
                             && flatten
@@ -1139,6 +1232,10 @@ impl PagingTableCreator {
         flatten: bool,
         flatten_separator: Option<String>,
     ) -> Result<Option<String>, ShellError> {
+        if batch.is_empty() {
+            return Ok(None);
+        }
+
         let theme = load_theme_from_config(&self.config);
         let term_width = get_width_param(self.width_param);
         let color_hm = get_color_config(&self.config);
