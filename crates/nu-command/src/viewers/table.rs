@@ -455,7 +455,6 @@ fn build_expanded_table(
                 config,
                 span,
                 &color_hm,
-                alignments,
                 &theme,
                 deep,
                 flatten,
@@ -765,6 +764,7 @@ fn convert_to_table(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::into_iter_on_ref)]
 fn convert_to_table2(
     row_offset: usize,
     input: &[Value],
@@ -772,23 +772,23 @@ fn convert_to_table2(
     config: &Config,
     head: Span,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
-    alignments: Alignments,
     theme: &TableTheme,
     deep: Option<usize>,
     flatten: bool,
     flatten_sep: &str,
 ) -> Result<Option<NuTable>, ShellError> {
-    let mut headers = get_columns(input);
+    if input.is_empty() {
+        return Ok(None);
+    }
+
     let float_precision = config.float_precision as usize;
+
+    let mut headers = get_columns(input);
     let with_index = match config.table_index_mode {
         TableIndexMode::Always => true,
         TableIndexMode::Never => false,
         TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
     };
-
-    if input.is_empty() {
-        return Ok(None);
-    }
 
     if !headers.is_empty() && with_index {
         headers.insert(0, "#".into());
@@ -819,7 +819,7 @@ fn convert_to_table2(
         vec![headers]
     };
 
-    for (row_num, item) in input.iter().enumerate() {
+    for (row_num, item) in input.into_iter().enumerate() {
         if let Some(ctrlc) = &ctrlc {
             if ctrlc.load(Ordering::SeqCst) {
                 return Ok(None);
@@ -848,128 +848,18 @@ fn convert_to_table2(
         }
 
         if !with_header {
-            let value = match item {
-                Value::Record { .. } if !matches!(deep, Some(0)) => {
-                    let table = convert_to_table2(
-                        0,
-                        &[item.clone()],
-                        ctrlc.clone(),
-                        config,
-                        head,
-                        color_hm,
-                        alignments,
-                        theme,
-                        deep.map(|i| i - 1),
-                        flatten,
-                        flatten_sep,
-                    );
-
-                    match table {
-                        Ok(Some(table)) => {
-                            let table =
-                                table.draw_table(config, color_hm, alignments, theme, usize::MAX);
-
-                            match table {
-                                Some(table) => (table, TextStyle::default()),
-                                None => make_styled_string(
-                                    item.into_abbreviated_string(config),
-                                    &item.get_type().to_string(),
-                                    0,
-                                    with_index,
-                                    color_hm,
-                                    float_precision,
-                                ),
-                            }
-                        }
-                        _ => make_styled_string(
-                            item.into_abbreviated_string(config),
-                            &item.get_type().to_string(),
-                            0,
-                            with_index,
-                            color_hm,
-                            float_precision,
-                        ),
-                    }
-                }
-                Value::List { vals, span } if !matches!(deep, Some(0)) => {
-                    if flatten
-                        && vals
-                            .iter()
-                            .all(|v| !matches!(v, Value::Record { .. } | Value::List { .. }))
-                    {
-                        let mut buf = Vec::new();
-                        for value in vals {
-                            let (text, _) = make_styled_string(
-                                value.into_abbreviated_string(config),
-                                &value.get_type().to_string(),
-                                0,
-                                with_index,
-                                color_hm,
-                                float_precision,
-                            );
-
-                            buf.push(text);
-                        }
-
-                        let text = buf.join(flatten_sep);
-                        (text, TextStyle::default())
-                    } else {
-                        let table = convert_to_table2(
-                            0,
-                            vals,
-                            ctrlc.clone(),
-                            config,
-                            *span,
-                            color_hm,
-                            alignments,
-                            theme,
-                            deep.map(|i| i - 1),
-                            flatten,
-                            flatten_sep,
-                        );
-
-                        match table {
-                            Ok(Some(table)) => {
-                                let table = table.draw_table(
-                                    config,
-                                    color_hm,
-                                    alignments,
-                                    theme,
-                                    usize::MAX,
-                                );
-
-                                match table {
-                                    Some(table) => (table, TextStyle::default()),
-                                    None => make_styled_string(
-                                        item.into_abbreviated_string(config),
-                                        &item.get_type().to_string(),
-                                        0,
-                                        with_index,
-                                        color_hm,
-                                        float_precision,
-                                    ),
-                                }
-                            }
-                            _ => make_styled_string(
-                                item.into_abbreviated_string(config),
-                                &item.get_type().to_string(),
-                                0,
-                                with_index,
-                                color_hm,
-                                float_precision,
-                            ),
-                        }
-                    }
-                }
-                value => make_styled_string(
-                    value.into_abbreviated_string(config),
-                    &value.get_type().to_string(),
-                    0,
-                    with_index,
-                    color_hm,
-                    float_precision,
-                ),
-            };
+            let value = convert_to_table2_entry(
+                Some(item),
+                config,
+                &ctrlc,
+                color_hm,
+                0,
+                theme,
+                with_index,
+                deep,
+                flatten,
+                flatten_sep,
+            );
 
             let value = NuTable::create_cell(value.0, value.1);
             row.push(value);
@@ -987,148 +877,18 @@ fn convert_to_table2(
                     _ => Ok(item.clone()),
                 };
 
-                let value = match result {
-                    Ok(item @ Value::Record { .. }) if !matches!(deep, Some(0)) => {
-                        let table = convert_to_table2(
-                            0,
-                            &[item.clone()],
-                            ctrlc.clone(),
-                            config,
-                            head,
-                            color_hm,
-                            alignments,
-                            theme,
-                            deep.map(|i| i - 1),
-                            flatten,
-                            flatten_sep,
-                        );
-
-                        match table {
-                            Ok(Some(table)) => {
-                                let table = table.draw_table(
-                                    config,
-                                    color_hm,
-                                    alignments,
-                                    theme,
-                                    usize::MAX,
-                                );
-
-                                match table {
-                                    Some(table) => (table, TextStyle::default()),
-                                    None => make_styled_string(
-                                        item.into_abbreviated_string(config),
-                                        &item.get_type().to_string(),
-                                        0,
-                                        with_index,
-                                        color_hm,
-                                        float_precision,
-                                    ),
-                                }
-                            }
-                            _ => make_styled_string(
-                                item.into_abbreviated_string(config),
-                                &item.get_type().to_string(),
-                                0,
-                                with_index,
-                                color_hm,
-                                float_precision,
-                            ),
-                        }
-                    }
-                    Ok(Value::List { vals, .. })
-                        if !matches!(deep, Some(0))
-                            && flatten
-                            && vals.iter().all(|v| {
-                                !matches!(v, Value::Record { .. } | Value::List { .. })
-                            }) =>
-                    {
-                        let mut buf = Vec::new();
-                        for value in vals {
-                            let (text, _) = make_styled_string(
-                                value.into_abbreviated_string(config),
-                                &value.get_type().to_string(),
-                                col,
-                                with_index,
-                                color_hm,
-                                float_precision,
-                            );
-
-                            buf.push(text);
-                        }
-
-                        let text = buf.join(flatten_sep);
-                        (text, TextStyle::default())
-                    }
-                    Ok(Value::List { vals, span }) if !matches!(deep, Some(0)) => {
-                        let table = convert_to_table2(
-                            0,
-                            &vals,
-                            ctrlc.clone(),
-                            config,
-                            span,
-                            color_hm,
-                            alignments,
-                            theme,
-                            deep.map(|i| i - 1),
-                            flatten,
-                            flatten_sep,
-                        );
-
-                        match table {
-                            Ok(Some(table)) => {
-                                let table = table.draw_table(
-                                    config,
-                                    color_hm,
-                                    alignments,
-                                    theme,
-                                    usize::MAX,
-                                );
-
-                                match table {
-                                    Some(table) => (table, TextStyle::default()),
-                                    None => {
-                                        let value = Value::List { vals, span };
-                                        make_styled_string(
-                                            value.into_abbreviated_string(config),
-                                            &value.get_type().to_string(),
-                                            col,
-                                            with_index,
-                                            color_hm,
-                                            float_precision,
-                                        )
-                                    }
-                                }
-                            }
-                            _ => {
-                                let value = Value::List { vals, span };
-                                make_styled_string(
-                                    value.into_abbreviated_string(config),
-                                    &value.get_type().to_string(),
-                                    col,
-                                    with_index,
-                                    color_hm,
-                                    float_precision,
-                                )
-                            }
-                        }
-                    }
-                    Ok(value) => make_styled_string(
-                        value.into_abbreviated_string(config),
-                        &value.get_type().to_string(),
-                        col,
-                        with_index,
-                        color_hm,
-                        float_precision,
-                    ),
-                    Err(_) => make_styled_string(
-                        String::from("❎"),
-                        "empty",
-                        col,
-                        with_index,
-                        color_hm,
-                        float_precision,
-                    ),
-                };
+                let value = convert_to_table2_entry(
+                    result.ok().as_ref(),
+                    config,
+                    &ctrlc,
+                    color_hm,
+                    col,
+                    theme,
+                    with_index,
+                    deep,
+                    flatten,
+                    flatten_sep,
+                );
 
                 let value = NuTable::create_cell(value.0, value.1);
                 row.push(value);
@@ -1136,7 +896,6 @@ fn convert_to_table2(
         }
 
         count_columns = max(count_columns, row.len());
-
         data.push(row);
     }
 
@@ -1150,6 +909,108 @@ fn convert_to_table2(
     );
 
     Ok(Some(table))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn convert_to_table2_entry(
+    item: Option<&Value>,
+    config: &Config,
+    ctrlc: &Option<Arc<AtomicBool>>,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    col: usize,
+    theme: &TableTheme,
+    with_index: bool,
+    deep: Option<usize>,
+    flatten: bool,
+    flatten_sep: &str,
+) -> (String, TextStyle) {
+    let float_precision = config.float_precision as usize;
+    let alignments = Alignments::default();
+
+    let item = match item {
+        Some(item) => item,
+        None => {
+            return make_styled_string(
+                String::from("❎"),
+                "empty",
+                col,
+                with_index,
+                color_hm,
+                float_precision,
+            )
+        }
+    };
+
+    let is_record_or_list = matches!(item, Value::Record { .. } | Value::List { .. });
+    let is_simple = matches!(deep, Some(0)) || !is_record_or_list;
+
+    let mut text = None;
+    if !is_simple {
+        let mut arr: [Value; 1] = [Value::default()];
+        let (list, span): (&[Value], Span) = match item {
+            Value::Record { span, .. } => {
+                arr[0] = item.clone();
+                (&arr, *span)
+            }
+            Value::List { vals, span } => (vals, *span),
+            _ => unreachable!("we checked the values already"),
+        };
+
+        let is_simple_list = list
+            .iter()
+            .all(|v| !matches!(v, Value::Record { .. } | Value::List { .. }));
+
+        text = if flatten && is_simple_list {
+            let mut buf = Vec::new();
+            for value in list {
+                let (text, _) = make_styled_string(
+                    value.into_abbreviated_string(config),
+                    &value.get_type().to_string(),
+                    col,
+                    with_index,
+                    color_hm,
+                    float_precision,
+                );
+
+                buf.push(text);
+            }
+
+            let text = buf.join(flatten_sep);
+
+            Some(text)
+        } else {
+            let table = convert_to_table2(
+                0,
+                list,
+                ctrlc.clone(),
+                config,
+                span,
+                color_hm,
+                theme,
+                deep.map(|i| i - 1),
+                flatten,
+                flatten_sep,
+            );
+
+            if let Ok(Some(table)) = table {
+                table.draw_table(config, color_hm, alignments, theme, usize::MAX)
+            } else {
+                None
+            }
+        }
+    };
+
+    match text {
+        Some(text) => (text, TextStyle::default()),
+        None => make_styled_string(
+            item.into_abbreviated_string(config),
+            &item.get_type().to_string(),
+            col,
+            with_index,
+            color_hm,
+            float_precision,
+        ),
+    }
 }
 
 fn value_to_styled_string(
@@ -1246,7 +1107,6 @@ impl PagingTableCreator {
             &self.config,
             self.head,
             &color_hm,
-            Alignments::default(),
             &theme,
             limit,
             flatten,
