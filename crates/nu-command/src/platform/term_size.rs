@@ -12,35 +12,28 @@ impl Command for TermSize {
     }
 
     fn usage(&self) -> &str {
-        "Returns the terminal size"
+        "Returns a record containing the number of columns (width) and rows (height) of the terminal"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("term size")
-            .switch(
-                "columns",
-                "Report only the width of the terminal",
-                Some('c'),
-            )
-            .switch("rows", "Report only the height of the terminal", Some('r'))
-            .category(Category::Platform)
+        Signature::build("term size").category(Category::Platform)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Return the width height of the terminal",
+                description: "Return the columns (width) and rows (height) of the terminal",
                 example: "term size",
                 result: None,
             },
             Example {
-                description: "Return the width (columns) of the terminal",
-                example: "term size -c",
+                description: "Return the columns (width) of the terminal",
+                example: "(term size).columns",
                 result: None,
             },
             Example {
-                description: "Return the height (rows) of the terminal",
-                example: "term size -r",
+                description: "Return the rows (height) of the terminal",
+                example: "(term size).rows",
                 result: None,
             },
         ]
@@ -54,60 +47,26 @@ impl Command for TermSize {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
-        let wide = call.has_flag("columns");
-        let tall = call.has_flag("rows");
 
         let (cols, rows) = match terminal_size() {
             Some((w, h)) => (Width(w.0), Height(h.0)),
             None => (Width(0), Height(0)),
         };
 
-        Ok((match (wide, tall) {
-            (true, false) => Value::Record {
-                cols: vec!["columns".into()],
-                vals: vec![Value::Int {
+        Ok(Value::Record {
+            cols: vec!["columns".into(), "rows".into()],
+            vals: vec![
+                Value::Int {
                     val: cols.0 as i64,
                     span: Span::test_data(),
-                }],
-                span: head,
-            },
-            (true, true) => Value::Record {
-                cols: vec!["columns".into(), "rows".into()],
-                vals: vec![
-                    Value::Int {
-                        val: cols.0 as i64,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: rows.0 as i64,
-                        span: Span::test_data(),
-                    },
-                ],
-                span: head,
-            },
-            (false, true) => Value::Record {
-                cols: vec!["rows".into()],
-                vals: vec![Value::Int {
+                },
+                Value::Int {
                     val: rows.0 as i64,
                     span: Span::test_data(),
-                }],
-                span: head,
-            },
-            (false, false) => Value::Record {
-                cols: vec!["columns".into(), "rows".into()],
-                vals: vec![
-                    Value::Int {
-                        val: cols.0 as i64,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: rows.0 as i64,
-                        span: Span::test_data(),
-                    },
-                ],
-                span: head,
-            },
-        })
+                },
+            ],
+            span: head,
+        }
         .into_pipeline_data())
     }
 }
