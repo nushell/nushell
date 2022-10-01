@@ -71,7 +71,7 @@ impl Command for Collect {
             if let Some(u) = saved_positional {
                 stack_captures.vars.remove(&u);
             }
-            stack.vars = stack_captures.vars;
+            stack.vars.extend(stack_captures.vars);
             stack.env_vars = stack_captures.env_vars;
             stack.active_overlays = stack_captures.active_overlays;
             stack.env_hidden.extend(stack_captures.env_hidden);
