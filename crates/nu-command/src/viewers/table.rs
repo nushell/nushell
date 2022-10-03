@@ -4,15 +4,17 @@ use nu_engine::{column::get_columns, env_to_string, CallExt};
 use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    format_error, Category, Config, DataSource, Example, IntoPipelineData, ListStream,
+    format_error, Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream,
     PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
     TableIndexMode, Value,
 };
-use nu_table::{Alignments, StyledString, TableTheme, TextStyle};
+use nu_table::{Alignment, Alignments, Table as NuTable, TableTheme, TextStyle};
 use nu_utils::get_ls_colors;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{
+    cmp::max,
+    collections::HashMap,
     path::PathBuf,
     sync::atomic::{AtomicBool, Ordering},
 };
@@ -69,6 +71,29 @@ impl Command for Table {
                 "number of terminal columns wide (not output columns)",
                 Some('w'),
             )
+            .switch(
+                "expand",
+                "expand the table structure in a light mode",
+                Some('e'),
+            )
+            .named(
+                "expand-deep",
+                SyntaxShape::Int,
+                "an expand limit of recursion which will take place",
+                Some('d'),
+            )
+            .switch("flatten", "Flatten simple arrays", None)
+            .named(
+                "flatten-separator",
+                SyntaxShape::String,
+                "sets a seperator when 'flatten' used",
+                None,
+            )
+            .switch(
+                "collapse",
+                "expand the table structure in colapse mode.\nBe aware collapse mode currently doesn't support width controll",
+                Some('c'),
+            )
             .category(Category::Viewers)
     }
 
@@ -78,11 +103,7 @@ impl Command for Table {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let head = call.head;
-        let ctrlc = engine_state.ctrlc.clone();
-        let config = engine_state.get_config();
-        let color_hm = get_color_config(config);
+    ) -> Result<PipelineData, ShellError> {
         let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
         let row_offset = start_num.unwrap_or_default() as usize;
         let list: bool = call.has_flag("list");
@@ -90,25 +111,31 @@ impl Command for Table {
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
         let term_width = get_width_param(width_param);
 
+        let expand: bool = call.has_flag("expand");
+        let expand_limit: Option<usize> = call.get_flag(engine_state, stack, "expand-deep")?;
+        let collapse: bool = call.has_flag("collapse");
+        let flatten: bool = call.has_flag("flatten");
+        let flatten_separator: Option<String> =
+            call.get_flag(engine_state, stack, "flatten-separator")?;
+
+        let table_view = match (expand, collapse) {
+            (false, false) => TableView::General,
+            (_, true) => TableView::Collapsed,
+            (true, _) => TableView::Expanded {
+                limit: expand_limit,
+                flatten,
+                flatten_separator,
+            },
+        };
+
+        // if list argument is present we just need to return a list of supported table themes
         if list {
-            let table_modes = vec![
-                Value::string("basic", Span::test_data()),
-                Value::string("compact", Span::test_data()),
-                Value::string("compact_double", Span::test_data()),
-                Value::string("default", Span::test_data()),
-                Value::string("heavy", Span::test_data()),
-                Value::string("light", Span::test_data()),
-                Value::string("none", Span::test_data()),
-                Value::string("reinforced", Span::test_data()),
-                Value::string("rounded", Span::test_data()),
-                Value::string("thin", Span::test_data()),
-                Value::string("with_love", Span::test_data()),
-            ];
-            return Ok(Value::List {
-                vals: table_modes,
+            let val = Value::List {
+                vals: supported_table_modes(),
                 span: Span::test_data(),
-            }
-            .into_pipeline_data());
+            };
+
+            return Ok(val.into_pipeline_data());
         }
 
         // reset vt processing, aka ansi because illbehaved externals can break it
@@ -117,96 +144,15 @@ impl Command for Table {
             let _ = nu_utils::enable_vt_processing();
         }
 
-        match input {
-            PipelineData::ExternalStream { .. } => Ok(input),
-            PipelineData::Value(Value::Binary { val, .. }, ..) => {
-                Ok(PipelineData::ExternalStream {
-                    stdout: Some(RawStream::new(
-                        Box::new(
-                            vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
-                                .as_bytes()
-                                .to_vec())]
-                            .into_iter(),
-                        ),
-                        ctrlc,
-                        head,
-                    )),
-                    stderr: None,
-                    exit_code: None,
-                    span: head,
-                    metadata: None,
-                })
-            }
-            PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
-                engine_state,
-                stack,
-                ListStream::from_stream(vals.into_iter(), ctrlc.clone()),
-                call,
-                row_offset,
-                ctrlc,
-                metadata,
-            ),
-            PipelineData::ListStream(stream, metadata) => handle_row_stream(
-                engine_state,
-                stack,
-                stream,
-                call,
-                row_offset,
-                ctrlc,
-                metadata,
-            ),
-            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
-                let mut output = vec![];
-
-                for (c, v) in cols.into_iter().zip(vals.into_iter()) {
-                    output.push(vec![
-                        StyledString {
-                            contents: c,
-                            style: TextStyle::default_field(),
-                        },
-                        StyledString {
-                            contents: v.into_abbreviated_string(config),
-                            style: TextStyle::default(),
-                        },
-                    ])
-                }
-
-                let table =
-                    nu_table::Table::new(Vec::new(), output, load_theme_from_config(config));
-
-                let result = table
-                    .draw_table(config, &color_hm, Alignments::default(), term_width)
-                    .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
-
-                Ok(Value::String {
-                    val: result,
-                    span: call.head,
-                }
-                .into_pipeline_data())
-            }
-            PipelineData::Value(Value::Error { error }, ..) => {
-                let working_set = StateWorkingSet::new(engine_state);
-                Ok(Value::String {
-                    val: format_error(&working_set, &error),
-                    span: call.head,
-                }
-                .into_pipeline_data())
-            }
-            PipelineData::Value(Value::CustomValue { val, span }, ..) => {
-                let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
-                self.run(engine_state, stack, call, base_pipeline)
-            }
-            PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(
-                engine_state,
-                stack,
-                ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc.clone()),
-                call,
-                row_offset,
-                ctrlc,
-                metadata,
-            ),
-            x => Ok(x),
-        }
+        handle_table_command(
+            engine_state,
+            stack,
+            call,
+            input,
+            row_offset,
+            table_view,
+            term_width,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -236,8 +182,326 @@ impl Command for Table {
                     span,
                 }),
             },
+            Example {
+                description: "Render data in table view (expanded)",
+                example: r#"echo [[a b]; [1 2] [2 [4 4]]] | table --expand"#,
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["a".to_string(), "b".to_string()],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                            span,
+                        },
+                        Value::Record {
+                            cols: vec!["a".to_string(), "b".to_string()],
+                            vals: vec![Value::test_int(3), Value::test_int(4)],
+                            span,
+                        },
+                    ],
+                    span,
+                }),
+            },
+            Example {
+                description: "Render data in table view (collapsed)",
+                example: r#"echo [[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["a".to_string(), "b".to_string()],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                            span,
+                        },
+                        Value::Record {
+                            cols: vec!["a".to_string(), "b".to_string()],
+                            vals: vec![Value::test_int(3), Value::test_int(4)],
+                            span,
+                        },
+                    ],
+                    span,
+                }),
+            },
         ]
     }
+}
+
+fn handle_table_command(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+    row_offset: usize,
+    table_view: TableView,
+    term_width: usize,
+) -> Result<PipelineData, ShellError> {
+    let ctrlc = engine_state.ctrlc.clone();
+    let config = engine_state.get_config();
+
+    match input {
+        PipelineData::ExternalStream { .. } => Ok(input),
+        PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::ExternalStream {
+            stdout: Some(RawStream::new(
+                Box::new(
+                    vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
+                        .as_bytes()
+                        .to_vec())]
+                    .into_iter(),
+                ),
+                ctrlc,
+                call.head,
+            )),
+            stderr: None,
+            exit_code: None,
+            span: call.head,
+            metadata: None,
+        }),
+        PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
+            engine_state,
+            stack,
+            ListStream::from_stream(vals.into_iter(), ctrlc.clone()),
+            call,
+            row_offset,
+            ctrlc,
+            metadata,
+        ),
+        PipelineData::ListStream(stream, metadata) => handle_row_stream(
+            engine_state,
+            stack,
+            stream,
+            call,
+            row_offset,
+            ctrlc,
+            metadata,
+        ),
+        PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
+            let result = match table_view {
+                TableView::General => build_general_table2(cols, vals, ctrlc, config, term_width),
+                TableView::Expanded {
+                    limit,
+                    flatten,
+                    flatten_separator,
+                } => {
+                    let sep = flatten_separator.as_deref().unwrap_or(" ");
+                    build_expanded_table(
+                        cols, vals, span, ctrlc, config, term_width, limit, flatten, sep,
+                    )
+                }
+                TableView::Collapsed => build_collapsed_table(cols, vals, config, term_width),
+            }?;
+
+            let result = result
+                .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
+
+            let val = Value::String {
+                val: result,
+                span: call.head,
+            };
+
+            Ok(val.into_pipeline_data())
+        }
+        PipelineData::Value(Value::Error { error }, ..) => {
+            let working_set = StateWorkingSet::new(engine_state);
+            Ok(Value::String {
+                val: format_error(&working_set, &error),
+                span: call.head,
+            }
+            .into_pipeline_data())
+        }
+        PipelineData::Value(Value::CustomValue { val, span }, ..) => {
+            let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
+            Table.run(engine_state, stack, call, base_pipeline)
+        }
+        PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(
+            engine_state,
+            stack,
+            ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc.clone()),
+            call,
+            row_offset,
+            ctrlc,
+            metadata,
+        ),
+        x => Ok(x),
+    }
+}
+
+fn supported_table_modes() -> Vec<Value> {
+    vec![
+        Value::string("basic", Span::test_data()),
+        Value::string("compact", Span::test_data()),
+        Value::string("compact_double", Span::test_data()),
+        Value::string("default", Span::test_data()),
+        Value::string("heavy", Span::test_data()),
+        Value::string("light", Span::test_data()),
+        Value::string("none", Span::test_data()),
+        Value::string("reinforced", Span::test_data()),
+        Value::string("rounded", Span::test_data()),
+        Value::string("thin", Span::test_data()),
+        Value::string("with_love", Span::test_data()),
+    ]
+}
+
+fn build_collapsed_table(
+    cols: Vec<String>,
+    vals: Vec<Value>,
+    config: &Config,
+    term_width: usize,
+) -> Result<Option<String>, ShellError> {
+    let value = Value::Record {
+        cols,
+        vals,
+        span: Span::new(0, 0),
+    };
+
+    let color_hm = get_color_config(config);
+    let theme = load_theme_from_config(config);
+    let table = nu_table::NuTable::new(value, true, term_width, config, &color_hm, &theme, false);
+
+    let table = table.draw();
+
+    Ok(table)
+}
+
+fn build_general_table2(
+    cols: Vec<String>,
+    vals: Vec<Value>,
+    ctrlc: Option<Arc<AtomicBool>>,
+    config: &Config,
+    term_width: usize,
+) -> Result<Option<String>, ShellError> {
+    let mut data = Vec::with_capacity(vals.len());
+    for (column, value) in cols.into_iter().zip(vals.into_iter()) {
+        // handle CTRLC event
+        if let Some(ctrlc) = &ctrlc {
+            if ctrlc.load(Ordering::SeqCst) {
+                return Ok(None);
+            }
+        }
+
+        let row = vec![
+            NuTable::create_cell(column, TextStyle::default_field()),
+            NuTable::create_cell(value.into_abbreviated_string(config), TextStyle::default()),
+        ];
+
+        data.push(row);
+    }
+
+    let data_len = data.len();
+    let table = NuTable::new(data, (data_len, 2), term_width, false, false);
+
+    let theme = load_theme_from_config(config);
+    let color_hm = get_color_config(config);
+
+    let table = table.draw_table(config, &color_hm, Alignments::default(), &theme, term_width);
+
+    Ok(table)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_expanded_table(
+    cols: Vec<String>,
+    vals: Vec<Value>,
+    span: Span,
+    ctrlc: Option<Arc<AtomicBool>>,
+    config: &Config,
+    term_width: usize,
+    expand_limit: Option<usize>,
+    flatten: bool,
+    flatten_sep: &str,
+) -> Result<Option<String>, ShellError> {
+    let theme = load_theme_from_config(config);
+    let color_hm = get_color_config(config);
+    let alignments = Alignments::default();
+
+    // calculate the width of a key part + the rest of table so we know the rest of the table width available for value.
+    let key_width = cols
+        .iter()
+        .map(|col| nu_table::string_width(col))
+        .max()
+        .unwrap_or(0);
+    let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
+    let key_table = NuTable::new(vec![vec![key]], (1, 2), term_width, false, false);
+    let key_width = key_table
+        .draw_table(config, &color_hm, alignments, &theme, usize::MAX)
+        .map(|table| nu_table::string_width(&table))
+        .unwrap_or(0);
+
+    if key_width > term_width {
+        return Ok(None);
+    }
+
+    let remaining_width = term_width - key_width;
+    let mut data = Vec::with_capacity(cols.len());
+    for (key, value) in cols.into_iter().zip(vals) {
+        // handle CTRLC event
+        if let Some(ctrlc) = &ctrlc {
+            if ctrlc.load(Ordering::SeqCst) {
+                return Ok(None);
+            }
+        }
+
+        let is_limited = matches!(expand_limit, Some(0));
+        let value = if is_limited {
+            value_to_styled_string(&value, 0, config, &color_hm).0
+        } else {
+            let vals = match value {
+                Value::List { vals, .. } => vals,
+                value => vec![value],
+            };
+
+            let deep = expand_limit.map(|i| i - 1);
+            let table = convert_to_table2(
+                0,
+                &vals,
+                ctrlc.clone(),
+                config,
+                span,
+                &color_hm,
+                &theme,
+                deep,
+                flatten,
+                flatten_sep,
+            )?;
+
+            match table {
+                Some(mut table) => {
+                    // controll width via removing table columns.
+                    let theme = load_theme_from_config(config);
+                    table.truncate(remaining_width, &theme);
+
+                    let result =
+                        table.draw_table(config, &color_hm, alignments, &theme, remaining_width);
+                    match result {
+                        Some(result) => result,
+                        None => return Ok(None),
+                    }
+                }
+                None => {
+                    // it means that the list is empty
+                    let value = Value::List { vals, span };
+                    value_to_styled_string(&value, 0, config, &color_hm).0
+                }
+            }
+        };
+
+        let key = Value::String {
+            val: key,
+            span: Span::new(0, 0),
+        };
+
+        let key = value_to_styled_string(&key, 0, config, &color_hm);
+
+        let key = NuTable::create_cell(key.0, key.1);
+        let val = NuTable::create_cell(value, TextStyle::default());
+
+        let row = vec![key, val];
+        data.push(row);
+    }
+
+    let data_len = data.len();
+    let table = NuTable::new(data, (data_len, 2), term_width, false, false);
+
+    let table = table.draw_table(config, &color_hm, alignments, &theme, usize::MAX);
+
+    Ok(table)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -249,7 +513,7 @@ fn handle_row_stream(
     row_offset: usize,
     ctrlc: Option<Arc<AtomicBool>>,
     metadata: Option<PipelineMetadata>,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, nu_protocol::ShellError> {
     let stream = match metadata {
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
@@ -269,10 +533,9 @@ fn handle_row_stream(
 
                         while idx < cols.len() {
                             if cols[idx] == "name" {
-                                if let Some(Value::String { val: path, span }) = vals.get(idx) {
-                                    if let Some(val) =
-                                        render_path_name(path, &config, &ls_colors, *span)
-                                    {
+                                if let Some(Value::String { val, span }) = vals.get(idx) {
+                                    let val = render_path_name(val, &config, &ls_colors, *span);
+                                    if let Some(val) = val {
                                         vals[idx] = val;
                                     }
                                 }
@@ -294,6 +557,24 @@ fn handle_row_stream(
     let head = call.head;
     let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
 
+    let collapse: bool = call.has_flag("collapse");
+
+    let expand: bool = call.has_flag("expand");
+    let limit: Option<usize> = call.get_flag(engine_state, stack, "expand-deep")?;
+    let flatten: bool = call.has_flag("flatten");
+    let flatten_separator: Option<String> =
+        call.get_flag(engine_state, stack, "flatten-separator")?;
+
+    let table_view = match (expand, collapse) {
+        (_, true) => TableView::Collapsed,
+        (true, _) => TableView::Expanded {
+            flatten,
+            flatten_separator,
+            limit,
+        },
+        _ => TableView::General,
+    };
+
     Ok(PipelineData::ExternalStream {
         stdout: Some(RawStream::new(
             Box::new(PagingTableCreator {
@@ -303,6 +584,7 @@ fn handle_row_stream(
                 head,
                 stream,
                 width_param,
+                view: table_view,
             }),
             ctrlc,
             head,
@@ -344,10 +626,11 @@ fn convert_to_table(
     ctrlc: Option<Arc<AtomicBool>>,
     config: &Config,
     head: Span,
-) -> Result<Option<nu_table::Table>, ShellError> {
+    termwidth: usize,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+) -> Result<Option<NuTable>, ShellError> {
     let mut headers = get_columns(input);
     let mut input = input.iter().peekable();
-    let color_hm = get_color_config(config);
     let float_precision = config.float_precision as usize;
     let with_index = match config.table_index_mode {
         TableIndexMode::Always => true,
@@ -355,121 +638,423 @@ fn convert_to_table(
         TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
     };
 
-    if input.peek().is_some() {
-        if !headers.is_empty() && with_index {
-            headers.insert(0, "#".into());
-        }
+    if input.peek().is_none() {
+        return Ok(None);
+    }
 
-        // The header with the INDEX is removed from the table headers since
-        // it is added to the natural table index
-        headers.retain(|header| header != INDEX_COLUMN_NAME);
+    if !headers.is_empty() && with_index {
+        headers.insert(0, "#".into());
+    }
 
-        // Vec of Vec of String1, String2 where String1 is datatype and String2 is value
-        let mut data: Vec<Vec<(String, String)>> = Vec::new();
+    // The header with the INDEX is removed from the table headers since
+    // it is added to the natural table index
+    let headers: Vec<_> = headers
+        .into_iter()
+        .filter(|header| header != INDEX_COLUMN_NAME)
+        .map(|text| {
+            NuTable::create_cell(
+                text,
+                TextStyle {
+                    alignment: Alignment::Center,
+                    color_style: Some(color_hm["header"]),
+                },
+            )
+        })
+        .collect();
 
-        for (row_num, item) in input.enumerate() {
-            if let Some(ctrlc) = &ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    return Ok(None);
-                }
-            }
-            if let Value::Error { error } = item {
-                return Err(error.clone());
-            }
-            // String1 = datatype, String2 = value as string
-            let mut row: Vec<(String, String)> = vec![];
-            if with_index {
-                let row_val = match &item {
-                    Value::Record { .. } => item
-                        .get_data_by_key(INDEX_COLUMN_NAME)
-                        .map(|value| value.into_string("", config)),
-                    _ => None,
-                }
-                .unwrap_or_else(|| (row_num + row_offset).to_string());
-                row = vec![("string".to_string(), (row_val).to_string())];
-            }
+    let with_header = !headers.is_empty();
+    let mut count_columns = headers.len();
 
-            if headers.is_empty() {
-                row.push((
-                    item.get_type().to_string(),
-                    item.into_abbreviated_string(config),
-                ));
-            } else {
-                let skip_num = if with_index { 1 } else { 0 };
-                for header in headers.iter().skip(skip_num) {
-                    let result = match item {
-                        Value::Record { .. } => item.clone().follow_cell_path(
-                            &[PathMember::String {
-                                val: header.into(),
-                                span: head,
-                            }],
-                            false,
-                        ),
-                        _ => Ok(item.clone()),
-                    };
-
-                    match result {
-                        Ok(value) => row.push((
-                            value.get_type().to_string(),
-                            value.into_abbreviated_string(config),
-                        )),
-                        Err(_) => row.push(("empty".to_string(), "❎".into())),
-                    }
-                }
-            }
-
-            data.push(row);
-        }
-
-        Ok(Some(nu_table::Table::new(
-            headers
-                .into_iter()
-                .map(|x| StyledString {
-                    contents: x,
-                    style: TextStyle {
-                        alignment: nu_table::Alignment::Center,
-                        color_style: Some(color_hm["header"]),
-                    },
-                })
-                .collect(),
-            data.into_iter()
-                .map(|x| {
-                    x.into_iter()
-                        .enumerate()
-                        .map(|(col, y)| {
-                            if col == 0 && with_index {
-                                StyledString {
-                                    contents: y.1,
-                                    style: TextStyle {
-                                        alignment: nu_table::Alignment::Right,
-                                        color_style: Some(color_hm["row_index"]),
-                                    },
-                                }
-                            } else if &y.0 == "float" {
-                                // set dynamic precision from config
-                                let precise_number =
-                                    match convert_with_precision(&y.1, float_precision) {
-                                        Ok(num) => num,
-                                        Err(e) => e.to_string(),
-                                    };
-                                StyledString {
-                                    contents: precise_number,
-                                    style: style_primitive(&y.0, &color_hm),
-                                }
-                            } else {
-                                StyledString {
-                                    contents: y.1,
-                                    style: style_primitive(&y.0, &color_hm),
-                                }
-                            }
-                        })
-                        .collect::<Vec<StyledString>>()
-                })
-                .collect(),
-            load_theme_from_config(config),
-        )))
+    let mut data: Vec<Vec<_>> = if headers.is_empty() {
+        Vec::new()
     } else {
-        Ok(None)
+        vec![headers]
+    };
+
+    for (row_num, item) in input.enumerate() {
+        if let Some(ctrlc) = &ctrlc {
+            if ctrlc.load(Ordering::SeqCst) {
+                return Ok(None);
+            }
+        }
+
+        if let Value::Error { error } = item {
+            return Err(error.clone());
+        }
+
+        let mut row = vec![];
+        if with_index {
+            let text = match &item {
+                Value::Record { .. } => item
+                    .get_data_by_key(INDEX_COLUMN_NAME)
+                    .map(|value| value.into_string("", config)),
+                _ => None,
+            }
+            .unwrap_or_else(|| (row_num + row_offset).to_string());
+
+            let value =
+                make_styled_string(text, "string", 0, with_index, color_hm, float_precision);
+            let value = NuTable::create_cell(value.0, value.1);
+
+            row.push(value);
+        }
+
+        if !with_header {
+            let text = item.into_abbreviated_string(config);
+            let text_type = item.get_type().to_string();
+            let col = if with_index { 1 } else { 0 };
+            let value =
+                make_styled_string(text, &text_type, col, with_index, color_hm, float_precision);
+            let value = NuTable::create_cell(value.0, value.1);
+
+            row.push(value);
+        } else {
+            let skip_num = if with_index { 1 } else { 0 };
+            for (col, header) in data[0].iter().enumerate().skip(skip_num) {
+                let result = match item {
+                    Value::Record { .. } => item.clone().follow_cell_path(
+                        &[PathMember::String {
+                            val: header.as_ref().to_owned(),
+                            span: head,
+                        }],
+                        false,
+                    ),
+                    _ => Ok(item.clone()),
+                };
+
+                let value = match result {
+                    Ok(value) => make_styled_string(
+                        value.into_abbreviated_string(config),
+                        &value.get_type().to_string(),
+                        col,
+                        with_index,
+                        color_hm,
+                        float_precision,
+                    ),
+                    Err(_) => make_styled_string(
+                        String::from("❎"),
+                        "empty",
+                        col,
+                        with_index,
+                        color_hm,
+                        float_precision,
+                    ),
+                };
+
+                let value = NuTable::create_cell(value.0, value.1);
+                row.push(value);
+            }
+        }
+
+        count_columns = max(count_columns, row.len());
+
+        data.push(row);
+    }
+
+    let count_rows = data.len();
+    let table = NuTable::new(
+        data,
+        (count_rows, count_columns),
+        termwidth,
+        with_header,
+        with_index,
+    );
+
+    Ok(Some(table))
+}
+
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::into_iter_on_ref)]
+fn convert_to_table2(
+    row_offset: usize,
+    input: &[Value],
+    ctrlc: Option<Arc<AtomicBool>>,
+    config: &Config,
+    head: Span,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    theme: &TableTheme,
+    deep: Option<usize>,
+    flatten: bool,
+    flatten_sep: &str,
+) -> Result<Option<NuTable>, ShellError> {
+    if input.is_empty() {
+        return Ok(None);
+    }
+
+    let float_precision = config.float_precision as usize;
+
+    let mut headers = get_columns(input);
+    let with_index = match config.table_index_mode {
+        TableIndexMode::Always => true,
+        TableIndexMode::Never => false,
+        TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
+    };
+
+    if !headers.is_empty() && with_index {
+        headers.insert(0, "#".into());
+    }
+
+    // The header with the INDEX is removed from the table headers since
+    // it is added to the natural table index
+    let headers: Vec<_> = headers
+        .into_iter()
+        .filter(|header| header != INDEX_COLUMN_NAME)
+        .map(|text| {
+            NuTable::create_cell(
+                text,
+                TextStyle {
+                    alignment: Alignment::Center,
+                    color_style: Some(color_hm["header"]),
+                },
+            )
+        })
+        .collect();
+
+    let with_header = !headers.is_empty();
+    let mut count_columns = headers.len();
+
+    let mut data: Vec<Vec<_>> = if headers.is_empty() {
+        Vec::new()
+    } else {
+        vec![headers]
+    };
+
+    for (row_num, item) in input.into_iter().enumerate() {
+        if let Some(ctrlc) = &ctrlc {
+            if ctrlc.load(Ordering::SeqCst) {
+                return Ok(None);
+            }
+        }
+
+        if let Value::Error { error } = item {
+            return Err(error.clone());
+        }
+
+        let mut row = vec![];
+        if with_index {
+            let text = match &item {
+                Value::Record { .. } => item
+                    .get_data_by_key(INDEX_COLUMN_NAME)
+                    .map(|value| value.into_string("", config)),
+                _ => None,
+            }
+            .unwrap_or_else(|| (row_num + row_offset).to_string());
+
+            let value =
+                make_styled_string(text, "string", 0, with_index, color_hm, float_precision);
+            let value = NuTable::create_cell(value.0, value.1);
+
+            row.push(value);
+        }
+
+        if !with_header {
+            let value = convert_to_table2_entry(
+                Some(item),
+                config,
+                &ctrlc,
+                color_hm,
+                0,
+                theme,
+                with_index,
+                deep,
+                flatten,
+                flatten_sep,
+            );
+
+            let value = NuTable::create_cell(value.0, value.1);
+            row.push(value);
+        } else {
+            let skip_num = if with_index { 1 } else { 0 };
+            for (col, header) in data[0].iter().enumerate().skip(skip_num) {
+                let result = match item {
+                    Value::Record { .. } => item.clone().follow_cell_path(
+                        &[PathMember::String {
+                            val: header.as_ref().to_owned(),
+                            span: head,
+                        }],
+                        false,
+                    ),
+                    _ => Ok(item.clone()),
+                };
+
+                let value = convert_to_table2_entry(
+                    result.ok().as_ref(),
+                    config,
+                    &ctrlc,
+                    color_hm,
+                    col,
+                    theme,
+                    with_index,
+                    deep,
+                    flatten,
+                    flatten_sep,
+                );
+
+                let value = NuTable::create_cell(value.0, value.1);
+                row.push(value);
+            }
+        }
+
+        count_columns = max(count_columns, row.len());
+        data.push(row);
+    }
+
+    let count_rows = data.len();
+    let table = NuTable::new(
+        data,
+        (count_rows, count_columns),
+        usize::MAX,
+        with_header,
+        with_index,
+    );
+
+    Ok(Some(table))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn convert_to_table2_entry(
+    item: Option<&Value>,
+    config: &Config,
+    ctrlc: &Option<Arc<AtomicBool>>,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    col: usize,
+    theme: &TableTheme,
+    with_index: bool,
+    deep: Option<usize>,
+    flatten: bool,
+    flatten_sep: &str,
+) -> (String, TextStyle) {
+    let float_precision = config.float_precision as usize;
+    let alignments = Alignments::default();
+
+    let item = match item {
+        Some(item) => item,
+        None => {
+            return make_styled_string(
+                String::from("❎"),
+                "empty",
+                col,
+                with_index,
+                color_hm,
+                float_precision,
+            )
+        }
+    };
+
+    let is_record_or_list = matches!(item, Value::Record { .. } | Value::List { .. });
+    let is_simple = matches!(deep, Some(0)) || !is_record_or_list;
+
+    let mut text = None;
+    if !is_simple {
+        let mut arr: [Value; 1] = [Value::default()];
+        let (list, span): (&[Value], Span) = match item {
+            Value::Record { span, .. } => {
+                arr[0] = item.clone();
+                (&arr, *span)
+            }
+            Value::List { vals, span } => (vals, *span),
+            _ => unreachable!("we checked the values already"),
+        };
+
+        let is_simple_list = list
+            .iter()
+            .all(|v| !matches!(v, Value::Record { .. } | Value::List { .. }));
+
+        text = if flatten && is_simple_list {
+            let mut buf = Vec::new();
+            for value in list {
+                let (text, _) = make_styled_string(
+                    value.into_abbreviated_string(config),
+                    &value.get_type().to_string(),
+                    col,
+                    with_index,
+                    color_hm,
+                    float_precision,
+                );
+
+                buf.push(text);
+            }
+
+            let text = buf.join(flatten_sep);
+
+            Some(text)
+        } else {
+            let table = convert_to_table2(
+                0,
+                list,
+                ctrlc.clone(),
+                config,
+                span,
+                color_hm,
+                theme,
+                deep.map(|i| i - 1),
+                flatten,
+                flatten_sep,
+            );
+
+            if let Ok(Some(table)) = table {
+                table.draw_table(config, color_hm, alignments, theme, usize::MAX)
+            } else {
+                None
+            }
+        }
+    };
+
+    match text {
+        Some(text) => (text, TextStyle::default()),
+        None => make_styled_string(
+            item.into_abbreviated_string(config),
+            &item.get_type().to_string(),
+            col,
+            with_index,
+            color_hm,
+            float_precision,
+        ),
+    }
+}
+
+fn value_to_styled_string(
+    value: &Value,
+    col: usize,
+    config: &Config,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+) -> (String, TextStyle) {
+    let float_precision = config.float_precision as usize;
+    make_styled_string(
+        value.into_abbreviated_string(config),
+        &value.get_type().to_string(),
+        col,
+        false,
+        color_hm,
+        float_precision,
+    )
+}
+
+fn make_styled_string(
+    text: String,
+    text_type: &str,
+    col: usize,
+    with_index: bool,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    float_precision: usize,
+) -> (String, TextStyle) {
+    if col == 0 && with_index {
+        (
+            text,
+            TextStyle {
+                alignment: Alignment::Right,
+                color_style: Some(color_hm["row_index"]),
+            },
+        )
+    } else if text_type == "float" {
+        // set dynamic precision from config
+        let precise_number = match convert_with_precision(&text, float_precision) {
+            Ok(num) => num,
+            Err(e) => e.to_string(),
+        };
+        (precise_number, style_primitive(text_type, color_hm))
+    } else {
+        (text, style_primitive(text_type, color_hm))
     }
 }
 
@@ -497,6 +1082,113 @@ struct PagingTableCreator {
     config: Config,
     row_offset: usize,
     width_param: Option<i64>,
+    view: TableView,
+}
+
+impl PagingTableCreator {
+    fn build_extended(
+        &self,
+        batch: &[Value],
+        limit: Option<usize>,
+        flatten: bool,
+        flatten_separator: Option<String>,
+    ) -> Result<Option<String>, ShellError> {
+        if batch.is_empty() {
+            return Ok(None);
+        }
+
+        let theme = load_theme_from_config(&self.config);
+        let term_width = get_width_param(self.width_param);
+        let color_hm = get_color_config(&self.config);
+        let table = convert_to_table2(
+            self.row_offset,
+            batch,
+            self.ctrlc.clone(),
+            &self.config,
+            self.head,
+            &color_hm,
+            &theme,
+            limit,
+            flatten,
+            flatten_separator.as_deref().unwrap_or(" "),
+        )?;
+
+        let mut table = match table {
+            Some(table) => table,
+            None => return Ok(None),
+        };
+
+        table.truncate(term_width, &theme);
+
+        let table = table.draw_table(
+            &self.config,
+            &color_hm,
+            Alignments::default(),
+            &theme,
+            term_width,
+        );
+
+        Ok(table)
+    }
+
+    fn build_collapsed(&self, batch: Vec<Value>) -> Result<Option<String>, ShellError> {
+        if batch.is_empty() {
+            return Ok(None);
+        }
+
+        let color_hm = get_color_config(&self.config);
+        let theme = load_theme_from_config(&self.config);
+        let term_width = get_width_param(self.width_param);
+        let need_footer = matches!(self.config.footer_mode, FooterMode::RowCount(limit) if batch.len() as u64 > limit)
+            || matches!(self.config.footer_mode, FooterMode::Always);
+        let value = Value::List {
+            vals: batch,
+            span: Span::new(0, 0),
+        };
+
+        let table = nu_table::NuTable::new(
+            value,
+            true,
+            term_width,
+            &self.config,
+            &color_hm,
+            &theme,
+            need_footer,
+        );
+
+        Ok(table.draw())
+    }
+
+    fn build_general(&self, batch: &[Value]) -> Result<Option<String>, ShellError> {
+        let term_width = get_width_param(self.width_param);
+        let color_hm = get_color_config(&self.config);
+        let theme = load_theme_from_config(&self.config);
+
+        let table = convert_to_table(
+            self.row_offset,
+            batch,
+            self.ctrlc.clone(),
+            &self.config,
+            self.head,
+            term_width,
+            &color_hm,
+        )?;
+
+        let table = match table {
+            Some(table) => table,
+            None => return Ok(None),
+        };
+
+        let table = table.draw_table(
+            &self.config,
+            &color_hm,
+            Alignments::default(),
+            &theme,
+            term_width,
+        );
+
+        Ok(table)
+    }
 }
 
 impl Iterator for PagingTableCreator {
@@ -534,26 +1226,18 @@ impl Iterator for PagingTableCreator {
             }
         }
 
-        let color_hm = get_color_config(&self.config);
-        let term_width = get_width_param(self.width_param);
-
-        let table = convert_to_table(
-            self.row_offset,
-            &batch,
-            self.ctrlc.clone(),
-            &self.config,
-            self.head,
-        );
-        self.row_offset += idx;
+        let table = match &self.view {
+            TableView::General => self.build_general(&batch),
+            TableView::Collapsed => self.build_collapsed(batch),
+            TableView::Expanded {
+                limit,
+                flatten,
+                flatten_separator,
+            } => self.build_extended(&batch, *limit, *flatten, flatten_separator.clone()),
+        };
 
         match table {
-            Ok(Some(table)) => {
-                let result = table
-                    .draw_table(&self.config, &color_hm, Alignments::default(), term_width)
-                    .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
-
-                Some(Ok(result.as_bytes().to_vec()))
-            }
+            Ok(Some(table)) => Some(Ok(table.as_bytes().to_vec())),
             Err(err) => Some(Err(err)),
             _ => None,
         }
@@ -577,7 +1261,7 @@ fn load_theme_from_config(config: &Config) -> TableTheme {
 }
 
 fn render_path_name(
-    path: &String,
+    path: &str,
     config: &Config,
     ls_colors: &LsColors,
     span: Span,
@@ -620,4 +1304,15 @@ fn render_path_name(
 
     let val = ansi_style.apply(full_path_link).to_string();
     Some(Value::String { val, span })
+}
+
+#[derive(Debug)]
+enum TableView {
+    General,
+    Collapsed,
+    Expanded {
+        limit: Option<usize>,
+        flatten: bool,
+        flatten_separator: Option<String>,
+    },
 }

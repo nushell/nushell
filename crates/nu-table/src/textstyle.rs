@@ -1,6 +1,6 @@
 use nu_ansi_term::{Color, Style};
 
-pub type Alignment = tabled::AlignmentHorizontal;
+pub type Alignment = tabled::alignment::AlignmentHorizontal;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TextStyle {
@@ -237,21 +237,5 @@ impl TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct StyledString {
-    pub contents: String,
-    pub style: TextStyle,
-}
-
-impl StyledString {
-    pub fn new(contents: String, style: TextStyle) -> StyledString {
-        StyledString { contents, style }
-    }
-
-    pub fn set_style(&mut self, style: TextStyle) {
-        self.style = style;
     }
 }
