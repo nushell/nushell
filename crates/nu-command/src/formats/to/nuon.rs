@@ -173,12 +173,11 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
 fn value_to_string_without_quotes(v: &Value, span: Span) -> Result<String, ShellError> {
     match v {
         Value::String { val, .. } => Ok({
-            let mut quoted = escape_quote_string(val);
-            if !needs_quotes(val) {
-                quoted.remove(0);
-                quoted.pop();
+            if needs_quotes(val) {
+                escape_quote_string(val)
+            } else {
+                val.clone()
             }
-            quoted
         }),
         _ => value_to_string(v, span),
     }
@@ -209,6 +208,7 @@ fn needs_quotes(string: &str) -> bool {
         || string.contains('\t')
         || string.contains('\n')
         || string.contains('\r')
+        || string.contains('\"')
 }
 
 #[cfg(test)]
