@@ -72,7 +72,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v2.1
       with:
-        version: 0.68.0
+        version: 0.69.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
