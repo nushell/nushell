@@ -161,6 +161,7 @@ pub fn create_default_context() -> EngineState {
             Exec,
             External,
             NuCheck,
+            RegistryQuery,
             Sys,
         };
 
