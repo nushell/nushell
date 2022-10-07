@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block, CallExt, redirect_env};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
@@ -21,7 +21,7 @@ impl Command for Collect {
                 "the block to run once the stream is collected",
             )
             .switch(
-                "affect-env",
+                "keep-env",
                 "let the block affect environment variables",
                 None,
             )
@@ -64,17 +64,19 @@ impl Command for Collect {
             call.redirect_stderr,
         )
         .map(|x| x.set_metadata(metadata));
-        if call.has_flag("affect-env") {
+
+        if call.has_flag("keep-env") {
+            redirect_env(engine_state, stack, &stack_captures);
+            // for when we support `data | let x = $in;`
+            // remove the variables added earlier
             for var_id in capture_block.captures.keys() {
                 stack_captures.vars.remove(var_id);
             }
             if let Some(u) = saved_positional {
                 stack_captures.vars.remove(&u);
             }
+            // add any new variables to the stack
             stack.vars.extend(stack_captures.vars);
-            stack.env_vars = stack_captures.env_vars;
-            stack.active_overlays = stack_captures.active_overlays;
-            stack.env_hidden.extend(stack_captures.env_hidden);
         }
         result
     }

@@ -5369,7 +5369,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
 
         output.push(Argument::Named((
             Spanned {
-                item: "affect-env".to_string(),
+                item: "keep-env".to_string(),
                 span: Span::new(0, 0),
             },
             None,
