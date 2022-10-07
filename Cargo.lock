@@ -2759,6 +2759,7 @@ dependencies = [
  "wax",
  "which",
  "windows",
+ "winreg",
 ]
 
 [[package]]

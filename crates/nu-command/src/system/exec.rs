@@ -1,8 +1,11 @@
+use super::run_external::ExternalCommand;
+use nu_engine::{current_dir, env_to_strings, CallExt};
 use nu_protocol::{
-    ast::Call,
+    ast::{Call, Expr},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
 };
+use std::os::unix::process::CommandExt;
 
 #[derive(Clone)]
 pub struct Exec;
@@ -57,19 +60,11 @@ impl Command for Exec {
     }
 }
 
-#[cfg(unix)]
 fn exec(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-    use std::os::unix::process::CommandExt;
-
-    use super::run_external::ExternalCommand;
-    use nu_engine::{current_dir, env_to_strings, CallExt};
-    use nu_protocol::ast::Expr;
-    use nu_protocol::Spanned;
-
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
     let name_span = name.span;
 
@@ -109,21 +104,6 @@ fn exec(
         "Error on exec".to_string(),
         err.to_string(),
         Some(name_span),
-        None,
-        Vec::new(),
-    ))
-}
-
-#[cfg(not(unix))]
-fn exec(
-    _engine_state: &EngineState,
-    _stack: &mut Stack,
-    call: &Call,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-    Err(ShellError::GenericError(
-        "Error on exec".to_string(),
-        "exec is not supported on your platform".to_string(),
-        Some(call.head),
         None,
         Vec::new(),
     ))
