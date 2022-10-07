@@ -158,12 +158,16 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Benchmark,
             Complete,
-            Exec,
             External,
             NuCheck,
-            RegistryQuery,
             Sys,
         };
+
+        #[cfg(unix)]
+        bind_command! { Exec }
+
+        #[cfg(windows)]
+        bind_command! { RegistryQuery }
 
         #[cfg(any(
             target_os = "android",

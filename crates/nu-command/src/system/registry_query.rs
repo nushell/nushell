@@ -1,16 +1,15 @@
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Value,
 };
-
-#[cfg(windows)]
-use winreg::RegKey;
+use winreg::{enums::*, RegKey};
 
 #[derive(Clone)]
 pub struct RegistryQuery;
 
-#[cfg(windows)]
 struct RegistryQueryArgs {
     hkcr: bool,
     hkcu: bool,
@@ -89,15 +88,11 @@ impl Command for RegistryQuery {
     }
 }
 
-#[cfg(windows)]
 fn registry_query(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-    use nu_engine::CallExt;
-    use nu_protocol::{IntoInterruptiblePipelineData, IntoPipelineData, Span, Spanned, Value};
-
     let registry_key: Spanned<String> = call.req(engine_state, stack, 0)?;
     let registry_key_span = &registry_key.clone().span;
     let registry_value: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
@@ -168,11 +163,7 @@ fn registry_query(
     }
 }
 
-#[cfg(windows)]
 fn get_reg_key(reg_params: RegistryQueryArgs) -> Result<RegKey, ShellError> {
-    use nu_protocol::Span;
-    use winreg::enums::*;
-
     let mut key_count = 0;
     let registry_key = if reg_params.hkcr {
         key_count += 1;
@@ -220,13 +211,9 @@ fn get_reg_key(reg_params: RegistryQueryArgs) -> Result<RegKey, ShellError> {
     Ok(registry_key)
 }
 
-#[cfg(windows)]
 fn reg_value_to_nu_value(
     reg_value: winreg::RegValue,
 ) -> (nu_protocol::Value, winreg::enums::RegType) {
-    use nu_protocol::{Span, Value};
-    use winreg::enums::*;
-
     match reg_value.vtype {
         REG_NONE => (Value::nothing(Span::test_data()), reg_value.vtype),
         REG_SZ => (
@@ -283,19 +270,4 @@ fn reg_value_to_nu_value(
             reg_value.vtype,
         ),
     }
-}
-
-#[cfg(not(windows))]
-fn registry_query(
-    _engine_state: &EngineState,
-    _stack: &mut Stack,
-    call: &Call,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-    Err(ShellError::GenericError(
-        "Error on registry query".to_string(),
-        "registry is not supported on your platform".to_string(),
-        Some(call.head),
-        None,
-        Vec::new(),
-    ))
 }
