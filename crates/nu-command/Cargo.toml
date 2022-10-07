@@ -90,9 +90,11 @@ uuid = { version = "1.1.2", features = ["v4"] }
 which = { version = "4.3.0", optional = true }
 reedline = { version = "0.12.0", features = ["bashisms", "sqlite"]}
 wax = { version =  "0.5.0", features = ["diagnostics"] }
-winreg = "0.10.1"
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.23.0", features = ["serde"], optional = true }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.10.1"
 
 [target.'cfg(unix)'.dependencies]
 umask = "2.0.0"

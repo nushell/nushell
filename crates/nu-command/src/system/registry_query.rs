@@ -1,14 +1,16 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape,
 };
+
 #[cfg(windows)]
 use winreg::RegKey;
 
 #[derive(Clone)]
 pub struct RegistryQuery;
 
+#[cfg(windows)]
 struct RegistryQueryArgs {
     hkcr: bool,
     hkcu: bool,
@@ -94,7 +96,7 @@ fn registry_query(
     call: &Call,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     use nu_engine::CallExt;
-    use nu_protocol::{IntoInterruptiblePipelineData, IntoPipelineData, Span, Value};
+    use nu_protocol::{IntoInterruptiblePipelineData, IntoPipelineData, Span, Spanned, Value};
 
     let registry_key: Spanned<String> = call.req(engine_state, stack, 0)?;
     let registry_key_span = &registry_key.clone().span;
