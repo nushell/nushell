@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt, redirect_env};
+use nu_engine::{eval_block, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
