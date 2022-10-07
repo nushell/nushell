@@ -3,6 +3,20 @@ use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use std::path::PathBuf;
 
+#[test]
+fn cd_works_with_in_var() {
+    Playground::setup("cd_test_1", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"
+                "cd_test_1" | cd $in; $env.PWD | path split | last
+            "#
+        );
+
+        assert_eq!("cd_test_1", actual.out);
+    })
+}
+
 // FIXME: jt: needs more work
 #[ignore]
 #[test]
