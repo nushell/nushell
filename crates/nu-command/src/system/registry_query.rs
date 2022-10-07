@@ -121,12 +121,13 @@ fn registry_query(
     if registry_value.is_none() {
         let mut reg_values = vec![];
         for (name, val) in reg_key.enum_values().flatten() {
+            let (nu_value, reg_type) = reg_value_to_nu_value(val);
             reg_values.push(Value::Record {
                 cols: vec!["name".to_string(), "value".to_string(), "type".to_string()],
                 vals: vec![
                     Value::string(name, Span::test_data()),
-                    Value::string(val.to_string(), Span::test_data()),
-                    Value::string(format!("{:?}", val.vtype), Span::test_data()),
+                    nu_value,
+                    Value::string(format!("{:?}", reg_type), Span::test_data()),
                 ],
                 span: *registry_key_span,
             })
@@ -137,16 +138,19 @@ fn registry_query(
             Some(value) => {
                 let reg_value = reg_key.get_raw_value(value.item.as_str());
                 match reg_value {
-                    Ok(val) => Ok(Value::Record {
-                        cols: vec!["name".to_string(), "value".to_string(), "type".to_string()],
-                        vals: vec![
-                            Value::string(value.item, Span::test_data()),
-                            Value::string(val.to_string(), Span::test_data()),
-                            Value::string(format!("{:?}", val.vtype), Span::test_data()),
-                        ],
-                        span: value.span,
+                    Ok(val) => {
+                        let (nu_value, reg_type) = reg_value_to_nu_value(val);
+                        Ok(Value::Record {
+                            cols: vec!["name".to_string(), "value".to_string(), "type".to_string()],
+                            vals: vec![
+                                Value::string(value.item, Span::test_data()),
+                                nu_value,
+                                Value::string(format!("{:?}", reg_type), Span::test_data()),
+                            ],
+                            span: value.span,
+                        }
+                        .into_pipeline_data())
                     }
-                    .into_pipeline_data()),
                     Err(_) => Ok(Value::Error {
                         error: ShellError::GenericError(
                             "Unable to find registry key/value".to_string(),
@@ -214,6 +218,71 @@ fn get_reg_key(reg_params: RegistryQueryArgs) -> Result<RegKey, ShellError> {
         ));
     }
     Ok(registry_key)
+}
+
+#[cfg(windows)]
+fn reg_value_to_nu_value(
+    reg_value: winreg::RegValue,
+) -> (nu_protocol::Value, winreg::enums::RegType) {
+    use nu_protocol::{Span, Value};
+    use winreg::enums::*;
+
+    match reg_value.vtype {
+        REG_NONE => (Value::nothing(Span::test_data()), reg_value.vtype),
+        REG_SZ => (
+            Value::string(reg_value.to_string(), Span::test_data()),
+            reg_value.vtype,
+        ),
+        REG_EXPAND_SZ => (
+            Value::string(reg_value.to_string(), Span::test_data()),
+            reg_value.vtype,
+        ),
+        REG_BINARY => (
+            Value::binary(reg_value.bytes, Span::test_data()),
+            reg_value.vtype,
+        ),
+        REG_DWORD => (
+            Value::int(
+                unsafe { *(reg_value.bytes.as_ptr() as *const u32) } as i64,
+                Span::test_data(),
+            ),
+            reg_value.vtype,
+        ),
+        REG_DWORD_BIG_ENDIAN => (
+            Value::int(
+                unsafe { *(reg_value.bytes.as_ptr() as *const u32) } as i64,
+                Span::test_data(),
+            ),
+            reg_value.vtype,
+        ),
+        REG_LINK => (
+            Value::string(reg_value.to_string(), Span::test_data()),
+            reg_value.vtype,
+        ),
+        REG_MULTI_SZ => (
+            Value::string(reg_value.to_string(), Span::test_data()),
+            reg_value.vtype,
+        ),
+        REG_RESOURCE_LIST => (
+            Value::string(reg_value.to_string(), Span::test_data()),
+            reg_value.vtype,
+        ),
+        REG_FULL_RESOURCE_DESCRIPTOR => (
+            Value::string(reg_value.to_string(), Span::test_data()),
+            reg_value.vtype,
+        ),
+        REG_RESOURCE_REQUIREMENTS_LIST => (
+            Value::string(reg_value.to_string(), Span::test_data()),
+            reg_value.vtype,
+        ),
+        REG_QWORD => (
+            Value::int(
+                unsafe { *(reg_value.bytes.as_ptr() as *const u32) } as i64,
+                Span::test_data(),
+            ),
+            reg_value.vtype,
+        ),
+    }
 }
 
 #[cfg(not(windows))]
