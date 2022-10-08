@@ -452,7 +452,7 @@ pub fn evaluate_repl(
                             span,
                         },
                     );
-                } else {
+                } else if !s.trim().is_empty() {
                     trace!("eval source: {}", s);
 
                     eval_source(
