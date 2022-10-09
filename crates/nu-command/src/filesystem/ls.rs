@@ -491,7 +491,10 @@ pub(crate) fn dir_entry_dict(
                         span,
                     });
                 } else {
-                    vals.push(Value::Int { val: md.uid() as i64, span, })
+                    vals.push(Value::Int {
+                        val: md.uid() as i64,
+                        span,
+                    })
                 }
 
                 cols.push("group".into());
@@ -501,7 +504,10 @@ pub(crate) fn dir_entry_dict(
                         span,
                     });
                 } else {
-                    vals.push(Value::Int { val: md.gid() as i64, span, })
+                    vals.push(Value::Int {
+                        val: md.gid() as i64,
+                        span,
+                    })
                 }
             }
         }
