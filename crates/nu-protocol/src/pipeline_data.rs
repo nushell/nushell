@@ -424,7 +424,7 @@ impl PipelineData {
         stack: &mut Stack,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<(), ShellError> {
+    ) -> Result<i64, ShellError> {
         // If the table function is in the declarations, then we can use it
         // to create the table value that will be printed in the terminal
 
@@ -452,10 +452,13 @@ impl PipelineData {
 
             // Make sure everything has finished
             if let Some(exit_code) = exit_code {
-                let _: Vec<_> = exit_code.into_iter().collect();
+                let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
+                if let Some(Value::Int { val, .. }) = exit_codes.pop() {
+                    return Ok(val);
+                }
             }
 
-            return Ok(());
+            return Ok(0);
         }
 
         match engine_state.find_decl("table".as_bytes(), &[]) {
@@ -474,7 +477,7 @@ impl PipelineData {
             }
         };
 
-        Ok(())
+        Ok(0)
     }
 
     fn write_all_and_flush(
@@ -483,7 +486,7 @@ impl PipelineData {
         config: &Config,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<(), ShellError> {
+    ) -> Result<i64, ShellError> {
         for item in self {
             let mut out = if let Value::Error { error } = item {
                 let working_set = StateWorkingSet::new(engine_state);
@@ -506,7 +509,7 @@ impl PipelineData {
             }
         }
 
-        Ok(())
+        Ok(0)
     }
 }
 

@@ -231,23 +231,18 @@ pub fn eval_source(
     }
 
     match eval_block(engine_state, stack, &block, input, false, false) {
-        Ok(mut pipeline_data) => {
-            if let PipelineData::ExternalStream { exit_code, .. } = &mut pipeline_data {
-                if let Some(exit_code) = exit_code.take().and_then(|it| it.last()) {
-                    stack.add_env_var("LAST_EXIT_CODE".to_string(), exit_code);
-                } else {
-                    set_last_exit_code(stack, 0);
+        Ok(pipeline_data) => {
+            match pipeline_data.print(engine_state, stack, false, false) {
+                Err(err) => {
+                    let working_set = StateWorkingSet::new(engine_state);
+
+                    report_error(&working_set, &err);
+
+                    return false;
                 }
-            } else {
-                set_last_exit_code(stack, 0);
-            }
-
-            if let Err(err) = pipeline_data.print(engine_state, stack, false, false) {
-                let working_set = StateWorkingSet::new(engine_state);
-
-                report_error(&working_set, &err);
-
-                return false;
+                Ok(exit_code) => {
+                    set_last_exit_code(stack, exit_code);
+                }
             }
 
             // reset vt processing, aka ansi because illbehaved externals can break it
