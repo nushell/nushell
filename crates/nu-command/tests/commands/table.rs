@@ -135,3 +135,28 @@ fn table_expand_flatten_and_deep_1() {
          ╰───┴───┴───┴────────────────────────────────╯"
     );
 }
+
+#[test]
+#[cfg(not(windows))]
+fn external_with_too_much_stdout_should_not_hang_nu() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    use nu_test_support::pipeline;
+    use nu_test_support::playground::Playground;
+    Playground::setup("external with too much stdout", |dirs, sandbox| {
+        let bytes: usize = 81920;
+        let mut large_file_body = String::with_capacity(bytes);
+        for _ in 0..bytes {
+            large_file_body.push_str("a");
+        }
+        sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                cat a_large_file.txt | table
+            "#
+        ));
+
+        assert_eq!(actual.out, large_file_body);
+    })
+}
