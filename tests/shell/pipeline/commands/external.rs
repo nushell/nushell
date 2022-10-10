@@ -314,11 +314,10 @@ mod nu_commands {
     }
 
     #[test]
-    #[ignore = "For now we have no way to check LAST_EXIT_CODE in tests, ignore it for now"]
     fn failed_with_proper_exit_code() {
         Playground::setup("external failed", |dirs, _sandbox| {
             let actual = nu!(cwd: dirs.test(), r#"
-            nu -c "cargo build; print $env.LAST_EXIT_CODE"
+            nu -c "cargo build | complete | get exit_code"
             "#);
 
             // cargo for non rust project's exit code is 101.
