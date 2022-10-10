@@ -93,7 +93,9 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
     $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls
 
     let archive = $'($dist)/($bin)-($version)-($target).tar.gz'
-    tar czf $archive *
+    let prefix = $'($bin)-($version)-($target)/'
+    let expr = $''s,^,($prefix),S''
+    tar --show-transformed-names --transform $expr -czvf $archive *
     print $'archive: ---> ($archive)'; ls $archive
     echo $'::set-output name=archive::($archive)'
 
