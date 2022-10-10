@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 lscolors = { version = "0.12.0", features = ["crossterm"]}
-num-format = { version = "0.4.0" }
+num-format = { version = "0.4.3" }
 sys-locale = "0.2.1"
 
 [target.'cfg(windows)'.dependencies]
