@@ -107,7 +107,7 @@ fn ignore_error_with_both_stdout_stderr_not_hang_nushell() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                do -i {sh test.sh} | complete | get stdout | str trim
+                do -i {bash test.sh} | complete | get stdout | str trim
             "#
         ));
         assert_eq!(actual.out, expect_body);
@@ -115,7 +115,7 @@ fn ignore_error_with_both_stdout_stderr_not_hang_nushell() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                do -i {sh test.sh} | complete | get stderr | str trim
+                do -i {bash test.sh} | complete | get stderr | str trim
             "#
         ));
         assert_eq!(actual.out, expect_body);
