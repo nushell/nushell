@@ -101,7 +101,7 @@ module completions {
     --dry-run(-n)                                   # dry run
     --exec: string                                  # receive pack program
     --follow-tags                                   # push missing but relevant tags
-    --force-with-lease: string                      # require old value of ref to be at this value
+    --force-with-lease                              # require old value of ref to be at this value
     --force(-f)                                     # force updates
     --ipv4(-4)                                      # use IPv4 addresses only
     --ipv6(-6)                                      # use IPv6 addresses only
