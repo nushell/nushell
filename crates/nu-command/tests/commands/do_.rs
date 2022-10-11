@@ -66,7 +66,7 @@ fn ignore_error_not_hang_nushell() {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::pipeline;
     use nu_test_support::playground::Playground;
-    Playground::setup("external with too much stderr", |dirs, sandbox| {
+    Playground::setup("external with many stderr message", |dirs, sandbox| {
         let bytes: usize = 81920;
         let mut large_file_body = String::with_capacity(bytes);
         for _ in 0..bytes {
@@ -87,10 +87,10 @@ fn ignore_error_not_hang_nushell() {
 
 #[test]
 #[cfg(not(windows))]
-fn ignore_error_with_both_stdout_stderr_not_hang_nushell() {
+fn ignore_error_with_both_stdout_stderr_messages_not_hang_nushell() {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
-    Playground::setup("external with too much stdout", |dirs, sandbox| {
+    Playground::setup("external with many stdout and stderr messages", |dirs, sandbox| {
         let script_body = r#"
         x=$(printf '=%.0s' {1..40960})
         echo $x
