@@ -80,8 +80,7 @@ dependencies = [
 [[package]]
 name = "ansi-str"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "132f03d534a71638c1be79251027872d5dda24aa5eeeb6886960351f3087bdde"
+source = "git+https://github.com/zhiburt/ansi-str?branch=patch-switch-to-vte#d9cfb4cad5443a22ad3cf5a328564750fc68cf5d"
 dependencies = [
  "ansitok",
 ]
@@ -98,10 +97,10 @@ dependencies = [
 [[package]]
 name = "ansitok"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2c6eb31f539d8fc1df948eb26452d6c781be4c9883663e7acb258644b71d5b1"
+source = "git+https://gitlab.com/zhiburt/ansitok?branch=patch-switch-to-vte#b963d7a83a8d928c78000a96e8bafe55a513205e"
 dependencies = [
  "nom 7.1.1",
+ "vte 0.10.1",
 ]
 
 [[package]]
@@ -1930,8 +1929,7 @@ checksum = "47631885425c482fcf2dc4b182fc973c3c5b81a8f43a028055559bd24cccfa6e"
 [[package]]
 name = "json_to_table"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fe97d58ab96691e90f26c10ecc1fc098a4c072714d2d126cc8a2234b89f3456"
+source = "git+https://github.com/zhiburt/tabled?rev=c8813009290743cef8249d0238f6c10cba238a04#c8813009290743cef8249d0238f6c10cba238a04"
 dependencies = [
  "serde_json",
  "tabled",
@@ -3235,14 +3233,12 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 [[package]]
 name = "papergrid"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae9bed2481d5ab6e31056945f4704ca7348a3858148c30725b8946b7a7818498"
+source = "git+https://github.com/zhiburt/tabled?rev=883eeda030e8a822a8d5fcbee2d416b69ac4e42d#883eeda030e8a822a8d5fcbee2d416b69ac4e42d"
 dependencies = [
  "ansi-str",
  "ansitok",
  "bytecount",
  "fnv",
- "strip-ansi-escapes",
  "unicode-width",
 ]
 
@@ -4959,9 +4955,8 @@ dependencies = [
 
 [[package]]
 name = "tabled"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c8a1ea336f84dc7dfae1025b73904551b3c6a42347f4243387e990f94325895"
+version = "0.9.0-fix.docs.rs.4"
+source = "git+https://github.com/zhiburt/tabled?rev=883eeda030e8a822a8d5fcbee2d416b69ac4e42d#883eeda030e8a822a8d5fcbee2d416b69ac4e42d"
 dependencies = [
  "ansi-str",
  "papergrid",
