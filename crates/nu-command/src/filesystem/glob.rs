@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
+    SyntaxShape, Value,
 };
 use wax::{Glob as WaxGlob, WalkBehavior};
 
@@ -100,7 +100,13 @@ impl Command for Glob {
         let depth = call.get_flag(engine_state, stack, "depth")?;
 
         if glob_pattern.item.is_empty() {
-            return Ok(PipelineData::new(Span::new(0, 0)));
+            return Err(ShellError::GenericError(
+                "glob pattern must not be empty".to_string(),
+                "".to_string(),
+                Some(glob_pattern.span),
+                Some("add characters to the glob pattern".to_string()),
+                Vec::new(),
+            ));
         }
 
         let folder_depth = if let Some(depth) = depth {
