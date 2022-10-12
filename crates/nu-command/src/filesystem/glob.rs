@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
-    SyntaxShape, Value, Span,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Value,
 };
 use wax::{Glob as WaxGlob, WalkBehavior};
 
@@ -99,7 +99,9 @@ impl Command for Glob {
         let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let depth = call.get_flag(engine_state, stack, "depth")?;
 
-        if glob_pattern.item.is_empty() { return Ok(PipelineData::new(Span::new(0, 0))); }
+        if glob_pattern.item.is_empty() {
+            return Ok(PipelineData::new(Span::new(0, 0)));
+        }
 
         let folder_depth = if let Some(depth) = depth {
             depth
