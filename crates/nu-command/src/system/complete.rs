@@ -37,22 +37,9 @@ impl Command for Complete {
                 let mut cols = vec![];
                 let mut vals = vec![];
 
-                if let Some(stdout) = stdout {
-                    cols.push("stdout".to_string());
-                    let stdout = stdout.into_bytes()?;
-                    if let Ok(st) = String::from_utf8(stdout.item.clone()) {
-                        vals.push(Value::String {
-                            val: st,
-                            span: stdout.span,
-                        })
-                    } else {
-                        vals.push(Value::Binary {
-                            val: stdout.item,
-                            span: stdout.span,
-                        })
-                    }
-                }
-
+                // the order is important, we need to read
+                // stderr, then stdout, then exit_code
+                // because run_external generate them in this order.
                 if let Some(stderr) = stderr {
                     cols.push("stderr".to_string());
                     let stderr = stderr.into_bytes()?;
@@ -67,6 +54,22 @@ impl Command for Complete {
                             span: stderr.span,
                         })
                     };
+                }
+
+                if let Some(stdout) = stdout {
+                    cols.push("stdout".to_string());
+                    let stdout = stdout.into_bytes()?;
+                    if let Ok(st) = String::from_utf8(stdout.item.clone()) {
+                        vals.push(Value::String {
+                            val: st,
+                            span: stdout.span,
+                        })
+                    } else {
+                        vals.push(Value::Binary {
+                            val: stdout.item,
+                            span: stdout.span,
+                        })
+                    }
                 }
 
                 if let Some(exit_code) = exit_code {

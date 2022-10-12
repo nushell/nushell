@@ -337,6 +337,13 @@ impl ExternalCommand {
                         let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stderr);
                         while let Ok(bytes) = buf_read.fill_buf() {
                             if bytes.is_empty() {
+                                // drop stderr sender manually, so stderr message consumer
+                                // can make sure that there is no more stderr messages.
+                                //
+                                // and message consumer can continue to wait stdout message.
+                                // If we don't make manually drop, and external command produces many
+                                // stdout messages, relative message consumer will hang on so we'll get a deadlock.
+                                drop(stderr_tx);
                                 break;
                             }
 
@@ -438,11 +445,15 @@ impl ExternalCommand {
                     } else {
                         None
                     },
-                    stderr: Some(RawStream::new(
-                        Box::new(stderr_receiver),
-                        output_ctrlc.clone(),
-                        head,
-                    )),
+                    stderr: if redirect_stderr {
+                        Some(RawStream::new(
+                            Box::new(stderr_receiver),
+                            output_ctrlc.clone(),
+                            head,
+                        ))
+                    } else {
+                        None
+                    },
                     exit_code: Some(ListStream::from_stream(
                         Box::new(exit_code_receiver),
                         output_ctrlc,
