@@ -33,8 +33,8 @@ impl Command for External {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
-            .switch("redirect-stdout", "redirect-stdout", None)
-            .switch("redirect-stderr", "redirect-stderr", None)
+            .switch("redirect-stdout", "redirect stdout to the pipeline", None)
+            .switch("redirect-stderr", "redirect stderr to the pipeline", None)
             .required("command", SyntaxShape::Any, "external command to run")
             .rest("args", SyntaxShape::Any, "arguments for external command")
             .category(Category::System)
@@ -113,11 +113,18 @@ impl Command for External {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Run an external command",
-            example: r#"run-external "echo" "-n" "hello""#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Run an external command",
+                example: r#"run-external "echo" "-n" "hello""#,
+                result: None,
+            },
+            Example {
+                description: "Redirect stdout from an external command into the pipeline",
+                example: r#"run-external --redirect-stdout "echo" "-n" "hello" | split chars"#,
+                result: None,
+            },
+        ]
     }
 }
 
