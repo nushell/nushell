@@ -62,7 +62,7 @@ fn do_with_semicolon_break_on_failed_external() {
 
 #[test]
 #[cfg(not(windows))]
-fn ignore_error_not_hang_nushell() {
+fn ignore_error_with_too_much_stderr_not_hang_nushell() {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::pipeline;
     use nu_test_support::playground::Playground;
@@ -78,6 +78,31 @@ fn ignore_error_not_hang_nushell() {
             cwd: dirs.test(), pipeline(
             r#"
                 do -i {sh -c "cat a_large_file.txt 1>&2"} | complete | get stderr
+            "#
+        ));
+
+        assert_eq!(actual.out, large_file_body);
+    })
+}
+
+#[test]
+#[cfg(not(windows))]
+fn ignore_error_with_too_much_stdout_not_hang_nushell() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    use nu_test_support::pipeline;
+    use nu_test_support::playground::Playground;
+    Playground::setup("external with many stdout message", |dirs, sandbox| {
+        let bytes: usize = 81920;
+        let mut large_file_body = String::with_capacity(bytes);
+        for _ in 0..bytes {
+            large_file_body.push_str("a");
+        }
+        sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                do -i {sh -c "cat a_large_file.txt"} | complete | get stdout
             "#
         ));
 
