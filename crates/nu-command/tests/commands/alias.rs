@@ -62,3 +62,14 @@ fn alias_fails_with_invalid_name() {
         .err
         .contains("alias name can't be a number or a filesize"));
 }
+
+#[test]
+fn alias_alone_lists_aliases() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            alias a = 3; alias
+        "#
+    ));
+    assert!(actual.out.contains("alias") && actual.out.contains("expansion"));
+}
