@@ -51,4 +51,8 @@ impl Command for ExportAlias {
             result: None,
         }]
     }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["aka", "abbr", "module"]
+    }
 }
