@@ -215,9 +215,7 @@ impl Iterator for EachWindowIterator {
                 }
             }
 
-            for _ in 0..current_count {
-                let _ = group.remove(0);
-            }
+            group = group[current_count..].to_vec();
         }
 
         if group.is_empty() || current_count == 0 {
