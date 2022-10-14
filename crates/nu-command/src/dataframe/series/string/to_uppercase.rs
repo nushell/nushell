@@ -19,6 +19,10 @@ impl Command for ToUpperCase {
         "Uppercase the strings in the column"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["capitalize, caps, capital"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_type(Type::Custom("dataframe".into()))
