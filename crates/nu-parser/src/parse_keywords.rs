@@ -2,7 +2,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
-        ImportPatternMember, Pipeline,
+        ImportPatternMember, PathMember, Pipeline,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     span, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
@@ -544,6 +544,51 @@ pub fn parse_alias(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
+    // if the call is "alias", turn it into "print $nu.scope.aliases"
+    if spans.len() == 1 {
+        let head = Expression {
+            expr: Expr::Var(nu_protocol::NU_VARIABLE_ID),
+            span: Span::new(0, 0),
+            ty: Type::Any,
+            custom_completion: None,
+        };
+        let tail = vec![
+            PathMember::String {
+                val: "scope".to_string(),
+                span: Span::new(0, 0),
+            },
+            PathMember::String {
+                val: "aliases".to_string(),
+                span: Span::new(0, 0),
+            },
+        ];
+        let expr = Expression {
+            ty: Type::Any,
+            expr: Expr::FullCellPath(Box::new(nu_protocol::ast::FullCellPath { head, tail })),
+            span: Span::new(0, 0),
+            custom_completion: None,
+        };
+        if let Some(decl_id) = working_set.find_decl(b"print", &Type::Any) {
+            let print_call = Expr::Call(Box::new(Call {
+                head: spans[0],
+                arguments: vec![Argument::Positional(expr)],
+                decl_id,
+                redirect_stdout: true,
+                redirect_stderr: false,
+            }));
+            return (
+                Pipeline::from_vec(vec![Expression {
+                    expr: print_call,
+                    span: spans[0],
+                    ty: Type::Any,
+                    custom_completion: None,
+                }]),
+                None,
+            );
+        }
+        return (Pipeline::from_vec(vec![expr]), None);
+    }
+
     let (name_span, alias_name, split_id) =
         if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
             (spans[1], spans.get(2), 2)
