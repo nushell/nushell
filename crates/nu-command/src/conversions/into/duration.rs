@@ -114,14 +114,21 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Convert string to a named duration",
+                description: "Convert string to the requested duration as a string",
                 example: "'7min' | into duration --convert sec",
                 result: Some(Value::String {
                     val: "420 sec".to_string(),
                     span,
                 }),
             },
-
+            Example {
+                description: "Convert duration to the requested duration as a string",
+                example: "420sec | into duration --convert min",
+                result: Some(Value::String {
+                    val: "7 min".to_string(),
+                    span,
+                }),
+            },
         ]
     }
 }
@@ -372,16 +379,24 @@ fn string_to_unit_duration(
 fn action(input: &Value, convert_to_unit: &Option<Spanned<String>>, span: Span) -> Value {
     match input {
         Value::Duration {
-            val: _val_num,
-            span: _value_span,
+            val: val_num,
+            span: value_span,
         } => {
-            if let Some(_to_unit) = convert_to_unit {
-                Value::Error {
-                    error: ShellError::UnsupportedInput(
-                        "Cannot convert from a Value::Duration right now. Try making it a string."
-                            .into(),
-                        span,
-                    ),
+            if let Some(to_unit) = convert_to_unit {
+                let from_unit = "ns";
+                let duration = *val_num;
+                match convert_str_from_unit_to_unit(
+                    duration,
+                    from_unit,
+                    &to_unit.item,
+                    span,
+                    *value_span,
+                ) {
+                    Ok(d) => Value::String {
+                        val: format!("{} {}", d, &to_unit.item),
+                        span: *value_span,
+                    },
+                    Err(e) => Value::Error { error: e },
                 }
             } else {
                 input.clone()
