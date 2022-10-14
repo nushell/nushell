@@ -11,7 +11,7 @@ use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::get_color_config;
 use nu_engine::{convert_env_values, eval_block};
-use nu_parser::{lex, parse};
+use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     ast::PathMember,
     engine::{EngineState, ReplOperation, Stack, StateWorkingSet},
@@ -380,9 +380,13 @@ pub fn evaluate_repl(
                 let tokens = lex(s.as_bytes(), 0, &[], &[], false);
                 // Check if this is a single call to a directory, if so auto-cd
                 let cwd = nu_engine::env::current_dir_str(engine_state, stack)?;
-                let path = nu_path::expand_path_with(&s, &cwd);
 
-                let orig = s.clone();
+                let mut orig = s.clone();
+                if orig.starts_with('`') {
+                    orig = trim_quotes_str(&orig).to_string()
+                }
+
+                let path = nu_path::expand_path_with(&orig, &cwd);
 
                 if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
                     // We have an auto-cd
