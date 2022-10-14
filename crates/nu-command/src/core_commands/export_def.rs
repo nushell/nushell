@@ -55,4 +55,8 @@ impl Command for ExportDef {
             }),
         }]
     }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["module"]
+    }
 }

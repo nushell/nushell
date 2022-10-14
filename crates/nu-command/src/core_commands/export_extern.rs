@@ -47,4 +47,8 @@ impl Command for ExportExtern {
             result: None,
         }]
     }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["signature", "module", "declare"]
+    }
 }
