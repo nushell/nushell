@@ -548,7 +548,7 @@ pub fn parse_alias(
     if spans.len() == 1 {
         let head = Expression {
             expr: Expr::Var(nu_protocol::NU_VARIABLE_ID),
-            span: spans[0],
+            span: Span::new(0, 0),
             ty: Type::Any,
             custom_completion: None,
         };
@@ -565,9 +565,27 @@ pub fn parse_alias(
         let expr = Expression {
             ty: Type::Any,
             expr: Expr::FullCellPath(Box::new(nu_protocol::ast::FullCellPath { head, tail })),
-            span: spans[0],
+            span: Span::new(0, 0),
             custom_completion: None,
         };
+        if let Some(decl_id) = working_set.find_decl(b"print", &Type::Any) {
+            let print_call = Expr::Call(Box::new(Call {
+                head: spans[0],
+                arguments: vec![Argument::Positional(expr)],
+                decl_id,
+                redirect_stdout: true,
+                redirect_stderr: false,
+            }));
+            return (
+                Pipeline::from_vec(vec![Expression {
+                    expr: print_call,
+                    span: spans[0],
+                    ty: Type::Any,
+                    custom_completion: None,
+                }]),
+                None,
+            );
+        }
         return (Pipeline::from_vec(vec![expr]), None);
     }
 
