@@ -544,7 +544,7 @@ pub fn parse_alias(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    // if the call is "alias", turn it into $nu.scope.aliases
+    // if the call is "alias", turn it into "print $nu.scope.aliases"
     if spans.len() == 1 {
         let head = Expression {
             expr: Expr::Var(nu_protocol::NU_VARIABLE_ID),
