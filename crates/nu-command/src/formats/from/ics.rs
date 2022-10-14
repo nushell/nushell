@@ -26,6 +26,10 @@ impl Command for FromIcs {
         "Parse text as .ics and create table."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["parse", "ics"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

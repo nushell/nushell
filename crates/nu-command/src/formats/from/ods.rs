@@ -27,6 +27,10 @@ impl Command for FromOds {
             .category(Category::Formats)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["parse", "ods"]
+    }
+
     fn usage(&self) -> &str {
         "Parse OpenDocument Spreadsheet(.ods) data and create table."
     }

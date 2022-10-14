@@ -22,6 +22,10 @@ impl Command for FromXml {
         "Parse text as .xml and create table."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["parse", "xml"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
