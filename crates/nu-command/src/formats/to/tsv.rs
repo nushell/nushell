@@ -25,6 +25,10 @@ impl Command for ToTsv {
         "Convert table into .tsv text"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "tsv"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Outputs an TSV string representing the contents of this table",

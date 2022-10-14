@@ -20,6 +20,10 @@ impl Command for ToYaml {
         "Convert table into .yaml/.yml text"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "yaml"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Outputs an YAML string representing the contents of this table",

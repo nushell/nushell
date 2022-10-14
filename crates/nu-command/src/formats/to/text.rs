@@ -22,6 +22,10 @@ impl Command for ToText {
         "Converts data into simple text."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "text"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

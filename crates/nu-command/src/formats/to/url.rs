@@ -20,6 +20,10 @@ impl Command for ToUrl {
         "Convert table into url-encoded text"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "url"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Outputs an URL string representing the contents of this table",

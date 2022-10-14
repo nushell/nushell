@@ -33,6 +33,10 @@ impl Command for ToMd {
         "Convert table into simple Markdown"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "md", "markdown"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

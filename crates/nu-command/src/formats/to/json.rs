@@ -35,6 +35,10 @@ impl Command for ToJson {
         "Converts table data into JSON text."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "json"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
