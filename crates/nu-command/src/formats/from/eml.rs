@@ -35,10 +35,6 @@ impl Command for FromEml {
         "Parse text as .eml and create table."
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["parse", "eml"]
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

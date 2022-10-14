@@ -18,10 +18,6 @@ impl Command for FromUrl {
         "Parse url-encoded string as a table."
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["parse", "url"]
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

@@ -142,10 +142,6 @@ impl Command for ToHtml {
         "Convert table into simple HTML"
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "html"]
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

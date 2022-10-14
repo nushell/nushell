@@ -23,10 +23,6 @@ impl Command for FromJson {
             .category(Category::Formats)
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["parse", "json"]
-    }
-
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

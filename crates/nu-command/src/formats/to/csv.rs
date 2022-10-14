@@ -50,10 +50,6 @@ impl Command for ToCsv {
         "Convert table into .csv text "
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "csv"]
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

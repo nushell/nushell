@@ -20,10 +20,6 @@ impl Command for ToToml {
         "Convert table into .toml text"
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "toml"]
-    }
-
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Outputs an TOML string representing the contents of this table",

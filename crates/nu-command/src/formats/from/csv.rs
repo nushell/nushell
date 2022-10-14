@@ -40,10 +40,6 @@ impl Command for FromCsv {
         "Parse text as .csv and create table."
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["parse", "csv"]
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

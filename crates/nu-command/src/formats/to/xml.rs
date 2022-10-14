@@ -30,10 +30,6 @@ impl Command for ToXml {
             .category(Category::Formats)
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "xml"]
-    }
-
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

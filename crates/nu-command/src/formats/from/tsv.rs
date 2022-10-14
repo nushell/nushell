@@ -30,10 +30,6 @@ impl Command for FromTsv {
             .category(Category::Formats)
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["parse", "tsv"]
-    }
-
     fn usage(&self) -> &str {
         "Parse text as .tsv and create table."
     }

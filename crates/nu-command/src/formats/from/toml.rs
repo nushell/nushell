@@ -20,10 +20,6 @@ impl Command for FromToml {
         "Parse text as .toml and create table."
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["parse", "toml"]
-    }
-
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

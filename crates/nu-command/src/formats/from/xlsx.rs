@@ -31,10 +31,6 @@ impl Command for FromXlsx {
         "Parse binary Excel(.xlsx) data and create table."
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["parse", "xlsx"]
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

@@ -21,10 +21,6 @@ impl Command for FromIni {
         "Parse text as .ini and create table"
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["parse", "ini"]
-    }
-
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             example: "'[foo]

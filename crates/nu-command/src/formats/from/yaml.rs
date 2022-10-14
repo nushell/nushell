@@ -24,10 +24,6 @@ impl Command for FromYaml {
         "Parse text as .yaml/.yml and create table."
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["parse", "yaml"]
-    }
-
     fn examples(&self) -> Vec<Example> {
         get_examples()
     }

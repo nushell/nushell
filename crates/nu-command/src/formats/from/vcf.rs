@@ -24,10 +24,6 @@ impl Command for FromVcf {
         "Parse text as .vcf and create table."
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["parse", "vcf"]
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

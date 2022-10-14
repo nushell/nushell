@@ -34,7 +34,7 @@ impl Command for ToMd {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "md", "markdown"]
+        vec!["markdown"]
     }
 
     fn examples(&self) -> Vec<Example> {
