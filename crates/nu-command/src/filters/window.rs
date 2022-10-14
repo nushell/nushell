@@ -155,7 +155,7 @@ impl Command for Window {
             group_size: group_size.item,
             input: Box::new(input.into_iter()),
             span: call.head,
-            previous: vec![],
+            previous: None,
             stride,
         };
 
@@ -169,7 +169,7 @@ struct EachWindowIterator {
     group_size: usize,
     input: Box<dyn Iterator<Item = Value> + Send>,
     span: Span,
-    previous: Vec<Value>,
+    previous: Option<Vec<Value>>,
     stride: usize,
 }
 
@@ -177,7 +177,7 @@ impl Iterator for EachWindowIterator {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut group = self.previous.clone();
+        let mut group = self.previous.take().unwrap_or_default();
         let mut current_count = 0;
 
         if group.is_empty() {
@@ -222,10 +222,11 @@ impl Iterator for EachWindowIterator {
             return None;
         }
 
-        self.previous = group.clone();
+        let return_group = group.clone();
+        self.previous = Some(group);
 
         Some(Value::List {
-            vals: group,
+            vals: return_group,
             span: self.span,
         })
     }
