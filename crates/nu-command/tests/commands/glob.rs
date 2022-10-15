@@ -22,7 +22,7 @@ fn empty_glob_pattern_triggers_error() {
 
 #[test]
 fn nonempty_glob_lists_matching_paths() {
-    Playground::setup("glob_test_1", |dirs, sandbox| {
+    Playground::setup("glob_sanity_star", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
             EmptyFile("jonathan.txt"),
