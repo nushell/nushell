@@ -440,7 +440,7 @@ impl PipelineData {
         {
             // NOTE: currently we don't need anything from stderr
             // so directly consumes `stderr_stream` to make sure that everything is done.
-            let _ = stderr_stream.map(|x| x.into_bytes());
+            std::thread::spawn(move || stderr_stream.map(|x| x.into_bytes()));
             if let Some(stream) = stream {
                 for s in stream {
                     let s_live = s?;
