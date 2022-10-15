@@ -19,6 +19,10 @@ impl Command for ArgSort {
         "Returns indexes for a sorted series"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["argsort", "order", "arrange"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .switch("reverse", "reverse order", Some('r'))

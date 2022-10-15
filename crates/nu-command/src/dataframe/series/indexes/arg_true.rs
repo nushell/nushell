@@ -19,6 +19,10 @@ impl Command for ArgTrue {
         "Returns indexes where values are true"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["argtrue", "truth", "boolean-true"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_type(Type::Custom("dataframe".into()))

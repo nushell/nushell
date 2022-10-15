@@ -19,6 +19,10 @@ impl Command for ArgMin {
         "Return index for min value in series"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["argmin", "minimum", "least", "smallest", "lowest"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_type(Type::Custom("dataframe".into()))

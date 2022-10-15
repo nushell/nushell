@@ -19,6 +19,10 @@ impl Command for ArgUnique {
         "Returns indexes for unique values"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["argunique", "distinct", "noduplicate", "unrepeated"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_type(Type::Custom("dataframe".into()))
