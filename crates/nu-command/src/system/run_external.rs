@@ -109,7 +109,7 @@ impl Command for External {
             redirect_stderr,
             env_vars: env_vars_str,
         };
-        command.run_with_input(engine_state, stack, input)
+        command.run_with_input(engine_state, stack, input, false)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -144,6 +144,7 @@ impl ExternalCommand {
         engine_state: &EngineState,
         stack: &mut Stack,
         input: PipelineData,
+        reconfirm_command_name: bool,
     ) -> Result<PipelineData, ShellError> {
         let head = self.name.span;
 
@@ -262,8 +263,23 @@ impl ExternalCommand {
 
                         let suggestion = suggest_command(&self.name.item, engine_state);
                         let label = match suggestion {
-                            Some(s) => format!("did you mean '{s}'?"),
-                            None => "can't run executable".into(),
+                            Some(s) => {
+                                if reconfirm_command_name {
+                                    format!(
+                                        "'{}' was not found, did you mean '{s}'?",
+                                        self.name.item
+                                    )
+                                } else {
+                                    format!("did you mean '{s}'?")
+                                }
+                            }
+                            None => {
+                                if reconfirm_command_name {
+                                    format!("executable '{}' was not found", self.name.item)
+                                } else {
+                                    "executable was not found".into()
+                                }
+                            }
                         };
 
                         Err(ShellError::ExternalCommand(
