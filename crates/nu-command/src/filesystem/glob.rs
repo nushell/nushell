@@ -99,6 +99,16 @@ impl Command for Glob {
         let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let depth = call.get_flag(engine_state, stack, "depth")?;
 
+        if glob_pattern.item.is_empty() {
+            return Err(ShellError::GenericError(
+                "glob pattern must not be empty".to_string(),
+                "".to_string(),
+                Some(glob_pattern.span),
+                Some("add characters to the glob pattern".to_string()),
+                Vec::new(),
+            ));
+        }
+
         let folder_depth = if let Some(depth) = depth {
             depth
         } else {
