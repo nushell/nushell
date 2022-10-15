@@ -37,7 +37,7 @@ impl Command for ConfigEnv {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        _call: &Call,
+        call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let env_vars_str = env_to_strings(engine_state, stack)?;
@@ -59,7 +59,7 @@ impl Command for ConfigEnv {
 
         let name = Spanned {
             item: get_editor(engine_state, stack)?,
-            span: Span { start: 0, end: 0 },
+            span: call.head,
         };
 
         let args = vec![Spanned {
@@ -76,6 +76,6 @@ impl Command for ConfigEnv {
             env_vars: env_vars_str,
         };
 
-        command.run_with_input(engine_state, stack, input)
+        command.run_with_input(engine_state, stack, input, true)
     }
 }
