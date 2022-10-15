@@ -20,7 +20,7 @@ impl Command for ArgMax {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["argmax", "max", "maximum", "most", "largest", "greatest"]
+        vec!["argmax", "maximum", "most", "largest", "greatest"]
     }
 
     fn signature(&self) -> Signature {

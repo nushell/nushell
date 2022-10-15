@@ -20,7 +20,7 @@ impl Command for ArgTrue {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["argtrue", "true", "truth", "boolean-true"]
+        vec!["argtrue", "truth", "boolean-true"]
     }
 
     fn signature(&self) -> Signature {

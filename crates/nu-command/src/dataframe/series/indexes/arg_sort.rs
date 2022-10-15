@@ -20,7 +20,7 @@ impl Command for ArgSort {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["argsort", "order", "sort", "arrange"]
+        vec!["argsort", "order", "arrange"]
     }
 
     fn signature(&self) -> Signature {

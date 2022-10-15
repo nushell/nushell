@@ -20,7 +20,7 @@ impl Command for ArgMin {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["argmin", "min", "minimum", "least", "smallest", "lowest"]
+        vec!["argmin", "minimum", "least", "smallest", "lowest"]
     }
 
     fn signature(&self) -> Signature {

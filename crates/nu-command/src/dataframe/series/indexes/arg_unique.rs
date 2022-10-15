@@ -20,13 +20,7 @@ impl Command for ArgUnique {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec![
-            "argunique",
-            "unique",
-            "distinct",
-            "noduplicate",
-            "unrepeated",
-        ]
+        vec!["argunique", "distinct", "noduplicate", "unrepeated"]
     }
 
     fn signature(&self) -> Signature {
