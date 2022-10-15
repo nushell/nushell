@@ -183,3 +183,15 @@ fn use_export_env_combined() {
         assert_eq!(actual.out, "foo");
     })
 }
+
+#[test]
+fn use_module_creates_accurate_did_you_mean() {
+    let actual = nu!(
+    cwd: ".", pipeline(
+        r#"
+                module spam { export def foo [] { "foo" } }; use spam; foo
+            "#
+        )
+    );
+    assert!(actual.err.contains("did you mean 'spam foo'?"));
+}

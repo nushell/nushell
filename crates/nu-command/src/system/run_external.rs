@@ -269,6 +269,14 @@ impl ExternalCommand {
                                         "'{}' was not found, did you mean '{s}'?",
                                         self.name.item
                                     )
+                                } else if self.name.item == s {
+                                    let sugg = engine_state.which_module_has_decl(s.as_bytes());
+                                    if let Some(sugg) = sugg {
+                                        let sugg = String::from_utf8_lossy(sugg);
+                                        format!("did you mean '{sugg} {s}'?")
+                                    } else {
+                                        format!("did you mean '<module> {s}'?")
+                                    }
                                 } else {
                                     format!("did you mean '{s}'?")
                                 }
