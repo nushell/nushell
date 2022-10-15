@@ -226,11 +226,14 @@ impl Iterator for EachWindowIterator {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // We default to a Vec of capacity size + stride as striding pushes n extra elements to the end
-        let mut group = self
-            .previous
-            .take()
-            .unwrap_or_else(|| Vec::with_capacity(self.group_size + self.stride));
+        let mut group = self.previous.take().unwrap_or_else(|| {
+            let mut vec = Vec::new();
+
+            // We default to a Vec of capacity size + stride as striding pushes n extra elements to the end
+            vec.try_reserve(self.group_size + self.stride).ok();
+
+            vec
+        });
         let mut current_count = 0;
 
         if group.is_empty() {
