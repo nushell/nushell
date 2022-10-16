@@ -201,7 +201,7 @@ fn find_matching_brackets(
             };
         }
     }
-    return Vec::new();
+    Vec::new()
 }
 
 fn find_matching_block_end_in_block(
