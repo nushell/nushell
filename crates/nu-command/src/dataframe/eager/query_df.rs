@@ -14,11 +14,11 @@ use nu_protocol::{
 // https://github.com/pola-rs/polars/tree/master/polars-sql
 
 #[derive(Clone)]
-pub struct QueryDfr;
+pub struct QueryDf;
 
-impl Command for QueryDfr {
+impl Command for QueryDf {
     fn name(&self) -> &str {
-        "query dfr"
+        "query df"
     }
 
     fn usage(&self) -> &str {
@@ -40,7 +40,7 @@ impl Command for QueryDfr {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Query dataframe using SQL",
-            example: "[[a b]; [1 2] [3 4]] | into df | query dfr 'select a from df'",
+            example: "[[a b]; [1 2] [3 4]] | into df | query df 'select a from df'",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "a".to_string(),
@@ -101,6 +101,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(QueryDfr {})])
+        test_dataframe(vec![Box::new(QueryDf {})])
     }
 }

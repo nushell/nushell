@@ -13,7 +13,7 @@ mod last;
 mod list;
 mod melt;
 mod open;
-mod query_dfr;
+mod query_df;
 mod rename;
 mod sample;
 mod shape;
@@ -45,7 +45,7 @@ pub use last::LastDF;
 pub use list::ListDF;
 pub use melt::MeltDF;
 pub use open::OpenDataFrame;
-pub use query_dfr::QueryDfr;
+pub use query_df::QueryDf;
 pub use rename::RenameDF;
 pub use sample::SampleDF;
 pub use shape::ShapeDF;
@@ -87,7 +87,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         ListDF,
         MeltDF,
         OpenDataFrame,
-        QueryDfr,
+        QueryDf,
         RenameDF,
         SampleDF,
         ShapeDF,
