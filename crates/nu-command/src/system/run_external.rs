@@ -273,9 +273,9 @@ impl ExternalCommand {
                                     let sugg = engine_state.which_module_has_decl(s.as_bytes());
                                     if let Some(sugg) = sugg {
                                         let sugg = String::from_utf8_lossy(sugg);
-                                        format!("did you mean '{sugg} {s}'?")
+                                        format!("command '{s}' was not found but it exists in module '{sugg}'")
                                     } else {
-                                        format!("did you mean '<module> {s}'?")
+                                        format!("did you mean '{s}'?")
                                     }
                                 } else {
                                     format!("did you mean '{s}'?")

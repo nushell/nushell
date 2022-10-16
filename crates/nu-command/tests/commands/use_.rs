@@ -193,5 +193,7 @@ fn use_module_creates_accurate_did_you_mean() {
             "#
         )
     );
-    assert!(actual.err.contains("did you mean 'spam foo'?"));
+    assert!(actual
+        .err
+        .contains("command 'foo' was not found but it exists in module 'spam'"));
 }
