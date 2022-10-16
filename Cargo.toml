@@ -64,6 +64,14 @@ time = "0.3.12"
 openssl = { version = "0.10.38", features = ["vendored"], optional = true }
 signal-hook = { version = "0.3.14", default-features = false }
 
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
+
+[target.'cfg(target_family = "unix")'.dependencies]
+nix = "0.24"
+atty = "0.2"
+
 [dev-dependencies]
 nu-test-support = { path="./crates/nu-test-support", version = "0.69.2"  }
 tempfile = "3.2.0"
@@ -73,9 +81,6 @@ serial_test = "0.8.0"
 hamcrest2 = "0.3.0"
 rstest = {version = "0.15.0", default-features = false}
 itertools = "0.10.3"
-
-[target.'cfg(windows)'.build-dependencies]
-winres = "0.1"
 
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
@@ -122,7 +127,5 @@ debug = false
 name = "nu"
 path = "src/main.rs"
 
-[target.'cfg(target_family = "unix")'.dependencies]
-nix = "0.24"
-atty = "0.2"
-
+[patch.crates-io]
+reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
