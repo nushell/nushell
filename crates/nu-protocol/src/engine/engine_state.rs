@@ -755,10 +755,7 @@ impl EngineState {
     pub fn get_file_source(&self, file_id: usize) -> String {
         for file in self.files.iter().enumerate() {
             if file.0 == file_id {
-                let contents = self.get_span_contents(&Span {
-                    start: file.1 .1,
-                    end: file.1 .2,
-                });
+                let contents = self.get_span_contents(&Span::new(file.1 .1, file.1 .2));
                 let output = String::from_utf8_lossy(contents).to_string();
 
                 return output;
@@ -1318,10 +1315,9 @@ impl<'a> StateWorkingSet<'a> {
     pub fn get_file_source(&self, file_id: usize) -> String {
         for file in self.files().enumerate() {
             if file.0 == file_id {
-                let output = String::from_utf8_lossy(self.get_span_contents(Span {
-                    start: file.1 .1,
-                    end: file.1 .2,
-                }))
+                let output = String::from_utf8_lossy(
+                    self.get_span_contents(Span::new(file.1 .1, file.1 .2)),
+                )
                 .to_string();
 
                 return output;
@@ -2041,10 +2037,7 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
                     let found_file = "Found matching file";
                     dbg!(found_file);
                 }
-                let our_span = Span {
-                    start: *start,
-                    end: *end,
-                };
+                let our_span = Span::new(*start, *end);
                 // We need to move to a local span because we're only reading
                 // the specific file contents via self.get_span_contents.
                 let local_span = (span.offset() - *start, span.len()).into();

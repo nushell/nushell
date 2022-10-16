@@ -1391,7 +1391,7 @@ impl Value {
 impl Default for Value {
     fn default() -> Self {
         Value::Nothing {
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         }
     }
 }

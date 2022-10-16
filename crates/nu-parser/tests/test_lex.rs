@@ -18,7 +18,7 @@ fn lex_newline() {
 
     assert!(output.0.contains(&Token {
         contents: TokenContents::Eol,
-        span: Span { start: 11, end: 12 }
+        span: Span::new(11, 12)
     }));
 }
 
@@ -43,7 +43,7 @@ fn lex_parenthesis() {
         output.0.get(3).unwrap(),
         &Token {
             contents: TokenContents::Item,
-            span: Span { start: 8, end: 27 }
+            span: Span::new(8, 27)
         }
     );
 }
@@ -58,7 +58,7 @@ fn lex_comment() {
         output.0.get(4).unwrap(),
         &Token {
             contents: TokenContents::Comment,
-            span: Span { start: 12, end: 24 }
+            span: Span::new(12, 24)
         }
     );
 }
@@ -108,14 +108,14 @@ fn lex_comments() {
         output.0.get(4).unwrap(),
         &Token {
             contents: TokenContents::Comment,
-            span: Span { start: 10, end: 19 }
+            span: Span::new(10, 19)
         }
     );
     assert_eq!(
         output.0.get(5).unwrap(),
         &Token {
             contents: TokenContents::Eol,
-            span: Span { start: 19, end: 20 }
+            span: Span::new(19, 20)
         }
     );
 
@@ -125,14 +125,14 @@ fn lex_comments() {
         output.0.get(10).unwrap(),
         &Token {
             contents: TokenContents::Comment,
-            span: Span { start: 31, end: 40 }
+            span: Span::new(31, 40)
         }
     );
     assert_eq!(
         output.0.get(11).unwrap(),
         &Token {
             contents: TokenContents::Eol,
-            span: Span { start: 40, end: 41 }
+            span: Span::new(40, 41)
         }
     );
 }

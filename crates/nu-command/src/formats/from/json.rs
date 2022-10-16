@@ -166,19 +166,13 @@ fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
             cur_col = 0;
         }
         if cur_row >= row && cur_col >= col {
-            return Span {
-                start: offset,
-                end: offset,
-            };
+            return Span::new(offset, offset);
         } else {
             cur_col += 1;
         }
     }
 
-    Span {
-        start: contents.len(),
-        end: contents.len(),
-    }
+    Span::new(contents.len(), contents.len())
 }
 
 fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, ShellError> {

@@ -14,6 +14,7 @@ where
 /// Spans are a global offset across all seen files, which are cached in the engine's state. The start and
 /// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
 /// a given point of interest.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Span {
     pub start: usize,
@@ -28,24 +29,28 @@ impl From<Span> for SourceSpan {
 
 impl Span {
     pub fn new(start: usize, end: usize) -> Span {
+        debug_assert!(
+            end >= start,
+            "Can't create a Span whose end < start, start={}, end={}",
+            start,
+            end
+        );
+
         Span { start, end }
     }
 
-    pub fn unknown() -> Self {
-        Self::new(0, 0)
+    pub const fn unknown() -> Span {
+        Span { start: 0, end: 0 }
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_data() -> Span {
-        Span { start: 0, end: 0 }
+    pub const fn test_data() -> Span {
+        Self::unknown()
     }
 
     pub fn offset(&self, offset: usize) -> Span {
-        Span {
-            start: self.start - offset,
-            end: self.end - offset,
-        }
+        Span::new(self.start - offset, self.end - offset)
     }
 
     pub fn contains(&self, pos: usize) -> bool {
@@ -70,15 +75,17 @@ impl Span {
 pub fn span(spans: &[Span]) -> Span {
     let length = spans.len();
 
+    //TODO debug_assert!(length > 0, "expect spans > 0");
     if length == 0 {
-        // TODO: do this for now, but we might also want to protect against this case
-        Span { start: 0, end: 0 }
+        Span::unknown()
     } else if length == 1 {
         spans[0]
     } else {
-        Span {
-            start: spans[0].start,
-            end: spans[length - 1].end,
-        }
+        let end = spans
+            .iter()
+            .map(|s| s.end)
+            .max()
+            .expect("Must be an end. Length > 0");
+        Span::new(spans[0].start, end)
     }
 }

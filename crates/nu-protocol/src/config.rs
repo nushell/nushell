@@ -981,7 +981,7 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
             _ => Err(ShellError::UnsupportedConfigValue(
                 "record for 'hooks' config".into(),
                 "non-record value".into(),
-                Span { start: 0, end: 0 },
+                Span::unknown(),
             )),
         },
     }

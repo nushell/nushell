@@ -308,7 +308,7 @@ impl PipelineData {
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.map(f).into_pipeline_data(ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => {
-                Ok(PipelineData::new(Span { start: 0, end: 0 }))
+                Ok(PipelineData::new(Span::unknown()))
             }
             PipelineData::ExternalStream {
                 stdout: Some(stream),
@@ -366,7 +366,7 @@ impl PipelineData {
                 Ok(stream.flat_map(f).into_pipeline_data(ctrlc))
             }
             PipelineData::ExternalStream { stdout: None, .. } => {
-                Ok(PipelineData::new(Span { start: 0, end: 0 }))
+                Ok(PipelineData::new(Span::unknown()))
             }
             PipelineData::ExternalStream {
                 stdout: Some(stream),
@@ -419,7 +419,7 @@ impl PipelineData {
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.filter(f).into_pipeline_data(ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => {
-                Ok(PipelineData::new(Span { start: 0, end: 0 }))
+                Ok(PipelineData::new(Span::unknown()))
             }
             PipelineData::ExternalStream {
                 stdout: Some(stream),

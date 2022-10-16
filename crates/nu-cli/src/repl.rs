@@ -76,7 +76,7 @@ pub fn evaluate_repl(
         "CMD_DURATION_MS".into(),
         Value::String {
             val: "0823".to_string(),
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         },
     );
 
@@ -84,7 +84,7 @@ pub fn evaluate_repl(
         "LAST_EXIT_CODE".into(),
         Value::Int {
             val: 0,
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         },
     );
 
@@ -375,7 +375,7 @@ pub fn evaluate_repl(
                         "OLDPWD".into(),
                         Value::String {
                             val: cwd.clone(),
-                            span: Span { start: 0, end: 0 },
+                            span: Span::unknown(),
                         },
                     );
 
@@ -385,7 +385,7 @@ pub fn evaluate_repl(
                         "PWD".into(),
                         Value::String {
                             val: path.clone(),
-                            span: Span { start: 0, end: 0 },
+                            span: Span::unknown(),
                         },
                     );
                     let cwd = Value::String { val: cwd, span };
@@ -440,7 +440,7 @@ pub fn evaluate_repl(
                     "CMD_DURATION_MS".into(),
                     Value::String {
                         val: format!("{}", cmd_duration.as_millis()),
-                        span: Span { start: 0, end: 0 },
+                        span: Span::unknown(),
                     },
                 );
 
@@ -997,7 +997,7 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
             return Err(ShellError::GenericError(
                 "Error writing ansi sequence".into(),
                 err.to_string(),
-                Some(Span { start: 0, end: 0 }),
+                Some(Span::unknown()),
                 None,
                 Vec::new(),
             ));
@@ -1007,7 +1007,7 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
         ShellError::GenericError(
             "Error flushing stdio".into(),
             e.to_string(),
-            Some(Span { start: 0, end: 0 }),
+            Some(Span::unknown()),
             None,
             Vec::new(),
         )

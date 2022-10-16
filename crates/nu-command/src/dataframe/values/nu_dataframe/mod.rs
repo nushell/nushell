@@ -39,7 +39,7 @@ impl Display for DataFrameValue {
 impl Default for DataFrameValue {
     fn default() -> Self {
         Self(Value::Nothing {
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         })
     }
 }

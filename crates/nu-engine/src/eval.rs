@@ -1096,7 +1096,7 @@ pub fn eval_block(
                 }
             }
 
-            input = PipelineData::new(Span { start: 0, end: 0 })
+            input = PipelineData::new(Span::unknown())
         }
     }
 

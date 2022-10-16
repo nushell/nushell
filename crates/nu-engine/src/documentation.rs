@@ -186,15 +186,15 @@ fn get_documentation(
             match decl.run(
                 engine_state,
                 stack,
-                &Call::new(Span::new(0, 0)),
+                &Call::new(Span::unknown()),
                 Value::String {
                     val: example.example.to_string(),
-                    span: Span { start: 0, end: 0 },
+                    span: Span::unknown(),
                 }
                 .into_pipeline_data(),
             ) {
                 Ok(output) => {
-                    let result = output.into_value(Span { start: 0, end: 0 });
+                    let result = output.into_value(Span::unknown());
                     match result.as_string() {
                         Ok(s) => {
                             let _ = write!(long_desc, "\n  > {}\n", s);

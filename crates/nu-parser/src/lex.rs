@@ -122,10 +122,7 @@ pub fn lex_item(
                         },
                         Some(ParseError::UnexpectedEof(
                             (start as char).to_string(),
-                            Span {
-                                start: span.end,
-                                end: span.end,
-                            },
+                            Span::new(span.end, span.end),
                         )),
                     );
                 }
@@ -193,13 +190,8 @@ pub fn lex_item(
     // If there is still unclosed opening delimiters, remember they were missing
     if let Some(block) = block_level.last() {
         let delim = block.closing();
-        let cause = ParseError::UnexpectedEof(
-            (delim as char).to_string(),
-            Span {
-                start: span.end,
-                end: span.end,
-            },
-        );
+        let cause =
+            ParseError::UnexpectedEof((delim as char).to_string(), Span::new(span.end, span.end));
 
         return (
             Token {
@@ -221,10 +213,7 @@ pub fn lex_item(
             },
             Some(ParseError::UnexpectedEof(
                 (delim as char).to_string(),
-                Span {
-                    start: span.end,
-                    end: span.end,
-                },
+                Span::new(span.end, span.end),
             )),
         );
     }
