@@ -4,7 +4,7 @@ use nu_color_config::get_shape_color;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::ast::{Argument, Block, Expr, Expression};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
-use nu_protocol::Config;
+use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
 
 pub struct NuHighlighter {
@@ -30,8 +30,13 @@ impl Highlighter for NuHighlighter {
         let mut last_seen_span = global_span_offset;
 
         let global_cursor_offset = _cursor + global_span_offset;
-        let matching_bracket_pos =
-            find_matching_bracket_in_block(&working_set, &block, global_cursor_offset);
+        let matching_brackets_pos = find_matching_brackets(
+            line,
+            &working_set,
+            &block,
+            global_span_offset,
+            global_cursor_offset,
+        );
 
         for shape in &shapes {
             if shape.0.end <= last_seen_span
@@ -54,29 +59,17 @@ impl Highlighter for NuHighlighter {
 
             macro_rules! add_colored_token_with_bracket_highlight {
                 ($shape:expr, $span:expr, $text:expr) => {{
-                    if let Some(pos) = matching_bracket_pos {
-                        if $span.contains(pos) {
-                            let pos_in_text = pos - $span.start;
-                            if pos_in_text > 0 {
-                                let left = (&next_token[..pos_in_text]).to_string();
-                                add_colored_token!($shape, left);
-                            }
-                            let highlighted =
-                                (&next_token[pos_in_text..pos_in_text + 1]).to_string();
-                            output.push((
-                                get_shape_color($shape.to_string(), &self.config).reverse(),
-                                highlighted,
-                            ));
-                            if pos_in_text < next_token.len() {
-                                let right = (&next_token[pos_in_text + 1..]).to_string();
-                                add_colored_token!($shape, right);
-                            }
-                        } else {
-                            add_colored_token!($shape, next_token);
+                    let spans = split_span_by_highlight_positions(&$span, &matching_brackets_pos);
+                    spans.iter().for_each(|(part, highlight)| {
+                        let start = part.start - $span.start;
+                        let end = part.end - $span.start;
+                        let text = (&next_token[start..end]).to_string();
+                        let mut style = get_shape_color($shape.to_string(), &self.config);
+                        if *highlight {
+                            style = style.reverse();
                         }
-                    } else {
-                        add_colored_token!($shape, next_token);
-                    }
+                        output.push((style, text));
+                    });
                 }};
             }
 
@@ -136,7 +129,82 @@ impl Highlighter for NuHighlighter {
     }
 }
 
-fn find_matching_bracket_in_block(
+fn split_span_by_highlight_positions(
+    span: &Span,
+    highlight_positions: &Vec<usize>,
+) -> Vec<(Span, bool)> {
+    let mut start = span.start;
+    let mut result: Vec<(Span, bool)> = Vec::new();
+    for pos in highlight_positions {
+        if start <= *pos && pos < &span.end {
+            if start < *pos {
+                result.push((Span { start, end: *pos }, false));
+            }
+            result.push((
+                Span {
+                    start: *pos,
+                    end: pos + 1,
+                },
+                true,
+            ));
+            start = pos + 1;
+        }
+    }
+    if start < span.end {
+        result.push((
+            Span {
+                start,
+                end: span.end,
+            },
+            false,
+        ));
+    }
+    result
+}
+
+fn find_matching_brackets(
+    line: &str,
+    working_set: &StateWorkingSet,
+    block: &Block,
+    global_span_offset: usize,
+    global_cursor_offset: usize,
+) -> Vec<usize> {
+    const BRACKETS: &str = "{}[]()";
+
+    // calculate first bracket position
+    let global_end_offset = line.len() + global_span_offset;
+    let global_bracket_pos =
+        if global_cursor_offset == global_end_offset && global_end_offset > global_span_offset {
+            // cursor is at the end of a non-empty string -- find block end at the previous position
+            global_cursor_offset - 1
+        } else {
+            // cursor is in the middle of a string -- find block end at the current position
+            global_cursor_offset
+        };
+
+    // check that position contains bracket
+    let match_idx = global_bracket_pos - global_span_offset;
+    if match_idx >= line.len() || !BRACKETS.contains(&line[match_idx..match_idx + 1]) {
+        return Vec::new();
+    }
+
+    // find matching bracket by finding matching block end
+    let matching_block_end =
+        find_matching_block_end_in_block(working_set, block, global_bracket_pos);
+    if let Some(pos) = matching_block_end {
+        let matching_idx = pos - global_span_offset;
+        if BRACKETS.contains(&line[matching_idx..matching_idx + 1]) {
+            return if global_bracket_pos < pos {
+                vec![global_bracket_pos, pos]
+            } else {
+                vec![pos, global_bracket_pos]
+            };
+        }
+    }
+    return Vec::new();
+}
+
+fn find_matching_block_end_in_block(
     working_set: &StateWorkingSet,
     block: &Block,
     global_cursor_offset: usize,
@@ -145,7 +213,7 @@ fn find_matching_bracket_in_block(
         for e in &p.expressions {
             if e.span.contains(global_cursor_offset) {
                 if let Some(pos) =
-                    find_matching_bracket_in_expr(working_set, e, global_cursor_offset)
+                    find_matching_block_end_in_expr(working_set, e, global_cursor_offset)
                 {
                     return Some(pos);
                 }
@@ -155,7 +223,7 @@ fn find_matching_bracket_in_block(
     None
 }
 
-fn find_matching_bracket_in_expr(
+fn find_matching_block_end_in_expr(
     working_set: &StateWorkingSet,
     expression: &Expression,
     global_cursor_offset: usize,
@@ -163,7 +231,7 @@ fn find_matching_bracket_in_expr(
     macro_rules! find_in_expr_or_continue {
         ($inner_expr:ident) => {
             if let Some(pos) =
-                find_matching_bracket_in_expr(working_set, $inner_expr, global_cursor_offset)
+                find_matching_block_end_in_expr(working_set, $inner_expr, global_cursor_offset)
             {
                 return Some(pos);
             }
@@ -252,7 +320,7 @@ fn find_matching_bracket_in_expr(
             }
 
             Expr::FullCellPath(b) => {
-                find_matching_bracket_in_expr(working_set, &b.head, global_cursor_offset)
+                find_matching_block_end_in_expr(working_set, &b.head, global_cursor_offset)
             }
 
             Expr::BinaryOp(lhs, op, rhs) => {
@@ -274,7 +342,11 @@ fn find_matching_bracket_in_expr(
                 } else {
                     // cursor is inside block
                     let nested_block = working_set.get_block(*block_id);
-                    find_matching_bracket_in_block(working_set, nested_block, global_cursor_offset)
+                    find_matching_block_end_in_block(
+                        working_set,
+                        nested_block,
+                        global_cursor_offset,
+                    )
                 }
             }
 
