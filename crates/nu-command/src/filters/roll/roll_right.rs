@@ -16,6 +16,10 @@ impl Command for RollRight {
         "roll right"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["rotate", "shift", "move", "column"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .named(
