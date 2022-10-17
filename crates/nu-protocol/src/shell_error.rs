@@ -816,6 +816,8 @@ pub fn did_you_mean(possibilities: &[String], input: &str) -> Option<String> {
     let suggestion =
         crate::lev_distance::find_best_match_for_name_with_substrings(&possibilities, input, None)
             .map(|s| s.to_string());
+    println!("possibilities: {possibilities:?}, input: {input:?}, suggestion: {suggestion:?}");
+
     // Note: sometimes plugin or external command define's the same command
     // as user input, but the command doesn't match nu's requirements
     //
@@ -823,6 +825,12 @@ pub fn did_you_mean(possibilities: &[String], input: &str) -> Option<String> {
     // will return `to-datetime`, but that's absolutely not what user want.
     // in that case, just return None.
     if let Some(suggestion) = &suggestion {
+        println!(
+            "suggestion lowercase: {}, input lowercase: {}, equal: {}",
+            suggestion.to_lowercase(),
+            input.to_lowercase(),
+            suggestion.to_lowercase() == input.to_lowercase()
+        );
         if (suggestion.len() == 1 && suggestion.to_lowercase() != input.to_lowercase())
             || (suggestion.len() > 1 && suggestion.to_lowercase() == input.to_lowercase())
         {
@@ -861,7 +869,7 @@ mod tests {
                 vec!["OS", "PWD", "PWDPWDPWDPWD"],
                 vec![
                     ("pwd", None, "The same item doesn't means match"),
-                    ("pwdpwdpwdpwd", Some("PWDPWDPWDPWD"), "The same item doesn't means match"),
+                    ("pwdpwdpwdpwd", None, "The same item doesn't means match"),
                     ("PWF", Some("PWD"), "One-letter typo yields a match"),
                     ("pwf", None, "Case difference plus typo yields no match"),
                     ("Xwdpwdpwdpwd", None, "Case difference plus typo yields no match"),
