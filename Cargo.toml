@@ -52,7 +52,7 @@ nu-system = { path = "./crates/nu-system", version = "0.69.2" }
 nu-table = { path = "./crates/nu-table", version = "0.69.2"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.69.2"  }
 nu-utils = { path = "./crates/nu-utils", version = "0.69.2"  }
-reedline = { version = "0.12.0", features = ["bashisms", "sqlite"]}
+reedline = { version = "0.13.0", features = ["bashisms", "sqlite"]}
 
 rayon = "1.5.1"
 is_executable = "1.0.1"
@@ -127,5 +127,7 @@ debug = false
 name = "nu"
 path = "src/main.rs"
 
+# To use a development version of a dependency please use a global override here
+# changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
+# reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
