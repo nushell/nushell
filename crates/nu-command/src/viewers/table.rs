@@ -600,18 +600,22 @@ fn make_clickable_link(
     full_path: String,
     link_name: Option<&str>,
     show_clickable_links: bool,
+    use_domterm_features: bool,
 ) -> String {
     // uri's based on this https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
 
-    if show_clickable_links {
-        format!(
-            "\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\",
-            match Url::from_file_path(full_path.clone()) {
-                Ok(url) => url.to_string(),
-                Err(_) => full_path.clone(),
-            },
-            link_name.unwrap_or(full_path.as_str())
-        )
+    if show_clickable_links && ! use_domterm_features/*FIXME*/{
+        let url = match Url::from_file_path(full_path.clone()) {
+            Ok(url) => url.to_string(),
+            Err(_) => full_path.clone(),
+        };
+        let label = link_name.unwrap_or(full_path.as_str());
+        if use_domterm_features {
+            // FIXME quote for html
+            format!("<a href=\"{}\">{}</a>", url, label)
+        } else {
+            format!("\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\", url, label)
+        }
     } else {
         match link_name {
             Some(link_name) => link_name.to_string(),
@@ -1286,6 +1290,7 @@ fn render_path_name(
     // clickable links don't work in remote SSH sessions
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
     let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session && has_metadata;
+    let use_domterm_features = config.use_domterm_features;
 
     let ansi_style = style
         .map(Style::to_crossterm_style)
@@ -1300,6 +1305,7 @@ fn render_path_name(
         full_path.display().to_string(),
         Some(path),
         show_clickable_links,
+        use_domterm_features,
     );
 
     let val = ansi_style.apply(full_path_link).to_string();

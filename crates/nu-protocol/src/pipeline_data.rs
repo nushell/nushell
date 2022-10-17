@@ -496,10 +496,8 @@ impl PipelineData {
                 let working_set = StateWorkingSet::new(engine_state);
 
                 format_error(&working_set, &error)
-            } else if no_newline {
-                item.into_string("", config)
             } else {
-                item.into_string("\n", config)
+                item.into_string(if no_newline {""} else {"\n"}, config)
             };
 
             if !no_newline {

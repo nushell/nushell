@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 
 use nu_protocol::{Config, FooterMode, TrimStrategy};
+use table_to_html::HtmlTable;
 use tabled::{
     alignment::AlignmentHorizontal,
     builder::Builder,
@@ -147,17 +148,33 @@ fn draw_table(
     }
 
     let with_header = table.with_header;
-    let with_footer = with_header && need_footer(config, (&table.data).size().0 as u64);
+    let use_domterm_html = config.use_domterm_features;
+    let with_footer = ! use_domterm_html && with_header && need_footer(config, (&table.data).size().0 as u64);
     let with_index = table.with_index;
 
     if with_footer {
         table.data.duplicate_row(0);
     }
 
-    let mut table = Builder::custom(table.data).build();
+    let mut b = Builder::custom(table.data);
+    if with_header {
+        b.with_header();
+    };
+
+    let mut table = b.build();
     load_theme(&mut table, color_hm, theme, with_footer, with_header);
     align_table(&mut table, alignments, with_index, with_header, with_footer);
     table_trim_columns(&mut table, termwidth, &config.trim_strategy);
+
+    if use_domterm_html {
+        //FUTURE - currently causes misaslignment with floating header
+        //Part of fix is avoid emitting <p> elements in table_to_html.
+        //table.get_config_mut().set_padding(Global, Padding::default());
+
+        let mut htable =  HtmlTable::from(table);
+        htable.set_border_size(0);
+        return Some(format!("\u{1b}]72;{}\u{7}", htable.to_string()));
+    }
 
     let table = print_table(table, config);
     if table_width(&table) > termwidth {

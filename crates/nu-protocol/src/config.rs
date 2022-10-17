@@ -84,6 +84,7 @@ pub struct Config {
     pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
     pub show_clickable_links_in_ls: bool,
+    pub use_domterm_features: bool,
 }
 
 impl Default for Config {
@@ -121,6 +122,7 @@ impl Default for Config {
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             show_banner: true,
             show_clickable_links_in_ls: true,
+            use_domterm_features: false,
         }
     }
 }
@@ -429,6 +431,13 @@ impl Value {
                             config.show_clickable_links_in_ls = b;
                         } else {
                             eprintln!("$config.show_clickable_links_in_ls is not a bool")
+                        }
+                    }
+                    "use_domterm_features" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.use_domterm_features = b;
+                        } else {
+                            eprintln!("$config.use_domterm_features")
                         }
                     }
                     x => {

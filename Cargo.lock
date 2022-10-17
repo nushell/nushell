@@ -1930,8 +1930,7 @@ checksum = "47631885425c482fcf2dc4b182fc973c3c5b81a8f43a028055559bd24cccfa6e"
 [[package]]
 name = "json_to_table"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fe97d58ab96691e90f26c10ecc1fc098a4c072714d2d126cc8a2234b89f3456"
+source = "git+https://github.com/zhiburt/tabled?rev=970ebc74c437f12ab520a107e617e0428cfea27c#970ebc74c437f12ab520a107e617e0428cfea27c"
 dependencies = [
  "serde_json",
  "tabled",
@@ -2886,6 +2885,7 @@ dependencies = [
  "nu-protocol",
  "serde_json",
  "strip-ansi-escapes",
+ "table_to_html",
  "tabled",
 ]
 
@@ -4958,10 +4958,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "table_to_html"
+version = "0.1.0"
+source = "git+https://github.com/zhiburt/tabled?rev=970ebc74c437f12ab520a107e617e0428cfea27c#970ebc74c437f12ab520a107e617e0428cfea27c"
+dependencies = [
+ "tabled",
+]
+
+[[package]]
 name = "tabled"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c8a1ea336f84dc7dfae1025b73904551b3c6a42347f4243387e990f94325895"
+version = "0.9.0-fix.docs.rs.4"
+source = "git+https://github.com/zhiburt/tabled?rev=3d86a327267da9793c5ad9b48c5d6167bc9c9314#3d86a327267da9793c5ad9b48c5d6167bc9c9314"
 dependencies = [
  "ansi-str",
  "papergrid",
