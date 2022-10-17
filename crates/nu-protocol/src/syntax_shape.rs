@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{DeclId, Type};
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyntaxShape {
     /// A specific match to a word or symbol
     Keyword(Vec<u8>, Box<SyntaxShape>),
@@ -97,6 +97,9 @@ pub enum SyntaxShape {
 
     /// A custom shape with custom completion logic
     Custom(Box<SyntaxShape>, DeclId),
+
+    /// Nothing
+    Nothing,
 }
 
 impl SyntaxShape {
@@ -127,14 +130,15 @@ impl SyntaxShape {
             SyntaxShape::Number => Type::Number,
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Any,
-            SyntaxShape::Record => Type::Record(vec![]), // FIXME: Add actual record type
+            SyntaxShape::Record => Type::Record(vec![]), // FIXME: What role should fields play in the Record type?
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Signature,
             SyntaxShape::String => Type::String,
-            SyntaxShape::Table => Type::List(Box::new(Type::Any)), // FIXME: Tables should have better types
+            SyntaxShape::Table => Type::Table(vec![]), // FIXME:  What role should columns play in the Table type?
             SyntaxShape::VarWithOptType => Type::Any,
             SyntaxShape::Variable => Type::Any,
+            SyntaxShape::Nothing => Type::Any,
         }
     }
 }
@@ -174,6 +178,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
             SyntaxShape::Custom(x, _) => write!(f, "custom<{}>", x),
+            SyntaxShape::Nothing => write!(f, "nothing"),
         }
     }
 }
