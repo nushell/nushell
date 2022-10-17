@@ -825,7 +825,7 @@ pub fn did_you_mean(possibilities: &[String], input: &str) -> Option<String> {
     // in that case, just return None.
     if let Some(suggestion) = &suggestion {
         if (suggestion.len() == 1 && suggestion.to_lowercase() != input.to_lowercase())
-            || (suggestion.len() > 1 && suggestion.to_lowercase() == input.to_lowercase())
+            || (suggestion.len() > 1 && suggestion == input)
         {
             return None;
         }
@@ -861,8 +861,8 @@ mod tests {
             (
                 vec!["OS", "PWD", "PWDPWDPWDPWD"],
                 vec![
-                    ("pwd", None, "The same item doesn't means match"),
-                    ("pwdpwdpwdpwd", None, "The same item doesn't means match"),
+                    ("pwd", Some("PWD"), "Exact case insensitive match yields a match"),
+                    ("pwdpwdpwdpwd", Some("PWDPWDPWDPWD"), "Exact case insensitive match yields a match"),
                     ("PWF", Some("PWD"), "One-letter typo yields a match"),
                     ("pwf", None, "Case difference plus typo yields no match"),
                     ("Xwdpwdpwdpwd", None, "Case difference plus typo yields no match"),
@@ -872,7 +872,8 @@ mod tests {
                 vec!["foo", "bar", "baz"],
                 vec![
                     ("fox", Some("foo"), ""),
-                    ("FOO", None, ""),
+                    ("foo", None, "It's special, the same item yields no match"),
+                    ("FOO", Some("foo"), ""),
                     ("FOX", None, ""),
                     (
                         "ccc",
