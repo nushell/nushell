@@ -84,6 +84,7 @@ pub struct Config {
     pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
     pub show_clickable_links_in_ls: bool,
+    pub render_right_prompt_on_last_line: bool,
 }
 
 impl Default for Config {
@@ -121,6 +122,7 @@ impl Default for Config {
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             show_banner: true,
             show_clickable_links_in_ls: true,
+            render_right_prompt_on_last_line: false,
         }
     }
 }
@@ -429,6 +431,13 @@ impl Value {
                             config.show_clickable_links_in_ls = b;
                         } else {
                             eprintln!("$config.show_clickable_links_in_ls is not a bool")
+                        }
+                    }
+                    "render_right_prompt_on_last_line" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.render_right_prompt_on_last_line = b;
+                        } else {
+                            eprintln!("$config.render_right_prompt_on_last_line is not a bool")
                         }
                     }
                     x => {

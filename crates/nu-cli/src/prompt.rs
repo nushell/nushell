@@ -17,6 +17,7 @@ pub struct NushellPrompt {
     default_vi_insert_prompt_indicator: Option<String>,
     default_vi_normal_prompt_indicator: Option<String>,
     default_multiline_indicator: Option<String>,
+    render_right_prompt_on_last_line: bool,
 }
 
 impl Default for NushellPrompt {
@@ -34,6 +35,7 @@ impl NushellPrompt {
             default_vi_insert_prompt_indicator: None,
             default_vi_normal_prompt_indicator: None,
             default_multiline_indicator: None,
+            render_right_prompt_on_last_line: false,
         }
     }
 
@@ -41,8 +43,13 @@ impl NushellPrompt {
         self.left_prompt_string = prompt_string;
     }
 
-    pub fn update_prompt_right(&mut self, prompt_string: Option<String>) {
+    pub fn update_prompt_right(
+        &mut self,
+        prompt_string: Option<String>,
+        render_right_prompt_on_last_line: bool,
+    ) {
         self.right_prompt_string = prompt_string;
+        self.render_right_prompt_on_last_line = render_right_prompt_on_last_line;
     }
 
     pub fn update_prompt_indicator(&mut self, prompt_indicator_string: Option<String>) {
@@ -68,6 +75,7 @@ impl NushellPrompt {
         prompt_indicator_string: Option<String>,
         prompt_multiline_indicator_string: Option<String>,
         prompt_vi: (Option<String>, Option<String>),
+        render_right_prompt_on_last_line: bool,
     ) {
         let (prompt_vi_insert_string, prompt_vi_normal_string) = prompt_vi;
 
@@ -78,6 +86,8 @@ impl NushellPrompt {
 
         self.default_vi_insert_prompt_indicator = prompt_vi_insert_string;
         self.default_vi_normal_prompt_indicator = prompt_vi_normal_string;
+
+        self.render_right_prompt_on_last_line = render_right_prompt_on_last_line;
     }
 
     fn default_wrapped_custom_string(&self, str: String) -> String {
@@ -161,5 +171,9 @@ impl Prompt for NushellPrompt {
             "({}reverse-search: {})",
             prefix, history_search.term
         ))
+    }
+
+    fn right_prompt_on_last_line(&self) -> bool {
+        self.render_right_prompt_on_last_line
     }
 }
