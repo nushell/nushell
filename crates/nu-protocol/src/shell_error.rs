@@ -821,7 +821,7 @@ pub fn did_you_mean(possibilities: &[String], input: &str) -> Option<String> {
     // as user input, but the command doesn't match nu's requirements
     //
     // like [1 2] | to-datetime, `find_best_match_for_name_with_substrings`
-    // will return `to-datetime`, but that's absolutely not what user want.
+    // will return `to-datetime`, but is not compatible as it is a dataframe command.
     // in that case, just return None.
     if let Some(suggestion) = &suggestion {
         if (suggestion.len() == 1 && suggestion.to_lowercase() != input.to_lowercase())
