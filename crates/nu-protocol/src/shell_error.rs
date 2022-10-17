@@ -860,8 +860,8 @@ mod tests {
             (
                 vec!["OS", "PWD", "PWDPWDPWDPWD"],
                 vec![
-                    ("pwd", Some("PWD"), "Exact case insensitive match yields a match"),
-                    ("pwdpwdpwdpwd", Some("PWDPWDPWDPWD"), "Exact case insensitive match yields a match"),
+                    ("pwd", None, "The same item doesn't means match"),
+                    ("pwdpwdpwdpwd", Some("PWDPWDPWDPWD"), "The same item doesn't means match"),
                     ("PWF", Some("PWD"), "One-letter typo yields a match"),
                     ("pwf", None, "Case difference plus typo yields no match"),
                     ("Xwdpwdpwdpwd", None, "Case difference plus typo yields no match"),
@@ -871,7 +871,7 @@ mod tests {
                 vec!["foo", "bar", "baz"],
                 vec![
                     ("fox", Some("foo"), ""),
-                    ("FOO", Some("foo"), ""),
+                    ("FOO", None, ""),
                     ("FOX", None, ""),
                     (
                         "ccc",
