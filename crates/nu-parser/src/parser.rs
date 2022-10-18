@@ -794,8 +794,9 @@ pub fn parse_internal_call(
     // Starting at the first argument
     let mut spans_idx = 0;
 
-    // If there's no custom flag to parse, skip the flag parsing
-    let skip_named_flags = !signature.named.iter().any(|f| f.long != "help");
+    // If there's no custom flag to parse and rest_positional is in signature, skip the flag parsing
+    let skip_named_flags =
+        !signature.named.iter().any(|f| f.long != "help") && signature.rest_positional.is_some();
 
     while spans_idx < spans.len() {
         let arg_span = spans[spans_idx];
