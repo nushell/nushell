@@ -334,6 +334,8 @@ impl ExternalCommand {
                     }
                 }
 
+                #[cfg(unix)]
+                let commandname = self.name.item.clone();
                 let redirect_stdout = self.redirect_stdout;
                 let redirect_stderr = self.redirect_stderr;
                 let span = self.name.span;
@@ -370,6 +372,28 @@ impl ExternalCommand {
                             span,
                         )),
                         Ok(x) => {
+                            #[cfg(unix)]
+                            {
+                                use nu_ansi_term::{Color, Style};
+                                use std::os::unix::process::ExitStatusExt;
+                                if x.core_dumped() {
+                                    let style = Style::new().bold().on(Color::Red);
+                                    println!(
+                                        "{}",
+                                        style.paint(format!(
+                                            "nushell: oops, process '{commandname}' core dumped"
+                                        ))
+                                    );
+                                    let _ = exit_code_tx.send(Value::Error {
+                                        error: ShellError::ExternalCommand(
+                                            "core dumped".to_string(),
+                                            format!("Child process '{commandname}' core dumped"),
+                                            head,
+                                        ),
+                                    });
+                                    return Ok(());
+                                }
+                            }
                             if let Some(code) = x.code() {
                                 let _ = exit_code_tx.send(Value::Int {
                                     val: code as i64,
