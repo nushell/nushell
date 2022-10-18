@@ -1,5 +1,6 @@
 use crate::filesystem::cd_query::query;
 use crate::{get_current_shell, get_shells};
+use fs_mistrust::Mistrust;
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -141,6 +142,7 @@ impl Command for Cd {
             }
         };
 
+        let checkpath = path.clone();
         let path_value = Value::String { val: path, span };
         let cwd = Value::String {
             val: cwd.to_string_lossy().to_string(),
@@ -172,8 +174,15 @@ impl Command for Cd {
 
         //FIXME: this only changes the current scope, but instead this environment variable
         //should probably be a block that loads the information from the state in the overlay
-
-        stack.add_env_var("PWD".into(), path_value);
+        match Mistrust::new().check_directory(checkpath) {
+            Ok(()) => stack.add_env_var("PWD".into(), path_value),
+            Err(e) => {
+                return Err(ShellError::IOError(format!(
+                    "Permission denied, {}",
+                    e
+                )))
+            }
+        }
         Ok(PipelineData::new(call.head))
     }
 
