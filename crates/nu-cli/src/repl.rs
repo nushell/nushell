@@ -605,7 +605,7 @@ It's been this long since {}Nushell{}'s first commit:
 {}You can disable this banner using the {}config nu{}{} command
 to modify the config.nu file and setting show_banner to false.
 
-let-env config {{
+let-env config = {{
     show_banner: false
     ...
 }}{}
