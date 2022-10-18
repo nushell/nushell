@@ -95,7 +95,7 @@ fn save_stderr_and_stdout_to_same_file() {
             r#"
             let-env FOO = "bar";
             let-env BAZ = "ZZZ";
-            nu -c 'do -i {nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save save_test_5/new-file.txt --stderr save_test_5/new-file.txt"#,
+            nu -c 'do -i {nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ} | save save_test_5/new-file.txt --stderr save_test_5/new-file.txt'"#,
         );
 
         let actual = file_contents(expected_file);
@@ -118,7 +118,7 @@ fn save_stderr_and_stdout_to_diff_file() {
             r#"
             let-env FOO = "bar";
             let-env BAZ = "ZZZ";
-            nu -c "do -i {nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ}" | save save_test_6/log.txt --stderr save_test_6/err.txt"#,
+            nu -c 'do -i {nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ}" | save save_test_6/log.txt --stderr save_test_6/err.txt'"#,
         );
 
         let actual = file_contents(expected_file);
