@@ -82,3 +82,53 @@ fn save_append_will_not_overwrite_content() {
         assert_eq!(actual, "hello world");
     })
 }
+
+#[test]
+fn save_stderr_and_stdout_to_same_file() {
+    Playground::setup("save_test_5", |dirs, sandbox| {
+        sandbox.with_files(vec![]);
+
+        let expected_file = dirs.test().join("new-file.txt");
+
+        nu!(
+            cwd: dirs.root(),
+            r#"
+            let-env FOO = "bar";
+            let-env BAZ = "ZZZ";
+            nu -c "nu --test-bin echo_env FOO; nu --test-bin echo_env_stderr BAZ" |
+            save save_test_5/new-file.txt --stderr save_test_5/new-file.txt"#,
+        );
+
+        let actual = file_contents(expected_file);
+        println!("{}", actual);
+        assert!(actual.contains("bar"));
+        assert!(actual.contains("ZZZ"));
+    })
+}
+
+#[test]
+fn save_stderr_and_stdout_to_diff_file() {
+    Playground::setup("save_test_6", |dirs, sandbox| {
+        sandbox.with_files(vec![]);
+
+        let expected_file = dirs.test().join("log.txt");
+        let expected_stderr_file = dirs.test().join("err.txt");
+
+        nu!(
+            cwd: dirs.root(),
+            r#"
+            let-env FOO = "bar";
+            let-env BAZ = "ZZZ";
+            nu -c "nu --test-bin echo_env FOO; nu --test-bin echo_env_stderr BAZ" |
+            save save_test_6/log.txt --stderr save_test_6/err.txt"#,
+        );
+
+        let actual = file_contents(expected_file);
+        assert!(actual.contains("bar"));
+        assert!(!actual.contains("ZZZ"));
+
+        let actual = file_contents(expected_stderr_file);
+        assert!(actual.contains("ZZZ"));
+        assert!(!actual.contains("bar"));
+    })
+}
