@@ -11,7 +11,7 @@ fn known_external_runs() -> TestResult {
 #[test]
 fn known_external_unknown_flag() -> TestResult {
     fail_test(
-        r#"extern "cargo version" []; cargo version --no-such-flag"#,
+        r#"extern "cargo version" [ --known-flag: string ]; cargo version --no-such-flag"#,
         "command doesn't have flag",
     )
 }

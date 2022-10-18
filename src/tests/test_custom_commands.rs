@@ -39,6 +39,14 @@ fn custom_rest_var() -> TestResult {
 }
 
 #[test]
+fn custom_rest_var_without_flags() -> TestResult {
+    run_test(
+        "def foo [...x] { echo $x }; foo --before value --after | str join ' '",
+        "--before value --after",
+    )
+}
+
+#[test]
 fn def_twice_should_fail() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; def foo [] { "bar" }"#,

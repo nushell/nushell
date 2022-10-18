@@ -794,114 +794,121 @@ pub fn parse_internal_call(
     // Starting at the first argument
     let mut spans_idx = 0;
 
+    // If there's no custom flag to parse, skip the flag parsing
+    let skip_named_flags = !signature.named.iter().any(|f| f.long != "help");
+
     while spans_idx < spans.len() {
         let arg_span = spans[spans_idx];
 
-        // Check if we're on a long flag, if so, parse
-        let (long_name, arg, err) = parse_long_flag(
-            working_set,
-            spans,
-            &mut spans_idx,
-            &signature,
-            expand_aliases_denylist,
-        );
-        if let Some(long_name) = long_name {
-            // We found a long flag, like --bar
-            error = error.or(err);
-            call.add_named((long_name, None, arg));
-            spans_idx += 1;
-            continue;
-        }
-
-        // Check if we're on a short flag or group of short flags, if so, parse
-        let (short_flags, err) = parse_short_flags(
-            working_set,
-            spans,
-            &mut spans_idx,
-            positional_idx,
-            &signature,
-        );
-
-        if let Some(mut short_flags) = short_flags {
-            if short_flags.is_empty() {
-                short_flags.push(Flag {
-                    long: "".to_string(),
-                    short: Some('a'),
-                    arg: None,
-                    required: false,
-                    desc: "".to_string(),
-                    var_id: None,
-                    default_value: None,
-                })
+        if !skip_named_flags {
+            // Check if we're on a long flag, if so, parse
+            let (long_name, arg, err) = parse_long_flag(
+                working_set,
+                spans,
+                &mut spans_idx,
+                &signature,
+                expand_aliases_denylist,
+            );
+            if let Some(long_name) = long_name {
+                // We found a long flag, like --bar
+                error = error.or(err);
+                call.add_named((long_name, None, arg));
+                spans_idx += 1;
+                continue;
             }
-            error = error.or(err);
-            for flag in short_flags {
-                if let Some(arg_shape) = flag.arg {
-                    if let Some(arg) = spans.get(spans_idx + 1) {
-                        let (arg, err) =
-                            parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
-                        error = error.or(err);
 
-                        if flag.long.is_empty() {
-                            if let Some(short) = flag.short {
+            // Check if we're on a short flag or group of short flags, if so, parse
+            let (short_flags, err) = parse_short_flags(
+                working_set,
+                spans,
+                &mut spans_idx,
+                positional_idx,
+                &signature,
+            );
+
+            if let Some(mut short_flags) = short_flags {
+                if short_flags.is_empty() {
+                    short_flags.push(Flag {
+                        long: "".to_string(),
+                        short: Some('a'),
+                        arg: None,
+                        required: false,
+                        desc: "".to_string(),
+                        var_id: None,
+                        default_value: None,
+                    })
+                }
+                error = error.or(err);
+                for flag in short_flags {
+                    if let Some(arg_shape) = flag.arg {
+                        if let Some(arg) = spans.get(spans_idx + 1) {
+                            let (arg, err) =
+                                parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
+                            error = error.or(err);
+
+                            if flag.long.is_empty() {
+                                if let Some(short) = flag.short {
+                                    call.add_named((
+                                        Spanned {
+                                            item: String::new(),
+                                            span: spans[spans_idx],
+                                        },
+                                        Some(Spanned {
+                                            item: short.to_string(),
+                                            span: spans[spans_idx],
+                                        }),
+                                        Some(arg),
+                                    ));
+                                }
+                            } else {
                                 call.add_named((
                                     Spanned {
-                                        item: String::new(),
+                                        item: flag.long.clone(),
                                         span: spans[spans_idx],
                                     },
-                                    Some(Spanned {
-                                        item: short.to_string(),
-                                        span: spans[spans_idx],
-                                    }),
+                                    None,
                                     Some(arg),
                                 ));
                             }
+                            spans_idx += 1;
                         } else {
+                            error = error.or_else(|| {
+                                Some(ParseError::MissingFlagParam(
+                                    arg_shape.to_string(),
+                                    arg_span,
+                                ))
+                            })
+                        }
+                    } else if flag.long.is_empty() {
+                        if let Some(short) = flag.short {
                             call.add_named((
                                 Spanned {
-                                    item: flag.long.clone(),
+                                    item: String::new(),
                                     span: spans[spans_idx],
                                 },
+                                Some(Spanned {
+                                    item: short.to_string(),
+                                    span: spans[spans_idx],
+                                }),
                                 None,
-                                Some(arg),
                             ));
                         }
-                        spans_idx += 1;
                     } else {
-                        error = error.or_else(|| {
-                            Some(ParseError::MissingFlagParam(
-                                arg_shape.to_string(),
-                                arg_span,
-                            ))
-                        })
-                    }
-                } else if flag.long.is_empty() {
-                    if let Some(short) = flag.short {
                         call.add_named((
                             Spanned {
-                                item: String::new(),
+                                item: flag.long.clone(),
                                 span: spans[spans_idx],
                             },
-                            Some(Spanned {
-                                item: short.to_string(),
-                                span: spans[spans_idx],
-                            }),
+                            None,
                             None,
                         ));
                     }
-                } else {
-                    call.add_named((
-                        Spanned {
-                            item: flag.long.clone(),
-                            span: spans[spans_idx],
-                        },
-                        None,
-                        None,
-                    ));
                 }
+                spans_idx += 1;
+                continue;
             }
-            spans_idx += 1;
-            continue;
+
+            error = error.or(err);
         }
 
         // Parse a positional arg if there is one
@@ -964,7 +971,6 @@ pub fn parse_internal_call(
             })
         }
 
-        error = error.or(err);
         spans_idx += 1;
     }
 
