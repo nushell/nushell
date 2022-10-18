@@ -1,6 +1,7 @@
 use crate::completions::{
-    CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, VariableCompletion,
+    ColumnCompletion, CommandCompletion, Completer, CompletionOptions, CustomCompletion,
+    DirectoryCompletion, DotNuCompletion, FileCompletion, FlagCompletion, MatchAlgorithm,
+    VariableCompletion,
 };
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
@@ -131,6 +132,8 @@ impl NuCompleter {
         let (output, _err) = parse(&mut working_set, Some("completer"), &new_line, false, &[]);
 
         for pipeline in output.pipelines.into_iter() {
+            let expressions = pipeline.expressions.clone();
+
             for expr in pipeline.expressions {
                 let flattened: Vec<_> = flatten_expression(&working_set, &expr);
                 let span_offset: usize = alias_offset.iter().sum();
@@ -264,6 +267,21 @@ impl NuCompleter {
                                 } else if prev_expr_str == b"ls" {
                                     let mut completer =
                                         FileCompletion::new(self.engine_state.clone());
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
+                                } else if matches!(&prev_expr_str[..], b"get" | b"select") {
+                                    let mut completer = ColumnCompletion::new(
+                                        expressions,
+                                        self.engine_state.clone(),
+                                        self.stack.clone(),
+                                    );
 
                                     return self.process_completion(
                                         &mut completer,

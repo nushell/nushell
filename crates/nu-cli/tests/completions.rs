@@ -732,3 +732,42 @@ fn filecompletions_triggers_after_cursor() {
 
     match_suggestions(expected_paths, suggestions);
 }
+
+#[test]
+fn column_completions_record() {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let suggestions = completer.complete("{bird: 1, cat: 1, dog: 1} | get ", 32);
+    let expected: Vec<String> = vec!["bird".to_string(), "cat".to_string(), "dog".to_string()];
+
+    match_suggestions(expected, suggestions);
+}
+
+#[test]
+fn column_completions_ls() {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let suggestions = completer.complete("ls | get ", 9);
+    let expected: Vec<String> = vec![
+        "modified".to_string(),
+        "name".to_string(),
+        "size".to_string(),
+        "type".to_string(),
+    ];
+
+    match_suggestions(expected, suggestions);
+}
+
+#[test]
+fn column_completions_list_stream() {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let s = r#""name category is_plugin is_keyword\nif core false true\nlet core false true" | lines | split column -c ' ' | headers | get is"#;
+    let suggestions = completer.complete(s, s.len());
+    let expected: Vec<String> = vec!["is_keyword".to_string(), "is_plugin".to_string()];
+
+    match_suggestions(expected, suggestions);
+}

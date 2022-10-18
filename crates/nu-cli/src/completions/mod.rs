@@ -1,4 +1,5 @@
 mod base;
+mod column_completions;
 mod command_completions;
 mod completer;
 mod completion_options;
@@ -10,6 +11,7 @@ mod flag_completions;
 mod variable_completions;
 
 pub use base::Completer;
+pub use column_completions::ColumnCompletion;
 pub use command_completions::CommandCompletion;
 pub use completer::NuCompleter;
 pub use completion_options::{CompletionOptions, MatchAlgorithm, SortBy};
