@@ -16,6 +16,10 @@ impl Command for RollDown {
         "roll down"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["rotate", "shift", "move", "row"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .named("by", SyntaxShape::Int, "Number of rows to roll", Some('b'))

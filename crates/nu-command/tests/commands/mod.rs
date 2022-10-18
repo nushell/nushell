@@ -24,6 +24,7 @@ mod flatten;
 mod format;
 mod g;
 mod get;
+mod glob;
 mod group_by;
 mod hash_;
 mod headers;

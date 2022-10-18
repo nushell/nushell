@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Block, Call, Expr, Expression, Operator},
     engine::{EngineState, Stack, Visibility},
     Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
-    PipelineData, Range, ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId,
+    PipelineData, Range, RawStream, ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId,
     ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
@@ -699,6 +699,31 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
     } = input
     {
         let exit_code = exit_code.take();
+
+        // Note:
+        // In run-external's implementation detail, the result sender thread
+        // send out stderr message first, then stdout message, then exit_code.
+        //
+        // In this clause, we already make sure that `stdout` is None
+        // But not the case of `stderr`, so if `stderr` is not None
+        // We need to consume stderr message before reading external commands' exit code.
+        //
+        // Or we'll never have a chance to read exit_code if stderr producer produce too much stderr message.
+        // So we consume stderr stream and rebuild it.
+        let stderr = stderr.map(|stderr_stream| {
+            let stderr_ctrlc = stderr_stream.ctrlc.clone();
+            let stderr_span = stderr_stream.span;
+            let stderr_bytes = match stderr_stream.into_bytes() {
+                Err(_) => vec![],
+                Ok(bytes) => bytes.item,
+            };
+            RawStream::new(
+                Box::new(vec![Ok(stderr_bytes)].into_iter()),
+                stderr_ctrlc,
+                stderr_span,
+            )
+        });
+
         match exit_code {
             Some(exit_code_stream) => {
                 let ctrlc = exit_code_stream.ctrlc.clone();

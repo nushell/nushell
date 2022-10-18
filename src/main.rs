@@ -97,13 +97,17 @@ fn take_control(interactive: bool) {
             _ => {
                 // fish also has other heuristics than "too many attempts" for the orphan check, but they're optional
                 if signal::killpg(Pid::from_raw(-shell_pgid.as_raw()), Signal::SIGTTIN).is_err() {
+                    if !interactive {
+                        // that's fine
+                        return;
+                    }
                     eprintln!("ERROR: failed to SIGTTIN ourselves");
                     std::process::exit(1);
                 }
             }
         }
     }
-    if !success {
+    if !success && interactive {
         eprintln!("ERROR: failed take control of the terminal, we might be orphaned");
         std::process::exit(1);
     }

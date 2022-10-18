@@ -822,6 +822,8 @@ fn event_from_record(
         "ctrld" => ReedlineEvent::CtrlD,
         "ctrlc" => ReedlineEvent::CtrlC,
         "enter" => ReedlineEvent::Enter,
+        "submit" => ReedlineEvent::Submit,
+        "submitornewline" => ReedlineEvent::SubmitOrNewline,
         "esc" | "escape" => ReedlineEvent::Esc,
         "up" => ReedlineEvent::Up,
         "down" => ReedlineEvent::Down,

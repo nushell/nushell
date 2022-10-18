@@ -284,12 +284,12 @@ fn source_env_is_scoped() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert!(actual.err.contains("can't run executable"));
+        assert!(actual.err.contains("executable was not found"));
 
         let inp = &[r#"source-env spam.nu"#, r#"nor-similar-to-this"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert!(actual.err.contains("can't run executable"));
+        assert!(actual.err.contains("executable was not found"));
     })
 }

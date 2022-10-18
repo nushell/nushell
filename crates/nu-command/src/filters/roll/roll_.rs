@@ -11,6 +11,10 @@ impl Command for Roll {
         "roll"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["rotate", "shift", "move"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name()).category(Category::Filters)
     }

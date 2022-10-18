@@ -19,6 +19,10 @@ impl Command for ArgMax {
         "Return index for max value in series"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["argmax", "maximum", "most", "largest", "greatest"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_type(Type::Custom("dataframe".into()))

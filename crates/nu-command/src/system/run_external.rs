@@ -10,11 +10,12 @@ use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, 
 use nu_system::ForegroundProcess;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
-use std::sync::atomic::Ordering;
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, SyncSender};
+use std::sync::Arc;
 
 const OUTPUT_BUFFER_SIZE: usize = 1024;
 const OUTPUT_BUFFERS_IN_FLIGHT: usize = 3;
@@ -33,8 +34,8 @@ impl Command for External {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
-            .switch("redirect-stdout", "redirect-stdout", None)
-            .switch("redirect-stderr", "redirect-stderr", None)
+            .switch("redirect-stdout", "redirect stdout to the pipeline", None)
+            .switch("redirect-stderr", "redirect stderr to the pipeline", None)
             .required("command", SyntaxShape::Any, "external command to run")
             .rest("args", SyntaxShape::Any, "arguments for external command")
             .category(Category::System)
@@ -109,15 +110,22 @@ impl Command for External {
             redirect_stderr,
             env_vars: env_vars_str,
         };
-        command.run_with_input(engine_state, stack, input)
+        command.run_with_input(engine_state, stack, input, false)
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Run an external command",
-            example: r#"run-external "echo" "-n" "hello""#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Run an external command",
+                example: r#"run-external "echo" "-n" "hello""#,
+                result: None,
+            },
+            Example {
+                description: "Redirect stdout from an external command into the pipeline",
+                example: r#"run-external --redirect-stdout "echo" "-n" "hello" | split chars"#,
+                result: None,
+            },
+        ]
     }
 }
 
@@ -137,6 +145,7 @@ impl ExternalCommand {
         engine_state: &EngineState,
         stack: &mut Stack,
         input: PipelineData,
+        reconfirm_command_name: bool,
     ) -> Result<PipelineData, ShellError> {
         let head = self.name.span;
 
@@ -255,8 +264,23 @@ impl ExternalCommand {
 
                         let suggestion = suggest_command(&self.name.item, engine_state);
                         let label = match suggestion {
-                            Some(s) => format!("did you mean '{s}'?"),
-                            None => "can't run executable".into(),
+                            Some(s) => {
+                                if reconfirm_command_name {
+                                    format!(
+                                        "'{}' was not found, did you mean '{s}'?",
+                                        self.name.item
+                                    )
+                                } else {
+                                    format!("did you mean '{s}'?")
+                                }
+                            }
+                            None => {
+                                if reconfirm_command_name {
+                                    format!("executable '{}' was not found", self.name.item)
+                                } else {
+                                    "executable was not found".into()
+                                }
+                            }
                         };
 
                         Err(ShellError::ExternalCommand(
@@ -314,55 +338,20 @@ impl ExternalCommand {
                 let redirect_stderr = self.redirect_stderr;
                 let span = self.name.span;
                 let output_ctrlc = ctrlc.clone();
+                let stderr_ctrlc = ctrlc.clone();
                 let (stdout_tx, stdout_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
-                let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
                 let (exit_code_tx, exit_code_rx) = mpsc::channel();
 
+                let stdout = child.as_mut().stdout.take();
+                let stderr = child.as_mut().stderr.take();
+                // If this external is not the last expression, then its output is piped to a channel
+                // and we create a ListStream that can be consumed
+                //
+                // Create two threads: one for redirect stdout message, and wait for child process to complete.
+                // The other may be created when we want to redirect stderr message.
                 std::thread::spawn(move || {
-                    // If this external is not the last expression, then its output is piped to a channel
-                    // and we create a ListStream that can be consumed
-
-                    if redirect_stderr {
-                        let stderr = child.as_mut().stderr.take().ok_or_else(|| {
-                            ShellError::ExternalCommand(
-                                "Error taking stderr from external".to_string(),
-                                "Redirects need access to stderr of an external command"
-                                    .to_string(),
-                                span,
-                            )
-                        })?;
-
-                        // Stderr is read using the Buffer reader. It will do so until there is an
-                        // error or there are no more bytes to read
-                        let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stderr);
-                        while let Ok(bytes) = buf_read.fill_buf() {
-                            if bytes.is_empty() {
-                                break;
-                            }
-
-                            // The Cow generated from the function represents the conversion
-                            // from bytes to String. If no replacements are required, then the
-                            // borrowed value is a proper UTF-8 string. The Owned option represents
-                            // a string where the values had to be replaced, thus marking it as bytes
-                            let bytes = bytes.to_vec();
-                            let length = bytes.len();
-                            buf_read.consume(length);
-
-                            if let Some(ctrlc) = &ctrlc {
-                                if ctrlc.load(Ordering::SeqCst) {
-                                    break;
-                                }
-                            }
-
-                            match stderr_tx.send(bytes) {
-                                Ok(_) => continue,
-                                Err(_) => break,
-                            }
-                        }
-                    }
-
                     if redirect_stdout {
-                        let stdout = child.as_mut().stdout.take().ok_or_else(|| {
+                        let stdout = stdout.ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stdout from external".to_string(),
                                 "Redirects need access to stdout of an external command"
@@ -371,33 +360,7 @@ impl ExternalCommand {
                             )
                         })?;
 
-                        // Stdout is read using the Buffer reader. It will do so until there is an
-                        // error or there are no more bytes to read
-                        let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
-                        while let Ok(bytes) = buf_read.fill_buf() {
-                            if bytes.is_empty() {
-                                break;
-                            }
-
-                            // The Cow generated from the function represents the conversion
-                            // from bytes to String. If no replacements are required, then the
-                            // borrowed value is a proper UTF-8 string. The Owned option represents
-                            // a string where the values had to be replaced, thus marking it as bytes
-                            let bytes = bytes.to_vec();
-                            let length = bytes.len();
-                            buf_read.consume(length);
-
-                            if let Some(ctrlc) = &ctrlc {
-                                if ctrlc.load(Ordering::SeqCst) {
-                                    break;
-                                }
-                            }
-
-                            match stdout_tx.send(bytes) {
-                                Ok(_) => continue,
-                                Err(_) => break,
-                            }
-                        }
+                        read_and_redirect_message(stdout, stdout_tx, ctrlc)
                     }
 
                     match child.as_mut().wait() {
@@ -424,6 +387,24 @@ impl ExternalCommand {
                         }
                     }
                 });
+
+                let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
+                if redirect_stderr {
+                    std::thread::spawn(move || {
+                        let stderr = stderr.ok_or_else(|| {
+                            ShellError::ExternalCommand(
+                                "Error taking stderr from external".to_string(),
+                                "Redirects need access to stderr of an external command"
+                                    .to_string(),
+                                span,
+                            )
+                        })?;
+
+                        read_and_redirect_message(stderr, stderr_tx, stderr_ctrlc);
+                        Ok::<(), ShellError>(())
+                    });
+                }
+
                 let stdout_receiver = ChannelReceiver::new(stdout_rx);
                 let stderr_receiver = ChannelReceiver::new(stderr_rx);
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
@@ -438,11 +419,15 @@ impl ExternalCommand {
                     } else {
                         None
                     },
-                    stderr: Some(RawStream::new(
-                        Box::new(stderr_receiver),
-                        output_ctrlc.clone(),
-                        head,
-                    )),
+                    stderr: if redirect_stderr {
+                        Some(RawStream::new(
+                            Box::new(stderr_receiver),
+                            output_ctrlc.clone(),
+                            head,
+                        ))
+                    } else {
+                        None
+                    },
                     exit_code: Some(ListStream::from_stream(
                         Box::new(exit_code_receiver),
                         output_ctrlc,
@@ -695,6 +680,46 @@ fn remove_quotes(input: String) -> String {
             .replace(r#"\""#, "\""),
         (Some('\''), true) => chars.collect::<String>().replacen('\'', "", 1),
         _ => input,
+    }
+}
+
+// read message from given `reader`, and send out through `sender`.
+//
+// `ctrlc` is used to control the process, if ctrl-c is pressed, the read and redirect
+// process will be breaked.
+fn read_and_redirect_message<R>(
+    reader: R,
+    sender: SyncSender<Vec<u8>>,
+    ctrlc: Option<Arc<AtomicBool>>,
+) where
+    R: Read,
+{
+    // read using the BufferReader. It will do so until there is an
+    // error or there are no more bytes to read
+    let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
+    while let Ok(bytes) = buf_read.fill_buf() {
+        if bytes.is_empty() {
+            break;
+        }
+
+        // The Cow generated from the function represents the conversion
+        // from bytes to String. If no replacements are required, then the
+        // borrowed value is a proper UTF-8 string. The Owned option represents
+        // a string where the values had to be replaced, thus marking it as bytes
+        let bytes = bytes.to_vec();
+        let length = bytes.len();
+        buf_read.consume(length);
+
+        if let Some(ctrlc) = &ctrlc {
+            if ctrlc.load(Ordering::SeqCst) {
+                break;
+            }
+        }
+
+        match sender.send(bytes) {
+            Ok(_) => continue,
+            Err(_) => break,
+        }
     }
 }
 

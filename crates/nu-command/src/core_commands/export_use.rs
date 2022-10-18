@@ -53,4 +53,8 @@ impl Command for ExportUse {
             }),
         }]
     }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["reexport", "import", "module"]
+    }
 }
