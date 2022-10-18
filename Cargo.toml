@@ -52,7 +52,7 @@ nu-system = { path = "./crates/nu-system", version = "0.70.0" }
 nu-table = { path = "./crates/nu-table", version = "0.70.0"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.70.0"  }
 nu-utils = { path = "./crates/nu-utils", version = "0.70.0"  }
-reedline = { version = "0.13.0", features = ["bashisms", "sqlite"]}
+reedline = { git = "https://github.com/dandavison/reedline.git", branch="tab-inline-completion", features = ["bashisms", "sqlite"]}
 
 rayon = "1.5.1"
 is_executable = "1.0.1"
