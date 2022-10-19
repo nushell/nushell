@@ -473,3 +473,39 @@ fn compound_where_paren() {
 
     assert_eq!(actual.out, r#"[{"a": 2,"b": 1},{"a": 2,"b": 2}]"#);
 }
+
+#[test]
+fn adding_lists() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            [1 3] ++ [5 6] | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "[1, 3, 5, 6]");
+}
+
+#[test]
+fn adding_list_and_value() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            [1 3] ++ 5 | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "[1, 3, 5]");
+}
+
+#[test]
+fn adding_value_and_list() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1 ++ [3 5] | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "[1, 3, 5]");
+}

@@ -68,6 +68,35 @@ pub fn math_result_type(
                     )
                 }
             },
+            Operator::Append => match(&lhs.ty, &rhs.ty) {
+                (Type::List(a), Type::List(b)) => {
+                    if a == b {
+                        (Type::List(a.clone()), None)
+                    } else {
+                        (Type::List(Box::new(Type::Any)), None)
+                    }
+                }
+                (Type::List(a), b) | (b, Type::List(a)) => {
+                    if a == &Box::new(b.clone()) {
+                        (Type::List(a.clone()), None)
+                    } else {
+                        (Type::List(Box::new(Type::Any)), None)
+                    }
+                }
+                _ => {
+                    *op = Expression::garbage(op.span);
+                    (
+                        Type::Any,
+                        Some(ParseError::UnsupportedOperation(
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
+                    )
+                }
+            },
             Operator::Minus => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),

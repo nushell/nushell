@@ -4273,6 +4273,7 @@ pub fn parse_operator(
         b"=~" => Operator::RegexMatch,
         b"!~" => Operator::NotRegexMatch,
         b"+" => Operator::Plus,
+        b"++" => Operator::Append,
         b"-" => Operator::Minus,
         b"*" => Operator::Multiply,
         b"/" => Operator::Divide,

@@ -1681,6 +1681,43 @@ impl Value {
         }
     }
 
+    pub fn append(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
+                let mut lhs = lhs.clone();
+                let mut rhs = rhs.clone();
+                lhs.append(&mut rhs);
+                Ok(Value::List {
+                    vals: lhs,
+                    span,
+                })
+            }
+            (Value::List { vals: lhs, .. }, val) => {
+                let mut lhs = lhs.clone();
+                lhs.push(val.clone());
+                Ok(Value::List {
+                    vals: lhs,
+                    span,
+                })
+            }
+            (val, Value::List { vals: rhs, .. }) => {
+                let mut rhs = rhs.clone();
+                rhs.insert(0, val.clone());
+                Ok(Value::List {
+                    vals: rhs,
+                    span,
+                })
+            } 
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            })
+        }
+    }
+
     pub fn sub(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {

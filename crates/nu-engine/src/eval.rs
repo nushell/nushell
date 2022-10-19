@@ -385,6 +385,10 @@ pub fn eval_expression(
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.add(op_span, &rhs, expr.span)
                 }
+                Operator::Append => {
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    lhs.append(op_span, &rhs, expr.span)
+                }
                 Operator::Minus => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.sub(op_span, &rhs, expr.span)
