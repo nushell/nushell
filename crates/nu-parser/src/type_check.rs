@@ -68,7 +68,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Append => match(&lhs.ty, &rhs.ty) {
+            Operator::Append => match (&lhs.ty, &rhs.ty) {
                 (Type::List(a), Type::List(b)) => {
                     if a == b {
                         (Type::List(a.clone()), None)
