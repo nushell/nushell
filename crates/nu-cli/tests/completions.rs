@@ -738,26 +738,82 @@ fn column_completions_record() {
     let (_, _, engine, stack) = new_engine();
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
-    let suggestions = completer.complete("{bird: 1, cat: 1, dog: 1} | get ", 32);
-    let expected: Vec<String> = vec!["bird".to_string(), "cat".to_string(), "dog".to_string()];
+    let s = "{c: 2, c++: 4, rust: 20} | get c";
+    let suggestions = completer.complete(s, s.len());
+    let expected: Vec<String> = vec!["c".to_string(), "c++".to_string()];
 
     match_suggestions(expected, suggestions);
 }
 
 #[test]
-fn column_completions_ls() {
+fn column_completions_echo() {
     let (_, _, engine, stack) = new_engine();
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
-    let suggestions = completer.complete("ls | get ", 9);
+    let s = "echo {c: 2, c++: 4, rust: 20} | get c";
+    let suggestions = completer.complete(s, s.len());
+    let expected: Vec<String> = vec!["c".to_string(), "c++".to_string()];
+
+    match_suggestions(expected, suggestions);
+}
+
+#[test]
+fn column_completions_eval_var() {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let s = "$nu | get os-info | select ";
+    let suggestions = completer.complete(s, s.len());
     let expected: Vec<String> = vec![
-        "modified".to_string(),
+        "arch".to_string(),
+        "family".to_string(),
+        "kernel_version".to_string(),
         "name".to_string(),
-        "size".to_string(),
-        "type".to_string(),
     ];
 
     match_suggestions(expected, suggestions);
+}
+
+#[test]
+fn column_completions_interpolation() {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let s = r#"$"($nu.os-info)" | from nuon | get "#;
+    let suggestions = completer.complete(s, s.len());
+
+    match_suggestions(vec![], suggestions);
+}
+
+#[test]
+fn column_completions_side_effect() {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let s = "do { touch a; $nu } | get ";
+    let suggestions = completer.complete(s, s.len());
+
+    match_suggestions(vec![], suggestions);
+}
+
+#[test]
+fn column_completions_external_command() {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let file = nu_test_support::fs::fixtures()
+        .join("formats")
+        .join("sample.ini");
+
+    let s = if cfg!(windows) {
+        format!("^type {} | from ini | get ", file.display())
+    } else {
+        format!("^cat {} | from ini | get ", file.display())
+    };
+
+    let suggestions = completer.complete(&s, s.len());
+
+    match_suggestions(vec![], suggestions);
 }
 
 #[test]
