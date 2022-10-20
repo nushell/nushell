@@ -185,29 +185,17 @@ impl PipelineData {
             PipelineData::ExternalStream {
                 stdout: Some(s), ..
             } => {
-                let mut items = vec![];
+                let mut output = String::new();
 
                 for val in s {
                     match val {
-                        Ok(val) => {
-                            items.push(val);
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
+                        Ok(val) => match val.as_string() {
+                            Ok(s) => output.push_str(&s),
+                            Err(err) => return Err(err),
+                        },
+                        Err(e) => return Err(e),
                     }
                 }
-
-                let mut output = String::new();
-                for item in items {
-                    match item.as_string() {
-                        Ok(s) => output.push_str(&s),
-                        Err(err) => {
-                            return Err(err);
-                        }
-                    }
-                }
-
                 Ok(output)
             }
         }

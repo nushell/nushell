@@ -70,7 +70,7 @@ fn ignore_error_with_too_much_stderr_not_hang_nushell() {
         let bytes: usize = 81920;
         let mut large_file_body = String::with_capacity(bytes);
         for _ in 0..bytes {
-            large_file_body.push_str("a");
+            large_file_body.push('a');
         }
         sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
 
@@ -95,7 +95,7 @@ fn ignore_error_with_too_much_stdout_not_hang_nushell() {
         let bytes: usize = 81920;
         let mut large_file_body = String::with_capacity(bytes);
         for _ in 0..bytes {
-            large_file_body.push_str("a");
+            large_file_body.push('a');
         }
         sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
 
@@ -125,10 +125,10 @@ fn ignore_error_with_both_stdout_stderr_messages_not_hang_nushell() {
         "#;
             let mut expect_body = String::new();
             for _ in 0..40960 {
-                expect_body.push_str("=");
+                expect_body.push('=');
             }
 
-            sandbox.with_files(vec![FileWithContent("test.sh", &script_body)]);
+            sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
 
             // check for stdout
             let actual = nu!(

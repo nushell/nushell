@@ -146,7 +146,7 @@ fn external_with_too_much_stdout_should_not_hang_nu() {
         let bytes: usize = 81920;
         let mut large_file_body = String::with_capacity(bytes);
         for _ in 0..bytes {
-            large_file_body.push_str("a");
+            large_file_body.push('a');
         }
         sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
 

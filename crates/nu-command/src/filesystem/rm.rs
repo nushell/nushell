@@ -202,6 +202,7 @@ fn rm(
 
     let path = current_dir(engine_state, stack)?;
 
+    let (mut target_exists, mut empty_span) = (false, call.head);
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
     for target in targets {
         if path.to_string_lossy() == target.item
@@ -230,6 +231,8 @@ fn rm(
         ) {
             Ok(files) => {
                 for file in files {
+                    target_exists = true;
+
                     match file {
                         Ok(ref f) => {
                             // It is not appropriate to try and remove the
@@ -253,12 +256,17 @@ fn rm(
                         }
                     }
                 }
+
+                // Target doesn't exists
+                if !target_exists && empty_span.eq(&call.head) {
+                    empty_span = target.span;
+                }
             }
             Err(e) => {
                 return Err(ShellError::GenericError(
                     e.to_string(),
                     e.to_string(),
-                    Some(call.head),
+                    Some(target.span),
                     None,
                     Vec::new(),
                 ))
@@ -270,7 +278,7 @@ fn rm(
         return Err(ShellError::GenericError(
             "No valid paths".into(),
             "no valid paths".into(),
-            Some(call.head),
+            Some(empty_span),
             None,
             Vec::new(),
         ));
