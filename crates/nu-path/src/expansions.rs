@@ -2,6 +2,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use super::dots::{expand_dots, expand_ndots};
+use super::helpers;
 use super::tilde::expand_tilde;
 
 // Join a path relative to another path. Paths starting with tilde are considered as absolute.
@@ -30,7 +31,7 @@ fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
     let path = expand_tilde(path);
     let path = expand_ndots(path);
 
-    dunce::canonicalize(path)
+    helpers::canonicalize(&path)
 }
 
 /// Resolve all symbolic links and all components (tilde, ., .., ...+) and return the path in its

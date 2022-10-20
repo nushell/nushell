@@ -1,5 +1,7 @@
 use std::path::{is_separator, Component, Path, PathBuf};
 
+use super::helpers;
+
 const EXPAND_STR: &str = if cfg!(windows) { r"..\" } else { "../" };
 
 fn handle_dots_push(string: &mut String, count: u8) {
@@ -108,7 +110,7 @@ pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
         _ => result.push(component),
     });
 
-    dunce::simplified(&result).to_path_buf()
+    helpers::simiplified(&result)
 }
 
 #[cfg(test)]
