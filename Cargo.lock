@@ -79,9 +79,9 @@ dependencies = [
 
 [[package]]
 name = "ansi-str"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "132f03d534a71638c1be79251027872d5dda24aa5eeeb6886960351f3087bdde"
+checksum = "84252a7e1a0df81706ce70bbad85ed1e4916448a4093ccd52dd98c6a44a477cd"
 dependencies = [
  "ansitok",
 ]
@@ -97,11 +97,12 @@ dependencies = [
 
 [[package]]
 name = "ansitok"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2c6eb31f539d8fc1df948eb26452d6c781be4c9883663e7acb258644b71d5b1"
+checksum = "220044e6a1bb31ddee4e3db724d29767f352de47445a6cd75e1a173142136c83"
 dependencies = [
  "nom 7.1.1",
+ "vte",
 ]
 
 [[package]]
@@ -1929,9 +1930,9 @@ checksum = "47631885425c482fcf2dc4b182fc973c3c5b81a8f43a028055559bd24cccfa6e"
 
 [[package]]
 name = "json_to_table"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fe97d58ab96691e90f26c10ecc1fc098a4c072714d2d126cc8a2234b89f3456"
+checksum = "408f09e42613f7a9902ecf2f30bcd053cf9f5668d0b1493ae1669070338d661b"
 dependencies = [
  "serde_json",
  "tabled",
@@ -3234,15 +3235,14 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
 name = "papergrid"
-version = "0.6.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae9bed2481d5ab6e31056945f4704ca7348a3858148c30725b8946b7a7818498"
+checksum = "1526bb6aa9f10ec339fb10360f22c57edf81d5678d0278e93bc12a47ffbe4b01"
 dependencies = [
  "ansi-str",
  "ansitok",
  "bytecount",
  "fnv",
- "strip-ansi-escapes",
  "unicode-width",
 ]
 
@@ -4825,7 +4825,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "011cbb39cf7c1f62871aea3cc46e5817b0937b49e9447370c93cacbe93a766d8"
 dependencies = [
- "vte 0.10.1",
+ "vte",
 ]
 
 [[package]]
@@ -4958,15 +4958,14 @@ dependencies = [
 
 [[package]]
 name = "tabled"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c8a1ea336f84dc7dfae1025b73904551b3c6a42347f4243387e990f94325895"
+checksum = "56c3ee73732ffceaea7b8f6b719ce3bb17f253fa27461ffeaf568ebd0cdb4b85"
 dependencies = [
  "ansi-str",
  "papergrid",
  "tabled_derive",
  "unicode-width",
- "vte 0.11.0",
 ]
 
 [[package]]
@@ -5486,17 +5485,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6cbce692ab4ca2f1f3047fcf732430249c0e971bfdd2b234cf2c47ad93af5983"
 dependencies = [
  "arrayvec 0.5.2",
- "utf8parse",
- "vte_generate_state_changes",
-]
-
-[[package]]
-name = "vte"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aae21c12ad2ec2d168c236f369c38ff332bc1134f7246350dca641437365045"
-dependencies = [
- "arrayvec 0.7.2",
  "utf8parse",
  "vte_generate_state_changes",
 ]
