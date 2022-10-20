@@ -124,7 +124,8 @@ impl CustomValue for ExprDb {
             | Operator::ShiftLeft
             | Operator::ShiftRight
             | Operator::StartsWith
-            | Operator::EndsWith => Err(ShellError::UnsupportedOperator(operator, op)),
+            | Operator::EndsWith
+            | Operator::Append => Err(ShellError::UnsupportedOperator(operator, op)),
         }?;
 
         let expr = Expr::BinaryOp {

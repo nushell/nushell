@@ -47,7 +47,8 @@ impl Expression {
                     | Operator::Equal
                     | Operator::NotEqual
                     | Operator::In
-                    | Operator::NotIn => 80,
+                    | Operator::NotIn
+                    | Operator::Append => 80,
                     Operator::BitAnd => 75,
                     Operator::BitXor => 70,
                     Operator::BitOr => 60,
