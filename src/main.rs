@@ -292,7 +292,8 @@ fn main() -> Result<()> {
             if let Some(testbin) = &binary_args.testbin {
                 // Call out to the correct testbin
                 match testbin.item.as_str() {
-                    "echo_env" => test_bins::echo_env(),
+                    "echo_env" => test_bins::echo_env(true),
+                    "echo_env_stderr" => test_bins::echo_env(false),
                     "cococo" => test_bins::cococo(),
                     "meow" => test_bins::meow(),
                     "meowb" => test_bins::meowb(),

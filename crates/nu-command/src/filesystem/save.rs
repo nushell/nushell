@@ -2,8 +2,10 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Value,
 };
+use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
@@ -35,6 +37,12 @@ impl Command for Save {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("save")
             .required("filename", SyntaxShape::Filepath, "the filename to use")
+            .named(
+                "stderr",
+                SyntaxShape::Filepath,
+                "the filename used to save stderr, only works with `-r` flag",
+                Some('e'),
+            )
             .switch("raw", "save file as raw binary", Some('r'))
             .switch("append", "append input to the end of the file", Some('a'))
             .category(Category::FileSystem)
@@ -79,6 +87,35 @@ impl Command for Save {
                     },
                     None,
                 ));
+            }
+        };
+        let stderr_path = call.get_flag::<Spanned<String>>(engine_state, stack, "stderr")?;
+        let stderr_file = match stderr_path {
+            None => None,
+            Some(stderr_path) => {
+                let stderr_span = stderr_path.span;
+                let stderr_path = Path::new(&stderr_path.item);
+                if stderr_path == path {
+                    Some(file.try_clone()?)
+                } else {
+                    match std::fs::File::create(stderr_path) {
+                        Ok(file) => Some(file),
+                        Err(err) => {
+                            return Ok(PipelineData::Value(
+                                Value::Error {
+                                    error: ShellError::GenericError(
+                                        "Permission denied".into(),
+                                        err.to_string(),
+                                        Some(stderr_span),
+                                        None,
+                                        Vec::new(),
+                                    ),
+                                },
+                                None,
+                            ))
+                        }
+                    }
+                }
             }
         };
 
@@ -148,33 +185,37 @@ impl Command for Save {
             match input {
                 PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(span)),
                 PipelineData::ExternalStream {
-                    stdout: Some(mut stream),
+                    stdout: Some(stream),
+                    stderr,
                     ..
                 } => {
-                    let mut writer = BufWriter::new(file);
+                    // delegate a thread to redirect stderr to result.
+                    let handler = stderr.map(|stderr_stream| match stderr_file {
+                        Some(stderr_file) => std::thread::spawn(move || {
+                            stream_to_file(stderr_stream, stderr_file, span)
+                        }),
+                        None => std::thread::spawn(move || {
+                            let _ = stderr_stream.into_bytes();
+                            Ok(PipelineData::new(span))
+                        }),
+                    });
 
-                    stream
-                        .try_for_each(move |result| {
-                            let buf = match result {
-                                Ok(v) => match v {
-                                    Value::String { val, .. } => val.into_bytes(),
-                                    Value::Binary { val, .. } => val,
-                                    _ => {
-                                        return Err(ShellError::UnsupportedInput(
-                                            format!("{:?} not supported", v.get_type()),
-                                            v.span()?,
-                                        ));
-                                    }
-                                },
-                                Err(err) => return Err(err),
-                            };
-
-                            if let Err(err) = writer.write(&buf) {
-                                return Err(ShellError::IOError(err.to_string()));
+                    let res = stream_to_file(stream, file, span);
+                    if let Some(h) = handler {
+                        match h.join() {
+                            Err(err) => {
+                                return Err(ShellError::ExternalCommand(
+                                    "Fail to receive external commands stderr message".to_string(),
+                                    format!("{err:?}"),
+                                    span,
+                                ))
                             }
-                            Ok(())
-                        })
-                        .map(|_| PipelineData::new(span))
+                            Ok(res) => res,
+                        }?;
+                        res
+                    } else {
+                        res
+                    }
                 }
                 input => match input.into_value(span) {
                     Value::String { val, .. } => {
@@ -237,6 +278,47 @@ impl Command for Save {
                 example: r#"echo { a: 1, b: 2 } | save foo.json"#,
                 result: None,
             },
+            Example {
+                description: "Save a running program's stderr to foo.txt",
+                example: r#"do -i {} | save foo.txt --stderr foo.txt"#,
+                result: None,
+            },
+            Example {
+                description: "Save a running program's stderr to separate file",
+                example: r#"do -i {} | save foo.txt --stderr bar.txt"#,
+                result: None,
+            },
         ]
     }
+}
+
+fn stream_to_file(
+    mut stream: RawStream,
+    file: File,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
+    let mut writer = BufWriter::new(file);
+
+    stream
+        .try_for_each(move |result| {
+            let buf = match result {
+                Ok(v) => match v {
+                    Value::String { val, .. } => val.into_bytes(),
+                    Value::Binary { val, .. } => val,
+                    _ => {
+                        return Err(ShellError::UnsupportedInput(
+                            format!("{:?} not supported", v.get_type()),
+                            v.span()?,
+                        ));
+                    }
+                },
+                Err(err) => return Err(err),
+            };
+
+            if let Err(err) = writer.write(&buf) {
+                return Err(ShellError::IOError(err.to_string()));
+            }
+            Ok(())
+        })
+        .map(|_| PipelineData::new(span))
 }
