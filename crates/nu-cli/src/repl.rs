@@ -41,7 +41,6 @@ pub fn evaluate_repl(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     nushell_path: &str,
-    is_perf_true: bool,
     prerun_command: Option<Spanned<String>>,
 ) -> Result<()> {
     use reedline::{FileBackedHistory, Reedline, Signal};
@@ -60,14 +59,12 @@ pub fn evaluate_repl(
 
     let mut nu_prompt = NushellPrompt::new();
 
-    if is_perf_true {
-        info!(
-            "translate environment vars {}:{}:{}",
-            file!(),
-            line!(),
-            column!()
-        );
-    }
+    info!(
+        "translate environment vars {}:{}:{}",
+        file!(),
+        line!(),
+        column!()
+    );
 
     // Translate environment variables from Strings to Values
     if let Some(e) = convert_env_values(engine_state, stack) {
@@ -92,18 +89,14 @@ pub fn evaluate_repl(
         },
     );
 
-    if is_perf_true {
-        info!(
-            "load config initially {}:{}:{}",
-            file!(),
-            line!(),
-            column!()
-        );
-    }
+    info!(
+        "load config initially {}:{}:{}",
+        file!(),
+        line!(),
+        column!()
+    );
 
-    if is_perf_true {
-        info!("setup reedline {}:{}:{}", file!(), line!(), column!());
-    }
+    info!("setup reedline {}:{}:{}", file!(), line!(), column!());
 
     let mut line_editor = Reedline::create();
 
@@ -121,9 +114,7 @@ pub fn evaluate_repl(
         engine_state.config.history_file_format,
     );
     if let Some(history_path) = history_path.as_deref() {
-        if is_perf_true {
-            info!("setup history {}:{}:{}", file!(), line!(), column!());
-        }
+        info!("setup history {}:{}:{}", file!(), line!(), column!());
 
         let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
             HistoryFileFormat::PlainText => Box::new(
@@ -173,14 +164,12 @@ pub fn evaluate_repl(
     }
 
     loop {
-        if is_perf_true {
-            info!(
-                "load config each loop {}:{}:{}",
-                file!(),
-                line!(),
-                column!()
-            );
-        }
+        info!(
+            "load config each loop {}:{}:{}",
+            file!(),
+            line!(),
+            column!()
+        );
 
         let cwd = get_guaranteed_cwd(engine_state, stack);
 
@@ -201,15 +190,11 @@ pub fn evaluate_repl(
 
         let config = engine_state.get_config();
 
-        if is_perf_true {
-            info!("setup colors {}:{}:{}", file!(), line!(), column!());
-        }
+        info!("setup colors {}:{}:{}", file!(), line!(), column!());
 
         let color_hm = get_color_config(config);
 
-        if is_perf_true {
-            info!("update reedline {}:{}:{}", file!(), line!(), column!());
-        }
+        info!("update reedline {}:{}:{}", file!(), line!(), column!());
         let engine_reference = std::sync::Arc::new(engine_state.clone());
         line_editor = line_editor
             .with_highlighter(Box::new(NuHighlighter {
@@ -266,18 +251,14 @@ pub fn evaluate_repl(
         };
 
         if config.sync_history_on_enter {
-            if is_perf_true {
-                info!("sync history {}:{}:{}", file!(), line!(), column!());
-            }
+            info!("sync history {}:{}:{}", file!(), line!(), column!());
 
             if let Err(e) = line_editor.sync_history() {
                 warn!("Failed to sync history: {}", e);
             }
         }
 
-        if is_perf_true {
-            info!("setup keybindings {}:{}:{}", file!(), line!(), column!());
-        }
+        info!("setup keybindings {}:{}:{}", file!(), line!(), column!());
 
         // Changing the line editor based on the found keybindings
         line_editor = match create_keybindings(config) {
@@ -301,9 +282,7 @@ pub fn evaluate_repl(
             }
         };
 
-        if is_perf_true {
-            info!("prompt_update {}:{}:{}", file!(), line!(), column!());
-        }
+        info!("prompt_update {}:{}:{}", file!(), line!(), column!());
 
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
@@ -323,19 +302,16 @@ pub fn evaluate_repl(
         }
 
         let config = engine_state.get_config();
-        let prompt =
-            prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt, is_perf_true);
+        let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
 
         entry_num += 1;
 
-        if is_perf_true {
-            info!(
-                "finished setup, starting repl {}:{}:{}",
-                file!(),
-                line!(),
-                column!()
-            );
-        }
+        info!(
+            "finished setup, starting repl {}:{}:{}",
+            file!(),
+            line!(),
+            column!()
+        );
 
         let input = line_editor.read_line(prompt);
         let shell_integration = config.shell_integration;

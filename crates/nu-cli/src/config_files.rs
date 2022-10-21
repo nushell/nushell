@@ -23,7 +23,6 @@ pub fn read_plugin_file(
     stack: &mut Stack,
     plugin_file: Option<Spanned<String>>,
     storage_path: &str,
-    is_perf_true: bool,
 ) {
     // Reading signatures from signature file
     // The plugin.nu file stores the parsed signature collected from each registered plugin
@@ -44,9 +43,7 @@ pub fn read_plugin_file(
         }
     }
 
-    if is_perf_true {
-        info!("read_plugin_file {}:{}:{}", file!(), line!(), column!());
-    }
+    info!("read_plugin_file {}:{}:{}", file!(), line!(), column!());
 }
 
 #[cfg(feature = "plugin")]
