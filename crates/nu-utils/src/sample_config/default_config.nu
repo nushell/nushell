@@ -173,6 +173,7 @@ let dark_theme = {
     shape_record: cyan_bold
     shape_block: blue_bold
     shape_filepath: cyan
+    shape_directory: cyan
     shape_globpattern: cyan_bold
     shape_variable: purple
     shape_flag: blue_bold
@@ -224,6 +225,7 @@ let light_theme = {
     shape_record: cyan_bold
     shape_block: blue_bold
     shape_filepath: cyan
+    shape_directory: cyan
     shape_globpattern: cyan_bold
     shape_variable: purple
     shape_flag: blue_bold
