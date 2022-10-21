@@ -114,4 +114,11 @@ impl TableTheme {
             theme: Style::blank().into(),
         }
     }
+
+    pub fn has_top_line(&self) -> bool {
+        self.theme.get_top().is_some()
+            || self.theme.get_top_intersection().is_some()
+            || self.theme.get_top_left().is_some()
+            || self.theme.get_top_right().is_some()
+    }
 }
