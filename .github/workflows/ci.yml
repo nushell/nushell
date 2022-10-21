@@ -20,10 +20,10 @@ jobs:
       NUSHELL_CARGO_TARGET: ci
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
         # makes ci use rust-toolchain.toml
         # with:
         #   profile: minimal
@@ -31,18 +31,18 @@ jobs:
         #   override: true
         #   components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2.0.1
         with:
           key: "v2" # increment this to bust the cache if needed
 
       - name: Rustfmt
-        uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1.0.1
         with:
           command: fmt
           args: --all -- --check
 
       - name: Clippy
-        uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1.0.1
         with:
           command: clippy
           args: --features=extra --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
@@ -72,22 +72,22 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
         # makes ci use rust-toolchain.toml
         # with:
         #   profile: minimal
         #   toolchain: ${{ matrix.rust }}
         #   override: true
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2.0.1
         with:
           key: ${{ matrix.style }}v3 # increment this to bust the cache if needed
 
       - name: Tests
-        uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1.0.1
         with:
           command: test
           args: --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
@@ -108,22 +108,22 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
         # makes ci use rust-toolchain.toml
         # with:
         #   profile: minimal
         #   toolchain: ${{ matrix.rust }}
         #   override: true
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2.0.1
         with:
           key: "2" # increment this to bust the cache if needed
 
       - name: Install Nushell
-        uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1.0.1
         with:
           command: install
           args: --path=. --profile ci --no-default-features
@@ -159,10 +159,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
         # makes ci use rust-toolchain.toml
         # with:
         #   profile: minimal
@@ -170,13 +170,13 @@ jobs:
         #   override: true
 
       - name: Clippy
-        uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1.0.1
         with:
           command: clippy
           args: --package nu_plugin_* ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
       - name: Tests
-        uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1.0.1
         with:
           command: test
           args: --profile ci --package nu_plugin_*
