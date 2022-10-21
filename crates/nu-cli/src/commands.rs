@@ -15,7 +15,6 @@ pub fn evaluate_commands(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     input: PipelineData,
-    is_perf_true: bool,
     table_mode: Option<Value>,
 ) -> Result<Option<i64>> {
     // Translate environment variables from Strings to Values
@@ -68,9 +67,7 @@ pub fn evaluate_commands(
         }
     };
 
-    if is_perf_true {
-        info!("evaluate {}:{}:{}", file!(), line!(), column!());
-    }
+    info!("evaluate {}:{}:{}", file!(), line!(), column!());
 
     Ok(exit_code)
 }
