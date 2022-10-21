@@ -1236,6 +1236,8 @@ impl Iterator for PagingTableCreator {
             } => self.build_extended(&batch, *limit, *flatten, flatten_separator.clone()),
         };
 
+        self.row_offset += idx;
+
         match table {
             Ok(Some(table)) => Some(Ok(table.as_bytes().to_vec())),
             Err(err) => Some(Err(err)),
