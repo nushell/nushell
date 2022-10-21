@@ -439,6 +439,7 @@ fn build_expanded_table(
         }
 
         let is_limited = matches!(expand_limit, Some(0));
+        let mut is_expanded = false;
         let value = if is_limited {
             value_to_styled_string(&value, 0, config, &color_hm).0
         } else {
@@ -469,6 +470,7 @@ fn build_expanded_table(
 
                     let result =
                         table.draw_table(config, &color_hm, alignments, &theme, remaining_width);
+                    is_expanded = true;
                     match result {
                         Some(result) => result,
                         None => return Ok(None),
@@ -481,6 +483,14 @@ fn build_expanded_table(
                 }
             }
         };
+
+        // we want to have a key being aligned to 2nd line,
+        // we could use Padding for it but,
+        // the easiest way to do so is just push a new_line char before
+        let mut key = key;
+        if !key.is_empty() && is_expanded && theme.has_top_line() {
+            key.insert(0, '\n');
+        }
 
         let key = Value::String {
             val: key,
