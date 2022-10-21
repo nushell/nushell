@@ -1,3 +1,4 @@
+use log::info;
 use procfs::process::{FDInfo, Io, Process, Stat, Status, TasksIter};
 use procfs::{ProcError, ProcessCgroup};
 use std::collections::HashMap;
@@ -95,19 +96,6 @@ pub fn collect_proc(interval: Duration, with_thread: bool) -> Vec<ProcessInfo> {
                 }
             }
             base_procs.push((proc.pid(), proc, io, time));
-            // match proc {
-            //     Ok(p) => {
-            //         let io = p.io().ok();
-            //         let time = Instant::now();
-            //         if with_thread {
-            //             if let Ok(iter) = p.tasks() {
-            //                 collect_task(iter, &mut base_tasks);
-            //             }
-            //         }
-            //         base_procs.push((p.pid(), p, io, time));
-            //     }
-            //     Err(_) => {}
-            // }
         }
     }
 
@@ -115,14 +103,11 @@ pub fn collect_proc(interval: Duration, with_thread: bool) -> Vec<ProcessInfo> {
 
     for (pid, prev_proc, prev_io, prev_time) in base_procs {
         let curr_proc_pid = pid;
-        let prev_proc_pid = prev_proc.pid();
-        let curr_proc = match Process::new(curr_proc_pid) {
-            Ok(p) => p,
-            Err(_) => return Vec::<ProcessInfo>::new(),
-        };
-        let prev_proc = match Process::new(prev_proc_pid) {
-            Ok(p) => p,
-            Err(_) => return Vec::<ProcessInfo>::new(),
+        let curr_proc = if let Ok(p) = Process::new(curr_proc_pid) {
+            p
+        } else {
+            info!("failed to retrieve info for pid={curr_proc_pid}, process probably died between snapshots");
+            continue;
         };
 
         let curr_io = curr_proc.io().ok();
@@ -261,6 +246,10 @@ impl ProcessInfo {
         }
     }
 
+    // FIXME: I think these calculations are totally broken and cpu_usage will always return zero.
+    // As I understand it, the underlying procfs::process::Process is more like a handle to a process
+    // than a snapshot in time. So we're trying to get the delta in CPU time over 100ms, but we're actually
+    // getting the delta over a few nanoseconds (which is almost always zero)
     /// CPU usage as a percent of total
     pub fn cpu_usage(&self) -> f64 {
         let curr_time = match self.curr_proc.stat() {
