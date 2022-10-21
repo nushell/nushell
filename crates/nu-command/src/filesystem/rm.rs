@@ -231,10 +231,12 @@ fn rm(
         ) {
             Ok(files) => {
                 for file in files {
-                    target_exists = true;
-
                     match file {
                         Ok(ref f) => {
+                            if !target_exists {
+                                target_exists = true;
+                            }
+
                             // It is not appropriate to try and remove the
                             // current directory or its parent when using
                             // glob patterns.
