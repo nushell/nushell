@@ -179,6 +179,7 @@ let dark_theme = {
     shape_flag: blue_bold
     shape_custom: green
     shape_nothing: light_cyan
+    shape_matching_brackets: { attr: u }
 }
 
 let light_theme = {
@@ -231,6 +232,7 @@ let light_theme = {
     shape_flag: blue_bold
     shape_custom: green
     shape_nothing: light_cyan
+    shape_matching_brackets: { attr: u }
 }
 
 # External completer example
