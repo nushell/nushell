@@ -419,3 +419,14 @@ fn canonicalize_with_should_fail() {
 
     assert!(canonicalize_with(path, relative_to).is_err());
 }
+
+#[cfg(windows)]
+#[test]
+fn canonicalize_unc() {
+    // Ensure that canonicalizing UNC paths does not turn them verbatim.
+    // Assumes the C drive exists and that the `localhost` UNC path works.
+    let actual =
+        nu_path::canonicalize_with(r"\\localhost\c$", ".").expect("failed to canonicalize");
+    let expected = Path::new(r"\\localhost\c$");
+    assert_eq!(actual, expected);
+}

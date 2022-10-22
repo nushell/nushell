@@ -1047,12 +1047,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dunce"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "453440c271cf5577fd2a40e4942540cb7d0d2f85e27c8d07dd0023c925a67541"
-
-[[package]]
 name = "dyn-clone"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2810,7 +2804,7 @@ name = "nu-path"
 version = "0.70.1"
 dependencies = [
  "dirs-next",
- "dunce",
+ "omnipath",
  "pwd",
 ]
 
@@ -3144,6 +3138,12 @@ checksum = "21158b2c33aa6d4561f1c0a6ea283ca92bc54802a93b263e910746d679a7eb53"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "omnipath"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7461858c5ac9bde3fcdeedc17f58ed0469ec74f2d737b6369fc31c0b0ef576c"
 
 [[package]]
 name = "once_cell"
