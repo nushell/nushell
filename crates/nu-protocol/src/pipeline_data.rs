@@ -445,9 +445,12 @@ impl PipelineData {
             // Make sure everything has finished
             if let Some(exit_code) = exit_code {
                 let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
-                if let Some(Value::Int { val, .. }) = exit_codes.pop() {
-                    return Ok(val);
-                }
+                return match exit_codes.pop() {
+                    #[cfg(unix)]
+                    Some(Value::Error { error }) => Err(error),
+                    Some(Value::Int { val, .. }) => Ok(val),
+                    _ => Ok(0),
+                };
             }
 
             return Ok(0);
