@@ -964,6 +964,7 @@ fn edit_from_record(
             let char = extract_char(value, config)?;
             EditCommand::MoveLeftBefore(char)
         }
+        "complete" => EditCommand::Complete,
         e => {
             return Err(ShellError::UnsupportedConfigValue(
                 "reedline EditCommand".to_string(),
