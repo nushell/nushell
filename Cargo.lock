@@ -2863,6 +2863,7 @@ dependencies = [
  "errno",
  "libc",
  "libproc",
+ "log",
  "mach2",
  "nix 0.24.2",
  "ntapi 0.3.7",

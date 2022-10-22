@@ -1,6 +1,6 @@
-use procfs::process::{FDInfo, Io, Process, Stat, Status, TasksIter};
+use log::info;
+use procfs::process::{FDInfo, Io, Process, Stat, Status};
 use procfs::{ProcError, ProcessCgroup};
-use std::collections::HashMap;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -73,59 +73,43 @@ pub struct ProcessInfo {
     pub pid: i32,
     pub ppid: i32,
     pub curr_proc: ProcessTask,
-    pub prev_proc: ProcessTask,
     pub curr_io: Option<Io>,
     pub prev_io: Option<Io>,
+    pub curr_stat: Option<Stat>,
+    pub prev_stat: Option<Stat>,
     pub curr_status: Option<Status>,
     pub interval: Duration,
 }
 
-pub fn collect_proc(interval: Duration, with_thread: bool) -> Vec<ProcessInfo> {
+pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
     let mut base_procs = Vec::new();
-    let mut base_tasks = HashMap::new();
     let mut ret = Vec::new();
 
+    // Take an initial snapshot of process I/O and CPU info, so we can calculate changes over time
     if let Ok(all_proc) = procfs::process::all_processes() {
         for proc in all_proc.flatten() {
             let io = proc.io().ok();
+            let stat = proc.stat().ok();
             let time = Instant::now();
-            if with_thread {
-                if let Ok(iter) = proc.tasks() {
-                    collect_task(iter, &mut base_tasks);
-                }
-            }
-            base_procs.push((proc.pid(), proc, io, time));
-            // match proc {
-            //     Ok(p) => {
-            //         let io = p.io().ok();
-            //         let time = Instant::now();
-            //         if with_thread {
-            //             if let Ok(iter) = p.tasks() {
-            //                 collect_task(iter, &mut base_tasks);
-            //             }
-            //         }
-            //         base_procs.push((p.pid(), p, io, time));
-            //     }
-            //     Err(_) => {}
-            // }
+            base_procs.push((proc.pid(), io, stat, time));
         }
     }
 
+    // wait a bit...
     thread::sleep(interval);
 
-    for (pid, prev_proc, prev_io, prev_time) in base_procs {
+    // now get process info again, build up results
+    for (pid, prev_io, prev_stat, prev_time) in base_procs {
         let curr_proc_pid = pid;
-        let prev_proc_pid = prev_proc.pid();
-        let curr_proc = match Process::new(curr_proc_pid) {
-            Ok(p) => p,
-            Err(_) => return Vec::<ProcessInfo>::new(),
-        };
-        let prev_proc = match Process::new(prev_proc_pid) {
-            Ok(p) => p,
-            Err(_) => return Vec::<ProcessInfo>::new(),
+        let curr_proc = if let Ok(p) = Process::new(curr_proc_pid) {
+            p
+        } else {
+            info!("failed to retrieve info for pid={curr_proc_pid}, process probably died between snapshots");
+            continue;
         };
 
         let curr_io = curr_proc.io().ok();
+        let curr_stat = curr_proc.stat().ok();
         let curr_status = curr_proc.status().ok();
         let curr_time = Instant::now();
         let interval = curr_time - prev_time;
@@ -133,76 +117,24 @@ pub fn collect_proc(interval: Duration, with_thread: bool) -> Vec<ProcessInfo> {
             Ok(p) => p.ppid,
             Err(_) => 0,
         };
-        let owner = curr_proc.uid().unwrap_or(0);
-
-        let mut curr_tasks = HashMap::new();
-        if with_thread {
-            if let Ok(iter) = curr_proc.tasks() {
-                collect_task(iter, &mut curr_tasks);
-            }
-        }
-
         let curr_proc = ProcessTask::Process(curr_proc);
-        let prev_proc = ProcessTask::Process(prev_proc);
 
         let proc = ProcessInfo {
             pid,
             ppid,
             curr_proc,
-            prev_proc,
             curr_io,
             prev_io,
+            curr_stat,
+            prev_stat,
             curr_status,
             interval,
         };
 
         ret.push(proc);
-
-        for (tid, (pid, curr_stat, curr_status, curr_io)) in curr_tasks {
-            if let Some((_, prev_stat, _, prev_io)) = base_tasks.remove(&tid) {
-                let proc = ProcessInfo {
-                    pid: tid,
-                    ppid: pid,
-                    curr_proc: ProcessTask::Task {
-                        stat: Box::new(curr_stat),
-                        owner,
-                    },
-                    prev_proc: ProcessTask::Task {
-                        stat: Box::new(prev_stat),
-                        owner,
-                    },
-                    curr_io,
-                    prev_io,
-                    curr_status,
-                    interval,
-                };
-                ret.push(proc);
-            }
-        }
     }
 
     ret
-}
-
-#[allow(clippy::type_complexity)]
-fn collect_task(iter: TasksIter, map: &mut HashMap<i32, (i32, Stat, Option<Status>, Option<Io>)>) {
-    for task in iter {
-        let task = if let Ok(x) = task {
-            x
-        } else {
-            continue;
-        };
-        if task.tid != task.pid {
-            let stat = if let Ok(x) = task.stat() {
-                x
-            } else {
-                continue;
-            };
-            let status = task.status().ok();
-            let io = task.io().ok();
-            map.insert(task.tid, (task.pid, stat, status, io));
-        }
-    }
 }
 
 impl ProcessInfo {
@@ -263,18 +195,22 @@ impl ProcessInfo {
 
     /// CPU usage as a percent of total
     pub fn cpu_usage(&self) -> f64 {
-        let curr_time = match self.curr_proc.stat() {
-            Ok(c) => c.utime + c.stime,
-            Err(_) => 0,
-        };
-        let prev_time = match self.prev_proc.stat() {
-            Ok(c) => c.utime + c.stime,
-            Err(_) => 0,
-        };
-        let usage_ms =
-            (curr_time - prev_time) * 1000 / procfs::ticks_per_second().unwrap_or(100) as u64;
-        let interval_ms = self.interval.as_secs() * 1000 + u64::from(self.interval.subsec_millis());
-        usage_ms as f64 * 100.0 / interval_ms as f64
+        if let Some(cs) = &self.curr_stat {
+            if let Some(ps) = &self.prev_stat {
+                let curr_time = cs.utime + cs.stime;
+                let prev_time = ps.utime + ps.stime;
+
+                let usage_ms = (curr_time - prev_time) * 1000
+                    / procfs::ticks_per_second().unwrap_or(100) as u64;
+                let interval_ms =
+                    self.interval.as_secs() * 1000 + u64::from(self.interval.subsec_millis());
+                usage_ms as f64 * 100.0 / interval_ms as f64
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        }
     }
 
     /// Memory size in number of bytes
