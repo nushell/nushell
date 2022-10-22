@@ -136,9 +136,8 @@ features = [
 ]
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.37.0"
+version = "0.42.0"
 features = [
-    "alloc",
     "Win32_Foundation",
     "Win32_Storage_FileSystem",
 	"Win32_System_SystemServices",
