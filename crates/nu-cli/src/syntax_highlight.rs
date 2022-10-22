@@ -59,7 +59,12 @@ impl Highlighter for NuHighlighter {
 
             macro_rules! add_colored_token_with_bracket_highlight {
                 ($shape:expr, $span:expr, $text:expr) => {{
-                    let spans = split_span_by_highlight_positions(&$span, &matching_brackets_pos);
+                    let spans = split_span_by_highlight_positions(
+                        line,
+                        &$span,
+                        &matching_brackets_pos,
+                        global_span_offset,
+                    );
                     spans.iter().for_each(|(part, highlight)| {
                         let start = part.start - $span.start;
                         let end = part.end - $span.start;
@@ -130,8 +135,10 @@ impl Highlighter for NuHighlighter {
 }
 
 fn split_span_by_highlight_positions(
+    line: &str,
     span: &Span,
     highlight_positions: &Vec<usize>,
+    global_span_offset: usize,
 ) -> Vec<(Span, bool)> {
     let mut start = span.start;
     let mut result: Vec<(Span, bool)> = Vec::new();
@@ -140,14 +147,14 @@ fn split_span_by_highlight_positions(
             if start < *pos {
                 result.push((Span { start, end: *pos }, false));
             }
-            result.push((
-                Span {
-                    start: *pos,
-                    end: pos + 1,
-                },
-                true,
-            ));
-            start = pos + 1;
+            let span_str = &line[pos - global_span_offset..span.end - global_span_offset];
+            let end = span_str
+                .chars()
+                .next()
+                .map(|c| pos + get_char_length(c))
+                .unwrap_or(pos + 1);
+            result.push((Span { start: *pos, end }, true));
+            start = end;
         }
     }
     if start < span.end {
@@ -176,7 +183,11 @@ fn find_matching_brackets(
     let global_bracket_pos =
         if global_cursor_offset == global_end_offset && global_end_offset > global_span_offset {
             // cursor is at the end of a non-empty string -- find block end at the previous position
-            global_cursor_offset - 1
+            if let Some(last_char) = line.chars().last() {
+                global_cursor_offset - get_char_length(last_char)
+            } else {
+                global_cursor_offset
+            }
         } else {
             // cursor is in the middle of a string -- find block end at the current position
             global_cursor_offset
@@ -184,16 +195,23 @@ fn find_matching_brackets(
 
     // check that position contains bracket
     let match_idx = global_bracket_pos - global_span_offset;
-    if match_idx >= line.len() || !BRACKETS.contains(&line[match_idx..match_idx + 1]) {
+    if match_idx >= line.len()
+        || !BRACKETS.contains(get_char_at_index(line, match_idx).unwrap_or_default())
+    {
         return Vec::new();
     }
 
     // find matching bracket by finding matching block end
-    let matching_block_end =
-        find_matching_block_end_in_block(working_set, block, global_bracket_pos);
+    let matching_block_end = find_matching_block_end_in_block(
+        line,
+        working_set,
+        block,
+        global_span_offset,
+        global_bracket_pos,
+    );
     if let Some(pos) = matching_block_end {
         let matching_idx = pos - global_span_offset;
-        if BRACKETS.contains(&line[matching_idx..matching_idx + 1]) {
+        if BRACKETS.contains(get_char_at_index(line, matching_idx).unwrap_or_default()) {
             return if global_bracket_pos < pos {
                 vec![global_bracket_pos, pos]
             } else {
@@ -205,16 +223,22 @@ fn find_matching_brackets(
 }
 
 fn find_matching_block_end_in_block(
+    line: &str,
     working_set: &StateWorkingSet,
     block: &Block,
+    global_span_offset: usize,
     global_cursor_offset: usize,
 ) -> Option<usize> {
     for p in &block.pipelines {
         for e in &p.expressions {
             if e.span.contains(global_cursor_offset) {
-                if let Some(pos) =
-                    find_matching_block_end_in_expr(working_set, e, global_cursor_offset)
-                {
+                if let Some(pos) = find_matching_block_end_in_expr(
+                    line,
+                    working_set,
+                    e,
+                    global_span_offset,
+                    global_cursor_offset,
+                ) {
                     return Some(pos);
                 }
             }
@@ -224,15 +248,21 @@ fn find_matching_block_end_in_block(
 }
 
 fn find_matching_block_end_in_expr(
+    line: &str,
     working_set: &StateWorkingSet,
     expression: &Expression,
+    global_span_offset: usize,
     global_cursor_offset: usize,
 ) -> Option<usize> {
     macro_rules! find_in_expr_or_continue {
         ($inner_expr:ident) => {
-            if let Some(pos) =
-                find_matching_block_end_in_expr(working_set, $inner_expr, global_cursor_offset)
-            {
+            if let Some(pos) = find_matching_block_end_in_expr(
+                line,
+                working_set,
+                $inner_expr,
+                global_span_offset,
+                global_cursor_offset,
+            ) {
                 return Some(pos);
             }
         };
@@ -240,7 +270,13 @@ fn find_matching_block_end_in_expr(
 
     if expression.span.contains(global_cursor_offset) {
         let expr_first = expression.span.start;
-        let expr_last = expression.span.end - 1;
+        let span_str = &line
+            [expression.span.start - global_span_offset..expression.span.end - global_span_offset];
+        let expr_last = span_str
+            .chars()
+            .last()
+            .map(|c| expression.span.end - get_char_length(c))
+            .unwrap_or(expression.span.start);
 
         return match &expression.expr {
             Expr::Bool(_) => None,
@@ -319,9 +355,13 @@ fn find_matching_block_end_in_expr(
                 None
             }
 
-            Expr::FullCellPath(b) => {
-                find_matching_block_end_in_expr(working_set, &b.head, global_cursor_offset)
-            }
+            Expr::FullCellPath(b) => find_matching_block_end_in_expr(
+                line,
+                working_set,
+                &b.head,
+                global_span_offset,
+                global_cursor_offset,
+            ),
 
             Expr::BinaryOp(lhs, op, rhs) => {
                 find_in_expr_or_continue!(lhs);
@@ -343,8 +383,10 @@ fn find_matching_block_end_in_expr(
                     // cursor is inside block
                     let nested_block = working_set.get_block(*block_id);
                     find_matching_block_end_in_block(
+                        line,
                         working_set,
                         nested_block,
+                        global_span_offset,
                         global_cursor_offset,
                     )
                 }
@@ -375,4 +417,12 @@ fn find_matching_block_end_in_expr(
         };
     }
     None
+}
+
+fn get_char_at_index(s: &str, index: usize) -> Option<char> {
+    s[index..].chars().next()
+}
+
+fn get_char_length(c: char) -> usize {
+    c.to_string().len()
 }
