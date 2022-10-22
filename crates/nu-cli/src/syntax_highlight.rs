@@ -1,6 +1,6 @@
 use log::trace;
 use nu_ansi_term::Style;
-use nu_color_config::get_shape_color;
+use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::ast::{Argument, Block, Expr, Expression};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
@@ -66,7 +66,7 @@ impl Highlighter for NuHighlighter {
                         let text = (&next_token[start..end]).to_string();
                         let mut style = get_shape_color($shape.to_string(), &self.config);
                         if *highlight {
-                            style = style.reverse();
+                            style = get_matching_brackets_style(style, &self.config);
                         }
                         output.push((style, text));
                     });
