@@ -451,7 +451,7 @@ fn build_expanded_table(
             let deep = expand_limit.map(|i| i - 1);
             let table = convert_to_table2(
                 0,
-                &vals,
+                vals.iter(),
                 ctrlc.clone(),
                 config,
                 span,
@@ -775,9 +775,9 @@ fn convert_to_table(
 
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::into_iter_on_ref)]
-fn convert_to_table2(
+fn convert_to_table2<'a>(
     row_offset: usize,
-    input: &[Value],
+    input: impl Iterator<Item = &'a Value> + ExactSizeIterator + Clone,
     ctrlc: Option<Arc<AtomicBool>>,
     config: &Config,
     head: Span,
@@ -787,13 +787,13 @@ fn convert_to_table2(
     flatten: bool,
     flatten_sep: &str,
 ) -> Result<Option<NuTable>, ShellError> {
-    if input.is_empty() {
+    if input.len() == 0 {
         return Ok(None);
     }
 
     let float_precision = config.float_precision as usize;
 
-    let mut headers = get_columns(input);
+    let mut headers = get_columns(input.clone());
     let with_index = match config.table_index_mode {
         TableIndexMode::Always => true,
         TableIndexMode::Never => false,
@@ -876,29 +876,52 @@ fn convert_to_table2(
         } else {
             let skip_num = if with_index { 1 } else { 0 };
             for (col, header) in data[0].iter().enumerate().skip(skip_num) {
-                let result = match item {
-                    Value::Record { .. } => item.clone().follow_cell_path(
-                        &[PathMember::String {
-                            val: header.as_ref().to_owned(),
-                            span: head,
-                        }],
-                        false,
-                    ),
-                    _ => Ok(item.clone()),
-                };
+                let value = match item {
+                    Value::Record { .. } => {
+                        let val = item.clone().follow_cell_path(
+                            &[PathMember::String {
+                                val: header.as_ref().to_owned(),
+                                span: head,
+                            }],
+                            false,
+                        );
 
-                let value = convert_to_table2_entry(
-                    result.ok().as_ref(),
-                    config,
-                    &ctrlc,
-                    color_hm,
-                    col,
-                    theme,
-                    with_index,
-                    deep,
-                    flatten,
-                    flatten_sep,
-                );
+                        match val {
+                            Ok(val) => convert_to_table2_entry(
+                                Some(&val),
+                                config,
+                                &ctrlc,
+                                color_hm,
+                                col,
+                                theme,
+                                with_index,
+                                deep,
+                                flatten,
+                                flatten_sep,
+                            ),
+                            Err(_) => make_styled_string(
+                                item.into_abbreviated_string(config),
+                                &item.get_type().to_string(),
+                                col,
+                                with_index,
+                                color_hm,
+                                float_precision,
+                            ),
+                        }
+                    }
+                    _ => convert_to_table2_entry(
+                        Some(item),
+                        config,
+                        &ctrlc,
+                        color_hm,
+                        col,
+                        theme,
+                        with_index,
+                        deep,
+                        flatten,
+                        flatten_sep,
+                    ),
+                };
 
                 let value = NuTable::create_cell(value.0, value.1);
                 row.push(value);
@@ -951,75 +974,131 @@ fn convert_to_table2_entry(
         }
     };
 
-    let is_record_or_list = matches!(item, Value::Record { .. } | Value::List { .. });
-    let is_simple = matches!(deep, Some(0)) || !is_record_or_list;
-
-    let mut text = None;
-    if !is_simple {
-        let mut arr: [Value; 1] = [Value::default()];
-        let (list, span): (&[Value], Span) = match item {
-            Value::Record { span, .. } => {
-                arr[0] = item.clone();
-                (&arr, *span)
-            }
-            Value::List { vals, span } => (vals, *span),
-            _ => unreachable!("we checked the values already"),
-        };
-
-        let is_simple_list = list
-            .iter()
-            .all(|v| !matches!(v, Value::Record { .. } | Value::List { .. }));
-
-        text = if flatten && is_simple_list {
-            let mut buf = Vec::new();
-            for value in list {
-                let (text, _) = make_styled_string(
-                    value.into_abbreviated_string(config),
-                    &value.get_type().to_string(),
-                    col,
-                    with_index,
-                    color_hm,
-                    float_precision,
-                );
-
-                buf.push(text);
-            }
-
-            let text = buf.join(flatten_sep);
-
-            Some(text)
-        } else {
-            let table = convert_to_table2(
-                0,
-                list,
-                ctrlc.clone(),
-                config,
-                span,
-                color_hm,
-                theme,
-                deep.map(|i| i - 1),
-                flatten,
-                flatten_sep,
-            );
-
-            if let Ok(Some(table)) = table {
-                table.draw_table(config, color_hm, alignments, theme, usize::MAX)
-            } else {
-                None
-            }
-        }
-    };
-
-    match text {
-        Some(text) => (text, TextStyle::default()),
-        None => make_styled_string(
+    let is_limit_reached = matches!(deep, Some(0));
+    if is_limit_reached {
+        return make_styled_string(
             item.into_abbreviated_string(config),
             &item.get_type().to_string(),
             col,
             with_index,
             color_hm,
             float_precision,
-        ),
+        );
+    }
+
+    match &item {
+        Value::Record { span, cols, vals } => {
+            if cols.is_empty() && vals.is_empty() {
+                make_styled_string(
+                    item.into_abbreviated_string(config),
+                    &item.get_type().to_string(),
+                    col,
+                    with_index,
+                    color_hm,
+                    float_precision,
+                )
+            } else {
+                let table = convert_to_table2(
+                    0,
+                    std::iter::once(item),
+                    ctrlc.clone(),
+                    config,
+                    *span,
+                    color_hm,
+                    theme,
+                    deep.map(|i| i - 1),
+                    flatten,
+                    flatten_sep,
+                );
+
+                let inner_table = table.map(|table| {
+                    table.and_then(|table| {
+                        table.draw_table(config, color_hm, alignments, theme, usize::MAX)
+                    })
+                });
+                if let Ok(Some(table)) = inner_table {
+                    (table, TextStyle::default())
+                } else {
+                    // error so back down to the default
+                    make_styled_string(
+                        item.into_abbreviated_string(config),
+                        &item.get_type().to_string(),
+                        col,
+                        with_index,
+                        color_hm,
+                        float_precision,
+                    )
+                }
+            }
+        }
+        Value::List { vals, span } => {
+            let is_simple_list = vals
+                .iter()
+                .all(|v| !matches!(v, Value::Record { .. } | Value::List { .. }));
+
+            if flatten && is_simple_list {
+                let mut buf = Vec::new();
+                for value in vals {
+                    let (text, _) = make_styled_string(
+                        value.into_abbreviated_string(config),
+                        &value.get_type().to_string(),
+                        col,
+                        with_index,
+                        color_hm,
+                        float_precision,
+                    );
+
+                    buf.push(text);
+                }
+
+                let text = buf.join(flatten_sep);
+
+                (text, TextStyle::default())
+            } else {
+                let table = convert_to_table2(
+                    0,
+                    vals.iter(),
+                    ctrlc.clone(),
+                    config,
+                    *span,
+                    color_hm,
+                    theme,
+                    deep.map(|i| i - 1),
+                    flatten,
+                    flatten_sep,
+                );
+
+                let inner_table = table.map(|table| {
+                    table.and_then(|table| {
+                        table.draw_table(config, color_hm, alignments, theme, usize::MAX)
+                    })
+                });
+                if let Ok(Some(table)) = inner_table {
+                    (table, TextStyle::default())
+                } else {
+                    // error so back down to the default
+                    make_styled_string(
+                        item.into_abbreviated_string(config),
+                        &item.get_type().to_string(),
+                        col,
+                        with_index,
+                        color_hm,
+                        float_precision,
+                    )
+                }
+            }
+        }
+        _ => {
+            // unknown type.
+            make_styled_string(
+                item.into_abbreviated_string(config),
+                &item.get_type().to_string(),
+                col,
+                with_index,
+                color_hm,
+                float_precision,
+            )
+        }
     }
 }
 
@@ -1112,7 +1191,7 @@ impl PagingTableCreator {
         let color_hm = get_color_config(&self.config);
         let table = convert_to_table2(
             self.row_offset,
-            batch,
+            batch.iter(),
             self.ctrlc.clone(),
             &self.config,
             self.head,
