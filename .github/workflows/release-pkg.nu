@@ -90,10 +90,16 @@ if ($ver | str trim | is-empty) {
 cd $dist; $'(char nl)Creating release archive...'; hr-line
 if $os in ['ubuntu-latest', 'macos-latest'] {
 
-    $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls
+    let files = (ls | get name)
+    let dest = $'($bin)-($version)-($target)'
+    let archive = $'($dist)/($dest).tar.gz'
 
-    let archive = $'($dist)/($bin)-($version)-($target).tar.gz'
-    tar czf $archive *
+    mkdir $dest
+    $files | each {|it| mv $it $dest } | ignore
+
+    $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls $dest
+
+    tar -czf $archive $dest
     print $'archive: ---> ($archive)'; ls $archive
     echo $'::set-output name=archive::($archive)'
 
