@@ -546,6 +546,26 @@ impl EngineState {
         None
     }
 
+    pub fn which_module_has_decl(&self, name: &[u8]) -> Option<&[u8]> {
+        for (module_id, m) in self.modules.iter().enumerate() {
+            if m.has_decl(name) {
+                for overlay_frame in self.active_overlays(&[]).iter() {
+                    let module_name = overlay_frame.modules.iter().find_map(|(key, &val)| {
+                        if val == module_id {
+                            Some(key)
+                        } else {
+                            None
+                        }
+                    });
+                    if let Some(final_name) = module_name {
+                        return Some(&final_name[..]);
+                    }
+                }
+            }
+        }
+        None
+    }
+
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
         self.scope.find_overlay(name)
     }
