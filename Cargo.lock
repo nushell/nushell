@@ -4072,7 +4072,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.13.0"
-source = "git+https://github.com/dandavison/reedline.git?branch=tab-inline-completion#5211f420e803ad8ea0479084155576b6d13ca40f"
+source = "git+https://github.com/nushell/reedline.git?branch=main#30713abe8708020052eb4623a641449c8eee9f3a"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
