@@ -16,15 +16,15 @@ impl Command for ToLazyGroupBy {
     }
 
     fn usage(&self) -> &str {
-        "Creates a groupby object that can be used for other aggregations"
+        "Creates a group-by object that can be used for other aggregations"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .rest(
-                "Group by expressions",
+                "Group-by expressions",
                 SyntaxShape::Any,
-                "Expression(s) that define the lazy group by",
+                "Expression(s) that define the lazy group-by",
             )
             .input_type(Type::Custom("dataframe".into()))
             .output_type(Type::Custom("dataframe".into()))

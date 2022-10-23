@@ -274,45 +274,44 @@ impl Command for Ls {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "List all files in the current directory",
+                description: "List visible files in the current directory",
                 example: "ls",
                 result: None,
             },
             Example {
-                description: "List all files in a subdirectory",
+                description: "List visible files in a subdirectory",
                 example: "ls subdir",
                 result: None,
             },
             Example {
-                description: "List all files with full path in the parent directory",
+                description: "List visible files with full path in the parent directory",
                 example: "ls -f ..",
                 result: None,
             },
             Example {
-                description: "List all rust files",
+                description: "List Rust files",
                 example: "ls *.rs",
                 result: None,
             },
             Example {
-                description: "List all files and directories whose name do not contain 'bar'",
+                description: "List files and directories whose name do not contain 'bar'",
                 example: "ls -s | where name !~ bar",
                 result: None,
             },
             Example {
                 description: "List all dirs in your home directory",
-                example: "ls ~ | where type == dir",
+                example: "ls -a ~ | where type == dir",
                 result: None,
             },
             Example {
                 description:
                     "List all dirs in your home directory which have not been modified in 7 days",
-                example: "ls -s ~ | where type == dir && modified < ((date now) - 7day)",
+                example: "ls -as ~ | where type == dir && modified < ((date now) - 7day)",
                 result: None,
             },
             Example {
-                description: "List given paths, show directories themselves",
-                example:
-                    "['/path/to/directory' '/path/to/file'] | each { |it| ls -D $it } | flatten",
+                description: "List given paths and show directories themselves",
+                example: "['/path/to/directory' '/path/to/file'] | each { ls -D $in } | flatten",
                 result: None,
             },
         ]

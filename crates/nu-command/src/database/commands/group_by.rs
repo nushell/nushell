@@ -19,7 +19,7 @@ impl Command for GroupByDb {
     }
 
     fn usage(&self) -> &str {
-        "Group by query"
+        "Group-by query"
     }
 
     fn signature(&self) -> Signature {

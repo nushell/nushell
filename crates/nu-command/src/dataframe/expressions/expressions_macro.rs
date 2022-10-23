@@ -243,7 +243,7 @@ expr_command!(
     "max",
     "Creates a max expression",
     vec![Example {
-        description: "Max aggregation for a group by",
+        description: "Max aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | into df
     | group-by a
@@ -274,7 +274,7 @@ expr_command!(
     "min",
     "Creates a min expression",
     vec![Example {
-        description: "Min aggregation for a group by",
+        description: "Min aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | into df
     | group-by a
@@ -305,7 +305,7 @@ expr_command!(
     "sum",
     "Creates a sum expression for an aggregation",
     vec![Example {
-        description: "Sum aggregation for a group by",
+        description: "Sum aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | into df
     | group-by a
@@ -336,7 +336,7 @@ expr_command!(
     "mean",
     "Creates a mean expression for an aggregation",
     vec![Example {
-        description: "Mean aggregation for a group by",
+        description: "Mean aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | into df
     | group-by a
@@ -367,7 +367,7 @@ expr_command!(
     "median",
     "Creates a median expression for an aggregation",
     vec![Example {
-        description: "Median aggregation for a group by",
+        description: "Median aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | into df
     | group-by a
@@ -398,7 +398,7 @@ expr_command!(
     "std",
     "Creates a std expression for an aggregation",
     vec![Example {
-        description: "Std aggregation for a group by",
+        description: "Std aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
     | into df
     | group-by a
@@ -429,7 +429,7 @@ expr_command!(
     "var",
     "Create a var expression for an aggregation",
     vec![Example {
-        description: "Var aggregation for a group by",
+        description: "Var aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
     | into df
     | group-by a

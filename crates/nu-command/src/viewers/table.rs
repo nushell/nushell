@@ -159,7 +159,7 @@ impl Command for Table {
         let span = Span::test_data();
         vec![
             Example {
-                description: "List the files in current directory with index number start from 1.",
+                description: "List the files in current directory, with indexes starting from 1.",
                 example: r#"ls | table -n 1"#,
                 result: None,
             },
