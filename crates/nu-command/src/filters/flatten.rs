@@ -4,7 +4,8 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -116,12 +117,17 @@ fn flatten(
     let metadata = input.metadata();
     let flatten_all = call.has_flag("all");
 
-    input
-        .flat_map(
-            move |item| flat_value(&columns, &item, tag, flatten_all),
-            engine_state.ctrlc.clone(),
-        )
-        .map(|x| x.set_metadata(metadata))
+    let input_iter = input.into_interruptible_iter(engine_state.ctrlc.clone());
+    let mut iter_val_vec = Vec::new();
+    for item in input_iter {
+        match flat_value(&columns, &item, tag, flatten_all) {
+            Ok(mut iter_val) => iter_val_vec.append(&mut iter_val),
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(iter_val_vec
+        .into_pipeline_data(engine_state.ctrlc.clone())
+        .set_metadata(metadata))
 }
 
 enum TableInside<'a> {
@@ -144,10 +150,15 @@ enum TableInside<'a> {
     },
 }
 
-fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) -> Vec<Value> {
+fn flat_value(
+    columns: &[CellPath],
+    item: &Value,
+    _name_tag: Span,
+    all: bool,
+) -> Result<Vec<Value>, ShellError> {
     let tag = match item.span() {
         Ok(x) => x,
-        Err(e) => return vec![Value::Error { error: e }],
+        Err(e) => return Err(e),
     };
 
     let res = {
@@ -162,18 +173,16 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                     span: _,
                 } => (cols, vals),
                 x => {
-                    return vec![Value::Error {
-                        error: ShellError::UnsupportedInput(
-                            format!("This should be a record, but instead got {}", x.get_type()),
-                            tag,
-                        ),
-                    }]
+                    return Err(ShellError::UnsupportedInput(
+                        format!("This should be a record, but instead got {}", x.get_type()),
+                        tag,
+                    ));
                 }
             };
 
             let s = match item.span() {
                 Ok(x) => x,
-                Err(e) => return vec![Value::Error { error: e }],
+                Err(e) => return Err(e),
             };
 
             let records_iterator = {
@@ -218,11 +227,11 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                         if all && vals.iter().all(|f| f.as_record().is_ok()) =>
                     {
                         if need_flatten && inner_table.is_some() {
-                            return vec![Value::Error{ error: ShellError::UnsupportedInput(
+                            return Err(ShellError::UnsupportedInput(
                                     "can only flatten one inner list at the same time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
                                     s
-                                )}
-                            ];
+                                ))
+                            ;
                         }
                         // it's a table (a list of record, we can flatten inner record)
                         let mut cs = vec![];
@@ -257,11 +266,11 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                         span: _,
                     } => {
                         if need_flatten && inner_table.is_some() {
-                            return vec![Value::Error{ error: ShellError::UnsupportedInput(
+                            return Err( ShellError::UnsupportedInput(
                                     "can only flatten one inner list at the same time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
                                     s
-                                )}
-                            ];
+                                ))
+                            ;
                         }
 
                         if !columns.is_empty() {
@@ -296,7 +305,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                 }
             }
 
-            let mut expanded = vec![];
+            let mut expanded: Vec<Value> = vec![];
             match inner_table {
                 Some(TableInside::Entries(column, _, entries, parent_column_index)) => {
                     for entry in entries {
@@ -397,7 +406,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
             vec![item.clone()]
         }
     };
-    res
+    Ok(res)
 }
 
 #[cfg(test)]
