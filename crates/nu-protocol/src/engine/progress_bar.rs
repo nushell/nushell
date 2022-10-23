@@ -15,7 +15,7 @@ pub fn get_progress_bar_from_value(value: &Value) -> Result<ProgressBar, ShellEr
                 } else {
                     0
                 };
-                ((from - to).abs() as u64) + inclusive_range
+                (from - to).unsigned_abs() + inclusive_range
             }
             _ => unreachable!(),
         }
@@ -31,15 +31,14 @@ pub fn get_progress_bar(len: u64) -> Result<ProgressBar, ShellError> {
 }
 
 fn get_default_style() -> ProgressStyle {
-    let style = ProgressStyle::with_template(
+    ProgressStyle::with_template(
         "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] ({eta})",
     )
     .expect("to be a valid template string.")
     .with_key("eta", |state: &ProgressState, w: &mut dyn Write| {
         write!(w, "{:.1}", HumanDuration(state.eta())).expect("To have a valid eta")
     })
-    .progress_chars("#>-");
-    style
+    .progress_chars("#>-")
 }
 
 fn get_value_as_i64(value: &Value) -> Result<i64, ShellError> {
