@@ -774,7 +774,6 @@ fn convert_to_table(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::into_iter_on_ref)]
 fn convert_to_table2<'a>(
     row_offset: usize,
     input: impl Iterator<Item = &'a Value> + ExactSizeIterator + Clone,

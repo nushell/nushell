@@ -1604,7 +1604,6 @@ pub fn parse_string_interpolation(
 
     let mut b = start;
 
-    #[allow(clippy::needless_range_loop)]
     while b != end {
         if contents[b - start] == b'('
             && (if double_quote && (b - start) > 0 {

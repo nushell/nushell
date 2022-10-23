@@ -20,7 +20,6 @@ const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
 #[derive(Clone)]
 pub struct Mv;
 
-#[allow(unused_must_use)]
 impl Command for Mv {
     fn name(&self) -> &str {
         "mv"

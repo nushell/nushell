@@ -270,15 +270,10 @@ fn get_output_string(
 
         output_string.push_str("\n|");
 
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..headers.len() {
+        for &col_width in column_widths.iter().take(headers.len()) {
             if pretty {
                 output_string.push(' ');
-                output_string.push_str(&get_padded_string(
-                    String::from("-"),
-                    column_widths[i],
-                    '-',
-                ));
+                output_string.push_str(&get_padded_string(String::from("-"), col_width, '-'));
                 output_string.push(' ');
             } else {
                 output_string.push('-');
