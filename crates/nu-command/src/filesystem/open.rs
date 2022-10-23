@@ -174,6 +174,15 @@ impl Command for Open {
                         } else {
                             decl.run(engine_state, stack, &Call::new(arg_span), output)
                         }
+                        .map_err(|inner| {
+                            ShellError::GenericError(
+                                format!("Error while parsing as {}", ext),
+                                format!("Could not parse '{}' with `from {}`", path.display(), ext),
+                                Some(arg_span),
+                                None,
+                                vec![inner],
+                            )
+                        })
                     }
                     None => Ok(output),
                 }
