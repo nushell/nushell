@@ -128,6 +128,7 @@ pub(crate) fn update_prompt<'prompt>(
         prompt_indicator_string,
         prompt_multiline_string,
         (prompt_vi_insert_string, prompt_vi_normal_string),
+        config.render_right_prompt_on_last_line,
     );
 
     let ret_val = nu_prompt as &dyn Prompt;

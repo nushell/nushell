@@ -20,7 +20,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.70.1"  }
 nu-utils = { path = "../nu-utils", version = "0.70.1"  }
 nu-ansi-term = "0.46.0"
 nu-color-config = { path = "../nu-color-config", version = "0.70.1"  }
-reedline = { git = "https://github.com/dandavison/reedline.git", branch="tab-inline-completion", features = ["bashisms", "sqlite"]}
+reedline = { version = "0.13.0", features = ["bashisms", "sqlite"]}
 
 atty = "0.2.14"
 chrono = "0.4.21"
