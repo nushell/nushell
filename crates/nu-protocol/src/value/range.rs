@@ -122,6 +122,19 @@ impl Range {
         matches!(self.inclusion, RangeInclusion::Inclusive)
     }
 
+    pub fn from(&self) -> Result<i64, ShellError> {
+        self.from.as_integer()
+    }
+
+    pub fn to(&self) -> Result<i64, ShellError> {
+        let to = self.to.as_integer()?;
+        if self.is_end_inclusive() {
+            Ok(to)
+        } else {
+            Ok(to - 1)
+        }
+    }
+
     pub fn contains(&self, item: &Value) -> bool {
         match (item.partial_cmp(&self.from), item.partial_cmp(&self.to)) {
             (Some(Ordering::Greater | Ordering::Equal), Some(Ordering::Less)) => self.moves_up(),
