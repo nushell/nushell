@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{get_progress_bar_from_value, CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, Signature, Span,
     SyntaxShape, Value,
@@ -40,6 +40,7 @@ impl Command for For {
                 "returned a numbered item ($it.index and $it.item)",
                 Some('n'),
             )
+            .switch("bar", "prints a progress bar", Some('b'))
             .creates_scope()
             .category(Category::Core)
     }
@@ -87,13 +88,21 @@ impl Command for For {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
+        let progress_bar = if call.has_flag("bar") {
+            Some(get_progress_bar_from_value(&values)?)
+        } else {
+            None
+        };
+
         match values {
             Value::List { vals, .. } => {
                 Ok(ListStream::from_stream(vals.into_iter(), ctrlc.clone())
                     .enumerate()
                     .map(move |(idx, x)| {
+                        if let Some(pb) = &progress_bar {
+                            pb.inc(1)
+                        }
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
-
                         stack.add_var(
                             var_id,
                             if numbered {
@@ -133,6 +142,9 @@ impl Command for For {
                 .into_range_iter(ctrlc.clone())?
                 .enumerate()
                 .map(move |(idx, x)| {
+                    if let Some(pb) = &progress_bar {
+                        pb.inc(1)
+                    }
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                     stack.add_var(
