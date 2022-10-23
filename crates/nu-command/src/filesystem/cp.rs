@@ -235,6 +235,8 @@ impl Command for Cp {
                         })?
                     };
 
+                    // The lint does not properly take into account trait bounds
+                    // `ExactSizedIterator` and `DoubleEndedIterator` are necessary to `.rev()` twice with `.take()` inbetween
                     #[allow(clippy::needless_collect)]
                     let comps: Vec<_> = path
                         .components()

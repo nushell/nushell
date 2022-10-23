@@ -50,6 +50,9 @@ impl Command for Reverse {
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
 
+        // Collecting has to be allowed as `PipelineData` does not implement `DoubleEndedIterator`
+        // The lint seems broken in those aspects:
+        // https://github.com/rust-lang/rust-clippy/issues?q=is%3Aissue+is%3Aopen+needless_collect
         #[allow(clippy::needless_collect)]
         let v: Vec<_> = input.into_iter().collect();
         let iter = v.into_iter().rev();
