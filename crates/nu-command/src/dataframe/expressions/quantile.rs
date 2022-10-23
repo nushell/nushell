@@ -33,7 +33,7 @@ impl Command for ExprQuantile {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Quantile aggregation for a group by",
+            description: "Quantile aggregation for a group-by",
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | into df
     | group-by a

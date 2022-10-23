@@ -33,7 +33,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Split a path into parts by a separator."
+        "Split a path into a list based on the system's path separator."
     }
 
     fn run(

@@ -25,7 +25,7 @@ impl Command for First {
     }
 
     fn usage(&self) -> &str {
-        "Show only the first number of rows."
+        "Return only the first several rows of the input. Counterpart of 'last'. Opposite of 'skip'."
     }
 
     fn run(

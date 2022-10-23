@@ -103,14 +103,14 @@ impl SQLContext {
                     let idx = match idx.parse::<usize>() {
                         Ok(0)| Err(_) => Err(
                         PolarsError::ComputeError(
-                            format!("Group By Error: Only positive number or expression are supported, got {idx}").into()
+                            format!("Group-By Error: Only positive number or expression are supported, got {idx}").into()
                         )),
                         Ok(idx) => Ok(idx)
                     }?;
                     Ok(projection[idx].clone())
                   }
                   SqlExpr::Value(_) => Err(
-                      PolarsError::ComputeError("Group By Error: Only positive number or expression are supported".into())
+                      PolarsError::ComputeError("Group-By Error: Only positive number or expression are supported".into())
                   ),
                   _ => parse_sql_expr(e)
                 }
@@ -124,7 +124,7 @@ impl SQLContext {
             // Return error on wild card, shouldn't process this
             if contain_wildcard {
                 return Err(PolarsError::ComputeError(
-                    "Group By Error: Can't processed wildcard in groupby".into(),
+                    "Group-By Error: Can't process wildcard in group-by".into(),
                 ));
             }
             // Default polars group by will have group by columns at the front

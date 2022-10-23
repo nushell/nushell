@@ -50,7 +50,7 @@ pub fn evaluate_repl(
     if !atty::is(atty::Stream::Stdin) {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            "Nushell launched as interactive REPL but STDIN is not a TTY, either launch in a valid terminal or provide arguments to invoke a script!",
+            "Nushell launched as a REPL, but STDIN is not a TTY; either launch in a valid terminal or provide arguments to invoke a script!",
         ))
         .into_diagnostic();
     }

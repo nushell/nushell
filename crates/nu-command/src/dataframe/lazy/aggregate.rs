@@ -17,13 +17,13 @@ impl Command for LazyAggregate {
     }
 
     fn usage(&self) -> &str {
-        "Performs a series of aggregations from a group by"
+        "Performs a series of aggregations from a group-by"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .rest(
-                "Group by expressions",
+                "Group-by expressions",
                 SyntaxShape::Any,
                 "Expression(s) that define the aggregations to be applied",
             )

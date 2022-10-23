@@ -25,7 +25,7 @@ impl Command for GroupBy {
     }
 
     fn usage(&self) -> &str {
-        "Create a new table grouped."
+        "Split a table into groups based on one column's values, and return a record with those groups."
     }
 
     fn run(
@@ -42,12 +42,12 @@ impl Command for GroupBy {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "group items by column named \"type\"",
+                description: "Group items by the \"type\" column's values",
                 example: r#"ls | group-by type"#,
                 result: None,
             },
             Example {
-                description: "you can also group by raw values by leaving out the argument",
+                description: "You can also group by raw values by leaving out the argument",
                 example: "echo ['1' '3' '1' '3' '2' '1' '1'] | group-by",
                 result: Some(Value::Record {
                     cols: vec!["1".to_string(), "3".to_string(), "2".to_string()],
