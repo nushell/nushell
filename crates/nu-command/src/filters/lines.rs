@@ -34,6 +34,10 @@ impl Command for Lines {
         let ctrlc = engine_state.ctrlc.clone();
         let skip_empty = call.has_flag("skip-empty");
         match input {
+            #[allow(clippy::needless_collect)]
+            // Collect is needed because the string may not live long enough for
+            // the Rc structure to continue using it. If split could take ownership
+            // of the split values, then this wouldn't be needed
             PipelineData::Value(Value::String { val, span }, ..) => {
                 let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
 
