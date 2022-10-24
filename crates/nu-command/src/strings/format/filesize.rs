@@ -70,15 +70,12 @@ impl Command for FileSize {
             format_value,
             column_paths,
         };
-        let fake_filesize = Value::test_filesize(0);
         operate(
             format_value_impl,
             arg,
             input,
             call.head,
             engine_state.ctrlc.clone(),
-            std::mem::discriminant(&fake_filesize),
-            fake_filesize.get_type(),
         )
     }
 
@@ -110,7 +107,15 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
             val: format_filesize(*val, &arg.format_value, false),
             span: *span,
         },
-        _ => Value::Nothing { span },
+        other => Value::Error {
+            error: ShellError::UnsupportedInput(
+                format!(
+                    "Input's type is not supported, support type: <filesize>, current_type: {}",
+                    other.get_type()
+                ),
+                span,
+            ),
+        },
     }
 }
 
