@@ -443,44 +443,68 @@ fn build_expanded_table(
         let value = if is_limited {
             value_to_styled_string(&value, 0, config, &color_hm).0
         } else {
-            let vals = match value {
-                Value::List { vals, .. } => vals,
-                value => vec![value],
-            };
-
             let deep = expand_limit.map(|i| i - 1);
-            let table = convert_to_table2(
-                0,
-                vals.iter(),
-                ctrlc.clone(),
-                config,
-                span,
-                &color_hm,
-                &theme,
-                deep,
-                flatten,
-                flatten_sep,
-            )?;
 
-            match table {
-                Some(mut table) => {
-                    // controll width via removing table columns.
-                    let theme = load_theme_from_config(config);
-                    table.truncate(remaining_width, &theme);
+            match value {
+                Value::List { vals, .. } => {
+                    let table = convert_to_table2(
+                        0,
+                        vals.iter(),
+                        ctrlc.clone(),
+                        config,
+                        span,
+                        &color_hm,
+                        &theme,
+                        deep,
+                        flatten,
+                        flatten_sep,
+                    )?;
 
-                    let result =
-                        table.draw_table(config, &color_hm, alignments, &theme, remaining_width);
-                    is_expanded = true;
+                    match table {
+                        Some(mut table) => {
+                            // controll width via removing table columns.
+                            let theme = load_theme_from_config(config);
+                            table.truncate(remaining_width, &theme);
+
+                            let result = table.draw_table(
+                                config,
+                                &color_hm,
+                                alignments,
+                                &theme,
+                                remaining_width,
+                            );
+                            is_expanded = true;
+                            match result {
+                                Some(result) => result,
+                                None => return Ok(None),
+                            }
+                        }
+                        None => {
+                            // it means that the list is empty
+                            let value = Value::List { vals, span };
+                            value_to_styled_string(&value, 0, config, &color_hm).0
+                        }
+                    }
+                }
+                Value::Record { cols, vals, span } => {
+                    let result = build_expanded_table(
+                        cols,
+                        vals,
+                        span,
+                        ctrlc.clone(),
+                        config,
+                        remaining_width,
+                        deep,
+                        flatten,
+                        flatten_sep,
+                    )?;
+
                     match result {
                         Some(result) => result,
                         None => return Ok(None),
                     }
                 }
-                None => {
-                    // it means that the list is empty
-                    let value = Value::List { vals, span };
-                    value_to_styled_string(&value, 0, config, &color_hm).0
-                }
+                val => value_to_styled_string(&val, 0, config, &color_hm).0,
             }
         };
 
