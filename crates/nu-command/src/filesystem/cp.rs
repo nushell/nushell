@@ -25,7 +25,6 @@ const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
 #[derive(Clone)]
 pub struct Cp;
 
-#[allow(unused_must_use)]
 impl Command for Cp {
     fn name(&self) -> &str {
         "cp"

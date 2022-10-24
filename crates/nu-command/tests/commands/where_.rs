@@ -1,5 +1,5 @@
 use nu_test_support::nu;
-#[allow(unused)]
+#[cfg(feature = "database")]
 use nu_test_support::pipeline;
 
 #[test]

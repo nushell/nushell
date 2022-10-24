@@ -56,7 +56,6 @@ impl Command for DataTypes {
     }
 }
 
-#[allow(clippy::needless_collect)]
 fn command(
     _engine_state: &EngineState,
     _stack: &mut Stack,

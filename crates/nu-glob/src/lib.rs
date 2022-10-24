@@ -863,7 +863,6 @@ fn chars_eq(a: char, b: char, case_sensitive: bool) -> bool {
 }
 
 /// Configuration options to modify the behaviour of `Pattern::matches_with(..)`.
-#[allow(missing_copy_implementations)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct MatchOptions {
     /// Whether or not patterns should be matched in a case-sensitive manner.
