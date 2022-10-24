@@ -179,7 +179,7 @@ impl Command for Open {
                                 format!("Error while parsing as {}", ext),
                                 format!("Could not parse '{}' with `from {}`", path.display(), ext),
                                 Some(arg_span),
-                                None,
+                                Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
                                 vec![inner],
                             )
                         })
