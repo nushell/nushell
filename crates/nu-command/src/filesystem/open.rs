@@ -172,8 +172,17 @@ impl Command for Open {
                             let block = engine_state.get_block(block_id);
                             eval_block(engine_state, stack, block, output, false, false)
                         } else {
-                            decl.run(engine_state, stack, &Call::new(arg_span), output)
+                            decl.run(engine_state, stack, &Call::new(call_span), output)
                         }
+                        .map_err(|inner| {
+                            ShellError::GenericError(
+                                format!("Error while parsing as {}", ext),
+                                format!("Could not parse '{}' with `from {}`", path.display(), ext),
+                                Some(arg_span),
+                                Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
+                                vec![inner],
+                            )
+                        })
                     }
                     None => Ok(output),
                 }
