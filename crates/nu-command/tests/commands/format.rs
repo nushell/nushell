@@ -55,7 +55,7 @@ fn format_filesize_works() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
-                | format filesize size KB
+                | format filesize KB size
                 | get size
                 | first
             "#
@@ -80,7 +80,7 @@ fn format_filesize_works_with_nonempty_files() {
 
             let actual = nu!(
                 cwd: dirs.test(),
-                "ls sample.toml | format filesize size B | get size | first"
+                "ls sample.toml | format filesize B size | get size | first"
             );
 
             #[cfg(not(windows))]
