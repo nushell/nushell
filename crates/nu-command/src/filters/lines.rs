@@ -258,7 +258,6 @@ impl Iterator for RawStreamLinesAdapter {
 
                                     // save completed lines
                                     self.queue.append(&mut lines);
-
                                 }
                                 _ => {
                                     return Some(Err(ShellError::UnsupportedInput(
