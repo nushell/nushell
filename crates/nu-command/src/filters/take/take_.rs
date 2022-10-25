@@ -42,11 +42,16 @@ impl Command for Take {
         vec![
             Example {
                 description: "Return the first item of a list/table",
-                example: "[1 2 3] | take",
+                example: "[1 2 3] | take 1",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1)],
                     span: Span::test_data(),
                 }),
+            },
+            Example {
+                description: "Return the first item of a list/table",
+                example: "[1 2 3] | take",
+                result: Some(Value::test_int(1)),
             },
             Example {
                 description: "Return the first 2 items of a list/table",
