@@ -84,6 +84,9 @@ fn select(
         match members.get(0) {
             Some(PathMember::Int { val, span }) => {
                 if members.len() > 1 {
+                    if ignore_empty {
+                        return Ok(Value::nothing(Span::test_data()).into_pipeline_data());
+                    }
                     return Err(ShellError::GenericError(
                         "Select only allows row numbers for rows".into(),
                         "extra after row number".into(),
