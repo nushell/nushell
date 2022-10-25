@@ -169,8 +169,10 @@ fn select(
                 .into_pipeline_data(engine_state.ctrlc.clone())
                 .set_metadata(metadata))
         }
-        PipelineData::ListStream(stream, metadata, ..) => Ok(stream
-            .map(move |x| {
+        PipelineData::ListStream(stream, metadata, ..) => {
+            let mut values = vec![];
+
+            for x in stream {
                 if !columns.is_empty() {
                     let mut cols = vec![];
                     let mut vals = vec![];
@@ -181,19 +183,26 @@ fn select(
                                 cols.push(path.into_string().replace('.', "_"));
                                 vals.push(value);
                             }
-                            Err(_) => {
-                                cols.push(path.into_string().replace('.', "_"));
-                                vals.push(Value::Nothing { span });
+                            Err(e) => {
+                                if ignore_empty {
+                                    return Ok(
+                                        Value::nothing(Span::test_data()).into_pipeline_data()
+                                    );
+                                }
+                                return Err(e);
                             }
                         }
                     }
-                    Value::Record { cols, vals, span }
+                    values.push(Value::Record { cols, vals, span });
                 } else {
-                    x
+                    values.push(x);
                 }
-            })
-            .into_pipeline_data(engine_state.ctrlc.clone())
-            .set_metadata(metadata)),
+            }
+
+            Ok(values
+                .into_pipeline_data(engine_state.ctrlc.clone())
+                .set_metadata(metadata))
+        }
         PipelineData::Value(v, metadata, ..) => {
             if !columns.is_empty() {
                 let mut cols = vec![];
