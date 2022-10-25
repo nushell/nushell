@@ -65,12 +65,18 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Get a substring \"nushell\" from the text \"good nushell\"",
+                description:
+                    "Get a substring \"nushell\" from the text \"good nushell\" using a range",
+                example: " 'good nushell' | str substring 5..12",
+                result: Some(Value::test_string("nushell")),
+            },
+            Example {
+                description: "Alternately, you can pass in a list",
                 example: " 'good nushell' | str substring [5 12]",
                 result: Some(Value::test_string("nushell")),
             },
             Example {
-                description: "Alternatively, you can use the form",
+                description: "Or a simple comma-separated string",
                 example: " 'good nushell' | str substring '5,12'",
                 result: Some(Value::test_string("nushell")),
             },
@@ -199,6 +205,11 @@ fn action(input: &Value, options: &Substring, head: Span) -> Value {
 
 fn process_arguments(options: &Arguments, head: Span) -> Result<(isize, isize), ShellError> {
     let search = match &options.range {
+        Value::Range { val, .. } => {
+            let start = val.from()?;
+            let end = val.to()?;
+            Ok(SubstringText(start.to_string(), end.to_string()))
+        }
         Value::List { vals, .. } => {
             if vals.len() > 2 {
                 Err(ShellError::UnsupportedInput(

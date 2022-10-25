@@ -35,7 +35,6 @@ impl Command for SplitBy {
         split_by(engine_state, stack, call, input)
     }
 
-    #[allow(clippy::unwrap_used)]
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "split items by column named \"lang\"",

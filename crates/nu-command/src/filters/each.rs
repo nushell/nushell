@@ -20,7 +20,7 @@ impl Command for Each {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["for", "loop", "iterate"]
+        vec!["for", "loop", "iterate", "map"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {

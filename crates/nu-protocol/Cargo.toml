@@ -20,7 +20,7 @@ chrono-humanize = "0.2.1"
 fancy-regex = "0.10.0"
 indexmap = { version="1.7", features=["serde-1"] }
 indicatif = { version = "0.17"}
-miette = { version = "5.1.0", features = ["fancy"] }
+miette = { version = "5.1.0", features = ["fancy-no-backtrace"] }
 num-format = "0.4.3"
 serde = {version = "1.0.130", features = ["derive"]}
 serde_json = { version = "1.0", optional = true }

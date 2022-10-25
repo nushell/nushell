@@ -13,15 +13,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "addr2line"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9ecd88a8c8378ca913a680cd98f0f13ac67383d35993f86c90a70e3f137816b"
-dependencies = [
- "gimli",
-]
-
-[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -240,21 +231,6 @@ name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
-
-[[package]]
-name = "backtrace"
-version = "0.3.66"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cab84319d616cfb654d03394f38ab7e6f0919e181b1b57e1fd15e7fb4077d9a7"
-dependencies = [
- "addr2line",
- "cc",
- "cfg-if 1.0.0",
- "libc",
- "miniz_oxide",
- "object",
- "rustc-demangle",
-]
 
 [[package]]
 name = "bare-metal"
@@ -1486,12 +1462,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gimli"
-version = "0.26.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22030e2c5a68ec659fde1e949a745124b48e6fa8b045b7ed5bd1fe4ccc5c4e5d"
-
-[[package]]
 name = "git2"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2275,25 +2245,12 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "4.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c90329e44f9208b55f45711f9558cec15d7ef8295cc65ecd6d4188ae8edc58c"
-dependencies = [
- "miette-derive 4.7.1",
- "once_cell",
- "thiserror",
- "unicode-width",
-]
-
-[[package]]
-name = "miette"
 version = "5.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a28d6092d7e94a90bb9ea8e6c26c99d5d112d49dda2afdb4f7ea8cf09e1a5a6d"
 dependencies = [
  "atty",
- "backtrace",
- "miette-derive 5.3.0",
+ "miette-derive",
  "once_cell",
  "owo-colors",
  "supports-color",
@@ -2303,17 +2260,6 @@ dependencies = [
  "textwrap 0.15.1",
  "thiserror",
  "unicode-width",
-]
-
-[[package]]
-name = "miette-derive"
-version = "4.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b5bc45b761bcf1b5e6e6c4128cd93b84c218721a8d9b894aa0aff4ed180174c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -2581,7 +2527,7 @@ dependencies = [
  "is_executable",
  "itertools",
  "log",
- "miette 5.3.0",
+ "miette",
  "nix 0.24.2",
  "nu-ansi-term",
  "nu-cli",
@@ -2634,7 +2580,7 @@ dependencies = [
  "is_executable",
  "lazy_static",
  "log",
- "miette 5.3.0",
+ "miette",
  "nu-ansi-term",
  "nu-color-config",
  "nu-command",
@@ -2801,7 +2747,7 @@ dependencies = [
  "chrono",
  "itertools",
  "log",
- "miette 5.3.0",
+ "miette",
  "nu-engine",
  "nu-path",
  "nu-plugin",
@@ -2854,7 +2800,7 @@ dependencies = [
  "fancy-regex",
  "indexmap",
  "indicatif",
- "miette 5.3.0",
+ "miette",
  "nu-json",
  "nu-path",
  "nu-utils",
@@ -3147,15 +3093,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "915b1b472bc21c53464d6c8461c9d3af805ba1ef837e1cac254428f4a77177b1"
 dependencies = [
  "malloc_buf",
-]
-
-[[package]]
-name = "object"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21158b2c33aa6d4561f1c0a6ea283ca92bc54802a93b263e910746d679a7eb53"
-dependencies = [
- "memchr",
 ]
 
 [[package]]
@@ -4090,7 +4027,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.13.0"
-source = "git+https://github.com/dandavison/reedline.git?branch=tab-inline-completion#5211f420e803ad8ea0479084155576b6d13ca40f"
+source = "git+https://github.com/nushell/reedline.git?branch=main#39e6bc8eb3324b560479d097c7ab42d1ba45ec90"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
@@ -4326,12 +4263,6 @@ dependencies = [
  "arrayvec 0.7.2",
  "num-traits",
 ]
-
-[[package]]
-name = "rustc-demangle"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ef03e0a2b150c7a90d01faf6254c9c48a41e95fb2a8c2ac1c6f0d2b9aefc342"
 
 [[package]]
 name = "rustc-hash"
@@ -5471,12 +5402,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
-name = "vec1"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fc1631c774f0f9570797191e01247cbefde789eebfbf128074cb934115a6133"
-
-[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5641,14 +5566,12 @@ dependencies = [
  "bstr",
  "const_format",
  "itertools",
- "miette 4.7.1",
  "nom 7.1.1",
  "nom-supreme",
  "pori",
  "regex",
  "smallvec",
  "thiserror",
- "vec1",
  "walkdir",
 ]
 

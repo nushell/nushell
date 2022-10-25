@@ -38,7 +38,6 @@ impl Command for GroupBy {
         group_by(engine_state, stack, call, input)
     }
 
-    #[allow(clippy::unwrap_used)]
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

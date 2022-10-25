@@ -666,10 +666,9 @@ impl Value {
                             current = val.follow_path_int(*count, *origin_span)?;
                         }
                         x => {
-                            return Err(ShellError::IncompatiblePathAccess(
-                                format!("{}", x.get_type()),
-                                *origin_span,
-                            ))
+                            return Err(ShellError::TypeMismatchGenericMessage {
+                                err_message: format!("Can't access {} values with a row index. Try specifying a column name instead", x.get_type().to_shape()),
+                                span: *origin_span, })
                         }
                     }
                 }

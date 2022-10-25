@@ -1,7 +1,6 @@
 use nu_protocol::{ShellError, Span, Value};
 use std::cmp::Ordering;
 
-#[allow(dead_code)]
 pub enum Reduce {
     Summation,
     Product,
