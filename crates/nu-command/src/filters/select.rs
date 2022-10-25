@@ -200,10 +200,19 @@ fn select(
 
                 for cell_path in columns {
                     // FIXME: remove clone
-                    let result = v.clone().follow_cell_path(&cell_path.members, false)?;
+                    match v.clone().follow_cell_path(&cell_path.members, false) {
+                        Ok(result) => {
+                            cols.push(cell_path.into_string().replace('.', "_"));
+                            vals.push(result);
+                        }
+                        Err(e) => {
+                            if ignore_empty {
+                                return Ok(Value::nothing(Span::test_data()).into_pipeline_data());
+                            }
 
-                    cols.push(cell_path.into_string().replace('.', "_"));
-                    vals.push(result);
+                            return Err(e);
+                        }
+                    }
                 }
 
                 Ok(Value::Record { cols, vals, span }
