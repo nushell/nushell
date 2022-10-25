@@ -169,6 +169,7 @@ fn select_ignores_errors_succesfully1() {
             "#
     ));
 
+    assert!(actual.out.is_empty());
     assert!(actual.err.is_empty());
 }
 
@@ -181,6 +182,7 @@ fn select_ignores_errors_succesfully2() {
             "#
     ));
 
+    assert!(actual.out.is_empty());
     assert!(actual.err.is_empty());
 }
 
@@ -229,12 +231,38 @@ fn select_ignores_errors_successfully6() {
 }
 
 #[test]
-fn select_ignores_errors_successfully7() {
+fn select_failed1() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select b
+            "#
+    ));
+
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("cannot find column"));
+}
+
+#[test]
+fn select_failed2() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        [{a: 1} {a: 2} {a: 3}] | select b
+            "#
+    ));
+
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("cannot find column"));
+}
+
+#[test]
+fn select_failed3() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#""key val\na 1\nb 2\n" | lines | split column -c " " | select "100""#
     ));
 
     assert!(actual.out.is_empty());
-    assert!(!actual.err.is_empty());
+    assert!(actual.err.contains("cannot find column"));
 }
