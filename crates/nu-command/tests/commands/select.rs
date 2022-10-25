@@ -183,3 +183,36 @@ fn select_ignores_errors_succesfully2() {
 
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn select_ignores_errors_succesfull3() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"sys | select -i invalid_key"#
+    ));
+
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn select_ignores_errors_succesfully4() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[a b c] | select -i invalid_key"#
+    ));
+
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn select_ignores_errors_successfully5() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[a b c] | select -i 0.0"#
+    ));
+
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+}
