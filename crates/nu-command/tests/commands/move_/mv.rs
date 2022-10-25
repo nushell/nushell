@@ -451,7 +451,7 @@ fn mv_change_case_of_file() {
 
         nu!(
             cwd: dirs.test(),
-            format!("mv {original_file_name} {new_file_name}")
+            format!("mv {original_file_name} -f {new_file_name}")
         );
 
         // Doing this instead of `Path::exists()` because we need to check file existence in
