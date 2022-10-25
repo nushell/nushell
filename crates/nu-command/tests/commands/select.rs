@@ -227,3 +227,14 @@ fn select_ignores_errors_successfully6() {
     assert!(actual.out.is_empty());
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn select_ignores_errors_successfully7() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#""key val\na 1\nb 2\n" | lines | split column -c " " | select "100""#
+    ));
+
+    assert!(actual.out.is_empty());
+    assert!(!actual.err.is_empty());
+}
