@@ -136,24 +136,22 @@ fn select(
                     let mut vals = vec![];
                     for path in &columns {
                         //FIXME: improve implementation to not clone
-                        if ignore_empty {
-                            let fetcher = input_val.clone().follow_cell_path(&path.members, false);
-
-                            cols.push(path.into_string().replace('.', "_"));
-                            if let Ok(fetcher) = fetcher {
+                        match input_val.clone().follow_cell_path(&path.members, false) {
+                            Ok(fetcher) => {
+                                cols.push(path.into_string().replace('.', "_"));
                                 vals.push(fetcher);
                                 if !columns_with_value.contains(&path) {
                                     columns_with_value.push(path);
                                 }
-                            } else {
-                                vals.push(Value::nothing(span));
                             }
-                        } else {
-                            let fetcher =
-                                input_val.clone().follow_cell_path(&path.members, false)?;
-
-                            cols.push(path.into_string().replace('.', "_"));
-                            vals.push(fetcher);
+                            Err(e) => {
+                                if ignore_empty {
+                                    return Ok(
+                                        Value::nothing(Span::test_data()).into_pipeline_data()
+                                    );
+                                }
+                                return Err(e);
+                            }
                         }
                     }
 
