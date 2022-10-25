@@ -102,8 +102,8 @@ impl Command for Mv {
         //
         // First, the destination exists.
         //  - If a directory, move everything into that directory, otherwise
-        //  - if only a single source, overwrite the file, otherwise
-        //  - error.
+        //  - if only a single source, and --force (or -f) is provided overwrite the file,
+        //  - otherwise error.
         //
         // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
         // it's an error.
