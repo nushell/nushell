@@ -48,3 +48,16 @@ fn lines_multi_value_split() {
 
     assert_eq!(actual.out, "6");
 }
+
+#[test]
+fn does_not_error_with_invalid_utf8() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open non_valid_utf8.txt
+            | lines
+        "#
+    ));
+
+    assert!(actual.err.is_empty());
+}

@@ -221,7 +221,45 @@ impl Iterator for RawStreamLinesAdapter {
                                     // save completed lines
                                     self.queue.append(&mut lines);
                                 }
-                                // TODO: Value::Binary support required?
+                                Value::Binary { val, span } => {
+                                    let val = String::from_utf8_lossy(&val);
+                                    self.span = span;
+
+                                    let split_char =
+                                        if val.contains("\r\n") { "\r\n" } else { "\n" };
+
+                                    let mut lines = val
+                                        .split(split_char)
+                                        .map(|s| s.to_string())
+                                        .collect::<Vec<_>>();
+
+                                    // handle incomplete line from previous
+                                    if !self.incomplete_line.is_empty() {
+                                        if let Some(first) = lines.first() {
+                                            let new_incomplete_line =
+                                                self.incomplete_line.to_string() + first.as_str();
+                                            lines.splice(0..1, vec![new_incomplete_line]);
+                                            self.incomplete_line = String::new();
+                                        }
+                                    }
+
+                                    // store incomplete line from current
+                                    if let Some(last) = lines.last() {
+                                        if last.is_empty() {
+                                            // we ended on a line ending
+                                            lines.pop();
+                                        } else {
+                                            // incomplete line, save for next time
+                                            if let Some(s) = lines.pop() {
+                                                self.incomplete_line = s;
+                                            }
+                                        }
+                                    }
+
+                                    // save completed lines
+                                    self.queue.append(&mut lines);
+
+                                }
                                 _ => {
                                     return Some(Err(ShellError::UnsupportedInput(
                                         "Unsupport type from raw stream".to_string(),
