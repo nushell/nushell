@@ -52,7 +52,6 @@ impl Command for Mv {
             )
             .switch("force", "overwrite the destination.", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
-            // .switch("force", "suppress error when no file", Some('f'))
             .category(Category::FileSystem)
     }
 
@@ -108,7 +107,7 @@ impl Command for Mv {
         // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
         // it's an error.
 
-        if destination.exists() && !force && !destination.is_dir() {
+        if destination.exists() && !force && !destination.is_dir() && !source.is_dir() {
             return Err(ShellError::GenericError(
                 "Destination file already exists".into(),
                 "you can use -f, --force to force overwriting the destination".into(),
