@@ -176,12 +176,7 @@ fn errors_fetching_by_column_using_a_number() {
             "#
         ));
 
-        assert!(actual
-            .err
-            .contains("Data cannot be accessed with a cell path"),);
-        assert!(actual
-            .err
-            .contains("record<0: string> doesn't support cell paths"),);
+        assert!(actual.err.contains("Type mismatch"),);
     })
 }
 
