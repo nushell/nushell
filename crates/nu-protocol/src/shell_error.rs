@@ -60,6 +60,19 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
     TypeMismatch(String, #[label = "needs {0}"] Span),
 
+    /// A command received an argument of the wrong type.
+    ///
+    /// ## Resolution
+    ///
+    /// Convert the argument type before passing it in, or change the command to accept the type.
+    #[error("Type mismatch")]
+    #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
+    TypeMismatchGenericMessage {
+        err_message: String,
+        #[label = "{err_message}"]
+        span: Span,
+    },
+
     /// This value cannot be used with this operator.
     ///
     /// ## Resolution
