@@ -15,7 +15,7 @@ impl Command for EachWhile {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each element of input until a $nothing is found"
+        "Run a block on each element of input until a null is found"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -47,7 +47,7 @@ impl Command for EachWhile {
 
         vec![
             Example {
-                example: "[1 2 3] | each while { |it| if $it < 3 {$it} else {$nothing} }",
+                example: "[1 2 3] | each while { |it| if $it < 3 { $it } else { null } }",
                 description: "Multiplies elements in list",
                 result: Some(Value::List {
                     vals: stream_test_1,
@@ -55,7 +55,7 @@ impl Command for EachWhile {
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each while -n { |it| if $it.item < 2 { $"value ($it.item) at ($it.index)!"} else { $nothing } }"#,
+                example: r#"[1 2 3] | each while -n { |it| if $it.item < 2 { $"value ($it.item) at ($it.index)!"} else { null } }"#,
                 description: "Iterate over each element, print the matching value and its index",
                 result: Some(Value::List {
                     vals: vec![Value::String {

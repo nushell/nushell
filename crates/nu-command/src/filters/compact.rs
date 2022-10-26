@@ -40,7 +40,7 @@ impl Command for Compact {
         vec![
             Example {
                 description: "Filter out all records where 'Hello' is null (returns nothing)",
-                example: r#"echo [["Hello" "World"]; [$nothing 3]]| compact Hello"#,
+                example: r#"[["Hello" "World"]; [null 3]]| compact Hello"#,
                 result: Some(Value::List {
                     vals: vec![],
                     span: Span::test_data(),
@@ -48,7 +48,7 @@ impl Command for Compact {
             },
             Example {
                 description: "Filter out all records where 'World' is null (Returns the table)",
-                example: r#"echo [["Hello" "World"]; [$nothing 3]]| compact World"#,
+                example: r#"[["Hello" "World"]; [null 3]]| compact World"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["Hello".into(), "World".into()],
@@ -60,7 +60,7 @@ impl Command for Compact {
             },
             Example {
                 description: "Filter out all instances of nothing from a list (Returns [1,2])",
-                example: r#"echo [1, $nothing, 2] | compact"#,
+                example: r#"[1, null, 2] | compact"#,
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(2)],
                     span: Span::test_data(),

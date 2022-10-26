@@ -67,7 +67,7 @@ impl Command for Find {
             },
             Example {
                 description: "Search for a term in a string",
-                example: r#"echo Cargo.toml | find toml"#,
+                example: r#"'Cargo.toml' | find toml"#,
                 result: Some(Value::test_string("Cargo.toml".to_owned()))
             },
             Example {
