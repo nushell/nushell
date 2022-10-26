@@ -424,7 +424,8 @@ impl PipelineData {
             stderr: stderr_stream,
             exit_code,
             ..
-        } = self {
+        } = self
+        {
             return print_if_stream(stream, stderr_stream, to_stderr, exit_code);
             /*
             if let Ok(exit_code) = print_if_stream(stream, stderr_stream, to_stderr, exit_code) {
@@ -560,7 +561,7 @@ pub fn print_if_stream(
         };
     }
 
-    return Ok(0);
+    Ok(0)
 }
 
 impl Iterator for PipelineIterator {

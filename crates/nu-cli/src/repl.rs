@@ -721,7 +721,7 @@ pub fn eval_env_change_hook(
 pub fn eval_hook(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    input:  Option<PipelineData>,
+    input: Option<PipelineData>,
     arguments: Vec<(String, Value)>,
     value: &Value,
 ) -> Result<(), ShellError> {
@@ -851,9 +851,14 @@ pub fn eval_hook(
                         span: block_span,
                         ..
                     } => {
-                        run_hook_block(engine_state, stack, block_id,
-                                       input,
-                                       arguments, block_span)?;
+                        run_hook_block(
+                            engine_state,
+                            stack,
+                            block_id,
+                            input,
+                            arguments,
+                            block_span,
+                        )?;
                     }
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
@@ -870,9 +875,14 @@ pub fn eval_hook(
             span: block_span,
             ..
         } => {
-            run_hook_block(engine_state, stack, *block_id,
-                           input,
-                           arguments, *block_span)?;
+            run_hook_block(
+                engine_state,
+                stack,
+                *block_id,
+                input,
+                arguments,
+                *block_span,
+            )?;
         }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
@@ -893,7 +903,7 @@ pub fn run_hook_block(
     engine_state: &EngineState,
     stack: &mut Stack,
     block_id: BlockId,
-    optional_input:  Option<PipelineData>,
+    optional_input: Option<PipelineData>,
     arguments: Vec<(String, Value)>,
     span: Span,
 ) -> Result<Value, ShellError> {
