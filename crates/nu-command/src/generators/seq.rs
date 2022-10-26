@@ -118,10 +118,31 @@ fn seq(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let rest_nums: Vec<Spanned<f64>> = call.rest(engine_state, stack, 0)?;
+    let rest_vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
     let separator: Option<Spanned<String>> = call.get_flag(engine_state, stack, "separator")?;
     let terminator: Option<Spanned<String>> = call.get_flag(engine_state, stack, "terminator")?;
     let widths = call.has_flag("widths");
+
+    let mut has_float = false;
+    let mut rest_nums: Vec<Spanned<f64>> = Vec::new();
+    for val in rest_vals {
+        if let Value::Float { .. } = val {
+            has_float = true;
+        }
+        match val.as_f64() {
+            Ok(float) => rest_nums.push(Spanned {
+                item: float,
+                span: val.span().unwrap_or_else(|_| Span::unknown()),
+            }),
+            Err(_) => match val.as_i64() {
+            Ok(int) => rest_nums.push(Spanned {
+                item: int as f64,
+                span: val.span().unwrap_or_else(|_| Span::unknown()),
+            }),
+            Err(e) => return Err(e),
+            }
+        }
+    }
 
     if rest_nums.is_empty() {
         return Err(ShellError::GenericError(
@@ -185,7 +206,15 @@ fn seq(
 
     let rest_nums: Vec<String> = rest_nums.iter().map(|n| n.item.to_string()).collect();
 
-    run_seq(sep, Some(term), widths, rest_nums, span, engine_state)
+    run_seq(
+        sep,
+        Some(term),
+        widths,
+        rest_nums,
+        span,
+        has_float,
+        engine_state,
+    )
 }
 
 #[cfg(test)]
@@ -200,12 +229,12 @@ mod tests {
     }
 }
 
-fn parse_float(mut s: &str) -> Result<(f64, bool), String> {
+fn parse_float(mut s: &str) -> Result<f64, String> {
     if s.starts_with('+') {
         s = &s[1..];
     }
     match s.parse() {
-        Ok(n) => Ok((n, s.contains('.'))),
+        Ok(n) => Ok(n),
         Err(e) => Err(format!(
             "seq: invalid floating point argument `{}`: {}",
             s, e
@@ -223,11 +252,11 @@ fn run_seq(
     widths: bool,
     free: Vec<String>,
     span: Span,
+    has_float: bool,
     engine_state: &EngineState,
 ) -> Result<PipelineData, ShellError> {
     let mut largest_dec = 0;
     let mut padding = 0;
-    let mut has_float = false;
     let first = if free.len() > 1 {
         let slice = &free[0][..];
         let len = slice.len();
@@ -235,10 +264,7 @@ fn run_seq(
         largest_dec = len - dec;
         padding = dec;
         match parse_float(slice) {
-            Ok((n, is_float)) => {
-                has_float = has_float || is_float;
-                n
-            }
+            Ok(n) => n,
             Err(s) => {
                 return Err(ShellError::GenericError(
                     s,
@@ -259,10 +285,7 @@ fn run_seq(
         largest_dec = cmp::max(largest_dec, len - dec);
         padding = cmp::max(padding, dec);
         match parse_float(slice) {
-            Ok((n, is_float)) => {
-                has_float = has_float || is_float;
-                n
-            }
+            Ok(n) => n,
             Err(s) => {
                 return Err(ShellError::GenericError(
                     s,
@@ -280,10 +303,7 @@ fn run_seq(
         let slice = &free[free.len() - 1][..];
         padding = cmp::max(padding, slice.find('.').unwrap_or(slice.len()));
         match parse_float(slice) {
-            Ok((n, is_float)) => {
-                has_float = has_float || is_float;
-                n
-            }
+            Ok(n) => n,
             Err(s) => {
                 return Err(ShellError::GenericError(
                     s,
