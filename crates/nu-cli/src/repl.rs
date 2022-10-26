@@ -724,13 +724,14 @@ pub fn eval_hook(
     input: Option<PipelineData>,
     arguments: Vec<(String, Value)>,
     value: &Value,
-) -> Result<(), ShellError> {
+) -> Result<PipelineData, ShellError> {
     let value_span = value.span()?;
 
     let condition_path = PathMember::String {
         val: "condition".to_string(),
         span: value_span,
     };
+    let mut output = PipelineData::new(Span::new(0, 0));
 
     let code_path = PathMember::String {
         val: "code".to_string(),
@@ -740,7 +741,7 @@ pub fn eval_hook(
     match value {
         Value::List { vals, .. } => {
             for val in vals {
-                eval_hook(engine_state, stack, None, arguments.clone(), val)?
+                eval_hook(engine_state, stack, None, arguments.clone(), val)?;
             }
         }
         Value::Record { .. } => {
@@ -836,7 +837,9 @@ pub fn eval_hook(
                             .collect();
 
                         match eval_block(engine_state, stack, &block, input, false, false) {
-                            Ok(_) => {}
+                            Ok(pipeline_data) => {
+                                output = pipeline_data;
+                            }
                             Err(err) => {
                                 report_error_new(engine_state, &err);
                             }
@@ -875,14 +878,17 @@ pub fn eval_hook(
             span: block_span,
             ..
         } => {
-            run_hook_block(
-                engine_state,
-                stack,
-                *block_id,
-                input,
-                arguments,
-                *block_span,
-            )?;
+            output = PipelineData::Value(
+                run_hook_block(
+                    engine_state,
+                    stack,
+                    *block_id,
+                    input,
+                    arguments,
+                    *block_span,
+                )?,
+                None,
+            );
         }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
@@ -896,7 +902,7 @@ pub fn eval_hook(
     let cwd = get_guaranteed_cwd(engine_state, stack);
     engine_state.merge_env(stack, cwd)?;
 
-    Ok(())
+    Ok(output)
 }
 
 pub fn run_hook_block(

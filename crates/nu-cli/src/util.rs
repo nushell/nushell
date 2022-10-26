@@ -241,14 +241,16 @@ pub fn eval_source(
             {
                 result = print_if_stream(stream, stderr_stream, false, exit_code);
             } else if let Some(hook) = config.hooks.display_output.clone() {
-                if let Err(err) = eval_hook(engine_state, stack, Some(pipeline_data), vec![], &hook)
-                {
-                    result = Err(err);
-                } else {
-                    result = Ok(0);
+                match eval_hook(engine_state, stack, Some(pipeline_data), vec![], &hook) {
+                    Err(err) => {
+                        result = Err(err);
+                    }
+                    Ok(val) => {
+                        result = val.print(engine_state, stack, false, false);
+                    }
                 }
             } else {
-                result = pipeline_data.print(engine_state, stack, false, false)
+                result = pipeline_data.print(engine_state, stack, false, false);
             }
 
             match result {
