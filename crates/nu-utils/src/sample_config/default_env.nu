@@ -7,7 +7,7 @@ def create_left_prompt [] {
         $"(ansi green_bold)($env.PWD)"
     }
     let duration_segment = do {
-        let duration_secs = ($env.CMD_DURATION_MS | into int) / 1000;
+        let duration_secs = ($env.CMD_DURATION_MS | into int) / 1000
         if ($duration_secs >= 5) {
             $"(ansi yellow_bold)($duration_secs | math round | into string | append "sec" | str join | into duration) "
         } else {
