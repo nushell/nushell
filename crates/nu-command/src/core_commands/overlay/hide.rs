@@ -105,7 +105,7 @@ impl Command for OverlayHide {
             },
             Example {
                 description: "Hide an overlay created from a file",
-                example: r#"echo 'export alias f = "foo"' | save spam.nu
+                example: r#"'export alias f = "foo"' | save spam.nu
     overlay use spam.nu
     overlay hide spam"#,
                 result: None,

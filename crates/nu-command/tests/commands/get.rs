@@ -208,7 +208,7 @@ fn errors_fetching_by_index_out_of_bounds() {
 fn quoted_column_access() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"echo '[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#
+        r#"'[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#
     );
 
     assert_eq!(actual.out, "4");

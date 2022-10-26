@@ -183,14 +183,14 @@ impl Command for OverlayUse {
             },
             Example {
                 description: "Create an overlay with a prefix",
-                example: r#"echo 'export def foo { "foo" }'
+                example: r#"'export def foo { "foo" }'
     overlay use --prefix spam
     spam foo"#,
                 result: None,
             },
             Example {
                 description: "Create an overlay from a file",
-                example: r#"echo 'export-env { let-env FOO = "foo" }' | save spam.nu
+                example: r#"'export-env { let-env FOO = "foo" }' | save spam.nu
     overlay use spam.nu
     $env.FOO"#,
                 result: None,

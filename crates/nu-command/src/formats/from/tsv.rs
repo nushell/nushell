@@ -48,27 +48,27 @@ impl Command for FromTsv {
         vec![
             Example {
                 description: "Create a tsv file with header columns and open it",
-                example: r#"echo $'c1(char tab)c2(char tab)c3(char nl)1(char tab)2(char tab)3' | save tsv-data | open tsv-data | from tsv"#,
+                example: r#"$'c1(char tab)c2(char tab)c3(char nl)1(char tab)2(char tab)3' | save tsv-data | open tsv-data | from tsv"#,
                 result: None,
             },
             Example {
                 description: "Create a tsv file without header columns and open it",
-                example: r#"echo $'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv -n"#,
+                example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv -n"#,
                 result: None,
             },
             Example {
                 description: "Create a tsv file without header columns and open it, removing all unnecessary whitespaces",
-                example: r#"echo $'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim all"#,
+                example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim all"#,
                 result: None,
             },
             Example {
                 description: "Create a tsv file without header columns and open it, removing all unnecessary whitespaces in the header names",
-                example: r#"echo $'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim headers"#,
+                example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim headers"#,
                 result: None,
             },
             Example {
                 description: "Create a tsv file without header columns and open it, removing all unnecessary whitespaces in the field values",
-                example: r#"echo $'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim fields"#,
+                example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim fields"#,
                 result: None,
             },
         ]

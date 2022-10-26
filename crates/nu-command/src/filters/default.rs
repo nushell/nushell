@@ -50,8 +50,8 @@ impl Command for Default {
                 result: None, // Some(Value::test_string("abc")),
             },
             Example {
-                description: "Default the `$nothing` value in a list",
-                example: "[1, 2, $nothing, 4] | default 3",
+                description: "Replace the `null` value in a list",
+                example: "[1, 2, null, 4] | default 3",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_int(1),

@@ -77,7 +77,7 @@ def signatures():
                         "short": "h",
                         "arg": None,
                         "required": False,
-                        "desc": "Display this help message",
+                        "desc": "Display the help message for this command",
                         "var_id": None
                     },
                     {

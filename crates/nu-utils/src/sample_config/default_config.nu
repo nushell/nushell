@@ -61,7 +61,7 @@ module completions {
     --no-show-forced-updates                      # Don't check if a branch is force-updated
     -4                                            # Use IPv4 addresses, ignore IPv6 addresses
     -6                                            # Use IPv6 addresses, ignore IPv4 addresses
-    --help                                        # Display this help message
+    --help                                        # Display the help message for this command
   ]
 
   # Check out git branches and files
@@ -88,7 +88,7 @@ module completions {
     -b: string                                      # create and checkout a new branch
     -B: string                                      # create/reset and checkout a branch
     -l                                              # create reflog for new branch
-    --help                                          # Display this help message
+    --help                                          # Display the help message for this command
   ]
 
   # Push changes
@@ -120,7 +120,7 @@ module completions {
     --tags                                          # push tags (can't be used with --all or --mirror)
     --thin                                          # use thin pack
     --verbose(-v)                                   # be more verbose
-    --help                                          # Display this help message
+    --help                                          # Display the help message for this command
   ]
 }
 
@@ -243,7 +243,7 @@ let light_theme = {
 
 # The default config record. This is where much of your global configuration is setup.
 let-env config = {
-  external_completer: $nothing # check 'carapace_completer' above to as example
+  external_completer: null # check 'carapace_completer' above to as example
   filesize_metric: false # true => (KB, MB, GB), false => (KiB, MiB, GiB)
   table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
   use_ls_colors: true
