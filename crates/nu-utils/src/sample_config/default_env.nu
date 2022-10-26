@@ -15,7 +15,6 @@ def create_left_prompt [] {
     [$exit_code_segment, " ", $path_segment] | str join
 }
 
-
 def create_right_prompt [] {
     let time_segment = ([
         (date now | date format '%m/%d/%Y %r')
