@@ -147,7 +147,7 @@ fn draw_table(
     }
 
     let with_header = table.with_header;
-    let with_footer = with_header && need_footer(config, (&table.data).size().0 as u64);
+    let with_footer = with_header && need_footer(config, table.data.size().0 as u64);
     let with_index = table.with_index;
 
     if with_footer {
