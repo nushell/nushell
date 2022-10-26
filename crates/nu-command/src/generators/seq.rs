@@ -217,13 +217,13 @@ fn escape_sequences(s: &str) -> String {
     s.replace("\\n", "\n").replace("\\t", "\t")
 }
 
-pub fn run_seq(
+fn run_seq(
     sep: String,
     termy: Option<String>,
     widths: bool,
     free: Vec<String>,
     span: Span,
-    engine_state: &EngineState
+    engine_state: &EngineState,
 ) -> Result<PipelineData, ShellError> {
     let mut largest_dec = 0;
     let mut padding = 0;
@@ -303,7 +303,7 @@ pub fn run_seq(
         widths,
         padding,
         span,
-        engine_state
+        engine_state,
     ))
 }
 
@@ -332,65 +332,81 @@ fn print_seq(
     let mut value = first + i as f64 * step;
     // for string output
     let mut ret_str = "".to_owned();
-    // for number output
-    let mut ret_num = vec![];
     // If the separator and terminator are line endings we can convert to numbers
     let use_num =
         (separator == "\n" || separator == "\r") && (terminator == "\n" || terminator == "\r");
 
+    if use_num {
+        let int_stream: bool = first.fract() == 0.0 && step.fract() == 0.0;
+        return PipelineData::ListStream(
+            ListStream {
+                stream: Box::new(Counter {
+                    count: first,
+                    step,
+                    last,
+                    int: int_stream,
+                    span,
+                }),
+                ctrlc: engine_state.ctrlc.clone(),
+            },
+            None,
+        );
+    }
+
     while !done_printing(value, step, last) {
-        if use_num {
-            ret_num.push(value);
-        } else {
-            // formatting for string output with potential padding
-            let istr = format!("{:.*}", largest_dec, value);
-            let ilen = istr.len();
-            let before_dec = istr.find('.').unwrap_or(ilen);
-            if pad && before_dec < padding {
-                for _ in 0..(padding - before_dec) {
-                    ret_str.push('0');
-                }
+        // formatting for string output with potential padding
+        let istr = format!("{:.*}", largest_dec, value);
+        let ilen = istr.len();
+        let before_dec = istr.find('.').unwrap_or(ilen);
+        if pad && before_dec < padding {
+            for _ in 0..(padding - before_dec) {
+                ret_str.push('0');
             }
-            ret_str.push_str(&istr);
         }
+        ret_str.push_str(&istr);
         i += 1;
         value = first + i as f64 * step;
-        if !done_printing(value, step, last) {
+        if !done_printing(value, step, last) && !use_num {
             ret_str.push_str(&separator);
         }
     }
 
-    if !use_num && ((first >= last && step < 0f64) || (first <= last && step > 0f64)) {
+    if (first >= last && step < 0f64) || (first <= last && step > 0f64) {
         ret_str.push_str(&terminator);
     }
 
-    if use_num {
-        // we'd like to keep the datatype the same for the output, so check
-        // and see if any of the output is really decimals, and if it is
-        // we'll make the entire output decimals
-        let contains_decimals = vec_contains_decimals(&ret_num);
-        if contains_decimals {
-            let rows = ret_num.into_iter().map(move |v| Value::float(v, span));
-            PipelineData::ListStream(ListStream::from_stream(rows, engine_state.ctrlc.clone()), None)
-        } else {
-            let rows = ret_num.into_iter().map(move |v| Value::int(v as i64, span));
-            PipelineData::ListStream(ListStream::from_stream(rows, engine_state.ctrlc.clone()), None)
-        }
-    } else {
-        let rows: String = ret_str.lines().collect();
-        Value::string(rows, span).into_pipeline_data()
-    }
+    let rows: String = ret_str.lines().collect();
+    Value::string(rows, span).into_pipeline_data()
 }
 
-fn vec_contains_decimals(array: &[f64]) -> bool {
+struct Counter {
+    count: f64,
+    step: f64,
+    last: f64,
+    span: Span,
+    int: bool,
+}
 
-    let mut found_decimal = false;
-    for x in array {
-        if x.fract() != 0.0 {
-            found_decimal = true;
-            break;
+impl Iterator for Counter {
+    type Item = Value;
+    fn next(&mut self) -> Option<Value> {
+        if (self.count > self.last && self.step >= 0.0)
+            || (self.count < self.last && self.step <= 0.0)
+        {
+            return None;
         }
+        let ret = if self.int {
+            Some(Value::Int {
+                val: self.count as i64,
+                span: self.span,
+            })
+        } else {
+            Some(Value::Float {
+                val: self.count,
+                span: self.span,
+            })
+        };
+        self.count += self.step;
+        ret
     }
-
-    found_decimal
 }
