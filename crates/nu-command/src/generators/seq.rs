@@ -135,12 +135,12 @@ fn seq(
                 span: val.span().unwrap_or_else(|_| Span::unknown()),
             }),
             Err(_) => match val.as_i64() {
-            Ok(int) => rest_nums.push(Spanned {
-                item: int as f64,
-                span: val.span().unwrap_or_else(|_| Span::unknown()),
-            }),
-            Err(e) => return Err(e),
-            }
+                Ok(int) => rest_nums.push(Spanned {
+                    item: int as f64,
+                    span: val.span().unwrap_or_else(|_| Span::unknown()),
+                }),
+                Err(e) => return Err(e),
+            },
         }
     }
 
