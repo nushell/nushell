@@ -6,9 +6,15 @@ def create_left_prompt [] {
     } else {
         $"(ansi green_bold)($env.PWD)"
     }
+    let exit_code_segment = if ($env.LAST_EXIT_CODE == 0) {
+        $"(ansi green_bold)($env.LAST_EXIT_CODE)"
+    } else {
+        $"(ansi red_bold)($env.LAST_EXIT_CODE)"
+    }
 
-    $path_segment
+    [$exit_code_segment, " ", $path_segment] | str join
 }
+
 
 def create_right_prompt [] {
     let time_segment = ([
