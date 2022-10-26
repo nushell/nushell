@@ -6,13 +6,21 @@ def create_left_prompt [] {
     } else {
         $"(ansi green_bold)($env.PWD)"
     }
+    let duration_segment = do {
+        let duration_secs = ($env.CMD_DURATION_MS | into int) / 1000;
+        if ($duration_secs >= 5) {
+            $"(ansi yellow_bold)($duration_secs | math round | into string | append "sec" | str join | into duration) "
+        } else {
+            ""
+        }
+    }
     let exit_code_segment = if ($env.LAST_EXIT_CODE == 0) {
-        $"(ansi green_bold)($env.LAST_EXIT_CODE)"
+        $"(ansi green_bold)($env.LAST_EXIT_CODE) "
     } else {
-        $"(ansi red_bold)($env.LAST_EXIT_CODE)"
+        $"(ansi red_bold)($env.LAST_EXIT_CODE) "
     }
 
-    [$exit_code_segment, " ", $path_segment] | str join
+    [$duration_segment, $exit_code_segment, $path_segment] | str join
 }
 
 def create_right_prompt [] {
