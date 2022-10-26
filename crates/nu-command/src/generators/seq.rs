@@ -200,12 +200,12 @@ mod tests {
     }
 }
 
-fn parse_float(mut s: &str) -> Result<f64, String> {
+fn parse_float(mut s: &str) -> Result<(f64, bool), String> {
     if s.starts_with('+') {
         s = &s[1..];
     }
     match s.parse() {
-        Ok(n) => Ok(n),
+        Ok(n) => Ok((n, s.contains('.'))),
         Err(e) => Err(format!(
             "seq: invalid floating point argument `{}`: {}",
             s, e
@@ -227,6 +227,7 @@ fn run_seq(
 ) -> Result<PipelineData, ShellError> {
     let mut largest_dec = 0;
     let mut padding = 0;
+    let mut has_float = false;
     let first = if free.len() > 1 {
         let slice = &free[0][..];
         let len = slice.len();
@@ -234,7 +235,10 @@ fn run_seq(
         largest_dec = len - dec;
         padding = dec;
         match parse_float(slice) {
-            Ok(n) => n,
+            Ok((n, is_float)) => {
+                has_float = has_float || is_float;
+                n
+            }
             Err(s) => {
                 return Err(ShellError::GenericError(
                     s,
@@ -255,7 +259,10 @@ fn run_seq(
         largest_dec = cmp::max(largest_dec, len - dec);
         padding = cmp::max(padding, dec);
         match parse_float(slice) {
-            Ok(n) => n,
+            Ok((n, is_float)) => {
+                has_float = has_float || is_float;
+                n
+            }
             Err(s) => {
                 return Err(ShellError::GenericError(
                     s,
@@ -273,7 +280,10 @@ fn run_seq(
         let slice = &free[free.len() - 1][..];
         padding = cmp::max(padding, slice.find('.').unwrap_or(slice.len()));
         match parse_float(slice) {
-            Ok(n) => n,
+            Ok((n, is_float)) => {
+                has_float = has_float || is_float;
+                n
+            }
             Err(s) => {
                 return Err(ShellError::GenericError(
                     s,
@@ -303,6 +313,7 @@ fn run_seq(
         widths,
         padding,
         span,
+        has_float,
         engine_state,
     ))
 }
@@ -326,6 +337,7 @@ fn print_seq(
     pad: bool,
     padding: usize,
     span: Span,
+    is_float_sequence: bool,
     engine_state: &EngineState,
 ) -> PipelineData {
     let mut i = 0isize;
@@ -337,20 +349,35 @@ fn print_seq(
         (separator == "\n" || separator == "\r") && (terminator == "\n" || terminator == "\r");
 
     if use_num {
-        let int_stream: bool = first.fract() == 0.0 && step.fract() == 0.0;
-        return PipelineData::ListStream(
-            ListStream {
-                stream: Box::new(Counter {
-                    count: first,
-                    step,
-                    last,
-                    int: int_stream,
-                    span,
-                }),
-                ctrlc: engine_state.ctrlc.clone(),
-            },
-            None,
-        );
+        if is_float_sequence {
+            return PipelineData::ListStream(
+                ListStream {
+                    stream: Box::new(Counter {
+                        count: first,
+                        step,
+                        last,
+                        index: 0,
+                        span,
+                    }),
+                    ctrlc: engine_state.ctrlc.clone(),
+                },
+                None,
+            );
+        } else {
+            return PipelineData::ListStream(
+                ListStream {
+                    stream: Box::new(Counter {
+                        count: first as i64,
+                        step: step as i64,
+                        last: last as i64,
+                        index: 0,
+                        span,
+                    }),
+                    ctrlc: engine_state.ctrlc.clone(),
+                },
+                None,
+            );
+        }
     }
 
     while !done_printing(value, step, last) {
@@ -379,34 +406,41 @@ fn print_seq(
     Value::string(rows, span).into_pipeline_data()
 }
 
-struct Counter {
-    count: f64,
-    step: f64,
-    last: f64,
+struct Counter<T> {
+    count: T,
+    step: T,
+    last: T,
+    index: isize,
     span: Span,
-    int: bool,
 }
 
-impl Iterator for Counter {
+impl Iterator for Counter<i64> {
     type Item = Value;
     fn next(&mut self) -> Option<Value> {
-        if (self.count > self.last && self.step >= 0.0)
-            || (self.count < self.last && self.step <= 0.0)
+        if (self.count > self.last && self.step >= 0) || (self.count < self.last && self.step <= 0)
         {
             return None;
         }
-        let ret = if self.int {
-            Some(Value::Int {
-                val: self.count as i64,
-                span: self.span,
-            })
-        } else {
-            Some(Value::Float {
-                val: self.count,
-                span: self.span,
-            })
-        };
+        let ret = Some(Value::Int {
+            val: self.count as i64,
+            span: self.span,
+        });
         self.count += self.step;
         ret
+    }
+}
+
+impl Iterator for Counter<f64> {
+    type Item = Value;
+    fn next(&mut self) -> Option<Value> {
+        let count = self.count + self.index as f64 * self.step;
+        if (count > self.last && self.step >= 0.0) || (count < self.last && self.step <= 0.0) {
+            return None;
+        }
+        self.index += 1;
+        Some(Value::Float {
+            val: count,
+            span: self.span,
+        })
     }
 }
