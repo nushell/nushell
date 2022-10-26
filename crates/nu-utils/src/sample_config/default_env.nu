@@ -15,7 +15,7 @@ def create_left_prompt [] {
         }
     }
     let exit_code_segment = if ($env.LAST_EXIT_CODE == 0) {
-        $"(ansi green_bold)($env.LAST_EXIT_CODE) "
+        ""
     } else {
         $"(ansi red_bold)($env.LAST_EXIT_CODE) "
     }
