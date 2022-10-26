@@ -424,36 +424,14 @@ impl PipelineData {
             stderr: stderr_stream,
             exit_code,
             ..
-        } = self
-        {
-            // NOTE: currently we don't need anything from stderr
-            // so directly consumes `stderr_stream` to make sure that everything is done.
-            std::thread::spawn(move || stderr_stream.map(|x| x.into_bytes()));
-            if let Some(stream) = stream {
-                for s in stream {
-                    let s_live = s?;
-                    let bin_output = s_live.as_binary()?;
-
-                    if !to_stderr {
-                        stdout_write_all_and_flush(bin_output)?
-                    } else {
-                        stderr_write_all_and_flush(bin_output)?
-                    }
-                }
+        } = self {
+            return print_if_stream(stream, stderr_stream, to_stderr, exit_code);
+            /*
+            if let Ok(exit_code) = print_if_stream(stream, stderr_stream, to_stderr, exit_code) {
+                return Ok(exit_code);
             }
-
-            // Make sure everything has finished
-            if let Some(exit_code) = exit_code {
-                let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
-                return match exit_codes.pop() {
-                    #[cfg(unix)]
-                    Some(Value::Error { error }) => Err(error),
-                    Some(Value::Int { val, .. }) => Ok(val),
-                    _ => Ok(0),
-                };
-            }
-
             return Ok(0);
+            */
         }
 
         match engine_state.find_decl("table".as_bytes(), &[]) {
@@ -547,6 +525,42 @@ impl IntoIterator for PipelineData {
             x => PipelineIterator(x),
         }
     }
+}
+
+pub fn print_if_stream(
+    stream: Option<RawStream>,
+    stderr_stream: Option<RawStream>,
+    to_stderr: bool,
+    exit_code: Option<ListStream>,
+) -> Result<i64, ShellError> {
+    // NOTE: currently we don't need anything from stderr
+    // so directly consumes `stderr_stream` to make sure that everything is done.
+    std::thread::spawn(move || stderr_stream.map(|x| x.into_bytes()));
+    if let Some(stream) = stream {
+        for s in stream {
+            let s_live = s?;
+            let bin_output = s_live.as_binary()?;
+
+            if !to_stderr {
+                stdout_write_all_and_flush(bin_output)?
+            } else {
+                stderr_write_all_and_flush(bin_output)?
+            }
+        }
+    }
+
+    // Make sure everything has finished
+    if let Some(exit_code) = exit_code {
+        let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
+        return match exit_codes.pop() {
+            #[cfg(unix)]
+            Some(Value::Error { error }) => Err(error),
+            Some(Value::Int { val, .. }) => Ok(val),
+            _ => Ok(0),
+        };
+    }
+
+    return Ok(0);
 }
 
 impl Iterator for PipelineIterator {
