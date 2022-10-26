@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    Category, Example, IntoPipelineData, ListStream, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Value,
 };
 use std::cmp;
 
@@ -185,7 +185,7 @@ fn seq(
 
     let rest_nums: Vec<String> = rest_nums.iter().map(|n| n.item.to_string()).collect();
 
-    run_seq(sep, Some(term), widths, rest_nums, span)
+    run_seq(sep, Some(term), widths, rest_nums, span, engine_state)
 }
 
 #[cfg(test)]
@@ -223,6 +223,7 @@ pub fn run_seq(
     widths: bool,
     free: Vec<String>,
     span: Span,
+    engine_state: &EngineState
 ) -> Result<PipelineData, ShellError> {
     let mut largest_dec = 0;
     let mut padding = 0;
@@ -302,6 +303,7 @@ pub fn run_seq(
         widths,
         padding,
         span,
+        engine_state
     ))
 }
 
@@ -324,6 +326,7 @@ fn print_seq(
     pad: bool,
     padding: usize,
     span: Span,
+    engine_state: &EngineState,
 ) -> PipelineData {
     let mut i = 0isize;
     let mut value = first + i as f64 * step;
@@ -366,18 +369,13 @@ fn print_seq(
         // and see if any of the output is really decimals, and if it is
         // we'll make the entire output decimals
         let contains_decimals = vec_contains_decimals(&ret_num);
-        let rows: Vec<Value> = ret_num
-            .iter()
-            .map(|v| {
-                if contains_decimals {
-                    Value::float(*v, span)
-                } else {
-                    Value::int(*v as i64, span)
-                }
-            })
-            .collect();
-
-        Value::List { vals: rows, span }.into_pipeline_data()
+        if contains_decimals {
+            let rows = ret_num.into_iter().map(move |v| Value::float(v, span));
+            PipelineData::ListStream(ListStream::from_stream(rows, engine_state.ctrlc.clone()), None)
+        } else {
+            let rows = ret_num.into_iter().map(move |v| Value::int(v as i64, span));
+            PipelineData::ListStream(ListStream::from_stream(rows, engine_state.ctrlc.clone()), None)
+        }
     } else {
         let rows: String = ret_str.lines().collect();
         Value::string(rows, span).into_pipeline_data()
@@ -385,6 +383,7 @@ fn print_seq(
 }
 
 fn vec_contains_decimals(array: &[f64]) -> bool {
+
     let mut found_decimal = false;
     for x in array {
         if x.fract() != 0.0 {
