@@ -6,14 +6,14 @@
 
 Make sure you've done the following, if applicable:
 
-- [ ] Add tests that cover your changes (either in the command examples, the crate/tests folder, or in the /tests folder)
+- Add tests that cover your changes (either in the command examples, the crate/tests folder, or in the /tests folder)
   - Try to think about corner cases and various ways how your changes could break. Cover those in the tests
 
 Make sure you've run and fixed any issues with these commands:
 
-- [ ] `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
-- [ ] `cargo clippy --workspace --features=extra -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
-- [ ] `cargo test --workspace --features=extra` to check that all tests pass
+- `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
+- `cargo clippy --workspace --features=extra -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
+- `cargo test --workspace --features=extra` to check that all tests pass
 
 # User-Facing Changes
 
