@@ -52,11 +52,7 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let column_paths = if column_paths.is_empty() {
-            None
-        } else {
-            Some(column_paths)
-        };
+        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
         let args = Arguments {
             substring: call.req::<String>(engine_state, stack, 0)?,
             column_paths,

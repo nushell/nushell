@@ -61,11 +61,7 @@ impl Command for BytesIndexOf {
     ) -> Result<PipelineData, ShellError> {
         let pattern: Vec<u8> = call.req(engine_state, stack, 0)?;
         let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let column_paths = if column_paths.is_empty() {
-            None
-        } else {
-            Some(column_paths)
-        };
+        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
         let arg = Arguments {
             pattern,
             end: call.has_flag("end"),
