@@ -1,3 +1,4 @@
+use crate::input_handler::{operate, CmdArgument};
 use fancy_regex::Regex;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -10,8 +11,16 @@ use nu_protocol::{
 pub struct SubCommand;
 
 struct Arguments {
-    character: Option<Spanned<String>>,
-    column_paths: Vec<CellPath>,
+    to_trim: Option<char>,
+    closure_flags: ClosureFlags,
+    column_paths: Option<Vec<CellPath>>,
+    mode: ActionMode,
+}
+
+impl CmdArgument for Arguments {
+    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.column_paths.take()
+    }
 }
 
 #[derive(Default, Debug, Copy, Clone)]
@@ -74,7 +83,45 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        operate(engine_state, stack, call, input, &trim)
+        let character = call.get_flag::<Spanned<String>>(engine_state, stack, "char")?;
+        let to_trim = match character.as_ref() {
+            Some(v) => {
+                if v.item.chars().count() > 1 {
+                    return Err(ShellError::GenericError(
+                        "Trim only works with single character".into(),
+                        "needs single character".into(),
+                        Some(v.span),
+                        None,
+                        Vec::new(),
+                    ));
+                }
+                v.item.chars().next()
+            }
+            None => None,
+        };
+        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
+        let mode = match column_paths {
+            None => ActionMode::Global,
+            Some(_) => ActionMode::Local,
+        };
+        let args = Arguments {
+            to_trim,
+            closure_flags: ClosureFlags {
+                all_flag: call.has_flag("all"),
+                left_trim: call.has_flag("left"),
+                right_trim: call.has_flag("right"),
+                format_flag: call.has_flag("format"),
+                both_flag: call.has_flag("both")
+                    || (!call.has_flag("all")
+                        && !call.has_flag("left")
+                        && !call.has_flag("right")
+                        && !call.has_flag("format")), // this is the case if no flags are provided
+            },
+            column_paths,
+            mode,
+        };
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -118,118 +165,25 @@ impl Command for SubCommand {
     }
 }
 
-pub fn operate<F>(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-    trim_operation: &'static F,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError>
-where
-    F: Fn(&str, Option<char>, &ClosureFlags) -> String + Send + Sync + 'static,
-{
-    let head = call.head;
-    let (options, closure_flags, input) = (
-        Arguments {
-            character: call.get_flag(engine_state, stack, "char")?,
-            column_paths: call.rest(engine_state, stack, 0)?,
-        },
-        ClosureFlags {
-            all_flag: call.has_flag("all"),
-            left_trim: call.has_flag("left"),
-            right_trim: call.has_flag("right"),
-            format_flag: call.has_flag("format"),
-            both_flag: call.has_flag("both")
-                || (!call.has_flag("all")
-                    && !call.has_flag("left")
-                    && !call.has_flag("right")
-                    && !call.has_flag("format")), // this is the case if no flags are provided
-        },
-        input,
-    );
-    let to_trim = match options.character.as_ref() {
-        Some(v) => {
-            if v.item.chars().count() > 1 {
-                return Err(ShellError::GenericError(
-                    "Trim only works with single character".into(),
-                    "needs single character".into(),
-                    Some(v.span),
-                    None,
-                    Vec::new(),
-                ));
-            }
-            v.item.chars().next()
-        }
-        None => None,
-    };
-
-    input.map(
-        move |v| {
-            if options.column_paths.is_empty() {
-                action(
-                    &v,
-                    head,
-                    to_trim,
-                    &closure_flags,
-                    &trim_operation,
-                    ActionMode::Global,
-                )
-            } else {
-                let mut ret = v;
-                for path in &options.column_paths {
-                    let r = ret.update_cell_path(
-                        &path.members,
-                        Box::new(move |old| {
-                            action(
-                                old,
-                                head,
-                                to_trim,
-                                &closure_flags,
-                                &trim_operation,
-                                ActionMode::Local,
-                            )
-                        }),
-                    );
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
-}
-
 #[derive(Debug, Copy, Clone)]
 pub enum ActionMode {
     Local,
     Global,
 }
 
-pub fn action<F>(
-    input: &Value,
-    head: Span,
-    char_: Option<char>,
-    closure_flags: &ClosureFlags,
-    trim_operation: &F,
-    mode: ActionMode,
-) -> Value
-where
-    F: Fn(&str, Option<char>, &ClosureFlags) -> String + Send + Sync + 'static,
-{
+fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
+    let char_ = arg.to_trim;
+    let closure_flags = &arg.closure_flags;
+    let mode = &arg.mode;
     match input {
         Value::String { val: s, .. } => Value::String {
-            val: trim_operation(s, char_, closure_flags),
+            val: trim(s, char_, closure_flags),
             span: head,
         },
         other => match mode {
             ActionMode::Global => match other {
                 Value::Record { cols, vals, span } => {
-                    let new_vals = vals
-                        .iter()
-                        .map(|v| action(v, head, char_, closure_flags, trim_operation, mode))
-                        .collect();
+                    let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
 
                     Value::Record {
                         cols: cols.to_vec(),
@@ -238,10 +192,7 @@ where
                     }
                 }
                 Value::List { vals, span } => {
-                    let new_vals = vals
-                        .iter()
-                        .map(|v| action(v, head, char_, closure_flags, trim_operation, mode))
-                        .collect();
+                    let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
 
                     Value::List {
                         vals: new_vals,
@@ -374,14 +325,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -393,15 +343,13 @@ mod tests {
             both_flag: true,
             ..Default::default()
         };
-
-        let actual = action(
-            &word,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -413,15 +361,14 @@ mod tests {
             both_flag: true,
             ..Default::default()
         };
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
 
-        let actual = action(
-            &number,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let actual = action(&number, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -435,14 +382,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &row,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -455,14 +401,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &row,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -475,14 +420,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            Some('!'),
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: Some('!'),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
     #[test]
@@ -494,14 +438,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            Some(' '),
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: Some(' '),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -517,15 +460,13 @@ mod tests {
             all_flag: true,
             ..Default::default()
         };
-
-        let actual = action(
-            &row,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -571,14 +512,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &row,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -591,14 +531,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            Some('.'),
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: Some('.'),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -611,14 +550,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &row,
-            Span::test_data(),
-            Some('!'),
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: Some('!'),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -664,14 +602,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &row,
-            Span::test_data(),
-            Some('#'),
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: Some('#'),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -684,14 +621,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -704,14 +640,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &number,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&number, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -724,14 +659,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -744,14 +678,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &row,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -796,15 +729,13 @@ mod tests {
             left_trim: true,
             ..Default::default()
         };
-
-        let actual = action(
-            &row,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -817,14 +748,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            Some('!'),
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: Some('!'),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
     #[test]
@@ -835,15 +765,13 @@ mod tests {
             right_trim: true,
             ..Default::default()
         };
-
-        let actual = action(
-            &word,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -855,15 +783,13 @@ mod tests {
             right_trim: true,
             ..Default::default()
         };
-
-        let actual = action(
-            &word,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -876,14 +802,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &number,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&number, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -896,14 +821,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &row,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -949,14 +873,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &row,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -969,14 +892,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            Some('#'),
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: Some('#'),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -989,14 +911,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            Some(' '),
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: Some(' '),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -1008,15 +929,13 @@ mod tests {
             format_flag: true,
             ..Default::default()
         };
-
-        let actual = action(
-            &word,
-            Span::test_data(),
-            Some(' '),
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: Some(' '),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
     #[test]
@@ -1028,14 +947,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &number,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&number, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -1048,14 +966,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &row,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -1101,14 +1018,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &row,
-            Span::test_data(),
-            None,
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: None,
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&row, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -1121,14 +1037,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            Some('.'),
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: Some('.'),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -1142,14 +1057,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            Some(' '),
-            &closure_flags,
-            &trim,
-            ActionMode::Local,
-        );
+        let args = Arguments {
+            to_trim: Some(' '),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Local,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -1163,14 +1077,13 @@ mod tests {
             ..Default::default()
         };
 
-        let actual = action(
-            &word,
-            Span::test_data(),
-            Some(' '),
-            &closure_flags,
-            &trim,
-            ActionMode::Global,
-        );
+        let args = Arguments {
+            to_trim: Some(' '),
+            closure_flags,
+            column_paths: None,
+            mode: ActionMode::Global,
+        };
+        let actual = action(&word, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 }

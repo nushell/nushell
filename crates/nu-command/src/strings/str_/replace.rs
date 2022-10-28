@@ -1,3 +1,4 @@
+use crate::input_handler::{operate, CmdArgument};
 use fancy_regex::{NoExpand, Regex};
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -5,15 +6,20 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
-use std::sync::Arc;
 
 struct Arguments {
     all: bool,
     find: Spanned<String>,
     replace: Spanned<String>,
-    column_paths: Vec<CellPath>,
+    column_paths: Option<Vec<CellPath>>,
     literal_replace: bool,
     no_regex: bool,
+}
+
+impl CmdArgument for Arguments {
+    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.column_paths.take()
+    }
 }
 
 #[derive(Clone)]
@@ -62,7 +68,22 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input)
+        let find: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
+        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
+        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
+        let literal_replace = call.has_flag("no-expand");
+        let no_regex = call.has_flag("string");
+
+        let args = Arguments {
+            all: call.has_flag("all"),
+            find,
+            replace,
+            column_paths,
+            literal_replace,
+            no_regex,
+        };
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -152,50 +173,6 @@ impl Command for SubCommand {
 
         ]
     }
-}
-
-fn operate(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let find: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
-    let literal_replace = call.has_flag("no-expand");
-    let no_regex = call.has_flag("string");
-
-    let options = Arc::new(Arguments {
-        all: call.has_flag("all"),
-        find,
-        replace,
-        column_paths: call.rest(engine_state, stack, 2)?,
-        literal_replace,
-        no_regex,
-    });
-
-    input.map(
-        move |v| {
-            if options.column_paths.is_empty() {
-                action(&v, &options, head)
-            } else {
-                let mut ret = v;
-                for path in &options.column_paths {
-                    let opt = options.clone();
-                    let r = ret.update_cell_path(
-                        &path.members,
-                        Box::new(move |old| action(old, &opt, head)),
-                    );
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
 }
 
 struct FindReplace<'a>(&'a str, &'a str);
@@ -305,7 +282,7 @@ mod tests {
         let options = Arguments {
             find: test_spanned_string("Cargo.(.+)"),
             replace: test_spanned_string("Carga.$1"),
-            column_paths: vec![],
+            column_paths: None,
             literal_replace: false,
             all: false,
             no_regex: false,

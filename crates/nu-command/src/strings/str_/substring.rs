@@ -1,17 +1,23 @@
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
 use std::cmp::Ordering;
-use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct SubCommand;
 
 struct Arguments {
-    range: Value,
-    column_paths: Vec<CellPath>,
+    indexes: Substring,
+    column_paths: Option<Vec<CellPath>>,
+}
+
+impl CmdArgument for Arguments {
+    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.column_paths.take()
+    }
 }
 
 #[derive(Clone)]
@@ -59,7 +65,15 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input)
+        let range = call.req(engine_state, stack, 0)?;
+        let indexes: Substring = process_arguments(&range, call.head)?.into();
+        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
+        let args = Arguments {
+            indexes,
+            column_paths,
+        };
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -99,44 +113,8 @@ impl Command for SubCommand {
     }
 }
 
-fn operate(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let options = Arc::new(Arguments {
-        range: call.req(engine_state, stack, 0)?,
-        column_paths: call.rest(engine_state, stack, 1)?,
-    });
-
-    let head = call.head;
-    let indexes: Arc<Substring> = Arc::new(process_arguments(&options, head)?.into());
-
-    input.map(
-        move |v| {
-            if options.column_paths.is_empty() {
-                action(&v, &indexes, head)
-            } else {
-                let mut ret = v;
-                for path in &options.column_paths {
-                    let indexes = indexes.clone();
-                    let r = ret.update_cell_path(
-                        &path.members,
-                        Box::new(move |old| action(old, &indexes, head)),
-                    );
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
-}
-
-fn action(input: &Value, options: &Substring, head: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: Span) -> Value {
+    let options = &args.indexes;
     match input {
         Value::String { val: s, .. } => {
             let len: isize = s.len() as isize;
@@ -203,8 +181,8 @@ fn action(input: &Value, options: &Substring, head: Span) -> Value {
     }
 }
 
-fn process_arguments(options: &Arguments, head: Span) -> Result<(isize, isize), ShellError> {
-    let search = match &options.range {
+fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellError> {
+    let search = match range {
         Value::Range { val, .. } => {
             let start = val.from()?;
             let end = val.to()?;
@@ -357,7 +335,14 @@ mod tests {
 
         for expectation in &cases {
             let expected = expectation.expected;
-            let actual = action(&word, &expectation.options(), Span::test_data());
+            let actual = action(
+                &word,
+                &super::Arguments {
+                    indexes: expectation.options(),
+                    column_paths: None,
+                },
+                Span::test_data(),
+            );
 
             assert_eq!(
                 actual,

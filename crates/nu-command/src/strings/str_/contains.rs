@@ -1,14 +1,26 @@
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
+
+struct Arguments {
+    substring: String,
+    column_paths: Option<Vec<CellPath>>,
+    case_insensitive: bool,
+    not_contain: bool,
+}
+
+impl CmdArgument for Arguments {
+    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.column_paths.take()
+    }
+}
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
@@ -43,7 +55,19 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input)
+        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let column_paths = if column_paths.is_empty() {
+            None
+        } else {
+            Some(column_paths)
+        };
+        let args = Arguments {
+            substring: call.req::<String>(engine_state, stack, 0)?,
+            column_paths,
+            case_insensitive: call.has_flag("insensitive"),
+            not_contain: call.has_flag("not"),
+        };
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -175,53 +199,21 @@ impl Command for SubCommand {
     }
 }
 
-fn operate(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let substring: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-    let case_insensitive = call.has_flag("insensitive");
-    let not_contain = call.has_flag("not");
-
-    input.map(
-        move |v| {
-            if column_paths.is_empty() {
-                action(&v, case_insensitive, not_contain, &substring.item, head)
-            } else {
-                let mut ret = v;
-                for path in &column_paths {
-                    let p = substring.item.clone();
-                    let r = ret.update_cell_path(
-                        &path.members,
-                        Box::new(move |old| action(old, case_insensitive, not_contain, &p, head)),
-                    );
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
-}
-
 fn action(
     input: &Value,
-    case_insensitive: bool,
-    not_contain: bool,
-    substring: &str,
+    Arguments {
+        case_insensitive,
+        not_contain,
+        substring,
+        ..
+    }: &Arguments,
     head: Span,
 ) -> Value {
     match input {
         Value::String { val, .. } => Value::Bool {
             val: match case_insensitive {
                 true => {
-                    if not_contain {
+                    if *not_contain {
                         !val.to_lowercase()
                             .contains(substring.to_lowercase().as_str())
                     } else {
@@ -230,7 +222,7 @@ fn action(
                     }
                 }
                 false => {
-                    if not_contain {
+                    if *not_contain {
                         !val.contains(substring)
                     } else {
                         val.contains(substring)
