@@ -3,7 +3,7 @@ use nu_protocol::{PipelineData, ShellError, Span, Value};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-pub trait Argument {
+pub trait CmdArgument {
     fn take_column_paths(&mut self) -> Option<Vec<CellPath>>;
 }
 
@@ -23,7 +23,7 @@ pub fn operate<C, A>(
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<PipelineData, ShellError>
 where
-    A: Argument + Send + Sync + 'static,
+    A: CmdArgument + Send + Sync + 'static,
     C: Fn(&Value, &A, Span) -> Value + Send + Sync + 'static + Clone + Copy,
 {
     match arg.take_column_paths() {

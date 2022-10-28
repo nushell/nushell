@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, Argument};
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -12,7 +12,7 @@ struct Arguments {
     column_paths: Option<Vec<CellPath>>,
 }
 
-impl Argument for Arguments {
+impl CmdArgument for Arguments {
     fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
         self.column_paths.take()
     }

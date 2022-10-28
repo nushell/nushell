@@ -1,4 +1,4 @@
-use super::{operate, BytesArgument};
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -18,7 +18,7 @@ struct Arguments {
     column_paths: Option<Vec<CellPath>>,
 }
 
-impl BytesArgument for Arguments {
+impl CmdArgument for Arguments {
     fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
         self.column_paths.take()
     }
@@ -228,7 +228,25 @@ impl Command for BytesAt {
     }
 }
 
-fn at(input: &[u8], arg: &Arguments, span: Span) -> Value {
+fn at(val: &Value, args: &Arguments, span: Span) -> Value {
+    match val {
+        Value::Binary {
+            val,
+            span: val_span,
+        } => at_impl(val, args, *val_span),
+        other => Value::Error {
+            error: ShellError::UnsupportedInput(
+                format!(
+                    "Input's type is {}. This command only works with bytes.",
+                    other.get_type()
+                ),
+                span,
+            ),
+        },
+    }
+}
+
+fn at_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
     let len: isize = input.len() as isize;
 
     let start: isize = if arg.start < 0 {

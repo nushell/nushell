@@ -1,4 +1,4 @@
-use super::{operate, BytesArgument};
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -13,7 +13,7 @@ struct Arguments {
     column_paths: Option<Vec<CellPath>>,
 }
 
-impl BytesArgument for Arguments {
+impl CmdArgument for Arguments {
     fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
         self.column_paths.take()
     }
@@ -126,7 +126,25 @@ impl Command for BytesIndexOf {
     }
 }
 
-fn index_of(input: &[u8], arg: &Arguments, span: Span) -> Value {
+fn index_of(val: &Value, args: &Arguments, span: Span) -> Value {
+    match val {
+        Value::Binary {
+            val,
+            span: val_span,
+        } => index_of_impl(val, args, *val_span),
+        other => Value::Error {
+            error: ShellError::UnsupportedInput(
+                format!(
+                    "Input's type is {}. This command only works with bytes.",
+                    other.get_type()
+                ),
+                span,
+            ),
+        },
+    }
+}
+
+fn index_of_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
     if arg.all {
         search_all_index(input, &arg.pattern, arg.end, span)
     } else {
