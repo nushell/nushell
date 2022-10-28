@@ -163,7 +163,6 @@ fn category_allowed(category: Category) -> bool {
             | Category::Generators
             | Category::Hash
             | Category::Math
-            | Category::Random
             | Category::Strings
             | Category::Viewers
     )
