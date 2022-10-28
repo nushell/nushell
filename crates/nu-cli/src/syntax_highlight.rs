@@ -268,7 +268,8 @@ fn find_matching_block_end_in_expr(
         };
     }
 
-    if expression.span.contains(global_cursor_offset) && expression.span.start >= global_span_offset {
+    if expression.span.contains(global_cursor_offset) && expression.span.start >= global_span_offset
+    {
         let expr_first = expression.span.start;
         let span_str = &line
             [expression.span.start - global_span_offset..expression.span.end - global_span_offset];
