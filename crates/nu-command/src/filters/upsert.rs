@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -64,7 +64,29 @@ impl Command for Upsert {
             description: "Use in block form for more involved updating logic",
             example: "echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | upsert authors {|a| $a.authors | str join ','}",
             result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
-        }]
+        },
+        Example {
+            description: "Upsert a value int a list, updating an existing value",
+            example: "[1 2 3] | upsert 0 2",
+            result: Some(Value::List {
+                vals: vec![Value::test_int(2), Value::test_int(2), Value::test_int(3)],
+                span: Span::test_data(),
+            }),
+        },
+        Example {
+            description: "Upsert a value int a list, inserting a new value",
+            example: "[1 2 3] | upsert 3 4",
+            result: Some(Value::List {
+                vals: vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ],
+                span: Span::test_data(),
+            }),
+        },
+        ]
     }
 }
 
@@ -129,6 +151,28 @@ fn upsert(
             ctrlc,
         )
     } else {
+        if let Some(PathMember::Int { val, span }) = cell_path.members.get(0) {
+            let mut input = input.into_iter();
+            let mut pre_elems = vec![];
+
+            for idx in 0..*val {
+                if let Some(v) = input.next() {
+                    pre_elems.push(v);
+                } else {
+                    return Err(ShellError::AccessBeyondEnd(idx - 1, *span));
+                }
+            }
+
+            // Skip over the replaced value
+            let _ = input.next();
+
+            return Ok(pre_elems
+                .into_iter()
+                .chain(vec![replacement])
+                .chain(input)
+                .into_pipeline_data(ctrlc));
+        }
+
         input.map(
             move |mut input| {
                 let replacement = replacement.clone();
