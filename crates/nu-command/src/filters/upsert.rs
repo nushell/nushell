@@ -64,7 +64,29 @@ impl Command for Upsert {
             description: "Use in block form for more involved updating logic",
             example: "echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | upsert authors {|a| $a.authors | str join ','}",
             result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
-        }]
+        },
+        Example {
+            description: "Upsert a value int a list, updating an existing value",
+            example: "[1 2 3] | upsert 0 2",
+            result: Some(Value::List {
+                vals: vec![Value::test_int(2), Value::test_int(2), Value::test_int(3)],
+                span: Span::test_data(),
+            }),
+        },
+        Example {
+            description: "Upsert a value int a list, inserting a new value",
+            example: "[1 2 3] | upsert 3 4",
+            result: Some(Value::List {
+                vals: vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ],
+                span: Span::test_data(),
+            }),
+        },
+        ]
     }
 }
 
