@@ -66,6 +66,16 @@ impl Command for Update {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Upsert a value int a list, updating an existing value",
+                example: "[1 2 3] | upsert 0 2",
+                result: None,
+            },
+            Example {
+                description: "Upsert a value int a list, inserting a new value",
+                example: "[1 2 3] | upsert 3 4",
+                result: None,
+            },
         ]
     }
 }
