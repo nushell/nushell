@@ -9,12 +9,12 @@ use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShap
 struct Arguments {
     length: Option<i64>,
     character: Option<String>,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
 }
 
 impl CmdArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -58,12 +58,12 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
         let args = Arguments {
             length: call.get_flag(engine_state, stack, "length")?,
             character: call.get_flag(engine_state, stack, "character")?,
-            column_paths,
+            cell_paths,
         };
 
         if args.length.expect("this exists") < 0 {

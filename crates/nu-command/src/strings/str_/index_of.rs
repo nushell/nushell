@@ -11,12 +11,12 @@ struct Arguments {
     end: bool,
     substring: String,
     range: Option<Value>,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
 }
 
 impl CmdArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -65,13 +65,13 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let substring: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
         let args = Arguments {
             substring: substring.item,
             range: call.get_flag(engine_state, stack, "range")?,
             end: call.has_flag("end"),
-            column_paths,
+            cell_paths,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -271,7 +271,7 @@ mod tests {
                 val: String::from(""),
                 span: Span::test_data(),
             }),
-            column_paths: None,
+            cell_paths: None,
             end: false,
         };
 
@@ -293,7 +293,7 @@ mod tests {
                 val: String::from(""),
                 span: Span::test_data(),
             }),
-            column_paths: None,
+            cell_paths: None,
             end: false,
         };
 
@@ -316,7 +316,7 @@ mod tests {
                 val: String::from("1"),
                 span: Span::test_data(),
             }),
-            column_paths: None,
+            cell_paths: None,
             end: false,
         };
 
@@ -338,7 +338,7 @@ mod tests {
                 val: String::from(",5"),
                 span: Span::test_data(),
             }),
-            column_paths: None,
+            cell_paths: None,
             end: false,
         };
 
@@ -360,7 +360,7 @@ mod tests {
                 val: String::from("2,6"),
                 span: Span::test_data(),
             }),
-            column_paths: None,
+            cell_paths: None,
             end: false,
         };
 
@@ -382,7 +382,7 @@ mod tests {
                 val: String::from("2,4"),
                 span: Span::test_data(),
             }),
-            column_paths: None,
+            cell_paths: None,
             end: false,
         };
 

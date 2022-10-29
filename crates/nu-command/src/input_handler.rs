@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 pub trait CmdArgument {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>>;
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>>;
 }
 
 /// A simple wrapper for `PipelineData::map` method.
@@ -26,7 +26,7 @@ where
     A: CmdArgument + Send + Sync + 'static,
     C: Fn(&Value, &A, Span) -> Value + Send + Sync + 'static + Clone + Copy,
 {
-    match arg.take_column_paths() {
+    match arg.take_cell_paths() {
         None => input.map(move |v| cmd(&v, &arg, v.span().unwrap_or(span)), ctrlc),
         Some(column_paths) => {
             let arg = Arc::new(arg);

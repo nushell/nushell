@@ -29,12 +29,12 @@ use nu_protocol::{PipelineData, ShellError, Span, Value};
 
 struct Arguments<F: Fn(&str) -> String + Send + Sync + 'static> {
     case_operation: &'static F,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
 }
 
 impl<F: Fn(&str) -> String + Send + Sync + 'static> CmdArgument for Arguments<F> {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -48,11 +48,11 @@ pub fn operate<F>(
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    let column_paths = (!column_paths.is_empty()).then(|| column_paths);
+    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
     let args = Arguments {
         case_operation,
-        column_paths,
+        cell_paths,
     };
     general_operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }

@@ -7,12 +7,12 @@ use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
 
 struct Arguments {
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
 }
 
 impl CmdArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -50,9 +50,9 @@ impl Command for BytesReverse {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
-        let arg = Arguments { column_paths };
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+        let arg = Arguments { cell_paths };
         operate(reverse, arg, input, call.head, engine_state.ctrlc.clone())
     }
 

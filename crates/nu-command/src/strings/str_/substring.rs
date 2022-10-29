@@ -11,12 +11,12 @@ pub struct SubCommand;
 
 struct Arguments {
     indexes: Substring,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
 }
 
 impl CmdArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -67,11 +67,11 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let range = call.req(engine_state, stack, 0)?;
         let indexes: Substring = process_arguments(&range, call.head)?.into();
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
         let args = Arguments {
             indexes,
-            column_paths,
+            cell_paths,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -339,7 +339,7 @@ mod tests {
                 &word,
                 &super::Arguments {
                     indexes: expectation.options(),
-                    column_paths: None,
+                    cell_paths: None,
                 },
                 Span::test_data(),
             );

@@ -9,13 +9,13 @@ use nu_protocol::{
 struct Arguments {
     find: Vec<u8>,
     replace: Vec<u8>,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
     all: bool,
 }
 
 impl CmdArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -55,8 +55,8 @@ impl Command for BytesReplace {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
-        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
+        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
         let find = call.req::<Spanned<Vec<u8>>>(engine_state, stack, 0)?;
         if find.item.is_empty() {
             return Err(ShellError::UnsupportedInput(
@@ -68,7 +68,7 @@ impl Command for BytesReplace {
         let arg = Arguments {
             find: find.item,
             replace: call.req::<Vec<u8>>(engine_state, stack, 1)?,
-            column_paths,
+            cell_paths,
             all: call.has_flag("all"),
         };
 

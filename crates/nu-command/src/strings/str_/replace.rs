@@ -11,14 +11,14 @@ struct Arguments {
     all: bool,
     find: Spanned<String>,
     replace: Spanned<String>,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
     literal_replace: bool,
     no_regex: bool,
 }
 
 impl CmdArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -70,8 +70,8 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let find: Spanned<String> = call.req(engine_state, stack, 0)?;
         let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
-        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
+        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
         let literal_replace = call.has_flag("no-expand");
         let no_regex = call.has_flag("string");
 
@@ -79,7 +79,7 @@ impl Command for SubCommand {
             all: call.has_flag("all"),
             find,
             replace,
-            column_paths,
+            cell_paths,
             literal_replace,
             no_regex,
         };
@@ -282,7 +282,7 @@ mod tests {
         let options = Arguments {
             find: test_spanned_string("Cargo.(.+)"),
             replace: test_spanned_string("Carga.$1"),
-            column_paths: None,
+            cell_paths: None,
             literal_replace: false,
             all: false,
             no_regex: false,

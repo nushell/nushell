@@ -11,14 +11,14 @@ pub struct SubCommand;
 
 struct Arguments {
     substring: String,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
     case_insensitive: bool,
     not_contain: bool,
 }
 
 impl CmdArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -55,11 +55,11 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let column_paths = (!column_paths.is_empty()).then(|| column_paths);
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
         let args = Arguments {
             substring: call.req::<String>(engine_state, stack, 0)?,
-            column_paths,
+            cell_paths,
             case_insensitive: call.has_flag("insensitive"),
             not_contain: call.has_flag("not"),
         };
