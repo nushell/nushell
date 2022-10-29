@@ -11,7 +11,7 @@ version = "0.70.1"
 bincode = "1.3.3"
 nu-protocol = { path = "../nu-protocol", version = "0.70.1"  }
 nu-engine = { path = "../nu-engine", version = "0.70.1"  }
-serde = {version = "1.0.143", features = ["derive"]}
+serde = { version = "1.0.143" }
 serde_json = { version = "1.0"}
 byte-order = "0.3.0"
 rmp = "0.8.11"
