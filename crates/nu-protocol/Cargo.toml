@@ -11,7 +11,6 @@ version = "0.70.1"
 
 [dependencies]
 nu-utils = { path = "../nu-utils", version = "0.70.1"  }
-nu-path = { path = "../nu-path", version = "0.70.1"  }
 nu-json = { path = "../nu-json", version = "0.70.1"  }
 
 byte-unit = "4.0.9"
