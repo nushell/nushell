@@ -90,9 +90,11 @@ impl CallExt for Call {
         if let Some(expr) = self.positional_nth(pos) {
             let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(&result)
+        } else if self.positional_len() == 0 {
+            Err(ShellError::AccessEmptyContent(self.head))
         } else {
             Err(ShellError::AccessBeyondEnd(
-                self.positional_len(),
+                self.positional_len() - 1,
                 self.head,
             ))
         }

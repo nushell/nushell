@@ -358,6 +358,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
     AccessBeyondEnd(usize, #[label = "index too large (max: {0})"] Span),
 
+    /// You attempted to access an index when it's empty.
+    ///
+    /// ## Resolution
+    ///
+    /// Check your lengths and try again.
+    #[error("Row number too large (empty content).")]
+    #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
+    AccessEmptyContent(#[label = "index too large (empty content)"] Span),
+
     /// You attempted to access an index beyond the available length of a stream.
     ///
     /// ## Resolution
