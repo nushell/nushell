@@ -39,10 +39,9 @@ impl Command for Lines {
             // the Rc structure to continue using it. If split could take ownership
             // of the split values, then this wouldn't be needed
             PipelineData::Value(Value::String { val, span }, ..) => {
-                let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
-
                 let mut lines = val
-                    .split(split_char)
+                    .split("\r\n")
+                    .flat_map(|s| s.split('\n'))
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>();
 
@@ -65,18 +64,13 @@ impl Command for Lines {
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
             PipelineData::ListStream(stream, ..) => {
-                let mut split_char = "\n";
-
                 let iter = stream
                     .into_iter()
                     .filter_map(move |value| {
                         if let Value::String { val, span } = value {
-                            if split_char != "\r\n" && val.contains("\r\n") {
-                                split_char = "\r\n";
-                            }
-
                             let mut lines = val
-                                .split(split_char)
+                                .split("\r\n")
+                                .flat_map(|s| s.split('\n'))
                                 .filter_map(|s| {
                                     if skip_empty && s.trim().is_empty() {
                                         None
@@ -182,91 +176,19 @@ impl Iterator for RawStreamLinesAdapter {
                 // pull more data from inner
                 if let Some(result) = self.inner.next() {
                     match result {
-                        Ok(v) => {
-                            match v {
-                                Value::String { val, span } => {
-                                    self.span = span;
-
-                                    let split_char =
-                                        if val.contains("\r\n") { "\r\n" } else { "\n" };
-
-                                    let mut lines = val
-                                        .split(split_char)
-                                        .map(|s| s.to_string())
-                                        .collect::<Vec<_>>();
-
-                                    // handle incomplete line from previous
-                                    if !self.incomplete_line.is_empty() {
-                                        if let Some(first) = lines.first() {
-                                            let new_incomplete_line =
-                                                self.incomplete_line.to_string() + first.as_str();
-                                            lines.splice(0..1, vec![new_incomplete_line]);
-                                            self.incomplete_line = String::new();
-                                        }
-                                    }
-
-                                    // store incomplete line from current
-                                    if let Some(last) = lines.last() {
-                                        if last.is_empty() {
-                                            // we ended on a line ending
-                                            lines.pop();
-                                        } else {
-                                            // incomplete line, save for next time
-                                            if let Some(s) = lines.pop() {
-                                                self.incomplete_line = s;
-                                            }
-                                        }
-                                    }
-
-                                    // save completed lines
-                                    self.queue.append(&mut lines);
-                                }
-                                Value::Binary { val, span } => {
-                                    let val = String::from_utf8_lossy(&val);
-                                    self.span = span;
-
-                                    let split_char =
-                                        if val.contains("\r\n") { "\r\n" } else { "\n" };
-
-                                    let mut lines = val
-                                        .split(split_char)
-                                        .map(|s| s.to_string())
-                                        .collect::<Vec<_>>();
-
-                                    // handle incomplete line from previous
-                                    if !self.incomplete_line.is_empty() {
-                                        if let Some(first) = lines.first() {
-                                            let new_incomplete_line =
-                                                self.incomplete_line.to_string() + first.as_str();
-                                            lines.splice(0..1, vec![new_incomplete_line]);
-                                            self.incomplete_line = String::new();
-                                        }
-                                    }
-
-                                    // store incomplete line from current
-                                    if let Some(last) = lines.last() {
-                                        if last.is_empty() {
-                                            // we ended on a line ending
-                                            lines.pop();
-                                        } else {
-                                            // incomplete line, save for next time
-                                            if let Some(s) = lines.pop() {
-                                                self.incomplete_line = s;
-                                            }
-                                        }
-                                    }
-
-                                    // save completed lines
-                                    self.queue.append(&mut lines);
-                                }
-                                _ => {
-                                    return Some(Err(ShellError::UnsupportedInput(
-                                        "Unsupport type from raw stream".to_string(),
-                                        self.span,
-                                    )))
-                                }
+                        Ok(v) => match v {
+                            Value::String { val, span } => self.turn_into_lines(val, span),
+                            Value::Binary { val, span } => {
+                                let val = String::from_utf8_lossy(&val);
+                                self.turn_into_lines(val.to_string(), span)
                             }
-                        }
+                            _ => {
+                                return Some(Err(ShellError::UnsupportedInput(
+                                    "Unsupport type from raw stream".to_string(),
+                                    self.span,
+                                )))
+                            }
+                        },
                         Err(_) => todo!(),
                     }
                 } else {
@@ -287,5 +209,34 @@ impl RawStreamLinesAdapter {
             queue: Vec::<String>::new(),
             inner_complete: false,
         }
+    }
+    pub fn turn_into_lines(&mut self, val: String, span: Span) {
+        self.span = span;
+
+        let mut lines: Vec<String> = val
+            .split("\r\n")
+            .flat_map(|x| x.split('\n'))
+            .map(|s| s.to_string())
+            .collect();
+
+        // handle incomplete line from previous
+        if !self.incomplete_line.is_empty() {
+            if let Some(first) = lines.first() {
+                let mut new_incomplete_line = self.incomplete_line.clone();
+                new_incomplete_line.push_str(first);
+                lines.splice(0..1, vec![new_incomplete_line]);
+                self.incomplete_line = String::new();
+            }
+        }
+
+        // store incomplete line from current
+        let last = lines.pop();
+        if let Some(s) = last {
+            if !s.is_empty() {
+                self.incomplete_line = s;
+            }
+        }
+        // save completed lines
+        self.queue.append(&mut lines);
     }
 }
