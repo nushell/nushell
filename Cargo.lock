@@ -381,12 +381,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1ad822118d20d2c234f427000d5acc36eabe1e29a348c89b63dd60b13f28e5d"
 
 [[package]]
-name = "byte-order"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b021a13e4bf34a5679ada4609a01337ae82f2c4c97493b9d8cbf8aa9af9bd0f4"
-
-[[package]]
 name = "byte-unit"
 version = "4.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2747,13 +2741,11 @@ name = "nu-plugin"
 version = "0.70.1"
 dependencies = [
  "bincode",
- "byte-order",
  "criterion",
  "nu-engine",
  "nu-protocol",
  "rmp",
  "rmp-serde",
- "rmpv",
  "serde",
  "serde_json",
 ]
@@ -2778,7 +2770,6 @@ dependencies = [
  "indexmap",
  "miette",
  "nu-json",
- "nu-path",
  "nu-utils",
  "num-format",
  "serde",
@@ -2837,7 +2828,6 @@ dependencies = [
  "nu-glob",
  "nu-path",
  "nu-utils",
- "num-bigint 0.4.3",
  "num-format",
  "tempfile",
 ]
@@ -2950,7 +2940,6 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
- "serde",
 ]
 
 [[package]]
@@ -4132,16 +4121,6 @@ dependencies = [
  "byteorder",
  "rmp",
  "serde",
-]
-
-[[package]]
-name = "rmpv"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de8813b3a2f95c5138fe5925bfb8784175d88d6bff059ba8ce090aa891319754"
-dependencies = [
- "num-traits",
- "rmp",
 ]
 
 [[package]]

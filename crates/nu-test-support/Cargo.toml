@@ -18,6 +18,5 @@ lazy_static = "1.4.0"
 num-format = "0.4.3"
 
 getset = "0.1.1"
-num-bigint = { version="0.4.3", features=["serde"] }
 tempfile = "3.2.0"
 hamcrest2 = "0.3.0"
