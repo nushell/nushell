@@ -184,8 +184,8 @@ impl Command for Char {
                 result: Some(Value::test_string("\n")),
             },
             Example {
-                description: "Output prompt character, newline and a hamburger character",
-                example: r#"echo [(char prompt) (char newline) (char hamburger)] | str join"#,
+                description: "Output prompt character, newline and a hamburger menu character",
+                example: r#"(char prompt) + (char newline) + (char hamburger)"#,
                 result: Some(Value::test_string("\u{25b6}\n\u{2261}")),
             },
             Example {

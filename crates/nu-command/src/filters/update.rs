@@ -40,7 +40,7 @@ impl Command for Update {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        upsert(engine_state, stack, call, input)
+        update(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -70,7 +70,7 @@ impl Command for Update {
     }
 }
 
-fn upsert(
+fn update(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,

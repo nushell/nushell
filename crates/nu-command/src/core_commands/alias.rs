@@ -49,10 +49,17 @@ impl Command for Alias {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Alias ll to ls -l",
-            example: "alias ll = ls -l",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Alias ll to ls -l",
+                example: "alias ll = ls -l",
+                result: None,
+            },
+            Example {
+                description: "Make an alias that makes a list of all custom commands",
+                example: "alias customs = ($nu.scope.commands | where is_custom | get command)",
+                result: None,
+            },
+        ]
     }
 }

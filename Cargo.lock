@@ -891,7 +891,7 @@ version = "3.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d91974fbbe88ec1df0c24a4f00f99583667a7e2e6272b2b92d294d81e462173"
 dependencies = [
- "nix 0.25.0",
+ "nix",
  "winapi 0.3.9",
 ]
 
@@ -2410,18 +2410,6 @@ checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
 name = "nix"
-version = "0.24.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "195cdbc1741b8134346d515b3a56a1c94b0912758009cfd53f99ea0f57b065fc"
-dependencies = [
- "bitflags",
- "cfg-if 1.0.0",
- "libc",
- "memoffset",
-]
-
-[[package]]
-name = "nix"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e322c04a9e3440c327fca7b6c8a63e6890a32fa2ad689db972425f07e0d22abb"
@@ -2517,7 +2505,7 @@ dependencies = [
  "itertools",
  "log",
  "miette",
- "nix 0.24.2",
+ "nix",
  "nu-ansi-term",
  "nu-cli",
  "nu-color-config",
@@ -2811,7 +2799,7 @@ dependencies = [
  "libproc",
  "log",
  "mach2",
- "nix 0.24.2",
+ "nix",
  "ntapi 0.3.7",
  "once_cell",
  "procfs",

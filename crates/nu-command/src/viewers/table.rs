@@ -165,7 +165,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view",
-                example: r#"echo [[a b]; [1 2] [3 4]] | table"#,
+                example: r#"[[a b]; [1 2] [3 4]] | table"#,
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -184,7 +184,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (expanded)",
-                example: r#"echo [[a b]; [1 2] [2 [4 4]]] | table --expand"#,
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -203,7 +203,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (collapsed)",
-                example: r#"echo [[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -443,9 +443,13 @@ fn build_expanded_table(
         let value = if is_limited {
             value_to_styled_string(&value, 0, config, &color_hm).0
         } else {
-            let vals = match value {
+            let mut is_record = false;
+            let mut vals = match value {
                 Value::List { vals, .. } => vals,
-                value => vec![value],
+                value => {
+                    is_record = true;
+                    vec![value]
+                }
             };
 
             let deep = expand_limit.map(|i| i - 1);
@@ -465,15 +469,44 @@ fn build_expanded_table(
             match table {
                 Some(mut table) => {
                     // controll width via removing table columns.
-                    let theme = load_theme_from_config(config);
-                    table.truncate(remaining_width, &theme);
+                    let count_cols = table.size().1;
+                    let is_empty = table.truncate(remaining_width, &theme);
+                    let was_left_only_index =
+                        table.is_with_index() && table.size().1 == 2 && count_cols != 2;
+                    let was_truncated = is_empty || was_left_only_index;
 
-                    let result =
-                        table.draw_table(config, &color_hm, alignments, &theme, remaining_width);
-                    is_expanded = true;
-                    match result {
-                        Some(result) => result,
-                        None => return Ok(None),
+                    if is_record && vals.len() == 1 && was_truncated {
+                        match vals.remove(0) {
+                            Value::Record { cols, vals, .. } => {
+                                let t = build_general_table2(
+                                    cols,
+                                    vals,
+                                    ctrlc.clone(),
+                                    config,
+                                    remaining_width,
+                                )?;
+
+                                match t {
+                                    Some(val) => val,
+                                    None => return Ok(None),
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                    } else {
+                        let theme = load_theme_from_config(config);
+                        let result = table.draw_table(
+                            config,
+                            &color_hm,
+                            alignments,
+                            &theme,
+                            remaining_width,
+                        );
+                        is_expanded = true;
+                        match result {
+                            Some(result) => result,
+                            None => return Ok(None),
+                        }
                     }
                 }
                 None => {
@@ -774,6 +807,7 @@ fn convert_to_table(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::into_iter_on_ref)]
 fn convert_to_table2<'a>(
     row_offset: usize,
     input: impl Iterator<Item = &'a Value> + ExactSizeIterator + Clone,
