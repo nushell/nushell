@@ -104,7 +104,7 @@ dataframe = ["nu-command/dataframe"]
 database = ["nu-command/database"]
 
 [profile.release]
-opt-level = "s" # Optimize for size
+opt-level = 3 # Optimize for size
 strip = "debuginfo"
 lto = "thin"
 
