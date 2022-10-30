@@ -233,7 +233,7 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     match dir.as_ref().read_dir() {
         Err(e) => {
             if matches!(e.kind(), std::io::ErrorKind::PermissionDenied) {
-                PermissionResult::PermissionDenied("Folder is not able to read")
+                PermissionResult::PermissionDenied("Folder is unable to be read")
             } else {
                 PermissionResult::PermissionOk
             }
@@ -261,14 +261,14 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                     if has_bit(permission_mods::unix::USER_EXECUTE) {
                         PermissionResult::PermissionOk
                     } else {
-                        PermissionResult::PermissionDenied("You are the owner but the things under folder is not executeable for you")
+                        PermissionResult::PermissionDenied("You are the owner but do not have the execute permission")
                     }
                 }
                 (false, true) => {
                     if has_bit(permission_mods::unix::GROUP_EXECUTE) {
                         PermissionResult::PermissionOk
                     } else {
-                        PermissionResult::PermissionDenied("You are in the group but the things under folder is not executeable for you")
+                        PermissionResult::PermissionDenied("You are in the group but do not have the execute permission")
                     }
                 }
                 // other_user or root
@@ -276,11 +276,11 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                     if has_bit(permission_mods::unix::OTHER_EXECUTE) {
                         PermissionResult::PermissionOk
                     } else {
-                        PermissionResult::PermissionDenied("You are neither the owner nor in the group nor the super user, and owner do not allow you execute file here")
+                        PermissionResult::PermissionDenied("You are neither the owner, in the group, nor the super user and do not have permission")
                     }
                 }
             }
         }
-        Err(_) => PermissionResult::PermissionDenied("Cannot know the metadata"),
+        Err(_) => PermissionResult::PermissionDenied("Could not retrieve the metadata"),
     }
 }
