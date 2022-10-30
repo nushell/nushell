@@ -18,7 +18,7 @@ impl Command for All {
             .required(
                 "predicate",
                 SyntaxShape::RowCondition,
-                "the predicate expression that must evaluate to a boolean",
+                "the expression, or block, that must evaluate to a boolean",
             )
             .category(Category::Filters)
     }
@@ -34,18 +34,25 @@ impl Command for All {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Find if services are running",
-                example: "echo [[status]; [UP] [UP]] | all status == UP",
+                description: "Check if each rows' status is the string 'UP'",
+                example: "[[status]; [UP] [UP]] | all status == UP",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Check that all values are even",
-                example: "echo [2 4 6 8] | all ($it mod 2) == 0",
+                description: "Check that all values are even, using the built-in $it variable",
+                example: "[2 4 6 8] | all ($it mod 2) == 0",
+                result: Some(Value::test_bool(true)),
+            },
+            Example {
+                description: "Check that all values are even, using a block",
+                example: "[2 4 6 8] | all { $in mod 2 == 0 }",
                 result: Some(Value::test_bool(true)),
             },
         ]
     }
-
+    // This is almost entirely a copy-paste of `any`'s run(), so make sure any changes to this are
+    // reflected in the other!! (Or, you could figure out a way for both of them to use
+    // the same function...)
     fn run(
         &self,
         engine_state: &EngineState,
@@ -53,7 +60,6 @@ impl Command for All {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // let predicate = &call.positional[0];
         let span = call.head;
 
         let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
@@ -63,19 +69,24 @@ impl Command for All {
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
         let mut stack = stack.captures_to_stack(&capture_block.captures);
 
+        let orig_env_vars = stack.env_vars.clone();
+        let orig_env_hidden = stack.env_hidden.clone();
+
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
         for value in input.into_interruptible_iter(ctrlc) {
+            stack.with_env(&orig_env_vars, &orig_env_hidden);
+
             if let Some(var_id) = var_id {
-                stack.add_var(var_id, value);
+                stack.add_var(var_id, value.clone());
             }
 
             let eval = eval_block(
                 &engine_state,
                 &mut stack,
                 block,
-                PipelineData::new(span),
+                value.into_pipeline_data(),
                 call.redirect_stdout,
                 call.redirect_stderr,
             );
