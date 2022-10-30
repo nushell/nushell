@@ -45,7 +45,7 @@ impl Command for Any {
             },
             Example {
                 description: "Check if any of the values are odd, using a block",
-                example: "[2 4 6 8] | any { $in mod 2 == 1 }",
+                example: "[2 4 1 6 8] | any {|e| $e mod 2 == 1 }",
                 result: Some(Value::test_bool(true)),
             },
         ]
