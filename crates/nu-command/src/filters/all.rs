@@ -39,7 +39,8 @@ impl Command for All {
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Check that all of the values are even, using the built-in $it variable",
+                description:
+                    "Check that all of the values are even, using the built-in $it variable",
                 example: "[2 4 6 8] | all ($it mod 2) == 0",
                 result: Some(Value::test_bool(true)),
             },
