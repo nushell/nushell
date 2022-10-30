@@ -1392,16 +1392,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gethostname"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1ebd34e35c46e00bb73e81363248d627782724609fe1b6396f553f68fe3862e"
-dependencies = [
- "libc",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "getopts"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3977,12 +3967,11 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.13.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#39e6bc8eb3324b560479d097c7ab42d1ba45ec90"
+source = "git+https://github.com/nushell/reedline.git?branch=main#307df231e1fcdd69fe8cbd60fa9b133b10510964"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
  "fd-lock",
- "gethostname",
  "itertools",
  "nu-ansi-term",
  "rusqlite",
