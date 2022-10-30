@@ -34,7 +34,7 @@ impl Command for All {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Check if each rows' status is the string 'UP'",
+                description: "Check if each row's status is the string 'UP'",
                 example: "[[status]; [UP] [UP]] | all status == UP",
                 result: Some(Value::test_bool(true)),
             },

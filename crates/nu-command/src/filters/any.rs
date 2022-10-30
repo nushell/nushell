@@ -34,7 +34,7 @@ impl Command for Any {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Check if any rows' status is the string 'DOWN'",
+                description: "Check if any row's status is the string 'DOWN'",
                 example: "[[status]; [UP] [DOWN] [UP]] | any status == DOWN",
                 result: Some(Value::test_bool(true)),
             },
