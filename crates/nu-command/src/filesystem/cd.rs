@@ -262,7 +262,7 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
-                            "You are the owner but do not have the execute permission"
+                            "You are the owner but do not have the execute permission",
                         )
                     }
                 }
@@ -271,7 +271,7 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
-                            "You are in the group but do not have the execute permission"
+                            "You are in the group but do not have the execute permission",
                         )
                     }
                 }
@@ -280,7 +280,9 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                     if has_bit(permission_mods::unix::OTHER_EXECUTE) {
                         PermissionResult::PermissionOk
                     } else {
-                        PermissionResult::PermissionDenied("You are neither the owner, in the group, nor the super user and do not have permission")
+                        PermissionResult::PermissionDenied(
+                            "You are neither the owner, in the group, nor the super user and do not have permission",
+                        )
                     }
                 }
             }
