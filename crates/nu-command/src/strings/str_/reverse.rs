@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CmdArgument};
+use crate::input_handler::{operate, ArgumentsCP};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -8,16 +8,6 @@ use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShap
 
 #[derive(Clone)]
 pub struct SubCommand;
-
-struct Arguments {
-    cell_paths: Option<Vec<CellPath>>,
-}
-
-impl CmdArgument for Arguments {
-    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.cell_paths.take()
-    }
-}
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
@@ -50,8 +40,7 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
-        let args = Arguments { cell_paths };
+        let args = ArgumentsCP::from(cell_paths);
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
@@ -90,7 +79,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, _arg: &Arguments, head: Span) -> Value {
+fn action(input: &Value, _arg: &ArgumentsCP, head: Span) -> Value {
     match input {
         Value::String { val, .. } => Value::String {
             val: val.chars().rev().collect::<String>(),

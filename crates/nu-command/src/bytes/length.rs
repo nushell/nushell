@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CmdArgument};
+use crate::input_handler::{operate, ArgumentsCP};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -8,16 +8,6 @@ use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShap
 
 #[derive(Clone)]
 pub struct BytesLen;
-
-struct Arguments {
-    cell_paths: Option<Vec<CellPath>>,
-}
-
-impl CmdArgument for Arguments {
-    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.cell_paths.take()
-    }
-}
 
 impl Command for BytesLen {
     fn name(&self) -> &str {
@@ -50,8 +40,7 @@ impl Command for BytesLen {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
-        let arg = Arguments { cell_paths };
+        let arg = ArgumentsCP::from(cell_paths);
         operate(length, arg, input, call.head, engine_state.ctrlc.clone())
     }
 
@@ -74,7 +63,7 @@ impl Command for BytesLen {
     }
 }
 
-fn length(val: &Value, _args: &Arguments, span: Span) -> Value {
+fn length(val: &Value, _args: &ArgumentsCP, span: Span) -> Value {
     match val {
         Value::Binary {
             val,
