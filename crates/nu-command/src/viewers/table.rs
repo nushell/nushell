@@ -429,7 +429,6 @@ fn build_expanded_table(
     }
 
     let remaining_width = term_width - key_width;
-    println!("remaining_width={}", remaining_width);
 
     let mut data = Vec::with_capacity(cols.len());
     for (key, value) in cols.into_iter().zip(vals) {
