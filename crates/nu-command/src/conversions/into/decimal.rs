@@ -144,7 +144,11 @@ mod tests {
     fn communicates_parsing_error_given_an_invalid_decimallike_string() {
         let decimal_str = Value::test_string("11.6anra");
 
-        let actual = action(&decimal_str, &CellPathOnlyArgs::from(vec![]), Span::test_data());
+        let actual = action(
+            &decimal_str,
+            &CellPathOnlyArgs::from(vec![]),
+            Span::test_data(),
+        );
 
         assert_eq!(actual.get_type(), Error);
     }
@@ -153,7 +157,11 @@ mod tests {
     fn int_to_decimal() {
         let decimal_str = Value::test_int(10);
         let expected = Value::test_float(10.0);
-        let actual = action(&decimal_str, &CellPathOnlyArgs::from(vec![]), Span::test_data());
+        let actual = action(
+            &decimal_str,
+            &CellPathOnlyArgs::from(vec![]),
+            Span::test_data(),
+        );
 
         assert_eq!(actual, expected);
     }
