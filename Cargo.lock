@@ -4819,6 +4819,7 @@ dependencies = [
  "libc",
  "ntapi",
  "once_cell",
+ "rayon",
  "winapi 0.3.9",
 ]
 
