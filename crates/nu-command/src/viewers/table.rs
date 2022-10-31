@@ -429,6 +429,8 @@ fn build_expanded_table(
     }
 
     let remaining_width = term_width - key_width;
+    println!("remaining_width={}", remaining_width);
+
     let mut data = Vec::with_capacity(cols.len());
     for (key, value) in cols.into_iter().zip(vals) {
         // handle CTRLC event
@@ -487,6 +489,18 @@ fn build_expanded_table(
                     }
                 }
                 Value::Record { cols, vals, span } => {
+                    let failed_value = value_to_styled_string(
+                        &Value::Record {
+                            cols: cols.clone(),
+                            vals: vals.clone(),
+                            span,
+                        },
+                        0,
+                        config,
+                        &color_hm,
+                    )
+                    .0;
+
                     let result = build_expanded_table(
                         cols,
                         vals,
@@ -501,10 +515,13 @@ fn build_expanded_table(
 
                     match result {
                         Some(result) => result,
-                        None => return Ok(None),
+                        None => nu_table::wrap_string(&failed_value, remaining_width),
                     }
                 }
-                val => value_to_styled_string(&val, 0, config, &color_hm).0,
+                val => {
+                    let text = value_to_styled_string(&val, 0, config, &color_hm).0;
+                    nu_table::wrap_string(&text, remaining_width)
+                }
             }
         };
 
