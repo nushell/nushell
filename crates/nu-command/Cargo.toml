@@ -92,6 +92,7 @@ reedline = { version = "0.13.0", features = ["bashisms", "sqlite"]}
 wax = { version =  "0.5.0", features = ["diagnostics"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.23.0", features = ["serde"], optional = true }
+tui = "*"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.10.1"
