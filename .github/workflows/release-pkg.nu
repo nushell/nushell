@@ -76,9 +76,9 @@ cp -v README.release.txt $'($dist)/README.txt'
 
 $'(char nl)Check binary release version detail:'; hr-line
 let ver = if $os == 'windows-latest' {
-    (do -i { ./output/nu.exe -c 'version' }) | str join
+    (do -s { ./output/nu.exe -c 'version' }) | str join
 } else {
-    (do -i { ./output/nu -c 'version' }) | str join
+    (do -s { ./output/nu -c 'version' }) | str join
 }
 if ($ver | str trim | is-empty) {
     $'(ansi r)Incompatible nu binary...(ansi reset)'

@@ -280,12 +280,12 @@ impl Command for Save {
             },
             Example {
                 description: "Save a running program's stderr to foo.txt",
-                example: r#"do -i {} | save foo.txt --stderr foo.txt"#,
+                example: r#"do -s {} | save foo.txt --stderr foo.txt"#,
                 result: None,
             },
             Example {
                 description: "Save a running program's stderr to separate file",
-                example: r#"do -i {} | save foo.txt --stderr bar.txt"#,
+                example: r#"do -s {} | save foo.txt --stderr bar.txt"#,
                 result: None,
             },
         ]

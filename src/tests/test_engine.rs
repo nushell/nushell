@@ -233,7 +233,7 @@ fn with_env_shorthand_nested_quotes() -> TestResult {
 #[test]
 fn test_redirection_stderr() -> TestResult {
     // try a nonsense binary
-    run_test(r#"do -i { asdjw4j5cnaabw44rd }; echo done"#, "done")
+    run_test(r#"do -s { asdjw4j5cnaabw44rd }; echo done"#, "done")
 }
 
 #[test]

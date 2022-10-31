@@ -61,6 +61,32 @@ fn do_with_semicolon_break_on_failed_external() {
 }
 
 #[test]
+fn ignore_shell_errors_works_for_external_with_semicolon() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        do -s { fail }; `text`
+        "#
+    ));
+
+    assert_eq!(actual.err, "");
+    assert_eq!(actual.out, "text");
+}
+
+#[test]
+fn ignore_program_errors_works_for_external_with_semicolon() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        do -p { nu -c 'exit 1' }; `text`
+        "#
+    ));
+
+    assert_eq!(actual.err, "");
+    assert_eq!(actual.out, "text");
+}
+
+#[test]
 #[cfg(not(windows))]
 fn ignore_error_with_too_much_stderr_not_hang_nushell() {
     use nu_test_support::fs::Stub::FileWithContent;
@@ -77,7 +103,7 @@ fn ignore_error_with_too_much_stderr_not_hang_nushell() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                do -i {sh -c "cat a_large_file.txt 1>&2"} | complete | get stderr
+                do -s {sh -c "cat a_large_file.txt 1>&2"} | complete | get stderr
             "#
         ));
 
@@ -102,7 +128,7 @@ fn ignore_error_with_too_much_stdout_not_hang_nushell() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                do -i {sh -c "cat a_large_file.txt"} | complete | get stdout
+                do -s {sh -c "cat a_large_file.txt"} | complete | get stdout
             "#
         ));
 
@@ -134,7 +160,7 @@ fn ignore_error_with_both_stdout_stderr_messages_not_hang_nushell() {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                do -i {bash test.sh} | complete | get stdout | str trim
+                do -s {bash test.sh} | complete | get stdout | str trim
             "#
             ));
             assert_eq!(actual.out, expect_body);
@@ -142,7 +168,7 @@ fn ignore_error_with_both_stdout_stderr_messages_not_hang_nushell() {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                do -i {bash test.sh} | complete | get stderr | str trim
+                do -s {bash test.sh} | complete | get stderr | str trim
             "#
             ));
             assert_eq!(actual.out, expect_body);
