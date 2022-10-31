@@ -20,7 +20,6 @@ const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
 #[derive(Clone)]
 pub struct Mv;
 
-#[allow(unused_must_use)]
 impl Command for Mv {
     fn name(&self) -> &str {
         "mv"
@@ -51,8 +50,8 @@ impl Command for Mv {
                 "make mv to be verbose, showing files been moved.",
                 Some('v'),
             )
+            .switch("force", "overwrite the destination.", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
-            // .switch("force", "suppress error when no file", Some('f'))
             .category(Category::FileSystem)
     }
 
@@ -77,7 +76,7 @@ impl Command for Mv {
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
-        // let force = call.has_flag("force");
+        let force = call.has_flag("force");
 
         let ctrlc = engine_state.ctrlc.clone();
 
@@ -102,11 +101,21 @@ impl Command for Mv {
         //
         // First, the destination exists.
         //  - If a directory, move everything into that directory, otherwise
-        //  - if only a single source, overwrite the file, otherwise
-        //  - error.
+        //  - if only a single source, and --force (or -f) is provided overwrite the file,
+        //  - otherwise error.
         //
         // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
         // it's an error.
+
+        if destination.exists() && !force && !destination.is_dir() && !source.is_dir() {
+            return Err(ShellError::GenericError(
+                "Destination file already exists".into(),
+                "you can use -f, --force to force overwriting the destination".into(),
+                Some(spanned_destination.span),
+                None,
+                Vec::new(),
+            ));
+        }
 
         if (destination.exists() && !destination.is_dir() && sources.len() > 1)
             || (!destination.exists() && sources.len() > 1)

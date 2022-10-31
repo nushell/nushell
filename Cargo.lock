@@ -13,15 +13,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "addr2line"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9ecd88a8c8378ca913a680cd98f0f13ac67383d35993f86c90a70e3f137816b"
-dependencies = [
- "gimli",
-]
-
-[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -242,21 +233,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
-name = "backtrace"
-version = "0.3.66"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cab84319d616cfb654d03394f38ab7e6f0919e181b1b57e1fd15e7fb4077d9a7"
-dependencies = [
- "addr2line",
- "cc",
- "cfg-if 1.0.0",
- "libc",
- "miniz_oxide",
- "object",
- "rustc-demangle",
-]
-
-[[package]]
 name = "bare-metal"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -403,12 +379,6 @@ name = "bumpalo"
 version = "3.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1ad822118d20d2c234f427000d5acc36eabe1e29a348c89b63dd60b13f28e5d"
-
-[[package]]
-name = "byte-order"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b021a13e4bf34a5679ada4609a01337ae82f2c4c97493b9d8cbf8aa9af9bd0f4"
 
 [[package]]
 name = "byte-unit"
@@ -915,7 +885,7 @@ version = "3.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d91974fbbe88ec1df0c24a4f00f99583667a7e2e6272b2b92d294d81e462173"
 dependencies = [
- "nix 0.25.0",
+ "nix",
  "winapi 0.3.9",
 ]
 
@@ -1422,16 +1392,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gethostname"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1ebd34e35c46e00bb73e81363248d627782724609fe1b6396f553f68fe3862e"
-dependencies = [
- "libc",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "getopts"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1484,12 +1444,6 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[package]]
-name = "gimli"
-version = "0.26.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22030e2c5a68ec659fde1e949a745124b48e6fa8b045b7ed5bd1fe4ccc5c4e5d"
 
 [[package]]
 name = "git2"
@@ -2264,25 +2218,12 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "4.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c90329e44f9208b55f45711f9558cec15d7ef8295cc65ecd6d4188ae8edc58c"
-dependencies = [
- "miette-derive 4.7.1",
- "once_cell",
- "thiserror",
- "unicode-width",
-]
-
-[[package]]
-name = "miette"
 version = "5.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a28d6092d7e94a90bb9ea8e6c26c99d5d112d49dda2afdb4f7ea8cf09e1a5a6d"
 dependencies = [
  "atty",
- "backtrace",
- "miette-derive 5.3.0",
+ "miette-derive",
  "once_cell",
  "owo-colors",
  "supports-color",
@@ -2292,17 +2233,6 @@ dependencies = [
  "textwrap 0.15.1",
  "thiserror",
  "unicode-width",
-]
-
-[[package]]
-name = "miette-derive"
-version = "4.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b5bc45b761bcf1b5e6e6c4128cd93b84c218721a8d9b894aa0aff4ed180174c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -2464,18 +2394,6 @@ checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
 name = "nix"
-version = "0.24.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "195cdbc1741b8134346d515b3a56a1c94b0912758009cfd53f99ea0f57b065fc"
-dependencies = [
- "bitflags",
- "cfg-if 1.0.0",
- "libc",
- "memoffset",
-]
-
-[[package]]
-name = "nix"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e322c04a9e3440c327fca7b6c8a63e6890a32fa2ad689db972425f07e0d22abb"
@@ -2541,15 +2459,6 @@ dependencies = [
 
 [[package]]
 name = "ntapi"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c28774a7fd2fbb4f0babd8237ce554b73af68021b5f695a3cebd6c59bac0980f"
-dependencies = [
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "ntapi"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc51db7b362b205941f71232e56c625156eb9a929f8cf74a428fd5bc094a4afc"
@@ -2570,8 +2479,8 @@ dependencies = [
  "is_executable",
  "itertools",
  "log",
- "miette 5.3.0",
- "nix 0.24.2",
+ "miette",
+ "nix",
  "nu-ansi-term",
  "nu-cli",
  "nu-color-config",
@@ -2623,7 +2532,7 @@ dependencies = [
  "is_executable",
  "lazy_static",
  "log",
- "miette 5.3.0",
+ "miette",
  "nu-ansi-term",
  "nu-color-config",
  "nu-command",
@@ -2790,7 +2699,7 @@ dependencies = [
  "chrono",
  "itertools",
  "log",
- "miette 5.3.0",
+ "miette",
  "nu-engine",
  "nu-path",
  "nu-plugin",
@@ -2813,13 +2722,11 @@ name = "nu-plugin"
 version = "0.70.1"
 dependencies = [
  "bincode",
- "byte-order",
  "criterion",
  "nu-engine",
  "nu-protocol",
  "rmp",
  "rmp-serde",
- "rmpv",
  "serde",
  "serde_json",
 ]
@@ -2842,9 +2749,8 @@ dependencies = [
  "chrono-humanize",
  "fancy-regex",
  "indexmap",
- "miette 5.3.0",
+ "miette",
  "nu-json",
- "nu-path",
  "nu-utils",
  "num-format",
  "serde",
@@ -2865,8 +2771,8 @@ dependencies = [
  "libproc",
  "log",
  "mach2",
- "nix 0.24.2",
- "ntapi 0.3.7",
+ "nix",
+ "ntapi",
  "once_cell",
  "procfs",
  "winapi 0.3.9",
@@ -2903,7 +2809,6 @@ dependencies = [
  "nu-glob",
  "nu-path",
  "nu-utils",
- "num-bigint 0.4.3",
  "num-format",
  "tempfile",
 ]
@@ -3016,7 +2921,6 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
- "serde",
 ]
 
 [[package]]
@@ -3129,15 +3033,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "915b1b472bc21c53464d6c8461c9d3af805ba1ef837e1cac254428f4a77177b1"
 dependencies = [
  "malloc_buf",
-]
-
-[[package]]
-name = "object"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21158b2c33aa6d4561f1c0a6ea283ca92bc54802a93b263e910746d679a7eb53"
-dependencies = [
- "memchr",
 ]
 
 [[package]]
@@ -4072,12 +3967,11 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.13.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#39e6bc8eb3324b560479d097c7ab42d1ba45ec90"
+source = "git+https://github.com/nushell/reedline.git?branch=main#307df231e1fcdd69fe8cbd60fa9b133b10510964"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
  "fd-lock",
- "gethostname",
  "itertools",
  "nu-ansi-term",
  "rusqlite",
@@ -4210,16 +4104,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rmpv"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de8813b3a2f95c5138fe5925bfb8784175d88d6bff059ba8ce090aa891319754"
-dependencies = [
- "num-traits",
- "rmp",
-]
-
-[[package]]
 name = "roxmltree"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4308,12 +4192,6 @@ dependencies = [
  "arrayvec 0.7.2",
  "num-traits",
 ]
-
-[[package]]
-name = "rustc-demangle"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ef03e0a2b150c7a90d01faf6254c9c48a41e95fb2a8c2ac1c6f0d2b9aefc342"
 
 [[package]]
 name = "rustc-hash"
@@ -4951,7 +4829,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "core-foundation-sys",
  "libc",
- "ntapi 0.4.0",
+ "ntapi",
  "once_cell",
  "rayon",
  "winapi 0.3.9",
@@ -5453,12 +5331,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
-name = "vec1"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fc1631c774f0f9570797191e01247cbefde789eebfbf128074cb934115a6133"
-
-[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5623,14 +5495,12 @@ dependencies = [
  "bstr",
  "const_format",
  "itertools",
- "miette 4.7.1",
  "nom 7.1.1",
  "nom-supreme",
  "pori",
  "regex",
  "smallvec",
  "thiserror",
- "vec1",
  "walkdir",
 ]
 

@@ -41,7 +41,7 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Encode an UTF-8 string into Shift-JIS",
-            example: r#"echo "負けると知って戦うのが、遥かに美しいのだ" | encode shift-jis"#,
+            example: r#""負けると知って戦うのが、遥かに美しいのだ" | encode shift-jis"#,
             result: Some(Value::Binary {
                 val: vec![
                     0x95, 0x89, 0x82, 0xaf, 0x82, 0xe9, 0x82, 0xc6, 0x92, 0x6d, 0x82, 0xc1, 0x82,

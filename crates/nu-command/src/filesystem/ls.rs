@@ -42,12 +42,12 @@ impl Command for Ls {
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",
-                "List all available columns for each entry",
+                "Get all available columns for each entry (slower; columns are platform-dependent)",
                 Some('l'),
             )
             .switch(
                 "short-names",
-                "Only print the file names and not the path",
+                "Only print the file names, and not the path",
                 Some('s'),
             )
             .switch("full-paths", "display paths as absolute paths", Some('f'))

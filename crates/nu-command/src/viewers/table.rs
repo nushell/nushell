@@ -165,7 +165,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view",
-                example: r#"echo [[a b]; [1 2] [3 4]] | table"#,
+                example: r#"[[a b]; [1 2] [3 4]] | table"#,
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -184,7 +184,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (expanded)",
-                example: r#"echo [[a b]; [1 2] [2 [4 4]]] | table --expand"#,
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -203,7 +203,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (collapsed)",
-                example: r#"echo [[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {

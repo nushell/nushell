@@ -71,6 +71,14 @@ impl Table {
         self.is_empty
     }
 
+    pub fn size(&self) -> (usize, usize) {
+        (self.data.count_rows(), self.data.count_columns())
+    }
+
+    pub fn is_with_index(&self) -> bool {
+        self.with_index
+    }
+
     pub fn truncate(&mut self, width: usize, theme: &TableTheme) -> bool {
         let mut truncated = false;
         while self.data.count_rows() > 0 && self.data.count_columns() > 0 {

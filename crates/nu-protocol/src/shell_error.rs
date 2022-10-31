@@ -60,6 +60,19 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
     TypeMismatch(String, #[label = "needs {0}"] Span),
 
+    /// A command received an argument of the wrong type.
+    ///
+    /// ## Resolution
+    ///
+    /// Convert the argument type before passing it in, or change the command to accept the type.
+    #[error("Type mismatch")]
+    #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
+    TypeMismatchGenericMessage {
+        err_message: String,
+        #[label = "{err_message}"]
+        span: Span,
+    },
+
     /// This value cannot be used with this operator.
     ///
     /// ## Resolution
@@ -344,6 +357,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Row number too large (max: {0}).")]
     #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
     AccessBeyondEnd(usize, #[label = "index too large (max: {0})"] Span),
+
+    /// You attempted to access an index when it's empty.
+    ///
+    /// ## Resolution
+    ///
+    /// Check your lengths and try again.
+    #[error("Row number too large (empty content).")]
+    #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
+    AccessEmptyContent(#[label = "index too large (empty content)"] Span),
 
     /// You attempted to access an index beyond the available length of a stream.
     ///

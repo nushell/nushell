@@ -16,11 +16,21 @@ impl Command for Each {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each element of input"
+        "Run a block on each row of input"
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"Since tables are lists of records, passing a table into 'each' will
+iterate over each record, not necessarily each cell within it.
+
+Avoid passing single records to this command. Since a record is a
+one-row structure, 'each' will only run once, behaving similar to 'do'.
+To iterate over a record's values, try converting it to a table
+with 'transpose' first."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["for", "loop", "iterate"]
+        vec!["for", "loop", "iterate", "map"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {

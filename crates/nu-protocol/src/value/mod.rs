@@ -641,8 +641,10 @@ impl Value {
                         Value::List { vals: val, .. } => {
                             if let Some(item) = val.get(*count) {
                                 current = item.clone();
+                            } else if val.is_empty() {
+                                return Err(ShellError::AccessEmptyContent(*origin_span))
                             } else {
-                                return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
+                                return Err(ShellError::AccessBeyondEnd(val.len() - 1, *origin_span));
                             }
                         }
                         Value::Binary { val, .. } => {
@@ -651,8 +653,10 @@ impl Value {
                                     val: *item as i64,
                                     span: *origin_span,
                                 };
+                            } else if val.is_empty() {
+                                return Err(ShellError::AccessEmptyContent(*origin_span))
                             } else {
-                                return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
+                                return Err(ShellError::AccessBeyondEnd(val.len() - 1, *origin_span));
                             }
                         }
                         Value::Range { val, .. } => {
@@ -666,10 +670,9 @@ impl Value {
                             current = val.follow_path_int(*count, *origin_span)?;
                         }
                         x => {
-                            return Err(ShellError::IncompatiblePathAccess(
-                                format!("{}", x.get_type()),
-                                *origin_span,
-                            ))
+                            return Err(ShellError::TypeMismatchGenericMessage {
+                                err_message: format!("Can't access {} values with a row index. Try specifying a column name instead", x.get_type().to_shape()),
+                                span: *origin_span, })
                         }
                     }
                 }
@@ -840,8 +843,10 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.upsert_data_at_cell_path(&cell_path[1..], new_val)?
+                        } else if vals.is_empty() {
+                            return Err(ShellError::AccessEmptyContent(*span));
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
+                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
                         }
                     }
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
@@ -932,8 +937,10 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.update_data_at_cell_path(&cell_path[1..], new_val)?
+                        } else if vals.is_empty() {
+                            return Err(ShellError::AccessEmptyContent(*span));
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
+                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
                         }
                     }
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
@@ -1006,8 +1013,10 @@ impl Value {
                             if vals.get_mut(*row_num).is_some() {
                                 vals.remove(*row_num);
                                 Ok(())
+                            } else if vals.is_empty() {
+                                Err(ShellError::AccessEmptyContent(*span))
                             } else {
-                                Err(ShellError::AccessBeyondEnd(vals.len(), *span))
+                                Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span))
                             }
                         }
                         v => Err(ShellError::NotAList(*span, v.span()?)),
@@ -1070,8 +1079,10 @@ impl Value {
                         Value::List { vals, .. } => {
                             if let Some(v) = vals.get_mut(*row_num) {
                                 v.remove_data_at_cell_path(&cell_path[1..])
+                            } else if vals.is_empty() {
+                                Err(ShellError::AccessEmptyContent(*span))
                             } else {
-                                Err(ShellError::AccessBeyondEnd(vals.len(), *span))
+                                Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span))
                             }
                         }
                         v => Err(ShellError::NotAList(*span, v.span()?)),
@@ -1158,8 +1169,10 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.insert_data_at_cell_path(&cell_path[1..], new_val)?
+                        } else if vals.is_empty() {
+                            return Err(ShellError::AccessEmptyContent(*span));
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
+                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
                         }
                     }
                     v => return Err(ShellError::NotAList(*span, v.span()?)),

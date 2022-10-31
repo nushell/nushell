@@ -15,13 +15,12 @@ impl Command for ToDataBase {
     }
 
     fn usage(&self) -> &str {
-        "Converts into an open db connection"
+        "Converts the input into an open db connection"
     }
 
     fn extra_usage(&self) -> &str {
-        "This function is used as type hint for parser, specially if the query is not started with 'from table'"
+        "This function is used as a hint to Nushell to optimize the pipeline for database queries."
     }
-
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_type(Type::Any)
@@ -35,7 +34,7 @@ impl Command for ToDataBase {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Converts an open file into a db object",
+            description: "Converts an open file into a db object.",
             example: "open db.sqlite | into db",
             result: None,
         }]

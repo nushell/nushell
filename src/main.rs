@@ -606,7 +606,6 @@ fn parse_commandline_args(
 
 struct NushellCliArgs {
     redirect_stdin: Option<Spanned<String>>,
-    #[allow(dead_code)]
     login_shell: Option<Spanned<String>>,
     interactive_shell: Option<Spanned<String>>,
     commands: Option<Spanned<String>>,

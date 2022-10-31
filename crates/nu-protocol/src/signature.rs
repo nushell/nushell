@@ -158,7 +158,7 @@ impl Signature {
             long: "help".into(),
             short: Some('h'),
             arg: None,
-            desc: "Display this help message".into(),
+            desc: "Display the help message for this command".into(),
             required: false,
             var_id: None,
             default_value: None,

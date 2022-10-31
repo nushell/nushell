@@ -662,7 +662,7 @@ fn argument_subexpression_reports_errors() {
 fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
     let actual = nu!(
         cwd: ".",
-        r#"echo "nushelll" | nu --testbin chop"#
+        r#""nushelll" | nu --testbin chop"#
     );
 
     assert_eq!(actual.out, "nushell");
@@ -1232,7 +1232,7 @@ mod parse {
         > debug {flags}
 
         flags:
-        -h, --help: Display this help message
+        -h, --help: Display the help message for this command
         -r, --raw: Prints the raw value representation.
     */
 

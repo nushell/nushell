@@ -21,7 +21,7 @@ impl Command for StrCollect {
                 SyntaxShape::String,
                 "optional separator to use when creating string",
             )
-            .category(Category::Strings)
+            .category(Category::Deprecated)
     }
 
     fn usage(&self) -> &str {
