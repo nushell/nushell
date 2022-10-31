@@ -70,12 +70,8 @@ impl Command for SubCommand {
         vec![Example {
             description: "get the edit distance between two strings",
             example: "'nushell' | str distance 'nutshell'",
-            result: Some(Value::Record {
-                cols: vec!["distance".to_string()],
-                vals: vec![Value::Int {
-                    val: 1,
-                    span: Span::test_data(),
-                }],
+            result: Some(Value::Int {
+                val: 1,
                 span: Span::test_data(),
             }),
         }]
@@ -87,12 +83,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match &input {
         Value::String { val, .. } => {
             let distance = levenshtein_distance(val, compare_string);
-            Value::Record {
-                cols: vec!["distance".to_string()],
-                vals: vec![Value::Int {
-                    val: distance as i64,
-                    span: head,
-                }],
+            Value::Int {
+                val: distance as i64,
                 span: head,
             }
         }
