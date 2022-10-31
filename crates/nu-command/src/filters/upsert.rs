@@ -66,7 +66,7 @@ impl Command for Upsert {
             result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
         },
         Example {
-            description: "Upsert an int into a list, updating an existing value",
+            description: "Upsert an int into a list, updating an existing value based on the index",
             example: "[1 2 3] | upsert 0 2",
             result: Some(Value::List {
                 vals: vec![Value::test_int(2), Value::test_int(2), Value::test_int(3)],
@@ -74,7 +74,7 @@ impl Command for Upsert {
             }),
         },
         Example {
-            description: "Upsert an int into a list, inserting a new value",
+            description: "Upsert an int into a list, inserting a new value based on the index",
             example: "[1 2 3] | upsert 3 4",
             result: Some(Value::List {
                 vals: vec![
