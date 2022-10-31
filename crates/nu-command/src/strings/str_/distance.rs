@@ -70,12 +70,8 @@ impl Command for SubCommand {
         vec![Example {
             description: "get the edit distance between two strings",
             example: "'nushell' | str distance 'nutshell'",
-            result: Some(Value::Record {
-                cols: vec!["distance".to_string()],
-                vals: vec![Value::Int {
-                    val: 1,
-                    span: Span::test_data(),
-                }],
+            result: Some(Value::Int {
+                val: 1,
                 span: Span::test_data(),
             }),
         }]
