@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, ArgumentsCP};
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -38,7 +38,7 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let args = ArgumentsCP::from(cell_paths);
+        let args = CellPathOnlyArgs::from(cell_paths);
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
@@ -75,7 +75,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, _args: &ArgumentsCP, head: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
         Value::String { val: s, span } => {
             let other = s.trim();
@@ -136,7 +136,7 @@ mod tests {
         let word = Value::test_string("3.1415");
         let expected = Value::test_float(3.1415);
 
-        let actual = action(&word, &ArgumentsCP::from(vec![]), Span::test_data());
+        let actual = action(&word, &CellPathOnlyArgs::from(vec![]), Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -144,7 +144,7 @@ mod tests {
     fn communicates_parsing_error_given_an_invalid_decimallike_string() {
         let decimal_str = Value::test_string("11.6anra");
 
-        let actual = action(&decimal_str, &ArgumentsCP::from(vec![]), Span::test_data());
+        let actual = action(&decimal_str, &CellPathOnlyArgs::from(vec![]), Span::test_data());
 
         assert_eq!(actual.get_type(), Error);
     }
@@ -153,7 +153,7 @@ mod tests {
     fn int_to_decimal() {
         let decimal_str = Value::test_int(10);
         let expected = Value::test_float(10.0);
-        let actual = action(&decimal_str, &ArgumentsCP::from(vec![]), Span::test_data());
+        let actual = action(&decimal_str, &CellPathOnlyArgs::from(vec![]), Span::test_data());
 
         assert_eq!(actual, expected);
     }

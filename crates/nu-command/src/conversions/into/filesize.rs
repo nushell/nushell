@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, ArgumentsCP};
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -40,7 +40,7 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let args = ArgumentsCP::from(cell_paths);
+        let args = CellPathOnlyArgs::from(cell_paths);
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
@@ -87,7 +87,7 @@ impl Command for SubCommand {
     }
 }
 
-pub fn action(input: &Value, _args: &ArgumentsCP, span: Span) -> Value {
+pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     if let Ok(value_span) = input.span() {
         match input {
             Value::Filesize { .. } => input.clone(),

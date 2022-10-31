@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, ArgumentsCP};
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -110,7 +110,7 @@ fn into_bool(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    let args = ArgumentsCP::from(cell_paths);
+    let args = CellPathOnlyArgs::from(cell_paths);
     operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
@@ -136,7 +136,7 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
     }
 }
 
-fn action(input: &Value, _args: &ArgumentsCP, span: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Bool { .. } => input.clone(),
         Value::Int { val, .. } => Value::Bool {

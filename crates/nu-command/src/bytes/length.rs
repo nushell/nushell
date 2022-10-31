@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, ArgumentsCP};
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -40,7 +40,7 @@ impl Command for BytesLen {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let arg = ArgumentsCP::from(cell_paths);
+        let arg = CellPathOnlyArgs::from(cell_paths);
         operate(length, arg, input, call.head, engine_state.ctrlc.clone())
     }
 
@@ -63,7 +63,7 @@ impl Command for BytesLen {
     }
 }
 
-fn length(val: &Value, _args: &ArgumentsCP, span: Span) -> Value {
+fn length(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match val {
         Value::Binary {
             val,

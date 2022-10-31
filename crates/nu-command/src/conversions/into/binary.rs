@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, ArgumentsCP};
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -122,7 +122,7 @@ fn into_binary(
             .into_pipeline_data())
         }
         _ => {
-            let arg = ArgumentsCP::from(cell_paths);
+            let arg = CellPathOnlyArgs::from(cell_paths);
             operate(action, arg, input, call.head, engine_state.ctrlc.clone())
         }
     }
@@ -144,7 +144,7 @@ fn float_to_endian(n: f64) -> Vec<u8> {
     }
 }
 
-pub fn action(input: &Value, _args: &ArgumentsCP, span: Span) -> Value {
+pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::Binary {
