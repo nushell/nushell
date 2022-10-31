@@ -19,7 +19,7 @@ impl Command for Select {
         Signature::build("select")
             .switch(
                 "ignore-errors",
-                "when a column has empty cells, instead of erroring out, replace them with nothing",
+                "when an error occurs, instead of erroring out, suppress the error message",
                 Some('i'),
             )
             .rest(
@@ -47,9 +47,9 @@ impl Command for Select {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let span = call.head;
-        let ignore_empty = call.has_flag("ignore-errors");
+        let ignore_errors = call.has_flag("ignore-errors");
 
-        select(engine_state, span, columns, input, ignore_empty)
+        select(engine_state, span, columns, input, ignore_errors)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -73,7 +73,7 @@ fn select(
     span: Span,
     columns: Vec<CellPath>,
     input: PipelineData,
-    ignore_empty: bool,
+    ignore_errors: bool,
 ) -> Result<PipelineData, ShellError> {
     let mut rows = vec![];
 
@@ -84,7 +84,7 @@ fn select(
         match members.get(0) {
             Some(PathMember::Int { val, span }) => {
                 if members.len() > 1 {
-                    if ignore_empty {
+                    if ignore_errors {
                         return Ok(Value::nothing(Span::test_data()).into_pipeline_data());
                     }
                     return Err(ShellError::GenericError(
@@ -148,7 +148,7 @@ fn select(
                                 }
                             }
                             Err(e) => {
-                                if ignore_empty {
+                                if ignore_errors {
                                     return Ok(
                                         Value::nothing(Span::test_data()).into_pipeline_data()
                                     );
@@ -184,7 +184,7 @@ fn select(
                                 vals.push(value);
                             }
                             Err(e) => {
-                                if ignore_empty {
+                                if ignore_errors {
                                     return Ok(
                                         Value::nothing(Span::test_data()).into_pipeline_data()
                                     );
@@ -216,7 +216,7 @@ fn select(
                             vals.push(result);
                         }
                         Err(e) => {
-                            if ignore_empty {
+                            if ignore_errors {
                                 return Ok(Value::nothing(Span::test_data()).into_pipeline_data());
                             }
 
