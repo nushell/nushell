@@ -1,4 +1,4 @@
-use super::{operate, BytesArgument};
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -10,12 +10,12 @@ struct Arguments {
     added_data: Vec<u8>,
     index: Option<usize>,
     end: bool,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
 }
 
-impl BytesArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -62,12 +62,8 @@ impl Command for BytesAdd {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let added_data: Vec<u8> = call.req(engine_state, stack, 0)?;
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let column_paths = if column_paths.is_empty() {
-            None
-        } else {
-            Some(column_paths)
-        };
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
         let index: Option<usize> = call.get_flag(engine_state, stack, "index")?;
         let end = call.has_flag("end");
 
@@ -75,7 +71,7 @@ impl Command for BytesAdd {
             added_data,
             index,
             end,
-            column_paths,
+            cell_paths,
         };
         operate(add, arg, input, call.head, engine_state.ctrlc.clone())
     }
@@ -118,7 +114,25 @@ impl Command for BytesAdd {
     }
 }
 
-fn add(input: &[u8], args: &Arguments, span: Span) -> Value {
+fn add(val: &Value, args: &Arguments, span: Span) -> Value {
+    match val {
+        Value::Binary {
+            val,
+            span: val_span,
+        } => add_impl(val, args, *val_span),
+        other => Value::Error {
+            error: ShellError::UnsupportedInput(
+                format!(
+                    "Input's type is {}. This command only works with bytes.",
+                    other.get_type()
+                ),
+                span,
+            ),
+        },
+    }
+}
+
+fn add_impl(input: &[u8], args: &Arguments, span: Span) -> Value {
     match args.index {
         None => {
             if args.end {

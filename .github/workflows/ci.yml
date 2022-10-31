@@ -22,18 +22,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Rust toolchain
+      - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
-        # makes ci use rust-toolchain.toml
-        # with:
-        #   profile: minimal
-        #   toolchain: ${{ matrix.rust }}
-        #   override: true
-        #   components: rustfmt, clippy
-
-      - uses: Swatinem/rust-cache@v2.0.1
-        with:
-          key: "v2" # increment this to bust the cache if needed
 
       - name: Rustfmt
         uses: actions-rs/cargo@v1.0.1
@@ -74,17 +64,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Rust toolchain
+      - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
-        # makes ci use rust-toolchain.toml
-        # with:
-        #   profile: minimal
-        #   toolchain: ${{ matrix.rust }}
-        #   override: true
-
-      - uses: Swatinem/rust-cache@v2.0.1
-        with:
-          key: ${{ matrix.style }}v3 # increment this to bust the cache if needed
 
       - name: Tests
         uses: actions-rs/cargo@v1.0.1
@@ -110,17 +91,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Rust toolchain
+      - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
-        # makes ci use rust-toolchain.toml
-        # with:
-        #   profile: minimal
-        #   toolchain: ${{ matrix.rust }}
-        #   override: true
-
-      - uses: Swatinem/rust-cache@v2.0.1
-        with:
-          key: "2" # increment this to bust the cache if needed
 
       - name: Install Nushell
         uses: actions-rs/cargo@v1.0.1
@@ -161,13 +133,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Rust toolchain
+      - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
-        # makes ci use rust-toolchain.toml
-        # with:
-        #   profile: minimal
-        #   toolchain: ${{ matrix.rust }}
-        #   override: true
 
       - name: Clippy
         uses: actions-rs/cargo@v1.0.1

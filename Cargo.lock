@@ -381,12 +381,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1ad822118d20d2c234f427000d5acc36eabe1e29a348c89b63dd60b13f28e5d"
 
 [[package]]
-name = "byte-order"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b021a13e4bf34a5679ada4609a01337ae82f2c4c97493b9d8cbf8aa9af9bd0f4"
-
-[[package]]
 name = "byte-unit"
 version = "4.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1393,16 +1387,6 @@ checksum = "bff49e947297f3312447abdca79f45f4738097cc82b06e72054d2223f601f1b9"
 dependencies = [
  "typenum",
  "version_check",
-]
-
-[[package]]
-name = "gethostname"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1ebd34e35c46e00bb73e81363248d627782724609fe1b6396f553f68fe3862e"
-dependencies = [
- "libc",
- "winapi 0.3.9",
 ]
 
 [[package]]
@@ -2464,15 +2448,6 @@ dependencies = [
 
 [[package]]
 name = "ntapi"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c28774a7fd2fbb4f0babd8237ce554b73af68021b5f695a3cebd6c59bac0980f"
-dependencies = [
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "ntapi"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc51db7b362b205941f71232e56c625156eb9a929f8cf74a428fd5bc094a4afc"
@@ -2736,13 +2711,11 @@ name = "nu-plugin"
 version = "0.70.1"
 dependencies = [
  "bincode",
- "byte-order",
  "criterion",
  "nu-engine",
  "nu-protocol",
  "rmp",
  "rmp-serde",
- "rmpv",
  "serde",
  "serde_json",
 ]
@@ -2767,7 +2740,6 @@ dependencies = [
  "indexmap",
  "miette",
  "nu-json",
- "nu-path",
  "nu-utils",
  "num-format",
  "serde",
@@ -2789,7 +2761,7 @@ dependencies = [
  "log",
  "mach2",
  "nix",
- "ntapi 0.3.7",
+ "ntapi",
  "once_cell",
  "procfs",
  "winapi 0.3.9",
@@ -2826,7 +2798,6 @@ dependencies = [
  "nu-glob",
  "nu-path",
  "nu-utils",
- "num-bigint 0.4.3",
  "num-format",
  "tempfile",
 ]
@@ -2939,7 +2910,6 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
- "serde",
 ]
 
 [[package]]
@@ -3986,12 +3956,11 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.13.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#39e6bc8eb3324b560479d097c7ab42d1ba45ec90"
+source = "git+https://github.com/nushell/reedline.git?branch=main#307df231e1fcdd69fe8cbd60fa9b133b10510964"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
  "fd-lock",
- "gethostname",
  "itertools",
  "nu-ansi-term",
  "rusqlite",
@@ -4121,16 +4090,6 @@ dependencies = [
  "byteorder",
  "rmp",
  "serde",
-]
-
-[[package]]
-name = "rmpv"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de8813b3a2f95c5138fe5925bfb8784175d88d6bff059ba8ce090aa891319754"
-dependencies = [
- "num-traits",
- "rmp",
 ]
 
 [[package]]
@@ -4858,7 +4817,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "core-foundation-sys",
  "libc",
- "ntapi 0.4.0",
+ "ntapi",
  "once_cell",
  "winapi 0.3.9",
 ]

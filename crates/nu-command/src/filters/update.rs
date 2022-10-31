@@ -138,6 +138,8 @@ fn update(
             for idx in 0..*val {
                 if let Some(v) = input.next() {
                     pre_elems.push(v);
+                } else if idx == 0 {
+                    return Err(ShellError::AccessEmptyContent(*span));
                 } else {
                     return Err(ShellError::AccessBeyondEnd(idx - 1, *span));
                 }
