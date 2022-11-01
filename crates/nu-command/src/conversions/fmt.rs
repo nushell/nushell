@@ -1,3 +1,4 @@
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -96,31 +97,12 @@ fn fmt(
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-    let head = call.head;
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-
-    input.map(
-        move |v| {
-            if column_paths.is_empty() {
-                action(&v, head)
-            } else {
-                let mut ret = v;
-                for path in &column_paths {
-                    let r =
-                        ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
+    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let args = CellPathOnlyArgs::from(cell_paths);
+    operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
-pub fn action(input: &Value, span: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Int { val, .. } => fmt_it(*val, span),
         Value::Filesize { val, .. } => fmt_it(*val, span),

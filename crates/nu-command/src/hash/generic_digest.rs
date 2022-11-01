@@ -1,6 +1,8 @@
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Span;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
 use std::marker::PhantomData;
 
@@ -23,6 +25,17 @@ impl<D: HashDigest> Default for GenericDigest<D> {
             usage: format!("Hash a value using the {} hash algorithm", D::name()),
             phantom: PhantomData,
         }
+    }
+}
+
+pub(super) struct Arguments {
+    pub(super) cell_paths: Option<Vec<CellPath>>,
+    pub(super) binary: bool,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -66,31 +79,19 @@ where
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let binary = call.has_flag("binary");
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-
-        input.map(
-            move |v| {
-                if cell_paths.is_empty() {
-                    action::<D>(binary, &v)
-                } else {
-                    let mut v = v;
-                    for path in &cell_paths {
-                        let ret = v.update_cell_path(
-                            &path.members,
-                            Box::new(move |old| action::<D>(binary, old)),
-                        );
-                        if let Err(error) = ret {
-                            return Value::Error { error };
-                        }
-                    }
-                    v
-                }
-            },
+        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+        let args = Arguments { binary, cell_paths };
+        operate(
+            action::<D>,
+            args,
+            input,
+            call.head,
             engine_state.ctrlc.clone(),
         )
     }
 }
 
-pub fn action<D>(binary: bool, input: &Value) -> Value
+pub(super) fn action<D>(input: &Value, args: &Arguments, _span: Span) -> Value
 where
     D: HashDigest,
     digest::Output<D>: core::fmt::LowerHex,
@@ -119,7 +120,7 @@ where
 
     let digest = D::digest(bytes);
 
-    if binary {
+    if args.binary {
         Value::Binary {
             val: digest.to_vec(),
             span,

@@ -1,3 +1,4 @@
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -100,7 +101,7 @@ fn into_binary(
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     match input {
         PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::Binary {
@@ -120,27 +121,10 @@ fn into_binary(
             }
             .into_pipeline_data())
         }
-        _ => input.map(
-            move |v| {
-                if column_paths.is_empty() {
-                    action(&v, head)
-                } else {
-                    let mut ret = v;
-                    for path in &column_paths {
-                        let r = ret.update_cell_path(
-                            &path.members,
-                            Box::new(move |old| action(old, head)),
-                        );
-                        if let Err(error) = r {
-                            return Value::Error { error };
-                        }
-                    }
-
-                    ret
-                }
-            },
-            engine_state.ctrlc.clone(),
-        ),
+        _ => {
+            let arg = CellPathOnlyArgs::from(cell_paths);
+            operate(action, arg, input, call.head, engine_state.ctrlc.clone())
+        }
     }
 }
 
@@ -160,7 +144,7 @@ fn float_to_endian(n: f64) -> Vec<u8> {
     }
 }
 
-pub fn action(input: &Value, span: Span) -> Value {
+pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::Binary {
