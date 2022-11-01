@@ -7,6 +7,28 @@ pub trait CmdArgument {
     fn take_cell_paths(&mut self) -> Option<Vec<CellPath>>;
 }
 
+/// Arguments with only cell_path.
+///
+/// If commands is going to use `operate` function, and it only required optional cell_paths
+/// Using this to simplify code.
+pub struct CellPathOnlyArgs {
+    cell_paths: Option<Vec<CellPath>>,
+}
+
+impl CmdArgument for CellPathOnlyArgs {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
+
+impl From<Vec<CellPath>> for CellPathOnlyArgs {
+    fn from(cell_paths: Vec<CellPath>) -> Self {
+        Self {
+            cell_paths: (!cell_paths.is_empty()).then(|| cell_paths),
+        }
+    }
+}
+
 /// A simple wrapper for `PipelineData::map` method.
 ///
 /// In detail, for each elements, invoking relative `cmd` with `arg`.
