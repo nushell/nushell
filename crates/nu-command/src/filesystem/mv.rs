@@ -66,10 +66,7 @@ impl Command for Mv {
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
         let spanned_source = {
             Spanned {
-                item: match strip_ansi_escapes::strip(&spanned_source.item) {
-                    Ok(item) => String::from_utf8(item).unwrap_or(spanned_source.item),
-                    Err(_) => spanned_source.item,
-                },
+                item: nu_utils::strip_ansi_string_unlikely(spanned_source.item),
                 span: spanned_source.span,
             }
         };

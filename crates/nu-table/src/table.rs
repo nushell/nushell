@@ -181,10 +181,7 @@ fn print_table(table: tabled::Table<Data>, config: &Config) -> String {
     // the atty is for when people do ls from vim, there should be no coloring there
     if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
         // Draw the table without ansi colors
-        match strip_ansi_escapes::strip(&output) {
-            Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
-            Err(_) => output, // we did our best; so return at least something
-        }
+        nu_utils::strip_ansi_string_likely(output)
     } else {
         // Draw the table with ansi colors
         output
