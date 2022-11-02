@@ -23,7 +23,7 @@ impl Command for Do {
             .required("block", SyntaxShape::Any, "the block to run")
             .switch(
                 "ignore-errors",
-                "ignore errors as the block runs",
+                "ignore shell errors as the block runs",
                 Some('i'),
             )
             .switch(
@@ -186,8 +186,13 @@ impl Command for Do {
                 result: Some(Value::test_string("hello")),
             },
             Example {
-                description: "Run the block and ignore errors",
+                description: "Run the block and ignore shell errors",
                 example: r#"do -i { thisisnotarealcommand }"#,
+                result: None,
+            },
+            Example {
+                description: "Abort the pipeline if a program returns a non-zero exit code",
+                example: r#"do -c { nu -c 'exit 1' } | myscarycommand"#,
                 result: None,
             },
             Example {
