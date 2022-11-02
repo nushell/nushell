@@ -226,7 +226,7 @@ fn removes_multiple_files_with_asterisks() {
 
 #[test]
 fn removes_multiple_files_with_each() {
-    Playground::setup("rm_test_10", |dirs, sandbox| {
+    Playground::setup("rm_test_11b", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("a.txt"),
             EmptyFile("b.txt"),
