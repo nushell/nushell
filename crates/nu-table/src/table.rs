@@ -20,7 +20,7 @@ use tabled::{
 use crate::{table_theme::TableTheme, TextStyle};
 
 /// Table represent a table view.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Table {
     data: Data,
     is_empty: bool,

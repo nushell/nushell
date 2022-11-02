@@ -424,11 +424,13 @@ fn build_expanded_table(
         .map(|table| nu_table::string_width(&table))
         .unwrap_or(0);
 
-    if key_width > term_width {
+    // 3 - count borders (left, center, right)
+    // 2 - padding
+    if key_width + 3 + 2 > term_width {
         return Ok(None);
     }
 
-    let remaining_width = term_width - key_width;
+    let remaining_width = term_width - key_width - 3 - 2;
 
     let mut data = Vec::with_capacity(cols.len());
     for (key, value) in cols.into_iter().zip(vals) {
@@ -459,6 +461,7 @@ fn build_expanded_table(
                         deep,
                         flatten,
                         flatten_sep,
+                        remaining_width,
                     )?;
 
                     match table {
@@ -513,7 +516,10 @@ fn build_expanded_table(
                     )?;
 
                     match result {
-                        Some(result) => result,
+                        Some(result) => {
+                            is_expanded = true;
+                            result
+                        }
                         None => nu_table::wrap_string(&failed_value, remaining_width),
                     }
                 }
@@ -826,6 +832,7 @@ fn convert_to_table2<'a>(
     deep: Option<usize>,
     flatten: bool,
     flatten_sep: &str,
+    available_width: usize,
 ) -> Result<Option<NuTable>, ShellError> {
     if input.len() == 0 {
         return Ok(None);
@@ -842,6 +849,13 @@ fn convert_to_table2<'a>(
 
     if !headers.is_empty() && with_index {
         headers.insert(0, "#".into());
+    }
+
+    let mut max_columns_width = vec![0; headers.len()];
+    if !headers.is_empty() {
+        for (i, s) in headers.iter().enumerate() {
+            max_columns_width[i] = nu_table::string_width(s);
+        }
     }
 
     // The header with the INDEX is removed from the table headers since
@@ -880,6 +894,8 @@ fn convert_to_table2<'a>(
             return Err(error.clone());
         }
 
+        let mut used_width = 0;
+
         let mut row = vec![];
         if with_index {
             let text = match &item {
@@ -892,8 +908,19 @@ fn convert_to_table2<'a>(
 
             let value =
                 make_styled_string(text, "string", 0, with_index, color_hm, float_precision);
-            let value = NuTable::create_cell(value.0, value.1);
 
+            if max_columns_width.len() > 0 {
+                let cell_width = nu_table::string_width(&value.0);
+                max_columns_width[0] = max(max_columns_width[0], cell_width);
+
+                let mut cell_space = max_columns_width[0];
+                cell_space += 2; // padding
+                cell_space += 2; // split
+
+                used_width += cell_space;
+            }
+
+            let value = NuTable::create_cell(value.0, value.1);
             row.push(value);
         }
 
@@ -909,6 +936,7 @@ fn convert_to_table2<'a>(
                 deep,
                 flatten,
                 flatten_sep,
+                available_width,
             );
 
             let value = NuTable::create_cell(value.0, value.1);
@@ -916,7 +944,21 @@ fn convert_to_table2<'a>(
         } else {
             let skip_num = if with_index { 1 } else { 0 };
             for (col, header) in data[0].iter().enumerate().skip(skip_num) {
-                let value = match item {
+                if used_width + 2 + 2 >= available_width {
+                    // skip the rest of the columns as we will not able to show them any way
+                    // but we need to keep an empty cell at least to preserve some constrains.
+
+                    let value = NuTable::create_cell(String::new(), TextStyle::default());
+                    row.push(value);
+                    continue;
+                }
+
+                // We don't include any separator width as we hope do deal with that using wrap/truncate.
+                let mut estimated_available_width = available_width - used_width;
+                estimated_available_width -= 2; // padding
+                estimated_available_width -= 2; // split
+
+                let mut value = match item {
                     Value::Record { .. } => {
                         let val = item.clone().follow_cell_path(
                             &[PathMember::String {
@@ -938,6 +980,7 @@ fn convert_to_table2<'a>(
                                 deep,
                                 flatten,
                                 flatten_sep,
+                                estimated_available_width,
                             ),
                             Err(_) => make_styled_string(
                                 item.into_abbreviated_string(config),
@@ -960,8 +1003,65 @@ fn convert_to_table2<'a>(
                         deep,
                         flatten,
                         flatten_sep,
+                        estimated_available_width,
                     ),
                 };
+
+                let cell_width = nu_table::string_width(&value.0);
+
+                max_columns_width[col] = max(max_columns_width[col], cell_width);
+
+                let mut cell_space = max_columns_width[col];
+                cell_space += 2; // padding
+                cell_space += 2; // split
+
+                if used_width + cell_space > estimated_available_width {
+                    // So the built cell is not possible to fit in, and cause of that we just do our best backing to the default view of a cell.
+                    value = match item {
+                        Value::Record { .. } => {
+                            let val = item.clone().follow_cell_path(
+                                &[PathMember::String {
+                                    val: header.as_ref().to_owned(),
+                                    span: head,
+                                }],
+                                false,
+                            );
+
+                            match val {
+                                Ok(val) => make_styled_string(
+                                    val.into_abbreviated_string(config),
+                                    &val.get_type().to_string(),
+                                    col,
+                                    with_index,
+                                    color_hm,
+                                    float_precision,
+                                ),
+                                Err(_) => make_styled_string(
+                                    item.into_abbreviated_string(config),
+                                    &item.get_type().to_string(),
+                                    col,
+                                    with_index,
+                                    color_hm,
+                                    float_precision,
+                                ),
+                            }
+                        }
+                        _ => make_styled_string(
+                            item.into_abbreviated_string(config),
+                            &item.get_type().to_string(),
+                            col,
+                            with_index,
+                            color_hm,
+                            float_precision,
+                        ),
+                    };
+
+                    cell_space = nu_table::string_width(&value.0);
+                    cell_space += 2; // padding
+                    cell_space += 2; // split
+                }
+
+                used_width += cell_space;
 
                 let value = NuTable::create_cell(value.0, value.1);
                 row.push(value);
@@ -996,6 +1096,7 @@ fn convert_to_table2_entry(
     deep: Option<usize>,
     flatten: bool,
     flatten_sep: &str,
+    width: usize,
 ) -> (String, TextStyle) {
     let float_precision = config.float_precision as usize;
     let alignments = Alignments::default();
@@ -1049,6 +1150,7 @@ fn convert_to_table2_entry(
                     deep.map(|i| i - 1),
                     flatten,
                     flatten_sep,
+                    width,
                 );
 
                 let inner_table = table.map(|table| {
@@ -1106,6 +1208,7 @@ fn convert_to_table2_entry(
                     deep.map(|i| i - 1),
                     flatten,
                     flatten_sep,
+                    width,
                 );
 
                 let inner_table = table.map(|table| {
@@ -1240,6 +1343,7 @@ impl PagingTableCreator {
             limit,
             flatten,
             flatten_separator.as_deref().unwrap_or(" "),
+            term_width,
         )?;
 
         let mut table = match table {
