@@ -21,6 +21,7 @@ members = [
 	"crates/nu-parser",
 	"crates/nu-system",
 	"crates/nu-command",
+	"crates/nu-command-crates/*",
 	"crates/nu-protocol",
 	"crates/nu-plugin",
 	"crates/nu_plugin_inc",

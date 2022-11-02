@@ -2591,6 +2591,11 @@ dependencies = [
  "notify",
  "nu-ansi-term",
  "nu-color-config",
+ "nu-command-crates-filesystem",
+ "nu-command-crates-formats",
+ "nu-command-crates-network",
+ "nu-command-crates-platform",
+ "nu-command-crates-shell",
  "nu-engine",
  "nu-glob",
  "nu-json",
@@ -2616,7 +2621,6 @@ dependencies = [
  "rand 0.8.5",
  "rayon",
  "reedline",
- "reqwest",
  "roxmltree",
  "rstest",
  "rusqlite",
@@ -2645,6 +2649,165 @@ dependencies = [
  "which",
  "windows 0.42.0",
  "winreg",
+]
+
+[[package]]
+name = "nu-command-crates-example-test"
+version = "0.70.1"
+dependencies = [
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-command-crates-platform",
+ "nu-engine",
+ "nu-glob",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-utils",
+]
+
+[[package]]
+name = "nu-command-crates-filesystem"
+version = "0.70.1"
+dependencies = [
+ "alphanumeric-sort",
+ "chrono",
+ "dialoguer",
+ "filetime",
+ "fs_extra",
+ "notify",
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-command-crates-platform",
+ "nu-command-crates-shell",
+ "nu-engine",
+ "nu-glob",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-utils",
+ "pathdiff",
+ "powierza-coefficient",
+ "same-file",
+ "strip-ansi-escapes",
+ "wax",
+ "windows 0.42.0",
+]
+
+[[package]]
+name = "nu-command-crates-formats"
+version = "0.70.1"
+dependencies = [
+ "calamine",
+ "chrono-humanize",
+ "csv",
+ "eml-parser",
+ "fancy-regex",
+ "htmlescape",
+ "ical",
+ "indexmap",
+ "itertools",
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-engine",
+ "nu-glob",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-utils",
+ "quick-xml 0.23.1",
+ "roxmltree",
+ "rust-embed",
+ "serde",
+ "serde_ini",
+ "serde_urlencoded",
+ "serde_yaml",
+ "toml",
+]
+
+[[package]]
+name = "nu-command-crates-network"
+version = "0.70.1"
+dependencies = [
+ "base64",
+ "mime",
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-command-crates-filesystem",
+ "nu-command-crates-formats",
+ "nu-engine",
+ "nu-glob",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-utils",
+ "reqwest",
+ "url",
+]
+
+[[package]]
+name = "nu-command-crates-platform"
+version = "0.70.1"
+dependencies = [
+ "crossterm 0.24.0",
+ "filesize",
+ "lazy_static",
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-engine",
+ "nu-glob",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-utils",
+ "reedline",
+ "serde",
+ "strip-ansi-escapes",
+ "terminal_size 0.2.1",
+]
+
+[[package]]
+name = "nu-command-crates-shell"
+version = "0.70.1"
+dependencies = [
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-engine",
+ "nu-glob",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-utils",
 ]
 
 [[package]]

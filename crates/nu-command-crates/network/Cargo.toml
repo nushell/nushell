@@ -1,0 +1,35 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "Nushell's built-in commands"
+# repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
+edition = "2021"
+license = "MIT"
+name = "nu-command-crates-network"
+version = "0.70.1"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nu-color-config = { path = "../../nu-color-config", version = "0.70.1"  }
+nu-engine = { path = "../../nu-engine", version = "0.70.1"  }
+nu-glob = { path = "../../nu-glob", version = "0.70.1" }
+nu-json = { path = "../../nu-json", version = "0.70.1"  }
+nu-parser = { path = "../../nu-parser", version = "0.70.1"  }
+nu-path = { path = "../../nu-path", version = "0.70.1"  }
+nu-pretty-hex = { path = "../../nu-pretty-hex", version = "0.70.1"  }
+nu-protocol = { path = "../../nu-protocol", version = "0.70.1"  }
+nu-system = { path = "../../nu-system", version = "0.70.1"  }
+nu-table = { path = "../../nu-table", version = "0.70.1"  }
+nu-term-grid = { path = "../../nu-term-grid", version = "0.70.1"  }
+nu-utils = { path = "../../nu-utils", version = "0.70.1" }
+nu-ansi-term = "0.46.0"
+
+nu-command-crates-filesystem ={ path = "../filesystem", version = "0.70.1"}
+nu-command-crates-formats ={ path = "../formats", version = "0.70.1"}
+
+
+reqwest = {version = "0.11", features = ["blocking", "json"] }
+base64 = "0.13.0"
+url = "2.2.1"
+mime = "0.3.16"

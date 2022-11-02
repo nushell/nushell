@@ -27,6 +27,13 @@ nu-ansi-term = "0.46.0"
 num-format = { version = "0.4.3" }
 
 # Potential dependencies for extras
+
+nu-command-crates-network = {path = "../nu-command-crates/network", version = "0.70.1"}
+nu-command-crates-shell = {path = "../nu-command-crates/shells", version = "0.70.1"}
+nu-command-crates-platform = {path = "../nu-command-crates/platform", version = "0.70.1"}
+nu-command-crates-formats = {path = "../nu-command-crates/formats", version = "0.70.1"}
+nu-command-crates-filesystem = {path = "../nu-command-crates/filesystem", version = "0.70.1"}
+
 alphanumeric-sort = "1.4.4"
 base64 = "0.13.0"
 byteorder = "1.4.3"
@@ -66,7 +73,6 @@ powierza-coefficient = "1.0.1"
 quick-xml = "0.23.0"
 rand = "0.8"
 rayon = "1.5.1"
-reqwest = {version = "0.11", features = ["blocking", "json"] }
 roxmltree = "0.14.0"
 rust-embed = "6.3.0"
 same-file = "1.0.6"
