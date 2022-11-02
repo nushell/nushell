@@ -148,8 +148,6 @@ impl Command for Ls {
             }
         };
 
-        let hidden_dir_specified = is_hidden_dir(&path);
-
         let glob_path = Spanned {
             item: path.display().to_string(),
             span: p_tag,
@@ -175,7 +173,7 @@ impl Command for Ls {
             ));
         }
 
-        let mut hidden_dirs = vec![];
+        let mut should_skip_dirs = vec![];
 
         Ok(paths_peek
             .into_iter()
@@ -185,14 +183,12 @@ impl Command for Ls {
                         Ok(metadata) => Some(metadata),
                         Err(_) => None,
                     };
-                    if path_contains_hidden_folder(&path, &hidden_dirs) {
+                    if path_contains_skipped_dir(&path, &should_skip_dirs) {
                         return None;
                     }
 
-                    if !all && !hidden_dir_specified && is_hidden_dir(&path) {
-                        if path.is_dir() {
-                            hidden_dirs.push(path);
-                        }
+                    if !all && should_skip_dir(&path) {
+                        should_skip_dirs.push(path);
                         return None;
                     }
 
@@ -332,17 +328,17 @@ fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
     }
 }
 
-fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
+fn should_skip_dir(dir: impl AsRef<Path>) -> bool {
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
 
-        if let Ok(metadata) = dir.as_ref().metadata() {
-            let attributes = metadata.file_attributes();
-            // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
-            (attributes & 0x2) != 0
-        } else {
-            false
+        let dir_ref = dir.as_ref();
+        let metadata = dir_ref.metadata();
+
+        match metadata {
+            Ok(metadata) => (is_hidden_dir(metadata.file_attributes()) || dir_ref.is_symlink()),
+            Err(_err) => true,
         }
     }
 
@@ -355,7 +351,14 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
     }
 }
 
-fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
+fn is_hidden_dir(metadata_attributes: u32) -> bool {
+    {
+        // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
+        (metadata_attributes & 0x2) != 0 || (metadata_attributes & 0x4) != 0
+    }
+}
+
+fn path_contains_skipped_dir(path: &Path, folders: &[PathBuf]) -> bool {
     if folders.iter().any(|p| path.starts_with(p.as_path())) {
         return true;
     }
