@@ -76,6 +76,9 @@ impl Command for Any {
         let engine_state = engine_state.clone();
 
         for value in input.into_interruptible_iter(ctrlc) {
+            // with_env() is used here to ensure that each iteration uses
+            // a different set of environment variables.
+            // Hence, a 'cd' in the first loop won't affect the next loop.
             stack.with_env(&orig_env_vars, &orig_env_hidden);
 
             if let Some(var_id) = var_id {

@@ -61,6 +61,9 @@ impl Command for Where {
                 | PipelineData::ListStream { .. } => Ok(input
                     .into_iter()
                     .filter_map(move |x| {
+                        // with_env() is used here to ensure that each iteration uses
+                        // a different set of environment variables.
+                        // Hence, a 'cd' in the first loop won't affect the next loop.
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                         if let Some(var) = block.signature.get_positional(0) {
@@ -73,6 +76,7 @@ impl Command for Where {
                             &engine_state,
                             &mut stack,
                             &block,
+                            // clone() is used here because x is given to Ok() below.
                             x.clone().into_pipeline_data(),
                             redirect_stdout,
                             redirect_stderr,
@@ -99,6 +103,7 @@ impl Command for Where {
                 } => Ok(stream
                     .into_iter()
                     .filter_map(move |x| {
+                        // see note above about with_env()
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                         let x = match x {
@@ -116,6 +121,7 @@ impl Command for Where {
                             &engine_state,
                             &mut stack,
                             &block,
+                            // clone() is used here because x is given to Ok() below.
                             x.clone().into_pipeline_data(),
                             redirect_stdout,
                             redirect_stderr,
@@ -134,6 +140,9 @@ impl Command for Where {
                     })
                     .into_pipeline_data(ctrlc)),
                 PipelineData::Value(x, ..) => {
+                    // see note above about with_env()
+                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             stack.add_var(*var_id, x.clone());
@@ -143,6 +152,7 @@ impl Command for Where {
                         &engine_state,
                         &mut stack,
                         &block,
+                        // clone() is used here because x is given to Ok() below.
                         x.clone().into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
@@ -171,6 +181,9 @@ impl Command for Where {
                 let mut stack = stack.captures_to_stack(&block.captures);
                 let block = engine_state.get_block(block.block_id).clone();
 
+                let orig_env_vars = stack.env_vars.clone();
+                let orig_env_hidden = stack.env_hidden.clone();
+
                 let ctrlc = engine_state.ctrlc.clone();
                 let engine_state = engine_state.clone();
 
@@ -179,6 +192,8 @@ impl Command for Where {
                 Ok(input
                     .into_iter()
                     .filter_map(move |value| {
+                        stack.with_env(&orig_env_vars, &orig_env_hidden);
+
                         if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
                                 stack.add_var(*var_id, value.clone());
@@ -188,7 +203,8 @@ impl Command for Where {
                             &engine_state,
                             &mut stack,
                             &block,
-                            PipelineData::new(span),
+                            // clone() is used here because x is given to Ok() below.
+                            value.clone().into_pipeline_data(),
                             redirect_stdout,
                             redirect_stderr,
                         );

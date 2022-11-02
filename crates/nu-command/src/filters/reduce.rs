@@ -164,6 +164,9 @@ impl Command for Reduce {
             .peekable();
 
         while let Some((idx, x)) = input_iter.next() {
+            // with_env() is used here to ensure that each iteration uses
+            // a different set of environment variables.
+            // Hence, a 'cd' in the first loop won't affect the next loop.
             stack.with_env(&orig_env_vars, &orig_env_hidden);
 
             if let Some(var) = block.signature.get_positional(0) {
