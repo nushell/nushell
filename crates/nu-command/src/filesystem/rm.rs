@@ -36,7 +36,7 @@ impl Command for Rm {
     }
 
     fn usage(&self) -> &str {
-        "Remove file(s)."
+        "Remove files and directories."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -53,21 +53,17 @@ impl Command for Rm {
         let sig = sig
             .switch(
                 "trash",
-                "use the platform's recycle bin instead of permanently deleting",
+                "move to the platform's trash instead of permanently deleting",
                 Some('t'),
             )
             .switch(
                 "permanent",
-                "don't use recycle bin, delete permanently",
+                "delete permanently, ignoring the 'always_trash' config option",
                 Some('p'),
             );
         sig.switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
-            .switch(
-                "verbose",
-                "make rm to be verbose, showing files been deleted",
-                Some('v'),
-            )
+            .switch("verbose", "print names of deleted files", Some('v'))
             .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",
@@ -88,12 +84,12 @@ impl Command for Rm {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let mut examples = vec![
-            Example {
-                description: "Delete or move a file to the system trash (depending on 'rm_always_trash' config option)",
-                example: "rm file.txt",
-                result: None,
-            }];
+        let mut examples = vec![Example {
+            description:
+                "Delete, or move a file to the trash (based on the 'always_trash' config option)",
+            example: "rm file.txt",
+            result: None,
+        }];
         #[cfg(all(
             feature = "trash-support",
             not(target_os = "android"),
@@ -101,19 +97,25 @@ impl Command for Rm {
         ))]
         examples.append(&mut vec![
             Example {
-                description: "Move a file to the system trash",
+                description: "Move a file to the trash",
                 example: "rm --trash file.txt",
                 result: None,
             },
             Example {
-                description: "Delete a file permanently",
+                description:
+                    "Delete a file permanently, even if the 'always_trash' config option is true",
                 example: "rm --permanent file.txt",
                 result: None,
             },
         ]);
         examples.push(Example {
-            description: "Delete a file, and suppress errors if no file is found",
+            description: "Delete a file, ignoring 'file not found' errors",
             example: "rm --force file.txt",
+            result: None,
+        });
+        examples.push(Example {
+            description: "Delete all 0KB files in the current directory",
+            example: "ls | where size == 0KB && type == file | each { rm $in.name } | null",
             result: None,
         });
         examples
@@ -164,7 +166,7 @@ fn rm(
         if rm_always_trash {
             return Err(ShellError::GenericError(
                 "Cannot execute `rm`; the current configuration specifies \
-                    `rm_always_trash = true`, but the current nu executable was not \
+                    `always_trash = true`, but the current nu executable was not \
                     built with feature `trash_support` or trash is not supported on \
                     your platform."
                     .into(),

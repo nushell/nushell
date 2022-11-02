@@ -112,7 +112,7 @@ impl Default for Config {
             keybindings: Vec::new(),
             menus: Vec::new(),
             hooks: Hooks::new(),
-            rm_always_trash: false,
+            rm_always_trash: true,
             shell_integration: false,
             buffer_editor: String::new(),
             table_index_mode: TableIndexMode::Always,
@@ -189,33 +189,333 @@ impl Value {
 
         if let Ok(v) = v {
             for (key, value) in v.0.iter().zip(v.1) {
-                match key.as_str() {
-                    "filesize_metric" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.filesize_metric = b;
+                let key = key.as_str();
+                match key {
+                    // Grouped options
+                    "ls" => {
+                        if let Ok((cols, inner_vals)) = value.as_record() {
+                            for (key2, value) in cols.iter().zip(inner_vals) {
+                                let key2 = key2.as_str();
+                                match key2 {
+                                    "use_ls_colors" => {
+                                        if let Ok(b) = value.as_bool() {
+                                            config.use_ls_colors = b;
+                                        } else {
+                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                        }
+                                    }
+                                    "clickable_links" => {
+                                        if let Ok(b) = value.as_bool() {
+                                            config.show_clickable_links_in_ls = b;
+                                        } else {
+                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                        }
+                                    }
+                                    x => {
+                                        eprintln!(
+                                            "$env.config.{}.{} is an unknown config setting",
+                                            key, x
+                                        )
+                                    }
+                                }
+                            }
                         } else {
-                            eprintln!("$config.filesize_metric is not a bool")
+                            eprintln!("$env.config.{} is not a record", key);
                         }
                     }
-                    "external_completer" => {
-                        if let Ok(v) = value.as_block() {
-                            config.external_completer = Some(v)
-                        }
-                    }
-                    "table_mode" => {
-                        if let Ok(v) = value.as_string() {
-                            config.table_mode = v;
+                    "cd" => {
+                        if let Ok((cols, inner_vals)) = value.as_record() {
+                            for (key2, value) in cols.iter().zip(inner_vals) {
+                                let key2 = key2.as_str();
+                                match key2 {
+                                    "abbreviations" => {
+                                        if let Ok(b) = value.as_bool() {
+                                            config.cd_with_abbreviations = b;
+                                        } else {
+                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                        }
+                                    }
+                                    x => {
+                                        eprintln!(
+                                            "$env.config.{}.{} is an unknown config setting",
+                                            key, x
+                                        )
+                                    }
+                                }
+                            }
                         } else {
-                            eprintln!("$config.table_mode is not a string")
+                            eprintln!("$env.config.{} is not a record", key);
                         }
                     }
-                    "use_ls_colors" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.use_ls_colors = b;
+                    "rm" => {
+                        if let Ok((cols, inner_vals)) = value.as_record() {
+                            for (key2, value) in cols.iter().zip(inner_vals) {
+                                let key2 = key2.as_str();
+                                match key2 {
+                                    "always_trash" => {
+                                        if let Ok(b) = value.as_bool() {
+                                            config.rm_always_trash = b;
+                                        } else {
+                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                        }
+                                    }
+                                    x => {
+                                        eprintln!(
+                                            "$env.config.{}.{} is an unknown config setting",
+                                            key, x
+                                        )
+                                    }
+                                }
+                            }
                         } else {
-                            eprintln!("$config.use_ls_colors is not a bool")
+                            eprintln!("$env.config.{} is not a record", key);
                         }
                     }
+                    "history" => {
+                        if let Ok((cols, inner_vals)) = value.as_record() {
+                            for (key2, value) in cols.iter().zip(inner_vals) {
+                                let key2 = key2.as_str();
+                                match key2 {
+                                    "sync_on_enter" => {
+                                        if let Ok(b) = value.as_bool() {
+                                            config.sync_history_on_enter = b;
+                                        } else {
+                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                        }
+                                    }
+                                    "max_size" => {
+                                        if let Ok(i) = value.as_i64() {
+                                            config.max_history_size = i;
+                                        } else {
+                                            eprintln!(
+                                                "$env.config.{}.{} is not an integer",
+                                                key, key2
+                                            )
+                                        }
+                                    }
+                                    "file_format" => {
+                                        if let Ok(v) = value.as_string() {
+                                            let val_str = v.to_lowercase();
+                                            config.history_file_format = match val_str.as_ref() {
+                                                "sqlite" => HistoryFileFormat::Sqlite,
+                                                "plaintext" => HistoryFileFormat::PlainText,
+                                                _ => {
+                                                    eprintln!(
+                                                        "unrecognized $config.{}.{} '{val_str}'; expected either 'sqlite' or 'plaintext'",
+                                                        key, key2,
+                                                    );
+                                                    HistoryFileFormat::PlainText
+                                                }
+                                            };
+                                        } else {
+                                            eprintln!(
+                                                "$env.config.{}.{} is not a string",
+                                                key, key2
+                                            )
+                                        }
+                                    }
+                                    x => {
+                                        eprintln!(
+                                            "$env.config.{}.{} is an unknown config setting",
+                                            key, x
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            eprintln!("$env.config.{} is not a record", key)
+                        }
+                    }
+                    "completions" => {
+                        if let Ok((cols, inner_vals)) = value.as_record() {
+                            for (key2, value) in cols.iter().zip(inner_vals) {
+                                let key2 = key2.as_str();
+                                match key2 {
+                                    "quick" => {
+                                        if let Ok(b) = value.as_bool() {
+                                            config.quick_completions = b;
+                                        } else {
+                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                        }
+                                    }
+                                    "partial" => {
+                                        if let Ok(b) = value.as_bool() {
+                                            config.partial_completions = b;
+                                        } else {
+                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                        }
+                                    }
+                                    "algorithm" => {
+                                        if let Ok(v) = value.as_string() {
+                                            let val_str = v.to_lowercase();
+                                            config.completion_algorithm = match val_str.as_ref() {
+                                                // This should match the MatchAlgorithm enum in completions::completion_options
+                                                "prefix" => val_str,
+                                                "fuzzy" => val_str,
+                                                _ => {
+                                                    eprintln!(
+                                                        "unrecognized $config.{}.{} '{val_str}'; expected either 'prefix' or 'fuzzy'",
+                                                        key, key2
+                                                    );
+                                                    String::from("prefix")
+                                                }
+                                            };
+                                        } else {
+                                            eprintln!(
+                                                "$env.config.{}.{} is not a string",
+                                                key, key2
+                                            )
+                                        }
+                                    }
+                                    "case_sensitive" => {
+                                        if let Ok(b) = value.as_bool() {
+                                            config.case_sensitive_completions = b;
+                                        } else {
+                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                        }
+                                    }
+                                    "external" => {
+                                        if let Ok((cols, inner_vals)) = value.as_record() {
+                                            for (key3, value) in cols.iter().zip(inner_vals) {
+                                                let key3 = key3.as_str();
+                                                match key3 {
+                                                    "max_results" => {
+                                                        if let Ok(i) = value.as_integer() {
+                                                            config
+                                                                .max_external_completion_results =
+                                                                i;
+                                                        } else {
+                                                            eprintln!("$env.config.{}.{}.{} is not an integer", key, key2, key3)
+                                                        }
+                                                    }
+                                                    "completer" => {
+                                                        if let Ok(v) = value.as_block() {
+                                                            config.external_completer = Some(v)
+                                                        } else {
+                                                            match value {
+                                                                Value::Nothing { .. } => {}
+                                                                _ => {
+                                                                    eprintln!("$env.config.{}.{}.{} is not a block or null", key, key2, key3)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    "enable" => {
+                                                        if let Ok(b) = value.as_bool() {
+                                                            config.enable_external_completion = b;
+                                                        } else {
+                                                            eprintln!("$env.config.{}.{}.{} is not a bool", key, key2, key3)
+                                                        }
+                                                    }
+                                                    x => {
+                                                        eprintln!("$env.config.{}.{}.{} is an unknown config setting", key, key2, x)
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            eprintln!(
+                                                "$env.config.{}.{} is not a record",
+                                                key, key2
+                                            );
+                                        }
+                                    }
+                                    x => {
+                                        eprintln!(
+                                            "$env.config.{}.{} is an unknown config setting",
+                                            key, x
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            eprintln!("$env.config.{} is not a record", key)
+                        }
+                    }
+                    "table" => {
+                        if let Ok((cols, inner_vals)) = value.as_record() {
+                            for (key2, value) in cols.iter().zip(inner_vals) {
+                                let key2 = key2.as_str();
+                                match key2 {
+                                    "mode" => {
+                                        if let Ok(v) = value.as_string() {
+                                            config.table_mode = v;
+                                        } else {
+                                            eprintln!(
+                                                "$env.config.{}.{} is not a string",
+                                                key, key2
+                                            )
+                                        }
+                                    }
+                                    "index_mode" => {
+                                        if let Ok(b) = value.as_string() {
+                                            let val_str = b.to_lowercase();
+                                            match val_str.as_ref() {
+                                                "always" => config.table_index_mode = TableIndexMode::Always,
+                                                "never" => config.table_index_mode = TableIndexMode::Never,
+                                                "auto" => config.table_index_mode = TableIndexMode::Auto,
+                                                _ => eprintln!(
+                                                    "unrecognized $env.config.{}.{} '{val_str}'; expected either 'never', 'always' or 'auto'",
+                                                    key, key2
+                                                ),
+                                            }
+                                        } else {
+                                            eprintln!(
+                                                "$env.config.{}.{} is not a string",
+                                                key, key2
+                                            )
+                                        }
+                                    }
+                                    "trim" => {
+                                        config.trim_strategy =
+                                            try_parse_trim_strategy(value, &config)?
+                                    }
+                                    x => {
+                                        eprintln!(
+                                            "$env.config.{}.{} is an unknown config setting",
+                                            key, x
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            eprintln!("$env.config.{} is not a record", key)
+                        }
+                    }
+                    "filesize" => {
+                        if let Ok((cols, inner_vals)) = value.as_record() {
+                            for (key2, value) in cols.iter().zip(inner_vals) {
+                                let key2 = key2.as_str();
+                                match key2 {
+                                    "metric" => {
+                                        if let Ok(b) = value.as_bool() {
+                                            config.filesize_metric = b;
+                                        } else {
+                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                        }
+                                    }
+                                    "format" => {
+                                        if let Ok(v) = value.as_string() {
+                                            config.filesize_format = v.to_lowercase();
+                                        } else {
+                                            eprintln!(
+                                                "$env.config.{}.{} is not a string",
+                                                key, key2
+                                            )
+                                        }
+                                    }
+                                    x => {
+                                        eprintln!(
+                                            "$env.config.{}.{} is an unknown config setting",
+                                            key, x
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            eprintln!("$env.config.{} is not a record", key)
+                        }
+                    }
+                    // Misc. options
                     "color_config" => {
                         if let Ok(map) = create_map(value, &config) {
                             config.color_config = map;
@@ -227,7 +527,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.use_grid_icons = b;
                         } else {
-                            eprintln!("$config.use_grid_icons is not a bool")
+                            eprintln!("$env.config.{} is not a bool", key)
                         }
                     }
                     "footer_mode" => {
@@ -243,70 +543,99 @@ impl Value {
                                 },
                             };
                         } else {
-                            eprintln!("$config.footer_mode is not a string")
+                            eprintln!("$env.config.{} is not a string", key)
                         }
                     }
                     "float_precision" => {
                         if let Ok(i) = value.as_integer() {
                             config.float_precision = i;
                         } else {
-                            eprintln!("$config.float_precision is not an integer")
+                            eprintln!("$env.config.{} is not an integer", key)
                         }
                     }
                     "use_ansi_coloring" => {
                         if let Ok(b) = value.as_bool() {
                             config.use_ansi_coloring = b;
                         } else {
-                            eprintln!("$config.use_ansi_coloring is not a bool")
-                        }
-                    }
-                    "quick_completions" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.quick_completions = b;
-                        } else {
-                            eprintln!("$config.quick_completions is not a bool")
-                        }
-                    }
-                    "partial_completions" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.partial_completions = b;
-                        } else {
-                            eprintln!("$config.partial_completions is not a bool")
-                        }
-                    }
-                    "max_external_completion_results" => {
-                        if let Ok(i) = value.as_integer() {
-                            config.max_external_completion_results = i;
-                        } else {
-                            eprintln!("$config.max_external_completion_results is not an integer")
-                        }
-                    }
-                    "completion_algorithm" => {
-                        if let Ok(v) = value.as_string() {
-                            config.completion_algorithm = v.to_lowercase();
-                        } else {
-                            eprintln!("$config.completion_algorithm is not a string")
-                        }
-                    }
-                    "rm_always_trash" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.rm_always_trash = b;
-                        } else {
-                            eprintln!("$config.rm_always_trash is not a bool")
-                        }
-                    }
-                    "filesize_format" => {
-                        if let Ok(v) = value.as_string() {
-                            config.filesize_format = v.to_lowercase();
-                        } else {
-                            eprintln!("$config.filesize_format is not a string")
+                            eprintln!("$env.config.{} is not a bool", key)
                         }
                     }
                     "edit_mode" => {
                         if let Ok(v) = value.as_string() {
                             config.edit_mode = v.to_lowercase();
                         } else {
-                            eprintln!("$config.edit_mode is not a string")
+                            eprintln!("$env.config.{} is not a string", key)
+                        }
+                    }
+                    "log_level" => {
+                        if let Ok(v) = value.as_string() {
+                            config.log_level = v.to_lowercase();
+                        } else {
+                            eprintln!("$env.config.{} is not a string", key)
+                        }
+                    }
+                    "menus" => match create_menus(value, &config) {
+                        Ok(map) => config.menus = map,
+                        Err(e) => {
+                            eprintln!("$env.config.{} is not a valid list of menus", key);
+                            eprintln!("{:?}", e);
+                        }
+                    },
+                    "keybindings" => match create_keybindings(value, &config) {
+                        Ok(keybindings) => config.keybindings = keybindings,
+                        Err(e) => {
+                            eprintln!("$env.config.{} is not a valid keybindings list", key);
+                            eprintln!("{:?}", e);
+                        }
+                    },
+                    "hooks" => match create_hooks(value) {
+                        Ok(hooks) => config.hooks = hooks,
+                        Err(e) => {
+                            eprintln!("$env.config.{} is not a valid hooks list", key);
+                            eprintln!("{:?}", e);
+                        }
+                    },
+                    "shell_integration" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.shell_integration = b;
+                        } else {
+                            eprintln!("$env.config.{} is not a bool", key);
+                        }
+                    }
+                    "buffer_editor" => {
+                        if let Ok(v) = value.as_string() {
+                            config.buffer_editor = v.to_lowercase();
+                        } else {
+                            eprintln!("$env.config.{} is not a string", key);
+                        }
+                    }
+                    "show_banner" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.show_banner = b;
+                        } else {
+                            eprintln!("$env.config.{} is not a bool", key);
+                        }
+                    }
+                    "render_right_prompt_on_last_line" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.render_right_prompt_on_last_line = b;
+                        } else {
+                            eprintln!("$env.config.{} is not a bool", key);
+                        }
+                    }
+                    // Legacy config options (deprecated as of 2022-11-02)
+                    "use_ls_colors" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.use_ls_colors = b;
+                        } else {
+                            eprintln!("$env.config.use_ls_colors is not a bool")
+                        }
+                    }
+                    "rm_always_trash" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.rm_always_trash = b;
+                        } else {
+                            eprintln!("$env.config.rm_always_trash is not a bool")
                         }
                     }
                     "history_file_format" => {
@@ -317,131 +646,129 @@ impl Value {
                                 "plaintext" => HistoryFileFormat::PlainText,
                                 _ => {
                                     eprintln!(
-                                        "unrecognized $config.history_file_format '{val_str}'"
+                                        "unrecognized $env.config.history_file_format '{val_str}'"
                                     );
                                     HistoryFileFormat::PlainText
                                 }
                             };
                         } else {
-                            eprintln!("$config.history_file_format is not a string")
-                        }
-                    }
-                    "max_history_size" => {
-                        if let Ok(i) = value.as_i64() {
-                            config.max_history_size = i;
-                        } else {
-                            eprintln!("$config.max_history_size is not an integer")
+                            eprintln!("$env.config.history_file_format is not a string")
                         }
                     }
                     "sync_history_on_enter" => {
                         if let Ok(b) = value.as_bool() {
                             config.sync_history_on_enter = b;
                         } else {
-                            eprintln!("$config.sync_history_on_enter is not a bool")
+                            eprintln!("$env.config.sync_history_on_enter is not a bool")
                         }
                     }
-                    "log_level" => {
-                        if let Ok(v) = value.as_string() {
-                            config.log_level = v.to_lowercase();
+                    "max_history_size" => {
+                        if let Ok(i) = value.as_i64() {
+                            config.max_history_size = i;
                         } else {
-                            eprintln!("$config.log_level is not a string")
+                            eprintln!("$env.config.max_history_size is not an integer")
                         }
                     }
-                    "menus" => match create_menus(value) {
-                        Ok(map) => config.menus = map,
-                        Err(e) => {
-                            eprintln!("$config.menus is not a valid list of menus");
-                            eprintln!("{:?}", e);
-                        }
-                    },
-                    "keybindings" => match create_keybindings(value) {
-                        Ok(keybindings) => config.keybindings = keybindings,
-                        Err(e) => {
-                            eprintln!("$config.keybindings is not a valid keybindings list");
-                            eprintln!("{:?}", e);
-                        }
-                    },
-                    "hooks" => match create_hooks(value) {
-                        Ok(hooks) => config.hooks = hooks,
-                        Err(e) => {
-                            eprintln!("$config.hooks is not a valid hooks list");
-                            eprintln!("{:?}", e);
-                        }
-                    },
-                    "shell_integration" => {
+                    "quick_completions" => {
                         if let Ok(b) = value.as_bool() {
-                            config.shell_integration = b;
+                            config.quick_completions = b;
                         } else {
-                            eprintln!("$config.shell_integration is not a bool")
+                            eprintln!("$env.config.quick_completions is not a bool")
                         }
                     }
-                    "buffer_editor" => {
-                        if let Ok(v) = value.as_string() {
-                            config.buffer_editor = v.to_lowercase();
-                        } else {
-                            eprintln!("$config.buffer_editor is not a string")
-                        }
-                    }
-                    "table_index_mode" => {
-                        if let Ok(b) = value.as_string() {
-                            let val_str = b.to_lowercase();
-                            match val_str.as_ref() {
-                                "always" => config.table_index_mode = TableIndexMode::Always,
-                                "never" => config.table_index_mode = TableIndexMode::Never,
-                                "auto" => config.table_index_mode = TableIndexMode::Auto,
-                                _ => eprintln!(
-                                    "$config.table_index_mode must be a never, always or auto"
-                                ),
-                            }
-                        } else {
-                            eprintln!("$config.table_index_mode is not a string")
-                        }
-                    }
-                    "cd_with_abbreviations" => {
+                    "partial_completions" => {
                         if let Ok(b) = value.as_bool() {
-                            config.cd_with_abbreviations = b;
+                            config.partial_completions = b;
                         } else {
-                            eprintln!("$config.cd_with_abbreviations is not a bool")
+                            eprintln!("$env.config.partial_completions is not a bool")
+                        }
+                    }
+                    "max_external_completion_results" => {
+                        if let Ok(i) = value.as_integer() {
+                            config.max_external_completion_results = i;
+                        } else {
+                            eprintln!(
+                                "$env.config.max_external_completion_results is not an integer"
+                            )
+                        }
+                    }
+                    "completion_algorithm" => {
+                        if let Ok(v) = value.as_string() {
+                            let val_str = v.to_lowercase();
+                            config.completion_algorithm = match val_str.as_ref() {
+                                // This should match the MatchAlgorithm enum in completions::completion_options
+                                "prefix" => val_str,
+                                "fuzzy" => val_str,
+                                _ => {
+                                    eprintln!(
+                                        "unrecognized $env.config.completions.algorithm '{val_str}'; expected either 'prefix' or 'fuzzy'"
+                                    );
+                                    val_str
+                                }
+                            };
+                        } else {
+                            eprintln!("$env.config.completion_algorithm is not a string")
                         }
                     }
                     "case_sensitive_completions" => {
                         if let Ok(b) = value.as_bool() {
                             config.case_sensitive_completions = b;
                         } else {
-                            eprintln!("$config.case_sensitive_completions is not a bool")
+                            eprintln!("$env.config.case_sensitive_completions is not a bool")
                         }
                     }
                     "enable_external_completion" => {
                         if let Ok(b) = value.as_bool() {
                             config.enable_external_completion = b;
                         } else {
-                            eprintln!("$config.enable_external_completion is not a bool")
+                            eprintln!("$env.config.enable_external_completion is not a bool")
+                        }
+                    }
+
+                    "external_completer" => {
+                        if let Ok(v) = value.as_block() {
+                            config.external_completer = Some(v)
+                        }
+                    }
+                    "table_mode" => {
+                        if let Ok(v) = value.as_string() {
+                            config.table_mode = v;
+                        } else {
+                            eprintln!("$env.config.table_mode is not a string")
                         }
                     }
                     "table_trim" => config.trim_strategy = try_parse_trim_strategy(value, &config)?,
-                    "show_banner" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.show_banner = b;
-                        } else {
-                            eprintln!("$config.show_banner is not a bool")
-                        }
-                    }
                     "show_clickable_links_in_ls" => {
                         if let Ok(b) = value.as_bool() {
                             config.show_clickable_links_in_ls = b;
                         } else {
-                            eprintln!("$config.show_clickable_links_in_ls is not a bool")
+                            eprintln!("$env.config.show_clickable_links_in_ls is not a bool")
                         }
                     }
-                    "render_right_prompt_on_last_line" => {
+                    "cd_with_abbreviations" => {
                         if let Ok(b) = value.as_bool() {
-                            config.render_right_prompt_on_last_line = b;
+                            config.cd_with_abbreviations = b;
                         } else {
-                            eprintln!("$config.render_right_prompt_on_last_line is not a bool")
+                            eprintln!("$env.config.cd_with_abbreviations is not a bool")
                         }
                     }
+                    "filesize_metric" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.filesize_metric = b;
+                        } else {
+                            eprintln!("$env.config.filesize_metric is not a bool")
+                        }
+                    }
+                    "filesize_format" => {
+                        if let Ok(v) = value.as_string() {
+                            config.filesize_format = v.to_lowercase();
+                        } else {
+                            eprintln!("$env.config.filesize_format is not a string")
+                        }
+                    }
+                    // End legacy options
                     x => {
-                        eprintln!("$config.{} is an unknown config setting", x)
+                        eprintln!("$env.config.{} is an unknown config setting", x)
                     }
                 }
             }
@@ -455,7 +782,7 @@ impl Value {
 
 fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrategy, ShellError> {
     let map = create_map(value, config).map_err(|e| {
-        eprintln!("$env.config.table_trim is not a record");
+        eprintln!("$env.config.table.trim is not a record");
         e
     })?;
 
@@ -465,7 +792,7 @@ fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrateg
             None => return Ok(TRIM_STRATEGY_DEFAULT),
         },
         None => {
-            eprintln!("$config.table_trim.methodology was not provided");
+            eprintln!("$env.config.table.trim.methodology was not provided");
             return Ok(TRIM_STRATEGY_DEFAULT);
         }
     };
@@ -476,7 +803,7 @@ fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrateg
                 if let Ok(b) = value.as_bool() {
                     *try_to_keep_words = b;
                 } else {
-                    eprintln!("$config.table_trim.wrap_try_keep_words is not a bool");
+                    eprintln!("$env.config.table.trim.wrapping_try_keep_words is not a bool");
                 }
             }
         }
@@ -485,7 +812,7 @@ fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrateg
                 if let Ok(v) = value.as_string() {
                     *suffix = Some(v);
                 } else {
-                    eprintln!("$config.table_trim.truncating_suffix is not a string")
+                    eprintln!("$env.config.table.trim.truncating_suffix is not a string")
                 }
             }
         }
@@ -503,9 +830,9 @@ fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
                 });
             }
             "truncating" => return Some(TrimStrategy::Truncate { suffix: None }),
-            _ => eprintln!("unrecognized $config.trim_methodology value; expected values ['truncating', 'wrapping']"),
+            _ => eprintln!("unrecognized $config.table.trim.methodology value; expected either 'truncating' or 'wrapping'"),
         },
-        Err(_) => eprintln!("$config.trim_methodology is not a string"),
+        Err(_) => eprintln!("$env.config.table.trim.methodology is not a string"),
     }
 
     None
