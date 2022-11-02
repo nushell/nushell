@@ -94,11 +94,6 @@ impl Command for Table {
                 "expand the table structure in colapse mode.\nBe aware collapse mode currently doesn't support width controll",
                 Some('c'),
             )
-            .switch(
-                "attach",
-                "",
-                Some('a'),
-            )
             .category(Category::Viewers)
     }
 
@@ -123,7 +118,7 @@ impl Command for Table {
         let flatten_separator: Option<String> =
             call.get_flag(engine_state, stack, "flatten-separator")?;
 
-        let mut table_view = match (expand, collapse) {
+        let table_view = match (expand, collapse) {
             (false, false) => TableView::General,
             (_, true) => TableView::Collapsed,
             (true, _) => TableView::Expanded {
@@ -132,11 +127,6 @@ impl Command for Table {
                 flatten_separator,
             },
         };
-        if call.has_flag("attach") {
-            table_view = TableView::Attached;
-        }
-
-        println!("{:?}", table_view);
 
         // if list argument is present we just need to return a list of supported table themes
         if list {
@@ -296,12 +286,6 @@ fn handle_table_command(
                     )
                 }
                 TableView::Collapsed => build_collapsed_table(cols, vals, config, term_width),
-                TableView::Attached => {
-                    let t = super::table_tui::UITable::new(cols, vals, config, ctrlc, term_width);
-                    t.handle();
-
-                    Ok(None)
-                }
             }?;
 
             let result = result
@@ -376,7 +360,7 @@ fn build_collapsed_table(
     Ok(table)
 }
 
-pub(crate) fn build_general_table2(
+fn build_general_table2(
     cols: Vec<String>,
     vals: Vec<Value>,
     ctrlc: Option<Arc<AtomicBool>>,
@@ -598,7 +582,6 @@ fn handle_row_stream(
             flatten_separator,
             limit,
         },
-        _ if call.has_flag("attach") => TableView::Attached,
         _ => TableView::General,
     };
 
@@ -647,7 +630,7 @@ fn make_clickable_link(
     }
 }
 
-pub(crate) fn convert_to_table(
+fn convert_to_table(
     row_offset: usize,
     input: &[Value],
     ctrlc: Option<Arc<AtomicBool>>,
@@ -1340,18 +1323,6 @@ impl Iterator for PagingTableCreator {
                 flatten,
                 flatten_separator,
             } => self.build_extended(&batch, *limit, *flatten, flatten_separator.clone()),
-            TableView::Attached => {
-                let t = super::table_tui::UITable::new(
-                    get_columns(&batch),
-                    batch,
-                    &self.config,
-                    self.ctrlc.clone(),
-                    get_width_param(self.width_param),
-                );
-                t.handle();
-
-                Ok(None)
-            }
         };
 
         self.row_offset += idx;
@@ -1435,5 +1406,4 @@ enum TableView {
         flatten: bool,
         flatten_separator: Option<String>,
     },
-    Attached,
 }

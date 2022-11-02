@@ -160,7 +160,7 @@ pub fn sort(
                         _ => Ordering::Equal,
                     }
                 } else {
-                    a.partial_cmp(b).unwrap_or(Ordering::Equal)
+                    a.partial_cmp(&b).unwrap_or(Ordering::Equal)
                 }
             });
         }
