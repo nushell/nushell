@@ -17,7 +17,7 @@ byte-unit = "4.0.9"
 chrono = { version="0.4.21", features= ["serde", "std"], default-features = false }
 chrono-humanize = "0.2.1"
 fancy-regex = "0.10.0"
-indexmap = { version="1.7", default-features = false }
+indexmap = { version="1.7" }
 miette = { version = "5.1.0", features = ["fancy-no-backtrace"], default-features = false }
 num-format = "0.4.3"
 serde = {version = "1.0.143", default-features = false }
