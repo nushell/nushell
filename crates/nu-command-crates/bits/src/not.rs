@@ -150,14 +150,14 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
+// #[cfg(test)]
+// mod test {
+//     use super::*;
 
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
+//     #[test]
+//     fn test_examples() {
+//         use crate::test_examples;
 
-        test_examples(SubCommand {})
-    }
-}
+//         test_examples(SubCommand {})
+//     }
+// }

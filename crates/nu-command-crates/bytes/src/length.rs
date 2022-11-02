@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CellPathOnlyArgs};
+use nu_command_crates_input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -84,14 +84,14 @@ fn length(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
+// #[cfg(test)]
+// mod test {
+//     use super::*;
 
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
+//     #[test]
+//     fn test_examples() {
+//         use crate::test_examples;
 
-        test_examples(BytesLen {})
-    }
-}
+//         test_examples(BytesLen {})
+//     }
+// }

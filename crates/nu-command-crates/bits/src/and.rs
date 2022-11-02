@@ -87,14 +87,14 @@ fn operate(value: Value, target: i64, head: Span) -> Value {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
+// #[cfg(test)]
+// mod test {
+//     use super::*;
 
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
+//     #[test]
+//     fn test_examples() {
+//         use crate::test_examples;
 
-        test_examples(SubCommand {})
-    }
-}
+//         test_examples(SubCommand {})
+//     }
+// }

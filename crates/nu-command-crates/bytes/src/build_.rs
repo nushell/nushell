@@ -68,14 +68,14 @@ impl Command for BytesBuild {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
+// #[cfg(test)]
+// mod test {
+//     use super::*;
 
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
+//     #[test]
+//     fn test_examples() {
+//         use crate::test_examples;
 
-        test_examples(BytesBuild {})
-    }
-}
+//         test_examples(BytesBuild {})
+//     }
+// }

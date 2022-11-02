@@ -36,14 +36,14 @@ impl Command for Bits {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use crate::Bits;
+// #[cfg(test)]
+// mod test {
+//     use crate::Bits;
 
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
+//     #[test]
+//     fn test_examples() {
+//         use crate::test_examples;
 
-        test_examples(Bits {})
-    }
-}
+//         test_examples(Bits {})
+//     }
+// }

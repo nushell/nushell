@@ -115,13 +115,13 @@ impl Command for BytesCollect {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     #[test]
+//     fn test_examples() {
+//         use crate::test_examples;
 
-        test_examples(BytesCollect {})
-    }
-}
+//         test_examples(BytesCollect {})
+//     }
+// }

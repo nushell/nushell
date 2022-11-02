@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CmdArgument};
+use nu_command_crates_input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -168,14 +168,14 @@ fn add_impl(input: &[u8], args: &Arguments, span: Span) -> Value {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
+//     #[test]
+//     fn test_examples() {
+//         use crate::test_examples;
 
-        test_examples(BytesAdd {})
-    }
-}
+//         test_examples(BytesAdd {})
+//     }
+// }

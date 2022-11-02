@@ -2591,6 +2591,9 @@ dependencies = [
  "notify",
  "nu-ansi-term",
  "nu-color-config",
+ "nu-command-crates-bits",
+ "nu-command-crates-bytes",
+ "nu-command-crates-deprecated",
  "nu-command-crates-filesystem",
  "nu-command-crates-formats",
  "nu-command-crates-network",
@@ -2610,7 +2613,6 @@ dependencies = [
  "nu-utils",
  "num 0.4.0",
  "num-format",
- "num-traits",
  "pathdiff",
  "polars",
  "powierza-coefficient",
@@ -2640,15 +2642,72 @@ dependencies = [
  "titlecase",
  "toml",
  "trash",
- "umask",
  "unicode-segmentation",
  "url",
- "users 0.11.0",
  "uuid",
  "wax",
  "which",
  "windows 0.42.0",
  "winreg",
+]
+
+[[package]]
+name = "nu-command-crates-bits"
+version = "0.70.1"
+dependencies = [
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-engine",
+ "nu-glob",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-utils",
+ "num-traits",
+]
+
+[[package]]
+name = "nu-command-crates-bytes"
+version = "0.70.1"
+dependencies = [
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-command-crates-input-handler",
+ "nu-engine",
+ "nu-glob",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-utils",
+]
+
+[[package]]
+name = "nu-command-crates-deprecated"
+version = "0.70.1"
+dependencies = [
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-engine",
+ "nu-glob",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-utils",
 ]
 
 [[package]]
@@ -2738,6 +2797,27 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "toml",
+ "umask",
+ "users 0.11.0",
+]
+
+[[package]]
+name = "nu-command-crates-input-handler"
+version = "0.70.1"
+dependencies = [
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-engine",
+ "nu-glob",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-utils",
 ]
 
 [[package]]
