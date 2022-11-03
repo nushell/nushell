@@ -71,13 +71,29 @@ impl Command for Insert {
         }, Example {
             description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
             example: "[[foo]; [7] [8] [9]] | insert bar {|e i| $e.foo + $i }",
-            result: Some(Value::Record {
-                cols: vec!["foo".into(), "bar".into()],
-                vals: vec![
-                    Value::test_int(7),
-                    Value::test_int(9),
-                    Value::test_int(11),
-                ],
+            result: Some(Value::List {
+                vals: vec![Value::Record {
+                    cols: vec!["foo".into(), "bar".into()],
+                    vals: vec![
+                        Value::test_int(7),
+                        Value::test_int(7),
+                    ],
+                    span: Span::test_data(),
+                }, Value::Record {
+                    cols: vec!["foo".into(), "bar".into()],
+                    vals: vec![
+                        Value::test_int(8),
+                        Value::test_int(9),
+                    ],
+                    span: Span::test_data(),
+                }, Value::Record {
+                    cols: vec!["foo".into(), "bar".into()],
+                    vals: vec![
+                        Value::test_int(9),
+                        Value::test_int(11),
+                    ],
+                    span: Span::test_data(),
+                }],
                 span: Span::test_data(),
             }),
         }]

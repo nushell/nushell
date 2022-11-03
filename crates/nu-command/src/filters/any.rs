@@ -55,7 +55,7 @@ impl Command for Any {
             },
             Example {
                 description: "Check if any value is equal to twice its own index",
-                example: "[9 8 7 6] | any {|e i| $e == $i*2 }",
+                example: "[9 8 7 6] | any {|e i| $e == $i * 2 }",
                 result: Some(Value::test_bool(true)),
             },
         ]

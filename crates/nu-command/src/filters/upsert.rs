@@ -59,7 +59,7 @@ impl Command for Upsert {
             result: Some(Value::Record { cols: vec!["name".into(), "stars".into(), "language".into()], vals: vec![Value::test_string("nu"), Value::test_int(5), Value::test_string("Rust")], span: Span::test_data()}),
         }, Example {
             description: "Use in closure form for more involved updating logic",
-            example: "[[count fruit]; [1 'apple']] | upsert count {|row index| $row.fruit | str length + $index }",
+            example: "[[count fruit]; [1 'apple']] | upsert count {|row index| ($row.fruit | str length) + $index }",
             result: Some(Value::List { vals: vec![Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(5), Value::test_string("apple")], span: Span::test_data()}], span: Span::test_data()}),
         },
         Example {

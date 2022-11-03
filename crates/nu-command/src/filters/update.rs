@@ -48,7 +48,7 @@ impl Command for Update {
         vec![
             Example {
                 description: "Update a column value",
-                example: "echo {'name': 'nu', 'stars': 5} | update name 'Nushell'",
+                example: "{'name': 'nu', 'stars': 5} | update name 'Nushell'",
                 result: Some(Value::Record {
                     cols: vec!["name".into(), "stars".into()],
                     vals: vec![Value::test_string("Nushell"), Value::test_int(5)],
@@ -57,7 +57,7 @@ impl Command for Update {
             },
             Example {
                 description: "Use in block form for more involved updating logic",
-                example: "echo [[count fruit]; [1 'apple']] | update count {|row index| $row.fruit | str length + $index }",
+                example: "[[count fruit]; [1 'apple']] | update count {|row index| ($row.fruit | str length) + $index }",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["count".into(), "fruit".into()],

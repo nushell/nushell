@@ -56,7 +56,7 @@ impl Command for All {
             },
             Example {
                 description: "Check that all values are equal to twice their index",
-                example: "[0 2 4 6] | all {|e i| $e == $i*2 }",
+                example: "[0 2 4 6] | all {|e i| $e == $i * 2 }",
                 result: Some(Value::test_bool(true)),
             },
         ]

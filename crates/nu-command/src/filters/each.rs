@@ -84,7 +84,7 @@ with 'transpose' first."#
 
         vec![
             Example {
-                example: "[1 2 3] | each { 2 * $in }",
+                example: "[1 2 3] | each {|e| 2 * $e }",
                 description: "Multiplies elements in list",
                 result: Some(Value::List {
                     vals: stream_test_1,
@@ -92,7 +92,7 @@ with 'transpose' first."#
                 }),
             },
             Example {
-                example: r#"[1 2 3 2] | each { if $in == 2 { "two" } }"#,
+                example: r#"[1 2 3 2] | each {|e| if $e == 2 { "two" } }"#,
                 description: "Produce a list that has \"two\" for each 2 in the input",
                 result: Some(Value::List {
                     vals: vec![

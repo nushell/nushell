@@ -63,7 +63,7 @@ impl Command for Reduce {
                 example: "[ 8 7 6 ] | reduce {|it, acc, ind| $acc + $it + $ind }",
                 description: "Sum values of a list, plus their indexes",
                 result: Some(Value::Int {
-                    val: 24,
+                    val: 22,
                     span: Span::test_data(),
                 }),
             },
