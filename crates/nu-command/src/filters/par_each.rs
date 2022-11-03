@@ -65,7 +65,6 @@ impl Command for ParEach {
         let numbered = call.has_flag("numbered");
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
         let block_id = capture_block.block_id;
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let span = call.head;
