@@ -16,7 +16,7 @@ impl Command for Scroll {
     }
 
     fn usage(&self) -> &str {
-        "11231321123"
+        "Scroll acts as a simple table pager, just like `less` does for text"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -24,14 +24,23 @@ impl Command for Scroll {
         // if we set h i short flags it panics????
 
         Signature::build("tabless")
-            .named("head", SyntaxShape::Boolean, "xxxx", None)
-            .switch("index", "asdsad", Some('i'))
-            .switch("reverse", "asdsad", Some('r'))
+            .named(
+                "head",
+                SyntaxShape::Boolean,
+                "Setting it to false makes it doesn't show column headers",
+                None,
+            )
+            .switch("index", "A flag to show a index beside the rows", Some('i'))
+            .switch(
+                "reverse",
+                "Makes it start from the end. (like `more`)",
+                Some('r'),
+            )
             .category(Category::Viewers)
     }
 
     fn extra_usage(&self) -> &str {
-        "11231321123"
+        ""
     }
 
     fn run(

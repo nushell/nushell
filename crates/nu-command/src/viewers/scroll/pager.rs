@@ -184,7 +184,7 @@ impl StatefulWidget for UIState<'_> {
         self,
         area: tui::layout::Rect,
         buf: &mut tui::buffer::Buffer,
-        state: &mut Self::State,
+        _state: &mut Self::State,
     ) {
         const CELL_PADDING_LEFT: u16 = 2;
         const CELL_PADDING_RIGHT: u16 = 2;
@@ -239,6 +239,7 @@ impl StatefulWidget for UIState<'_> {
             );
 
             render_vertical(buf, used_width, head_offset, available_height, show_head);
+            used_width += 1;
         }
 
         for col in self.column_index..self.columns.len() {
