@@ -38,7 +38,7 @@ impl Command for Insert {
     }
 
     fn usage(&self) -> &str {
-        "Insert a new column."
+        "Insert a new column, using an expression or block to create each row's values."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -57,7 +57,7 @@ impl Command for Insert {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Insert a new entry into a record",
+            description: "Insert a new entry into a single record",
             example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
             result: Some(Value::Record {
                 cols: vec!["name".into(), "stars".into(), "alias".into()],
@@ -65,6 +65,18 @@ impl Command for Insert {
                     Value::test_string("nu"),
                     Value::test_int(5),
                     Value::test_string("Nushell"),
+                ],
+                span: Span::test_data(),
+            }),
+        }, Example {
+            description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
+            example: "[[foo]; [7] [8] [9]] | insert bar {|e i| $e.foo + $i }",
+            result: Some(Value::Record {
+                cols: vec!["foo".into(), "bar".into()],
+                vals: vec![
+                    Value::test_int(7),
+                    Value::test_int(9),
+                    Value::test_int(11),
                 ],
                 span: Span::test_data(),
             }),
@@ -98,16 +110,33 @@ fn insert(
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
-        input.map(
-            move |mut input| {
+        // To enumerate over the input (for the optional index argument),
+        // it must be converted into an iterator using into_iter().
+        Ok(input
+            .into_iter()
+            .enumerate()
+            .map(move |(idx, mut input)| {
                 // with_env() is used here to ensure that each iteration uses
                 // a different set of environment variables.
                 // Hence, a 'cd' in the first loop won't affect the next loop.
                 stack.with_env(&orig_env_vars, &orig_env_hidden);
 
+                // Element argument
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, input.clone())
+                    }
+                }
+                // Optional index argument
+                if let Some(var) = block.signature.get_positional(1) {
+                    if let Some(var_id) = &var.var_id {
+                        stack.add_var(
+                            *var_id,
+                            Value::Int {
+                                val: idx as i64,
+                                span,
+                            },
+                        );
                     }
                 }
 
@@ -132,9 +161,8 @@ fn insert(
                     }
                     Err(e) => Value::Error { error: e },
                 }
-            },
-            ctrlc,
-        )
+            })
+            .into_pipeline_data(ctrlc))
     } else {
         if let Some(PathMember::Int { val, .. }) = cell_path.members.get(0) {
             let mut input = input.into_iter();

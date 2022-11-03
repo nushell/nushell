@@ -15,7 +15,7 @@ impl Command for EachWhile {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each element of input until a null is found"
+        "Run a block on each row of the input list until a null is found, then create a new list with the results."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -30,10 +30,14 @@ impl Command for EachWhile {
             )])
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the closure to run",
             )
-            .switch("numbered", "iterate with an index", Some('n'))
+            .switch(
+                "numbered",
+                "iterate with an index (deprecated; use a two-parameter block instead)",
+                Some('n'),
+            )
             .category(Category::Filters)
     }
 
@@ -61,24 +65,24 @@ impl Command for EachWhile {
 
         vec![
             Example {
-                example: "[1 2 3] | each while { |it| if $it < 3 { $it * 2 } else { null } }",
-                description: "Multiplies elements below three by two",
+                example: "[1 2 3 2 1] | each while { if $in < 3 { $in * 2 } }",
+                description: "Produces a list of each element before the 3, doubled",
                 result: Some(Value::List {
                     vals: stream_test_1,
                     span: Span::test_data(),
                 }),
             },
             Example {
-                example: r#"[1 2 stop 3 4] | each while { |it| if $it == 'stop' { null } else { $"Output: ($it)" } }"#,
-                description: "Output elements till reaching 'stop'",
+                example: r#"[1 2 stop 3 4] | each while { if $in != 'stop' { $"Output: ($in)" } }"#,
+                description: "Output elements until reaching 'stop'",
                 result: Some(Value::List {
                     vals: stream_test_2,
                     span: Span::test_data(),
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each while -n { |it| if $it.item < 2 { $"value ($it.item) at ($it.index)!"} else { null } }"#,
-                description: "Iterate over each element, print the matching value and its index",
+                example: r#"[1 2 3] | each while {|e i| if $e < 2 { $"value ($e) at ($i)!"} }"#,
+                description: "Iterate over each element, printing the matching value and its index",
                 result: Some(Value::List {
                     vals: vec![Value::String {
                         val: "value 1 at 0!".to_string(),
@@ -111,10 +115,15 @@ impl Command for EachWhile {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
+        // Q: Does this have to use a match expression, as compared to
+        // other loop commands like `any` or `all`, which also operate on lists or single values?
         match input {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
+                // To enumerate over the input (for the index argument),
+                // it must be converted into an iterator using into_iter().
+                // TODO: Could this be changed to .into_interruptible_iter(ctrlc) ?
                 .into_iter()
                 .enumerate()
                 .map_while(move |(idx, x)| {
@@ -143,6 +152,18 @@ impl Command for EachWhile {
                             } else {
                                 stack.add_var(*var_id, x.clone());
                             }
+                        }
+                    }
+                    // Optional second index argument
+                    if let Some(var) = block.signature.get_positional(1) {
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(
+                                *var_id,
+                                Value::Int {
+                                    val: idx as i64,
+                                    span,
+                                },
+                            );
                         }
                     }
 
@@ -252,12 +273,15 @@ impl Command for EachWhile {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use nu_test_support::{nu, pipeline};
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
+    fn uses_optional_index_argument() {
+        let actual = nu!(
+            cwd: ".", pipeline(
+            r#"[7 8 9 10] | each while {|e i| $e + $i } | to nuon"#
+        ));
 
-        test_examples(EachWhile {})
+        assert_eq!(actual.out, "[7, 9, 11, 13]");
     }
 }

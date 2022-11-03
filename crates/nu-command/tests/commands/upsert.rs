@@ -58,3 +58,13 @@ fn sets_the_column_from_a_subexpression() {
 
     assert_eq!(actual.out, "true");
 }
+
+#[test]
+fn uses_optional_index_argument() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[[a]; [7] [6]] | upsert b {|e i| $i + 1 + $e.a } | to nuon"#
+    ));
+
+    assert_eq!(actual.out, "[[a, b]; [7, 8], [6, 8]]");
+}

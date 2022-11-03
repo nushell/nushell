@@ -53,6 +53,11 @@ impl Command for Any {
                 example: "[2 4 1 6 8] | any {|e| $e mod 2 == 1 }",
                 result: Some(Value::test_bool(true)),
             },
+            Example {
+                description: "Check if any value is equal to twice its own index",
+                example: "[9 8 7 6] | any {|e i| $e == $i*2 }",
+                result: Some(Value::test_bool(true)),
+            },
         ]
     }
     // This is almost entirely a copy-paste of `all`'s run(), so make sure any changes to this are
@@ -80,7 +85,7 @@ impl Command for Any {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        for value in input.into_interruptible_iter(ctrlc) {
+        for (idx, value) in input.into_interruptible_iter(ctrlc).enumerate() {
             // with_env() is used here to ensure that each iteration uses
             // a different set of environment variables.
             // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -88,6 +93,18 @@ impl Command for Any {
 
             if let Some(var_id) = var_id {
                 stack.add_var(var_id, value.clone());
+            }
+            // Optional index argument
+            if let Some(var) = block.signature.get_positional(1) {
+                if let Some(var_id) = &var.var_id {
+                    stack.add_var(
+                        *var_id,
+                        Value::Int {
+                            val: idx as i64,
+                            span,
+                        },
+                    );
+                }
             }
 
             let eval = eval_block(

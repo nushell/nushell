@@ -16,7 +16,7 @@ impl Command for Each {
     }
 
     fn usage(&self) -> &str {
-        "Run a closure on each row of input"
+        "Run a closure on each row of the input list, creating a new list with the results."
     }
 
     fn extra_usage(&self) -> &str {
@@ -41,11 +41,15 @@ with 'transpose' first."#
             )])
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the closure to run",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
-            .switch("numbered", "iterate with an index", Some('n'))
+            .switch(
+                "numbered",
+                "iterate with an index (deprecated; use a two-parameter block instead)",
+                Some('n'),
+            )
             .category(Category::Filters)
     }
 
@@ -80,7 +84,7 @@ with 'transpose' first."#
 
         vec![
             Example {
-                example: "[1 2 3] | each { |it| 2 * $it }",
+                example: "[1 2 3] | each { 2 * $in }",
                 description: "Multiplies elements in list",
                 result: Some(Value::List {
                     vals: stream_test_1,
@@ -88,19 +92,26 @@ with 'transpose' first."#
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each { |it| if $it == 2 { echo "found 2!"} }"#,
-                description: "Iterate over each element, keeping only values that succeed",
+                example: r#"[1 2 3 2] | each { if $in == 2 { "two" } }"#,
+                description: "Produce a list that has \"two\" for each 2 in the input",
                 result: Some(Value::List {
-                    vals: vec![Value::String {
-                        val: "found 2!".to_string(),
-                        span: Span::test_data(),
-                    }],
+                    vals: vec![
+                        Value::String {
+                            val: "two".to_string(),
+                            span: Span::test_data(),
+                        },
+                        Value::String {
+                            val: "two".to_string(),
+                            span: Span::test_data(),
+                        },
+                    ],
                     span: Span::test_data(),
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each -n { |it| if $it.item == 2 { echo $"found 2 at ($it.index)!"} }"#,
-                description: "Iterate over each element, print the matching value and its index",
+                example: r#"[1 2 3] | each {|e i| if $e == 2 { $"found 2 at ($i)!"} }"#,
+                description:
+                    "Iterate over each element, producing a list showing indexes of any 2s",
                 result: Some(Value::List {
                     vals: vec![Value::String {
                         val: "found 2 at 1!".to_string(),
@@ -110,7 +121,7 @@ with 'transpose' first."#
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each --keep-empty { |it| if $it == 2 { echo "found 2!"} }"#,
+                example: r#"[1 2 3] | each --keep-empty { if $in == 2 { echo "found 2!"} }"#,
                 description: "Iterate over each element, keeping all results",
                 result: Some(Value::List {
                     vals: stream_test_2,
@@ -144,10 +155,14 @@ with 'transpose' first."#
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
+        // Q: Does this have to use a match expression, as compared to
+        // other loop commands like `any` or `all`, which also operate on lists or single values?
         match input {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
+                // To enumerate over the input (for the index argument),
+                // it must be converted into an iterator using into_iter().
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
@@ -158,6 +173,7 @@ with 'transpose' first."#
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
+                            // -n changes the first argument into an {index, item} record.
                             if numbered {
                                 stack.add_var(
                                     *var_id,
@@ -176,6 +192,18 @@ with 'transpose' first."#
                             } else {
                                 stack.add_var(*var_id, x.clone());
                             }
+                        }
+                    }
+                    // Optional second index argument
+                    if let Some(var) = block.signature.get_positional(1) {
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(
+                                *var_id,
+                                Value::Int {
+                                    val: idx as i64,
+                                    span,
+                                },
+                            );
                         }
                     }
 

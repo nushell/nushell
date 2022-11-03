@@ -25,7 +25,7 @@ impl Command for Upsert {
             .required(
                 "replacement value",
                 SyntaxShape::Any,
-                "the new value to give the cell(s)",
+                "the new value to give the cell(s), or a block to create the value",
             )
             .category(Category::Filters)
     }
@@ -50,21 +50,17 @@ impl Command for Upsert {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Update a column value",
+            description: "Update a record's value",
             example: "{'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
             result: Some(Value::Record { cols: vec!["name".into(), "stars".into()], vals: vec![Value::test_string("Nushell"), Value::test_int(5)], span: Span::test_data()}),
         }, Example {
-            description: "Insert a new column",
+            description: "Insert a new entry into a single record",
             example: "{'name': 'nu', 'stars': 5} | upsert language 'Rust'",
             result: Some(Value::Record { cols: vec!["name".into(), "stars".into(), "language".into()], vals: vec![Value::test_string("nu"), Value::test_int(5), Value::test_string("Rust")], span: Span::test_data()}),
         }, Example {
-            description: "Use in block form for more involved updating logic",
-            example: "[[count fruit]; [1 'apple']] | upsert count {|f| $f.count + 1}",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(2), Value::test_string("apple")], span: Span::test_data()}], span: Span::test_data()}),
-        }, Example {
-            description: "Use in block form for more involved updating logic",
-            example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | upsert authors {|a| $a.authors | str join ','}",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
+            description: "Use in closure form for more involved updating logic",
+            example: "[[count fruit]; [1 'apple']] | upsert count {|row index| $row.fruit | str length + $index }",
+            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(5), Value::test_string("apple")], span: Span::test_data()}], span: Span::test_data()}),
         },
         Example {
             description: "Upsert an int into a list, updating an existing value based on the index",
@@ -117,8 +113,10 @@ fn upsert(
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
-        input.map(
-            move |mut input| {
+        Ok(input
+            .into_iter()
+            .enumerate()
+            .map(move |(idx, mut input)| {
                 // with_env() is used here to ensure that each iteration uses
                 // a different set of environment variables.
                 // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -127,6 +125,18 @@ fn upsert(
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, input.clone())
+                    }
+                }
+                // Optional index argument
+                if let Some(var) = block.signature.get_positional(1) {
+                    if let Some(var_id) = &var.var_id {
+                        stack.add_var(
+                            *var_id,
+                            Value::Int {
+                                val: idx as i64,
+                                span,
+                            },
+                        );
                     }
                 }
 
@@ -151,9 +161,8 @@ fn upsert(
                     }
                     Err(e) => Value::Error { error: e },
                 }
-            },
-            ctrlc,
-        )
+            })
+            .into_pipeline_data(ctrlc))
     } else {
         if let Some(PathMember::Int { val, span }) = cell_path.members.get(0) {
             let mut input = input.into_iter();

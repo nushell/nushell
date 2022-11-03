@@ -31,8 +31,8 @@ impl Command for Where {
             .optional("cond", SyntaxShape::RowCondition, "condition")
             .named(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "use where with a closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                "use with a closure instead",
                 Some('b'),
             )
             .category(Category::Filters)
@@ -61,12 +61,17 @@ impl Command for Where {
             let redirect_stdout = call.redirect_stdout;
             let redirect_stderr = call.redirect_stderr;
 
+            // Q: Does this have to use a match expression, as compared to
+            // other loop commands like `any` or `all`, which also operate on lists or single values?
             match input {
                 PipelineData::Value(Value::Range { .. }, ..)
                 | PipelineData::Value(Value::List { .. }, ..)
                 | PipelineData::ListStream { .. } => Ok(input
+                    // To enumerate over the input (for the index argument),
+                    // it must be converted into an iterator using into_iter().
                     .into_iter()
-                    .filter_map(move |x| {
+                    .enumerate()
+                    .filter_map(move |(idx, x)| {
                         // with_env() is used here to ensure that each iteration uses
                         // a different set of environment variables.
                         // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -75,6 +80,18 @@ impl Command for Where {
                         if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
                                 stack.add_var(*var_id, x.clone());
+                            }
+                        }
+                        // Optional index argument
+                        if let Some(var) = block.signature.get_positional(1) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(
+                                    *var_id,
+                                    Value::Int {
+                                        val: idx as i64,
+                                        span,
+                                    },
+                                );
                             }
                         }
 
@@ -283,7 +300,7 @@ impl Command for Where {
             // TODO: This should work but does not. (Note that `Let` must be present in the working_set in `example_test.rs`).
             // See https://github.com/nushell/nushell/issues/7034
             // Example {
-            //     description: "Get all numbers above 3 with an existing block condition",
+            //     description: "List all numbers above 3, using an existing closure condition",
             //     example: "let a = {$in > 3}; [1, 2, 5, 6] | where -b $a",
             //     result: Some(Value::List {
             //         vals: vec![

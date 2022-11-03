@@ -168,3 +168,13 @@ fn contains_operator() {
 
     assert_eq!(actual.out, "2");
 }
+
+#[test]
+fn uses_optional_index_argument() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[7 8 9 10] | where {|e i| $i < 2 } | to nuon"#
+    ));
+
+    assert_eq!(actual.out, "[7, 8]");
+}
