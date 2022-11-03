@@ -18,7 +18,6 @@ use nu_ansi_term::{Color as NuColor, Style as NuStyle};
 use nu_color_config::{get_color_config, style_primitive};
 use nu_protocol::{ast::PathMember, Config, Span as NuSpan, Value};
 use nu_table::{string_width, Alignment, TextStyle};
-use num_traits::Saturating;
 use reedline::KeyModifiers;
 use tui::{
     backend::{Backend, CrosstermBackend},
@@ -49,9 +48,11 @@ pub fn handler(
 
     let color_hm = get_color_config(config);
     let mut state = UIState::new(cols, data, config, &color_hm, show_head, show_index);
+
     if reverse {
         if let Ok(size) = terminal.size() {
-            state_reverse_data(&mut state, size)
+            let page_size = estimate_page_size(size, show_head);
+            state_reverse_data(&mut state, page_size as usize)
         }
     }
 
@@ -84,7 +85,7 @@ where
 
         let mut event = events.next().unwrap();
         if let Some(key) = &event {
-            let exited = handle_key_event(key, &mut state);
+            let exited = handle_key_event(key, &mut state, terminal);
             if exited {
                 break Ok(());
             }
@@ -94,17 +95,23 @@ where
     }
 }
 
-fn state_reverse_data(state: &mut UIState<'_>, size: Rect) {
-    let height = estimate_available_height(size, state.show_header);
-    if state.data.len() > height as usize {
-        state.row_index = state.data.len() - height as usize;
+fn state_reverse_data(state: &mut UIState<'_>, page_size: usize) {
+    if state.data.len() > page_size as usize {
+        state.row_index = state.data.len() - page_size as usize;
     }
 }
 
-fn handle_key_event(key: &KeyEvent, state: &mut UIState<'_>) -> bool {
+fn handle_key_event<B>(key: &KeyEvent, state: &mut UIState<'_>, term: &Terminal<B>) -> bool
+where
+    B: Backend,
+{
     match key {
         KeyEvent {
             code: KeyCode::Char('d'),
+            modifiers: KeyModifiers::CONTROL,
+        }
+        | KeyEvent {
+            code: KeyCode::Char('z'),
             modifiers: KeyModifiers::CONTROL,
         } => return true,
         KeyEvent { code, .. } => match code {
@@ -117,6 +124,23 @@ fn handle_key_event(key: &KeyEvent, state: &mut UIState<'_>) -> bool {
             KeyCode::Right => {
                 let max_index = state.count_columns().saturating_sub(1);
                 state.column_index = min(state.column_index + 1, max_index);
+            }
+            KeyCode::PageUp => {
+                let page_size = term
+                    .size()
+                    .map(|size| estimate_page_size(size, state.show_header));
+                if let Ok(page_size) = page_size {
+                    state.row_index = state.row_index.saturating_sub(page_size as usize);
+                }
+            }
+            KeyCode::PageDown => {
+                let page_size = term
+                    .size()
+                    .map(|size| estimate_page_size(size, state.show_header));
+                if let Ok(page_size) = page_size {
+                    let max_index = state.count_rows().saturating_sub(1);
+                    state.row_index = min(state.row_index + page_size as usize, max_index);
+                }
             }
             _ => {}
         },
@@ -446,7 +470,7 @@ fn create_length_message(state: &UIState<'_>, height: u16, count_columns: usize)
         if is_last_row_reached {
             String::from("[END]")
         } else {
-            format!("Row [{}/{}]", seen, state.data.len())
+            format!("[{}/{}]", seen, state.data.len())
         }
     };
 
@@ -457,7 +481,7 @@ fn create_length_message(state: &UIState<'_>, height: u16, count_columns: usize)
         if is_last_column_reached {
             column_status = String::from("[END]")
         } else {
-            column_status = format!("Column [{}/{}]", seen, state.columns.len())
+            column_status = format!("[{}/{}]", seen, state.columns.len())
         }
     };
 
@@ -477,7 +501,7 @@ fn render_status_bar(buf: &mut Buffer, area: Rect, message: &str) {
     buf.set_span(area.x, area.bottom().saturating_sub(2), &span, area.width);
 }
 
-fn estimate_available_height(area: Rect, show_head: bool) -> u16 {
+fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
     let mut available_height = area.height;
     available_height -= 3; // status_bar
 
