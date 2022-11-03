@@ -7,7 +7,8 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::RawStream;
 use std::path::PathBuf;
 use std::str::FromStr;
-use ureq::{Error, Response};
+use std::sync::Arc;
+use ureq::{AgentBuilder, Error, Response};
 
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
@@ -202,8 +203,19 @@ fn helper(
         _ => BodyType::Unknown,
     };
 
-    // let mut request = http_client(args.insecure.is_some()).post(location);
-    let mut request = ureq::get(location.as_str()).set("User-Agent", "nushell");
+    let mut request = AgentBuilder::new()
+        .tls_connector(Arc::new(native_tls::TlsConnector::new().map_err(|e| {
+            ShellError::GenericError(
+                "Failed to load tls.".to_string(),
+                e.to_string(),
+                None,
+                None,
+                Vec::new(),
+            )
+        })?))
+        .build()
+        .post(location.as_str())
+        .set("User-Agent", "nushell");
 
     // set the content-type header before using e.g., request.json
     // because that will avoid duplicating the header value

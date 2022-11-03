@@ -19,6 +19,9 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 
+use std::sync::Arc;
+use ureq::AgentBuilder;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -380,7 +383,19 @@ fn helper(
         _ => None,
     };
 
-    let mut request = ureq::get(url.as_str()).set("User-Agent", "nushell");
+    let mut request = AgentBuilder::new()
+        .tls_connector(Arc::new(native_tls::TlsConnector::new().map_err(|e| {
+            ShellError::GenericError(
+                "Failed to load tls.".to_string(),
+                e.to_string(),
+                None,
+                None,
+                Vec::new(),
+            )
+        })?))
+        .build()
+        .get(url.as_str())
+        .set("User-Agent", "nushell");
 
     if let Some(timeout) = timeout {
         let val = timeout.as_i64()?;
