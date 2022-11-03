@@ -225,7 +225,8 @@ impl Command for Where {
 
                 let redirect_stdout = call.redirect_stdout;
                 let redirect_stderr = call.redirect_stderr;
-                Ok(input.into_iter()
+                Ok(input
+                    .into_iter()
                     .enumerate()
                     .filter_map(move |(idx, value)| {
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
