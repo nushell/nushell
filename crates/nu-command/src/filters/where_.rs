@@ -125,7 +125,8 @@ impl Command for Where {
                     ..
                 } => Ok(stream
                     .into_iter()
-                    .filter_map(move |x| {
+                    .enumerate()
+                    .filter_map(move |(idx, x)| {
                         // see note above about with_env()
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
@@ -137,6 +138,18 @@ impl Command for Where {
                         if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
                                 stack.add_var(*var_id, x.clone());
+                            }
+                        }
+                        // Optional index argument
+                        if let Some(var) = block.signature.get_positional(1) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(
+                                    *var_id,
+                                    Value::Int {
+                                        val: idx as i64,
+                                        span,
+                                    },
+                                );
                             }
                         }
 
@@ -212,14 +225,26 @@ impl Command for Where {
 
                 let redirect_stdout = call.redirect_stdout;
                 let redirect_stderr = call.redirect_stderr;
-                Ok(input
-                    .into_iter()
-                    .filter_map(move |value| {
+                Ok(input.into_iter()
+                    .enumerate()
+                    .filter_map(move |(idx, value)| {
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                         if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
                                 stack.add_var(*var_id, value.clone());
+                            }
+                        }
+                        // Optional index argument
+                        if let Some(var) = block.signature.get_positional(1) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(
+                                    *var_id,
+                                    Value::Int {
+                                        val: idx as i64,
+                                        span,
+                                    },
+                                );
                             }
                         }
                         let result = eval_block(
