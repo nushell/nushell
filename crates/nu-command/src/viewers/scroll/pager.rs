@@ -188,27 +188,33 @@ impl StatefulWidget for UIState<'_> {
     ) {
         const CELL_PADDING_LEFT: u16 = 2;
         const CELL_PADDING_RIGHT: u16 = 2;
-        const CELL_MIN_WIDTH: u16 = 3;
-
-        if area.width == 0 || area.height < 3 {
-            return;
-        }
 
         let show_index = self.show_index;
-
         let show_head = self.show_header;
         let has_head = !self.columns.is_empty();
 
-        let mut available_height = area.height;
-        let status_bar_offset = 3;
-        available_height -= status_bar_offset;
-
-        let mut head = "";
-        let mut head_width = 0;
         let mut head_offset = 0;
-
         if show_head {
             head_offset = 3;
+        }
+
+        let status_bar_offset = 3;
+        let min_data_offset = 1;
+
+        let term_min_height = status_bar_offset + head_offset + min_data_offset;
+        let term_min_width = 1;
+
+        if area.width < term_min_width || area.height < term_min_height {
+            return;
+        }
+
+        let mut available_height = area.height;
+        available_height -= status_bar_offset;
+
+        let mut head = String::new();
+        let mut head_width = 0;
+
+        if show_head {
             available_height -= 3;
         }
 
@@ -225,8 +231,7 @@ impl StatefulWidget for UIState<'_> {
         }
 
         // status_bar
-        let message = create_length_message(&self, available_height);
-        render_status_bar(buf, area, &message);
+        render_header_borders(buf, area, area.height - 3, 1);
 
         if show_index {
             used_width = render_column_index(
@@ -242,12 +247,16 @@ impl StatefulWidget for UIState<'_> {
             used_width += 1;
         }
 
-        for col in self.column_index..self.columns.len() {
-            let column = if has_head {
-                head = &self.columns[col];
-                head_width = string_width(head);
+        let mut do_render_split_line = true;
+        let mut do_render_shift_column = false;
 
-                create_column(self.config, self.color_hm, NuSpan::unknown(), head, rows)
+        let mut shown_columns = 0;
+        for col in self.column_index..self.columns.len() {
+            let mut column = if has_head {
+                head = String::from(&self.columns[col]);
+                head_width = string_width(&head);
+
+                create_column(self.config, self.color_hm, NuSpan::unknown(), &head, rows)
             } else {
                 rows.iter()
                     .map(|item| value_to_string(item.clone(), self.config, self.color_hm))
@@ -255,19 +264,30 @@ impl StatefulWidget for UIState<'_> {
             };
 
             let available_space = area.width - used_width;
-
             let column_width = calculate_column_width(&column);
-            let data_space = max(head_width as u16, column_width as u16);
-            let use_space = min(available_space, data_space);
+            let mut use_space = max(head_width as u16, column_width as u16);
 
-            let is_last_col = col + 1 == self.columns.len();
-            let taking_space = use_space + used_width + CELL_PADDING_LEFT + CELL_PADDING_RIGHT;
-            let is_enough_space = area.width >= taking_space;
-            let is_space_for_next = is_enough_space
-                && area.width - taking_space
-                    > CELL_PADDING_LEFT + CELL_PADDING_RIGHT + CELL_MIN_WIDTH;
-            if !is_enough_space || (!is_last_col && !is_space_for_next) {
-                break;
+            {
+                let control = truncate_column(
+                    &mut column,
+                    &mut head,
+                    available_space,
+                    col + 1 == self.columns.len(),
+                    PrintControl {
+                        break_everything: false,
+                        print_shift_column: false,
+                        print_split_line: true,
+                        width: use_space,
+                    },
+                );
+
+                use_space = control.width;
+                do_render_split_line = control.print_split_line;
+                do_render_shift_column = control.print_shift_column;
+
+                if control.break_everything {
+                    break;
+                }
             }
 
             used_width += CELL_PADDING_LEFT;
@@ -275,35 +295,189 @@ impl StatefulWidget for UIState<'_> {
             render_column(buf, used_width, head_offset, use_space, &column);
 
             if show_head {
-                let header_data = &[head_row_text(head, self.color_hm)];
+                let header_data = &[head_row_text(&head, self.color_hm)];
                 render_column(buf, used_width, 1, use_space, header_data);
             }
 
             used_width += use_space;
 
-            render_column_space(buf, used_width, 1, 1, CELL_PADDING_RIGHT);
-            render_column_space(buf, used_width, 3, available_height, CELL_PADDING_RIGHT);
+            render_column_space(
+                buf,
+                used_width,
+                head_offset,
+                available_height,
+                CELL_PADDING_RIGHT,
+            );
+
+            if show_head {
+                render_column_space(buf, used_width, 1, 1, CELL_PADDING_RIGHT);
+            }
+
+            used_width += CELL_PADDING_RIGHT;
+
+            shown_columns += 1;
+
+            if do_render_shift_column {
+                break;
+            }
+        }
+
+        // status_bar
+        let message = create_length_message(&self, available_height, shown_columns);
+        render_status_bar(buf, area, &message);
+
+        if do_render_shift_column {
+            used_width += CELL_PADDING_LEFT;
+
+            // we actually want to show a shift only in header.
+            //
+            // render_shift_column(buf, used_width, head_offset, available_height);
+
+            if show_head {
+                render_shift_column(buf, used_width, 1, 1);
+            }
 
             used_width += CELL_PADDING_RIGHT;
         }
 
-        render_vertical(buf, used_width, head_offset, available_height, show_head);
+        if do_render_split_line {
+            render_vertical(buf, used_width, head_offset, available_height, show_head);
+        }
     }
 }
 
-fn create_length_message(state: &UIState<'_>, height: u16) -> String {
-    let seen = state.row_index + height as usize;
-    let is_last_row_reached = seen >= state.data.len();
-    if is_last_row_reached {
-        String::from("[END]")
-    } else {
-        format!("[{}/{}]", seen, state.data.len())
+#[derive(Debug, Default, Copy, Clone)]
+struct PrintControl {
+    width: u16,
+    break_everything: bool,
+    print_split_line: bool,
+    print_shift_column: bool,
+}
+
+fn truncate_column(
+    column: &mut [(String, TextStyle)],
+    head: &mut String,
+    available_space: u16,
+    is_column_last: bool,
+    mut control: PrintControl,
+) -> PrintControl {
+    const CELL_PADDING_LEFT: u16 = 2;
+    const CELL_PADDING_RIGHT: u16 = 2;
+    const VERTICAL_LINE_WIDTH: u16 = 1;
+    const CELL_MIN_WIDTH: u16 = 1;
+
+    let min_space_cell = CELL_PADDING_LEFT + CELL_PADDING_RIGHT + CELL_MIN_WIDTH;
+    let min_space = min_space_cell + VERTICAL_LINE_WIDTH;
+    if available_space < min_space {
+        // if there's not enough space at all just return; doing our best
+        if available_space < VERTICAL_LINE_WIDTH {
+            control.print_split_line = false;
+        }
+
+        control.break_everything = true;
+        return control;
     }
+
+    let column_taking_space =
+        control.width + CELL_PADDING_LEFT + CELL_PADDING_RIGHT + VERTICAL_LINE_WIDTH;
+    let is_enough_space = available_space > column_taking_space;
+    if !is_enough_space {
+        if is_column_last {
+            // we can do nothing about it we need to truncate.
+            // we assume that there's always at least space for padding and 1 symbol. (5 chars)
+
+            let width = available_space
+                .saturating_sub(CELL_PADDING_LEFT + CELL_PADDING_RIGHT + VERTICAL_LINE_WIDTH);
+            if width == 0 {
+                control.break_everything = true;
+                return control;
+            }
+
+            truncate_list(column, width as usize);
+            truncate_str(head, width as usize);
+
+            control.width = width;
+        } else {
+            let min_space_2cells = min_space + min_space_cell;
+            if available_space > min_space_2cells {
+                let width = available_space.saturating_sub(min_space_2cells);
+                if width == 0 {
+                    control.break_everything = true;
+                    return control;
+                }
+
+                truncate_list(column, width as usize);
+                truncate_str(head, width as usize);
+
+                control.width = width;
+                control.print_shift_column = true;
+            } else {
+                control.break_everything = true;
+                control.print_shift_column = true;
+            }
+        }
+    } else if !is_column_last {
+        // even though we can safely render current column,
+        // we need to check whether there's enough space for AT LEAST a shift column
+        // (2 padding + 2 padding + 1 a char)
+        let left_space = available_space - column_taking_space;
+        if left_space < min_space {
+            let need_space = min_space_cell - left_space;
+            let min_left_width = 1;
+            let is_column_big_enough = control.width > need_space + min_left_width;
+
+            if is_column_big_enough {
+                let width = control.width.saturating_sub(need_space);
+                if width == 0 {
+                    control.break_everything = true;
+                    return control;
+                }
+
+                truncate_list(column, width as usize);
+                truncate_str(head, width as usize);
+
+                control.width = width;
+                control.print_shift_column = true;
+            }
+        }
+    }
+
+    control
+}
+
+fn create_length_message(state: &UIState<'_>, height: u16, count_columns: usize) -> String {
+    let row_status = {
+        let seen = state.row_index + height as usize;
+        let is_last_row_reached = seen >= state.data.len();
+        if is_last_row_reached {
+            String::from("[END]")
+        } else {
+            format!("Row [{}/{}]", seen, state.data.len())
+        }
+    };
+
+    let mut column_status = String::new();
+    if state.show_header && !state.columns.is_empty() {
+        let seen = state.column_index + count_columns;
+        let is_last_column_reached = seen >= state.columns.len();
+        if is_last_column_reached {
+            column_status = String::from("[END]")
+        } else {
+            column_status = format!("Column [{}/{}]", seen, state.columns.len())
+        }
+    };
+
+    let mut message = row_status;
+
+    if !column_status.is_empty() {
+        message.push(' ');
+        message.push_str(&column_status);
+    }
+
+    message
 }
 
 fn render_status_bar(buf: &mut Buffer, area: Rect, message: &str) {
-    render_header_borders(buf, area, area.height - 3, 1);
-
     let style = Style::default().fg(Color::Rgb(128, 128, 128));
     let span = Span::styled(message, style);
     buf.set_span(area.x, area.bottom().saturating_sub(2), &span, area.width);
@@ -330,6 +504,21 @@ fn head_row_text(head: &str, color_hm: &HashMap<String, NuStyle>) -> (String, Te
             color_style: Some(color_hm["header"]),
         },
     )
+}
+
+fn truncate_list(list: &mut [(String, TextStyle)], width: usize) {
+    for (text, _) in list {
+        truncate_str(text, width);
+    }
+}
+
+fn truncate_str(text: &mut String, width: usize) {
+    if width == 0 {
+        text.clear();
+    } else {
+        *text = nu_table::string_truncate(text, width - 1);
+        text.push('…');
+    }
 }
 
 fn render_column_index(
@@ -368,6 +557,16 @@ fn render_column_index(
     }
 
     index_width + CELL_PADDING_LEFT + CELL_PADDING_RIGHT
+}
+
+fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16) {
+    let style = TextStyle {
+        alignment: Alignment::Left,
+        color_style: Some(NuStyle::default().fg(VERTICAL_LINE_COLOR)),
+    };
+
+    let splits = vec![(String::from('…'), style); height as usize];
+    render_column(buf, x, y, 1, &splits);
 }
 
 fn render_vertical(buf: &mut Buffer, x: u16, y: u16, height: u16, show_header: bool) {
@@ -443,11 +642,7 @@ fn render_column(
     rows: &[(String, TextStyle)],
 ) {
     for (row, (text, style)) in rows.iter().enumerate() {
-        let mut text = String::from_utf8(strip_ansi_escapes::strip(text).unwrap()).unwrap();
-        if string_width(&text) > available_width as usize {
-            text = nu_table::string_truncate(&text, available_width as usize);
-        }
-
+        let text = String::from_utf8(strip_ansi_escapes::strip(text).unwrap()).unwrap();
         let style = text_style_to_tui_style(*style);
         let span = Span::styled(text, style);
         buf.set_span(x_offset, y_offset + row as u16, &span, available_width);

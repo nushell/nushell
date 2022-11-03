@@ -73,7 +73,7 @@ impl Command for Scroll {
 
                 (cols, data)
             }
-            input => todo!("{:?}", input),
+            PipelineData::ExternalStream { .. } => (Vec::new(), Vec::new()),
         };
 
         pager::handler(
