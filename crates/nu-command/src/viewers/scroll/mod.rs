@@ -76,7 +76,7 @@ impl Command for Scroll {
             PipelineData::ExternalStream { .. } => (Vec::new(), Vec::new()),
         };
 
-        pager::handler(
+        let _ = pager::handler(
             &columns, &data, config, ctrlc, show_index, show_head, is_reverse,
         );
 

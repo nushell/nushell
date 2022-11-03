@@ -1,7 +1,7 @@
 use std::{
     cmp::{max, min},
     collections::HashMap,
-    io,
+    io::{self, Result},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -13,12 +13,12 @@ use crossterm::{
     event::{poll, read, Event, KeyCode, KeyEvent},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    ErrorKind,
 };
 use nu_ansi_term::{Color as NuColor, Style as NuStyle};
 use nu_color_config::{get_color_config, style_primitive};
-use nu_protocol::{ast::PathMember, Config, ShellError, Span as NuSpan, Value};
+use nu_protocol::{ast::PathMember, Config, Span as NuSpan, Value};
 use nu_table::{string_width, Alignment, TextStyle};
+use num_traits::Saturating;
 use reedline::KeyModifiers;
 use tui::{
     backend::{Backend, CrosstermBackend},
@@ -38,29 +38,37 @@ pub fn handler(
     show_index: bool,
     show_head: bool,
     reverse: bool,
-) {
+) -> Result<()> {
     // setup terminal
-    enable_raw_mode().unwrap();
+    enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen).unwrap();
+    execute!(stdout, EnterAlternateScreen)?;
 
     let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend).unwrap();
+    let mut terminal = Terminal::new(backend)?;
 
     let color_hm = get_color_config(config);
     let mut state = UIState::new(cols, data, config, &color_hm, show_head, show_index);
     if reverse {
-        state_reverse_data(&mut state, &terminal)
+        if let Ok(size) = terminal.size() {
+            state_reverse_data(&mut state, size)
+        }
     }
 
-    main_loop(&mut terminal, ctrlc, state);
+    let result = main_loop(&mut terminal, ctrlc, state);
 
     // restore terminal
-    disable_raw_mode().unwrap();
-    execute!(io::stdout(), LeaveAlternateScreen).unwrap();
+    disable_raw_mode()?;
+    execute!(io::stdout(), LeaveAlternateScreen)?;
+
+    result
 }
 
-fn main_loop<B>(terminal: &mut Terminal<B>, ctrlc: Option<Arc<AtomicBool>>, mut state: UIState<'_>)
+fn main_loop<B>(
+    terminal: &mut Terminal<B>,
+    ctrlc: Option<Arc<AtomicBool>>,
+    mut state: UIState<'_>,
+) -> Result<()>
 where
     B: Backend,
 {
@@ -70,7 +78,7 @@ where
         // handle CTRLC event
         if let Some(ctrlc) = ctrlc.clone() {
             if ctrlc.load(Ordering::SeqCst) {
-                return;
+                break Ok(());
             }
         }
 
@@ -78,25 +86,18 @@ where
         if let Some(key) = &event {
             let exited = handle_key_event(key, &mut state);
             if exited {
-                break;
+                break Ok(());
             }
         }
 
-        terminal
-            .draw(|f| f.render_stateful_widget(state, f.size(), &mut event))
-            .unwrap();
+        terminal.draw(|f| f.render_stateful_widget(state, f.size(), &mut event))?;
     }
 }
 
-fn state_reverse_data<W>(state: &mut UIState<'_>, term: &Terminal<CrosstermBackend<W>>)
-where
-    W: io::Write,
-{
-    if let Ok(size) = term.size() {
-        let height = estimate_available_height(size, state.show_header);
-        if state.data.len() > height as usize {
-            state.row_index = state.data.len() - height as usize;
-        }
+fn state_reverse_data(state: &mut UIState<'_>, size: Rect) {
+    let height = estimate_available_height(size, state.show_header);
+    if state.data.len() > height as usize {
+        state.row_index = state.data.len() - height as usize;
     }
 }
 
@@ -208,21 +209,17 @@ impl StatefulWidget for UIState<'_> {
             return;
         }
 
-        let mut available_height = area.height;
-        available_height -= status_bar_offset;
-
-        let mut head = String::new();
-        let mut head_width = 0;
-
+        let mut height = area.height;
+        height -= status_bar_offset;
         if show_head {
-            available_height -= 3;
+            height -= 3;
         }
 
-        let mut used_width = 0;
+        let mut width = 0;
 
         let mut rows = &self.data[self.row_index..];
-        if rows.len() > available_height as usize {
-            rows = &rows[..available_height as usize];
+        if rows.len() > height as usize {
+            rows = &rows[..height as usize];
         }
 
         // header lines
@@ -234,18 +231,20 @@ impl StatefulWidget for UIState<'_> {
         render_header_borders(buf, area, area.height - 3, 1);
 
         if show_index {
-            used_width = render_column_index(
+            width = render_column_index(
                 buf,
-                available_height,
+                height,
                 self.row_index,
                 show_head,
                 head_offset,
                 self.color_hm,
             );
 
-            render_vertical(buf, used_width, head_offset, available_height, show_head);
-            used_width += 1;
+            width += render_vertical(buf, width, head_offset, height, show_head);
         }
+
+        let mut head = String::new();
+        let mut head_width = 0;
 
         let mut do_render_split_line = true;
         let mut do_render_shift_column = false;
@@ -263,7 +262,7 @@ impl StatefulWidget for UIState<'_> {
                     .collect()
             };
 
-            let available_space = area.width - used_width;
+            let available_space = area.width - width;
             let column_width = calculate_column_width(&column);
             let mut use_space = max(head_width as u16, column_width as u16);
 
@@ -290,30 +289,18 @@ impl StatefulWidget for UIState<'_> {
                 }
             }
 
-            used_width += CELL_PADDING_LEFT;
-
-            render_column(buf, used_width, head_offset, use_space, &column);
-
             if show_head {
                 let header_data = &[head_row_text(&head, self.color_hm)];
-                render_column(buf, used_width, 1, use_space, header_data);
+
+                let mut w = width;
+                w += render_space(buf, w, 1, 1, CELL_PADDING_LEFT);
+                w += render_column(buf, w, 1, use_space, header_data);
+                render_space(buf, w, 1, 1, CELL_PADDING_RIGHT);
             }
 
-            used_width += use_space;
-
-            render_column_space(
-                buf,
-                used_width,
-                head_offset,
-                available_height,
-                CELL_PADDING_RIGHT,
-            );
-
-            if show_head {
-                render_column_space(buf, used_width, 1, 1, CELL_PADDING_RIGHT);
-            }
-
-            used_width += CELL_PADDING_RIGHT;
+            width += render_space(buf, width, head_offset, height, CELL_PADDING_LEFT);
+            width += render_column(buf, width, head_offset, use_space, &column);
+            width += render_space(buf, width, head_offset, height, CELL_PADDING_RIGHT);
 
             shown_columns += 1;
 
@@ -323,25 +310,32 @@ impl StatefulWidget for UIState<'_> {
         }
 
         // status_bar
-        let message = create_length_message(&self, available_height, shown_columns);
+        let message = create_length_message(&self, height, shown_columns);
         render_status_bar(buf, area, &message);
 
         if do_render_shift_column {
-            used_width += CELL_PADDING_LEFT;
-
             // we actually want to show a shift only in header.
             //
             // render_shift_column(buf, used_width, head_offset, available_height);
 
             if show_head {
-                render_shift_column(buf, used_width, 1, 1);
+                width += render_space(buf, width, head_offset, height, CELL_PADDING_LEFT);
+                width += render_shift_column(buf, width, 1, 1);
+                width += render_space(buf, width, head_offset, height, CELL_PADDING_RIGHT);
             }
-
-            used_width += CELL_PADDING_RIGHT;
         }
 
         if do_render_split_line {
-            render_vertical(buf, used_width, head_offset, available_height, show_head);
+            width += render_vertical(buf, width, head_offset, height, show_head);
+        }
+
+        // we try out best to cleanup the rest of the space cause it could be meassed.
+        let rest = area.width.saturating_sub(width);
+        if rest > 0 {
+            render_space(buf, width, head_offset, height, rest);
+            if show_head {
+                render_space(buf, width, 1, 1, rest);
+            }
         }
     }
 }
@@ -559,17 +553,18 @@ fn render_column_index(
     index_width + CELL_PADDING_LEFT + CELL_PADDING_RIGHT
 }
 
-fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16) {
+fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16) -> u16 {
     let style = TextStyle {
         alignment: Alignment::Left,
         color_style: Some(NuStyle::default().fg(VERTICAL_LINE_COLOR)),
     };
 
-    let splits = vec![(String::from('…'), style); height as usize];
-    render_column(buf, x, y, 1, &splits);
+    repeat_vertical(buf, x, y, 1, height, '…', style);
+
+    1
 }
 
-fn render_vertical(buf: &mut Buffer, x: u16, y: u16, height: u16, show_header: bool) {
+fn render_vertical(buf: &mut Buffer, x: u16, y: u16, height: u16, show_header: bool) -> u16 {
     render_vertical_split(buf, x, y, height);
 
     if show_header && y > 0 {
@@ -577,6 +572,8 @@ fn render_vertical(buf: &mut Buffer, x: u16, y: u16, height: u16, show_header: b
     }
 
     render_bottom_connector(buf, x, height + y);
+
+    1
 }
 
 fn render_vertical_split(buf: &mut Buffer, x: u16, y: u16, height: u16) {
@@ -585,8 +582,7 @@ fn render_vertical_split(buf: &mut Buffer, x: u16, y: u16, height: u16) {
         color_style: Some(NuStyle::default().fg(VERTICAL_LINE_COLOR)),
     };
 
-    let splits = vec![(String::from('│'), style); height as usize];
-    render_column(buf, x, y, 1, &splits);
+    repeat_vertical(buf, x, y, 1, height, '│', style);
 }
 
 fn render_top_connector(buf: &mut Buffer, x: u16, y: u16) {
@@ -609,9 +605,9 @@ fn create_column_index(i: usize, color_hm: &HashMap<String, NuStyle>) -> (String
     make_styled_string(i.to_string(), "string", 0, true, color_hm, 0)
 }
 
-fn render_column_space(buf: &mut Buffer, x: u16, y: u16, height: u16, padding: u16) {
-    let splits = vec![(str::repeat(" ", padding as usize), TextStyle::default()); height as usize];
-    render_column(buf, x, y, padding, &splits);
+fn render_space(buf: &mut Buffer, x: u16, y: u16, height: u16, padding: u16) -> u16 {
+    repeat_vertical(buf, x, y, padding, height, ' ', TextStyle::default());
+    padding
 }
 
 fn value_to_string(
@@ -640,12 +636,34 @@ fn render_column(
     y_offset: u16,
     available_width: u16,
     rows: &[(String, TextStyle)],
-) {
+) -> u16 {
     for (row, (text, style)) in rows.iter().enumerate() {
         let text = String::from_utf8(strip_ansi_escapes::strip(text).unwrap()).unwrap();
         let style = text_style_to_tui_style(*style);
         let span = Span::styled(text, style);
         buf.set_span(x_offset, y_offset + row as u16, &span, available_width);
+    }
+
+    available_width
+}
+
+fn repeat_vertical(
+    buf: &mut tui::buffer::Buffer,
+    x_offset: u16,
+    y_offset: u16,
+    width: u16,
+    height: u16,
+    c: char,
+    style: TextStyle,
+) {
+    let text = std::iter::repeat(c)
+        .take(width as usize)
+        .collect::<String>();
+    let style = text_style_to_tui_style(style);
+    let span = Span::styled(text, style);
+
+    for row in 0..height {
+        buf.set_span(x_offset, y_offset + row as u16, &span, width);
     }
 }
 
@@ -743,51 +761,6 @@ fn nu_ansi_color_to_tui_color(clr: nu_ansi_term::Color) -> Option<tui::style::Co
     Some(clr)
 }
 
-pub struct UIEvents {
-    tick_rate: Duration,
-}
-
-pub struct Cfg {
-    pub tick_rate: Duration,
-}
-
-impl Default for Cfg {
-    fn default() -> Cfg {
-        Cfg {
-            tick_rate: Duration::from_millis(250),
-        }
-    }
-}
-
-impl UIEvents {
-    pub fn new() -> UIEvents {
-        UIEvents::with_config(Cfg::default())
-    }
-
-    pub fn with_config(config: Cfg) -> UIEvents {
-        UIEvents {
-            tick_rate: config.tick_rate,
-        }
-    }
-
-    pub fn next(&self) -> Result<Option<KeyEvent>, ErrorKind> {
-        let now = Instant::now();
-        match poll(self.tick_rate) {
-            Ok(true) => match read()? {
-                Event::Key(event) => Ok(Some(event)),
-                _ => {
-                    let time_spent = now.elapsed();
-                    let rest = self.tick_rate - time_spent;
-
-                    Self { tick_rate: rest }.next()
-                }
-            },
-            Ok(false) => Ok(None),
-            Err(_) => todo!(),
-        }
-    }
-}
-
 fn make_styled_string(
     text: String,
     text_type: &str,
@@ -816,19 +789,58 @@ fn make_styled_string(
     }
 }
 
-fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellError> {
+fn convert_with_precision(val: &str, precision: usize) -> Result<String> {
     // vall will always be a f64 so convert it with precision formatting
-    let val_float = match val.trim().parse::<f64>() {
-        Ok(f) => f,
-        Err(e) => {
-            return Err(ShellError::GenericError(
-                format!("error converting string [{}] to f64", &val),
-                "".to_string(),
-                None,
-                Some(e.to_string()),
-                Vec::new(),
-            ));
+    match val.trim().parse::<f64>() {
+        Ok(f) => Ok(format!("{:.prec$}", f, prec = precision)),
+        Err(err) => {
+            let message = format!("error converting string [{}] to f64; {}", &val, err);
+            Err(io::Error::new(io::ErrorKind::Other, message))
         }
-    };
-    Ok(format!("{:.prec$}", val_float, prec = precision))
+    }
+}
+
+pub struct UIEvents {
+    tick_rate: Duration,
+}
+
+pub struct Cfg {
+    pub tick_rate: Duration,
+}
+
+impl Default for Cfg {
+    fn default() -> Cfg {
+        Cfg {
+            tick_rate: Duration::from_millis(250),
+        }
+    }
+}
+
+impl UIEvents {
+    pub fn new() -> UIEvents {
+        UIEvents::with_config(Cfg::default())
+    }
+
+    pub fn with_config(config: Cfg) -> UIEvents {
+        UIEvents {
+            tick_rate: config.tick_rate,
+        }
+    }
+
+    pub fn next(&self) -> Result<Option<KeyEvent>> {
+        let now = Instant::now();
+        match poll(self.tick_rate) {
+            Ok(true) => match read()? {
+                Event::Key(event) => Ok(Some(event)),
+                _ => {
+                    let time_spent = now.elapsed();
+                    let rest = self.tick_rate - time_spent;
+
+                    Self { tick_rate: rest }.next()
+                }
+            },
+            Ok(false) => Ok(None),
+            Err(err) => Err(err),
+        }
+    }
 }
