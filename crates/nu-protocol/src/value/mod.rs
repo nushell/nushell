@@ -399,7 +399,11 @@ impl Value {
                     match &ty {
                         Some(x) => {
                             if &val_ty != x {
-                                ty = Some(Type::Any)
+                                if x.is_numeric() && val_ty.is_numeric() {
+                                    ty = Some(Type::Number)
+                                } else {
+                                    ty = Some(Type::Any)
+                                }
                             }
                         }
                         None => ty = Some(val_ty),
