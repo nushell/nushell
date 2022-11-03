@@ -352,6 +352,7 @@ fn should_skip_dir(dir: impl AsRef<Path>) -> bool {
 }
 
 fn is_hidden_dir(metadata_attributes: u32) -> bool {
+    #[cfg(windows)]
     {
         // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
         (metadata_attributes & 0x2) != 0 || (metadata_attributes & 0x4) != 0
