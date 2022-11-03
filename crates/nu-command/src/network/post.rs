@@ -5,10 +5,9 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::RawStream;
-use ureq::{Error, Response};
-// use reqwest::{blocking::Response, StatusCode};
 use std::path::PathBuf;
 use std::str::FromStr;
+use ureq::{Error, Response};
 
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
@@ -204,7 +203,7 @@ fn helper(
     };
 
     // let mut request = http_client(args.insecure.is_some()).post(location);
-    let mut request = ureq::get(&location.as_str()).set("User-Agent", "nushell");
+    let mut request = ureq::get(location.as_str()).set("User-Agent", "nushell");
 
     // set the content-type header before using e.g., request.json
     // because that will avoid duplicating the header value
@@ -422,13 +421,3 @@ fn response_to_buffer(
         metadata: None,
     }
 }
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
-// #[allow(clippy::unwrap_used)]
-// fn http_client(allow_insecure: bool) -> reqwest::blocking::Client {
-//     reqwest::blocking::Client::builder()
-//         .user_agent("nushell")
-//         .danger_accept_invalid_certs(allow_insecure)
-//         .build()
-//         .expect("Failed to build reqwest client")
-// }

@@ -11,12 +11,10 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use ureq::Error;
-// use reqwest::blocking::Response;
 
 use std::collections::HashMap;
 use std::io::BufReader;
 
-// use reqwest::StatusCode;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
@@ -382,9 +380,7 @@ fn helper(
         _ => None,
     };
 
-    // let client = http_client();
-    // let mut request = client.get(url);
-    let mut request = ureq::get(&url.as_str()).set("User-Agent", "nushell");
+    let mut request = ureq::get(url.as_str()).set("User-Agent", "nushell");
 
     if let Some(timeout) = timeout {
         let val = timeout.as_i64()?;
@@ -452,63 +448,61 @@ fn helper(
         }
     }
     match request.call() {
-        Ok(resp) => match resp.content_type() {
-            content_type => {
-                let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-                    ShellError::GenericError(
-                        format!("MIME type unknown: {}", content_type),
-                        "".to_string(),
-                        None,
-                        Some("given unknown MIME type".to_string()),
-                        Vec::new(),
-                    )
-                })?;
-                let ext = match (content_type.type_(), content_type.subtype()) {
-                    (mime::TEXT, mime::PLAIN) => {
-                        let path_extension = url::Url::parse(&requested_url)
-                            .map_err(|_| {
-                                ShellError::GenericError(
-                                    format!("Cannot parse URL: {}", requested_url),
-                                    "".to_string(),
-                                    None,
-                                    Some("cannot parse".to_string()),
-                                    Vec::new(),
-                                )
-                            })?
-                            .path_segments()
-                            .and_then(|segments| segments.last())
-                            .and_then(|name| if name.is_empty() { None } else { Some(name) })
-                            .and_then(|name| {
-                                PathBuf::from(name)
-                                    .extension()
-                                    .map(|name| name.to_string_lossy().to_string())
-                            });
-                        path_extension
-                    }
-                    _ => Some(content_type.subtype().to_string()),
-                };
-
-                let output = response_to_buffer(resp, engine_state, span);
-
-                if raw {
-                    return Ok(output);
+        Ok(resp) => {
+            let content_type = mime::Mime::from_str(resp.content_type()).map_err(|_| {
+                ShellError::GenericError(
+                    format!("MIME type unknown: {}", resp.content_type()),
+                    "".to_string(),
+                    None,
+                    Some("given unknown MIME type".to_string()),
+                    Vec::new(),
+                )
+            })?;
+            let ext = match (content_type.type_(), content_type.subtype()) {
+                (mime::TEXT, mime::PLAIN) => {
+                    let path_extension = url::Url::parse(&requested_url)
+                        .map_err(|_| {
+                            ShellError::GenericError(
+                                format!("Cannot parse URL: {}", requested_url),
+                                "".to_string(),
+                                None,
+                                Some("cannot parse".to_string()),
+                                Vec::new(),
+                            )
+                        })?
+                        .path_segments()
+                        .and_then(|segments| segments.last())
+                        .and_then(|name| if name.is_empty() { None } else { Some(name) })
+                        .and_then(|name| {
+                            PathBuf::from(name)
+                                .extension()
+                                .map(|name| name.to_string_lossy().to_string())
+                        });
+                    path_extension
                 }
+                _ => Some(content_type.subtype().to_string()),
+            };
 
-                if let Some(ext) = ext {
-                    match engine_state.find_decl(format!("from {}", ext).as_bytes(), &[]) {
-                        Some(converter_id) => engine_state.get_decl(converter_id).run(
-                            engine_state,
-                            stack,
-                            &Call::new(span),
-                            output,
-                        ),
-                        None => Ok(output),
-                    }
-                } else {
-                    Ok(output)
+            let output = response_to_buffer(resp, engine_state, span);
+
+            if raw {
+                return Ok(output);
+            }
+
+            if let Some(ext) = ext {
+                match engine_state.find_decl(format!("from {}", ext).as_bytes(), &[]) {
+                    Some(converter_id) => engine_state.get_decl(converter_id).run(
+                        engine_state,
+                        stack,
+                        &Call::new(span),
+                        output,
+                    ),
+                    None => Ok(output),
                 }
-            } // None => Ok(response_to_buffer(resp, engine_state, span)),
-        },
+            } else {
+                Ok(output)
+            }
+        }
         Err(Error::Status(err_code, _)) => match err_code {
             404 => Err(ShellError::NetworkFailure(
                 format!("Requested file not found (404): {:?}", requested_url),
@@ -550,7 +544,6 @@ fn response_to_buffer(
     engine_state: &EngineState,
     span: Span,
 ) -> nu_protocol::PipelineData {
-    // let buffered_input = BufReader::new(response);
     let reader = response.into_reader();
     let buffered_input = BufReader::new(reader);
 
@@ -568,13 +561,3 @@ fn response_to_buffer(
         metadata: None,
     }
 }
-
-// // Only panics if the user agent is invalid but we define it statically so either
-// // it always or never fails
-// #[allow(clippy::unwrap_used)]
-// fn http_client() -> reqwest::blocking::Client {
-//     reqwest::blocking::Client::builder()
-//         .user_agent("nushell")
-//         .build()
-//         .unwrap()
-// }
