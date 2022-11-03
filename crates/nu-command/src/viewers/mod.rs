@@ -1,9 +1,8 @@
 mod griddle;
 mod icons;
 mod table;
-mod table_tui;
-mod table_less;
+mod scroll;
 
 pub use griddle::Griddle;
 pub use table::Table;
-pub use table_less::TableLess;
+pub use scroll::Scroll;
