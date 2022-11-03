@@ -5,7 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::RawStream;
-use reqwest::{blocking::Response, StatusCode};
+use ureq::{Error, Response};
+// use reqwest::{blocking::Response, StatusCode};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -61,11 +62,6 @@ impl Command for SubCommand {
                 "raw",
                 "return values as a string instead of a table",
                 Some('r'),
-            )
-            .switch(
-                "insecure",
-                "allow insecure server connections when using SSL",
-                Some('k'),
             )
             .filter()
             .category(Category::Network)
@@ -123,7 +119,6 @@ struct Arguments {
     body: Option<Value>,
     headers: Option<Value>,
     raw: bool,
-    insecure: Option<bool>,
     user: Option<String>,
     password: Option<String>,
     content_type: Option<String>,
@@ -150,7 +145,6 @@ fn run_post(
         raw: call.has_flag("raw"),
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
-        insecure: call.get_flag(engine_state, stack, "insecure")?,
         content_type: call.get_flag(engine_state, stack, "content-type")?,
         content_length: call.get_flag(engine_state, stack, "content-length")?,
     };
@@ -209,49 +203,21 @@ fn helper(
         _ => BodyType::Unknown,
     };
 
-    let mut request = http_client(args.insecure.is_some()).post(location);
+    // let mut request = http_client(args.insecure.is_some()).post(location);
+    let mut request = ureq::get(&location.as_str()).set("User-Agent", "nushell");
 
     // set the content-type header before using e.g., request.json
     // because that will avoid duplicating the header value
     if let Some(val) = args.content_type {
-        request = request.header("Content-Type", val);
+        request = request.set("Content-Type", &val);
     }
 
-    match body {
-        Value::Binary { val, .. } => {
-            request = request.body(val);
-        }
-        Value::String { val, .. } => {
-            request = request.body(val);
-        }
-        Value::Record { .. } if body_type == BodyType::Json => {
-            let data = value_to_json_value(&body)?;
-            request = request.json(&data);
-        }
-        Value::Record { .. } if body_type == BodyType::Form => {
-            let data = value_to_json_value(&body)?;
-            request = request.form(&data);
-        }
-        Value::List { vals, .. } if body_type == BodyType::Form => {
-            if vals.len() % 2 != 0 {
-                return Err(ShellError::IOError("unsupported body input".into()));
-            }
-            let data = vals
-                .chunks(2)
-                .map(|it| Ok((it[0].as_string()?, it[1].as_string()?)))
-                .collect::<Result<Vec<(String, String)>, ShellError>>()?;
-            request = request.form(&data)
-        }
-        _ => {
-            return Err(ShellError::IOError("unsupported body input".into()));
-        }
-    };
+    if let Some(login) = login {
+        request = request.set("Authorization", &format!("Basic {}", login));
+    }
 
     if let Some(val) = args.content_length {
-        request = request.header("Content-Length", val);
-    }
-    if let Some(login) = login {
-        request = request.header("Authorization", format!("Basic {}", login));
+        request = request.set("Content-Length", &val);
     }
 
     if let Some(headers) = headers {
@@ -299,112 +265,135 @@ fn helper(
 
         for (k, v) in &custom_headers {
             if let Ok(s) = v.as_string() {
-                request = request.header(k, s);
+                request = request.set(k, &s);
             }
         }
     }
 
-    match request.send() {
-        Ok(resp) => match resp.headers().get("content-type") {
-            Some(content_type) => {
-                let content_type = content_type.to_str().map_err(|e| {
-                    ShellError::GenericError(
-                        e.to_string(),
-                        "".to_string(),
-                        None,
-                        Some("MIME type were invalid".to_string()),
-                        Vec::new(),
-                    )
-                })?;
-                let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-                    ShellError::GenericError(
-                        format!("MIME type unknown: {}", content_type),
-                        "".to_string(),
-                        None,
-                        Some("given unknown MIME type".to_string()),
-                        Vec::new(),
-                    )
-                })?;
-                let ext = match (content_type.type_(), content_type.subtype()) {
-                    (mime::TEXT, mime::PLAIN) => {
-                        let path_extension = url::Url::parse(&requested_url)
-                            .map_err(|_| {
-                                ShellError::GenericError(
-                                    format!("Cannot parse URL: {}", requested_url),
-                                    "".to_string(),
-                                    None,
-                                    Some("cannot parse".to_string()),
-                                    Vec::new(),
-                                )
-                            })?
-                            .path_segments()
-                            .and_then(|segments| segments.last())
-                            .and_then(|name| if name.is_empty() { None } else { Some(name) })
-                            .and_then(|name| {
-                                PathBuf::from(name)
-                                    .extension()
-                                    .map(|name| name.to_string_lossy().to_string())
-                            });
-                        path_extension
-                    }
-                    _ => Some(content_type.subtype().to_string()),
-                };
-                let output = response_to_buffer(resp, engine_state, span);
-
-                if raw {
-                    return Ok(output);
-                }
-                if let Some(ext) = ext {
-                    match engine_state.find_decl(format!("from {}", ext).as_bytes(), &[]) {
-                        Some(converter_id) => engine_state.get_decl(converter_id).run(
-                            engine_state,
-                            stack,
-                            &Call::new(span),
-                            output,
-                        ),
-                        None => Ok(output),
-                    }
-                } else {
-                    Ok(output)
-                }
+    let response = match body {
+        Value::Binary { val, .. } => request.send_bytes(&val),
+        Value::String { val, .. } => request.send_string(&val),
+        Value::Record { .. } if body_type == BodyType::Json => {
+            request.send_json(value_to_json_value(&body)?)
+        }
+        Value::Record { cols, vals, .. } if body_type == BodyType::Form => {
+            let mut data: Vec<(String, String)> = vec![];
+            for (col, val) in cols.iter().zip(vals.iter()) {
+                data.push((col.clone(), val.as_string()?))
             }
-            None => Ok(response_to_buffer(resp, engine_state, span)),
-        },
-        Err(e) if e.is_status() => match e.status() {
-            Some(err_code) if err_code == StatusCode::NOT_FOUND => Err(ShellError::NetworkFailure(
+            let data = data
+                .iter()
+                .map(|(a, b)| (&**a, &**b))
+                .collect::<Vec<(&str, &str)>>();
+            request.send_form(&data[..])
+        }
+        Value::List { vals, .. } if body_type == BodyType::Form => {
+            if vals.len() % 2 != 0 {
+                return Err(ShellError::IOError("unsupported body input".into()));
+            }
+
+            let mut data = vec![];
+            for chunk in vals.chunks(2) {
+                let key = chunk[0].as_string()?;
+                let val = chunk[1].as_string()?;
+                data.push((key, val));
+            }
+
+            let data = data
+                .iter()
+                .map(|(a, b)| (&**a, &**b))
+                .collect::<Vec<(&str, &str)>>();
+            request.send_form(&data[..])
+        }
+        _ => {
+            return Err(ShellError::IOError("unsupported body input".into()));
+        }
+    };
+
+    match response {
+        Ok(resp) => {
+            let content_type = mime::Mime::from_str(resp.content_type()).map_err(|_| {
+                ShellError::GenericError(
+                    format!("MIME type unknown: {}", resp.content_type()),
+                    "".to_string(),
+                    None,
+                    Some("given unknown MIME type".to_string()),
+                    Vec::new(),
+                )
+            })?;
+            let ext = match (content_type.type_(), content_type.subtype()) {
+                (mime::TEXT, mime::PLAIN) => {
+                    let path_extension = url::Url::parse(&requested_url)
+                        .map_err(|_| {
+                            ShellError::GenericError(
+                                format!("Cannot parse URL: {}", requested_url),
+                                "".to_string(),
+                                None,
+                                Some("cannot parse".to_string()),
+                                Vec::new(),
+                            )
+                        })?
+                        .path_segments()
+                        .and_then(|segments| segments.last())
+                        .and_then(|name| if name.is_empty() { None } else { Some(name) })
+                        .and_then(|name| {
+                            PathBuf::from(name)
+                                .extension()
+                                .map(|name| name.to_string_lossy().to_string())
+                        });
+                    path_extension
+                }
+                _ => Some(content_type.subtype().to_string()),
+            };
+            let output = response_to_buffer(resp, engine_state, span);
+
+            if raw {
+                return Ok(output);
+            }
+            if let Some(ext) = ext {
+                match engine_state.find_decl(format!("from {}", ext).as_bytes(), &[]) {
+                    Some(converter_id) => engine_state.get_decl(converter_id).run(
+                        engine_state,
+                        stack,
+                        &Call::new(span),
+                        output,
+                    ),
+                    None => Ok(output),
+                }
+            } else {
+                Ok(output)
+            }
+        }
+        Err(Error::Status(err_code, _)) => match err_code {
+            404 => Err(ShellError::NetworkFailure(
                 format!("Requested file not found (404): {:?}", requested_url),
                 span,
             )),
-            Some(err_code) if err_code == StatusCode::MOVED_PERMANENTLY => {
-                Err(ShellError::NetworkFailure(
-                    format!("Resource moved permanently (301): {:?}", requested_url),
-                    span,
-                ))
-            }
-            Some(err_code) if err_code == StatusCode::BAD_REQUEST => {
-                Err(ShellError::NetworkFailure(
-                    format!("Bad request (400) to {:?}", requested_url),
-                    span,
-                ))
-            }
-            Some(err_code) if err_code == StatusCode::FORBIDDEN => Err(ShellError::NetworkFailure(
+            301 => Err(ShellError::NetworkFailure(
+                format!("Resource moved permanently (301): {:?}", requested_url),
+                span,
+            )),
+            400 => Err(ShellError::NetworkFailure(
+                format!("Bad request (400) to {:?}", requested_url),
+                span,
+            )),
+            403 => Err(ShellError::NetworkFailure(
                 format!("Access forbidden (403) to {:?}", requested_url),
                 span,
             )),
             _ => Err(ShellError::NetworkFailure(
                 format!(
                     "Cannot make request to {:?}. Error is {:?}",
-                    requested_url,
-                    e.to_string()
+                    requested_url, err_code
                 ),
                 span,
             )),
         },
-        Err(e) => Err(ShellError::NetworkFailure(
+        Err(Error::Transport(transport)) => Err(ShellError::NetworkFailure(
             format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
-                e.to_string()
+                transport.message()
             ),
             span,
         )),
@@ -416,7 +405,8 @@ fn response_to_buffer(
     engine_state: &EngineState,
     span: Span,
 ) -> nu_protocol::PipelineData {
-    let buffered_input = BufReader::new(response);
+    let reader = response.into_reader();
+    let buffered_input = BufReader::new(reader);
 
     PipelineData::ExternalStream {
         stdout: Some(RawStream::new(
@@ -434,11 +424,11 @@ fn response_to_buffer(
 }
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
-#[allow(clippy::unwrap_used)]
-fn http_client(allow_insecure: bool) -> reqwest::blocking::Client {
-    reqwest::blocking::Client::builder()
-        .user_agent("nushell")
-        .danger_accept_invalid_certs(allow_insecure)
-        .build()
-        .expect("Failed to build reqwest client")
-}
+// #[allow(clippy::unwrap_used)]
+// fn http_client(allow_insecure: bool) -> reqwest::blocking::Client {
+//     reqwest::blocking::Client::builder()
+//         .user_agent("nushell")
+//         .danger_accept_invalid_certs(allow_insecure)
+//         .build()
+//         .expect("Failed to build reqwest client")
+// }
