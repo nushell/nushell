@@ -471,37 +471,37 @@ fn can_list_system_folder() {
     // might return more than 1 file someday
     let file_type = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls Configuration* | where name == "Configuration" | get type.0"#
+        r#"ls -a Configuration* | where name == "Configuration" | get type.0"#
     ));
     assert_eq!(file_type.out, "dir");
 
     let file_size = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls Configuration* | where name == "Configuration" | get size.0"#
+        r#"ls -a Configuration* | where name == "Configuration" | get size.0"#
     ));
     assert!(file_size.out.trim() != "");
 
     let file_modified = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls Configuration* | where name == "Configuration" | get modified.0"#
+        r#"ls -a Configuration* | where name == "Configuration" | get modified.0"#
     ));
     assert!(file_modified.out.trim() != "");
 
     let file_accessed = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls -l Configuration* | where name == "Configuration" | get accessed.0"#
+        r#"ls -a -l Configuration* | where name == "Configuration" | get accessed.0"#
     ));
     assert!(file_accessed.out.trim() != "");
 
     let file_created = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls -l Configuration* | where name == "Configuration" | get created.0"#
+        r#"ls -a -l Configuration* | where name == "Configuration" | get created.0"#
     ));
     assert!(file_created.out.trim() != "");
 
     let ls_with_filter = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls | where size > 10mb"#
+        r#"ls -a | where size > 10mb"#
     ));
     assert_eq!(ls_with_filter.err, "");
 }
