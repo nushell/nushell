@@ -16,7 +16,7 @@ fn filters_by_unit_size_comparison() {
 fn filters_with_nothing_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"'[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get foo | compact | where $it > 1 | math sum"#
+        r#"'[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get -i foo | compact | where $it > 1 | math sum"#
     );
 
     assert_eq!(actual.out, "7");
