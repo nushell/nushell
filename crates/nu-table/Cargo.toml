@@ -15,7 +15,7 @@ path = "src/main.rs"
 [dependencies]
 nu-ansi-term = "0.46.0"
 nu-protocol = { path = "../nu-protocol", version = "0.70.1" }
-strip-ansi-escapes = "0.1.1"
+nu-utils = { path = "../nu-utils", version = "0.70.1" }
 atty = "0.2.14"
 tabled = { version = "0.10.0", features = ["color"], default-features = false }
 json_to_table = { version = "0.2.0", features = ["color"] }

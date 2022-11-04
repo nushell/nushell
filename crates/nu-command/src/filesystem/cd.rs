@@ -67,10 +67,7 @@ impl Command for Cd {
         let path_val = {
             if let Some(path) = path_val {
                 Some(Spanned {
-                    item: match strip_ansi_escapes::strip(&path.item) {
-                        Ok(item) => String::from_utf8(item).unwrap_or(path.item),
-                        Err(_) => path.item,
-                    },
+                    item: nu_utils::strip_ansi_string_unlikely(path.item),
                     span: path.span,
                 })
             } else {

@@ -24,7 +24,6 @@ use std::{
     sync::atomic::Ordering,
     time::Instant,
 };
-use strip_ansi_escapes::strip;
 use sysinfo::SystemExt;
 
 // According to Daniel Imms @Tyriar, we need to do these this way:
@@ -140,15 +139,7 @@ pub fn evaluate_repl(
         if use_ansi {
             println!("{}", banner);
         } else {
-            let stripped_string = {
-                if let Ok(bytes) = strip(&banner) {
-                    String::from_utf8_lossy(&bytes).to_string()
-                } else {
-                    banner
-                }
-            };
-
-            println!("{}", stripped_string);
+            println!("{}", nu_utils::strip_ansi_string_likely(banner));
         }
     }
 

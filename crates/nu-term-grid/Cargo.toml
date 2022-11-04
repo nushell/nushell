@@ -14,4 +14,5 @@ path = "src/main.rs"
 
 [dependencies]
 unicode-width = "0.1.9"
-strip-ansi-escapes = "0.1.1"
+
+nu-utils = { path = "../nu-utils", version = "0.70.1"  }

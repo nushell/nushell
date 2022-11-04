@@ -86,10 +86,7 @@ impl Command for Ls {
         let pattern_arg = {
             if let Some(path) = pattern_arg {
                 Some(Spanned {
-                    item: match strip_ansi_escapes::strip(&path.item) {
-                        Ok(item) => String::from_utf8(item).unwrap_or(path.item),
-                        Err(_) => path.item,
-                    },
+                    item: nu_utils::strip_ansi_string_unlikely(path.item),
                     span: path.span,
                 })
             } else {

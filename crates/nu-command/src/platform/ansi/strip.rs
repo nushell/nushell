@@ -3,7 +3,6 @@ use nu_protocol::{
     ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
     Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use strip_ansi_escapes::strip;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -79,15 +78,7 @@ fn operate(
 fn action(input: &Value, command_span: &Span) -> Value {
     match input {
         Value::String { val, span } => {
-            let stripped_string = {
-                if let Ok(bytes) = strip(&val) {
-                    String::from_utf8_lossy(&bytes).to_string()
-                } else {
-                    val.to_string()
-                }
-            };
-
-            Value::string(stripped_string, *span)
+            Value::string(nu_utils::strip_ansi_likely(val).to_string(), *span)
         }
         other => {
             let got = format!("value is {}, not string", other.get_type());

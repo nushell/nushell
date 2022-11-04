@@ -2535,7 +2535,6 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
- "strip-ansi-escapes",
  "sysinfo",
  "thiserror",
 ]
@@ -2630,7 +2629,6 @@ dependencies = [
  "sha2",
  "shadow-rs",
  "sqlparser",
- "strip-ansi-escapes",
  "sysinfo",
  "terminal_size 0.2.1",
  "thiserror",
@@ -2657,7 +2655,6 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
- "strip-ansi-escapes",
  "sysinfo",
 ]
 
@@ -2777,8 +2774,8 @@ dependencies = [
  "json_to_table",
  "nu-ansi-term",
  "nu-protocol",
+ "nu-utils",
  "serde_json",
- "strip-ansi-escapes",
  "tabled",
 ]
 
@@ -2786,7 +2783,7 @@ dependencies = [
 name = "nu-term-grid"
 version = "0.70.1"
 dependencies = [
- "strip-ansi-escapes",
+ "nu-utils",
  "unicode-width",
 ]
 
@@ -2811,6 +2808,7 @@ dependencies = [
  "crossterm_winapi",
  "lscolors",
  "num-format",
+ "strip-ansi-escapes",
  "sys-locale",
 ]
 
