@@ -106,7 +106,7 @@ impl Command for ParEach {
 
                     let val_span = x.span();
                     match eval_block(
-                        &engine_state,
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -158,7 +158,7 @@ impl Command for ParEach {
 
                     let val_span = x.span();
                     match eval_block(
-                        &engine_state,
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -209,7 +209,7 @@ impl Command for ParEach {
 
                     let val_span = x.span();
                     match eval_block(
-                        &engine_state,
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -268,7 +268,7 @@ impl Command for ParEach {
                     }
 
                     match eval_block(
-                        &engine_state,
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -293,7 +293,7 @@ impl Command for ParEach {
                 }
 
                 eval_block(
-                    &engine_state,
+                    engine_state,
                     &mut stack,
                     block,
                     x.into_pipeline_data(),
