@@ -12,28 +12,38 @@ use std::{
 use crossterm::{
     event::{poll, read, Event, KeyCode, KeyEvent},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
 };
 use nu_ansi_term::{Color as NuColor, Style as NuStyle};
 use nu_color_config::{get_color_config, style_primitive};
 use nu_protocol::{ast::PathMember, Config, Span as NuSpan, Value};
 use nu_table::{string_width, Alignment, TextStyle};
+use num_traits::Saturating;
 use reedline::KeyModifiers;
 use tui::{
     backend::{Backend, CrosstermBackend},
     buffer::Buffer,
-    layout::Rect,
+    layout::{Constraint, Direction, Rect},
     style::{Color, Style},
     text::Span,
     widgets::{Block, Borders, StatefulWidget, Widget},
-    Terminal,
+    Frame, Terminal,
 };
+
+type NuText = (String, TextStyle);
+
+type CtrlC = Option<Arc<AtomicBool>>;
+
+type NuStyleTable = HashMap<String, NuStyle>;
 
 pub fn handler(
     cols: &[String],
     data: &[Value],
-    config: &nu_protocol::Config,
-    ctrlc: Option<Arc<AtomicBool>>,
+    config: &Config,
+    ctrlc: CtrlC,
     show_index: bool,
     show_head: bool,
     reverse: bool,
@@ -41,7 +51,7 @@ pub fn handler(
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    execute!(stdout, EnterAlternateScreen, Clear(ClearType::All))?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -56,7 +66,7 @@ pub fn handler(
         }
     }
 
-    let result = main_loop(&mut terminal, ctrlc, state);
+    let result = render_ui(&mut terminal, ctrlc, state);
 
     // restore terminal
     disable_raw_mode()?;
@@ -65,11 +75,7 @@ pub fn handler(
     result
 }
 
-fn main_loop<B>(
-    terminal: &mut Terminal<B>,
-    ctrlc: Option<Arc<AtomicBool>>,
-    mut state: UIState<'_>,
-) -> Result<()>
+fn render_ui<B>(terminal: &mut Terminal<B>, ctrlc: CtrlC, mut state: UIState<'_>) -> Result<()>
 where
     B: Backend,
 {
@@ -83,37 +89,130 @@ where
             }
         }
 
-        let mut event = events.next().unwrap();
-        if let Some(key) = &event {
-            let exited = handle_key_event(key, &mut state, terminal);
-            if exited {
-                break Ok(());
+        let mut layout = Layout::default();
+        terminal.draw(|f| {
+            f.render_stateful_widget(state, f.size(), &mut layout);
+
+            if state.mode == UIMode::Cursor {
+                update_cursor(&mut state, &layout);
+                set_cursor(f, &state, &layout);
             }
+
+            // if state.render_inner {
+            //     let block = Block::default().title("Popup").borders(Borders::ALL);
+            //     let area = centered_rect(60, 20, f.size());
+            //     f.render_widget(tui::widgets::Clear, area); //this clears out the background
+            //     f.render_widget(block, area);
+
+            //     let state = UIState {
+
+            //     }
+
+            //     f.render_stateful_widget(state, f.size(), &mut layout);
+            //     return
+            // }
+        })?;
+
+        let exited = handle_events(&events, &mut state, &layout, terminal);
+        if exited {
+            break Ok(());
         }
-
-        terminal.draw(|f| f.render_stateful_widget(state, f.size(), &mut event))?;
     }
 }
 
-fn state_reverse_data(state: &mut UIState<'_>, page_size: usize) {
-    if state.data.len() > page_size as usize {
-        state.row_index = state.data.len() - page_size as usize;
+fn update_cursor(state: &mut UIState<'_>, layout: &Layout) {
+    let count_rows = layout.count_rows() as u16;
+    if state.cursor.y >= count_rows {
+        state.cursor.y = count_rows.saturating_sub(1) as u16;
+    }
+
+    let count_columns = layout.count_columns() as u16;
+    if state.cursor.x >= count_columns {
+        state.cursor.x = count_columns.saturating_sub(1) as u16;
     }
 }
 
-fn handle_key_event<B>(key: &KeyEvent, state: &mut UIState<'_>, term: &Terminal<B>) -> bool
+fn set_cursor<B>(f: &mut Frame<B>, state: &UIState<'_>, layout: &Layout)
 where
+    B: Backend,
+{
+    let Position { x: column, y: row } = state.cursor;
+    let info = layout.get(row as usize, column as usize);
+    if let Some(info) = info {
+        f.set_cursor(info.position.x, info.position.y);
+    }
+}
+
+fn handle_events<B>(
+    events: &UIEvents,
+    state: &mut UIState,
+    layout: &Layout,
+    term: &mut Terminal<B>,
+) -> bool
+where
+    B: Backend,
+{
+    let event = events.next().unwrap();
+    let key = match event {
+        Some(event) => event,
+        None => return false,
+    };
+
+    if handle_exit_key_event(&key) {
+        return true;
+    }
+
+    match state.mode {
+        UIMode::View => view_mode_key_event(&key, state, layout, term),
+        UIMode::Cursor => cursor_mode_key_event(&key, state, layout, term),
+    }
+
+    false
+}
+
+fn handle_exit_key_event(key: &KeyEvent) -> bool {
+    matches!(
+        key,
+        KeyEvent {
+            code: KeyCode::Char('d'),
+            modifiers: KeyModifiers::CONTROL,
+        } | KeyEvent {
+            code: KeyCode::Char('z'),
+            modifiers: KeyModifiers::CONTROL,
+        }
+    )
+}
+
+fn init_cursor_mode<B>(term: &mut Terminal<B>)
+where
+    B: Backend,
+{
+    term.show_cursor().unwrap();
+}
+
+fn end_cursor_mode<B>(term: &mut Terminal<B>)
+where
+    B: Backend,
+{
+    term.hide_cursor().unwrap();
+}
+
+fn view_mode_key_event<B>(
+    key: &KeyEvent,
+    state: &mut UIState<'_>,
+    layout: &Layout,
+    term: &mut Terminal<B>,
+) where
     B: Backend,
 {
     match key {
         KeyEvent {
-            code: KeyCode::Char('d'),
-            modifiers: KeyModifiers::CONTROL,
+            code: KeyCode::Char('i'),
+            ..
+        } => {
+            init_cursor_mode(term);
+            state.mode = UIMode::Cursor
         }
-        | KeyEvent {
-            code: KeyCode::Char('z'),
-            modifiers: KeyModifiers::CONTROL,
-        } => return true,
         KeyEvent { code, .. } => match code {
             KeyCode::Up => state.row_index = state.row_index.saturating_sub(1),
             KeyCode::Down => {
@@ -126,58 +225,135 @@ where
                 state.column_index = min(state.column_index + 1, max_index);
             }
             KeyCode::PageUp => {
-                let page_size = term
-                    .size()
-                    .map(|size| estimate_page_size(size, state.show_header));
-                if let Ok(page_size) = page_size {
-                    state.row_index = state.row_index.saturating_sub(page_size as usize);
-                }
+                let count_rows = layout.count_rows();
+                state.row_index = state.row_index.saturating_sub(count_rows as usize);
             }
             KeyCode::PageDown => {
-                let page_size = term
-                    .size()
-                    .map(|size| estimate_page_size(size, state.show_header));
-                if let Ok(page_size) = page_size {
-                    let max_index = state.count_rows().saturating_sub(1);
-                    state.row_index = min(state.row_index + page_size as usize, max_index);
-                }
+                let count_rows = layout.count_rows();
+                let max_index = state.count_rows().saturating_sub(1);
+                state.row_index = min(state.row_index + count_rows as usize, max_index);
             }
             _ => {}
         },
     }
-
-    false
 }
 
-fn render_header_borders(buf: &mut Buffer, area: Rect, y: u16, span: u16) -> (u16, u16) {
-    let block = Block::default()
-        .borders(Borders::TOP | Borders::BOTTOM)
-        .border_style(Style::default().fg(Color::Rgb(64, 64, 64)));
-    let height = 2 + span;
-    let area = Rect::new(0, y, area.width, height);
-    block.render(area, buf);
-    // y pos of header text and next line
-    (height.saturating_sub(2), height)
+fn cursor_mode_key_event<B>(
+    key: &KeyEvent,
+    state: &mut UIState<'_>,
+    layout: &Layout,
+    term: &mut Terminal<B>,
+) where
+    B: Backend,
+{
+    match key {
+        KeyEvent {
+            code: KeyCode::Esc, ..
+        } => {
+            end_cursor_mode(term);
+
+            state.mode = UIMode::View;
+            state.cursor = Position::default();
+        }
+        KeyEvent { code, .. } => match code {
+            KeyCode::Up => {
+                if state.cursor.y == 0 {
+                    state.row_index = state.row_index.saturating_sub(1);
+                } else {
+                    state.cursor.y -= 1
+                }
+            }
+            KeyCode::Down => {
+                let showed_rows = layout.count_rows() as u16;
+                let total_rows = state.data.len() as u16;
+                let row_index = state.row_index as u16 + state.cursor.y + 1;
+
+                if row_index < total_rows {
+                    if state.cursor.y + 1 == showed_rows {
+                        state.row_index += 1;
+                    } else {
+                        state.cursor.y += 1;
+                    }
+                }
+            }
+            KeyCode::Left => {
+                if state.cursor.x == 0 {
+                    state.column_index = state.column_index.saturating_sub(1);
+                } else {
+                    state.cursor.x -= 1
+                }
+            }
+            KeyCode::Right => {
+                let showed_columns = layout.count_rows() as u16;
+                let total_columns = state.count_columns() as u16;
+                let column_index = state.column_index as u16 + state.cursor.x + 1;
+
+                if column_index < total_columns {
+                    if state.cursor.x + 1 == showed_columns {
+                        state.column_index += 1;
+                    } else {
+                        state.cursor.x += 1;
+                    }
+                }
+            }
+            KeyCode::Enter => {
+                state.render_inner = true;
+            }
+            _ => {}
+        },
+    }
+}
+
+/// helper function to create a centered rect using up certain percentage of the available rect `r`
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = tui::layout::Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Percentage(percent_y),
+                Constraint::Percentage((100 - percent_y) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(r);
+
+    tui::layout::Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(
+            [
+                Constraint::Percentage((100 - percent_x) / 2),
+                Constraint::Percentage(percent_x),
+                Constraint::Percentage((100 - percent_x) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(popup_layout[1])[1]
 }
 
 #[derive(Debug, Clone, Copy)]
 struct UIState<'a> {
     columns: &'a [String],
     data: &'a [Value],
-    config: &'a nu_protocol::Config,
-    color_hm: &'a HashMap<String, nu_ansi_term::Style>,
+    config: &'a Config,
+    color_hm: &'a NuStyleTable,
     column_index: usize,
     row_index: usize,
     show_index: bool,
     show_header: bool,
+    mode: UIMode,
+    // only applicable for CusorMode
+    cursor: Position,
+    // only applicable for CusorMode
+    render_inner: bool,
 }
 
 impl<'a> UIState<'a> {
     fn new(
         columns: &'a [String],
         data: &'a [Value],
-        config: &'a nu_protocol::Config,
-        color_hm: &'a HashMap<String, nu_ansi_term::Style>,
+        config: &'a Config,
+        color_hm: &'a NuStyleTable,
         show_header: bool,
         show_index: bool,
     ) -> Self {
@@ -190,6 +366,9 @@ impl<'a> UIState<'a> {
             row_index: 0,
             show_header,
             show_index,
+            mode: UIMode::View,
+            cursor: Position::new(0, 0),
+            render_inner: false,
         }
     }
 
@@ -202,14 +381,20 @@ impl<'a> UIState<'a> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum UIMode {
+    Cursor,
+    View,
+}
+
 impl StatefulWidget for UIState<'_> {
-    type State = Option<KeyEvent>;
+    type State = Layout;
 
     fn render(
         self,
         area: tui::layout::Rect,
         buf: &mut tui::buffer::Buffer,
-        _state: &mut Self::State,
+        state: &mut Self::State,
     ) {
         const CELL_PADDING_LEFT: u16 = 2;
         const CELL_PADDING_RIGHT: u16 = 2;
@@ -267,7 +452,7 @@ impl StatefulWidget for UIState<'_> {
             width += render_vertical(buf, width, head_offset, height, show_head);
         }
 
-        let mut head = String::new();
+        let mut head: Option<String> = None;
         let mut head_width = 0;
 
         let mut do_render_split_line = true;
@@ -275,16 +460,13 @@ impl StatefulWidget for UIState<'_> {
 
         let mut shown_columns = 0;
         for col in self.column_index..self.columns.len() {
-            let mut column = if has_head {
-                head = String::from(&self.columns[col]);
-                head_width = string_width(&head);
+            if has_head {
+                let text = String::from(&self.columns[col]);
+                head_width = string_width(&text);
+                head = Some(text);
+            }
 
-                create_column(self.config, self.color_hm, NuSpan::unknown(), &head, rows)
-            } else {
-                rows.iter()
-                    .map(|item| value_to_string(item.clone(), self.config, self.color_hm))
-                    .collect()
-            };
+            let mut column = create_column(head.as_deref(), rows, self.config, self.color_hm);
 
             let available_space = area.width - width;
             let column_width = calculate_column_width(&column);
@@ -293,7 +475,7 @@ impl StatefulWidget for UIState<'_> {
             {
                 let control = truncate_column(
                     &mut column,
-                    &mut head,
+                    head.as_mut(),
                     available_space,
                     col + 1 == self.columns.len(),
                     PrintControl {
@@ -314,12 +496,15 @@ impl StatefulWidget for UIState<'_> {
             }
 
             if show_head {
-                let header_data = &[head_row_text(&head, self.color_hm)];
+                let head: &str = head.as_deref().unwrap_or_default();
+                let header_data = &[head_row_text(head, self.color_hm)];
 
                 let mut w = width;
                 w += render_space(buf, w, 1, 1, CELL_PADDING_LEFT);
                 w += render_column(buf, w, 1, use_space, header_data);
                 render_space(buf, w, 1, 1, CELL_PADDING_RIGHT);
+
+                state.push_head(w - CELL_PADDING_RIGHT - use_space, use_space)
             }
 
             width += render_space(buf, width, head_offset, height, CELL_PADDING_LEFT);
@@ -327,6 +512,13 @@ impl StatefulWidget for UIState<'_> {
             width += render_space(buf, width, head_offset, height, CELL_PADDING_RIGHT);
 
             shown_columns += 1;
+
+            state.push_column(
+                width - CELL_PADDING_RIGHT - use_space,
+                head_offset,
+                use_space,
+                column.len() as u16,
+            );
 
             if do_render_shift_column {
                 break;
@@ -364,6 +556,103 @@ impl StatefulWidget for UIState<'_> {
     }
 }
 
+#[derive(Debug, Default)]
+struct Layout {
+    headers: Vec<ElementInfo>,
+    data: Vec<Vec<ElementInfo>>,
+}
+
+impl Layout {
+    fn count_columns(&self) -> usize {
+        self.data.len()
+    }
+
+    fn count_rows(&self) -> usize {
+        self.data.first().map_or(0, |col| col.len())
+    }
+
+    fn push_head(&mut self, x: u16, width: u16) {
+        self.headers
+            .push(ElementInfo::new(Position::new(x, 1), width, 1));
+    }
+
+    fn push_column(&mut self, x: u16, y: u16, width: u16, count_elements: u16) {
+        let columns = (0..count_elements)
+            .map(|i| ElementInfo::new(Position::new(x, y + i), width, 1))
+            .collect();
+        self.data.push(columns);
+    }
+
+    fn get(&self, row: usize, column: usize) -> Option<ElementInfo> {
+        self.data.get(column).and_then(|col| col.get(row)).copied()
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+struct ElementInfo {
+    position: Position,
+    width: u16,
+    height: u16,
+}
+
+impl ElementInfo {
+    fn new(position: Position, width: u16, height: u16) -> Self {
+        Self {
+            position,
+            width,
+            height,
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+struct Position {
+    x: u16,
+    y: u16,
+}
+
+impl Position {
+    fn new(x: u16, y: u16) -> Self {
+        Self { x, y }
+    }
+}
+
+fn state_reverse_data(state: &mut UIState<'_>, page_size: usize) {
+    if state.data.len() > page_size as usize {
+        state.row_index = state.data.len() - page_size as usize;
+    }
+}
+
+fn render_header_borders(buf: &mut Buffer, area: Rect, y: u16, span: u16) -> (u16, u16) {
+    let block = Block::default()
+        .borders(Borders::TOP | Borders::BOTTOM)
+        .border_style(Style::default().fg(Color::Rgb(64, 64, 64)));
+    let height = 2 + span;
+    let area = Rect::new(0, y, area.width, height);
+    block.render(area, buf);
+    // y pos of header text and next line
+    (height.saturating_sub(2), height)
+}
+
+fn create_column(
+    head: Option<&str>,
+    rows: &[Value],
+    config: &Config,
+    color_hm: &NuStyleTable,
+) -> Vec<NuText> {
+    if let Some(head) = head {
+        create_column_with_head(config, color_hm, NuSpan::unknown(), head, rows)
+    } else {
+        create_column_raw(rows, config, color_hm)
+    }
+}
+
+fn create_column_raw(rows: &[Value], config: &Config, color_hm: &NuStyleTable) -> Vec<NuText> {
+    rows.iter()
+        .map(|item| value_to_string(item.clone(), config, color_hm))
+        .collect()
+}
+
 #[derive(Debug, Default, Copy, Clone)]
 struct PrintControl {
     width: u16,
@@ -373,8 +662,8 @@ struct PrintControl {
 }
 
 fn truncate_column(
-    column: &mut [(String, TextStyle)],
-    head: &mut String,
+    column: &mut [NuText],
+    head: Option<&mut String>,
     available_space: u16,
     is_column_last: bool,
     mut control: PrintControl,
@@ -411,8 +700,11 @@ fn truncate_column(
                 return control;
             }
 
+            if let Some(head) = head {
+                truncate_str(head, width as usize);
+            }
+
             truncate_list(column, width as usize);
-            truncate_str(head, width as usize);
 
             control.width = width;
         } else {
@@ -425,7 +717,10 @@ fn truncate_column(
                 }
 
                 truncate_list(column, width as usize);
-                truncate_str(head, width as usize);
+
+                if let Some(head) = head {
+                    truncate_str(head, width as usize);
+                }
 
                 control.width = width;
                 control.print_shift_column = true;
@@ -452,7 +747,10 @@ fn truncate_column(
                 }
 
                 truncate_list(column, width as usize);
-                truncate_str(head, width as usize);
+
+                if let Some(head) = head {
+                    truncate_str(head, width as usize);
+                }
 
                 control.width = width;
                 control.print_shift_column = true;
@@ -512,9 +810,9 @@ fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
     available_height
 }
 
-const VERTICAL_LINE_COLOR: nu_ansi_term::Color = NuColor::Rgb(64, 64, 64);
+const VERTICAL_LINE_COLOR: NuColor = NuColor::Rgb(64, 64, 64);
 
-fn head_row_text(head: &str, color_hm: &HashMap<String, NuStyle>) -> (String, TextStyle) {
+fn head_row_text(head: &str, color_hm: &NuStyleTable) -> NuText {
     (
         String::from(head),
         TextStyle {
@@ -524,7 +822,7 @@ fn head_row_text(head: &str, color_hm: &HashMap<String, NuStyle>) -> (String, Te
     )
 }
 
-fn truncate_list(list: &mut [(String, TextStyle)], width: usize) {
+fn truncate_list(list: &mut [NuText], width: usize) {
     for (text, _) in list {
         truncate_str(text, width);
     }
@@ -545,7 +843,7 @@ fn render_column_index(
     starts_at: usize,
     show_header: bool,
     header_offset: u16,
-    color_hm: &HashMap<String, NuStyle>,
+    color_hm: &NuStyleTable,
 ) -> u16 {
     const CELL_PADDING_LEFT: u16 = 2;
     const CELL_PADDING_RIGHT: u16 = 2;
@@ -621,11 +919,11 @@ fn render_bottom_connector(buf: &mut Buffer, x: u16, y: u16) {
     buf.set_span(x, y, &span, 1);
 }
 
-fn get_index_column_name(color_hm: &HashMap<String, NuStyle>) -> (String, TextStyle) {
+fn get_index_column_name(color_hm: &NuStyleTable) -> NuText {
     make_styled_string(String::from("index"), "string", 0, true, color_hm, 0)
 }
 
-fn create_column_index(i: usize, color_hm: &HashMap<String, NuStyle>) -> (String, TextStyle) {
+fn create_column_index(i: usize, color_hm: &NuStyleTable) -> NuText {
     make_styled_string(i.to_string(), "string", 0, true, color_hm, 0)
 }
 
@@ -634,18 +932,14 @@ fn render_space(buf: &mut Buffer, x: u16, y: u16, height: u16, padding: u16) -> 
     padding
 }
 
-fn value_to_string(
-    value: Value,
-    config: &Config,
-    color_hm: &HashMap<String, NuStyle>,
-) -> (String, TextStyle) {
+fn value_to_string(value: Value, config: &Config, color_hm: &NuStyleTable) -> NuText {
     let text = value.into_abbreviated_string(config);
     let text_type = value.get_type().to_string();
     let precision = config.float_precision as usize;
     make_styled_string(text, &text_type, 0, false, color_hm, precision)
 }
 
-fn calculate_column_width(column: &[(String, TextStyle)]) -> usize {
+fn calculate_column_width(column: &[NuText]) -> usize {
     column
         .iter()
         .map(|(text, _)| text)
@@ -659,7 +953,7 @@ fn render_column(
     x_offset: u16,
     y_offset: u16,
     available_width: u16,
-    rows: &[(String, TextStyle)],
+    rows: &[NuText],
 ) -> u16 {
     for (row, (text, style)) in rows.iter().enumerate() {
         let text = String::from_utf8(strip_ansi_escapes::strip(text).unwrap()).unwrap();
@@ -691,13 +985,13 @@ fn repeat_vertical(
     }
 }
 
-fn create_column(
-    config: &nu_protocol::Config,
-    color_hm: &HashMap<String, NuStyle>,
-    span: nu_protocol::Span,
+fn create_column_with_head(
+    config: &Config,
+    color_hm: &NuStyleTable,
+    span: NuSpan,
     header: &str,
     items: &[Value],
-) -> Vec<(String, TextStyle)> {
+) -> Vec<NuText> {
     let make_string = |value: String, t: &str| {
         make_styled_string(
             value,
@@ -754,32 +1048,31 @@ fn text_style_to_tui_style(style: TextStyle) -> tui::style::Style {
     out
 }
 
-fn nu_ansi_color_to_tui_color(clr: nu_ansi_term::Color) -> Option<tui::style::Color> {
-    use nu_ansi_term::Color;
-    use tui::style::Color as TColor;
+fn nu_ansi_color_to_tui_color(clr: NuColor) -> Option<tui::style::Color> {
+    use NuColor::*;
 
     let clr = match clr {
-        Color::Black => TColor::Black,
-        Color::DarkGray => TColor::DarkGray,
-        Color::Red => TColor::Red,
-        Color::LightRed => TColor::LightRed,
-        Color::Green => TColor::Green,
-        Color::LightGreen => TColor::LightGreen,
-        Color::Yellow => TColor::Yellow,
-        Color::LightYellow => TColor::LightYellow,
-        Color::Blue => TColor::Blue,
-        Color::LightBlue => TColor::LightBlue,
-        Color::Magenta => TColor::Magenta,
-        Color::LightMagenta => TColor::LightMagenta,
-        Color::Cyan => TColor::Cyan,
-        Color::LightCyan => TColor::LightCyan,
-        Color::White => TColor::White,
-        Color::Fixed(i) => tui::style::Color::Indexed(i),
-        Color::Rgb(r, g, b) => tui::style::Color::Rgb(r, g, b),
-        Color::LightGray => TColor::Gray, // todo: make a PR to add the color
-        Color::LightPurple => TColor::Blue, // todo: make a PR to add the color,
-        Color::Purple => TColor::Blue,    // todo: make a PR to add the color,
-        Color::Default => return None,
+        Black => Color::Black,
+        DarkGray => Color::DarkGray,
+        Red => Color::Red,
+        LightRed => Color::LightRed,
+        Green => Color::Green,
+        LightGreen => Color::LightGreen,
+        Yellow => Color::Yellow,
+        LightYellow => Color::LightYellow,
+        Blue => Color::Blue,
+        LightBlue => Color::LightBlue,
+        Magenta => Color::Magenta,
+        LightMagenta => Color::LightMagenta,
+        Cyan => Color::Cyan,
+        LightCyan => Color::LightCyan,
+        White => Color::White,
+        Fixed(i) => Color::Indexed(i),
+        Rgb(r, g, b) => tui::style::Color::Rgb(r, g, b),
+        LightGray => Color::Gray,   // todo: make a PR to add the color
+        LightPurple => Color::Blue, // todo: make a PR to add the color,
+        Purple => Color::Blue,      // todo: make a PR to add the color,
+        Default => return None,
     };
 
     Some(clr)
@@ -790,9 +1083,9 @@ fn make_styled_string(
     text_type: &str,
     col: usize,
     with_index: bool,
-    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    color_hm: &NuStyleTable,
     float_precision: usize,
-) -> (String, TextStyle) {
+) -> NuText {
     if col == 0 && with_index {
         (
             text,
