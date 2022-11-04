@@ -21,9 +21,7 @@ Make sure you've run and fixed any issues with these commands:
 - `cargo clippy --workspace --features=extra -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
 - `cargo test --workspace --features=extra` to check that all tests pass
 
-# User-Facing Changes
+# After Submitting
 
-If you're making changes that will affect the user experience of Nushell (ex: adding/removing a command, changing an input/output type, adding a new flag):
-
-- Get another regular contributor to review the PR before merging
-- Make sure that there is an entry in the documentation (https://github.com/nushell/nushell.github.io) for the feature, and update it if necessary
+If your PR affects the user experience of Nushell (adding/removing a command, changing an input/output type, etc.), make sure the changes are reflected in the documentation (https://github.com/nushell/nushell.github.io) and update it if necessary.
+This helps us keep the docs up to date.
