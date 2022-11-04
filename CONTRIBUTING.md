@@ -1,8 +1,12 @@
 # Contributing
 
-Welcome to Nushell!
+Welcome to Nushell and thank you for considering contributing!
 
-To get live support from the community see our [Discord](https://discordapp.com/invite/NtAbbGn), [Twitter](https://twitter.com/nu_shell) or file an issue or feature request here on [GitHub](https://github.com/nushell/nushell/issues/new/choose)!
+First of all, before diving into the code, if you plan on making a non-tirival change, such as adding a new feature and especially a breaking change, please make sure to get an approval from the core team.
+This saves both your and our time if we realize your change needs to go another direction before the actual coding and reviewing work.
+So, please, reach out to us and tell us what you want to do.
+This will significantly increase the chance of your PR being accepted.
+The best place to do so is on [Discord](https://discordapp.com/invite/NtAbbGn) or [GitHub](https://github.com/nushell/nushell/issues/new/choose).
 
 ## Developing
 
