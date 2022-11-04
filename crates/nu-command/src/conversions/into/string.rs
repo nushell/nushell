@@ -172,7 +172,7 @@ fn string_helper(
         }
     }
     let cell_paths = call.rest(engine_state, stack, 0)?;
-    let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+    let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
     let config = engine_state.get_config().clone();
     let args = Arguments {
         decimals_value,

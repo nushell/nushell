@@ -56,7 +56,7 @@ impl Command for BytesRemove {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let pattern_to_remove = call.req::<Spanned<Vec<u8>>>(engine_state, stack, 0)?;
         if pattern_to_remove.item.is_empty() {
             return Err(ShellError::UnsupportedInput(

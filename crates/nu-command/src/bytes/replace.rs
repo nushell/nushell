@@ -56,7 +56,7 @@ impl Command for BytesReplace {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
-        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let find = call.req::<Spanned<Vec<u8>>>(engine_state, stack, 0)?;
         if find.item.is_empty() {
             return Err(ShellError::UnsupportedInput(

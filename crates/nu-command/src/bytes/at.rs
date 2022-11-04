@@ -142,7 +142,7 @@ impl Command for BytesAt {
         let range: Value = call.req(engine_state, stack, 0)?;
         let (start, end, arg_span) = parse_range(range, call.head)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let arg = Arguments {
             start,
             end,

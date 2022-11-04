@@ -24,7 +24,7 @@ impl CmdArgument for CellPathOnlyArgs {
 impl From<Vec<CellPath>> for CellPathOnlyArgs {
     fn from(cell_paths: Vec<CellPath>) -> Self {
         Self {
-            cell_paths: (!cell_paths.is_empty()).then(|| cell_paths),
+            cell_paths: (!cell_paths.is_empty()).then_some(cell_paths),
         }
     }
 }
