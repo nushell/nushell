@@ -372,7 +372,7 @@ impl DescriptionMenu {
         let description = self
             .get_value()
             .and_then(|suggestion| suggestion.description)
-            .unwrap_or_else(|| "".to_string())
+            .unwrap_or_default()
             .lines()
             .skip(self.skipped_rows)
             .take(self.working_details.description_rows)
@@ -610,7 +610,7 @@ impl Menu for DescriptionMenu {
                     let description_rows = self
                         .get_value()
                         .and_then(|suggestion| suggestion.description)
-                        .unwrap_or_else(|| "".to_string())
+                        .unwrap_or_default()
                         .lines()
                         .count();
 

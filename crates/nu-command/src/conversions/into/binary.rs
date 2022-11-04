@@ -164,7 +164,7 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
             span,
         },
         Value::Bool { val, .. } => Value::Binary {
-            val: int_to_endian(if *val { 1i64 } else { 0 }),
+            val: int_to_endian(i64::from(*val)),
             span,
         },
         Value::Date { val, .. } => Value::Binary {

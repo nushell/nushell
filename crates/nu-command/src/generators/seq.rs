@@ -284,9 +284,7 @@ pub fn run_seq(
             }
         }
     };
-    if largest_dec > 0 {
-        largest_dec -= 1;
-    }
+    largest_dec = largest_dec.saturating_sub(1);
     let separator = escape_sequences(&sep[..]);
     let terminator = match termy {
         Some(term) => escape_sequences(&term[..]),

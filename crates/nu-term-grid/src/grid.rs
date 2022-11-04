@@ -131,7 +131,7 @@ pub struct Cell {
 impl From<String> for Cell {
     fn from(string: String) -> Self {
         Self {
-            width: unicode_width_strip_ansi(&*string),
+            width: unicode_width_strip_ansi(&string),
             contents: string,
             alignment: Alignment::Left,
         }

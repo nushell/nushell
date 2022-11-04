@@ -230,7 +230,7 @@ fn override_alignments(
     index_present: bool,
     alignments: Alignments,
 ) {
-    let offset = if header_present { 1 } else { 0 };
+    let offset = usize::from(header_present);
     let (count_rows, count_columns) = table.shape();
     for row in offset..count_rows {
         for col in 0..count_columns {

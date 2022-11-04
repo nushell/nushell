@@ -96,7 +96,7 @@ pub fn median(values: &[Value], head: &Span) -> Result<Value, ShellError> {
             Ok(out.clone())
         }
         Pick::MedianAverage => {
-            let idx_end = (values.len() / 2) as usize;
+            let idx_end = values.len() / 2;
             let idx_start = idx_end - 1;
 
             let left = sorted
