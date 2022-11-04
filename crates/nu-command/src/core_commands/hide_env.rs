@@ -60,6 +60,14 @@ impl Command for HideEnv {
                     return Err(ShellError::EnvVarNotFoundAtRuntime(name.item, name.span));
                 }
             }
+            // reset to Empty then it will be hide
+            stack.add_env_var(
+                name.item.to_string(),
+                Value::String {
+                    val: String::new(),
+                    span: name.span,
+                },
+            );
         }
 
         Ok(PipelineData::new(call.head))
