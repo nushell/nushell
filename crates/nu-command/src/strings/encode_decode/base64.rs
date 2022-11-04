@@ -45,7 +45,7 @@ pub fn operate(
         call.get_flag(engine_state, stack, "character-set")?;
     let binary = call.has_flag("binary");
     let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+    let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
     // Default the character set to standard if the argument is not specified.
     let character_set = match character_set {
