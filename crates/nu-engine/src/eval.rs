@@ -962,7 +962,7 @@ pub fn create_scope(
                 }
             }
 
-            cols.push("command".into());
+            cols.push("name".into());
             vals.push(Value::String {
                 val: String::from_utf8_lossy(command_name).to_string(),
                 span,
