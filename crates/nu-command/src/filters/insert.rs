@@ -126,12 +126,11 @@ fn insert(
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
-        // To enumerate over the input (for the optional index argument),
-        // it must be converted into an iterator using into_iter().
-        Ok(input
-            .into_iter()
-            .enumerate()
-            .map(move |(idx, mut input)| {
+        // enumerate() can't be used here because it converts records into tables
+        // when combined with into_pipeline_data(). Hence, the index is tracked manually like so.
+        let mut idx: i64 = 0;
+        input.map(
+            move |mut input| {
                 // with_env() is used here to ensure that each iteration uses
                 // a different set of environment variables.
                 // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -146,14 +145,9 @@ fn insert(
                 // Optional index argument
                 if let Some(var) = block.signature.get_positional(1) {
                     if let Some(var_id) = &var.var_id {
-                        stack.add_var(
-                            *var_id,
-                            Value::Int {
-                                val: idx as i64,
-                                span,
-                            },
-                        );
+                        stack.add_var(*var_id, Value::Int { val: idx, span });
                     }
+                    idx += 1;
                 }
 
                 let output = eval_block(
@@ -177,8 +171,9 @@ fn insert(
                     }
                     Err(e) => Value::Error { error: e },
                 }
-            })
-            .into_pipeline_data(ctrlc))
+            },
+            ctrlc,
+        )
     } else {
         if let Some(PathMember::Int { val, .. }) = cell_path.members.get(0) {
             let mut input = input.into_iter();

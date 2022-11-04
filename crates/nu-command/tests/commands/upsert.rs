@@ -14,6 +14,15 @@ fn sets_the_column() {
     assert_eq!(actual.out, "0.7.0");
 }
 
+#[test]
+fn doesnt_convert_record_to_table() {
+    let actual = nu!(
+        cwd: ".", r#"{a:1} | upsert a 2 | to nuon"#
+    );
+
+    assert_eq!(actual.out, "{a: 2}");
+}
+
 #[cfg(features = "inc")]
 #[test]
 fn sets_the_column_from_a_block_run_output() {

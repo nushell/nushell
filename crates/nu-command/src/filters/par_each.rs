@@ -373,9 +373,9 @@ mod test {
     fn uses_optional_index_argument() {
         let actual = nu!(
             cwd: ".", pipeline(
-            r#"[7,8,9,10] | par-each {|e i| $i } | sort | to nuon"#
+            r#"[7,8,9,10] | par-each {|e i| $i } | describe"#
         ));
 
-        assert_eq!(actual.out, "[0, 1, 2, 3]");
+        assert_eq!(actual.out, "list<int>");
     }
 }
