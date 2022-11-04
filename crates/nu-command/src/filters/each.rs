@@ -121,7 +121,7 @@ with 'transpose' first."#
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each --keep-empty { if $in == 2 { echo "found 2!"} }"#,
+                example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { echo "found 2!"} }"#,
                 description: "Iterate over each element, keeping all results",
                 result: Some(Value::List {
                     vals: stream_test_2,

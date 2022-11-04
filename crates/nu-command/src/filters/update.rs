@@ -69,7 +69,7 @@ impl Command for Update {
             },
             Example {
                 description: "Alter each value in the 'authors' column to use a single string instead of a list",
-                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { $in.authors | str join ','}",
+                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ','}",
                 result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
             },
         ]

@@ -78,35 +78,13 @@ impl Command for Reduce {
             Example {
                 example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" {|it, acc| $acc | str replace -a $it "X" }"#,
                 description: "Replace selected characters in a string with 'X'",
-                result: Some(Value::String {
-                    val: "ArXhur, KXng Xf Xhe BrXXXns".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_string("ArXhur, KXng Xf Xhe BrXXXns")),
             },
             Example {
-                example: r#"[ one longest three bar ] | reduce -f { len: -1, index: null } { |it, acc, ind|
-        let len = ($it | str length)
-        if $len > $acc.len {
-            { len: $len, index: $ind }
-        } else {
-            $acc
-        }
-    }"#,
-                description: "Find the length and index of the longest string",
-                result: Some(Value::Record {
-                    cols: vec!["len".to_string(), "index".to_string()],
-                    vals: vec![
-                        Value::Int {
-                            val: 7,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 1,
-                            span: Span::test_data(),
-                        },
-                    ],
-                    span: Span::test_data(),
-                }),
+                example: r#"['foo.gz', 'bar.gz', 'baz.gz'] | reduce -f '' {|str all ind| $"($all)(if $ind != 0 {'; '})($ind + 1)-($str)" }"#,
+                description:
+                    "Add ascending numbers to each of the filenames, and join with semicolons.",
+                result: Some(Value::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
             },
         ]
     }
