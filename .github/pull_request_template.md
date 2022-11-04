@@ -2,6 +2,12 @@
 
 (Description of your pull request goes here. **Provide examples and/or screenshots** unless the change is trivial)
 
+## Before Submitting
+
+If your change is non-trivial, for example a new feature or a breaking change, make sure you've got a green light from the core team either on [Discord](https://discordapp.com/invite/NtAbbGn) or [GitHub issue](https://github.com/nushell/nushell/issues/new/choose).
+Making sure we're all on board with the change saves everybody's time.
+Thanks!
+
 # Tests + Formatting
 
 Make sure you've done the following, if applicable:
