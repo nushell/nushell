@@ -74,7 +74,7 @@ impl NuProcess {
     }
 
     pub fn construct(&self) -> Command {
-        let mut command = Command::new(&executable_path());
+        let mut command = Command::new(executable_path());
 
         if let Some(cwd) = self.get_cwd() {
             command.current_dir(cwd);
@@ -84,7 +84,7 @@ impl NuProcess {
 
         let paths = vec![test_bins_path()];
 
-        let paths_joined = match std::env::join_paths(&paths) {
+        let paths_joined = match std::env::join_paths(paths) {
             Ok(all) => all,
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };

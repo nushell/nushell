@@ -32,7 +32,7 @@ fn expand_path_no_change() {
     let path = "/foo/bar";
 
     let cwd = std::env::current_dir().expect("Could not get current directory");
-    let actual = expand_path_with(&path, cwd);
+    let actual = expand_path_with(path, cwd);
 
     assert_eq!(actual, PathBuf::from(path));
 }

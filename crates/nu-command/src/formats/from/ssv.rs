@@ -141,7 +141,7 @@ fn parse_aligned_columns<'a>(
     let parse_without_headers = |ls: Vec<&str>| {
         let mut indices = ls
             .iter()
-            .flat_map(|s| find_indices(*s))
+            .flat_map(|s| find_indices(s))
             .collect::<Vec<usize>>();
 
         indices.sort_unstable();

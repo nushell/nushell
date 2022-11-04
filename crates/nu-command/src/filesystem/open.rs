@@ -97,7 +97,7 @@ impl Command for Open {
         let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
         let path = Path::new(path_no_whitespace);
 
-        if permission_denied(&path) {
+        if permission_denied(path) {
             #[cfg(unix)]
             let error_msg = match path.metadata() {
                 Ok(md) => format!(

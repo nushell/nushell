@@ -295,7 +295,7 @@ fn move_file(
 fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> {
     // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
     // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
-    std::fs::rename(&from, &to).or_else(|_| {
+    std::fs::rename(from, to).or_else(|_| {
         match if from.is_file() {
             let mut options = fs_extra::file::CopyOptions::new();
             options.overwrite = true;

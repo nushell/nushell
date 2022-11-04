@@ -284,8 +284,8 @@ fn rm(
     }
 
     Ok(all_targets
-        .into_iter()
-        .map(move |(f, _)| {
+        .into_keys()
+        .map(move |f| {
             let is_empty = || match f.read_dir() {
                 Ok(mut p) => p.next().is_none(),
                 Err(_) => false,

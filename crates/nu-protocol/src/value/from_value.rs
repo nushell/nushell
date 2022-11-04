@@ -25,11 +25,11 @@ impl FromValue for Spanned<i64> {
                 span: *span,
             }),
             Value::Filesize { val, span } => Ok(Spanned {
-                item: *val as i64,
+                item: *val,
                 span: *span,
             }),
             Value::Duration { val, span } => Ok(Spanned {
-                item: *val as i64,
+                item: *val,
                 span: *span,
             }),
 
@@ -47,8 +47,8 @@ impl FromValue for i64 {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
             Value::Int { val, .. } => Ok(*val),
-            Value::Filesize { val, .. } => Ok(*val as i64),
-            Value::Duration { val, .. } => Ok(*val as i64),
+            Value::Filesize { val, .. } => Ok(*val),
+            Value::Duration { val, .. } => Ok(*val),
 
             v => Err(ShellError::CantConvert(
                 "integer".into(),

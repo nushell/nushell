@@ -376,8 +376,8 @@ fn helper(
     let headers = args.headers;
     let raw = args.raw;
     let login = match (user, password) {
-        (Some(user), Some(password)) => Some(encode(&format!("{}:{}", user, password))),
-        (Some(user), _) => Some(encode(&format!("{}:", user))),
+        (Some(user), Some(password)) => Some(encode(format!("{}:{}", user, password))),
+        (Some(user), _) => Some(encode(format!("{}:", user))),
         _ => None,
     };
 
