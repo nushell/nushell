@@ -23,5 +23,5 @@ Make sure you've run and fixed any issues with these commands:
 
 # After Submitting
 
-If your PR affects the user experience of Nushell (adding/removing a command, changing an input/output type, etc.), make sure the changes are reflected in the documentation (https://github.com/nushell/nushell.github.io) and update it if necessary.
-This helps us keep the docs up to date.
+* Get another regular contributor to review the PR.
+* If your PR affects the user experience of Nushell (adding/removing a command, changing an input/output type, etc.), make sure the changes are reflected in the documentation (https://github.com/nushell/nushell.github.io) after the PR is merged. This helps us keep the docs up to date.
