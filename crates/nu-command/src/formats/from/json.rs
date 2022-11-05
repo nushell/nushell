@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -76,11 +76,10 @@ impl Command for FromJson {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let config = engine_state.get_config();
-        let string_input = input.collect_string("", config)?;
+        let (string_input, metadata) = input.collect_string_strict(span)?;
 
         if string_input.is_empty() {
-            return Ok(PipelineData::new(span));
+            return Ok(PipelineData::new_with_metadata(metadata, span));
         }
 
         // TODO: turn this into a structured underline of the nu_json error
@@ -98,9 +97,16 @@ impl Command for FromJson {
                     }
                 })
                 .collect();
-            Ok(converted_lines.into_pipeline_data(engine_state.ctrlc.clone()))
+            match metadata {
+                Some(metadata) => Ok(converted_lines
+                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone())),
+                None => Ok(converted_lines.into_pipeline_data(engine_state.ctrlc.clone())),
+            }
         } else {
-            Ok(convert_string_to_value(string_input, span)?.into_pipeline_data())
+            Ok(PipelineData::Value(
+                convert_string_to_value(string_input, span)?,
+                metadata,
+            ))
         }
     }
 }

@@ -211,6 +211,33 @@ impl PipelineData {
         }
     }
 
+    /// Retrieves string from pipline data.
+    ///
+    /// As opposed to `collect_string` this raises error rather than converting non-string values.
+    /// The `span` will be used if `ListStream` is encountered since it doesn't carry a span.
+    pub fn collect_string_strict(
+        self,
+        span: Span,
+    ) -> Result<(String, Option<PipelineMetadata>), ShellError> {
+        match self {
+            PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, metadata)),
+            PipelineData::Value(val, _) => {
+                Err(ShellError::TypeMismatch("string".into(), val.span()?))
+            }
+            PipelineData::ListStream(_, _) => Err(ShellError::TypeMismatch("string".into(), span)),
+            PipelineData::ExternalStream {
+                stdout: None,
+                metadata,
+                ..
+            } => Ok((String::new(), metadata)),
+            PipelineData::ExternalStream {
+                stdout: Some(stdout),
+                metadata,
+                ..
+            } => Ok((stdout.into_string()?.item, metadata)),
+        }
+    }
+
     pub fn follow_cell_path(
         self,
         cell_path: &[PathMember],
