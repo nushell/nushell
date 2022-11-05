@@ -367,6 +367,7 @@ impl Command for ParEach {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use nu_test_support::{nu, pipeline};
 
     #[test]
@@ -377,5 +378,12 @@ mod test {
         ));
 
         assert_eq!(actual.out, "list<int>");
+    }
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(ParEach {})
     }
 }

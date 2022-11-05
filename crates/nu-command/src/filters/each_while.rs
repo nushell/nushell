@@ -65,7 +65,7 @@ impl Command for EachWhile {
 
         vec![
             Example {
-                example: "[1 2 3 2 1] | each while { if $in < 3 { $in * 2 } }",
+                example: "[1 2 3 2 1] | each while {|e| if $e < 3 { $e * 2 } }",
                 description: "Produces a list of each element before the 3, doubled",
                 result: Some(Value::List {
                     vals: stream_test_1,
@@ -273,6 +273,7 @@ impl Command for EachWhile {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use nu_test_support::{nu, pipeline};
 
     #[test]
@@ -283,5 +284,11 @@ mod test {
         ));
 
         assert_eq!(actual.out, "[7, 9, 11, 13]");
+    }
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(EachWhile {})
     }
 }
