@@ -27,3 +27,18 @@ pub fn string_truncate(text: &str, width: usize) -> String {
         .with(tabled::Width::truncate(width))
         .to_string()
 }
+
+pub fn string_wrap(text: &str, width: usize) -> String {
+    // todo: change me...
+
+    if text.is_empty() {
+        return String::new();
+    }
+
+    tabled::builder::Builder::from_iter([[text]])
+        .build()
+        .with(tabled::Style::empty())
+        .with(tabled::Padding::zero())
+        .with(tabled::Width::wrap(width))
+        .to_string()
+}
