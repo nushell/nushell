@@ -225,27 +225,6 @@ fn removes_multiple_files_with_asterisks() {
 }
 
 #[test]
-fn removes_multiple_files_with_each() {
-    Playground::setup("rm_test_11b", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("a.txt"),
-            EmptyFile("b.txt"),
-            EmptyFile("c.txt"),
-        ]);
-
-        nu!(
-            cwd: dirs.test(),
-            "[[name]; [a.txt] [b.txt] [c.txt]] | each { rm $in.name }"
-        );
-
-        assert_eq!(
-            Playground::glob_vec(&format!("{}/*", dirs.test().display())),
-            Vec::<std::path::PathBuf>::new()
-        );
-    })
-}
-
-#[test]
 fn allows_doubly_specified_file() {
     Playground::setup("rm_test_12", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("yehuda.txt"), EmptyFile("jonathan.toml")]);
