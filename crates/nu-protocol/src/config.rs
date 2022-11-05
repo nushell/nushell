@@ -574,14 +574,14 @@ impl Value {
                             eprintln!("$env.config.{} is not a string", key)
                         }
                     }
-                    "menus" => match create_menus(value, &config) {
+                    "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
                         Err(e) => {
                             eprintln!("$env.config.{} is not a valid list of menus", key);
                             eprintln!("{:?}", e);
                         }
                     },
-                    "keybindings" => match create_keybindings(value, &config) {
+                    "keybindings" => match create_keybindings(value) {
                         Ok(keybindings) => config.keybindings = keybindings,
                         Err(e) => {
                             eprintln!("$env.config.{} is not a valid keybindings list", key);
