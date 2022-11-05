@@ -2,7 +2,7 @@
 
 (Description of your pull request goes here. **Provide examples and/or screenshots** unless the change is trivial)
 
-## Before Submitting
+# Before Submitting
 
 If your change is a new feature, change to an existing feature, or a breaking change, make sure you've got a green light from the core team either on [Discord](https://discordapp.com/invite/NtAbbGn) or [GitHub issue](https://github.com/nushell/nushell/issues/new/choose).
 Making sure we're all on board with the change saves everybody's time.
