@@ -124,7 +124,7 @@ fn error_reduce_empty() {
 fn uses_optional_index_argument() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[18 19 20] | reduce -f 0 {|e a i| $a + $i } | to nuon"#
+        r#"[18 19 20] | reduce -f 0 {|elem accum index| $accum + $index } | to nuon"#
     ));
 
     assert_eq!(actual.out, "3");
