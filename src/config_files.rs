@@ -12,7 +12,7 @@ pub(crate) const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";
 const ENV_FILE: &str = "env.nu";
 const LOGINSHELL_FILE: &str = "login.nu";
-
+const COMPLETE_DIR: &str = "completions";
 pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -105,6 +105,37 @@ pub(crate) fn read_config_file(
     }
 
     info!("read_config_file {}:{}:{}", file!(), line!(), column!());
+}
+
+pub(crate) fn read_complete_file(engine_state: &mut EngineState, stack: &mut Stack) {
+    use nu_glob::glob;
+
+    #[cfg(unix)]
+    if let Ok(entrys) = glob("/usr/share/nu/complete/**/init.nu") {
+        for entry in entrys.flatten() {
+            eval_config_contents(entry, engine_state, stack)
+        }
+    }
+
+    if let Some(mut config_path) = nu_path::config_dir() {
+        config_path.push(NUSHELL_FOLDER);
+        config_path.push(COMPLETE_DIR);
+        if let Some(path) = config_path.to_str() {
+            #[cfg(unix)]
+            if let Ok(entrys) = glob(&format!("{path}/**/init.nu")) {
+                for entry in entrys.flatten() {
+                    eval_config_contents(entry, engine_state, stack)
+                }
+            }
+            #[cfg(windows)]
+            if let Ok(entrys) = glob(&format!("{path}\\**\\init.nu")) {
+                for entry in entrys.flatten() {
+                    eval_config_contents(entry, engine_state, stack)
+                }
+            }
+        }
+    }
+    info!("read_complete_file {}:{}:{}", file!(), line!(), column!());
 }
 
 pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut Stack) {

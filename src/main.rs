@@ -467,6 +467,7 @@ fn setup_config(
 
     config_files::read_config_file(engine_state, stack, env_file, true);
     config_files::read_config_file(engine_state, stack, config_file, false);
+    config_files::read_complete_file(engine_state, stack);
 
     if is_login_shell {
         config_files::read_loginshell_file(engine_state, stack);

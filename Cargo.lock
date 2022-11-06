@@ -2496,6 +2496,7 @@ dependencies = [
  "nu-color-config",
  "nu-command",
  "nu-engine",
+ "nu-glob",
  "nu-json",
  "nu-parser",
  "nu-path",
