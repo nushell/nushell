@@ -32,7 +32,7 @@ impl Command for Sleep {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["delay", "wait", "sleep", "timer"]
+        vec!["delay", "wait", "timer"]
     }
 
     fn run(
