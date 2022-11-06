@@ -13,7 +13,7 @@ use crate::To;
 
 #[cfg(test)]
 use super::{
-    Ansi, Date, From, If, Into, LetEnv, Math, Path, Random, Split, SplitColumn, SplitRow, Str,
+    Ansi, Date, From, If, Into, Let, LetEnv, Math, Path, Random, Split, SplitColumn, SplitRow, Str,
     StrJoin, StrLength, StrReplace, Url, Wrap,
 };
 
@@ -47,6 +47,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         working_set.add_decl(Box::new(Url));
         working_set.add_decl(Box::new(Ansi));
         working_set.add_decl(Box::new(Wrap));
+        working_set.add_decl(Box::new(Let));
         working_set.add_decl(Box::new(LetEnv));
 
         use super::Echo;
