@@ -46,14 +46,14 @@ impl Command for Length {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Count the number of entries in a list",
-                example: "echo [1 2 3 4 5] | length",
+                description: "Count the number of items in a list",
+                example: "[1 2 3 4 5] | length",
                 result: Some(Value::test_int(5)),
             },
             Example {
-                description: "Count the number of columns in the calendar table",
-                example: "cal | length -c",
-                result: Some(Value::test_int(7)),
+                description: "Count the number of columns in a table",
+                example: "[{columnA: A0 columnB: B0}] | length -c",
+                result: Some(Value::test_int(2)),
             },
         ]
     }
@@ -120,5 +120,17 @@ fn getcol(
             let vals = vec![];
             Ok(Value::Record { cols, vals, span }.into_pipeline_data())
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Length {})
     }
 }
