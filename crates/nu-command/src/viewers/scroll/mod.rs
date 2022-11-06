@@ -93,8 +93,12 @@ pub(crate) fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     match value {
         Value::Record { cols, vals, .. } => (cols, vec![vals]),
         Value::List { vals, .. } => {
-            let columns = get_columns(&vals);
+            let mut columns = get_columns(&vals);
             let data = convert_records_to_dataset(&columns, vals);
+
+            if columns.is_empty() && !data.is_empty() {
+                columns = vec![String::from("")];
+            }
 
             (columns, data)
         }
@@ -108,9 +112,9 @@ pub(crate) fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
                 .map(|val| vec![val])
                 .collect();
 
-            (Vec::new(), lines)
+            (vec![String::from("")], lines)
         }
-        value => (Vec::new(), vec![vec![value]]),
+        value => (vec![String::from("")], vec![vec![value]]),
     }
 }
 

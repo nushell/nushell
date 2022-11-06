@@ -29,7 +29,7 @@ use tui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::Span,
-    widgets::{Block, Borders, StatefulWidget, Widget},
+    widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
     Frame, Terminal,
 };
 
@@ -103,8 +103,16 @@ where
             let mut layout = Layout::default();
 
             terminal.draw(|f| {
-                f.render_widget(tui::widgets::Clear, f.size());
-                f.render_stateful_widget(state.clone(), f.size(), &mut layout);
+                let area = f.size();
+
+                f.render_widget(tui::widgets::Clear, area);
+
+                let table = Table::from(&*state);
+                f.render_stateful_widget(table, area, &mut layout);
+
+                let status_area =
+                    Rect::new(area.left(), area.bottom().saturating_sub(2), area.width, 1);
+                render_status_bar(f, status_area, state, &layout);
 
                 if state.mode == UIMode::Cursor {
                     update_cursor(state, &layout);
@@ -150,6 +158,24 @@ where
             }
         }
     }
+}
+
+fn render_status_bar<B>(f: &mut Frame<B>, area: Rect, state: &UIState<'_>, layout: &Layout)
+where
+    B: Backend,
+{
+    let seen_rows = state.row_index + layout.count_rows();
+    let cursor = (state.mode == UIMode::Cursor).then(|| state.cursor);
+    let status_bar = StatusBar::new(
+        state.section_name.as_deref(),
+        cursor,
+        state.row_index,
+        state.column_index,
+        seen_rows,
+        state.count_rows(),
+    );
+
+    f.render_widget(status_bar, area);
 }
 
 fn get_current_value(state: &UIState<'_>) -> Value {
@@ -424,28 +450,140 @@ enum UIMode {
     View,
 }
 
-impl StatefulWidget for UIState<'_> {
+struct StatusBar<'a> {
+    section: Option<&'a str>,
+    cursor: Option<Position>,
+    row: usize,
+    column: usize,
+    seen_rows: usize,
+    total_rows: usize,
+}
+
+impl<'a> StatusBar<'a> {
+    fn new(
+        section: Option<&'a str>,
+        cursor: Option<Position>,
+        row: usize,
+        column: usize,
+        seen_rows: usize,
+        total_rows: usize,
+    ) -> Self {
+        Self {
+            section,
+            cursor,
+            row,
+            column,
+            seen_rows,
+            total_rows,
+        }
+    }
+}
+
+impl Widget for StatusBar<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        const BLOCK_COLOR: Color = Color::Rgb(196, 201, 198);
+        const TEXT_COLOR: Color = Color::Rgb(29, 31, 33);
+
+        let block_style = Style::default().bg(BLOCK_COLOR);
+        let text_style = Style::default()
+            .bg(BLOCK_COLOR)
+            .fg(TEXT_COLOR)
+            .add_modifier(Modifier::BOLD);
+
+        // colorize the line
+        let block = Block::default()
+            .borders(Borders::empty())
+            .style(block_style);
+        block.render(area, buf);
+
+        let percent_rows = get_percentage(self.seen_rows, self.total_rows);
+
+        let covered_percent = match percent_rows {
+            100 => String::from("All"),
+            _ if self.row == 0 => String::from("Top"),
+            value => format!("{}%", value),
+        };
+
+        let span = Span::styled(&covered_percent, text_style);
+        let covered_percent_w = covered_percent.len() as u16;
+        buf.set_span(
+            area.right().saturating_sub(covered_percent_w),
+            area.y,
+            &span,
+            covered_percent_w,
+        );
+
+        if let Some(name) = self.section {
+            let width = area.width.saturating_sub(3 + 12 + 12 + 12);
+            let name = nu_table::string_truncate(name, width as usize);
+            let span = Span::styled(name, text_style);
+            buf.set_span(area.left(), area.y, &span, width);
+        }
+
+        if let Some(pos) = self.cursor {
+            render_cursor_position(buf, area, text_style, pos, self.row, self.column);
+        }
+    }
+}
+
+fn render_cursor_position(
+    buf: &mut Buffer,
+    area: Rect,
+    text_style: Style,
+    pos: Position,
+    row: usize,
+    column: usize,
+) {
+    let actual_row = row + pos.y as usize;
+    let actual_column = column + pos.x as usize;
+
+    let text = format!("{},{}", actual_row, actual_column);
+    let width = text.len() as u16;
+
+    let span = Span::styled(text, text_style);
+    buf.set_span(
+        area.right().saturating_sub(3 + 12 + width),
+        area.y,
+        &span,
+        width,
+    );
+}
+
+struct Table<'a> {
+    columns: &'a [String],
+    data: &'a [Vec<Value>],
+    config: &'a Config,
+    color_hm: &'a NuStyleTable,
+    column_index: usize,
+    row_index: usize,
+    show_index: bool,
+    show_header: bool,
+}
+
+impl<'a> From<&'a UIState<'_>> for Table<'a> {
+    fn from(state: &'a UIState<'_>) -> Self {
+        Self {
+            columns: &state.columns,
+            data: &state.data,
+            config: state.config,
+            color_hm: state.color_hm,
+            column_index: state.column_index,
+            row_index: state.row_index,
+            show_index: state.show_index,
+            show_header: state.show_header,
+        }
+    }
+}
+
+impl StatefulWidget for Table<'_> {
     type State = Layout;
 
     fn render(
-        mut self,
+        self,
         area: tui::layout::Rect,
         buf: &mut tui::buffer::Buffer,
         state: &mut Self::State,
     ) {
-        // small hacks
-        // todo: refactorings to split into 3 different widgits
-        if self.columns.is_empty() {
-            self.show_header = false;
-            self.columns = Cow::Owned(vec![String::new()]);
-
-            // could be usefull only in popup mode
-            // if !self.is_main && data.len() == 1 {
-            //     Paragraph::new(data[0].0.as_str()).render(area, buf);
-            //     return;
-            // }
-        }
-
         const CELL_PADDING_LEFT: u16 = 2;
         const CELL_PADDING_RIGHT: u16 = 2;
 
@@ -489,15 +627,8 @@ impl StatefulWidget for UIState<'_> {
         }
 
         if show_index {
-            width = render_column_index(
-                buf,
-                height,
-                self.row_index,
-                show_head,
-                head_offset,
-                self.color_hm,
-            );
-
+            let area = Rect::new(width, area.y + head_offset, area.width, height);
+            width += render_index(buf, area, self.color_hm, self.row_index);
             width += render_vertical(buf, width, head_offset, height, show_head);
         }
 
@@ -569,16 +700,6 @@ impl StatefulWidget for UIState<'_> {
             }
         }
 
-        // status_bar
-        let status_bar_area = Rect::new(area.x, area.bottom().saturating_sub(1), area.width, 1);
-        render_status_bar(
-            buf,
-            status_bar_area,
-            &self,
-            state.count_rows() as u16,
-            state.count_columns() as u16,
-        );
-
         if do_render_shift_column {
             // we actually want to show a shift only in header.
             //
@@ -604,6 +725,68 @@ impl StatefulWidget for UIState<'_> {
             }
         }
     }
+}
+
+struct IndexColumn<'a> {
+    color_hm: &'a NuStyleTable,
+    start: usize,
+}
+
+impl<'a> IndexColumn<'a> {
+    fn new(color_hm: &'a NuStyleTable, start: usize) -> Self {
+        Self { color_hm, start }
+    }
+
+    fn estimate_width(&self, height: u16) -> usize {
+        let last_row = self.start + height as usize;
+        last_row.to_string().len()
+    }
+}
+
+impl Widget for IndexColumn<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let style = nu_style_to_tui(self.color_hm["row_index"]);
+
+        for row in 0..area.height {
+            let i = row as usize + self.start;
+            let text = i.to_string();
+
+            let p = Paragraph::new(text)
+                .style(style)
+                .alignment(tui::layout::Alignment::Right);
+            let area = Rect::new(area.x, area.y + row, area.width, 1);
+
+            p.render(area, buf);
+        }
+    }
+}
+
+fn nu_style_to_tui(style: NuStyle) -> tui::style::Style {
+    let mut out = tui::style::Style::default();
+    if let Some(clr) = style.background {
+        out.bg = nu_ansi_color_to_tui_color(clr);
+    }
+
+    if let Some(clr) = style.foreground {
+        out.fg = nu_ansi_color_to_tui_color(clr);
+    }
+
+    out
+}
+
+fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_index: usize) -> u16 {
+    let mut width = render_space(buf, area.x, area.y, area.height, 2);
+
+    let index = IndexColumn::new(color_hm, start_index);
+    let w = index.estimate_width(area.height) as u16;
+    let area = Rect::new(area.x + width, area.y, w, area.height);
+
+    index.render(area, buf);
+
+    width += w;
+    width += render_space(buf, area.x + width, area.y, area.height, 1);
+
+    width
 }
 
 #[derive(Debug, Default)]
@@ -822,65 +1005,6 @@ fn truncate_column(
     control
 }
 
-fn render_status_bar(
-    buf: &mut Buffer,
-    area: Rect,
-    state: &UIState<'_>,
-    showed_rows: u16,
-    _showed_columns: u16,
-) {
-    let block_clr = Color::Rgb(196, 201, 198);
-    let text_clr = Color::Rgb(29, 31, 33);
-    let block_style = Style::default().bg(block_clr);
-    let text_style = Style::default()
-        .bg(block_clr)
-        .fg(text_clr)
-        .add_modifier(Modifier::BOLD);
-
-    let covered_rows = count_covered_rows(state, showed_rows);
-    let percent_rows = get_percentage(covered_rows, state.count_rows());
-
-    let block = Block::default()
-        .borders(Borders::empty())
-        .style(block_style);
-    block.render(area, buf);
-
-    let row_value = match percent_rows {
-        100 => String::from("All"),
-        _ if state.row_index == 0 => String::from("Top"),
-        value => value.to_string(),
-    };
-
-    let span = Span::styled(row_value, text_style);
-    buf.set_span(area.right().saturating_sub(3), area.y, &span, 3);
-
-    if let Some(name) = &state.section_name {
-        let width = area.width.saturating_sub(3 + 12 + 12 + 12);
-        let name = nu_table::string_truncate(name, width as usize);
-        let span = Span::styled(name, text_style);
-        buf.set_span(area.left(), area.y, &span, width);
-    }
-
-    if state.mode == UIMode::Cursor {
-        let current_row = state.row_index + state.cursor.y as usize;
-        let current_column = state.column_index + state.cursor.x as usize;
-        let position = format!("{},{}", current_row, current_column);
-        let width = position.len() as u16;
-
-        let span = Span::styled(position, text_style);
-        buf.set_span(
-            area.right().saturating_sub(3 + 12 + width),
-            area.y,
-            &span,
-            width,
-        );
-    }
-}
-
-fn count_covered_rows(state: &UIState<'_>, showed_rows: u16) -> usize {
-    state.row_index + showed_rows as usize
-}
-
 fn get_percentage(value: usize, max: usize) -> usize {
     debug_assert!(value <= max, "{:?} {:?}", value, max);
 
@@ -925,44 +1049,6 @@ fn truncate_str(text: &mut String, width: usize) {
     }
 }
 
-fn render_column_index(
-    buf: &mut Buffer,
-    height: u16,
-    starts_at: usize,
-    show_header: bool,
-    header_offset: u16,
-    color_hm: &NuStyleTable,
-) -> u16 {
-    const CELL_PADDING_LEFT: u16 = 2;
-    const CELL_PADDING_RIGHT: u16 = 2;
-
-    let mut head = (String::new(), TextStyle::default());
-    let mut head_width = 0;
-    if show_header {
-        head = get_index_column_name(color_hm);
-        head_width = string_width(&head.0) as u16;
-    }
-
-    let index = (0..height as usize)
-        .map(|i| i + starts_at)
-        .map(|i| create_column_index(i, color_hm))
-        .collect::<Vec<_>>();
-
-    let index_col_width = index
-        .last()
-        .map(|(s, _)| string_width(s) as u16)
-        .unwrap_or(0);
-    let index_width = max(head_width, index_col_width);
-
-    render_column(buf, CELL_PADDING_LEFT, header_offset, index_width, &index);
-
-    if show_header {
-        render_column(buf, CELL_PADDING_LEFT, 1, index_width, &[head]);
-    }
-
-    index_width + CELL_PADDING_LEFT + CELL_PADDING_RIGHT
-}
-
 fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16) -> u16 {
     let style = TextStyle {
         alignment: Alignment::Left,
@@ -975,7 +1061,7 @@ fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16) -> u16 {
 }
 
 fn render_vertical(buf: &mut Buffer, x: u16, y: u16, height: u16, show_header: bool) -> u16 {
-    render_vertical_split(buf, x, y, height + 1);
+    render_vertical_split(buf, x, y, height);
 
     if show_header && y > 0 {
         render_top_connector(buf, x, y - 1);
@@ -999,14 +1085,6 @@ fn render_top_connector(buf: &mut Buffer, x: u16, y: u16) {
     let style = Style::default().fg(Color::Rgb(64, 64, 64));
     let span = Span::styled("┬", style);
     buf.set_span(x, y, &span, 1);
-}
-
-fn get_index_column_name(color_hm: &NuStyleTable) -> NuText {
-    make_styled_string(String::from("index"), "string", 0, true, color_hm, 0)
-}
-
-fn create_column_index(i: usize, color_hm: &NuStyleTable) -> NuText {
-    make_styled_string(i.to_string(), "string", 0, true, color_hm, 0)
 }
 
 fn render_space(buf: &mut Buffer, x: u16, y: u16, height: u16, padding: u16) -> u16 {
