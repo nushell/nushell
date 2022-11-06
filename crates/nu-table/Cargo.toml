@@ -7,11 +7,6 @@ license = "MIT"
 name = "nu-table"
 version = "0.70.1"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[[bin]]
-name = "table"
-path = "src/main.rs"
-
 [dependencies]
 nu-ansi-term = "0.46.0"
 nu-protocol = { path = "../nu-protocol", version = "0.70.1" }
