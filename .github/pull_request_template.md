@@ -4,7 +4,7 @@
 
 # Major Changes
 
-If you add or change a feature, especially if the change is user-facing, seek feedback from regular contributors and get an approval from the core team either on [Discord](https://discordapp.com/invite/NtAbbGn) or [GitHub issue](https://github.com/nushell/nushell/issues/new/choose).
+If you're considering making any major change to nushell, before starting work on it, seek feedback from regular contributors and get approval for the idea from the core team either on [Discord](https://discordapp.com/invite/NtAbbGn) or [GitHub issue](https://github.com/nushell/nushell/issues/new/choose).
 Making sure we're all on board with the change saves everybody's time.
 Thanks!
 
