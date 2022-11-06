@@ -208,7 +208,7 @@ fn parses_utf16_ini() {
     assert_eq!(actual.out, "-236")
 }
 
-#[cfg(feature = "database")]
+#[cfg(feature = "dataframe")]
 #[test]
 fn parses_arrow_ipc() {
     let actual = nu!(

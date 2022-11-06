@@ -548,7 +548,7 @@ impl ExternalCommand {
             .to_string_lossy()
             .to_string();
 
-        let mut process = std::process::Command::new(&head);
+        let mut process = std::process::Command::new(head);
 
         for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
             // if arg is quoted, like "aa", 'aa', `aa`, or:

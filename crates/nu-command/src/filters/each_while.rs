@@ -36,21 +36,39 @@ impl Command for EachWhile {
     fn examples(&self) -> Vec<Example> {
         let stream_test_1 = vec![
             Value::Int {
-                val: 1,
+                val: 2,
                 span: Span::test_data(),
             },
             Value::Int {
-                val: 2,
+                val: 4,
+                span: Span::test_data(),
+            },
+        ];
+        let stream_test_2 = vec![
+            Value::String {
+                val: "Output: 1".into(),
+                span: Span::test_data(),
+            },
+            Value::String {
+                val: "Output: 2".into(),
                 span: Span::test_data(),
             },
         ];
 
         vec![
             Example {
-                example: "[1 2 3] | each while { |it| if $it < 3 { $it } else { null } }",
-                description: "Multiplies elements in list",
+                example: "[1 2 3] | each while { |it| if $it < 3 { $it * 2 } else { null } }",
+                description: "Multiplies elements below three by two",
                 result: Some(Value::List {
                     vals: stream_test_1,
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: r#"[1 2 stop 3 4] | each while { |it| if $it == 'stop' { null } else { $"Output: ($it)" } }"#,
+                description: "Output elements till reaching 'stop'",
+                result: Some(Value::List {
+                    vals: stream_test_2,
                     span: Span::test_data(),
                 }),
             },
@@ -140,6 +158,7 @@ impl Command for EachWhile {
                         Err(_) => None,
                     }
                 })
+                .fuse()
                 .into_pipeline_data(ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
             PipelineData::ExternalStream {
@@ -198,6 +217,7 @@ impl Command for EachWhile {
                         Err(_) => None,
                     }
                 })
+                .fuse()
                 .into_pipeline_data(ctrlc)),
             PipelineData::Value(x, ..) => {
                 if let Some(var) = block.signature.get_positional(0) {

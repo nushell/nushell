@@ -363,15 +363,12 @@ pub fn highlight_search_string(
         }
     };
     // strip haystack to remove existing ansi style
-    let stripped_haystack: String = match strip_ansi_escapes::strip(haystack) {
-        Ok(i) => String::from_utf8(i).unwrap_or_else(|_| String::from(haystack)),
-        Err(_) => String::from(haystack),
-    };
+    let stripped_haystack = nu_utils::strip_ansi_likely(haystack);
     let mut last_match_end = 0;
     let style = Style::new().fg(White).on(Red);
     let mut highlighted = String::new();
 
-    for cap in regex.captures_iter(stripped_haystack.as_str()) {
+    for cap in regex.captures_iter(stripped_haystack.as_ref()) {
         match cap {
             Ok(capture) => {
                 let start = match capture.get(0) {

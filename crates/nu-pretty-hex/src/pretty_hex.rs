@@ -174,7 +174,7 @@ where
         .iter()
         .skip(skip)
         .take(amount)
-        .map(|&x| x as u8)
+        .copied()
         .collect();
 
     if cfg.title {

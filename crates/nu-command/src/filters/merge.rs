@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Value,
+    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -15,15 +15,25 @@ impl Command for Merge {
     }
 
     fn usage(&self) -> &str {
-        "Merge a table into an input table"
+        "Merge the input with a record or table, overwriting values in matching columns."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"You may provide a column structure to merge, or a block
+that generates a column structure.
+
+When merging tables, row 0 of the input table is overwritten
+with values from row 0 of the provided table, then
+repeating this process with row 1, and so on."#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("merge")
             .required(
                 "block",
-                SyntaxShape::Block(Some(vec![])),
-                "the block to run and merge into the table",
+                // Both this and `update` should have a shape more like <record> | <table> | <block> than just <any>. -Leon 2022-10-27
+                SyntaxShape::Any,
+                "the new value to merge with, or a block that produces it",
             )
             .category(Category::Filters)
     }
@@ -32,7 +42,7 @@ impl Command for Merge {
         vec![
             Example {
                 example: "[a b c] | wrap name | merge { [1 2 3] | wrap index }",
-                description: "Merge an index column into the input table",
+                description: "Add an 'index' column to the input table",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_record(
@@ -52,7 +62,7 @@ impl Command for Merge {
                 }),
             },
             Example {
-                example: "{a: 1, b: 2} | merge { {c: 3} }",
+                example: "{a: 1, b: 2} | merge {c: 3}",
                 description: "Merge two records",
                 result: Some(Value::test_record(
                     vec!["a", "b", "c"],
@@ -60,8 +70,8 @@ impl Command for Merge {
                 )),
             },
             Example {
-                example: "{a: 1, b: 3} | merge { {b: 2, c: 4} }",
-                description: "Merge two records with overlap key",
+                example: "{a: 1, b: 3} | merge { { b: 2 } | merge { c: 4 } }",
+                description: "Merge records, overwriting overlapping values",
                 result: Some(Value::test_record(
                     vec!["a", "b", "c"],
                     vec![Value::test_int(1), Value::test_int(2), Value::test_int(4)],
@@ -77,35 +87,47 @@ impl Command for Merge {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let block: CaptureBlock = call.req(engine_state, stack, 0)?;
-        let mut stack = stack.captures_to_stack(&block.captures);
+        let replacement: Value = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
-        let block = engine_state.get_block(block.block_id);
         let call = call.clone();
 
-        let result = eval_block(
-            engine_state,
-            &mut stack,
-            block,
-            PipelineData::new(call.head),
-            call.redirect_stdout,
-            call.redirect_stderr,
-        );
+        let argument_was_block = replacement.as_block().is_ok();
 
-        let table = match result {
-            Ok(res) => res,
-            Err(e) => return Err(e),
+        let merge_value: Value = if argument_was_block {
+            // When given a block, run it to obtain the matching value.
+            let capture_block: CaptureBlock = FromValue::from_value(&replacement)?;
+
+            let mut stack = stack.captures_to_stack(&capture_block.captures);
+            stack.with_env(&stack.env_vars.clone(), &stack.env_hidden.clone());
+
+            let block = engine_state.get_block(capture_block.block_id);
+            let result = eval_block(
+                engine_state,
+                &mut stack,
+                block,
+                PipelineData::new(call.head),
+                call.redirect_stdout,
+                call.redirect_stderr,
+            );
+
+            match result {
+                Ok(res) => res.into_value(call.head),
+                Err(e) => return Err(e),
+            }
+        } else {
+            // Otherwise, just use the passed-in value as-is.
+            replacement
         };
 
-        match (&input, &table) {
+        match (&input, merge_value) {
             // table (list of records)
             (
                 PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. },
-                PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. },
+                Value::List { vals, .. },
             ) => {
-                let mut table_iter = table.into_iter();
+                let mut table_iter = vals.into_iter();
 
                 let res =
                     input
@@ -147,14 +169,11 @@ impl Command for Merge {
                     },
                     ..,
                 ),
-                PipelineData::Value(
-                    Value::Record {
-                        cols: to_merge_cols,
-                        vals: to_merge_vals,
-                        ..
-                    },
-                    ..,
-                ),
+                Value::Record {
+                    cols: to_merge_cols,
+                    vals: to_merge_vals,
+                    ..
+                },
             ) => {
                 let (cols, vals) = do_merge(
                     (inp_cols.to_vec(), inp_vals.to_vec()),
@@ -167,21 +186,29 @@ impl Command for Merge {
                 }
                 .into_pipeline_data())
             }
-            (_, PipelineData::Value(val, ..)) | (PipelineData::Value(val, ..), _) => {
-                let span = if val.span()? == Span::test_data() {
+            (PipelineData::Value(val, ..), merge_value) => {
+                // Only point the "value originates here" arrow at the merge value
+                // if it was generated from a block. Otherwise, point at the pipeline value. -Leon 2022-10-27
+                let span = if argument_was_block {
+                    if merge_value.span()? == Span::test_data() {
+                        Span::new(call.head.start, call.head.start)
+                    } else {
+                        merge_value.span()?
+                    }
+                } else if val.span()? == Span::test_data() {
                     Span::new(call.head.start, call.head.start)
                 } else {
                     val.span()?
                 };
 
                 Err(ShellError::PipelineMismatch(
-                    "record or table in both the input and the argument block".to_string(),
+                    "input, and argument, to be both record or both table".to_string(),
                     call.head,
                     span,
                 ))
             }
             _ => Err(ShellError::PipelineMismatch(
-                "record or table in both the input and the argument block".to_string(),
+                "input, and argument, to be both record or both table".to_string(),
                 call.head,
                 Span::new(call.head.start, call.head.start),
             )),

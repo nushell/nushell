@@ -69,7 +69,7 @@ signal-hook = { version = "0.3.14", default-features = false }
 winres = "0.1"
 
 [target.'cfg(target_family = "unix")'.dependencies]
-nix = "0.24"
+nix = { version = "0.25", default-features = false, features = ["signal", "process", "fs", "term"]}
 atty = "0.2"
 
 [dev-dependencies]

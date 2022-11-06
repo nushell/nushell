@@ -22,7 +22,6 @@ nu-protocol = { path = "../nu-protocol", version = "0.70.1"  }
 nu-system = { path = "../nu-system", version = "0.70.1"  }
 nu-table = { path = "../nu-table", version = "0.70.1"  }
 nu-term-grid = { path = "../nu-term-grid", version = "0.70.1"  }
-nu-test-support = { path = "../nu-test-support", version = "0.70.1"  }
 nu-utils = { path = "../nu-utils", version = "0.70.1" }
 nu-ansi-term = "0.46.0"
 num-format = { version = "0.4.3" }
@@ -55,7 +54,7 @@ is-root = "0.1.2"
 itertools = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
-lscolors = { version = "0.12.0", features = ["crossterm"]}
+lscolors = { version = "0.12.0", features = ["crossterm"], default-features = false }
 md5 = { package = "md-5", version = "0.10.0" }
 meval = "0.2.0"
 mime = "0.3.16"
@@ -78,7 +77,6 @@ serde_yaml = "0.9.4"
 sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
 shadow-rs = { version = "0.16.1", default-features = false }
-strip-ansi-escapes = "0.1.1"
 sysinfo = "0.26.2"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"
@@ -99,6 +97,7 @@ winreg = "0.10.1"
 [target.'cfg(unix)'.dependencies]
 umask = "2.0.0"
 users = "0.11.0"
+libc = "0.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
 version = "2.1.3"
@@ -154,6 +153,8 @@ database = ["sqlparser", "rusqlite"]
 shadow-rs = { version = "0.16.1", default-features = false }
 
 [dev-dependencies]
+nu-test-support = { path = "../nu-test-support", version = "0.70.1"  }
+
 hamcrest2 = "0.3.0"
 dirs-next = "2.0.0"
 proptest = "1.0.0"

@@ -67,3 +67,43 @@ fn checks_if_all_returns_error_with_invalid_command() {
 
     assert!(actual.err.contains("can't run executable") || actual.err.contains("did you mean"));
 }
+
+#[test]
+fn works_with_1_param_blocks() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[1 2 3] | all {|e| print $e | true }"#
+    ));
+
+    assert_eq!(actual.out, "123true");
+}
+
+#[test]
+fn works_with_0_param_blocks() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[1 2 3] | all { print $in | true }"#
+    ));
+
+    assert_eq!(actual.out, "123true");
+}
+
+#[test]
+fn early_exits_with_1_param_blocks() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[1 2 3] | all {|e| print $e | false }"#
+    ));
+
+    assert_eq!(actual.out, "1false");
+}
+
+#[test]
+fn early_exits_with_0_param_blocks() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[1 2 3] | all { print $in | false }"#
+    ));
+
+    assert_eq!(actual.out, "1false");
+}

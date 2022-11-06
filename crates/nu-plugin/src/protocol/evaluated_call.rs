@@ -96,9 +96,11 @@ impl EvaluatedCall {
     pub fn req<T: FromValue>(&self, pos: usize) -> Result<T, ShellError> {
         if let Some(value) = self.nth(pos) {
             FromValue::from_value(&value)
+        } else if self.positional.is_empty() {
+            Err(ShellError::AccessEmptyContent(self.head))
         } else {
             Err(ShellError::AccessBeyondEnd(
-                self.positional.len(),
+                self.positional.len() - 1,
                 self.head,
             ))
         }

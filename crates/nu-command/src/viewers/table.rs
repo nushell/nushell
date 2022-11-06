@@ -443,9 +443,13 @@ fn build_expanded_table(
         let value = if is_limited {
             value_to_styled_string(&value, 0, config, &color_hm).0
         } else {
-            let vals = match value {
+            let mut is_record = false;
+            let mut vals = match value {
                 Value::List { vals, .. } => vals,
-                value => vec![value],
+                value => {
+                    is_record = true;
+                    vec![value]
+                }
             };
 
             let deep = expand_limit.map(|i| i - 1);
@@ -465,15 +469,44 @@ fn build_expanded_table(
             match table {
                 Some(mut table) => {
                     // controll width via removing table columns.
-                    let theme = load_theme_from_config(config);
-                    table.truncate(remaining_width, &theme);
+                    let count_cols = table.size().1;
+                    let is_empty = table.truncate(remaining_width, &theme);
+                    let was_left_only_index =
+                        table.is_with_index() && table.size().1 == 2 && count_cols != 2;
+                    let was_truncated = is_empty || was_left_only_index;
 
-                    let result =
-                        table.draw_table(config, &color_hm, alignments, &theme, remaining_width);
-                    is_expanded = true;
-                    match result {
-                        Some(result) => result,
-                        None => return Ok(None),
+                    if is_record && vals.len() == 1 && was_truncated {
+                        match vals.remove(0) {
+                            Value::Record { cols, vals, .. } => {
+                                let t = build_general_table2(
+                                    cols,
+                                    vals,
+                                    ctrlc.clone(),
+                                    config,
+                                    remaining_width,
+                                )?;
+
+                                match t {
+                                    Some(val) => val,
+                                    None => return Ok(None),
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                    } else {
+                        let theme = load_theme_from_config(config);
+                        let result = table.draw_table(
+                            config,
+                            &color_hm,
+                            alignments,
+                            &theme,
+                            remaining_width,
+                        );
+                        is_expanded = true;
+                        match result {
+                            Some(result) => result,
+                            None => return Ok(None),
+                        }
                     }
                 }
                 None => {
@@ -1361,17 +1394,14 @@ fn render_path_name(
         return None;
     }
 
-    let stripped_path = match strip_ansi_escapes::strip(path) {
-        Ok(v) => String::from_utf8(v).unwrap_or_else(|_| path.to_owned()),
-        Err(_) => path.to_owned(),
-    };
+    let stripped_path = nu_utils::strip_ansi_unlikely(path);
 
-    let (style, has_metadata) = match std::fs::symlink_metadata(&stripped_path) {
+    let (style, has_metadata) = match std::fs::symlink_metadata(stripped_path.as_ref()) {
         Ok(metadata) => (
-            ls_colors.style_for_path_with_metadata(&stripped_path, Some(&metadata)),
+            ls_colors.style_for_path_with_metadata(stripped_path.as_ref(), Some(&metadata)),
             true,
         ),
-        Err(_) => (ls_colors.style_for_path(&stripped_path), false),
+        Err(_) => (ls_colors.style_for_path(stripped_path.as_ref()), false),
     };
 
     // clickable links don't work in remote SSH sessions
@@ -1383,9 +1413,9 @@ fn render_path_name(
         // .map(ToNuAnsiStyle::to_nu_ansi_style)
         .unwrap_or_default();
 
-    let full_path = PathBuf::from(&stripped_path)
+    let full_path = PathBuf::from(stripped_path.as_ref())
         .canonicalize()
-        .unwrap_or_else(|_| PathBuf::from(&stripped_path));
+        .unwrap_or_else(|_| PathBuf::from(stripped_path.as_ref()));
 
     let full_path_link = make_clickable_link(
         full_path.display().to_string(),

@@ -42,7 +42,7 @@ impl HashDigest for Md5 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hash::generic_digest;
+    use crate::hash::generic_digest::{self, Arguments};
 
     #[test]
     fn test_examples() {
@@ -59,7 +59,14 @@ mod tests {
             val: "c3fcd3d76192e4007dfb496cca67e13b".to_owned(),
             span: Span::test_data(),
         };
-        let actual = generic_digest::action::<Md5>(false, &binary);
+        let actual = generic_digest::action::<Md5>(
+            &binary,
+            &Arguments {
+                cell_paths: None,
+                binary: false,
+            },
+            Span::test_data(),
+        );
         assert_eq!(actual, expected);
     }
 
@@ -73,7 +80,14 @@ mod tests {
             val: "5f80e231382769b0102b1164cf722d83".to_owned(),
             span: Span::test_data(),
         };
-        let actual = generic_digest::action::<Md5>(false, &binary);
+        let actual = generic_digest::action::<Md5>(
+            &binary,
+            &Arguments {
+                cell_paths: None,
+                binary: false,
+            },
+            Span::test_data(),
+        );
         assert_eq!(actual, expected);
     }
 }

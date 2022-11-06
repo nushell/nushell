@@ -45,17 +45,18 @@ fn take_control(interactive: bool) {
     };
 
     let shell_pgid = unistd::getpgrp();
-    let owner_pgid = unistd::tcgetpgrp(nix::libc::STDIN_FILENO).expect("tcgetpgrp");
 
-    // Common case, nothing to do
-    if owner_pgid == shell_pgid {
-        return;
-    }
-
-    // This can apparently happen with sudo: https://github.com/fish-shell/fish-shell/issues/7388
-    if owner_pgid == unistd::getpid() {
-        let _ = unistd::setpgid(owner_pgid, owner_pgid);
-        return;
+    match unistd::tcgetpgrp(nix::libc::STDIN_FILENO) {
+        Ok(owner_pgid) if owner_pgid == shell_pgid => {
+            // Common case, nothing to do
+            return;
+        }
+        Ok(owner_pgid) if owner_pgid == unistd::getpid() => {
+            // This can apparently happen with sudo: https://github.com/fish-shell/fish-shell/issues/7388
+            let _ = unistd::setpgid(owner_pgid, owner_pgid);
+            return;
+        }
+        _ => (),
     }
 
     // Reset all signal handlers to default

@@ -143,10 +143,7 @@ fn rm(
 
     for (idx, path) in targets.clone().into_iter().enumerate() {
         let corrected_path = Spanned {
-            item: match strip_ansi_escapes::strip(&path.item) {
-                Ok(item) => String::from_utf8(item).unwrap_or(path.item),
-                Err(_) => path.item,
-            },
+            item: nu_utils::strip_ansi_string_unlikely(path.item),
             span: path.span,
         };
         let _ = std::mem::replace(&mut targets[idx], corrected_path);
@@ -287,8 +284,8 @@ fn rm(
     }
 
     Ok(all_targets
-        .into_iter()
-        .map(move |(f, _)| {
+        .into_keys()
+        .map(move |f| {
             let is_empty = || match f.read_dir() {
                 Ok(mut p) => p.next().is_none(),
                 Err(_) => false,

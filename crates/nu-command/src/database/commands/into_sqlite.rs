@@ -248,14 +248,8 @@ fn nu_value_to_string(value: Value, separator: &str, config: &Config) -> String 
         }
         Value::String { val, .. } => {
             // don't store ansi escape sequences in the database
-            let stripped = {
-                match strip_ansi_escapes::strip(&val) {
-                    Ok(item) => String::from_utf8(item).unwrap_or(val),
-                    Err(_) => val,
-                }
-            };
             // escape single quotes
-            stripped.replace('\'', "''")
+            nu_utils::strip_ansi_unlikely(&val).replace('\'', "''")
         }
         Value::List { vals: val, .. } => val
             .iter()

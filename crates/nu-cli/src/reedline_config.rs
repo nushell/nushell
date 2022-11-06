@@ -114,7 +114,7 @@ pub(crate) fn add_menus(
             let res = eval_block(&engine_state, &mut temp_stack, &block, input, false, false)?;
 
             if let PipelineData::Value(value, None) = res {
-                for menu in create_menus(&value, config)? {
+                for menu in create_menus(&value)? {
                     line_editor =
                         add_menu(line_editor, &menu, engine_state.clone(), stack, config)?;
                 }

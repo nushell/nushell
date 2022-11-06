@@ -199,9 +199,15 @@ fn errors_fetching_by_index_out_of_bounds() {
             "#
         ));
 
-        assert!(actual.err.contains("Row number too large (max: 3)"),);
+        assert!(actual.err.contains("Row number too large (max: 2)"),);
         assert!(actual.err.contains("too large"),);
     })
+}
+
+#[test]
+fn errors_fetching_by_accessing_empty_list() {
+    let actual = nu!(cwd: ".", pipeline(r#"[] | get 3"#));
+    assert!(actual.err.contains("Row number too large (empty content)"),);
 }
 
 #[test]
