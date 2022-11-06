@@ -31,6 +31,10 @@ impl Command for Sleep {
             .category(Category::Platform)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["delay", "wait", "sleep", "timer"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
