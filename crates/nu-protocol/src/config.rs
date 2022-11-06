@@ -112,7 +112,7 @@ impl Default for Config {
             keybindings: Vec::new(),
             menus: Vec::new(),
             hooks: Hooks::new(),
-            rm_always_trash: true,
+            rm_always_trash: false,
             shell_integration: false,
             buffer_editor: String::new(),
             table_index_mode: TableIndexMode::Always,
