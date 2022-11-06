@@ -307,6 +307,10 @@ Format: #
         ]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["text-color", "text-style", "colors"]
+    }
+
     fn run(
         &self,
         engine_state: &nu_protocol::engine::EngineState,
