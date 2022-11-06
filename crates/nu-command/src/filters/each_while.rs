@@ -73,7 +73,7 @@ impl Command for EachWhile {
                 }),
             },
             Example {
-                example: r#"[1 2 stop 3 4] | each while { if $in != 'stop' { $"Output: ($in)" } }"#,
+                example: r#"[1 2 stop 3 4] | each while {|e| if $e != 'stop' { $"Output: ($e)" } }"#,
                 description: "Output elements until reaching 'stop'",
                 result: Some(Value::List {
                     vals: stream_test_2,
