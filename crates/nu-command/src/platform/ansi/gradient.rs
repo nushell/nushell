@@ -50,10 +50,6 @@ impl Command for SubCommand {
         "Draw text with a provided start and end code making a gradient"
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["gradients"]
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,
