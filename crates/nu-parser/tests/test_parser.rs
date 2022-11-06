@@ -176,46 +176,6 @@ pub fn parse_binary_with_multi_byte_char() {
 }
 
 #[test]
-pub fn parse_string() {
-    let engine_state = EngineState::new();
-    let mut working_set = StateWorkingSet::new(&engine_state);
-
-    let (block, err) = parse(&mut working_set, None, b"\"hello nushell\"", true, &[]);
-
-    assert!(err.is_none());
-    assert!(block.len() == 1);
-    let expressions = &block[0];
-    assert!(expressions.len() == 1);
-    assert_eq!(
-        expressions[0].expr,
-        Expr::String("hello nushell".to_string())
-    )
-}
-
-#[test]
-pub fn parse_escaped_string() {
-    let engine_state = EngineState::new();
-    let mut working_set = StateWorkingSet::new(&engine_state);
-
-    let (block, err) = parse(
-        &mut working_set,
-        None,
-        b"\"hello \\u006e\\u0075\\u0073hell\"",
-        true,
-        &[],
-    );
-
-    assert!(err.is_none());
-    assert!(block.len() == 1);
-    let expressions = &block[0];
-    assert!(expressions.len() == 1);
-    assert_eq!(
-        expressions[0].expr,
-        Expr::String("hello nushell".to_string())
-    )
-}
-
-#[test]
 pub fn parse_call() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -362,6 +322,181 @@ fn test_nothing_comparisson_neq() {
             ..
         }
     ))
+}
+
+mod string {
+    use super::*;
+
+    #[test]
+    pub fn parse_string() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse(&mut working_set, None, b"\"hello nushell\"", true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        assert_eq!(
+            expressions[0].expr,
+            Expr::String("hello nushell".to_string())
+        )
+    }
+
+    #[test]
+    pub fn parse_escaped_string() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse(
+            &mut working_set,
+            None,
+            b"\"hello \\u006e\\u0075\\u0073hell\"",
+            true,
+            &[],
+        );
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        assert_eq!(
+            expressions[0].expr,
+            Expr::String("hello nushell".to_string())
+        )
+    }
+
+    mod interpolation {
+        use super::*;
+
+        #[test]
+        pub fn parse_string_interpolation() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let (block, err) = parse(&mut working_set, None, b"$\"hello (39 + 3)\"", true, &[]);
+
+            assert!(err.is_none());
+            assert!(block.len() == 1);
+
+            let expressions = &block[0];
+            assert!(expressions.len() == 1);
+
+            let expr = &expressions[0].expr;
+
+            let subexprs: Vec<&Expr>;
+            match expr {
+                Expr::StringInterpolation(expressions) => {
+                    subexprs = expressions.iter().map(|e| &e.expr).collect();
+                }
+                _ => panic!("Expected an `Expr::StringInterpolation`"),
+            }
+
+            assert_eq!(subexprs.len(), 2);
+
+            assert_eq!(subexprs[0], &Expr::String("hello ".to_string()));
+
+            assert!(matches!(subexprs[1], &Expr::FullCellPath(..)));
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_escaped_parenthesis() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let (block, err) = parse(&mut working_set, None, b"$\"hello \\(39 + 3)\"", true, &[]);
+
+            assert!(err.is_none());
+
+            assert!(block.len() == 1);
+            let expressions = &block[0];
+
+            assert!(expressions.len() == 1);
+            let expr = &expressions[0].expr;
+
+            let subexprs: Vec<&Expr>;
+            match expr {
+                Expr::StringInterpolation(expressions) => {
+                    subexprs = expressions.iter().map(|e| &e.expr).collect();
+                }
+                _ => panic!("Expected an `Expr::StringInterpolation`"),
+            }
+
+            assert_eq!(subexprs.len(), 1);
+
+            assert_eq!(subexprs[0], &Expr::String("hello (39 + 3)".to_string()));
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_escaped_backslash_before_parenthesis() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let (block, err) = parse(
+                &mut working_set,
+                None,
+                b"$\"hello \\\\(39 + 3)\"",
+                true,
+                &[],
+            );
+
+            assert!(err.is_none());
+
+            assert!(block.len() == 1);
+            let expressions = &block[0];
+
+            assert!(expressions.len() == 1);
+            let expr = &expressions[0].expr;
+
+            let subexprs: Vec<&Expr>;
+            match expr {
+                Expr::StringInterpolation(expressions) => {
+                    subexprs = expressions.iter().map(|e| &e.expr).collect();
+                }
+                _ => panic!("Expected an `Expr::StringInterpolation`"),
+            }
+
+            assert_eq!(subexprs.len(), 2);
+
+            assert_eq!(subexprs[0], &Expr::String("hello \\".to_string()));
+
+            assert!(matches!(subexprs[1], &Expr::FullCellPath(..)));
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_backslash_count_reset_by_expression() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let (block, err) = parse(
+                &mut working_set,
+                None,
+                b"$\"\\(1 + 3)\\(7 - 5)\"",
+                true,
+                &[],
+            );
+
+            assert!(err.is_none());
+
+            assert!(block.len() == 1);
+            let expressions = &block[0];
+
+            assert!(expressions.len() == 1);
+            let expr = &expressions[0].expr;
+
+            let subexprs: Vec<&Expr>;
+            match expr {
+                Expr::StringInterpolation(expressions) => {
+                    subexprs = expressions.iter().map(|e| &e.expr).collect();
+                }
+                _ => panic!("Expected an `Expr::StringInterpolation`"),
+            }
+
+            assert_eq!(subexprs.len(), 1);
+            assert_eq!(subexprs[0], &Expr::String("(1 + 3)(7 - 5)".to_string()));
+        }
+    }
 }
 
 mod range {

@@ -1604,87 +1604,104 @@ pub fn parse_string_interpolation(
 
     let mut b = start;
 
+    let mut consecutive_backslashes: usize = 0;
+
     while b != end {
-        if contents[b - start] == b'('
-            && (if double_quote && (b - start) > 0 {
-                contents[b - start - 1] != b'\\'
-            } else {
-                true
-            })
-            && mode == InterpolationMode::String
-        {
-            mode = InterpolationMode::Expression;
-            if token_start < b {
-                let span = Span {
-                    start: token_start,
-                    end: b,
-                };
-                let str_contents = working_set.get_span_contents(span);
+        let current_byte = contents[b - start];
 
-                let str_contents = if double_quote {
-                    let (str_contents, err) = unescape_string(str_contents, span);
-                    error = error.or(err);
+        match mode {
+            InterpolationMode::String => {
+                let preceding_consecutive_backslashes = consecutive_backslashes;
 
-                    str_contents
+                let is_backslash = current_byte == b'\\';
+                consecutive_backslashes = if is_backslash {
+                    preceding_consecutive_backslashes + 1
                 } else {
-                    str_contents.to_vec()
+                    0
                 };
 
-                output.push(Expression {
-                    expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
-                    span,
-                    ty: Type::String,
-                    custom_completion: None,
-                });
-                token_start = b;
-            }
-        }
-        if mode == InterpolationMode::Expression {
-            let byte = contents[b - start];
-            if let Some(b'\'') = delimiter_stack.last() {
-                if byte == b'\'' {
-                    delimiter_stack.pop();
-                }
-            } else if let Some(b'"') = delimiter_stack.last() {
-                if byte == b'"' {
-                    delimiter_stack.pop();
-                }
-            } else if let Some(b'`') = delimiter_stack.last() {
-                if byte == b'`' {
-                    delimiter_stack.pop();
-                }
-            } else if byte == b'\'' {
-                delimiter_stack.push(b'\'')
-            } else if byte == b'"' {
-                delimiter_stack.push(b'"');
-            } else if byte == b'`' {
-                delimiter_stack.push(b'`')
-            } else if byte == b'(' {
-                delimiter_stack.push(b')');
-            } else if byte == b')' {
-                if let Some(b')') = delimiter_stack.last() {
-                    delimiter_stack.pop();
-                }
-                if delimiter_stack.is_empty() {
-                    mode = InterpolationMode::String;
-
+                if current_byte == b'('
+                    && (!double_quote || preceding_consecutive_backslashes % 2 == 0)
+                {
+                    mode = InterpolationMode::Expression;
                     if token_start < b {
                         let span = Span {
                             start: token_start,
-                            end: b + 1,
+                            end: b,
+                        };
+                        let str_contents = working_set.get_span_contents(span);
+
+                        let str_contents = if double_quote {
+                            let (str_contents, err) = unescape_string(str_contents, span);
+                            error = error.or(err);
+
+                            str_contents
+                        } else {
+                            str_contents.to_vec()
                         };
 
-                        let (expr, err) =
-                            parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
-                        error = error.or(err);
-                        output.push(expr);
+                        output.push(Expression {
+                            expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
+                            span,
+                            ty: Type::String,
+                            custom_completion: None,
+                        });
+                        token_start = b;
                     }
+                }
+            }
+            InterpolationMode::Expression => {
+                let byte = current_byte;
+                if let Some(b'\'') = delimiter_stack.last() {
+                    if byte == b'\'' {
+                        delimiter_stack.pop();
+                    }
+                } else if let Some(b'"') = delimiter_stack.last() {
+                    if byte == b'"' {
+                        delimiter_stack.pop();
+                    }
+                } else if let Some(b'`') = delimiter_stack.last() {
+                    if byte == b'`' {
+                        delimiter_stack.pop();
+                    }
+                } else if byte == b'\'' {
+                    delimiter_stack.push(b'\'')
+                } else if byte == b'"' {
+                    delimiter_stack.push(b'"');
+                } else if byte == b'`' {
+                    delimiter_stack.push(b'`')
+                } else if byte == b'(' {
+                    delimiter_stack.push(b')');
+                } else if byte == b')' {
+                    if let Some(b')') = delimiter_stack.last() {
+                        delimiter_stack.pop();
+                    }
+                    if delimiter_stack.is_empty() {
+                        mode = InterpolationMode::String;
 
-                    token_start = b + 1;
-                    continue;
+                        if token_start < b {
+                            let span = Span {
+                                start: token_start,
+                                end: b + 1,
+                            };
+
+                            let (expr, err) = parse_full_cell_path(
+                                working_set,
+                                None,
+                                span,
+                                expand_aliases_denylist,
+                            );
+                            error = error.or(err);
+                            output.push(expr);
+                        }
+
+                        token_start = b + 1;
+                        continue;
+                    }
                 }
             }
         }
+
         b += 1;
     }
 
