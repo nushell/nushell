@@ -278,7 +278,7 @@ pub fn evaluate_repl(
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
         if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(engine_state, stack, vec![], &hook) {
+            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
                 report_error_new(engine_state, &err);
             }
         }
@@ -334,7 +334,7 @@ pub fn evaluate_repl(
                 // Right before we start running the code the user gave us,
                 // fire the "pre_execution" hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
-                    if let Err(err) = eval_hook(engine_state, stack, vec![], &hook) {
+                    if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
                         report_error_new(engine_state, &err);
                     }
                 }
@@ -686,6 +686,7 @@ pub fn eval_env_change_hook(
                         eval_hook(
                             engine_state,
                             stack,
+                            None,
                             vec![("$before".into(), before), ("$after".into(), after.clone())],
                             hook_value,
                         )?;
@@ -711,15 +712,17 @@ pub fn eval_env_change_hook(
 pub fn eval_hook(
     engine_state: &mut EngineState,
     stack: &mut Stack,
+    input: Option<PipelineData>,
     arguments: Vec<(String, Value)>,
     value: &Value,
-) -> Result<(), ShellError> {
+) -> Result<PipelineData, ShellError> {
     let value_span = value.span()?;
 
     let condition_path = PathMember::String {
         val: "condition".to_string(),
         span: value_span,
     };
+    let mut output = PipelineData::new(Span::new(0, 0));
 
     let code_path = PathMember::String {
         val: "code".to_string(),
@@ -729,7 +732,7 @@ pub fn eval_hook(
     match value {
         Value::List { vals, .. } => {
             for val in vals {
-                eval_hook(engine_state, stack, arguments.clone(), val)?
+                eval_hook(engine_state, stack, None, arguments.clone(), val)?;
             }
         }
         Value::Record { .. } => {
@@ -745,6 +748,7 @@ pub fn eval_hook(
                                 engine_state,
                                 stack,
                                 block_id,
+                                None,
                                 arguments.clone(),
                                 block_span,
                             ) {
@@ -824,7 +828,9 @@ pub fn eval_hook(
                             .collect();
 
                         match eval_block(engine_state, stack, &block, input, false, false) {
-                            Ok(_) => {}
+                            Ok(pipeline_data) => {
+                                output = pipeline_data;
+                            }
                             Err(err) => {
                                 report_error_new(engine_state, &err);
                             }
@@ -839,7 +845,14 @@ pub fn eval_hook(
                         span: block_span,
                         ..
                     } => {
-                        run_hook_block(engine_state, stack, block_id, arguments, block_span)?;
+                        run_hook_block(
+                            engine_state,
+                            stack,
+                            block_id,
+                            input,
+                            arguments,
+                            block_span,
+                        )?;
                     }
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
@@ -856,7 +869,17 @@ pub fn eval_hook(
             span: block_span,
             ..
         } => {
-            run_hook_block(engine_state, stack, *block_id, arguments, *block_span)?;
+            output = PipelineData::Value(
+                run_hook_block(
+                    engine_state,
+                    stack,
+                    *block_id,
+                    input,
+                    arguments,
+                    *block_span,
+                )?,
+                None,
+            );
         }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
@@ -870,19 +893,20 @@ pub fn eval_hook(
     let cwd = get_guaranteed_cwd(engine_state, stack);
     engine_state.merge_env(stack, cwd)?;
 
-    Ok(())
+    Ok(output)
 }
 
 pub fn run_hook_block(
     engine_state: &EngineState,
     stack: &mut Stack,
     block_id: BlockId,
+    optional_input: Option<PipelineData>,
     arguments: Vec<(String, Value)>,
     span: Span,
 ) -> Result<Value, ShellError> {
     let block = engine_state.get_block(block_id);
 
-    let input = PipelineData::new(span);
+    let input = optional_input.unwrap_or_else(|| PipelineData::new(span));
 
     let mut callee_stack = stack.gather_captures(&block.captures);
 
