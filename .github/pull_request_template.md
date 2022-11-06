@@ -1,10 +1,10 @@
 # Description
 
-(Description of your pull request goes here. **Provide examples and/or screenshots** unless the change is trivial)
+(Description of your pull request goes here. **Provide examples and/or screenshots** if your changes affect the user experience.)
 
-# Before Submitting
+# Major Changes
 
-If your change is a new feature, change to an existing feature, or a breaking change, make sure you've got a green light from the core team either on [Discord](https://discordapp.com/invite/NtAbbGn) or [GitHub issue](https://github.com/nushell/nushell/issues/new/choose).
+If you add or change a feature, especially if the change is user-facing, seek feedback from regular contributors and get an approval from the core team either on [Discord](https://discordapp.com/invite/NtAbbGn) or [GitHub issue](https://github.com/nushell/nushell/issues/new/choose).
 Making sure we're all on board with the change saves everybody's time.
 Thanks!
 
@@ -23,5 +23,4 @@ Make sure you've run and fixed any issues with these commands:
 
 # After Submitting
 
-* Get another regular contributor to review the PR.
-* If your PR affects the user experience of Nushell (adding/removing a command, changing an input/output type, etc.), make sure the changes are reflected in the documentation (https://github.com/nushell/nushell.github.io) after the PR is merged. This helps us keep the docs up to date.
+* Help us keep the docs up to date: If your PR affects the user experience of Nushell (adding/removing a command, changing an input/output type, etc.), make sure the changes are reflected in the documentation (https://github.com/nushell/nushell.github.io) after the PR is merged.

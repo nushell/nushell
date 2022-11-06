@@ -2,9 +2,9 @@
 
 Welcome to Nushell and thank you for considering contributing!
 
-First of all, before diving into the code, if you plan on making a non-trivial change, such as adding a new feature and especially a breaking change, please make sure to get an approval from the core team.
-This saves both your and our time if we realize your change needs to go another direction before the actual coding and reviewing work.
-So, please, reach out to us and tell us what you want to do.
+First of all, before diving into the code, if you plan on making a non-trivial change, such as adding or changing a feature and especially if the change is user-facing, please, seek feedback from regular contributors and make sure to get an approval from the core team.
+This saves both your and our time if we realize the change needs to go another direction before the actual coding and reviewing work.
+So, please, reach out and tell us what you want to do.
 This will significantly increase the chance of your PR being accepted.
 The best place to do so is on [Discord](https://discordapp.com/invite/NtAbbGn) or [GitHub](https://github.com/nushell/nushell/issues/new/choose).
 
