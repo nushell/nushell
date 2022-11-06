@@ -20,18 +20,16 @@ use crossterm::{
 };
 use nu_ansi_term::{Color as NuColor, Style as NuStyle};
 use nu_color_config::{get_color_config, style_primitive};
-use nu_engine::get_columns;
-use nu_protocol::{ast::PathMember, Config, Span as NuSpan, Value};
+use nu_protocol::{Config, Value};
 use nu_table::{string_width, Alignment, TextStyle};
-use num_traits::Saturating;
 use reedline::KeyModifiers;
 use tui::{
     backend::{Backend, CrosstermBackend},
     buffer::Buffer,
-    layout::{Constraint, Direction, Rect},
-    style::{Color, Style},
+    layout::Rect,
+    style::{Color, Modifier, Style},
     text::Span,
-    widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
+    widgets::{Block, Borders, StatefulWidget, Widget},
     Frame, Terminal,
 };
 
@@ -91,10 +89,6 @@ where
     let events = UIEvents::new();
 
     let mut state_stack: Vec<UIState<'_>> = Vec::new();
-    let mut layout_stack: Vec<Layout> = Vec::new();
-    let mut state_just_entered = false;
-
-    state.is_main = true;
 
     loop {
         // handle CTRLC event
@@ -104,75 +98,56 @@ where
             }
         }
 
-        let mut layout = Layout::default();
-        terminal.draw(|f| {
-            f.render_stateful_widget(state.clone(), f.size(), &mut layout);
+        {
+            let state = state_stack.last_mut().unwrap_or(&mut state);
+            let mut layout = Layout::default();
 
-            if state.mode == UIMode::Cursor {
-                if state.render_inner {
-                    let block = Block::default().title("Information").borders(Borders::ALL);
-                    let area = centered_rect(80, 80, f.size());
-                    f.render_widget(tui::widgets::Clear, area);
-                    f.render_widget(block, area);
+            terminal.draw(|f| {
+                f.render_widget(tui::widgets::Clear, f.size());
+                f.render_stateful_widget(state.clone(), f.size(), &mut layout);
 
-                    if state_just_entered {
-                        state_just_entered = false;
-
-                        let latest_state = state_stack.last_mut().unwrap_or(&mut state);
-                        let current_value = get_current_value(latest_state);
-                        let (columns, values) = super::collect_input(current_value);
-
-                        let mut state = UIState::new(
-                            Cow::from(columns),
-                            Cow::from(values),
-                            state.config,
-                            state.color_hm,
-                            state.show_header,
-                            state.show_index,
-                        );
-                        state.mode = UIMode::Cursor;
-
-                        state_stack.push(state);
-
-                        let layout = Layout::default();
-                        layout_stack.push(layout);
-                    }
-
-                    let state = state_stack.last_mut().unwrap();
-                    let layout = layout_stack.last_mut().unwrap();
-                    *layout = Layout::default();
-
-                    let rect = Rect::new(area.x + 1, area.y + 1, area.width - 2, area.height - 2);
-                    f.render_stateful_widget(state.clone(), rect, layout);
-
-                    if state.mode == UIMode::Cursor {
-                        update_cursor(state, layout);
-                        set_cursor(f, state, layout);
-                    }
-                } else {
-                    update_cursor(&mut state, &layout);
-                    set_cursor(f, &state, &layout);
+                if state.mode == UIMode::Cursor {
+                    update_cursor(state, &layout);
+                    set_cursor(f, state, &layout);
                 }
+            })?;
+
+            let exited = handle_events(&events, state, &layout, terminal);
+            if exited {
+                break Ok(());
             }
-        })?;
-
-        let is_stacked = !state_stack.is_empty();
-        let latest_state = state_stack.last_mut().unwrap_or(&mut state);
-        let latest_layout = layout_stack.last_mut().unwrap_or(&mut layout);
-
-        let exited = handle_events(&events, latest_state, latest_layout, terminal);
-        if exited {
-            break Ok(());
         }
 
-        if latest_state.render_inner {
-            state_just_entered = true;
-        } else if is_stacked && latest_state.render_close {
-            state_stack.pop();
-            layout_stack.pop();
+        {
+            let state = state_stack.last().unwrap_or(&state);
+            if state.render_inner {
+                let current_value = get_current_value(state);
+                let current_header = get_header(state);
+                let (columns, values) = super::collect_input(current_value);
 
-            let latest_state = state_stack.last_mut().unwrap_or(&mut state);
-            latest_state.render_inner = false;
+                let mut state = UIState::new(
+                    Cow::from(columns),
+                    Cow::from(values),
+                    state.config,
+                    state.color_hm,
+                    state.show_header,
+                    state.show_index,
+                );
+                state.mode = UIMode::Cursor;
+                state.section_name = current_header;
+
+                state_stack.push(state);
+            }
+        }
+
+        {
+            let is_main_state = !state_stack.is_empty();
+            if is_main_state && state_stack.last().unwrap_or(&state).render_close {
+                state_stack.pop();
+
+                let latest_state = state_stack.last_mut().unwrap_or(&mut state);
+                latest_state.render_inner = false;
+            }
         }
     }
 }
@@ -183,6 +158,15 @@ fn get_current_value(state: &UIState<'_>) -> Value {
 
     let row = state.data[current_row].clone();
     row[current_column].clone()
+}
+
+fn get_header(state: &UIState<'_>) -> Option<String> {
+    let current_column = state.cursor.x as usize + state.column_index;
+
+    state
+        .columns
+        .get(current_column)
+        .map(|header| header.to_string())
 }
 
 fn update_cursor(state: &mut UIState<'_>, layout: &Layout) {
@@ -378,33 +362,6 @@ fn cursor_mode_key_event<B>(
     }
 }
 
-/// helper function to create a centered rect using up certain percentage of the available rect `r`
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    let popup_layout = tui::layout::Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Percentage((100 - percent_y) / 2),
-                Constraint::Percentage(percent_y),
-                Constraint::Percentage((100 - percent_y) / 2),
-            ]
-            .as_ref(),
-        )
-        .split(r);
-
-    tui::layout::Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(
-            [
-                Constraint::Percentage((100 - percent_x) / 2),
-                Constraint::Percentage(percent_x),
-                Constraint::Percentage((100 - percent_x) / 2),
-            ]
-            .as_ref(),
-        )
-        .split(popup_layout[1])[1]
-}
-
 #[derive(Debug, Clone)]
 struct UIState<'a> {
     columns: Cow<'a, [String]>,
@@ -423,7 +380,7 @@ struct UIState<'a> {
     // only applicable for CusorMode
     render_close: bool,
     // only applicable for CusorMode
-    is_main: bool,
+    section_name: Option<String>,
 }
 
 impl<'a> UIState<'a> {
@@ -447,8 +404,8 @@ impl<'a> UIState<'a> {
             mode: UIMode::View,
             cursor: Position::new(0, 0),
             render_inner: false,
-            is_main: false,
             render_close: false,
+            section_name: None,
         }
     }
 
@@ -547,7 +504,6 @@ impl StatefulWidget for UIState<'_> {
         let mut do_render_split_line = true;
         let mut do_render_shift_column = false;
 
-        let mut shown_columns = 0;
         for col in self.column_index..self.columns.len() {
             let mut head = String::from(&self.columns[col]);
 
@@ -600,8 +556,6 @@ impl StatefulWidget for UIState<'_> {
             width += render_space(buf, width, head_offset, height, CELL_PADDING_LEFT);
             width += render_column(buf, width, head_offset, use_space, &column);
             width += render_space(buf, width, head_offset, height, CELL_PADDING_RIGHT);
-
-            shown_columns += 1;
 
             state.push_column(
                 width - CELL_PADDING_RIGHT - use_space,
@@ -684,6 +638,7 @@ impl Layout {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default, Clone, Copy)]
 struct ElementInfo {
     position: Position,
@@ -872,15 +827,22 @@ fn render_status_bar(
     area: Rect,
     state: &UIState<'_>,
     showed_rows: u16,
-    showed_columns: u16,
+    _showed_columns: u16,
 ) {
+    let block_clr = Color::Rgb(196, 201, 198);
+    let text_clr = Color::Rgb(29, 31, 33);
+    let block_style = Style::default().bg(block_clr);
+    let text_style = Style::default()
+        .bg(block_clr)
+        .fg(text_clr)
+        .add_modifier(Modifier::BOLD);
+
     let covered_rows = count_covered_rows(state, showed_rows);
-    let covered_columns = count_covered_rows(state, showed_columns);
     let percent_rows = get_percentage(covered_rows, state.count_rows());
 
     let block = Block::default()
         .borders(Borders::empty())
-        .style(Style::default().bg(Color::Rgb(64, 64, 64)));
+        .style(block_style);
     block.render(area, buf);
 
     let row_value = match percent_rows {
@@ -889,9 +851,15 @@ fn render_status_bar(
         value => value.to_string(),
     };
 
-    let style = Style::default().bg(Color::Rgb(128, 128, 128));
-    let span = Span::styled(row_value, style);
+    let span = Span::styled(row_value, text_style);
     buf.set_span(area.right().saturating_sub(3), area.y, &span, 3);
+
+    if let Some(name) = &state.section_name {
+        let width = area.width.saturating_sub(3 + 12 + 12 + 12);
+        let name = nu_table::string_truncate(name, width as usize);
+        let span = Span::styled(name, text_style);
+        buf.set_span(area.left(), area.y, &span, width);
+    }
 
     if state.mode == UIMode::Cursor {
         let current_row = state.row_index + state.cursor.y as usize;
@@ -899,8 +867,7 @@ fn render_status_bar(
         let position = format!("{},{}", current_row, current_column);
         let width = position.len() as u16;
 
-        let style = Style::default().bg(Color::Rgb(128, 128, 128));
-        let span = Span::styled(position, style);
+        let span = Span::styled(position, text_style);
         buf.set_span(
             area.right().saturating_sub(3 + 12 + width),
             area.y,
@@ -914,46 +881,10 @@ fn count_covered_rows(state: &UIState<'_>, showed_rows: u16) -> usize {
     state.row_index + showed_rows as usize
 }
 
-fn count_covered_columns(state: &UIState<'_>, showed_columns: u16) -> usize {
-    state.column_index + showed_columns as usize
-}
-
 fn get_percentage(value: usize, max: usize) -> usize {
     debug_assert!(value <= max, "{:?} {:?}", value, max);
 
     ((value as f32 / max as f32) * 100.0).floor() as usize
-}
-
-fn create_length_message(state: &UIState<'_>, height: u16, count_columns: usize) -> String {
-    let row_status = {
-        let seen = state.row_index + height as usize;
-        let is_last_row_reached = seen >= state.data.len();
-        if is_last_row_reached {
-            String::from("[END]")
-        } else {
-            format!("[{}/{}]", seen, state.data.len())
-        }
-    };
-
-    let mut column_status = String::new();
-    if state.show_header && !state.columns.is_empty() {
-        let seen = state.column_index + count_columns;
-        let is_last_column_reached = seen >= state.columns.len();
-        if is_last_column_reached {
-            column_status = String::from("[END]")
-        } else {
-            column_status = format!("[{}/{}]", seen, state.columns.len())
-        }
-    };
-
-    let mut message = row_status;
-
-    if !column_status.is_empty() {
-        message.push(' ');
-        message.push_str(&column_status);
-    }
-
-    message
 }
 
 fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
@@ -1070,12 +1001,6 @@ fn render_top_connector(buf: &mut Buffer, x: u16, y: u16) {
     buf.set_span(x, y, &span, 1);
 }
 
-fn render_bottom_connector(buf: &mut Buffer, x: u16, y: u16) {
-    let style = Style::default().fg(Color::Rgb(64, 64, 64));
-    let span = Span::styled("┴", style);
-    buf.set_span(x, y, &span, 1);
-}
-
 fn get_index_column_name(color_hm: &NuStyleTable) -> NuText {
     make_styled_string(String::from("index"), "string", 0, true, color_hm, 0)
 }
@@ -1087,13 +1012,6 @@ fn create_column_index(i: usize, color_hm: &NuStyleTable) -> NuText {
 fn render_space(buf: &mut Buffer, x: u16, y: u16, height: u16, padding: u16) -> u16 {
     repeat_vertical(buf, x, y, padding, height, ' ', TextStyle::default());
     padding
-}
-
-fn value_to_string(value: Value, config: &Config, color_hm: &NuStyleTable) -> NuText {
-    let text = value.into_abbreviated_string(config);
-    let text_type = value.get_type().to_string();
-    let precision = config.float_precision as usize;
-    make_styled_string(text, &text_type, 0, false, color_hm, precision)
 }
 
 fn calculate_column_width(column: &[NuText]) -> usize {
@@ -1139,14 +1057,6 @@ fn repeat_vertical(
 
     for row in 0..height {
         buf.set_span(x_offset, y_offset + row as u16, &span, width);
-    }
-}
-
-fn get_table_from_value(value: Value) -> (Vec<String>, Vec<Value>) {
-    match value {
-        Value::Record { cols, vals, .. } => (cols, vals),
-        Value::List { vals, .. } => (get_columns(&vals), vals),
-        value => (Vec::new(), vec![value]),
     }
 }
 
