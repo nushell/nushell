@@ -78,15 +78,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ansi_term"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
-dependencies = [
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "ansitok"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1972,9 +1963,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.134"
+version = "0.2.135"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "329c933548736bc49fd575ee68c89e8be4d260064184389a5b77517cddd99ffb"
+checksum = "68783febc7782c6c5cb401fbda4de5a9898be1762314da0bb2c10ced61f18b0c"
 
 [[package]]
 name = "libgit2-sys"
@@ -2094,7 +2085,6 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "074bff749d092e2e818fe954952102f88e21f67fc69f4d350621aab15a1810f1"
 dependencies = [
- "ansi_term",
  "crossterm 0.24.0",
 ]
 
@@ -2534,7 +2524,6 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
- "strip-ansi-escapes",
  "sysinfo",
  "thiserror",
 ]
@@ -2582,6 +2571,7 @@ dependencies = [
  "is-root",
  "itertools",
  "lazy_static",
+ "libc",
  "log",
  "lscolors",
  "md-5",
@@ -2628,7 +2618,6 @@ dependencies = [
  "sha2",
  "shadow-rs",
  "sqlparser",
- "strip-ansi-escapes",
  "sysinfo",
  "terminal_size 0.2.1",
  "thiserror",
@@ -2655,7 +2644,6 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
- "strip-ansi-escapes",
  "sysinfo",
 ]
 
@@ -2775,8 +2763,8 @@ dependencies = [
  "json_to_table",
  "nu-ansi-term",
  "nu-protocol",
+ "nu-utils",
  "serde_json",
- "strip-ansi-escapes",
  "tabled",
 ]
 
@@ -2784,7 +2772,7 @@ dependencies = [
 name = "nu-term-grid"
 version = "0.70.1"
 dependencies = [
- "strip-ansi-escapes",
+ "nu-utils",
  "unicode-width",
 ]
 
@@ -2809,6 +2797,7 @@ dependencies = [
  "crossterm_winapi",
  "lscolors",
  "num-format",
+ "strip-ansi-escapes",
  "sys-locale",
 ]
 
@@ -3956,7 +3945,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.13.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#307df231e1fcdd69fe8cbd60fa9b133b10510964"
+source = "git+https://github.com/nushell/reedline.git?branch=main#431d2ab65640cf1724d72e5e63442a3ae69f570f"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",

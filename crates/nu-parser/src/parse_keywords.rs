@@ -3252,7 +3252,7 @@ pub fn find_in_dirs(
                     for lib_dir in dirs {
                         if let Ok(dir) = lib_dir.as_path() {
                             // make sure the dir is absolute path
-                            if let Ok(dir_abs) = canonicalize_with(&dir, actual_cwd) {
+                            if let Ok(dir_abs) = canonicalize_with(dir, actual_cwd) {
                                 if let Ok(path) = canonicalize_with(filename, dir_abs) {
                                     return Some(path);
                                 }

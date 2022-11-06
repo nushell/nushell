@@ -91,35 +91,13 @@
 //! [`fit_into_width`]: ./struct.Grid.html#method.fit_into_width
 //! [`GridOptions`]: ./struct.GridOptions.html
 
-use std::borrow::Cow;
 use std::cmp::max;
 use std::fmt;
 use std::iter::repeat;
-use strip_ansi_escapes;
 use unicode_width::UnicodeWidthStr;
 
-/// Removes ANSI escape codes and some ASCII control characters
-///
-/// Keeps `\n` removes `\r`, `\t` etc.
-///
-/// If parsing fails silently returns the input string
-fn strip_ansi(string: &str) -> Cow<str> {
-    // Check if any ascii control character except LF(0x0A = 10) is present,
-    // which will be stripped. Includes the primary start of ANSI sequences ESC
-    // (0x1B = decimal 27)
-    if string.bytes().any(|x| matches!(x, 0..=9 | 11..=31)) {
-        if let Ok(stripped) = strip_ansi_escapes::strip(string) {
-            if let Ok(new_string) = String::from_utf8(stripped) {
-                return Cow::Owned(new_string);
-            }
-        }
-    }
-    // Else case includes failures to parse!
-    Cow::Borrowed(string)
-}
-
 fn unicode_width_strip_ansi(astring: &str) -> usize {
-    strip_ansi(astring).width()
+    nu_utils::strip_ansi_unlikely(astring).width()
 }
 
 /// Alignment indicate on which side the content should stick if some filling
@@ -153,7 +131,7 @@ pub struct Cell {
 impl From<String> for Cell {
     fn from(string: String) -> Self {
         Self {
-            width: unicode_width_strip_ansi(&*string),
+            width: unicode_width_strip_ansi(&string),
             contents: string,
             alignment: Alignment::Left,
         }

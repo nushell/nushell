@@ -176,7 +176,7 @@ pub fn nu_repl() {
         // Check for pre_prompt hook
         let config = engine_state.get_config();
         if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(&mut engine_state, &mut stack, vec![], &hook) {
+            if let Err(err) = eval_hook(&mut engine_state, &mut stack, None, vec![], &hook) {
                 outcome_err(&engine_state, &err);
             }
         }
@@ -194,7 +194,7 @@ pub fn nu_repl() {
         // Check for pre_execution hook
         let config = engine_state.get_config();
         if let Some(hook) = config.hooks.pre_execution.clone() {
-            if let Err(err) = eval_hook(&mut engine_state, &mut stack, vec![], &hook) {
+            if let Err(err) = eval_hook(&mut engine_state, &mut stack, None, vec![], &hook) {
                 outcome_err(&engine_state, &err);
             }
         }

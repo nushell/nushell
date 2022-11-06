@@ -157,7 +157,7 @@ mod tests {
     fn check_expanded(s: &str) {
         let home = Path::new("/home");
         let buf = Some(PathBuf::from(home));
-        assert!(expand_tilde_with_home(Path::new(s), buf).starts_with(&home));
+        assert!(expand_tilde_with_home(Path::new(s), buf).starts_with(home));
 
         // Tests the special case in expand_tilde for "/" as home
         let home = Path::new("/");

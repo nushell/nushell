@@ -210,7 +210,7 @@ pub fn data_group(
             value.as_string()
         };
 
-        let group = groups.entry(group_key?).or_insert(vec![]);
+        let group = groups.entry(group_key?).or_default();
         group.push(value);
     }
 

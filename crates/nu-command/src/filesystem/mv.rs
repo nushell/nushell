@@ -66,10 +66,7 @@ impl Command for Mv {
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
         let spanned_source = {
             Spanned {
-                item: match strip_ansi_escapes::strip(&spanned_source.item) {
-                    Ok(item) => String::from_utf8(item).unwrap_or(spanned_source.item),
-                    Err(_) => spanned_source.item,
-                },
+                item: nu_utils::strip_ansi_string_unlikely(spanned_source.item),
                 span: spanned_source.span,
             }
         };
@@ -298,7 +295,7 @@ fn move_file(
 fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> {
     // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
     // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
-    std::fs::rename(&from, &to).or_else(|_| {
+    std::fs::rename(from, to).or_else(|_| {
         match if from.is_file() {
             let mut options = fs_extra::file::CopyOptions::new();
             options.overwrite = true;

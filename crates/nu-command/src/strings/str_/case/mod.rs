@@ -49,7 +49,7 @@ where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
     let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+    let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
     let args = Arguments {
         case_operation,
         cell_paths,

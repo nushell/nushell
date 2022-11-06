@@ -1,20 +1,10 @@
-use crate::input_handler::{operate, CmdArgument};
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
-
-struct Arguments {
-    cell_paths: Option<Vec<CellPath>>,
-}
-
-impl CmdArgument for Arguments {
-    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.cell_paths.take()
-    }
-}
 
 #[derive(Clone)]
 
@@ -51,8 +41,7 @@ impl Command for BytesReverse {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
-        let arg = Arguments { cell_paths };
+        let arg = CellPathOnlyArgs::from(cell_paths);
         operate(reverse, arg, input, call.head, engine_state.ctrlc.clone())
     }
 
@@ -78,7 +67,7 @@ impl Command for BytesReverse {
     }
 }
 
-fn reverse(val: &Value, _args: &Arguments, span: Span) -> Value {
+fn reverse(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match val {
         Value::Binary {
             val,

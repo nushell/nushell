@@ -529,7 +529,7 @@ fn list_directory_contains_invalid_utf8() {
             let cwd = dirs.test();
             let path = cwd.join(s);
 
-            std::fs::create_dir_all(&path).expect("failed to create directory");
+            std::fs::create_dir_all(path).expect("failed to create directory");
 
             let actual = nu!(cwd: cwd, "ls");
 

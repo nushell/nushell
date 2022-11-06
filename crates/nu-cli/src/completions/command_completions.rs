@@ -60,7 +60,7 @@ impl CommandCompletion {
                                         .matches_str(&x.to_string_lossy(), prefix)),
                                     Some(true)
                                 )
-                                && is_executable::is_executable(&item.path())
+                                && is_executable::is_executable(item.path())
                             {
                                 if let Ok(name) = item.file_name().into_string() {
                                     executables.push(name);

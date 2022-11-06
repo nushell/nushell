@@ -65,7 +65,6 @@ impl Command for ParEach {
         let numbered = call.has_flag("numbered");
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
         let block_id = capture_block.block_id;
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let span = call.head;
@@ -107,7 +106,7 @@ impl Command for ParEach {
 
                     let val_span = x.span();
                     match eval_block(
-                        &engine_state,
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -159,7 +158,7 @@ impl Command for ParEach {
 
                     let val_span = x.span();
                     match eval_block(
-                        &engine_state,
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -210,7 +209,7 @@ impl Command for ParEach {
 
                     let val_span = x.span();
                     match eval_block(
-                        &engine_state,
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -269,7 +268,7 @@ impl Command for ParEach {
                     }
 
                     match eval_block(
-                        &engine_state,
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -294,7 +293,7 @@ impl Command for ParEach {
                 }
 
                 eval_block(
-                    &engine_state,
+                    engine_state,
                     &mut stack,
                     block,
                     x.into_pipeline_data(),

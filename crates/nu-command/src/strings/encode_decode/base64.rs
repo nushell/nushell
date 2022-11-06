@@ -1,3 +1,4 @@
+use crate::input_handler::{operate as general_operate, CmdArgument};
 use base64::{decode_config, encode_config};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
@@ -20,6 +21,18 @@ pub enum ActionType {
     Decode,
 }
 
+struct Arguments {
+    cell_paths: Option<Vec<CellPath>>,
+    binary: bool,
+    encoding_config: Base64Config,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
+
 pub fn operate(
     action_type: ActionType,
     engine_state: &EngineState,
@@ -31,7 +44,8 @@ pub fn operate(
     let character_set: Option<Spanned<String>> =
         call.get_flag(engine_state, stack, "character-set")?;
     let binary = call.has_flag("binary");
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
     // Default the character set to standard if the argument is not specified.
     let character_set = match character_set {
@@ -42,50 +56,27 @@ pub fn operate(
         },
     };
 
-    let encoding_config = Base64Config {
-        character_set,
-        action_type,
+    let args = Arguments {
+        encoding_config: Base64Config {
+            character_set,
+            action_type,
+        },
+        binary,
+        cell_paths,
     };
 
-    input.map(
-        move |v| {
-            if column_paths.is_empty() {
-                match action(&v, binary, &encoding_config, &head) {
-                    Ok(v) => v,
-                    Err(e) => Value::Error { error: e },
-                }
-            } else {
-                let mut ret = v;
-
-                for path in &column_paths {
-                    let config = encoding_config.clone();
-
-                    let r = ret.update_cell_path(
-                        &path.members,
-                        Box::new(move |old| match action(old, binary, &config, &head) {
-                            Ok(v) => v,
-                            Err(e) => Value::Error { error: e },
-                        }),
-                    );
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
+    general_operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
 fn action(
     input: &Value,
     // only used for `decode` action
-    output_binary: bool,
-    base64_config: &Base64Config,
-    command_span: &Span,
-) -> Result<Value, ShellError> {
+    args: &Arguments,
+    command_span: Span,
+) -> Value {
+    let base64_config = &args.encoding_config;
+    let output_binary = args.binary;
+
     let config_character_set = &base64_config.character_set;
     let base64_config_enum: base64::Config = match config_character_set.item.as_str() {
         "standard" => base64::STANDARD,
@@ -95,7 +86,7 @@ fn action(
         "binhex" => base64::BINHEX,
         "bcrypt" => base64::BCRYPT,
         "crypt" => base64::CRYPT,
-        not_valid => return Err(ShellError::GenericError(
+        not_valid => return Value::Error { error:ShellError::GenericError(
             "value is not an accepted character set".to_string(),
             format!(
                 "{} is not a valid character-set.\nPlease use `help hash base64` to see a list of valid character sets.",
@@ -104,28 +95,28 @@ fn action(
             Some(config_character_set.span),
             None,
             Vec::new(),
-        ))
+        )}
     };
     match input {
         Value::Binary { val, .. } => match base64_config.action_type {
-            ActionType::Encode => Ok(Value::string(
-                encode_config(&val, base64_config_enum),
-                *command_span,
-            )),
-            ActionType::Decode => Err(ShellError::UnsupportedInput(
-                "Binary data can only support encoding".to_string(),
-                *command_span,
-            )),
+            ActionType::Encode => {
+                Value::string(encode_config(&val, base64_config_enum), command_span)
+            }
+            ActionType::Decode => Value::Error {
+                error: ShellError::UnsupportedInput(
+                    "Binary data can only support encoding".to_string(),
+                    command_span,
+                ),
+            },
         },
         Value::String {
             val,
             span: value_span,
         } => {
             match base64_config.action_type {
-                ActionType::Encode => Ok(Value::string(
-                    encode_config(&val, base64_config_enum),
-                    *command_span,
-                )),
+                ActionType::Encode => {
+                    Value::string(encode_config(val, base64_config_enum), command_span)
+                }
 
                 ActionType::Decode => {
                     // for decode, input val may contains invalid new line character, which is ok to omitted them by default.
@@ -135,46 +126,51 @@ fn action(
                     match decode_config(&val, base64_config_enum) {
                         Ok(decoded_value) => {
                             if output_binary {
-                                Ok(Value::binary(decoded_value, *command_span))
+                                Value::binary(decoded_value, command_span)
                             } else {
                                 match String::from_utf8(decoded_value) {
-                                    Ok(string_value) => {
-                                        Ok(Value::string(string_value, *command_span))
-                                    }
-                                    Err(e) => Err(ShellError::GenericError(
-                                        "base64 payload isn't a valid utf-8 sequence".to_owned(),
-                                        e.to_string(),
-                                        Some(*value_span),
-                                        Some("consider using the `--binary` flag".to_owned()),
-                                        Vec::new(),
-                                    )),
+                                    Ok(string_value) => Value::string(string_value, command_span),
+                                    Err(e) => Value::Error {
+                                        error: ShellError::GenericError(
+                                            "base64 payload isn't a valid utf-8 sequence"
+                                                .to_owned(),
+                                            e.to_string(),
+                                            Some(*value_span),
+                                            Some("consider using the `--binary` flag".to_owned()),
+                                            Vec::new(),
+                                        ),
+                                    },
                                 }
                             }
                         }
-                        Err(_) => Err(ShellError::GenericError(
-                            "value could not be base64 decoded".to_string(),
-                            format!(
-                                "invalid base64 input for character set {}",
-                                &config_character_set.item
+                        Err(_) => Value::Error {
+                            error: ShellError::GenericError(
+                                "value could not be base64 decoded".to_string(),
+                                format!(
+                                    "invalid base64 input for character set {}",
+                                    &config_character_set.item
+                                ),
+                                Some(command_span),
+                                None,
+                                Vec::new(),
                             ),
-                            Some(*command_span),
-                            None,
-                            Vec::new(),
-                        )),
+                        },
                     }
                 }
             }
         }
-        other => Err(ShellError::TypeMismatch(
-            format!("value is {}, not string", other.get_type()),
-            other.span()?,
-        )),
+        other => Value::Error {
+            error: ShellError::TypeMismatch(
+                format!("value is {}, not string", other.get_type()),
+                other.span().unwrap_or(command_span),
+            ),
+        },
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{action, ActionType, Base64Config};
+    use super::{action, ActionType, Arguments, Base64Config};
     use nu_protocol::{Span, Spanned, Value};
 
     #[test]
@@ -184,17 +180,19 @@ mod tests {
 
         let actual = action(
             &word,
-            true,
-            &Base64Config {
-                character_set: Spanned {
-                    item: "standard".to_string(),
-                    span: Span::test_data(),
+            &Arguments {
+                encoding_config: Base64Config {
+                    character_set: Spanned {
+                        item: "standard".to_string(),
+                        span: Span::test_data(),
+                    },
+                    action_type: ActionType::Encode,
                 },
-                action_type: ActionType::Encode,
+                binary: true,
+                cell_paths: None,
             },
-            &Span::test_data(),
-        )
-        .unwrap();
+            Span::test_data(),
+        );
         assert_eq!(actual, expected);
     }
 
@@ -205,17 +203,19 @@ mod tests {
 
         let actual = action(
             &word,
-            true,
-            &Base64Config {
-                character_set: Spanned {
-                    item: "standard-no-padding".to_string(),
-                    span: Span::test_data(),
+            &Arguments {
+                encoding_config: Base64Config {
+                    character_set: Spanned {
+                        item: "standard-no-padding".to_string(),
+                        span: Span::test_data(),
+                    },
+                    action_type: ActionType::Encode,
                 },
-                action_type: ActionType::Encode,
+                binary: true,
+                cell_paths: None,
             },
-            &Span::test_data(),
-        )
-        .unwrap();
+            Span::test_data(),
+        );
         assert_eq!(actual, expected);
     }
 
@@ -226,17 +226,19 @@ mod tests {
 
         let actual = action(
             &word,
-            true,
-            &Base64Config {
-                character_set: Spanned {
-                    item: "url-safe".to_string(),
-                    span: Span::test_data(),
+            &Arguments {
+                encoding_config: Base64Config {
+                    character_set: Spanned {
+                        item: "url-safe".to_string(),
+                        span: Span::test_data(),
+                    },
+                    action_type: ActionType::Encode,
                 },
-                action_type: ActionType::Encode,
+                binary: true,
+                cell_paths: None,
             },
-            &Span::test_data(),
-        )
-        .unwrap();
+            Span::test_data(),
+        );
         assert_eq!(actual, expected);
     }
 
@@ -247,17 +249,19 @@ mod tests {
 
         let actual = action(
             &word,
-            true,
-            &Base64Config {
-                character_set: Spanned {
-                    item: "binhex".to_string(),
-                    span: Span::test_data(),
+            &Arguments {
+                encoding_config: Base64Config {
+                    character_set: Spanned {
+                        item: "binhex".to_string(),
+                        span: Span::test_data(),
+                    },
+                    action_type: ActionType::Decode,
                 },
-                action_type: ActionType::Decode,
+                binary: true,
+                cell_paths: None,
             },
-            &Span::test_data(),
-        )
-        .unwrap();
+            Span::test_data(),
+        );
         assert_eq!(actual, expected);
     }
 
@@ -268,17 +272,19 @@ mod tests {
 
         let actual = action(
             &word,
-            true,
-            &Base64Config {
-                character_set: Spanned {
-                    item: "binhex".to_string(),
-                    span: Span::test_data(),
+            &Arguments {
+                encoding_config: Base64Config {
+                    character_set: Spanned {
+                        item: "binhex".to_string(),
+                        span: Span::test_data(),
+                    },
+                    action_type: ActionType::Decode,
                 },
-                action_type: ActionType::Decode,
+                binary: true,
+                cell_paths: None,
             },
-            &Span::test_data(),
-        )
-        .unwrap();
+            Span::test_data(),
+        );
         assert_eq!(actual, expected);
     }
 
@@ -292,17 +298,19 @@ mod tests {
 
         let actual = action(
             &word,
-            true,
-            &Base64Config {
-                character_set: Spanned {
-                    item: "standard".to_string(),
-                    span: Span::test_data(),
+            &Arguments {
+                encoding_config: Base64Config {
+                    character_set: Spanned {
+                        item: "standard".to_string(),
+                        span: Span::test_data(),
+                    },
+                    action_type: ActionType::Encode,
                 },
-                action_type: ActionType::Encode,
+                binary: true,
+                cell_paths: None,
             },
-            &Span::test_data(),
-        )
-        .unwrap();
+            Span::test_data(),
+        );
         assert_eq!(actual, expected);
     }
 
@@ -315,16 +323,23 @@ mod tests {
 
         let actual = action(
             &word,
-            true,
-            &Base64Config {
-                character_set: Spanned {
-                    item: "standard".to_string(),
-                    span: Span::test_data(),
+            &Arguments {
+                encoding_config: Base64Config {
+                    character_set: Spanned {
+                        item: "standard".to_string(),
+                        span: Span::test_data(),
+                    },
+                    action_type: ActionType::Decode,
                 },
-                action_type: ActionType::Decode,
+                binary: true,
+                cell_paths: None,
             },
-            &Span::test_data(),
+            Span::test_data(),
         );
-        assert!(actual.is_err())
+
+        match actual {
+            Value::Error { .. } => {}
+            _ => panic!("the result should be Value::Error"),
+        }
     }
 }
