@@ -1,9 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Value,
-};
+use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Value};
 
 #[derive(Clone)]
 pub struct HistorySession;
