@@ -4,10 +4,10 @@ use fancy_regex::Regex;
 use lscolors::{Color as LsColors_Color, LsColors, Style as LsColors_Style};
 use nu_ansi_term::{Color, Color::Default, Style};
 use nu_color_config::get_color_config;
-use nu_engine::{env_to_string, eval_block, CallExt};
+use nu_engine::{env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
-    engine::{CaptureBlock, Command, EngineState, Stack},
+    engine::{Command, EngineState, Stack},
     Category, Config, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Value,
 };
@@ -23,12 +23,6 @@ impl Command for Find {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named(
-                "predicate",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the predicate to satisfy",
-                Some('p'),
-            )
             .named(
                 "regex",
                 SyntaxShape::String,
@@ -56,7 +50,7 @@ impl Command for Find {
     }
 
     fn usage(&self) -> &str {
-        "Searches terms in the input or for elements of the input that satisfies the predicate."
+        "Searches terms in the input."
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -69,14 +63,14 @@ impl Command for Find {
             Example {
                 description: "Search for a term in a string",
                 example: r#"'Cargo.toml' | find toml"#,
-                result: Some(Value::test_string("Cargo.toml".to_owned()))
+                result: Some(Value::test_string("Cargo.toml".to_owned())),
             },
             Example {
                 description: "Search a number or a file size in a list of numbers",
                 example: r#"[1 5 3kb 4 3Mb] | find 5 3kb"#,
                 result: Some(Value::List {
                     vals: vec![Value::test_int(5), Value::test_filesize(3000)],
-                    span: Span::test_data()
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -84,53 +78,43 @@ impl Command for Find {
                 example: r#"[moe larry curly] | find l"#,
                 result: Some(Value::List {
                     vals: vec![Value::test_string("larry"), Value::test_string("curly")],
-                    span: Span::test_data()
-                })
-            },
-            Example {
-                description: "Find odd values",
-                example: "[2 4 3 6 5 8] | find --predicate { |it| ($it mod 2) == 1 }",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(3), Value::test_int(5)],
-                    span: Span::test_data()
-                })
-            },
-            Example {
-                description: "Find if a service is not running",
-                example: "[[version patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | find -p { |it| $it.patch }",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(
-                            vec!["version", "patch"],
-                            vec![Value::test_string("0.1.1"), Value::test_bool(true)]
-                        )],
-                    span: Span::test_data()
+                    span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Find using regex",
                 example: r#"[abc bde arc abf] | find --regex "ab""#,
                 result: Some(Value::List {
-                    vals: vec![Value::test_string("abc".to_string()), Value::test_string("abf".to_string())],
-                    span: Span::test_data()
-                })
+                    vals: vec![
+                        Value::test_string("abc".to_string()),
+                        Value::test_string("abf".to_string()),
+                    ],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Find using regex case insensitive",
                 example: r#"[aBc bde Arc abf] | find --regex "ab" -i"#,
                 result: Some(Value::List {
-                    vals: vec![Value::test_string("aBc".to_string()), Value::test_string("abf".to_string())],
-                    span: Span::test_data()
-                })
+                    vals: vec![
+                        Value::test_string("aBc".to_string()),
+                        Value::test_string("abf".to_string()),
+                    ],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Find value in records",
                 example: r#"[[version name]; [0.1.0 nushell] [0.1.1 fish] [0.2.0 zsh]] | find -r "nu""#,
                 result: Some(Value::List {
                     vals: vec![Value::test_record(
-                            vec!["version", "name"],
-                            vec![Value::test_string("0.1.0"), Value::test_string("nushell".to_string())]
-                        )],
-                    span: Span::test_data()
+                        vec!["version", "name"],
+                        vec![
+                            Value::test_string("0.1.0"),
+                            Value::test_string("nushell".to_string()),
+                        ],
+                    )],
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -147,19 +131,12 @@ impl Command for Find {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let predicate = call.get_flag::<CaptureBlock>(engine_state, stack, "predicate")?;
         let regex = call.get_flag::<String>(engine_state, stack, "regex")?;
 
-        match (regex, predicate) {
-            (None, Some(predicate)) => {
-                find_with_predicate(predicate, engine_state, stack, call, input)
-            }
-            (Some(regex), None) => find_with_regex(regex, engine_state, stack, call, input),
-            (None, None) => find_with_rest_and_highlight(engine_state, stack, call, input),
-            (Some(_), Some(_)) => Err(ShellError::IncompatibleParametersSingle(
-                "expected either predicate or regex flag, not both".to_owned(),
-                call.head,
-            )),
+        if let Some(regex) = regex {
+            find_with_regex(regex, engine_state, stack, call, input)
+        } else {
+            find_with_rest_and_highlight(engine_state, stack, call, input)
         }
     }
 }
@@ -222,58 +199,6 @@ fn find_with_regex(
                 matches.iter().any(|b| *b)
             }
             _ => false,
-        },
-        ctrlc,
-    )
-}
-
-fn find_with_predicate(
-    predicate: CaptureBlock,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let span = call.head;
-    let ctrlc = engine_state.ctrlc.clone();
-    let metadata = input.metadata();
-    let redirect_stdout = call.redirect_stdout;
-    let redirect_stderr = call.redirect_stderr;
-    let engine_state = engine_state.clone();
-    let invert = call.has_flag("invert");
-
-    let capture_block = predicate;
-    let block_id = capture_block.block_id;
-
-    if !call.rest::<Value>(&engine_state, stack, 0)?.is_empty() {
-        return Err(ShellError::IncompatibleParametersSingle(
-            "expected either a predicate or terms, not both".to_owned(),
-            span,
-        ));
-    }
-
-    let block = engine_state.get_block(block_id).clone();
-    let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
-
-    let mut stack = stack.captures_to_stack(&capture_block.captures);
-
-    input.filter(
-        move |value| {
-            if let Some(var_id) = var_id {
-                stack.add_var(var_id, value.clone());
-            }
-
-            eval_block(
-                &engine_state,
-                &mut stack,
-                &block,
-                PipelineData::new_with_metadata(metadata.clone(), span),
-                redirect_stdout,
-                redirect_stderr,
-            )
-            .map_or(false, |pipeline_data| {
-                pipeline_data.into_value(span).is_true() != invert
-            })
         },
         ctrlc,
     )
