@@ -211,48 +211,6 @@ pub fn parse_binary_with_multi_byte_char() {
 }
 
 #[test]
-pub fn parse_string() {
-    let engine_state = EngineState::new();
-    let mut working_set = StateWorkingSet::new(&engine_state);
-
-    let (block, err) = parse(&mut working_set, None, b"\"hello nushell\"", true, &[]);
-
-    assert!(err.is_none());
-    assert!(block.len() == 1);
-    let expressions = &block[0];
-    assert!(expressions.len() == 1);
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
-        assert_eq!(expr.expr, Expr::String("hello nushell".to_string()))
-    } else {
-        panic!("Not an expression")
-    }
-}
-
-#[test]
-pub fn parse_escaped_string() {
-    let engine_state = EngineState::new();
-    let mut working_set = StateWorkingSet::new(&engine_state);
-
-    let (block, err) = parse(
-        &mut working_set,
-        None,
-        b"\"hello \\u006e\\u0075\\u0073hell\"",
-        true,
-        &[],
-    );
-
-    assert!(err.is_none());
-    assert!(block.len() == 1);
-    let expressions = &block[0];
-    assert!(expressions.len() == 1);
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
-        assert_eq!(expr.expr, Expr::String("hello nushell".to_string()))
-    } else {
-        panic!("Not an expression")
-    }
-}
-
-#[test]
 pub fn parse_call() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -408,6 +366,258 @@ fn test_nothing_comparisson_neq() {
             }
         )
     ))
+}
+
+mod string {
+    use super::*;
+
+    #[test]
+    pub fn parse_string() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse(&mut working_set, None, b"\"hello nushell\"", true, &[]);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        if let PipelineElement::Expression(_, expr) = &expressions[0] {
+            assert_eq!(expr.expr, Expr::String("hello nushell".to_string()))
+        } else {
+            panic!("Not an expression")
+        }
+    }
+
+    #[test]
+    pub fn parse_escaped_string() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse(
+            &mut working_set,
+            None,
+            b"\"hello \\u006e\\u0075\\u0073hell\"",
+            true,
+            &[],
+        );
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        let expressions = &block[0];
+        assert!(expressions.len() == 1);
+        if let PipelineElement::Expression(_, expr) = &expressions[0] {
+            assert_eq!(expr.expr, Expr::String("hello nushell".to_string()))
+        } else {
+            panic!("Not an expression")
+        }
+    }
+
+    mod interpolation {
+        use nu_protocol::Span;
+
+        use super::*;
+
+        #[test]
+        pub fn parse_string_interpolation() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let (block, err) = parse(&mut working_set, None, b"$\"hello (39 + 3)\"", true, &[]);
+
+            assert!(err.is_none());
+            assert!(block.len() == 1);
+
+            let expressions = &block[0];
+            assert!(expressions.len() == 1);
+
+            if let PipelineElement::Expression(_, expr) = &expressions[0] {
+                let subexprs: Vec<&Expr>;
+                match expr {
+                    Expression {
+                        expr: Expr::StringInterpolation(expressions),
+                        ..
+                    } => {
+                        subexprs = expressions.iter().map(|e| &e.expr).collect();
+                    }
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                }
+
+                assert_eq!(subexprs.len(), 2);
+
+                assert_eq!(subexprs[0], &Expr::String("hello ".to_string()));
+
+                assert!(matches!(subexprs[1], &Expr::FullCellPath(..)));
+            } else {
+                panic!("Not an expression")
+            }
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_escaped_parenthesis() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let (block, err) = parse(&mut working_set, None, b"$\"hello \\(39 + 3)\"", true, &[]);
+
+            assert!(err.is_none());
+
+            assert!(block.len() == 1);
+            let expressions = &block[0];
+
+            assert!(expressions.len() == 1);
+
+            if let PipelineElement::Expression(_, expr) = &expressions[0] {
+                let subexprs: Vec<&Expr>;
+                match expr {
+                    Expression {
+                        expr: Expr::StringInterpolation(expressions),
+                        ..
+                    } => {
+                        subexprs = expressions.iter().map(|e| &e.expr).collect();
+                    }
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                }
+
+                assert_eq!(subexprs.len(), 1);
+
+                assert_eq!(subexprs[0], &Expr::String("hello (39 + 3)".to_string()));
+            } else {
+                panic!("Not an expression")
+            }
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_escaped_backslash_before_parenthesis() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let (block, err) = parse(
+                &mut working_set,
+                None,
+                b"$\"hello \\\\(39 + 3)\"",
+                true,
+                &[],
+            );
+
+            assert!(err.is_none());
+
+            assert!(block.len() == 1);
+            let expressions = &block[0];
+
+            assert!(expressions.len() == 1);
+
+            if let PipelineElement::Expression(_, expr) = &expressions[0] {
+                let subexprs: Vec<&Expr>;
+                match expr {
+                    Expression {
+                        expr: Expr::StringInterpolation(expressions),
+                        ..
+                    } => {
+                        subexprs = expressions.iter().map(|e| &e.expr).collect();
+                    }
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                }
+
+                assert_eq!(subexprs.len(), 2);
+
+                assert_eq!(subexprs[0], &Expr::String("hello \\".to_string()));
+
+                assert!(matches!(subexprs[1], &Expr::FullCellPath(..)));
+            } else {
+                panic!("Not an expression")
+            }
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_backslash_count_reset_by_expression() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let (block, err) = parse(
+                &mut working_set,
+                None,
+                b"$\"\\(1 + 3)\\(7 - 5)\"",
+                true,
+                &[],
+            );
+
+            assert!(err.is_none());
+
+            assert!(block.len() == 1);
+            let expressions = &block[0];
+
+            assert!(expressions.len() == 1);
+
+            if let PipelineElement::Expression(_, expr) = &expressions[0] {
+                let subexprs: Vec<&Expr>;
+                match expr {
+                    Expression {
+                        expr: Expr::StringInterpolation(expressions),
+                        ..
+                    } => {
+                        subexprs = expressions.iter().map(|e| &e.expr).collect();
+                    }
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                }
+
+                assert_eq!(subexprs.len(), 1);
+                assert_eq!(subexprs[0], &Expr::String("(1 + 3)(7 - 5)".to_string()));
+            } else {
+                panic!("Not an expression")
+            }
+        }
+
+        #[test]
+        pub fn parse_nested_expressions() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_variable(
+                "foo".to_string().into_bytes(),
+                Span::new(0, 0),
+                nu_protocol::Type::CellPath,
+                false,
+            );
+
+            let (_block, err) = parse(
+                &mut working_set,
+                None,
+                br#"
+                $"(($foo))"
+                "#,
+                true,
+                &[],
+            );
+
+            assert!(err.is_none());
+        }
+
+        #[test]
+        pub fn parse_path_expression() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_variable(
+                "foo".to_string().into_bytes(),
+                Span::new(0, 0),
+                nu_protocol::Type::CellPath,
+                false,
+            );
+
+            let (_block, err) = parse(
+                &mut working_set,
+                None,
+                br#"
+                $"Hello ($foo.bar)"
+                "#,
+                true,
+                &[],
+            );
+
+            assert!(err.is_none());
+        }
+    }
 }
 
 mod range {
