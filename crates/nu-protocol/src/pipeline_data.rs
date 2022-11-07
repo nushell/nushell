@@ -623,7 +623,10 @@ impl Iterator for PipelineIterator {
 
 pub trait IntoPipelineData {
     fn into_pipeline_data(self) -> PipelineData;
-    fn into_pipeline_data_with_metadata(self, metadata: PipelineMetadata) -> PipelineData;
+    fn into_pipeline_data_with_metadata(
+        self,
+        metadata: impl Into<Option<PipelineMetadata>>,
+    ) -> PipelineData;
 }
 
 impl<V> IntoPipelineData for V
@@ -633,8 +636,11 @@ where
     fn into_pipeline_data(self) -> PipelineData {
         PipelineData::Value(self.into(), None)
     }
-    fn into_pipeline_data_with_metadata(self, metadata: PipelineMetadata) -> PipelineData {
-        PipelineData::Value(self.into(), Some(metadata))
+    fn into_pipeline_data_with_metadata(
+        self,
+        metadata: impl Into<Option<PipelineMetadata>>,
+    ) -> PipelineData {
+        PipelineData::Value(self.into(), metadata.into())
     }
 }
 
@@ -642,7 +648,7 @@ pub trait IntoInterruptiblePipelineData {
     fn into_pipeline_data(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData;
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: PipelineMetadata,
+        metadata: impl Into<Option<PipelineMetadata>>,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> PipelineData;
 }
@@ -665,7 +671,7 @@ where
 
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: PipelineMetadata,
+        metadata: impl Into<Option<PipelineMetadata>>,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> PipelineData {
         PipelineData::ListStream(
@@ -673,7 +679,7 @@ where
                 stream: Box::new(self.into_iter().map(Into::into)),
                 ctrlc,
             },
-            Some(metadata),
+            metadata.into(),
         )
     }
 }

@@ -106,15 +106,7 @@ fn from_tsv(
     let trim: Option<Value> = call.get_flag(engine_state, stack, "trim")?;
     let trim = trim_from_str(trim)?;
 
-    from_delimited_data(
-        noheaders,
-        no_infer,
-        '\t',
-        trim,
-        input,
-        name,
-        engine_state.get_config(),
-    )
+    from_delimited_data(noheaders, no_infer, '\t', trim, input, name)
 }
 
 #[cfg(test)]

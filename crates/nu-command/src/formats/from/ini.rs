@@ -2,8 +2,7 @@ use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -53,14 +52,13 @@ b=2' | from ini",
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config();
-        from_ini(input, head, config)
+        from_ini(input, head)
     }
 }
 
@@ -90,11 +88,11 @@ pub fn from_ini_string_to_value(s: String, span: Span) -> Result<Value, ShellErr
     }
 }
 
-fn from_ini(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
-    let concat_string = input.collect_string("", config)?;
+fn from_ini(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+    let (concat_string, metadata) = input.collect_string_strict(head)?;
 
     match from_ini_string_to_value(concat_string, head) {
-        Ok(x) => Ok(x.into_pipeline_data()),
+        Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
         Err(other) => Err(other),
     }
 }
