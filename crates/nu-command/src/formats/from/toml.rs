@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -13,18 +13,20 @@ impl Command for FromToml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from toml").category(Category::Formats)
+        Signature::build("from toml")
+            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
-        "Parse text as .toml and create table."
+        "Parse text as .toml and create record."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 example: "'a = 1' | from toml",
-                description: "Converts toml formatted string to table",
+                description: "Converts toml formatted string to record",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string()],
                     vals: vec![Value::Int {
@@ -37,7 +39,7 @@ impl Command for FromToml {
             Example {
                 example: "'a = 1
 b = [1, 2]' | from toml",
-                description: "Converts toml formatted string to table",
+                description: "Converts toml formatted string to record",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![

@@ -3,7 +3,7 @@ use nu_ansi_term::*;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashMap;
 
@@ -202,6 +202,7 @@ impl Command for AnsiCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi")
+            .input_output_types(vec![(Type::Nothing, Type::String)])
             .optional(
                 "code",
                 SyntaxShape::Any,
@@ -293,9 +294,13 @@ Format: #
             Example {
                 description: "Use ansi to color text (italic bright yellow on red 'Hello' with green bold 'Nu' and purple bold 'World')",
                 example: r#"[(ansi -e '3;93;41m') Hello (ansi reset) " " (ansi gb) Nu " " (ansi pb) World (ansi reset)] | str join"#,
-                result: Some(Value::test_string(
-                    "\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld\u{1b}[0m",
-                )),
+                result: None,
+                // Test disabled because the final expression in the pipeline is
+                // not the command being tested, and this violated assumptions
+                // made by the run-time input/output type-checking tests.
+                // result: Some(Value::test_string(
+                //     "\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld\u{1b}[0m",
+                // )),
             },
             Example {
                 description: "Use ansi to color text with a style (blue on red in bold)",

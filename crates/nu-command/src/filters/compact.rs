@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, engine::Command, engine::EngineState, engine::Stack, Category, Example,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,6 +14,19 @@ impl Command for Compact {
 
     fn signature(&self) -> Signature {
         Signature::build("compact")
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    // TODO: Should table be a subtype of List<Any>? If so then this
+                    // entry would be unnecessary.
+                    Type::Table(vec![]),
+                    Type::List(Box::new(Type::Any)),
+                ),
+            ])
             .rest(
                 "columns",
                 SyntaxShape::Any,

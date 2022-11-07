@@ -1,7 +1,9 @@
 use crate::formats::to::delimited::to_delimited_data;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Config, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{
+    Category, Config, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct ToTsv;
@@ -13,6 +15,7 @@ impl Command for ToTsv {
 
     fn signature(&self) -> Signature {
         Signature::build("to tsv")
+            .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "noheaders",
                 "do not output the column names as the first row",

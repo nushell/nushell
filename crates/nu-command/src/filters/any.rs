@@ -2,7 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{CaptureBlock, Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +16,10 @@ impl Command for Any {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::Bool),
+                (Type::Table(vec![]), Type::Bool),
+            ])
             .required(
                 "predicate",
                 SyntaxShape::RowCondition,

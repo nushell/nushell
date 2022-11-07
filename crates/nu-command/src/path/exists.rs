@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use nu_engine::{current_dir, CallExt};
 use nu_path::expand_path_with;
-use nu_protocol::{engine::Command, Example, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{engine::Command, Example, Signature, Span, SyntaxShape, Type, Value};
 
 use super::PathSubcommandArguments;
 
@@ -26,12 +26,14 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path exists").named(
-            "columns",
-            SyntaxShape::Table,
-            "Optionally operate by column path",
-            Some('c'),
-        )
+        Signature::build("path exists")
+            .input_output_types(vec![(Type::String, Type::Bool)])
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "Optionally operate by column path",
+                Some('c'),
+            )
     }
 
     fn usage(&self) -> &str {

@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +15,10 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("split list")
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::List(Box::new(Type::Any)))),
+            )])
             .required(
                 "separator",
                 SyntaxShape::Any,
@@ -127,4 +131,16 @@ fn split_list(
         span: call.head,
     }
     .into_pipeline_data())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(SubCommand {})
+    }
 }

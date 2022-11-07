@@ -2,7 +2,7 @@ use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, FromValue, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,7 @@ impl Command for If {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("if")
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required("cond", SyntaxShape::Expression, "condition to check")
             .required(
                 "then_block",

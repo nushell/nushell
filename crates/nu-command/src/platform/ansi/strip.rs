@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,6 +14,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi strip")
+            .input_output_types(vec![(Type::String, Type::String)])
             .rest(
                 "column path",
                 SyntaxShape::CellPath,

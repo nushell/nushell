@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::io::Cursor;
 
@@ -18,6 +18,8 @@ impl Command for FromOds {
 
     fn signature(&self) -> Signature {
         Signature::build("from ods")
+            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .allow_variants_without_examples(true)
             .named(
                 "sheets",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),

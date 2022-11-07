@@ -2,7 +2,7 @@ use chrono_tz::TZ_VARIANTS;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,7 +14,9 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date list-timezone").category(Category::Date)
+        Signature::build("date list-timezone")
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .category(Category::Date)
     }
 
     fn usage(&self) -> &str {

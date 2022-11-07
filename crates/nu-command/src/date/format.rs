@@ -4,7 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 use nu_utils::locale::get_system_locale_string;
 use std::fmt::{Display, Write};
@@ -21,6 +22,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("date format")
+            .input_output_types(vec![
+                (Type::Date, Type::String),
+                (Type::String, Type::String),
+            ])
+            .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .switch("list", "lists strftime cheatsheet", Some('l'))
             .optional(
                 "format string",
@@ -66,8 +72,18 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![
+            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
+            // Example {
+            //     description: "Format a given date-time using the default format (RFC 2822).",
+            //     example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | date format"#,
+            //     result: Some(Value::String {
+            //         val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
+            //         span: Span::test_data(),
+            //     }),
+            // },
             Example {
-                description: "Format a given date using the default format (RFC 2822).",
+                description:
+                    "Format a given date-time as a string using the default format (RFC 2822).",
                 example: r#""2021-10-22 20:00:12 +01:00" | date format"#,
                 result: Some(Value::String {
                     val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
@@ -75,13 +91,13 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Format a given date using a given format string.",
-                example: "date format '%Y-%m-%d'",
+                description: "Format the current date-time using a given format string.",
+                example: r#"date now | date format "%Y-%m-%d %H:%M:%S""#,
                 result: None,
             },
             Example {
-                description: "Format a given date using a given format string.",
-                example: r#"date format "%Y-%m-%d %H:%M:%S""#,
+                description: "Format the current date using a given format string.",
+                example: r#"date now | date format "%Y-%m-%d %H:%M:%S""#,
                 result: None,
             },
             Example {

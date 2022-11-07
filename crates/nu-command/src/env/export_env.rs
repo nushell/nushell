@@ -2,7 +2,7 @@ use nu_engine::{eval_block, redirect_env, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{CaptureBlock, Command, EngineState, Stack},
-    Category, Example, PipelineData, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +15,7 @@ impl Command for ExportEnv {
 
     fn signature(&self) -> Signature {
         Signature::build("export-env")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "block",
                 SyntaxShape::Block(Some(vec![])),
@@ -53,11 +54,20 @@ impl Command for ExportEnv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Set an environment",
-            example: r#"export-env { let-env SPAM = 'eggs' }; $env.SPAM"#,
-            result: Some(Value::string("eggs", Span::test_data())),
-        }]
+        vec![
+            Example {
+                description: "Set an environment variable",
+                example: r#"export-env { let-env SPAM = 'eggs' }"#,
+                result: Some(Value::Nothing {
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Set an environment variable and examine its value",
+                example: r#"export-env { let-env SPAM = 'eggs' }; $env.SPAM"#,
+                result: Some(Value::string("eggs", Span::test_data())),
+            },
+        ]
     }
 }
 

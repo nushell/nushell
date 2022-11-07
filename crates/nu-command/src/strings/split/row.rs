@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +16,8 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("split row")
+            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .vectorizes_over_list(true)
             .required(
                 "separator",
                 SyntaxShape::String,
@@ -133,15 +136,14 @@ fn split_row_helper(
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::ShellError;
-//     use super::SubCommand;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-//     #[test]
-//     fn examples_work_as_expected() -> Result<(), ShellError> {
-//         use crate::examples::test as test_examples;
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
 
-//         test_examples(SubCommand {})
-//     }
-// }
+        test_examples(SubCommand {})
+    }
+}

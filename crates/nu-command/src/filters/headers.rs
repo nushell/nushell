@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -13,7 +14,16 @@ impl Command for Headers {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Filters)
+        Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    // Tables with missing values are List<Any>
+                    Type::List(Box::new(Type::Any)),
+                    Type::Table(vec![]),
+                ),
+            ])
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {

@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 use super::{vertical_rotate_value, VerticalDirection};
@@ -22,6 +22,8 @@ impl Command for RollDown {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            // TODO: It also operates on List
+            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
             .named("by", SyntaxShape::Int, "Number of rows to roll", Some('b'))
             .category(Category::Filters)
     }
@@ -33,7 +35,7 @@ impl Command for RollDown {
     fn examples(&self) -> Vec<Example> {
         let columns = vec!["a".to_string(), "b".to_string()];
         vec![Example {
-            description: "Rolls rows down",
+            description: "Rolls rows down of a table",
             example: "[[a b]; [1 2] [3 4] [5 6]] | roll down",
             result: Some(Value::List {
                 vals: vec![

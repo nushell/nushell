@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     did_you_mean, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,7 @@ impl Command for HideEnv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide-env")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .rest(
                 "name",
                 SyntaxShape::String,

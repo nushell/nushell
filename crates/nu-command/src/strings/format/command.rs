@@ -2,9 +2,9 @@ use nu_engine::{eval_expression, CallExt};
 use nu_parser::parse_expression;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::Type;
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -17,6 +17,10 @@ impl Command for Format {
 
     fn signature(&self) -> Signature {
         Signature::build("format")
+            .input_output_types(vec![(
+                Type::Table(vec![]),
+                Type::List(Box::new(Type::String)),
+            )])
             .required(
                 "pattern",
                 SyntaxShape::String,

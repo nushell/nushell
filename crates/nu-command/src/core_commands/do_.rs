@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -20,6 +20,7 @@ impl Command for Do {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("do")
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required("block", SyntaxShape::Any, "the block to run")
             .switch(
                 "ignore-errors",
@@ -197,8 +198,13 @@ impl Command for Do {
             },
             Example {
                 description: "Run the block, with a positional parameter",
-                example: r#"do {|x| 100 + $x } 50"#,
-                result: Some(Value::test_int(150)),
+                example: r#"do {|x| 100 + $x } 77"#,
+                result: Some(Value::test_int(177)),
+            },
+            Example {
+                description: "Run the block, with input",
+                example: r#"77 | do {|x| 100 + $in }"#,
+                result: None, // TODO: returns 177
             },
         ]
     }

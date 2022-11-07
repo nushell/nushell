@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, SyntaxShape, Value,
+    Span, SyntaxShape, Type, Value,
 };
 use rayon::prelude::*;
 
@@ -23,6 +23,10 @@ impl Command for ParEach {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("par-each")
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .required(
                 "block",
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),

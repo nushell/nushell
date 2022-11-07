@@ -9,7 +9,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::borrow::Borrow;
 #[derive(Clone)]
@@ -22,6 +22,7 @@ impl Command for Help {
 
     fn signature(&self) -> Signature {
         Signature::build("help")
+            .input_output_types(vec![(Type::Nothing, Type::String)])
             .rest(
                 "rest",
                 SyntaxShape::String,

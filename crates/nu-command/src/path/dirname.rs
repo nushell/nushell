@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use nu_engine::CallExt;
-use nu_protocol::{engine::Command, Example, Signature, Span, Spanned, SyntaxShape, Value};
+use nu_protocol::{engine::Command, Example, Signature, Span, Spanned, SyntaxShape, Type, Value};
 
 use super::PathSubcommandArguments;
 
@@ -27,6 +27,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path dirname")
+            .input_output_types(vec![(Type::String, Type::String)])
             .named(
                 "columns",
                 SyntaxShape::Table,

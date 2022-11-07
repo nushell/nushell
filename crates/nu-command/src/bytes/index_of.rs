@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -29,6 +29,10 @@ impl Command for BytesIndexOf {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes index-of")
+            .input_output_types(vec![
+                (Type::Binary, Type::Int),
+                (Type::Binary, Type::List(Box::new(Type::Int))),
+            ])
             .required(
                 "pattern",
                 SyntaxShape::Binary,
