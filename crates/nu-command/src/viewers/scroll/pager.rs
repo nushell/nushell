@@ -108,7 +108,9 @@ where
                 f.render_widget(tui::widgets::Clear, area);
 
                 let table = Table::from(&*state);
-                f.render_stateful_widget(table, area, &mut layout);
+                let table_area =
+                    Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
+                f.render_stateful_widget(table, table_area, &mut layout);
 
                 let status_area =
                     Rect::new(area.left(), area.bottom().saturating_sub(2), area.width, 1);
@@ -590,35 +592,27 @@ impl StatefulWidget for Table<'_> {
         let show_index = self.show_index;
         let show_head = self.show_header;
 
-        let mut head_offset = area.y;
+        let mut data_y = area.y;
         if show_head {
-            head_offset += 3;
+            data_y += 3;
         }
 
         let head_y = area.y + 1;
 
-        let cmd_bar_offset = 1;
-        let status_bar_offset = 1;
-        let min_data_offset = 1;
-
-        let term_min_height = cmd_bar_offset + status_bar_offset + head_offset + min_data_offset;
-        let term_min_width = 1;
-
-        if area.width < term_min_width || area.height < term_min_height {
+        if area.width == 0 || area.height == 0 {
             return;
         }
 
-        let mut height = area.height;
-        height -= status_bar_offset + cmd_bar_offset;
+        let mut data_height = area.height;
         if show_head {
-            height -= 3;
+            data_height -= 3;
         }
 
         let mut width = area.x;
 
         let mut data = &self.data[self.row_index..];
-        if data.len() > height as usize {
-            data = &data[..height as usize];
+        if data.len() > data_height as usize {
+            data = &data[..data_height as usize];
         }
 
         // header lines
@@ -627,9 +621,9 @@ impl StatefulWidget for Table<'_> {
         }
 
         if show_index {
-            let area = Rect::new(width, area.y + head_offset, area.width, height);
+            let area = Rect::new(width, data_y, area.width, data_height);
             width += render_index(buf, area, self.color_hm, self.row_index);
-            width += render_vertical(buf, width, head_offset, height, show_head);
+            width += render_vertical(buf, width, data_y, data_height, show_head);
         }
 
         let mut do_render_split_line = true;
@@ -640,7 +634,6 @@ impl StatefulWidget for Table<'_> {
 
             let mut column = create_column(data, self.config, self.color_hm, col);
 
-            let available_space = area.width - width;
             let column_width = calculate_column_width(&column);
             let mut use_space = column_width as u16;
 
@@ -650,6 +643,7 @@ impl StatefulWidget for Table<'_> {
             }
 
             {
+                let available_space = area.width - width;
                 let head = show_head.then(|| &mut head);
                 let control = truncate_column(
                     &mut column,
@@ -684,13 +678,13 @@ impl StatefulWidget for Table<'_> {
                 state.push_head(w - CELL_PADDING_RIGHT - use_space, use_space)
             }
 
-            width += render_space(buf, width, head_offset, height, CELL_PADDING_LEFT);
-            width += render_column(buf, width, head_offset, use_space, &column);
-            width += render_space(buf, width, head_offset, height, CELL_PADDING_RIGHT);
+            width += render_space(buf, width, data_y, data_height, CELL_PADDING_LEFT);
+            width += render_column(buf, width, data_y, use_space, &column);
+            width += render_space(buf, width, data_y, data_height, CELL_PADDING_RIGHT);
 
             state.push_column(
                 width - CELL_PADDING_RIGHT - use_space,
-                head_offset,
+                data_y,
                 use_space,
                 column.len() as u16,
             );
@@ -706,20 +700,20 @@ impl StatefulWidget for Table<'_> {
             // render_shift_column(buf, used_width, head_offset, available_height);
 
             if show_head {
-                width += render_space(buf, width, head_offset, height, CELL_PADDING_LEFT);
+                width += render_space(buf, width, data_y, data_height, CELL_PADDING_LEFT);
                 width += render_shift_column(buf, width, head_y, 1);
-                width += render_space(buf, width, head_offset, height, CELL_PADDING_RIGHT);
+                width += render_space(buf, width, data_y, data_height, CELL_PADDING_RIGHT);
             }
         }
 
         if do_render_split_line {
-            width += render_vertical(buf, width, head_offset, height, show_head);
+            width += render_vertical(buf, width, data_y, data_height, show_head);
         }
 
         // we try out best to cleanup the rest of the space cause it could be meassed.
         let rest = area.width.saturating_sub(width);
         if rest > 0 {
-            render_space(buf, width, head_offset, height, rest);
+            render_space(buf, width, data_y, data_height, rest);
             if show_head {
                 render_space(buf, width, head_y, 1, rest);
             }
@@ -775,7 +769,10 @@ fn nu_style_to_tui(style: NuStyle) -> tui::style::Style {
 }
 
 fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_index: usize) -> u16 {
-    let mut width = render_space(buf, area.x, area.y, area.height, 2);
+    const PADDING_LEFT: u16 = 2;
+    const PADDING_RIGHT: u16 = 1;
+
+    let mut width = render_space(buf, area.x, area.y, area.height, PADDING_LEFT);
 
     let index = IndexColumn::new(color_hm, start_index);
     let w = index.estimate_width(area.height) as u16;
@@ -784,7 +781,7 @@ fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_ind
     index.render(area, buf);
 
     width += w;
-    width += render_space(buf, area.x + width, area.y, area.height, 1);
+    width += render_space(buf, area.x + width, area.y, area.height, PADDING_RIGHT);
 
     width
 }

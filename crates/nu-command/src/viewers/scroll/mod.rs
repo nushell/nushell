@@ -7,6 +7,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
+/// A `less` like program to render a [Value] as a table.
 #[derive(Clone)]
 pub struct Scroll;
 
@@ -40,7 +41,9 @@ impl Command for Scroll {
     }
 
     fn extra_usage(&self) -> &str {
-        ""
+        r#"Press <i> to get into cursor mode; which will allow you to get inside the cells to see its inner structure.
+Press <ESC> to get out of the mode and the inner view.
+        "#
     }
 
     fn run(
@@ -67,7 +70,23 @@ impl Command for Scroll {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "List the files in current directory, an looking at them via scroll.",
+                example: r#"ls | scroll"#,
+                result: None,
+            },
+            Example {
+                description: "Inspect system information (scroll with index).",
+                example: r#"sys | scroll -i"#,
+                result: None,
+            },
+            Example {
+                description: "Inspect $nu information (scroll with no column names).",
+                example: r#"$nu | scroll --head false"#,
+                result: None,
+            },
+        ]
     }
 }
 
@@ -89,6 +108,7 @@ fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
     }
 }
 
+/// Try to build column names and a table grid.
 pub(crate) fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     match value {
         Value::Record { cols, vals, .. } => (cols, vec![vals]),
