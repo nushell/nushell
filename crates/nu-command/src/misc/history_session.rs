@@ -1,6 +1,9 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Value};
+use nu_protocol::{
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
+    Value,
+};
 
 #[derive(Clone)]
 pub struct HistorySession;
@@ -33,11 +36,6 @@ impl Command for HistorySession {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        Ok(Value::Record {
-            cols: vec!["session-id".into()],
-            vals: vec![Value::int(engine_state.history_session_id, call.head)],
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::int(engine_state.history_session_id, call.head).into_pipeline_data())
     }
 }
