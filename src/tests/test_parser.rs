@@ -198,7 +198,10 @@ fn commands_have_usage() -> TestResult {
 
 #[test]
 fn equals_separates_long_flag() -> TestResult {
-    run_test(r#"seq 1 4 --separator='+'"#, "1+2+3+4")
+    run_test(
+        r#"'nushell' | str lpad --length=10 --character='-'"#,
+        "---nushell",
+    )
 }
 
 #[test]
