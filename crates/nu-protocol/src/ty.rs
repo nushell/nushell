@@ -39,6 +39,19 @@ impl Type {
             (Type::Int, Type::Number) => true,
             (_, Type::Any) => true,
             (Type::List(t), Type::List(u)) if t.is_subtype(u) => true, // List is covariant
+
+            // TODO: Currently Record types specify their field types. If we are
+            // going to continue to do that, then it might make sense to define
+            // a "structural subtyping" whereby r1 is a subtype of r2 is the
+            // fields of r1 are a "subset" of the fields of r2 (names are a
+            // subset and agree on types). However, if we do that, then we need
+            // a way to specify the supertype of all Records. For now, we define
+            // any Record to be a subtype of any other Record. This allows
+            // Record(vec![]) to be used as an ad-hoc supertype of all Records
+            // in command signatures. This comment applies to Tables also, with
+            // "columns" in place of "fields".
+            (Type::Record(_), Type::Record(_)) => true,
+            (Type::Table(_), Type::Table(_)) => true,
             _ => false,
         }
     }
