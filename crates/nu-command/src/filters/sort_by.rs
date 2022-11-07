@@ -38,83 +38,17 @@ impl Command for SortBy {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[2 0 1] | sort-by",
-                description: "sort the list by increasing value",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                description: "Sort files by modified date",
+                example: "ls | sort-by modified",
+                result: None,
             },
             Example {
-                example: "[2 0 1] | sort-by -r",
-                description: "sort the list by decreasing value",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(1), Value::test_int(0)],
-                    span: Span::test_data(),
-                }),
+                description: "Sort files by name (case-insensitive)",
+                example: "ls | sort-by name -i",
+                result: None,
             },
             Example {
-                example: "[betty amy sarah] | sort-by",
-                description: "sort a list of strings",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_string("amy"),
-                        Value::test_string("betty"),
-                        Value::test_string("sarah"),
-                    ],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                example: "[betty amy sarah] | sort-by -r",
-                description: "sort a list of strings in reverse",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_string("sarah"),
-                        Value::test_string("betty"),
-                        Value::test_string("amy"),
-                    ],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                example: "[test1 test11 test2] | sort-by -n",
-                description: "sort a list of alphanumeric strings naturally",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_string("test1"),
-                        Value::test_string("test2"),
-                        Value::test_string("test11"),
-                    ],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Sort strings (case-insensitive)",
-                example: "echo [airplane Truck Car] | sort-by -i",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_string("airplane"),
-                        Value::test_string("Car"),
-                        Value::test_string("Truck"),
-                    ],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Sort strings (reversed case-insensitive)",
-                example: "echo [airplane Truck Car] | sort-by -i -r",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_string("Truck"),
-                        Value::test_string("Car"),
-                        Value::test_string("airplane"),
-                    ],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Sort a table by its column (reversed order)",
+                description: "Sort a table by a column (reversed order)",
                 example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit -r",
                 result: Some(Value::List {
                     vals: vec![
@@ -150,6 +84,10 @@ impl Command for SortBy {
         let natural = call.has_flag("natural");
         let metadata = &input.metadata();
         let mut vec: Vec<_> = input.into_iter().collect();
+
+        if columns.is_empty() {
+            return Err(ShellError::MissingParameter("columns".into(), call.head));
+        }
 
         crate::sort(&mut vec, columns, call.head, insensitive, natural)?;
 
