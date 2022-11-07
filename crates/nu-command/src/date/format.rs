@@ -55,6 +55,13 @@ impl Command for SubCommand {
 
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
+        if input.is_nothing() {
+            return Err(ShellError::UnsupportedInput(
+                "Input was nothing. You must pipe an input to this command.".into(),
+                head,
+            ));
+        }
+
         input.map(
             move |value| match &format {
                 Some(format) => format_helper(value, format.item.as_str(), format.span, head),
@@ -131,10 +138,6 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
                 Err(e) => e,
             }
         }
-        Value::Nothing { .. } => {
-            let dt = Local::now();
-            format_from(dt, formatter, formatter_span)
-        }
         _ => Value::Error {
             error: ShellError::DatetimeParseError(head_span),
         },
@@ -158,13 +161,6 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
                     span,
                 },
                 Err(e) => e,
-            }
-        }
-        Value::Nothing { span: _ } => {
-            let dt = Local::now();
-            Value::String {
-                val: dt.with_timezone(dt.offset()).to_rfc2822(),
-                span,
             }
         }
         _ => Value::Error {
