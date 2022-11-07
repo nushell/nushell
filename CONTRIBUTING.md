@@ -2,11 +2,22 @@
 
 Welcome to Nushell and thank you for considering contributing!
 
-First of all, before diving into the code, if you plan on making a non-trivial change, such as adding or changing a feature and especially if the change is user-facing, please, seek feedback from regular contributors and make sure to get an approval from the core team.
-This saves both your and our time if we realize the change needs to go another direction before the actual coding and reviewing work.
+## Review Process
+
+First of all, before diving into the code, if you want to create a new feature, change something significantly, and especially if the change is user-facing, it is a good practice to first get an approval from the core team before starting to work on it.
+This saves both your and our time if we realize the change needs to go another direction before spending time on it.
 So, please, reach out and tell us what you want to do.
 This will significantly increase the chance of your PR being accepted.
-The best place to do so is on [Discord](https://discordapp.com/invite/NtAbbGn) or [GitHub](https://github.com/nushell/nushell/issues/new/choose).
+
+The review process can be summarized as follows:
+1. You want to make some change to Nushell that is more involved than simple bug-fixing.
+2. Go to [Discord](https://discordapp.com/invite/NtAbbGn) or a [GitHub issue](https://github.com/nushell/nushell/issues/new/choose) and chat with some core team members and/or other contributors about it.
+3. After getting a green light from the core team, implement the feature, open a pull request (PR) and write a concise but comprehensive description of the change.
+4. If your PR includes any use-facing features (such as adding a flag to a command), clearly list them in the PR description.
+5. Then, core team members and other regular contributors will review the PR and suggest changes.
+6. When we all agree, the PR will be merged.
+7. If your PR includes any user-facing features, make sure the changes are also reflected in [the documentation](https://github.com/nushell/nushell.github.io) after the PR is merged.
+8. Congratulate yourself, you just improved Nushell! :-)
 
 ## Developing
 
