@@ -188,8 +188,7 @@ impl Command for Ls {
                     if path_contains_skipped_dir(&path, &should_skip_dirs) {
                         return None;
                     }
-                    if all || should_skip_dir_specified {
-                    } else if should_skip_dir(&path) {
+                    if (all || should_skip_dir_specified) && should_skip_dir(&path) {
                         should_skip_dirs.push(path);
                         return None;
                     }
