@@ -82,9 +82,11 @@ impl Command for Ls {
         let cwd = current_dir(engine_state, stack)?;
 
         let pattern_arg: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
+        let mut should_skip_dir_specified = false;
 
         let pattern_arg = {
             if let Some(path) = pattern_arg {
+                should_skip_dir_specified = true;
                 Some(Spanned {
                     item: match strip_ansi_escapes::strip(&path.item) {
                         Ok(item) => String::from_utf8(item).unwrap_or(path.item),
@@ -186,8 +188,8 @@ impl Command for Ls {
                     if path_contains_skipped_dir(&path, &should_skip_dirs) {
                         return None;
                     }
-
-                    if !all && should_skip_dir(&path) {
+                    if all || should_skip_dir_specified {
+                    } else if should_skip_dir(&path) {
                         should_skip_dirs.push(path);
                         return None;
                     }
