@@ -1,4 +1,5 @@
 use fancy_regex::Regex;
+use itertools::Itertools;
 use nu_ansi_term::{
     Color::{Default, Red, White},
     Style,
@@ -163,6 +164,16 @@ fn help(
                     span: head,
                 });
 
+                cols.push("signatures".into());
+                vals.push(Value::String {
+                    val: sig
+                        .input_output_types
+                        .iter()
+                        .map(|(i, o)| format!("{:?} => {:?}", i.to_shape(), o.to_shape()))
+                        .join("\n"),
+                    span: head,
+                });
+
                 cols.push("search_terms".into());
                 vals.push(if search_terms.is_empty() {
                     Value::nothing(head)
@@ -257,6 +268,16 @@ fn help(
                 cols.push("usage".into());
                 vals.push(Value::String {
                     val: usage,
+                    span: head,
+                });
+
+                cols.push("signatures".into());
+                vals.push(Value::String {
+                    val: sig
+                        .input_output_types
+                        .iter()
+                        .map(|(i, o)| format!("{:?} => {:?}", i.to_shape(), o.to_shape()))
+                        .join("\n"),
                     span: head,
                 });
 
