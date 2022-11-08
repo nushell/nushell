@@ -134,21 +134,9 @@ fn help(
                     span: head,
                 });
 
-                cols.push("is_plugin".into());
-                vals.push(Value::Bool {
-                    val: decl.is_plugin().is_some(),
-                    span: head,
-                });
-
-                cols.push("is_custom".into());
-                vals.push(Value::Bool {
-                    val: decl.is_custom_command(),
-                    span: head,
-                });
-
-                cols.push("is_keyword".into());
-                vals.push(Value::Bool {
-                    val: decl.is_parser_keyword(),
+                cols.push("command_type".into());
+                vals.push(Value::String {
+                    val: format!("{:?}", decl.command_type()).to_lowercase(),
                     span: head,
                 });
 
@@ -235,21 +223,9 @@ fn help(
                     span: head,
                 });
 
-                cols.push("is_plugin".into());
-                vals.push(Value::Bool {
-                    val: decl.is_plugin().is_some(),
-                    span: head,
-                });
-
-                cols.push("is_custom".into());
-                vals.push(Value::Bool {
-                    val: decl.is_custom_command(),
-                    span: head,
-                });
-
-                cols.push("is_keyword".into());
-                vals.push(Value::Bool {
-                    val: decl.is_parser_keyword(),
+                cols.push("command_type".into());
+                vals.push(Value::String {
+                    val: format!("{:?}", decl.command_type()).to_lowercase(),
                     span: head,
                 });
 
