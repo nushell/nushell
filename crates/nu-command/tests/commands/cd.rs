@@ -4,6 +4,18 @@ use nu_test_support::playground::Playground;
 use std::path::PathBuf;
 
 #[test]
+fn cd_no_path() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                cd
+            "#
+    );
+
+    assert!(actual.err.contains("needs path"));
+}
+
+#[test]
 fn cd_works_with_in_var() {
     Playground::setup("cd_test_1", |dirs, _| {
         let actual = nu!(

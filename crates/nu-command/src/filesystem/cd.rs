@@ -156,8 +156,10 @@ impl Command for Cd {
                 }
             }
             None => {
-                let path = nu_path::expand_tilde("~");
-                (path.to_string_lossy().to_string(), call.head)
+                return Err(ShellError::MissingParameter(
+                    "needs path".to_string(),
+                    call.head,
+                ));
             }
         };
 
