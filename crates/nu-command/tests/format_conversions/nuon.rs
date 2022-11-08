@@ -314,7 +314,6 @@ fn does_not_quote_strings_unnecessarily() {
     assert_eq!(actual.out, "{\"ro name\": sam, rank: 10}");
 }
 
-
 #[test]
 fn quotes_some_strings_necessarily() {
     let actual = nu!(

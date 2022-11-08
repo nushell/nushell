@@ -1,6 +1,6 @@
 use core::fmt::Write;
-use lazy_static::lazy_static;
 use fancy_regex::Regex;
+use lazy_static::lazy_static;
 use nu_engine::get_columns;
 use nu_parser::escape_quote_string;
 use nu_protocol::ast::{Call, RangeInclusion};
@@ -207,17 +207,17 @@ lazy_static! {
     // • Any character of []:`{}#';()|$,
     //   • The above hits Datetimes via hitting :
     // • Any whitespace
-    // • true, false, null 
+    // • true, false, null
     // • inf, Infinity, nan
     // • Integers and floats
     // • Filesizes
     // • Durations
     // • Ranges
-    static ref NEED_QUOTE_REGEX: Regex = Regex::new(&r#"(?i)[\[\]:`\{\}#';\(\)\|\$,\s]|^(true|false|null|[+-]?inf(inity)?|[+-]?nan)$|^[+-]?\d+\.?\d*(([kmgtpez]?i?b)|[mnu]s|sec|min|hr|day|wk)?$|^([+-]?\d+\.?\d*)?\.\.<?([+-]?\d+\.?\d*)?$"#).unwrap();
+    static ref NEED_QUOTE_REGEX: Regex = Regex::new(r#"(?i)[\[\]:`\{\}#';\(\)\|\$,\s]|^(true|false|null|[+-]?inf(inity)?|[+-]?nan)$|^[+-]?\d+\.?\d*(([kmgtpez]?i?b)|[mnu]s|sec|min|hr|day|wk)?$|^([+-]?\d+\.?\d*)?\.\.<?([+-]?\d+\.?\d*)?$"#).expect("internal error: NEED_QUOTE_REGEX didn't compile");
 }
 
 fn needs_quotes(string: &str) -> bool {
-    NEED_QUOTE_REGEX.is_match(&string).unwrap_or(false)
+    NEED_QUOTE_REGEX.is_match(string).unwrap_or(false)
 }
 
 #[cfg(test)]
