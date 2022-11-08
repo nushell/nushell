@@ -135,7 +135,7 @@ impl SyntaxShape {
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Signature,
             SyntaxShape::String => Type::String,
-            SyntaxShape::Table => Type::Table(vec![]), // FIXME:  What role should columns play in the Table type?
+            SyntaxShape::Table => Type::List(Box::new(Type::Any)), // FIXME:  What role should columns play in the Table type?
             SyntaxShape::VarWithOptType => Type::Any,
             SyntaxShape::Variable => Type::Any,
             SyntaxShape::Nothing => Type::Any,
