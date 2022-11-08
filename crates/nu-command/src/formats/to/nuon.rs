@@ -1,4 +1,6 @@
 use core::fmt::Write;
+use lazy_static::lazy_static;
+use fancy_regex::Regex;
 use nu_engine::get_columns;
 use nu_parser::escape_quote_string;
 use nu_protocol::ast::{Call, RangeInclusion};
@@ -55,7 +57,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             for byte in val {
                 if write!(s, "{:02X}", byte).is_err() {
                     return Err(ShellError::UnsupportedInput(
-                        "binary could not translate to string".into(),
+                        "could not convert binary to string".into(),
                         span,
                     ));
                 }
@@ -63,7 +65,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             Ok(format!("0x[{}]", s))
         }
         Value::Block { .. } => Err(ShellError::UnsupportedInput(
-            "block not supported".into(),
+            "blocks are currently not nuon-compatible".into(),
             span,
         )),
         Value::Closure { .. } => Err(ShellError::UnsupportedInput(
@@ -78,21 +80,24 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             }
         }
         Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
-            "cellpath not supported".to_string(),
+            "cellpaths are currently not nuon-compatible".to_string(),
             span,
         )),
         Value::CustomValue { .. } => Err(ShellError::UnsupportedInput(
-            "custom not supported".to_string(),
+            "customs are currently not nuon-compatible".to_string(),
             span,
         )),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
+        // FIXME: make duratiobs use the shortest lossless representation.
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
         Value::Error { .. } => Err(ShellError::UnsupportedInput(
-            "error not supported".to_string(),
+            "errors are currently not nuon-compatible".to_string(),
             span,
         )),
+        // FIXME: make filesizes use the shortest lossless representation.
         Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
         Value::Float { val, .. } => {
+            // This serialises these as 'nan', 'inf' and '-inf', respectively.
             if &val.round() == val
                 && val != &f64::NAN
                 && val != &f64::INFINITY
@@ -146,7 +151,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                 Ok(format!("[{}]", collection.join(", ")))
             }
         }
-        Value::Nothing { .. } => Ok("$nothing".to_string()),
+        Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => Ok(format!(
             "{}..{}{}",
             value_to_string(&val.from, span)?,
@@ -172,6 +177,8 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             }
             Ok(format!("{{{}}}", collection.join(", ")))
         }
+        // All strings outside data structures are quoted because they are in 'command position'
+        // (could be mistaken for commands by the Nu parser)
         Value::String { val, .. } => Ok(escape_quote_string(val)),
     }
 }
@@ -195,26 +202,22 @@ fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {
     value_to_string(&v, call.head)
 }
 
+lazy_static! {
+    // This case-insensitive regex hits:
+    // • Any character of []:`{}#';()|$,
+    //   • The above hits Datetimes via hitting :
+    // • Any whitespace
+    // • true, false, null 
+    // • inf, Infinity, nan
+    // • Integers and floats
+    // • Filesizes
+    // • Durations
+    // • Ranges
+    static ref NEED_QUOTE_REGEX: Regex = Regex::new(&r#"(?i)[\[\]:`\{\}#';\(\)\|\$,\s]|^(true|false|null|[+-]?inf(inity)?|[+-]?nan)$|^[+-]?\d+\.?\d*(([kmgtpez]?i?b)|[mnu]s|sec|min|hr|day|wk)?$|^([+-]?\d+\.?\d*)?\.\.<?([+-]?\d+\.?\d*)?$"#).unwrap();
+}
+
 fn needs_quotes(string: &str) -> bool {
-    string.contains(' ')
-        || string.contains('[')
-        || string.contains(']')
-        || string.contains(':')
-        || string.contains('`')
-        || string.contains('{')
-        || string.contains('}')
-        || string.contains('#')
-        || string.contains('\'')
-        || string.contains(';')
-        || string.contains('(')
-        || string.contains(')')
-        || string.contains('|')
-        || string.contains('$')
-        || string.contains(',')
-        || string.contains('\t')
-        || string.contains('\n')
-        || string.contains('\r')
-        || string.contains('\"')
+    NEED_QUOTE_REGEX.is_match(&string).unwrap_or(false)
 }
 
 #[cfg(test)]
