@@ -191,7 +191,9 @@ where
     B: Backend,
 {
     if _state.is_search_input || !_state.buf_cmd_input.is_empty() {
-        let text = format!("/{}", _state.buf_cmd_input);
+        let prefix = if _state.is_search_rev { '?' } else { '/' };
+
+        let text = format!("{}{}", prefix, _state.buf_cmd_input);
         let info = format!(
             "[{}/{}]",
             _state.search_index + 1,
@@ -371,6 +373,14 @@ fn view_mode_key_event<B>(
             state.mode = UIMode::Cursor
         }
         KeyEvent {
+            code: KeyCode::Char('?'),
+            ..
+        } => {
+            state.buf_cmd_input = String::new();
+            state.is_search_input = true;
+            state.is_search_rev = true;
+        }
+        KeyEvent {
             code: KeyCode::Char('/'),
             ..
         } => {
@@ -493,20 +503,26 @@ fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, layout: &Layo
         KeyCode::Esc => {
             state.buf_cmd_input = String::new();
             state.is_search_input = false;
+            state.is_search_rev = false;
+
             true
         }
         KeyCode::Enter => {
             state.is_search_input = false;
             state.buf_cmd = state.buf_cmd_input.clone();
+            state.is_search_rev = false;
+
             true
         }
         KeyCode::Backspace => {
             if state.buf_cmd_input.is_empty() {
                 state.is_search_input = false;
+                state.is_search_rev = false;
             } else {
                 state.buf_cmd_input.pop();
 
-                state.search_results = search_pattern(&state.data_text, &state.buf_cmd_input);
+                state.search_results =
+                    search_pattern(&state.data_text, &state.buf_cmd_input, state.is_search_rev);
                 state.search_index = 0;
 
                 if !state.search_results.is_empty() {
@@ -521,7 +537,8 @@ fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, layout: &Layo
         KeyCode::Char(c) => {
             state.buf_cmd_input.push(*c);
 
-            state.search_results = search_pattern(&state.data_text, &state.buf_cmd_input);
+            state.search_results =
+                search_pattern(&state.data_text, &state.buf_cmd_input, state.is_search_rev);
             state.search_index = 0;
 
             if !state.search_results.is_empty() {
@@ -536,7 +553,7 @@ fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, layout: &Layo
     }
 }
 
-fn search_pattern(data: &[Vec<NuText>], pat: &str) -> Vec<(usize, usize)> {
+fn search_pattern(data: &[Vec<NuText>], pat: &str, rev: bool) -> Vec<(usize, usize)> {
     let mut matches = Vec::new();
     for (row, columns) in data.iter().enumerate() {
         for (col, (text, _)) in columns.iter().enumerate() {
@@ -546,7 +563,11 @@ fn search_pattern(data: &[Vec<NuText>], pat: &str) -> Vec<(usize, usize)> {
         }
     }
 
-    matches.sort();
+    if !rev {
+        matches.sort();
+    } else {
+        matches.sort_by(|a, b| b.cmp(a));
+    }
 
     matches
 }
@@ -580,6 +601,8 @@ struct UIState<'a> {
     // only applicable for SEARCH input
     search_results: Vec<(usize, usize)>,
     search_index: usize,
+    // only applicable for rev-SEARCH input
+    is_search_rev: bool,
 }
 
 impl<'a> UIState<'a> {
@@ -628,6 +651,7 @@ impl<'a> UIState<'a> {
             is_search_input: false,
             search_results: Vec::new(),
             search_index: 0,
+            is_search_rev: false,
             data_text,
         }
     }
