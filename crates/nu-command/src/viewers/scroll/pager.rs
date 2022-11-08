@@ -116,6 +116,12 @@ where
                     Rect::new(area.left(), area.bottom().saturating_sub(2), area.width, 1);
                 render_status_bar(f, status_area, state, &layout);
 
+                let cmd_area =
+                    Rect::new(area.left(), area.bottom().saturating_sub(1), area.width, 1);
+                render_cmd_bar(f, cmd_area, state, &layout);
+
+                highlight_search_results(f, state, &layout);
+
                 if state.mode == UIMode::Cursor {
                     update_cursor(state, &layout);
                     set_cursor(f, state, &layout);
@@ -178,6 +184,66 @@ where
     );
 
     f.render_widget(status_bar, area);
+}
+
+fn render_cmd_bar<B>(f: &mut Frame<B>, area: Rect, _state: &UIState<'_>, _layout: &Layout)
+where
+    B: Backend,
+{
+    if _state.is_search_input || !_state.buf_cmd_input.is_empty() {
+        let text = format!("/{}", _state.buf_cmd_input);
+        let info = format!(
+            "[{}/{}]",
+            _state.search_index + 1,
+            _state.search_results.len()
+        );
+
+        f.render_widget(CmdBar::new(&text, &info), area);
+    }
+}
+
+fn highlight_search_results<B>(f: &mut Frame<B>, _state: &UIState<'_>, _layout: &Layout)
+where
+    B: Backend,
+{
+    let hightlight_block =
+        Block::default().style(Style::default().bg(Color::Yellow).fg(Color::Black));
+
+    if !_state.search_results.is_empty() {
+        for row in 0.._layout.count_rows() {
+            for column in 0.._layout.count_columns() {
+                if let Some(e) = _layout.get(row, column) {
+                    let pos = e.data_pos;
+                    let text = &_state.data_text[pos.0][pos.1].0;
+                    if let Some(p) = text.find(&_state.buf_cmd_input) {
+                        if p > e.width as usize {
+                            break;
+                        }
+
+                        // todo: might be not UTF-8 friendly
+                        let area = Rect::new(
+                            e.position.x + p as u16,
+                            e.position.y,
+                            _state.buf_cmd_input.len() as u16,
+                            1,
+                        );
+                        f.render_widget(hightlight_block.clone(), area);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn target_search_element<B>(_state: &mut UIState<'_>)
+where
+    B: Backend,
+{
+    if !_state.search_results.is_empty() {
+        let (row, col) = _state.search_results[_state.search_index];
+        _state.row_index = row;
+        _state.column_index = col;
+    }
 }
 
 fn get_current_value(state: &UIState<'_>) -> Value {
@@ -282,11 +348,20 @@ fn view_mode_key_event<B>(
 ) where
     B: Backend,
 {
+    if state.is_search_input {
+        let exit = search_input_key_event(key, state, layout);
+        if exit {
+            return;
+        }
+    }
+
     match key {
         KeyEvent {
             code: KeyCode::Esc, ..
         } => {
+            // if state.render_inner {
             state.render_close = true;
+            // }
         }
         KeyEvent {
             code: KeyCode::Char('i'),
@@ -294,6 +369,29 @@ fn view_mode_key_event<B>(
         } => {
             init_cursor_mode(term);
             state.mode = UIMode::Cursor
+        }
+        KeyEvent {
+            code: KeyCode::Char('/'),
+            ..
+        } => {
+            state.buf_cmd_input = String::new();
+            state.is_search_input = true;
+        }
+        KeyEvent {
+            code: KeyCode::Char('n'),
+            ..
+        } => {
+            if !state.search_results.is_empty() {
+                if state.search_index == 0 {
+                    state.search_index = state.search_results.len() - 1
+                } else {
+                    state.search_index -= 1;
+                }
+
+                let pos = state.search_results[state.search_index];
+                state.row_index = pos.0;
+                state.column_index = pos.1;
+            }
         }
         KeyEvent { code, .. } => match code {
             KeyCode::Up => state.row_index = state.row_index.saturating_sub(1),
@@ -390,10 +488,74 @@ fn cursor_mode_key_event<B>(
     }
 }
 
+fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, layout: &Layout) -> bool {
+    match &key.code {
+        KeyCode::Esc => {
+            state.buf_cmd_input = String::new();
+            state.is_search_input = false;
+            true
+        }
+        KeyCode::Enter => {
+            state.is_search_input = false;
+            state.buf_cmd = state.buf_cmd_input.clone();
+            true
+        }
+        KeyCode::Backspace => {
+            if state.buf_cmd_input.is_empty() {
+                state.is_search_input = false;
+            } else {
+                state.buf_cmd_input.pop();
+
+                state.search_results = search_pattern(&state.data_text, &state.buf_cmd_input);
+                state.search_index = 0;
+
+                if !state.search_results.is_empty() {
+                    let pos = state.search_results[state.search_index];
+                    state.row_index = pos.0;
+                    state.column_index = pos.1;
+                }
+            }
+
+            true
+        }
+        KeyCode::Char(c) => {
+            state.buf_cmd_input.push(*c);
+
+            state.search_results = search_pattern(&state.data_text, &state.buf_cmd_input);
+            state.search_index = 0;
+
+            if !state.search_results.is_empty() {
+                let pos = state.search_results[state.search_index];
+                state.row_index = pos.0;
+                state.column_index = pos.1;
+            }
+
+            true
+        }
+        _ => false,
+    }
+}
+
+fn search_pattern(data: &[Vec<NuText>], pat: &str) -> Vec<(usize, usize)> {
+    let mut matches = Vec::new();
+    for (row, columns) in data.iter().enumerate() {
+        for (col, (text, _)) in columns.iter().enumerate() {
+            if text.contains(pat) {
+                matches.push((row, col));
+            }
+        }
+    }
+
+    matches.sort();
+
+    matches
+}
+
 #[derive(Debug, Clone)]
 struct UIState<'a> {
     columns: Cow<'a, [String]>,
     data: Cow<'a, [Vec<Value>]>,
+    data_text: Vec<Vec<NuText>>,
     config: &'a Config,
     color_hm: &'a NuStyleTable,
     column_index: usize,
@@ -409,6 +571,15 @@ struct UIState<'a> {
     render_close: bool,
     // only applicable for CusorMode
     section_name: Option<String>,
+    // only applicable for SEARCH input
+    is_search_input: bool,
+    // only applicable for SEARCH input
+    buf_cmd: String,
+    // only applicable for SEARCH input
+    buf_cmd_input: String,
+    // only applicable for SEARCH input
+    search_results: Vec<(usize, usize)>,
+    search_index: usize,
 }
 
 impl<'a> UIState<'a> {
@@ -420,6 +591,24 @@ impl<'a> UIState<'a> {
         show_header: bool,
         show_index: bool,
     ) -> Self {
+        let data_text = data
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|value| {
+                        make_styled_string(
+                            value.clone().into_abbreviated_string(config),
+                            &value.get_type().to_string(),
+                            0,
+                            false,
+                            color_hm,
+                            config.float_precision as usize,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
         Self {
             columns,
             data,
@@ -434,6 +623,12 @@ impl<'a> UIState<'a> {
             render_inner: false,
             render_close: false,
             section_name: None,
+            buf_cmd: String::new(),
+            buf_cmd_input: String::new(),
+            is_search_input: false,
+            search_results: Vec::new(),
+            search_index: 0,
+            data_text,
         }
     }
 
@@ -525,6 +720,49 @@ impl Widget for StatusBar<'_> {
         if let Some(pos) = self.cursor {
             render_cursor_position(buf, area, text_style, pos, self.row, self.column);
         }
+    }
+}
+
+#[derive(Debug)]
+struct CmdBar<'a> {
+    text: &'a str,
+    information: &'a str,
+}
+
+impl<'a> CmdBar<'a> {
+    fn new(text: &'a str, information: &'a str) -> Self {
+        Self { text, information }
+    }
+}
+
+impl Widget for CmdBar<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        // const BLOCK_COLOR: Color = Color::Rgb(29, 31, 33);
+        const TEXT_COLOR: Color = Color::Rgb(196, 201, 198);
+
+        let text_style = Style::default()
+            // .bg(BLOCK_COLOR)
+            .fg(TEXT_COLOR)
+            .add_modifier(Modifier::BOLD);
+
+        // colorize the line
+        let block = Block::default()
+            .borders(Borders::empty())
+            .style(Style::default());
+        block.render(area, buf);
+
+        let span = Span::styled(self.text, text_style);
+        let w = string_width(self.text);
+        buf.set_span(area.x, area.y, &span, w as u16);
+
+        let span = Span::styled(self.information, text_style);
+        let w = string_width(self.information);
+        buf.set_span(
+            area.right().saturating_sub(12).saturating_sub(w as u16),
+            area.y,
+            &span,
+            w as u16,
+        );
     }
 }
 
@@ -675,7 +913,7 @@ impl StatefulWidget for Table<'_> {
                 w += render_column(buf, w, head_y, use_space, header);
                 render_space(buf, w, head_y, 1, CELL_PADDING_RIGHT);
 
-                state.push_head(w - CELL_PADDING_RIGHT - use_space, use_space)
+                state.push_head(w - CELL_PADDING_RIGHT - use_space, use_space, (0, col));
             }
 
             width += render_space(buf, width, data_y, data_height, CELL_PADDING_LEFT);
@@ -686,7 +924,7 @@ impl StatefulWidget for Table<'_> {
                 width - CELL_PADDING_RIGHT - use_space,
                 data_y,
                 use_space,
-                column.len() as u16,
+                (0..column.len()).map(|i| (i + self.row_index, col)),
             );
 
             if do_render_shift_column {
@@ -742,7 +980,7 @@ impl Widget for IndexColumn<'_> {
         let style = nu_style_to_tui(self.color_hm["row_index"]);
 
         for row in 0..area.height {
-            let i = row as usize + self.start;
+            let i = 1 + row as usize + self.start;
             let text = i.to_string();
 
             let p = Paragraph::new(text)
@@ -801,37 +1039,48 @@ impl Layout {
         self.data.first().map_or(0, |col| col.len())
     }
 
-    fn push_head(&mut self, x: u16, width: u16) {
+    fn push_head(&mut self, x: u16, width: u16, value: (usize, usize)) {
         self.headers
-            .push(ElementInfo::new(Position::new(x, 1), width, 1));
+            .push(ElementInfo::new(Position::new(x, 1), width, 1, value));
     }
 
-    fn push_column(&mut self, x: u16, y: u16, width: u16, count_elements: u16) {
-        let columns = (0..count_elements)
-            .map(|i| ElementInfo::new(Position::new(x, y + i), width, 1))
+    fn push_column(
+        &mut self,
+        x: u16,
+        y: u16,
+        width: u16,
+        values: impl Iterator<Item = (usize, usize)>,
+    ) {
+        let columns = values
+            .enumerate()
+            .map(|(i, value)| ElementInfo::new(Position::new(x, y + i as u16), width, 1, value))
             .collect();
+
         self.data.push(columns);
     }
 
     fn get(&self, row: usize, column: usize) -> Option<ElementInfo> {
-        self.data.get(column).and_then(|col| col.get(row)).copied()
+        self.data.get(column).and_then(|col| col.get(row)).cloned()
     }
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 struct ElementInfo {
+    data_pos: (usize, usize),
+    // todo: change to area: Rect
     position: Position,
     width: u16,
     height: u16,
 }
 
 impl ElementInfo {
-    fn new(position: Position, width: u16, height: u16) -> Self {
+    fn new(position: Position, width: u16, height: u16, data_pos: (usize, usize)) -> Self {
         Self {
             position,
             width,
             height,
+            data_pos,
         }
     }
 }
