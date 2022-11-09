@@ -15,17 +15,15 @@ pub fn string_width(text: &str) -> usize {
 pub fn string_truncate(text: &str, width: usize) -> String {
     // todo: change me...
 
-    if text.is_empty() {
-        return String::new();
+    match text.lines().next() {
+        Some(first_line) => tabled::builder::Builder::from_iter([[first_line]])
+            .build()
+            .with(tabled::Style::empty())
+            .with(tabled::Padding::zero())
+            .with(tabled::Width::truncate(width))
+            .to_string(),
+        None => String::new(),
     }
-    let first_line = text.lines().next().unwrap();
-
-    tabled::builder::Builder::from_iter([[first_line]])
-        .build()
-        .with(tabled::Style::empty())
-        .with(tabled::Padding::zero())
-        .with(tabled::Width::truncate(width))
-        .to_string()
 }
 
 pub fn string_wrap(text: &str, width: usize) -> String {

@@ -339,10 +339,9 @@ fn handle_events<B>(
 where
     B: Backend,
 {
-    let event = events.next().unwrap();
-    let key = match event {
-        Some(event) => event,
-        None => return false,
+    let key = match events.next() {
+        Ok(Some(key)) => key,
+        _ => return false,
     };
 
     if handle_exit_key_event(&key) {
@@ -374,14 +373,14 @@ fn init_cursor_mode<B>(term: &mut Terminal<B>)
 where
     B: Backend,
 {
-    term.show_cursor().unwrap();
+    let _ = term.show_cursor();
 }
 
 fn end_cursor_mode<B>(term: &mut Terminal<B>)
 where
     B: Backend,
 {
-    term.hide_cursor().unwrap();
+    let _ = term.hide_cursor();
 }
 
 fn view_mode_key_event<B>(
@@ -1455,13 +1454,20 @@ fn render_column(
     rows: &[NuText],
 ) -> u16 {
     for (row, (text, style)) in rows.iter().enumerate() {
-        let text = String::from_utf8(strip_ansi_escapes::strip(text).unwrap()).unwrap();
+        let text = strip_string(text);
         let style = text_style_to_tui_style(*style);
         let span = Span::styled(text, style);
         buf.set_span(x_offset, y_offset + row as u16, &span, available_width);
     }
 
     available_width
+}
+
+fn strip_string(text: &str) -> String {
+    strip_ansi_escapes::strip(text)
+        .ok()
+        .and_then(|s| String::from_utf8(s).ok())
+        .unwrap_or_else(|| text.to_owned())
 }
 
 fn repeat_vertical(

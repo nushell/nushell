@@ -245,7 +245,7 @@ let light_theme = {
 let-env config = {
   external_completer: $nothing # check 'carapace_completer' above to as example
   filesize_metric: false # true => (KB, MB, GB), false => (KiB, MiB, GiB)
-  table_mode: basic # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
+  table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
   use_ls_colors: true
   rm_always_trash: false
   color_config: $dark_theme   # if you want a light theme, replace `$dark_theme` to `$light_theme`
@@ -282,15 +282,16 @@ let-env config = {
 
   # A 'scroll' utility config
   scroll_config {
-    highlight: { bg: 'red', fg: 'white' }
-    selected_column: 'blue'
-    selected_row: 'yellow'
-    selected_cell: 'green'
-    status_bar: 'blue'
-    command_bar: 'blue'
-    split_line: 'green'
-    cursor: false
+    highlight: { bg: 'yellow', fg: 'black' }
+    status_bar: { bg: '#C4C9C6', fg: '#1D1F21' }
+    command_bar: { fg: '#C4C9C6' }
+    split_line: '#404040'
+    cursor: true
+    # selected_column: 'blue'
+    # selected_row: { fg: 'yellow', bg: '#C1C2A3' }
+    # selected_cell: { fg: 'white', bg: '#777777' }
   }
+
   hooks: {
     pre_prompt: [{
       $nothing  # replace with source code to run before the prompt is shown
