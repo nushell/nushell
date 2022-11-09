@@ -245,8 +245,18 @@ fn string_interpolation_single_tick() -> TestResult {
 }
 
 #[test]
+fn string_interpolation_single_tick_no_escaping() -> TestResult {
+    run_test(r#"$'A\nt'"#, "A\\nt")
+}
+
+#[test]
 fn string_interpolation_backtick() -> TestResult {
     run_test(r#"$`A(3 + 4)B`"#, "A7B")
+}
+
+#[test]
+fn string_interpolation_backtick_no_escaping() -> TestResult {
+    run_test(r#"$`A\nt`"#, "A\\nt")
 }
 
 #[test]
