@@ -36,6 +36,11 @@ impl Command for SubCommand {
         "Get the type of the object a path refers to (e.g., file, dir, symlink)"
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"This checks the file system to confirm the path's object type.
+If nothing is found, an empty string will be returned."#
+    }
+
     fn run(
         &self,
         engine_state: &nu_protocol::engine::EngineState,
