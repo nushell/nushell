@@ -213,7 +213,8 @@ lazy_static! {
     // • Filesizes
     // • Durations
     // • Ranges
-    static ref NEED_QUOTE_REGEX: Regex = Regex::new(r#"(?i)[\[\]:`\{\}#'";\(\)\|\$,\s]|^(true|false|null|[+-]?inf(inity)?|[+-]?nan)$|^[+-]?\d+\.?\d*([kmgtpez]?i?b|[mnu]s|sec|min|hr|day|wk)?$|^([+-]?\d+\.?\d*)?\.\.<?([+-]?\d+\.?\d*)?$"#).expect("internal error: NEED_QUOTE_REGEX didn't compile");
+    // • Short Datetimes (2022-11-09)
+    static ref NEED_QUOTE_REGEX: Regex = Regex::new(r#"(?i)[\[\]:`\{\}#'";\(\)\|\$,\s]|^(\d{4}-\d\d-\d\d|true|false|null|[+-]?inf(inity)?|[+-]?nan|[+-]?\d+\.?\d*([kmgtpez]?i?b|[mnu]s|sec|min|hr|day|wk)?$|^([+-]?\d+\.?\d*)?\.\.<?([+-]?\d+\.?\d*)?)$"#).expect("internal error: NEED_QUOTE_REGEX didn't compile");
 }
 
 fn needs_quotes(string: &str) -> bool {
