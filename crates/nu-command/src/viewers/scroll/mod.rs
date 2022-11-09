@@ -115,7 +115,57 @@ fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
 
             (cols, data)
         }
-        PipelineData::ExternalStream { .. } => (Vec::new(), Vec::new()),
+        PipelineData::ExternalStream {
+            stdout,
+            stderr,
+            exit_code,
+            metadata,
+            span,
+        } => {
+            let mut columns = vec![];
+            let mut data = vec![];
+
+            if let Some(stdout) = stdout {
+                let value = stdout.into_string().map_or_else(
+                    |error| Value::Error { error },
+                    |string| Value::string(string.item, span),
+                );
+
+                columns.push(String::from("stdout"));
+                data.push(vec![value]);
+            }
+
+            if let Some(stderr) = stderr {
+                let value = stderr.into_string().map_or_else(
+                    |error| Value::Error { error },
+                    |string| Value::string(string.item, span),
+                );
+
+                columns.push(String::from("stderr"));
+                data.push(vec![value]);
+            }
+
+            if let Some(exit_code) = exit_code {
+                let list = exit_code.collect::<Vec<_>>();
+
+                columns.push(String::from("exit_code"));
+                data.push(list);
+            }
+
+            if metadata.is_some() {
+                columns.push(String::from("metadata"));
+                data.push(vec![Value::Record {
+                    cols: vec![String::from("data_source")],
+                    vals: vec![Value::String {
+                        val: String::from("ls"),
+                        span,
+                    }],
+                    span,
+                }]);
+            }
+
+            (columns, data)
+        }
     }
 }
 
