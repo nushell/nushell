@@ -107,3 +107,13 @@ fn early_exits_with_0_param_blocks() {
 
     assert_eq!(actual.out, "1false");
 }
+
+#[test]
+fn unique_env_each_iteration() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "[1 2] | all { print ($env.PWD | str ends-with 'formats') | cd '/' | true } | to nuon"
+    );
+
+    assert_eq!(actual.out, "truetruetrue");
+}
