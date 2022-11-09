@@ -36,7 +36,7 @@ impl Command for SubCommand {
     }
 
     fn extra_usage(&self) -> &str {
-        "This command does not take leap years into account, and every month is assumed to have 30 days (4 weeks)."
+        "This command does not take leap years into account, and every month is assumed to have 30 days."
     }
 
     fn search_terms(&self) -> Vec<&str> {
