@@ -29,3 +29,15 @@ fn rows() {
         assert_eq!(actual.out, "4");
     })
 }
+
+#[test]
+fn rows_with_no_arguments_should_lead_to_error() {
+    Playground::setup("take_test_2", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"[1 2 3] | take"#
+        ));
+
+        assert_eq!(actual.err, "missing_positional");
+    })
+}
