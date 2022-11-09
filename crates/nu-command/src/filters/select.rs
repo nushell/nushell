@@ -23,7 +23,7 @@ impl Command for Select {
             ])
             .switch(
                 "ignore-errors",
-                "when a column has empty cells, instead of erroring out, replace them with nothing",
+                "when an error occurs, instead of erroring out, suppress the error message",
                 Some('i'),
             )
             .rest(
@@ -51,9 +51,9 @@ impl Command for Select {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let span = call.head;
-        let ignore_empty = call.has_flag("ignore-errors");
+        let ignore_errors = call.has_flag("ignore-errors");
 
-        select(engine_state, span, columns, input, ignore_empty)
+        select(engine_state, span, columns, input, ignore_errors)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -90,7 +90,7 @@ fn select(
     span: Span,
     columns: Vec<CellPath>,
     input: PipelineData,
-    ignore_empty: bool,
+    ignore_errors: bool,
 ) -> Result<PipelineData, ShellError> {
     let mut rows = vec![];
 
@@ -101,6 +101,9 @@ fn select(
         match members.get(0) {
             Some(PathMember::Int { val, span }) => {
                 if members.len() > 1 {
+                    if ignore_errors {
+                        return Ok(Value::nothing(Span::test_data()).into_pipeline_data());
+                    }
                     return Err(ShellError::GenericError(
                         "Select only allows row numbers for rows".into(),
                         "extra after row number".into(),
@@ -153,24 +156,22 @@ fn select(
                     let mut vals = vec![];
                     for path in &columns {
                         //FIXME: improve implementation to not clone
-                        if ignore_empty {
-                            let fetcher = input_val.clone().follow_cell_path(&path.members, false);
-
-                            cols.push(path.into_string().replace('.', "_"));
-                            if let Ok(fetcher) = fetcher {
+                        match input_val.clone().follow_cell_path(&path.members, false) {
+                            Ok(fetcher) => {
+                                cols.push(path.into_string().replace('.', "_"));
                                 vals.push(fetcher);
                                 if !columns_with_value.contains(&path) {
                                     columns_with_value.push(path);
                                 }
-                            } else {
-                                vals.push(Value::nothing(span));
                             }
-                        } else {
-                            let fetcher =
-                                input_val.clone().follow_cell_path(&path.members, false)?;
-
-                            cols.push(path.into_string().replace('.', "_"));
-                            vals.push(fetcher);
+                            Err(e) => {
+                                if ignore_errors {
+                                    return Ok(
+                                        Value::nothing(Span::test_data()).into_pipeline_data()
+                                    );
+                                }
+                                return Err(e);
+                            }
                         }
                     }
 
@@ -185,8 +186,10 @@ fn select(
                 .into_pipeline_data(engine_state.ctrlc.clone())
                 .set_metadata(metadata))
         }
-        PipelineData::ListStream(stream, metadata, ..) => Ok(stream
-            .map(move |x| {
+        PipelineData::ListStream(stream, metadata, ..) => {
+            let mut values = vec![];
+
+            for x in stream {
                 if !columns.is_empty() {
                     let mut cols = vec![];
                     let mut vals = vec![];
@@ -197,19 +200,26 @@ fn select(
                                 cols.push(path.into_string().replace('.', "_"));
                                 vals.push(value);
                             }
-                            Err(_) => {
-                                cols.push(path.into_string().replace('.', "_"));
-                                vals.push(Value::Nothing { span });
+                            Err(e) => {
+                                if ignore_errors {
+                                    return Ok(
+                                        Value::nothing(Span::test_data()).into_pipeline_data()
+                                    );
+                                }
+                                return Err(e);
                             }
                         }
                     }
-                    Value::Record { cols, vals, span }
+                    values.push(Value::Record { cols, vals, span });
                 } else {
-                    x
+                    values.push(x);
                 }
-            })
-            .into_pipeline_data(engine_state.ctrlc.clone())
-            .set_metadata(metadata)),
+            }
+
+            Ok(values
+                .into_pipeline_data(engine_state.ctrlc.clone())
+                .set_metadata(metadata))
+        }
         PipelineData::Value(v, metadata, ..) => {
             if !columns.is_empty() {
                 let mut cols = vec![];
@@ -217,10 +227,19 @@ fn select(
 
                 for cell_path in columns {
                     // FIXME: remove clone
-                    let result = v.clone().follow_cell_path(&cell_path.members, false)?;
+                    match v.clone().follow_cell_path(&cell_path.members, false) {
+                        Ok(result) => {
+                            cols.push(cell_path.into_string().replace('.', "_"));
+                            vals.push(result);
+                        }
+                        Err(e) => {
+                            if ignore_errors {
+                                return Ok(Value::nothing(Span::test_data()).into_pipeline_data());
+                            }
 
-                    cols.push(cell_path.into_string().replace('.', "_"));
-                    vals.push(result);
+                            return Err(e);
+                        }
+                    }
                 }
 
                 Ok(Value::Record { cols, vals, span }
