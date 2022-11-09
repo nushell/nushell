@@ -1,5 +1,4 @@
 pub mod definitions;
-pub mod dsl;
 pub mod sqlite;
 
 pub use sqlite::{
