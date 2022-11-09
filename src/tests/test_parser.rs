@@ -235,6 +235,31 @@ fn string_interpolation_escaping() -> TestResult {
 }
 
 #[test]
+fn string_interpolation_paren_escaping() -> TestResult {
+    run_test(r#"$"A\(3)B(4 + 4)C""#, "A(3)B8C")
+}
+
+#[test]
+fn string_interpolation_single_tick() -> TestResult {
+    run_test(r#"$'A(3 + 4)B'"#, "A7B")
+}
+
+#[test]
+fn string_interpolation_backtick() -> TestResult {
+    run_test(r#"$`A(3 + 4)B`"#, "A7B")
+}
+
+#[test]
+fn string_interpolation_nested() -> TestResult {
+    run_test(r#"$`A($`A(3 + 4)B`)B`"#, "AA7BB")
+}
+
+#[test]
+fn string_interpolation_null() -> TestResult {
+    run_test(r#"$`A(null)B`"#, "AB")
+}
+
+#[test]
 fn capture_multiple_commands() -> TestResult {
     run_test(
         r#"

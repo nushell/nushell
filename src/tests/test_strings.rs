@@ -47,11 +47,6 @@ fn string_in_valuestream() -> TestResult {
 }
 
 #[test]
-fn single_tick_interpolation() -> TestResult {
-    run_test(r#"$'(3 + 4)'"#, "7")
-}
-
-#[test]
 fn detect_newlines() -> TestResult {
     run_test("'hello\r\nworld' | lines | get 0 | str length", "5")
 }

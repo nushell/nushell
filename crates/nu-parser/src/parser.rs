@@ -1620,7 +1620,8 @@ pub(crate) fn parse_dollar_expr(
     trace!("parsing: dollar expression");
     let contents = working_set.get_span_contents(span);
 
-    if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
+    // All 3 string opener characters should be represented here.
+    if contents.starts_with(b"$\"") || contents.starts_with(b"$'") || contents.starts_with(b"$`") {
         parse_string_interpolation(working_set, span, expand_aliases_denylist)
     } else if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
         (expr, None)
@@ -1643,10 +1644,11 @@ pub fn parse_string_interpolation(
 
     let contents = working_set.get_span_contents(span);
 
-    let mut double_quote = false;
+    let mut escaped_string = false;
 
     let (start, end) = if contents.starts_with(b"$\"") {
-        double_quote = true;
+        // Only double-quote strings have escapes enabled.
+        escaped_string = true;
         let end = if contents.ends_with(b"\"") && contents.len() > 2 {
             span.end - 1
         } else {
@@ -1655,6 +1657,13 @@ pub fn parse_string_interpolation(
         (span.start + 2, end)
     } else if contents.starts_with(b"$'") {
         let end = if contents.ends_with(b"'") && contents.len() > 2 {
+            span.end - 1
+        } else {
+            span.end
+        };
+        (span.start + 2, end)
+    } else if contents.starts_with(b"$`") {
+        let end = if contents.ends_with(b"`") && contents.len() > 2 {
             span.end - 1
         } else {
             span.end
@@ -1689,14 +1698,14 @@ pub fn parse_string_interpolation(
                 0
             };
 
-            if current_byte == b'(' && (!double_quote || preceding_consecutive_backslashes % 2 == 0)
+            if current_byte == b'(' && (escaped_string || preceding_consecutive_backslashes % 2 == 0)
             {
                 mode = InterpolationMode::Expression;
                 if token_start < b {
                     let span = Span::new(token_start, b);
                     let str_contents = working_set.get_span_contents(span);
 
-                    let str_contents = if double_quote {
+                    let str_contents = if escaped_string {
                         let (str_contents, err) = unescape_string(str_contents, span);
                         error = error.or(err);
 
@@ -1768,7 +1777,7 @@ pub fn parse_string_interpolation(
                 let span = Span::new(token_start, end);
                 let str_contents = working_set.get_span_contents(span);
 
-                let str_contents = if double_quote {
+                let str_contents = if escaped_string {
                     let (str_contents, err) = unescape_string(str_contents, span);
                     error = error.or(err);
 
