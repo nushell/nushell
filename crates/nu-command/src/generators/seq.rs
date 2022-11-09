@@ -16,11 +16,7 @@ impl Command for Seq {
 
     fn signature(&self) -> Signature {
         Signature::build("seq")
-            .input_output_types(vec![
-                (Type::Nothing, Type::List(Box::new(Type::Number))),
-                // -s flag
-                (Type::Nothing, Type::String),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Number)))])
             .rest("rest", SyntaxShape::Number, "sequence values")
             .category(Category::Generators)
     }
@@ -83,7 +79,7 @@ impl Command for Seq {
             Example {
                 description: "sequence 1 to 5, then convert to a string with a pipe separator",
                 example: "seq 1 5 | str join '|'",
-                result: Some(Value::test_string("1|2|3|4|5")),
+                result: None,
             },
         ]
     }
