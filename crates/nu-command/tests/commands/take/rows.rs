@@ -38,6 +38,6 @@ fn rows_with_no_arguments_should_lead_to_error() {
             r#"[1 2 3] | take"#
         ));
 
-        assert_eq!(actual.err, "missing_positional");
+        assert!(actual.err.contains("missing_positional"));
     })
 }
