@@ -1,5 +1,10 @@
 mod pager;
 
+use std::collections::HashMap;
+
+use self::pager::{pager, StyleConfig, TableConfig};
+use nu_ansi_term::{Color, Style};
+use nu_color_config::get_color_map;
 use nu_engine::{get_columns, CallExt};
 use nu_protocol::{
     ast::{Call, PathMember},
@@ -56,15 +61,21 @@ Press <ESC> to get out of the mode and the inner view.
         let show_head: bool = call.get_flag(engine_state, stack, "head")?.unwrap_or(true);
         let show_index: bool = call.has_flag("index");
         let is_reverse: bool = call.has_flag("reverse");
+        let table_config = TableConfig {
+            show_index,
+            show_head,
+            reverse: is_reverse,
+        };
 
         let ctrlc = engine_state.ctrlc.clone();
+
         let config = engine_state.get_config();
+        let colors = get_color_map(&config.scroll_config);
+        let style = style_from_colors(&config.scroll_config, &colors);
 
         let (columns, data) = collect_pipeline(input);
 
-        let _ = pager::handler(
-            &columns, &data, config, ctrlc, show_index, show_head, is_reverse,
-        );
+        let _ = pager(&columns, &data, config, ctrlc, table_config, style);
 
         Ok(PipelineData::Value(Value::default(), None))
     }
@@ -193,5 +204,73 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
             }
         }
         item => item.clone(),
+    }
+}
+
+fn style_from_colors(
+    config: &HashMap<String, Value>,
+    colors: &HashMap<String, Style>,
+) -> StyleConfig {
+    let mut style = default_style();
+
+    if let Some(s) = colors.get("status_bar") {
+        style.status_bar = *s;
+    }
+
+    if let Some(s) = colors.get("command_bar") {
+        style.cmd_bar = *s;
+    }
+
+    if let Some(s) = colors.get("split_line") {
+        style.split_line = *s;
+    }
+
+    if let Some(s) = colors.get("highlight") {
+        style.highlight = *s;
+    }
+
+    if let Some(s) = colors.get("selected_cell") {
+        style.selected_cell = Some(*s);
+    }
+
+    if let Some(s) = colors.get("selected_row") {
+        style.selected_row = Some(*s);
+    }
+
+    if let Some(s) = colors.get("selected_column") {
+        style.selected_column = Some(*s);
+    }
+
+    if let Some(show_cursor) = config.get("cursor").and_then(|v| v.as_bool().ok()) {
+        style.show_cursow = show_cursor;
+    }
+
+    style
+}
+
+fn default_style() -> StyleConfig {
+    StyleConfig {
+        status_bar: Style {
+            background: Some(Color::Rgb(196, 201, 198)),
+            foreground: Some(Color::Rgb(29, 31, 33)),
+            ..Default::default()
+        },
+        highlight: Style {
+            background: Some(Color::Yellow),
+            foreground: Some(Color::Black),
+            ..Default::default()
+        },
+        split_line: Style {
+            foreground: Some(Color::Rgb(64, 64, 64)),
+            ..Default::default()
+        },
+        cmd_bar: Style {
+            foreground: Some(Color::Rgb(196, 201, 198)),
+            ..Default::default()
+        },
+        selected_cell: None,
+        selected_column: None,
+        selected_row: None,
+        show_cursow: true,
     }
 }

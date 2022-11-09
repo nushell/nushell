@@ -85,6 +85,7 @@ pub struct Config {
     pub show_banner: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
+    pub scroll_config: HashMap<String, Value>,
 }
 
 impl Default for Config {
@@ -123,6 +124,7 @@ impl Default for Config {
             show_banner: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
+            scroll_config: HashMap::new(),
         }
     }
 }
@@ -179,6 +181,11 @@ pub enum TrimStrategy {
         /// the suffix takes 13 chars it won't be used.
         suffix: Option<String>,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ScrollConfig {
+    pub color_config: HashMap<String, Value>,
 }
 
 impl Value {
@@ -438,6 +445,13 @@ impl Value {
                             config.render_right_prompt_on_last_line = b;
                         } else {
                             eprintln!("$config.render_right_prompt_on_last_line is not a bool")
+                        }
+                    }
+                    "scroll_config" => {
+                        if let Ok(map) = create_map(value, &config) {
+                            config.scroll_config = map;
+                        } else {
+                            eprintln!("$env.config.scroll_config is not a map")
                         }
                     }
                     x => {

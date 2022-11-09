@@ -39,14 +39,20 @@ type CtrlC = Option<Arc<AtomicBool>>;
 
 type NuStyleTable = HashMap<String, NuStyle>;
 
-pub fn handler(
+#[derive(Debug, Default, Clone)]
+pub struct TableConfig {
+    pub(crate) show_index: bool,
+    pub(crate) show_head: bool,
+    pub(crate) reverse: bool,
+}
+
+pub fn pager(
     cols: &[String],
     data: &[Vec<Value>],
     config: &Config,
     ctrlc: CtrlC,
-    show_index: bool,
-    show_head: bool,
-    reverse: bool,
+    table: TableConfig,
+    style: StyleConfig,
 ) -> Result<()> {
     // setup terminal
     enable_raw_mode()?;
@@ -62,13 +68,14 @@ pub fn handler(
         Cow::from(data),
         config,
         &color_hm,
-        show_head,
-        show_index,
+        table.show_head,
+        table.show_index,
+        style,
     );
 
-    if reverse {
+    if table.reverse {
         if let Ok(size) = terminal.size() {
-            let page_size = estimate_page_size(size, show_head);
+            let page_size = estimate_page_size(size, table.show_head);
             state_reverse_data(&mut state, page_size as usize)
         }
     }
@@ -124,7 +131,11 @@ where
 
                 if state.mode == UIMode::Cursor {
                     update_cursor(state, &layout);
-                    set_cursor(f, state, &layout);
+                    highlight_cell(f, state, &layout, table_area);
+
+                    if state.style.show_cursow {
+                        set_cursor(f, state, &layout);
+                    }
                 }
             })?;
 
@@ -148,6 +159,7 @@ where
                     state.color_hm,
                     state.show_header,
                     state.show_index,
+                    state.style.clone(),
                 );
                 state.mode = UIMode::Cursor;
                 state.section_name = current_header;
@@ -181,6 +193,7 @@ where
         state.column_index,
         seen_rows,
         state.count_rows(),
+        state.style.status_bar,
     );
 
     f.render_widget(status_bar, area);
@@ -191,16 +204,30 @@ where
     B: Backend,
 {
     if _state.is_search_input || !_state.buf_cmd_input.is_empty() {
+        if _state.search_results.is_empty() && !_state.is_search_input {
+            let message = format!("Pattern not found: {}", _state.buf_cmd_input);
+            let style = NuStyle {
+                background: Some(NuColor::Red),
+                foreground: Some(NuColor::White),
+                ..Default::default()
+            };
+            f.render_widget(CmdBar::new(&message, "", style), area);
+
+            return;
+        }
+
         let prefix = if _state.is_search_rev { '?' } else { '/' };
 
         let text = format!("{}{}", prefix, _state.buf_cmd_input);
-        let info = format!(
-            "[{}/{}]",
-            _state.search_index + 1,
-            _state.search_results.len()
-        );
+        let info = if _state.search_results.is_empty() {
+            String::from("[0/0]")
+        } else {
+            let index = _state.search_index + 1;
+            let total = _state.search_results.len();
+            format!("[{}/{}]", index, total)
+        };
 
-        f.render_widget(CmdBar::new(&text, &info), area);
+        f.render_widget(CmdBar::new(&text, &info, _state.style.cmd_bar), area);
     }
 }
 
@@ -208,8 +235,7 @@ fn highlight_search_results<B>(f: &mut Frame<B>, _state: &UIState<'_>, _layout: 
 where
     B: Backend,
 {
-    let hightlight_block =
-        Block::default().style(Style::default().bg(Color::Yellow).fg(Color::Black));
+    let hightlight_block = Block::default().style(nu_style_to_tui(_state.style.highlight));
 
     if !_state.search_results.is_empty() {
         for row in 0.._layout.count_rows() {
@@ -237,14 +263,30 @@ where
     }
 }
 
-fn target_search_element<B>(_state: &mut UIState<'_>)
+fn highlight_cell<B>(f: &mut Frame<B>, state: &UIState<'_>, layout: &Layout, area: Rect)
 where
     B: Backend,
 {
-    if !_state.search_results.is_empty() {
-        let (row, col) = _state.search_results[_state.search_index];
-        _state.row_index = row;
-        _state.column_index = col;
+    let Position { x: column, y: row } = state.cursor;
+    let info = layout.get(row as usize, column as usize);
+    if let Some(info) = info {
+        if let Some(style) = state.style.selected_column {
+            let hightlight_block = Block::default().style(nu_style_to_tui(style));
+            let area = Rect::new(info.position.x, area.y, info.width, area.height);
+            f.render_widget(hightlight_block.clone(), area);
+        }
+
+        if let Some(style) = state.style.selected_row {
+            let hightlight_block = Block::default().style(nu_style_to_tui(style));
+            let area = Rect::new(area.x, info.position.y, area.width, 1);
+            f.render_widget(hightlight_block.clone(), area);
+        }
+
+        if let Some(style) = state.style.selected_cell {
+            let hightlight_block = Block::default().style(nu_style_to_tui(style));
+            let area = Rect::new(info.position.x, info.position.y, info.width, 1);
+            f.render_widget(hightlight_block.clone(), area);
+        }
     }
 }
 
@@ -392,6 +434,10 @@ fn view_mode_key_event<B>(
             ..
         } => {
             if !state.search_results.is_empty() {
+                if state.buf_cmd_input.is_empty() {
+                    state.buf_cmd_input = state.buf_cmd.clone();
+                }
+
                 if state.search_index == 0 {
                     state.search_index = state.search_results.len() - 1
                 } else {
@@ -498,10 +544,16 @@ fn cursor_mode_key_event<B>(
     }
 }
 
-fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, layout: &Layout) -> bool {
+fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, _layout: &Layout) -> bool {
     match &key.code {
         KeyCode::Esc => {
             state.buf_cmd_input = String::new();
+            if !state.buf_cmd.is_empty() {
+                state.search_results =
+                    search_pattern(&state.data_text, &state.buf_cmd, state.is_search_rev);
+                state.search_index = 0;
+            }
+
             state.is_search_input = false;
             state.is_search_rev = false;
 
@@ -521,6 +573,25 @@ fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, layout: &Layo
             } else {
                 state.buf_cmd_input.pop();
 
+                if !state.buf_cmd_input.is_empty() {
+                    state.search_results =
+                        search_pattern(&state.data_text, &state.buf_cmd_input, state.is_search_rev);
+                    state.search_index = 0;
+
+                    if !state.search_results.is_empty() {
+                        let pos = state.search_results[state.search_index];
+                        state.row_index = pos.0;
+                        state.column_index = pos.1;
+                    }
+                }
+            }
+
+            true
+        }
+        KeyCode::Char(c) => {
+            state.buf_cmd_input.push(*c);
+
+            if !state.buf_cmd_input.is_empty() {
                 state.search_results =
                     search_pattern(&state.data_text, &state.buf_cmd_input, state.is_search_rev);
                 state.search_index = 0;
@@ -530,21 +601,6 @@ fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, layout: &Layo
                     state.row_index = pos.0;
                     state.column_index = pos.1;
                 }
-            }
-
-            true
-        }
-        KeyCode::Char(c) => {
-            state.buf_cmd_input.push(*c);
-
-            state.search_results =
-                search_pattern(&state.data_text, &state.buf_cmd_input, state.is_search_rev);
-            state.search_index = 0;
-
-            if !state.search_results.is_empty() {
-                let pos = state.search_results[state.search_index];
-                state.row_index = pos.0;
-                state.column_index = pos.1;
             }
 
             true
@@ -603,6 +659,19 @@ struct UIState<'a> {
     search_index: usize,
     // only applicable for rev-SEARCH input
     is_search_rev: bool,
+    style: StyleConfig,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct StyleConfig {
+    pub status_bar: NuStyle,
+    pub cmd_bar: NuStyle,
+    pub split_line: NuStyle,
+    pub highlight: NuStyle,
+    pub selected_cell: Option<NuStyle>,
+    pub selected_column: Option<NuStyle>,
+    pub selected_row: Option<NuStyle>,
+    pub show_cursow: bool,
 }
 
 impl<'a> UIState<'a> {
@@ -613,6 +682,7 @@ impl<'a> UIState<'a> {
         color_hm: &'a NuStyleTable,
         show_header: bool,
         show_index: bool,
+        style: StyleConfig,
     ) -> Self {
         let data_text = data
             .iter()
@@ -653,6 +723,7 @@ impl<'a> UIState<'a> {
             search_index: 0,
             is_search_rev: false,
             data_text,
+            style,
         }
     }
 
@@ -678,6 +749,7 @@ struct StatusBar<'a> {
     column: usize,
     seen_rows: usize,
     total_rows: usize,
+    style: NuStyle,
 }
 
 impl<'a> StatusBar<'a> {
@@ -688,6 +760,7 @@ impl<'a> StatusBar<'a> {
         column: usize,
         seen_rows: usize,
         total_rows: usize,
+        style: NuStyle,
     ) -> Self {
         Self {
             section,
@@ -696,20 +769,15 @@ impl<'a> StatusBar<'a> {
             column,
             seen_rows,
             total_rows,
+            style,
         }
     }
 }
 
 impl Widget for StatusBar<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        const BLOCK_COLOR: Color = Color::Rgb(196, 201, 198);
-        const TEXT_COLOR: Color = Color::Rgb(29, 31, 33);
-
-        let block_style = Style::default().bg(BLOCK_COLOR);
-        let text_style = Style::default()
-            .bg(BLOCK_COLOR)
-            .fg(TEXT_COLOR)
-            .add_modifier(Modifier::BOLD);
+        let block_style = nu_style_to_tui(self.style);
+        let text_style = nu_style_to_tui(self.style).add_modifier(Modifier::BOLD);
 
         // colorize the line
         let block = Block::default()
@@ -751,23 +819,22 @@ impl Widget for StatusBar<'_> {
 struct CmdBar<'a> {
     text: &'a str,
     information: &'a str,
+    style: NuStyle,
 }
 
 impl<'a> CmdBar<'a> {
-    fn new(text: &'a str, information: &'a str) -> Self {
-        Self { text, information }
+    fn new(text: &'a str, information: &'a str, style: NuStyle) -> Self {
+        Self {
+            text,
+            information,
+            style,
+        }
     }
 }
 
 impl Widget for CmdBar<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // const BLOCK_COLOR: Color = Color::Rgb(29, 31, 33);
-        const TEXT_COLOR: Color = Color::Rgb(196, 201, 198);
-
-        let text_style = Style::default()
-            // .bg(BLOCK_COLOR)
-            .fg(TEXT_COLOR)
-            .add_modifier(Modifier::BOLD);
+        let text_style = nu_style_to_tui(self.style).add_modifier(Modifier::BOLD);
 
         // colorize the line
         let block = Block::default()
@@ -815,26 +882,26 @@ fn render_cursor_position(
 
 struct Table<'a> {
     columns: &'a [String],
-    data: &'a [Vec<Value>],
-    config: &'a Config,
+    data: &'a [Vec<NuText>],
     color_hm: &'a NuStyleTable,
     column_index: usize,
     row_index: usize,
     show_index: bool,
     show_header: bool,
+    splitline_style: NuStyle,
 }
 
 impl<'a> From<&'a UIState<'_>> for Table<'a> {
     fn from(state: &'a UIState<'_>) -> Self {
         Self {
             columns: &state.columns,
-            data: &state.data,
-            config: state.config,
+            data: &state.data_text,
             color_hm: state.color_hm,
             column_index: state.column_index,
             row_index: state.row_index,
             show_index: state.show_index,
             show_header: state.show_header,
+            splitline_style: state.style.split_line,
         }
     }
 }
@@ -885,7 +952,14 @@ impl StatefulWidget for Table<'_> {
         if show_index {
             let area = Rect::new(width, data_y, area.width, data_height);
             width += render_index(buf, area, self.color_hm, self.row_index);
-            width += render_vertical(buf, width, data_y, data_height, show_head);
+            width += render_vertical(
+                buf,
+                width,
+                data_y,
+                data_height,
+                show_head,
+                self.splitline_style,
+            );
         }
 
         let mut do_render_split_line = true;
@@ -894,7 +968,7 @@ impl StatefulWidget for Table<'_> {
         for col in self.column_index..self.columns.len() {
             let mut head = String::from(&self.columns[col]);
 
-            let mut column = create_column(data, self.config, self.color_hm, col);
+            let mut column = create_column(data, col);
 
             let column_width = calculate_column_width(&column);
             let mut use_space = column_width as u16;
@@ -963,13 +1037,20 @@ impl StatefulWidget for Table<'_> {
 
             if show_head {
                 width += render_space(buf, width, data_y, data_height, CELL_PADDING_LEFT);
-                width += render_shift_column(buf, width, head_y, 1);
+                width += render_shift_column(buf, width, head_y, 1, self.splitline_style);
                 width += render_space(buf, width, data_y, data_height, CELL_PADDING_RIGHT);
             }
         }
 
         if do_render_split_line {
-            width += render_vertical(buf, width, data_y, data_height, show_head);
+            width += render_vertical(
+                buf,
+                width,
+                data_y,
+                data_height,
+                show_head,
+                self.splitline_style,
+            );
         }
 
         // we try out best to cleanup the rest of the space cause it could be meassed.
@@ -1052,11 +1133,13 @@ fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_ind
 struct Layout {
     headers: Vec<ElementInfo>,
     data: Vec<Vec<ElementInfo>>,
+    count_columns: usize,
+    // todo: add Vec<width> of columns so data would contain actual width of a content
 }
 
 impl Layout {
     fn count_columns(&self) -> usize {
-        self.headers.len()
+        self.count_columns
     }
 
     fn count_rows(&self) -> usize {
@@ -1075,6 +1158,8 @@ impl Layout {
         width: u16,
         values: impl Iterator<Item = (usize, usize)>,
     ) {
+        self.count_columns += 1;
+
         let columns = values
             .enumerate()
             .map(|(i, value)| ElementInfo::new(Position::new(x, y + i as u16), width, 1, value))
@@ -1138,12 +1223,7 @@ fn render_header_borders(buf: &mut Buffer, area: Rect, y: u16, span: u16) -> (u1
     (height.saturating_sub(2), height)
 }
 
-fn create_column(
-    data: &[Vec<Value>],
-    config: &Config,
-    color_hm: &NuStyleTable,
-    col: usize,
-) -> Vec<NuText> {
+fn create_column(data: &[Vec<NuText>], col: usize) -> Vec<NuText> {
     let mut column = vec![NuText::default(); data.len()];
     for (row, values) in data.iter().enumerate() {
         if values.is_empty() {
@@ -1152,16 +1232,7 @@ fn create_column(
         }
 
         let value = &values[col];
-        let text = make_styled_string(
-            value.into_abbreviated_string(config),
-            &value.get_type().to_string(),
-            0,
-            false,
-            color_hm,
-            config.float_precision as usize,
-        );
-
-        column[row] = text;
+        column[row] = value.clone();
     }
 
     column
@@ -1292,8 +1363,6 @@ fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
     available_height
 }
 
-const VERTICAL_LINE_COLOR: NuColor = NuColor::Rgb(64, 64, 64);
-
 fn head_row_text(head: &str, color_hm: &NuStyleTable) -> NuText {
     (
         String::from(head),
@@ -1319,10 +1388,10 @@ fn truncate_str(text: &mut String, width: usize) {
     }
 }
 
-fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16) -> u16 {
+fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16, style: NuStyle) -> u16 {
     let style = TextStyle {
         alignment: Alignment::Left,
-        color_style: Some(NuStyle::default().fg(VERTICAL_LINE_COLOR)),
+        color_style: Some(style),
     };
 
     repeat_vertical(buf, x, y, 1, height, '…', style);
@@ -1330,11 +1399,18 @@ fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16) -> u16 {
     1
 }
 
-fn render_vertical(buf: &mut Buffer, x: u16, y: u16, height: u16, show_header: bool) -> u16 {
-    render_vertical_split(buf, x, y, height);
+fn render_vertical(
+    buf: &mut Buffer,
+    x: u16,
+    y: u16,
+    height: u16,
+    show_header: bool,
+    style: NuStyle,
+) -> u16 {
+    render_vertical_split(buf, x, y, height, style);
 
     if show_header && y > 0 {
-        render_top_connector(buf, x, y - 1);
+        render_top_connector(buf, x, y - 1, style);
     }
 
     // render_bottom_connector(buf, x, height + y);
@@ -1342,17 +1418,17 @@ fn render_vertical(buf: &mut Buffer, x: u16, y: u16, height: u16, show_header: b
     1
 }
 
-fn render_vertical_split(buf: &mut Buffer, x: u16, y: u16, height: u16) {
+fn render_vertical_split(buf: &mut Buffer, x: u16, y: u16, height: u16, style: NuStyle) {
     let style = TextStyle {
         alignment: Alignment::Left,
-        color_style: Some(NuStyle::default().fg(VERTICAL_LINE_COLOR)),
+        color_style: Some(style),
     };
 
     repeat_vertical(buf, x, y, 1, height, '│', style);
 }
 
-fn render_top_connector(buf: &mut Buffer, x: u16, y: u16) {
-    let style = Style::default().fg(Color::Rgb(64, 64, 64));
+fn render_top_connector(buf: &mut Buffer, x: u16, y: u16, style: NuStyle) {
+    let style = nu_style_to_tui(style);
     let span = Span::styled("┬", style);
     buf.set_span(x, y, &span, 1);
 }

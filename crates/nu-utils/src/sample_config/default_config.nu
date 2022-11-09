@@ -245,7 +245,7 @@ let light_theme = {
 let-env config = {
   external_completer: $nothing # check 'carapace_completer' above to as example
   filesize_metric: false # true => (KB, MB, GB), false => (KiB, MiB, GiB)
-  table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
+  table_mode: basic # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
   use_ls_colors: true
   rm_always_trash: false
   color_config: $dark_theme   # if you want a light theme, replace `$dark_theme` to `$light_theme`
@@ -280,6 +280,17 @@ let-env config = {
   show_clickable_links_in_ls: true # true or false to enable or disable clickable links in the ls listing. your terminal has to support links.
   render_right_prompt_on_last_line: false # true or false to enable or disable right prompt to be rendered on last line of the prompt.
 
+  # A 'scroll' utility config
+  scroll_config {
+    highlight: { bg: 'red', fg: 'white' }
+    selected_column: 'blue'
+    selected_row: 'yellow'
+    selected_cell: 'green'
+    status_bar: 'blue'
+    command_bar: 'blue'
+    split_line: 'green'
+    cursor: false
+  }
   hooks: {
     pre_prompt: [{
       $nothing  # replace with source code to run before the prompt is shown
