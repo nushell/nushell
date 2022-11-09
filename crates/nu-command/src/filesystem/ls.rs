@@ -188,7 +188,7 @@ impl Command for Ls {
                     if path_contains_skipped_dir(&path, &should_skip_dirs) {
                         return None;
                     }
-                    if (all || should_skip_dir_specified) && should_skip_dir(&path) {
+                    if !(all || should_skip_dir_specified) && should_skip_dir(&path) {
                         should_skip_dirs.push(path);
                         return None;
                     }
@@ -338,7 +338,7 @@ fn should_skip_dir(dir: impl AsRef<Path>) -> bool {
         let metadata = dir_ref.metadata();
 
         match metadata {
-            Ok(metadata) => (is_hidden_dir(metadata.file_attributes()) || dir_ref.is_symlink()),
+            Ok(metadata) => is_hidden_dir(metadata.file_attributes()) || dir_ref.is_symlink(),
             Err(_err) => true,
         }
     }
