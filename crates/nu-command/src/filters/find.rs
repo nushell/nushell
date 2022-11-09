@@ -9,7 +9,7 @@ use nu_protocol::{
     ast::Call,
     engine::{CaptureBlock, Command, EngineState, Stack},
     Category, Config, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Value,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 use nu_utils::get_ls_colors;
 
@@ -23,6 +23,20 @@ impl Command for Find {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .input_output_types(vec![
+                (
+                    // TODO: This is too permissive; if we could express this
+                    // using a type parameter it would be List<T> -> List<T>.
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::String, Type::String),
+                (
+                    // For find -p
+                    Type::Table(vec![]),
+                    Type::Table(vec![]),
+                ),
+            ])
             .named(
                 "predicate",
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),

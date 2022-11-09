@@ -7,7 +7,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -64,7 +64,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into datetime")
-            .named(
+        .input_output_types(vec![
+            (Type::Int, Type::Date),
+            (Type::String, Type::Date),
+        ])
+        .named(
                 "timezone",
                 SyntaxShape::String,
                 "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' ('u') or 'LOCAL' ('l')",

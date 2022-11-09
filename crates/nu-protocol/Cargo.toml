@@ -22,6 +22,8 @@ miette = { version = "5.1.0", features = ["fancy-no-backtrace"] }
 num-format = "0.4.3"
 serde = {version = "1.0.130", features = ["derive"]}
 serde_json = { version = "1.0", optional = true }
+strum = "0.24"
+strum_macros = "0.24"
 sys-locale = "0.2.0"
 thiserror = "1.0.31"
 typetag = "0.1.8"

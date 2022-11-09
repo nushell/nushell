@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Span;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value};
 use std::marker::PhantomData;
 
 pub trait HashDigest: digest::Digest + Clone {
@@ -50,6 +50,10 @@ where
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::String, Type::Binary),
+            ])
             .switch(
                 "binary",
                 "Output binary instead of hexadecimal representation",

@@ -3,7 +3,7 @@ use std::path::Path;
 use indexmap::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::{
-    engine::Command, Example, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    engine::Command, Example, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -29,6 +29,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path parse")
+            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
             .named(
                 "columns",
                 SyntaxShape::Table,

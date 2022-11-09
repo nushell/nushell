@@ -16,6 +16,13 @@ impl Command for Take {
 
     fn signature(&self) -> Signature {
         Signature::build("take")
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+            ])
             .required(
                 "n",
                 SyntaxShape::Int,
@@ -26,6 +33,10 @@ impl Command for Take {
 
     fn usage(&self) -> &str {
         "Take only the first n elements."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["first", "slice", "head"]
     }
 
     fn run(
@@ -53,6 +64,17 @@ impl Command for Take {
                 example: "[1 2 3] | take 2",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Return the first two rows of a table",
+                example: "echo [[editions]; [2015] [2018] [2021]] | take 2",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_record(vec!["editions"], vec![Value::test_int(2015)]),
+                        Value::test_record(vec!["editions"], vec![Value::test_int(2018)]),
+                    ],
                     span: Span::test_data(),
                 }),
             },

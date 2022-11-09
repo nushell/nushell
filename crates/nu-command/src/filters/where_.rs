@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, SyntaxShape, Value,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -21,6 +21,13 @@ impl Command for Where {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("where")
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .optional("cond", SyntaxShape::RowCondition, "condition")
             .named(
                 "block",
@@ -218,6 +225,26 @@ impl Command for Where {
 
     fn examples(&self) -> Vec<Example> {
         vec![
+            Example {
+                description: "Filter rows of a table according to a condition",
+                example: "[{a: 1} {a: 2}] | where a > 1",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["a".to_string()],
+                        vals: vec![Value::test_int(2)],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Filter items of a list according to a condition",
+                example: "[1 2] | where {|x| $x > 1}",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
+            },
             Example {
                 description: "List all files in the current directory with sizes greater than 2kb",
                 example: "ls | where size > 2kb",

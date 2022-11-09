@@ -7,7 +7,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::Config;
 use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -22,6 +22,7 @@ impl Command for FromEml {
 
     fn signature(&self) -> Signature {
         Signature::build("from eml")
+            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
             .named(
                 "preview-body",
                 SyntaxShape::Int,
@@ -32,7 +33,7 @@ impl Command for FromEml {
     }
 
     fn usage(&self) -> &str {
-        "Parse text as .eml and create table."
+        "Parse text as .eml and create record."
     }
 
     fn run(
@@ -52,7 +53,7 @@ impl Command for FromEml {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert eml structured data into table",
+                description: "Convert eml structured data into record",
                 example: "'From: test@email.com
 Subject: Welcome
 To: someone@somewhere.com
@@ -89,7 +90,7 @@ Test' | from eml",
                 }),
             },
             Example {
-                description: "Convert eml structured data into table",
+                description: "Convert eml structured data into record",
                 example: "'From: test@email.com
 Subject: Welcome
 To: someone@somewhere.com

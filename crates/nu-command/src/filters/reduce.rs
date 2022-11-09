@@ -5,7 +5,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -18,6 +18,7 @@ impl Command for Reduce {
 
     fn signature(&self) -> Signature {
         Signature::build("reduce")
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
             .named(
                 "fold",
                 SyntaxShape::Any,

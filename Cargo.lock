@@ -2743,6 +2743,8 @@ dependencies = [
  "num-format",
  "serde",
  "serde_json",
+ "strum 0.24.1",
+ "strum_macros 0.24.3",
  "sys-locale",
  "thiserror",
  "typetag",

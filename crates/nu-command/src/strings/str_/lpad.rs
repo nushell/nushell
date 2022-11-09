@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     length: Option<i64>,
@@ -28,6 +28,8 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str lpad")
+            .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
             .required_named("length", SyntaxShape::Int, "length to pad to", Some('l'))
             .required_named(
                 "character",

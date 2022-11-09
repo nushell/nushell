@@ -7,7 +7,7 @@ use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack},
     Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
@@ -26,6 +26,11 @@ impl Command for Griddle {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("grid")
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::String),
+                (Type::Record(vec![]), Type::String),
+                (Type::Table(vec![]), Type::String),
+            ])
             .named(
                 "width",
                 SyntaxShape::Int,

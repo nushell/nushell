@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,14 @@ impl Command for Group {
 
     fn signature(&self) -> Signature {
         Signature::build("group")
+            // TODO: It accepts Table also, but currently there is no Table
+            // example. Perhaps Table should be a subtype of List, in which case
+            // the current signature would suffice even when a Table example
+            // exists.
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::List(Box::new(Type::Any)))),
+            )])
             .required("group_size", SyntaxShape::Int, "the size of each group")
             .category(Category::Filters)
     }

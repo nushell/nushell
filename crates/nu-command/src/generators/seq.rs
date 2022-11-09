@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 use std::cmp;
 
@@ -17,6 +17,11 @@ impl Command for Seq {
 
     fn signature(&self) -> Signature {
         Signature::build("seq")
+            .input_output_types(vec![
+                (Type::Nothing, Type::List(Box::new(Type::Number))),
+                // -s flag
+                (Type::Nothing, Type::String),
+            ])
             .rest("rest", SyntaxShape::Number, "sequence values")
             .named(
                 "separator",

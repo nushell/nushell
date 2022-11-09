@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineIterator, ShellError, Signature, Span, SyntaxShape, Value,
+    PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,6 +17,10 @@ impl Command for Select {
     // FIXME: also add support for --skip
     fn signature(&self) -> Signature {
         Signature::build("select")
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .switch(
                 "ignore-errors",
                 "when a column has empty cells, instead of erroring out, replace them with nothing",
@@ -54,6 +58,19 @@ impl Command for Select {
 
     fn examples(&self) -> Vec<Example> {
         vec![
+            Example {
+                description: "Select a column in a table",
+                example: "[{a: a b: b}] | select a",
+                result: Some(Value::List {
+                    vals: vec![Value::test_record(vec!["a"], vec![Value::test_string("a")])],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Select a field in a record",
+                example: "{a: a b: b} | select a",
+                result: Some(Value::test_record(vec!["a"], vec![Value::test_string("a")])),
+            },
             Example {
                 description: "Select just the name column",
                 example: "ls | select name",
@@ -257,5 +274,17 @@ impl Iterator for NthIterator {
                 return self.input.next();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Select)
     }
 }

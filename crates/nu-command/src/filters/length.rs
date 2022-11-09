@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Value,
+    Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -20,6 +20,10 @@ impl Command for Length {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("length")
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::Int),
+                (Type::Table(vec![]), Type::Int),
+            ])
             .switch("column", "Show the number of columns in a table", Some('c'))
             .category(Category::Filters)
     }

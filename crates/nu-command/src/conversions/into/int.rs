@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -28,6 +28,16 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into int")
+            .input_output_types(vec![
+                (Type::String, Type::Int),
+                (Type::Number, Type::Int),
+                (Type::Bool, Type::Int),
+                // Unix timestamp in seconds
+                (Type::Date, Type::Int),
+                // TODO: Users should do this by dividing a Filesize by a Filesize explicitly
+                (Type::Filesize, Type::Int),
+            ])
+            .vectorizes_over_list(true)
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
             .switch("little-endian", "use little-endian byte decoding", None)
             .rest(

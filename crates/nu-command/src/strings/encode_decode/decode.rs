@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -24,6 +24,7 @@ impl Command for Decode {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("decode")
+            .input_output_types(vec![(Type::Binary, Type::String)])
             .required("encoding", SyntaxShape::String, "the text encoding to use")
             .category(Category::Strings)
     }

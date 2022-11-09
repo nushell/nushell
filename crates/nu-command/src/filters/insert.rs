@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Value,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,14 @@ impl Command for Insert {
 
     fn signature(&self) -> Signature {
         Signature::build("insert")
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::Record(vec![])),
+                // TODO: It accepts table input also (in which case it repeats
+                // the value across all table rows) but currently there is no
+                // example of the table variant so it cannot be in the
+                // signature.
+                // (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .required(
                 "field",
                 SyntaxShape::CellPath,
@@ -49,8 +57,8 @@ impl Command for Insert {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Insert a new value",
-            example: "echo {'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
+            description: "Insert a new entry into a record",
+            example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
             result: Some(Value::Record {
                 cols: vec!["name".into(), "stars".into(), "alias".into()],
                 vals: vec![

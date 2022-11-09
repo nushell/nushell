@@ -2,7 +2,7 @@ use super::variance::compute_variance as variance;
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -14,12 +14,17 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math stddev")
-            .switch("sample", "calculate sample standard deviation", Some('s'))
+            .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .switch(
+                "sample",
+                "calculate sample standard deviation (i.e. using N-1 as the denominator)",
+                Some('s'),
+            )
             .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Finds the stddev of a list of numbers or tables"
+        "Returns the standard deviation of a list of numbers, or of each column in a table"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -47,7 +52,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Get the stddev of a list of numbers",
+                description: "Compute the standard deviation of a list of numbers",
                 example: "[1 2 3 4 5] | math stddev",
                 result: Some(Value::Float {
                     val: std::f64::consts::SQRT_2,
@@ -55,7 +60,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Get the sample stddev of a list of numbers",
+                description: "Compute the sample standard deviation of a list of numbers",
                 example: "[1 2 3 4 5] | math stddev -s",
                 result: Some(Value::Float {
                     val: 1.5811388300841898,
