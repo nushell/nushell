@@ -93,7 +93,7 @@ fn detect_newlines() -> TestResult {
 #[test]
 fn case_insensitive_sort() -> TestResult {
     run_test(
-        r#"[a, B, d, C, f] | sort-by -i | to json --raw"#,
+        r#"[a, B, d, C, f] | sort -i | to json --raw"#,
         "[\"a\",\"B\",\"C\",\"d\",\"f\"]",
     )
 }
