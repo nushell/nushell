@@ -17,7 +17,7 @@ impl Command for ExportEnv {
         Signature::build("export-env")
             .required(
                 "block",
-                SyntaxShape::Block(Some(vec![])),
+                SyntaxShape::Block,
                 "the block to run to set the environment",
             )
             .category(Category::Env)

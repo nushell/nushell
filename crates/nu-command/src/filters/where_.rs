@@ -23,9 +23,9 @@ impl Command for Where {
         Signature::build("where")
             .optional("cond", SyntaxShape::RowCondition, "condition")
             .named(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "use where with a block or variable instead",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "use where with a closure",
                 Some('b'),
             )
             .category(Category::Filters)

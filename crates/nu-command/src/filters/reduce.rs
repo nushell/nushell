@@ -25,8 +25,8 @@ impl Command for Reduce {
                 Some('f'),
             )
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
                 "reducing function",
             )
             .switch("numbered", "iterate with an index", Some('n'))

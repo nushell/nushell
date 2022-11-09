@@ -46,8 +46,11 @@ pub enum SyntaxShape {
     /// A binary literal
     Binary,
 
+    /// A closure is allowed, eg `{|| start this thing}`
+    Closure(Option<Vec<SyntaxShape>>),
+
     /// A block is allowed, eg `{start this thing}`
-    Block(Option<Vec<SyntaxShape>>),
+    Block,
 
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table,
@@ -103,7 +106,8 @@ impl SyntaxShape {
     pub fn to_type(&self) -> Type {
         match self {
             SyntaxShape::Any => Type::Any,
-            SyntaxShape::Block(_) => Type::Block,
+            SyntaxShape::Block => Type::Block,
+            SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
             SyntaxShape::Custom(custom, _) => custom.to_type(),
@@ -156,7 +160,8 @@ impl Display for SyntaxShape {
             SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
             SyntaxShape::ImportPattern => write!(f, "import"),
-            SyntaxShape::Block(_) => write!(f, "block"),
+            SyntaxShape::Block => write!(f, "block"),
+            SyntaxShape::Closure(_) => write!(f, "closure"),
             SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
             SyntaxShape::List(x) => write!(f, "list<{}>", x),

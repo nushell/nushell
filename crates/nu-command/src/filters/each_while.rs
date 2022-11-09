@@ -25,9 +25,9 @@ impl Command for EachWhile {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "the closure to run",
             )
             .switch("numbered", "iterate with an index", Some('n'))
             .category(Category::Filters)

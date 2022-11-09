@@ -16,7 +16,7 @@ impl Command for Each {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each row of input"
+        "Run a closure on each row of input"
     }
 
     fn extra_usage(&self) -> &str {
@@ -36,9 +36,9 @@ with 'transpose' first."#
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("each")
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "the closure to run",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
             .switch("numbered", "iterate with an index", Some('n'))

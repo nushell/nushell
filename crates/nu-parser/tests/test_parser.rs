@@ -937,7 +937,7 @@ mod input_types {
                 .required("cond", SyntaxShape::Expression, "condition to check")
                 .required(
                     "then_block",
-                    SyntaxShape::Block(Some(vec![])),
+                    SyntaxShape::Block,
                     "block to run if check succeeds",
                 )
                 .optional(

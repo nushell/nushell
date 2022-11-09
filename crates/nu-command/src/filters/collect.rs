@@ -16,9 +16,9 @@ impl Command for Collect {
     fn signature(&self) -> Signature {
         Signature::build("collect")
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run once the stream is collected",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "the closure to run once the stream is collected",
             )
             .switch(
                 "keep-env",

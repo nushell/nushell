@@ -18,15 +18,15 @@ impl Command for ParEach {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each element of input in parallel"
+        "Run a closure on each element of input in parallel"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("par-each")
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "the closure to run",
             )
             .switch("numbered", "iterate with an index", Some('n'))
             .category(Category::Filters)

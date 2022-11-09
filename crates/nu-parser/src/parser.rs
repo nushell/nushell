@@ -13,7 +13,7 @@ use nu_protocol::{
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
-    ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    ENV_VARIABLE_ID, IN_VARIABLE_ID, 
 };
 
 use crate::parse_keywords::{
@@ -2708,7 +2708,8 @@ pub fn parse_shape_name(
     let result = match bytes {
         b"any" => SyntaxShape::Any,
         b"binary" => SyntaxShape::Binary,
-        b"block" => SyntaxShape::Block(None), //FIXME: Blocks should have known output types
+        b"block" => SyntaxShape::Block, //FIXME: Blocks should have known output types
+        b"closure" => SyntaxShape::Closure(None), //FIXME: Blocks should have known output types
         b"cell-path" => SyntaxShape::CellPath,
         b"duration" => SyntaxShape::Duration,
         b"path" => SyntaxShape::Filepath,
@@ -3898,6 +3899,130 @@ pub fn parse_block_expression(
             contents: TokenContents::Pipe,
             span,
         }) => {
+            error = error.or_else(|| Some(ParseError::Expected("block but found closure".into(), *span)));
+            (None, 0)
+        }
+        _ => (None, 0),
+    };
+
+    let (output, err) = lite_parse(&output[amt_to_skip..]);
+    error = error.or(err);
+
+    // TODO: Finish this
+    if let SyntaxShape::Closure(Some(v)) = shape {
+        if let Some((sig, sig_span)) = &signature {
+            if sig.num_positionals() > v.len() {
+                error = error.or_else(|| {
+                    Some(ParseError::Expected(
+                        format!(
+                            "{} block parameter{}",
+                            v.len(),
+                            if v.len() > 1 { "s" } else { "" }
+                        ),
+                        *sig_span,
+                    ))
+                });
+            }
+
+            for (expected, PositionalArg { name, shape, .. }) in
+                v.iter().zip(sig.required_positional.iter())
+            {
+                if expected != shape && *shape != SyntaxShape::Any {
+                    error = error.or_else(|| {
+                        Some(ParseError::ParameterMismatchType(
+                            name.to_owned(),
+                            expected.to_string(),
+                            shape.to_string(),
+                            *sig_span,
+                        ))
+                    });
+                }
+            }
+        }
+    }
+
+    let (mut output, err) =
+        parse_block(working_set, &output, false, expand_aliases_denylist, false);
+    error = error.or(err);
+
+    if let Some(signature) = signature {
+        output.signature = signature.0;
+    } else if let Some(last) = working_set.delta.scope.last() {
+        // FIXME: this only supports the top $it. Is this sufficient?
+
+        if let Some(var_id) = last.get_var(b"$it") {
+            let mut signature = Signature::new("");
+            signature.required_positional.push(PositionalArg {
+                var_id: Some(*var_id),
+                name: "$it".into(),
+                desc: String::new(),
+                shape: SyntaxShape::Any,
+                default_value: None,
+            });
+            output.signature = Box::new(signature);
+        }
+    }
+
+    output.span = Some(span);
+
+    working_set.exit_scope();
+
+    let block_id = working_set.add_block(output);
+
+    (
+        Expression {
+            expr: Expr::Block(block_id),
+            span,
+            ty: Type::Block,
+            custom_completion: None,
+        },
+        error,
+    )
+}
+
+pub fn parse_closure_expression(
+    working_set: &mut StateWorkingSet,
+    shape: &SyntaxShape,
+    span: Span,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    trace!("parsing: block expression");
+
+    let bytes = working_set.get_span_contents(span);
+    let mut error = None;
+
+    let mut start = span.start;
+    let mut end = span.end;
+
+    if bytes.starts_with(b"{") {
+        start += 1;
+    } else {
+        return (
+            garbage(span),
+            Some(ParseError::Expected("block".into(), span)),
+        );
+    }
+    if bytes.ends_with(b"}") {
+        end -= 1;
+    } else {
+        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
+    }
+
+    let inner_span = Span { start, end };
+
+    let source = working_set.get_span_contents(inner_span);
+
+    let (output, err) = lex(source, start, &[], &[], false);
+    error = error.or(err);
+
+    working_set.enter_scope();
+
+    // Check to see if we have parameters
+    let (signature, amt_to_skip): (Option<(Box<Signature>, Span)>, usize) = match output.first() {
+        Some(Token {
+            contents: TokenContents::Pipe,
+            span,
+        }) => {
             // We've found a parameter list
             let start_point = span.start;
             let mut token_iter = output.iter().enumerate().skip(1);
@@ -3939,7 +4064,7 @@ pub fn parse_block_expression(
     error = error.or(err);
 
     // TODO: Finish this
-    if let SyntaxShape::Block(Some(v)) = shape {
+    if let SyntaxShape::Closure(Some(v)) = shape {
         if let Some((sig, sig_span)) = &signature {
             if sig.num_positionals() > v.len() {
                 error = error.or_else(|| {
@@ -4099,14 +4224,16 @@ pub fn parse_value(
             }
         }
         b'{' => {
-            if !matches!(shape, SyntaxShape::Block(..)) {
+            if !matches!(shape, SyntaxShape::Closure(..)) {
                 if let (expr, None) =
                     parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
                 {
                     return (expr, None);
                 }
             }
-            if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
+            if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
+                return parse_closure_expression(working_set, shape, span, expand_aliases_denylist);
+            } else if matches!(shape, SyntaxShape::Block) {
                 return parse_block_expression(working_set, shape, span, expand_aliases_denylist);
             } else if matches!(shape, SyntaxShape::Record) {
                 return parse_record(working_set, span, expand_aliases_denylist);
@@ -4236,7 +4363,8 @@ pub fn parse_value(
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
                     SyntaxShape::Record,
-                    SyntaxShape::Block(None),
+                    SyntaxShape::Closure(None),
+                    SyntaxShape::Block,
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {

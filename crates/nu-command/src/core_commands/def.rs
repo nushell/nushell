@@ -20,7 +20,7 @@ impl Command for Def {
             .required("params", SyntaxShape::Signature, "parameters")
             .required(
                 "block",
-                SyntaxShape::Block(Some(vec![])),
+                SyntaxShape::Block,
                 "body of the definition",
             )
             .category(Category::Core)

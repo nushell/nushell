@@ -20,7 +20,7 @@ impl Command for DefEnv {
             .required("params", SyntaxShape::Signature, "parameters")
             .required(
                 "block",
-                SyntaxShape::Block(Some(vec![])),
+                SyntaxShape::Block,
                 "body of the definition",
             )
             .category(Category::Core)

@@ -32,7 +32,7 @@ impl Command for For {
             )
             .required(
                 "block",
-                SyntaxShape::Block(Some(vec![])),
+                SyntaxShape::Block,
                 "the block to run",
             )
             .switch(

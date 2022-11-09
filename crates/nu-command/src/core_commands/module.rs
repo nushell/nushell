@@ -19,7 +19,7 @@ impl Command for Module {
             .required("module_name", SyntaxShape::String, "module name")
             .required(
                 "block",
-                SyntaxShape::Block(Some(vec![])),
+                SyntaxShape::Block,
                 "body of the module",
             )
             .category(Category::Core)

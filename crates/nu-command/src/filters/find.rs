@@ -25,7 +25,7 @@ impl Command for Find {
         Signature::build(self.name())
             .named(
                 "predicate",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "the predicate to satisfy",
                 Some('p'),
             )

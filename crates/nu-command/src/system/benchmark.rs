@@ -23,7 +23,7 @@ impl Command for Benchmark {
         Signature::build("benchmark")
             .required(
                 "block",
-                SyntaxShape::Block(Some(vec![])),
+                SyntaxShape::Block,
                 "the block to run",
             )
             .category(Category::System)

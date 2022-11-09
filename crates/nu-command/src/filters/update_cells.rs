@@ -19,9 +19,9 @@ impl Command for UpdateCells {
     fn signature(&self) -> Signature {
         Signature::build("update cells")
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run an update for each cell",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "the closure to run an update for each cell",
             )
             .named(
                 "columns",
