@@ -375,8 +375,8 @@ second block if the expression is false.
 
 fn shorthand_tutor() -> &'static str {
     r#"
-You can access cells in a table using a shorthand notation sometimes called a
-"column path" or "cell path". These paths allow you to go from a table to
+You can access cells in a table using a shorthand notation called a "cell path",
+sometimes called a "column path". These paths allow you to go from a table to
 rows, columns, or cells inside of the table.
 
 Shorthand paths are made from rows numbers, column names, or both. You can use

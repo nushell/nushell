@@ -31,11 +31,11 @@ impl Command for SubCommand {
         Signature::build("str contains")
             .input_output_types(vec![(Type::String, Type::Bool)])
             .vectorizes_over_list(true)
-            .required("string", SyntaxShape::String, "the string to find")
+            .required("string", SyntaxShape::String, "the substring to find")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally check if input contains string by column paths",
+                "For a data structure input, check strings at the given cell paths, and replace with result",
             )
             .switch("insensitive", "search is case insensitive", Some('i'))
             .switch("not", "does not contain", Some('n'))
@@ -43,7 +43,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Checks if input contains string"
+        "Checks if string input contains a substring"
     }
 
     fn search_terms(&self) -> Vec<&str> {

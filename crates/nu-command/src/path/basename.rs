@@ -34,7 +34,7 @@ impl Command for SubCommand {
             .named(
                 "columns",
                 SyntaxShape::Table,
-                "Optionally operate by column path",
+                "For a record or table input, convert strings in the given columns to their basename",
                 Some('c'),
             )
             .named(

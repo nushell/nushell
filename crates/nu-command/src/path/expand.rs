@@ -42,7 +42,7 @@ impl Command for SubCommand {
             .named(
                 "columns",
                 SyntaxShape::Table,
-                "Optionally operate by column path",
+                "For a record or table input, expand strings at the given columns",
                 Some('c'),
             )
     }

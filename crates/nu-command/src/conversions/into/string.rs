@@ -42,11 +42,10 @@ impl Command for SubCommand {
                 (Type::Date, Type::String),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
-            // FIXME - need to support column paths
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "column paths to convert to string (for table input)",
+                "for a data structure input, convert data at the given cell paths",
             )
             .named(
                 "decimals",

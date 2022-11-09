@@ -19,7 +19,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally upcase text by column paths",
+                "For a data structure input, convert strings at the given cell paths",
             )
     }
 

@@ -31,7 +31,7 @@ impl Command for SubCommand {
             .named(
                 "columns",
                 SyntaxShape::Table,
-                "Optionally operate by column path",
+                "For a record or table input, check strings at the given columns, and replace with result",
                 Some('c'),
             )
     }

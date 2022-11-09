@@ -608,7 +608,7 @@ impl Value {
         Value::Nothing { span }
     }
 
-    /// Follow a given column path into the value: for example accessing select elements in a stream or list
+    /// Follow a given cell path into the value: for example accessing select elements in a stream or list
     pub fn follow_cell_path(
         self,
         cell_path: &[PathMember],
@@ -750,7 +750,7 @@ impl Value {
         Ok(current)
     }
 
-    /// Follow a given column path into the value: for example accessing select elements in a stream or list
+    /// Follow a given cell path into the value: for example accessing select elements in a stream or list
     pub fn upsert_cell_path(
         &mut self,
         cell_path: &[PathMember],
@@ -863,7 +863,7 @@ impl Value {
         Ok(())
     }
 
-    /// Follow a given column path into the value: for example accessing select elements in a stream or list
+    /// Follow a given cell path into the value: for example accessing select elements in a stream or list
     pub fn update_cell_path(
         &mut self,
         cell_path: &[PathMember],

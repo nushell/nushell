@@ -39,7 +39,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally returns index of string in input by column paths",
+                "For a data structure input, search strings at the given cell paths, and replace with result",
             )
             .named(
                 "range",

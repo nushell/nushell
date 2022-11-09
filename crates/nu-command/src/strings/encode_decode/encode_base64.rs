@@ -26,7 +26,7 @@ impl Command for EncodeBase64 {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally base64 encode data by column paths",
+                "For a data structure input, encode data at the given cell paths",
             )
             .output_type(Type::String)
             .category(Category::Hash)

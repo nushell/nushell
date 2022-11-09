@@ -21,7 +21,7 @@ impl Command for BytesLen {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally find length of binary by column paths",
+                "for a data structure input, find the length of data at the given cell paths",
             )
             .category(Category::Bytes)
     }

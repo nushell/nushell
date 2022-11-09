@@ -38,13 +38,13 @@ impl Command for SubCommand {
             .named(
                 "columns",
                 SyntaxShape::Table,
-                "Optionally operate by column path",
+                "For a record or table input, convert strings at the given columns",
                 Some('c'),
             )
     }
 
     fn usage(&self) -> &str {
-        "Get a path as relative to another path."
+        "Express a path as relative to another path."
     }
 
     fn extra_usage(&self) -> &str {

@@ -37,7 +37,7 @@ impl Command for FileSize {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "Optionally find and replace text by column paths",
+                "For a data structure input, format filesizes at the given cell paths",
             )
             .category(Category::Strings)
     }

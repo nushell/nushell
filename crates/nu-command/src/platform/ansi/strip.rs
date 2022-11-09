@@ -16,9 +16,9 @@ impl Command for SubCommand {
         Signature::build("ansi strip")
             .input_output_types(vec![(Type::String, Type::String)])
             .rest(
-                "column path",
+                "cell path",
                 SyntaxShape::CellPath,
-                "optionally, remove ANSI sequences by column paths",
+                "for a data structure input, remove ANSI sequences from strings at the given cell paths",
             )
             .category(Category::Platform)
     }

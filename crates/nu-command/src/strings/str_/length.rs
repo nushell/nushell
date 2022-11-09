@@ -20,7 +20,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally find length of text by column paths",
+                "For a data structure input, replace strings at the given cell paths with their length",
             )
             .category(Category::Strings)
     }
