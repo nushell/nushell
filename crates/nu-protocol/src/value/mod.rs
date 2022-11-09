@@ -3089,7 +3089,7 @@ pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool
     // Allow the user to specify how they want their numbers formatted
     let filesize_format_var = get_filesize_format(format_value, filesize_metric);
 
-    let byte = byte_unit::Byte::from_bytes(num_bytes as u128);
+    let byte = byte_unit::Byte::from_bytes(num_bytes.unsigned_abs() as u128);
     let adj_byte =
         if filesize_format_var.0 == byte_unit::ByteUnit::B && filesize_format_var.1 == "auto" {
             byte.get_appropriate_unit(!filesize_metric)
@@ -3102,14 +3102,25 @@ pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool
             let locale = get_system_locale();
             let locale_byte = adj_byte.get_value() as u64;
             let locale_byte_string = locale_byte.to_formatted_string(&locale);
-
-            if filesize_format_var.1 == "auto" {
-                format!("{} B", locale_byte_string)
+            let locale_signed_byte_string = if num_bytes.is_negative() {
+                format!("-{}", locale_byte_string)
             } else {
                 locale_byte_string
+            };
+
+            if filesize_format_var.1 == "auto" {
+                format!("{} B", locale_signed_byte_string)
+            } else {
+                locale_signed_byte_string
             }
         }
-        _ => adj_byte.format(1),
+        _ => {
+            if num_bytes.is_negative() {
+                format!("-{}", adj_byte.format(1))
+            } else {
+                adj_byte.format(1)
+            }
+        }
     }
 }
 
