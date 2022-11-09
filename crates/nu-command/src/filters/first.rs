@@ -145,11 +145,20 @@ fn first_helper(
                         .set_metadata(metadata)),
                 }
             }
-            _ => Ok(input_peek
-                .into_iter()
-                .take(rows_desired)
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata)),
+            _ => {
+                if rows_desired == 1 && rows.is_none() {
+                    match input_peek.next() {
+                        Some(val) => Ok(val.into_pipeline_data()),
+                        None => Err(ShellError::AccessBeyondEndOfStream(head)),
+                    }
+                } else {
+                    Ok(input_peek
+                        .into_iter()
+                        .take(rows_desired)
+                        .into_pipeline_data(ctrlc)
+                        .set_metadata(metadata))
+                }
+            }
         }
     } else {
         Ok(PipelineData::new(head).set_metadata(metadata))
