@@ -92,20 +92,6 @@ pub(crate) fn update_prompt<'prompt>(
 
     let left_prompt_string = get_prompt_string(PROMPT_COMMAND, config, engine_state, &mut stack);
 
-    // Now that we have the prompt string lets ansify it.
-    // <133 A><prompt><133 B><command><133 C><command output>
-    let left_prompt_string = if config.shell_integration {
-        match left_prompt_string {
-            Some(prompt_string) => Some(format!(
-                "{}{}{}",
-                PRE_PROMPT_MARKER, prompt_string, POST_PROMPT_MARKER
-            )),
-            None => left_prompt_string,
-        }
-    } else {
-        left_prompt_string
-    };
-
     let right_prompt_string =
         get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, &mut stack);
 
@@ -120,6 +106,16 @@ pub(crate) fn update_prompt<'prompt>(
 
     let prompt_vi_normal_string =
         get_prompt_string(PROMPT_INDICATOR_VI_NORMAL, config, engine_state, &mut stack);
+    let wrap_left_prompt =
+        if let Some((s1, s2)) = &config.wrap_left_prompt {
+            Some((s1.clone(), s2.clone()))
+        } else if config.shell_integration {
+            // Now that we have the prompt string lets ansify it.
+            // <133 A><prompt><133 B><command><133 C><command output>
+            Some((PRE_PROMPT_MARKER.to_string(), POST_PROMPT_MARKER.to_string()))
+        } else {
+            None
+        };
 
     // apply the other indicators
     nu_prompt.update_all_prompt_strings(
@@ -129,6 +125,11 @@ pub(crate) fn update_prompt<'prompt>(
         prompt_multiline_string,
         (prompt_vi_insert_string, prompt_vi_normal_string),
         config.render_right_prompt_on_last_line,
+        wrap_left_prompt,
+        config.wrap_right_prompt.clone(),
+        config.wrap_history_search_prompt.clone(),
+        config.wrap_indicator_prompt.clone(),
+        config.wrap_multiline_prompt.clone(),
     );
 
     let ret_val = nu_prompt as &dyn Prompt;

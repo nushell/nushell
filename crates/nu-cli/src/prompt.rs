@@ -18,6 +18,11 @@ pub struct NushellPrompt {
     default_vi_normal_prompt_indicator: Option<String>,
     default_multiline_indicator: Option<String>,
     render_right_prompt_on_last_line: bool,
+    wrap_left_prompt: Option<(String,String)>,
+    wrap_right_prompt: Option<(String,String)>,
+    wrap_history_search_prompt: Option<(String,String)>,
+    wrap_indicator_prompt: Option<(String,String)>,
+    wrap_multiline_prompt: Option<(String,String)>,
 }
 
 impl Default for NushellPrompt {
@@ -36,6 +41,11 @@ impl NushellPrompt {
             default_vi_normal_prompt_indicator: None,
             default_multiline_indicator: None,
             render_right_prompt_on_last_line: false,
+            wrap_left_prompt: None,
+            wrap_right_prompt: None,
+            wrap_history_search_prompt: None,
+            wrap_indicator_prompt: None,
+            wrap_multiline_prompt: None,
         }
     }
 
@@ -76,6 +86,11 @@ impl NushellPrompt {
         prompt_multiline_indicator_string: Option<String>,
         prompt_vi: (Option<String>, Option<String>),
         render_right_prompt_on_last_line: bool,
+        wrap_left_prompt: Option<(String,String)>,
+        wrap_right_prompt: Option<(String,String)>,
+        wrap_history_search_prompt: Option<(String,String)>,
+        wrap_indicator_prompt: Option<(String,String)>,
+        wrap_multiline_prompt: Option<(String,String)>,
     ) {
         let (prompt_vi_insert_string, prompt_vi_normal_string) = prompt_vi;
 
@@ -86,6 +101,11 @@ impl NushellPrompt {
 
         self.default_vi_insert_prompt_indicator = prompt_vi_insert_string;
         self.default_vi_normal_prompt_indicator = prompt_vi_normal_string;
+        self.wrap_left_prompt = wrap_left_prompt;
+        self.wrap_right_prompt = wrap_right_prompt;
+        self.wrap_history_search_prompt = wrap_history_search_prompt;
+        self.wrap_indicator_prompt = wrap_indicator_prompt;
+        self.wrap_multiline_prompt = wrap_multiline_prompt;
 
         self.render_right_prompt_on_last_line = render_right_prompt_on_last_line;
     }
@@ -102,60 +122,88 @@ impl Prompt for NushellPrompt {
             let _ = enable_vt_processing();
         }
 
-        if let Some(prompt_string) = &self.left_prompt_string {
-            prompt_string.replace('\n', "\r\n").into()
-        } else {
-            let default = DefaultPrompt::new();
-            default
-                .render_prompt_left()
-                .to_string()
-                .replace('\n', "\r\n")
-                .into()
-        }
+        let prompt =
+            if let Some(prompt_string) = &self.left_prompt_string {
+                prompt_string.replace('\n', "\r\n")
+            } else {
+                let default = DefaultPrompt::new();
+                default
+                    .render_prompt_left()
+                    .to_string()
+                    .replace('\n', "\r\n")
+            };
+         let prompt =
+            if let Some((pre, post)) = &self.wrap_left_prompt {
+                format!("{}{}{}", pre, prompt, post)
+            } else {
+                prompt
+            };
+        prompt.into()
     }
 
     fn render_prompt_right(&self) -> Cow<str> {
-        if let Some(prompt_string) = &self.right_prompt_string {
-            prompt_string.replace('\n', "\r\n").into()
-        } else {
-            let default = DefaultPrompt::new();
-            default
-                .render_prompt_right()
-                .to_string()
-                .replace('\n', "\r\n")
-                .into()
-        }
+        let prompt =
+            if let Some(prompt_string) = &self.right_prompt_string {
+                prompt_string.replace('\n', "\r\n")
+            } else {
+                DefaultPrompt::new()
+                    .render_prompt_right()
+                    .to_string().replace('\n', "\r\n")
+            };
+        let prompt =
+            if let Some((pre, post)) = &self.wrap_right_prompt {
+                format!("{}{}{}", pre, prompt, post)
+            } else {
+                prompt
+            };
+        prompt.into()
     }
 
     fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<str> {
-        match edit_mode {
-            PromptEditMode::Default => match &self.default_prompt_indicator {
-                Some(indicator) => indicator.as_str().into(),
-                None => "〉".into(),
-            },
-            PromptEditMode::Emacs => match &self.default_prompt_indicator {
-                Some(indicator) => indicator.as_str().into(),
-                None => "〉".into(),
-            },
-            PromptEditMode::Vi(vi_mode) => match vi_mode {
-                PromptViMode::Normal => match &self.default_vi_normal_prompt_indicator {
-                    Some(indicator) => indicator.as_str().into(),
-                    None => ": ".into(),
-                },
-                PromptViMode::Insert => match &self.default_vi_insert_prompt_indicator {
+        let prompt =
+            match edit_mode {
+                PromptEditMode::Default => match &self.default_prompt_indicator {
                     Some(indicator) => indicator.as_str().into(),
                     None => "〉".into(),
                 },
-            },
-            PromptEditMode::Custom(str) => self.default_wrapped_custom_string(str).into(),
-        }
+                PromptEditMode::Emacs => match &self.default_prompt_indicator {
+                    Some(indicator) => indicator.as_str().into(),
+                    None => "〉".into(),
+                },
+                PromptEditMode::Vi(vi_mode) => match vi_mode {
+                    PromptViMode::Normal => match &self.default_vi_normal_prompt_indicator {
+                        Some(indicator) => indicator.as_str().into(),
+                        None => ": ".into(),
+                    },
+                    PromptViMode::Insert => match &self.default_vi_insert_prompt_indicator {
+                        Some(indicator) => indicator.as_str().into(),
+                        None => "〉".into(),
+                    },
+                },
+                PromptEditMode::Custom(str) => self.default_wrapped_custom_string(str).into(),
+            };
+        let prompt =
+            if let Some((pre, post)) = &self.wrap_indicator_prompt {
+                format!("{}{}{}", pre, prompt, post)
+            } else {
+                prompt
+            };
+        prompt.into()
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
-        match &self.default_multiline_indicator {
-            Some(indicator) => indicator.as_str().into(),
-            None => "::: ".into(),
-        }
+        let prompt =
+            match &self.default_multiline_indicator {
+                Some(indicator) => indicator.as_str(),
+                None => "::: ",
+            };
+        let prompt =
+            if let Some((pre, post)) = &self.wrap_multiline_prompt {
+                format!("{}{}{}", pre, prompt, post)
+            } else {
+                prompt.to_string()
+            };
+         prompt.into()
     }
 
     fn render_prompt_history_search_indicator(
@@ -166,11 +214,9 @@ impl Prompt for NushellPrompt {
             PromptHistorySearchStatus::Passing => "",
             PromptHistorySearchStatus::Failing => "failing ",
         };
-
-        Cow::Owned(format!(
-            "({}reverse-search: {})",
-            prefix, history_search.term
-        ))
+        let prompt = format!(
+            "({}reverse-search: {})", prefix, history_search.term);
+        Cow::Owned(prompt)
     }
 
     fn right_prompt_on_last_line(&self) -> bool {

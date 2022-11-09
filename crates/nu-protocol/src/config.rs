@@ -87,6 +87,11 @@ pub struct Config {
     pub show_banner: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
+    pub wrap_left_prompt: Option<(String,String)>,
+    pub wrap_right_prompt: Option<(String,String)>,
+    pub wrap_history_search_prompt: Option<(String,String)>,
+    pub wrap_indicator_prompt: Option<(String,String)>,
+    pub wrap_multiline_prompt: Option<(String,String)>,
 }
 
 impl Default for Config {
@@ -125,6 +130,11 @@ impl Default for Config {
             show_banner: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
+            wrap_left_prompt: None,
+            wrap_right_prompt: None,
+            wrap_history_search_prompt: None,
+            wrap_indicator_prompt: None,
+            wrap_multiline_prompt: None,
         }
     }
 }
@@ -440,6 +450,47 @@ impl Value {
                             config.render_right_prompt_on_last_line = b;
                         } else {
                             eprintln!("$config.render_right_prompt_on_last_line is not a bool")
+                        }
+                    }
+                    "wrap_left_prompt" | "wrap_right_prompt" | "wrap_history_search_prompt" | "wrap_indicator_prompt" | "wrap_multiline_prompt" => {
+                        let mut wraps = None;
+                        match value {
+                            Value::Nothing { .. } => {
+                                wraps = None;
+                            }
+                            Value::List { vals, .. } => {
+                                match &vals[..] {
+                                    [Value::String { val: v1, .. },
+                                     Value::String { val: v2, .. }] => {
+                                        wraps = Some((v1.to_string(), v2.to_string()));
+                                    }
+                                    _ => {
+                                        eprintln!("$config.{} is neither a 2-string list or null", key)
+                                    }
+                                }
+                            }
+                            _ => {
+                                eprintln!("$config.{}_right_prompt is neither 2-string list or null", key)
+                            }
+                        }
+                        match key.as_str() {
+                            "wrap_left_prompt" => {
+                                config.wrap_left_prompt = wraps;
+                            }
+                            "wrap_right_prompt" => {
+                                config.wrap_right_prompt = wraps;
+                            }
+                            "wrap_history_search_prompt" => {
+                                config.wrap_history_search_prompt = wraps;
+                            }
+                            "wrap_indicator_prompt" => {
+                                config.wrap_indicator_prompt = wraps;
+                            }
+                            "wrap_multiline_prompt" => {
+                                config.wrap_multiline_prompt = wraps;
+                            }
+                            _ => {
+                            }
                         }
                     }
                     x => {
