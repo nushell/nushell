@@ -40,6 +40,11 @@ impl Command for SubCommand {
         "Check whether a path exists"
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"This only checks if it is possible to either `open` or `cd` to the given path.
+If you need to distinguish dirs and files, please use `path type`."#
+    }
+
     fn run(
         &self,
         engine_state: &nu_protocol::engine::EngineState,
