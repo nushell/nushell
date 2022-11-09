@@ -204,7 +204,7 @@ fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {
 
 lazy_static! {
     // This case-insensitive regex hits:
-    // • Any character of []:`{}#';()|$,
+    // • Any character of []:`{}#"';()|$,
     //   • The above hits Datetimes via hitting :
     // • Any whitespace
     // • true, false, null
@@ -213,7 +213,7 @@ lazy_static! {
     // • Filesizes
     // • Durations
     // • Ranges
-    static ref NEED_QUOTE_REGEX: Regex = Regex::new(r#"(?i)[\[\]:`\{\}#'";\(\)\|\$,\s]|^(true|false|null|[+-]?inf(inity)?|[+-]?nan)$|^[+-]?\d+\.?\d*(([kmgtpez]?i?b)|[mnu]s|sec|min|hr|day|wk)?$|^([+-]?\d+\.?\d*)?\.\.<?([+-]?\d+\.?\d*)?$"#).expect("internal error: NEED_QUOTE_REGEX didn't compile");
+    static ref NEED_QUOTE_REGEX: Regex = Regex::new(r#"(?i)[\[\]:`\{\}#'";\(\)\|\$,\s]|^(true|false|null|[+-]?inf(inity)?|[+-]?nan)$|^[+-]?\d+\.?\d*([kmgtpez]?i?b|[mnu]s|sec|min|hr|day|wk)?$|^([+-]?\d+\.?\d*)?\.\.<?([+-]?\d+\.?\d*)?$"#).expect("internal error: NEED_QUOTE_REGEX didn't compile");
 }
 
 fn needs_quotes(string: &str) -> bool {
