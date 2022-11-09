@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -39,7 +39,9 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str trim")
-            .rest(
+        .input_output_types(vec![(Type::String, Type::String)])
+        .vectorizes_over_list(true)
+        .rest(
                 "rest",
                 SyntaxShape::CellPath,
                 "optionally trim text by column paths",

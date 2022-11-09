@@ -23,6 +23,36 @@ fn filters_with_nothing_comparison() {
 }
 
 #[test]
+fn filters_with_0_arity_block() {
+    let actual = nu!(
+        cwd: ".",
+        "[1 2 3 4] | where { $in < 3 } | to nuon"
+    );
+
+    assert_eq!(actual.out, "[1, 2]");
+}
+
+#[test]
+fn filters_with_1_arity_block() {
+    let actual = nu!(
+        cwd: ".",
+        "[1 2 3 6 7 8] | where {|e| $e < 5 } | to nuon"
+    );
+
+    assert_eq!(actual.out, "[1, 2, 3]");
+}
+
+#[test]
+fn unique_env_each_iteration() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "[1 2] | where { print ($env.PWD | str ends-with 'formats') | cd '/' | true } | to nuon"
+    );
+
+    assert_eq!(actual.out, "truetrue[1, 2]");
+}
+
+#[test]
 fn where_in_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",

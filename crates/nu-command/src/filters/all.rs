@@ -2,7 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{CaptureBlock, Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +16,10 @@ impl Command for All {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::Bool),
+                (Type::Table(vec![]), Type::Bool),
+            ])
             .required(
                 "predicate",
                 SyntaxShape::RowCondition,
@@ -77,6 +82,9 @@ impl Command for All {
         let engine_state = engine_state.clone();
 
         for value in input.into_interruptible_iter(ctrlc) {
+            // with_env() is used here to ensure that each iteration uses
+            // a different set of environment variables.
+            // Hence, a 'cd' in the first loop won't affect the next loop.
             stack.with_env(&orig_env_vars, &orig_env_hidden);
 
             if let Some(var_id) = var_id {

@@ -1,7 +1,7 @@
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -13,12 +13,17 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math variance")
-            .switch("sample", "calculate sample variance", Some('s'))
+            .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .switch(
+                "sample",
+                "calculate sample variance (i.e. using N-1 as the denominator)",
+                Some('s'),
+            )
             .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Finds the variance of a list of numbers or tables"
+        "Returns the variance of a list of numbers or of each column in a table"
     }
 
     fn search_terms(&self) -> Vec<&str> {

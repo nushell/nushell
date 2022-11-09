@@ -3,7 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 struct Arguments {
@@ -29,6 +30,7 @@ impl Command for BytesReplace {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes replace")
+            .input_output_types(vec![(Type::Binary, Type::Binary)])
             .required("find", SyntaxShape::Binary, "the pattern to find")
             .required("replace", SyntaxShape::Binary, "the replacement pattern")
             .rest(

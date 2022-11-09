@@ -16,7 +16,14 @@ impl Command for Take {
 
     fn signature(&self) -> Signature {
         Signature::build("take")
-            .optional(
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+            ])
+            .required(
                 "n",
                 SyntaxShape::Int,
                 "starting from the front, the number of elements to return",
@@ -26,6 +33,10 @@ impl Command for Take {
 
     fn usage(&self) -> &str {
         "Take only the first n elements."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["first", "slice", "head"]
     }
 
     fn run(
@@ -42,14 +53,28 @@ impl Command for Take {
         vec![
             Example {
                 description: "Return the first item of a list/table",
-                example: "[1 2 3] | take",
-                result: Some(Value::test_int(1)),
+                example: "[1 2 3] | take 1",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(1)],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Return the first 2 items of a list/table",
                 example: "[1 2 3] | take 2",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Return the first two rows of a table",
+                example: "echo [[editions]; [2015] [2018] [2021]] | take 2",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_record(vec!["editions"], vec![Value::test_int(2015)]),
+                        Value::test_record(vec!["editions"], vec![Value::test_int(2018)]),
+                    ],
                     span: Span::test_data(),
                 }),
             },
@@ -64,11 +89,7 @@ fn first_helper(
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
-    let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
-    let mut rows_desired: usize = match rows {
-        Some(x) => x as usize,
-        None => 1,
-    };
+    let mut rows_desired: usize = call.req(engine_state, stack, 0)?;
 
     let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
@@ -137,20 +158,11 @@ fn first_helper(
                         .set_metadata(metadata)),
                 }
             }
-            _ => {
-                if rows_desired == 1 {
-                    match input_peek.next() {
-                        Some(val) => Ok(val.into_pipeline_data()),
-                        None => Err(ShellError::AccessBeyondEndOfStream(head)),
-                    }
-                } else {
-                    Ok(input_peek
-                        .into_iter()
-                        .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata))
-                }
-            }
+            _ => Ok(input_peek
+                .into_iter()
+                .take(rows_desired)
+                .into_pipeline_data(ctrlc)
+                .set_metadata(metadata)),
         }
     } else {
         Err(ShellError::UnsupportedInput(

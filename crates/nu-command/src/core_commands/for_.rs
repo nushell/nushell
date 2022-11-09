@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, Signature, Span,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -20,6 +20,7 @@ impl Command for For {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("for")
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Any)))])
             .required(
                 "var_name",
                 SyntaxShape::VarWithOptType,
@@ -92,6 +93,9 @@ impl Command for For {
                 Ok(ListStream::from_stream(vals.into_iter(), ctrlc.clone())
                     .enumerate()
                     .map(move |(idx, x)| {
+                        // with_env() is used here to ensure that each iteration uses
+                        // a different set of environment variables.
+                        // Hence, a 'cd' in the first loop won't affect the next loop.
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                         stack.add_var(
@@ -133,6 +137,9 @@ impl Command for For {
                 .into_range_iter(ctrlc.clone())?
                 .enumerate()
                 .map(move |(idx, x)| {
+                    // with_env() is used here to ensure that each iteration uses
+                    // a different set of environment variables.
+                    // Hence, a 'cd' in the first loop won't affect the next loop.
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                     stack.add_var(

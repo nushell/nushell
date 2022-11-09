@@ -4,7 +4,7 @@ use nu_protocol::engine::ReplOperation;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::IntoPipelineData;
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct Commandline;
@@ -16,6 +16,7 @@ impl Command for Commandline {
 
     fn signature(&self) -> Signature {
         Signature::build("commandline")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch(
                 "append",
                 "appends the string to the end of the buffer",

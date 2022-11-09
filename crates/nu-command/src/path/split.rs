@@ -1,7 +1,9 @@
 use std::path::{Component, Path};
 
 use nu_engine::CallExt;
-use nu_protocol::{engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 
 use super::PathSubcommandArguments;
 
@@ -24,12 +26,14 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path split").named(
-            "columns",
-            SyntaxShape::Table,
-            "Optionally operate by column path",
-            Some('c'),
-        )
+        Signature::build("path split")
+            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "Optionally operate by column path",
+                Some('c'),
+            )
     }
 
     fn usage(&self) -> &str {

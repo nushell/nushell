@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    SyntaxShape, Value,
+    Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -20,6 +20,15 @@ impl Command for Get {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("get")
+            .input_output_types(vec![
+                (
+                    // TODO: This is too permissive; if we could express this
+                    // using a type parameter it would be List<T> -> T.
+                    Type::List(Box::new(Type::Any)),
+                    Type::Any,
+                ),
+                (Type::Table(vec![]), Type::Any),
+            ])
             .required(
                 "cell_path",
                 SyntaxShape::CellPath,
@@ -93,6 +102,24 @@ impl Command for Get {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
+                description: "Get an item from a list",
+                example: "[0 1 2] | get 1",
+                result: Some(Value::test_int(1)),
+            },
+            Example {
+                description: "Get a column from a table",
+                example: "[{A: A0}] | get A",
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("A0")],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Get a cell from a table",
+                example: "[{A: A0}] | get 0.A",
+                result: Some(Value::test_string("A0")),
+            },
+            Example {
                 description: "Extract the name of files as a list",
                 example: "ls | get name",
                 result: None,
@@ -123,5 +150,17 @@ impl Command for Get {
                 result: None,
             },
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Get)
     }
 }

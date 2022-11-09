@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
 };
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
@@ -15,7 +15,12 @@ impl Command for Shuffle {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("shuffle").category(Category::Filters)
+        Signature::build("shuffle")
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {

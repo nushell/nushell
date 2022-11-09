@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Value,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone, Debug)]
@@ -26,6 +26,10 @@ impl Command for Move {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("move")
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .rest("columns", SyntaxShape::String, "the columns to move")
             .named(
                 "after",

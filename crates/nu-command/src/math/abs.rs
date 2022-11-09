@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -11,11 +11,14 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math abs").category(Category::Math)
+        Signature::build("math abs")
+            .input_output_types(vec![(Type::Number, Type::Number)])
+            .vectorizes_over_list(true)
+            .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Returns absolute values of a list of numbers"
+        "Returns the absolute value of a number"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -38,7 +41,7 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Get absolute of each value in a list of numbers",
+            description: "Compute absolute value of each number in a list of numbers",
             example: "[-50 -100.0 25] | math abs",
             result: Some(Value::List {
                 vals: vec![

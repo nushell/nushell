@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,7 +19,9 @@ impl Command for Fmt {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("fmt").category(Category::Conversions)
+        Signature::build("fmt")
+            .input_output_types(vec![(Type::Number, Type::Record(vec![]))])
+            .category(Category::Conversions)
     }
 
     fn search_terms(&self) -> Vec<&str> {

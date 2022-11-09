@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,10 @@ impl Command for Reject {
 
     fn signature(&self) -> Signature {
         Signature::build("reject")
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -25,7 +29,7 @@ impl Command for Reject {
     }
 
     fn usage(&self) -> &str {
-        "Remove the given columns from the table. If you want to remove rows, try 'drop'."
+        "Remove the given columns from the table. To remove rows, use 'drop'."
     }
 
     fn run(
@@ -43,13 +47,25 @@ impl Command for Reject {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Lists the files in a directory without showing the modified column",
+                description: "Reject a column in the `ls` table",
                 example: "ls | reject modified",
                 result: None,
             },
             Example {
+                description: "Reject a column in a table",
+                example: "[[a, b]; [1, 2]] | reject a",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["b".to_string()],
+                        vals: vec![Value::test_int(2)],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "Reject the specified field in a record",
-                example: "echo {a: 1, b: 2} | reject a",
+                example: "{a: 1, b: 2} | reject a",
                 result: Some(Value::Record {
                     cols: vec!["b".into()],
                     vals: vec![Value::Int {
@@ -61,7 +77,7 @@ impl Command for Reject {
             },
             Example {
                 description: "Reject a nested field in a record",
-                example: "echo {a: {b: 3,c: 5}} | reject a.b",
+                example: "{a: {b: 3, c: 5}} | reject a.b",
                 result: Some(Value::Record {
                     cols: vec!["a".into()],
                     vals: vec![Value::Record {

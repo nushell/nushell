@@ -2,7 +2,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
-    Signature, Span, Value,
+    Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,7 @@ impl Command for Lines {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("lines")
+            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
             .switch("skip-empty", "skip empty lines", Some('s'))
             .category(Category::Filters)
     }

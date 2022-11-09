@@ -13,7 +13,7 @@ use std::hash::{Hash, Hasher};
 /// ```text
 /// assert_eq!(HashableValue::Bool {val: true, span: Span{start: 0, end: 1}}, HashableValue::Bool {val: true, span: Span{start: 90, end: 1000}})
 /// ```
-#[derive(Eq, Debug)]
+#[derive(Eq, Debug, Ord, PartialOrd)]
 pub enum HashableValue {
     Bool {
         val: bool,

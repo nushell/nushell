@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, SyntaxShape, Value,
+    Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -35,6 +35,10 @@ with 'transpose' first."#
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("each")
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .required(
                 "block",
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
@@ -147,6 +151,9 @@ with 'transpose' first."#
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
+                    // with_env() is used here to ensure that each iteration uses
+                    // a different set of environment variables.
+                    // Hence, a 'cd' in the first loop won't affect the next loop.
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                     if let Some(var) = block.signature.get_positional(0) {
@@ -197,6 +204,9 @@ with 'transpose' first."#
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
+                    // with_env() is used here to ensure that each iteration uses
+                    // a different set of environment variables.
+                    // Hence, a 'cd' in the first loop won't affect the next loop.
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                     let x = match x {

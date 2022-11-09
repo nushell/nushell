@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     ast::Call, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Value,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,10 @@ impl Command for SeqChar {
 
     fn signature(&self) -> Signature {
         Signature::build("seq char")
+            .input_output_types(vec![
+                (Type::Nothing, Type::List(Box::new(Type::Any))),
+                (Type::Nothing, Type::String),
+            ])
             .required(
                 "start",
                 SyntaxShape::String,

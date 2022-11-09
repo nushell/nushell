@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Category, Example, PipelineData, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct ExportUse;
@@ -16,6 +16,7 @@ impl Command for ExportUse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export use")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("pattern", SyntaxShape::ImportPattern, "import pattern")
             .category(Category::Core)
     }

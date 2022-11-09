@@ -15,6 +15,8 @@ impl Command for EncodeBase64 {
 
     fn signature(&self) -> Signature {
         Signature::build("encode base64")
+            .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
             .named(
                 "character-set",
                 SyntaxShape::String,

@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone)]
 pub enum NuWhen {
-    WhenThen(WhenThen),
+    WhenThen(Box<WhenThen>),
     WhenThenThen(WhenThenThen),
 }
 
@@ -27,7 +27,7 @@ impl<'de> Deserialize<'de> for NuWhen {
     where
         D: Deserializer<'de>,
     {
-        Ok(NuWhen::WhenThen(when(col("a")).then(col("b"))))
+        Ok(NuWhen::WhenThen(Box::new(when(col("a")).then(col("b")))))
     }
 }
 
@@ -39,7 +39,7 @@ impl fmt::Debug for NuWhen {
 
 impl From<WhenThen> for NuWhen {
     fn from(when_then: WhenThen) -> Self {
-        NuWhen::WhenThen(when_then)
+        NuWhen::WhenThen(Box::new(when_then))
     }
 }
 

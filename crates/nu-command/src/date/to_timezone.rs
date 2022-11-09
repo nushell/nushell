@@ -5,7 +5,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 use chrono::{FixedOffset, TimeZone};
@@ -20,6 +20,8 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("date to-timezone")
+            .input_output_types(vec![(Type::Date, Type::Date), (Type::String, Type::Date)])
+            .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .required("time zone", SyntaxShape::String, "time zone description")
             .category(Category::Date)
     }
@@ -62,6 +64,16 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
+        let example_result_1 = || {
+            let dt = FixedOffset::east(5 * 3600)
+                .ymd(2020, 10, 10)
+                .and_hms(13, 00, 00);
+            Some(Value::Date {
+                val: dt,
+                span: Span::test_data(),
+            })
+        };
+
         vec![
             Example {
                 description: "Get the current date in UTC+05:00",
@@ -81,19 +93,14 @@ impl Command for SubCommand {
             Example {
                 description: "Get the current date in Hawaii",
                 example: r#""2020-10-10 10:00:00 +02:00" | date to-timezone "+0500""#,
-                // result: None
-                // The following should be the result of the test, but it fails. Cannot figure it out why.
-                result: {
-                    let dt = FixedOffset::east(5 * 3600)
-                        .ymd(2020, 10, 10)
-                        .and_hms(13, 00, 00);
-
-                    Some(Value::Date {
-                        val: dt,
-                        span: Span::test_data(),
-                    })
-                },
+                result: example_result_1(),
             },
+            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
+            // Example {
+            //     description: "Get the current date in Hawaii, from a datetime object",
+            //     example: r#""2020-10-10 10:00:00 +02:00" | into datetime | date to-timezone "+0500""#,
+            //     result: example_result_1(),
+            // },
         ]
     }
 }

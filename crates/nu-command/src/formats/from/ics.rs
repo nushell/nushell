@@ -6,7 +6,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, Value,
+    Spanned, Type, Value,
 };
 use std::io::BufReader;
 
@@ -19,7 +19,9 @@ impl Command for FromIcs {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from ics").category(Category::Formats)
+        Signature::build("from ics")
+            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {

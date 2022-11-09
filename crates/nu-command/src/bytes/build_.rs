@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -24,6 +24,7 @@ impl Command for BytesBuild {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("bytes build")
+            .input_output_types(vec![(Type::Nothing, Type::Binary)])
             .rest("rest", SyntaxShape::Any, "list of bytes")
             .category(Category::Bytes)
     }

@@ -1,7 +1,7 @@
 use super::{operator, url};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Category, Example, PipelineData, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -13,6 +13,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("url path")
+            .input_output_types(vec![(Type::String, Type::String)])
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

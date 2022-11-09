@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, Value,
+    Spanned, Type, Value,
 };
 use serde::de::Deserialize;
 use std::collections::HashMap;
@@ -17,7 +17,9 @@ impl Command for FromYaml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from yaml").category(Category::Formats)
+        Signature::build("from yaml")
+            .input_output_types(vec![(Type::String, Type::Any)])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {

@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,7 @@ impl Command for Rotate {
 
     fn signature(&self) -> Signature {
         Signature::build("rotate")
+            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
             .switch("ccw", "rotate counter clockwise", None)
             .rest(
                 "rest",
