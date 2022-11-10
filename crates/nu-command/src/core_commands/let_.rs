@@ -99,6 +99,8 @@ impl Command for Let {
 
 #[cfg(test)]
 mod test {
+    use nu_protocol::engine::CommandType;
+
     use super::*;
 
     #[test]
@@ -106,5 +108,10 @@ mod test {
         use crate::test_examples;
 
         test_examples(Let {})
+    }
+
+    #[test]
+    fn test_command_type() {
+        assert!(matches!(Let.command_type(), CommandType::Keyword));
     }
 }

@@ -9,6 +9,7 @@ pub enum CommandType {
     Builtin,
     Custom,
     Keyword,
+    External,
     Plugin,
     Other,
 }
@@ -86,12 +87,14 @@ pub trait Command: Send + Sync + CommandClone {
             self.is_builtin(),
             self.is_custom_command(),
             self.is_parser_keyword(),
+            self.is_known_external(),
             self.is_plugin().is_some(),
         ) {
-            (true, false, false, false) => CommandType::Builtin,
-            (false, true, false, false) => CommandType::Custom,
-            (_, false, true, false) => CommandType::Keyword,
-            (false, false, false, true) => CommandType::Plugin,
+            (true, false, false, false, false) => CommandType::Builtin,
+            (true, true, false, false, false) => CommandType::Custom,
+            (true, false, true, false, false) => CommandType::Keyword,
+            (false, true, false, true, false) => CommandType::External,
+            (false, false, false, false, true) => CommandType::Plugin,
             _ => CommandType::Other,
         }
     }
