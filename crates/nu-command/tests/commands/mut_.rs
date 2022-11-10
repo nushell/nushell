@@ -35,3 +35,15 @@ fn capture_of_mutable_var() {
 
     assert!(actual.err.contains("capture of mutable variable"));
 }
+
+#[test]
+fn mut_a_field() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        mut y = {abc: 123}; $y.abc = 456; $y.abc
+        "#
+    ));
+
+    assert_eq!(actual.out, "456");
+}
