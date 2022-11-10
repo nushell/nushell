@@ -127,8 +127,9 @@ impl Table {
         alignments: Alignments,
         theme: &TableTheme,
         termwidth: usize,
+        expand: bool,
     ) -> Option<String> {
-        draw_table(self, config, color_hm, alignments, theme, termwidth)
+        draw_table(self, config, color_hm, alignments, theme, termwidth, expand)
     }
 }
 
@@ -156,6 +157,7 @@ fn draw_table(
     alignments: Alignments,
     theme: &TableTheme,
     termwidth: usize,
+    expand: bool,
 ) -> Option<String> {
     if table.is_empty {
         return None;
@@ -172,6 +174,11 @@ fn draw_table(
     let mut table = Builder::custom(table.data).build();
     load_theme(&mut table, color_hm, theme, with_footer, with_header);
     align_table(&mut table, alignments, with_index, with_header, with_footer);
+
+    if expand {
+        table.with(Width::increase(termwidth));
+    }
+
     table_trim_columns(&mut table, termwidth, &config.trim_strategy);
 
     let table = print_table(table, config);

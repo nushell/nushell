@@ -390,7 +390,14 @@ fn build_general_table2(
     let theme = load_theme_from_config(config);
     let color_hm = get_color_config(config);
 
-    let table = table.draw_table(config, &color_hm, Alignments::default(), &theme, term_width);
+    let table = table.draw_table(
+        config,
+        &color_hm,
+        Alignments::default(),
+        &theme,
+        term_width,
+        true,
+    );
 
     Ok(table)
 }
@@ -420,7 +427,7 @@ fn build_expanded_table(
     let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
     let key_table = NuTable::new(vec![vec![key]], (1, 2), term_width, false, false);
     let key_width = key_table
-        .draw_table(config, &color_hm, alignments, &theme, usize::MAX)
+        .draw_table(config, &color_hm, alignments, &theme, usize::MAX, false)
         .map(|table| nu_table::string_width(&table))
         .unwrap_or(0);
 
@@ -476,6 +483,7 @@ fn build_expanded_table(
                                 alignments,
                                 &theme,
                                 remaining_width,
+                                true,
                             );
                             is_expanded = true;
                             match result {
@@ -552,7 +560,7 @@ fn build_expanded_table(
     let data_len = data.len();
     let table = NuTable::new(data, (data_len, 2), term_width, false, false);
 
-    let table = table.draw_table(config, &color_hm, alignments, &theme, usize::MAX);
+    let table = table.draw_table(config, &color_hm, alignments, &theme, term_width, true);
 
     Ok(table)
 }
@@ -842,7 +850,8 @@ fn convert_to_table2<'a>(
     let float_precision = config.float_precision as usize;
 
     // 2 - split lines
-    let mut available_width = available_width.saturating_sub(2);
+    // 3 + 2 - a default split column
+    let mut available_width = available_width.saturating_sub(2 + 3 + 2);
     if available_width == 0 {
         return Ok(None);
     }
@@ -1236,7 +1245,7 @@ fn convert_to_table2_entry(
 
                 let inner_table = table.map(|table| {
                     table.and_then(|table| {
-                        table.draw_table(config, color_hm, alignments, theme, usize::MAX)
+                        table.draw_table(config, color_hm, alignments, theme, usize::MAX, false)
                     })
                 });
                 if let Ok(Some(table)) = inner_table {
@@ -1294,7 +1303,7 @@ fn convert_to_table2_entry(
 
                 let inner_table = table.map(|table| {
                     table.and_then(|table| {
-                        table.draw_table(config, color_hm, alignments, theme, usize::MAX)
+                        table.draw_table(config, color_hm, alignments, theme, usize::MAX, false)
                     })
                 });
                 if let Ok(Some(table)) = inner_table {
@@ -1440,6 +1449,7 @@ impl PagingTableCreator {
             Alignments::default(),
             &theme,
             term_width,
+            true,
         );
 
         Ok(table)
@@ -1499,6 +1509,7 @@ impl PagingTableCreator {
             Alignments::default(),
             &theme,
             term_width,
+            false,
         );
 
         Ok(table)
