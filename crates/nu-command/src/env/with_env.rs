@@ -24,7 +24,7 @@ impl Command for WithEnv {
             )
             .required(
                 "block",
-                SyntaxShape::Block,
+                SyntaxShape::Closure(None),
                 "the block to run once the variable is set",
             )
             .category(Category::Env)

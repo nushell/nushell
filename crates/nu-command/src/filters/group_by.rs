@@ -112,7 +112,7 @@ pub fn group_by(
     };
 
     match grouper {
-        Some(Value::Block { .. }) => {
+        Some(Value::Block { .. }) | Some(Value::Closure { .. }) => {
             let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
             let error_key = "error";
 

@@ -150,7 +150,10 @@ impl Clone for Value {
                 vals: vals.clone(),
                 span: *span,
             },
-            Value::Block { val, span } => Value::Block { val: *val, span: *span },
+            Value::Block { val, span } => Value::Block {
+                val: *val,
+                span: *span,
+            },
             Value::Closure {
                 val,
                 captures,
@@ -251,6 +254,7 @@ impl Value {
     pub fn as_block(&self) -> Result<BlockId, ShellError> {
         match self {
             Value::Block { val, .. } => Ok(*val),
+            Value::Closure { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert(
                 "block".into(),
                 x.get_type().to_string(),

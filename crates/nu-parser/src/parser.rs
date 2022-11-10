@@ -4120,8 +4120,6 @@ pub fn parse_closure_expression(
         parse_block(working_set, &output, false, expand_aliases_denylist, false);
     error = error.or(err);
 
-    let has_signature = signature.is_some();
-
     if let Some(signature) = signature {
         output.signature = signature.0;
     } else if let Some(last) = working_set.delta.scope.last() {
@@ -4146,27 +4144,15 @@ pub fn parse_closure_expression(
 
     let block_id = working_set.add_block(output);
 
-    if has_signature {
-        (
-            Expression {
-                expr: Expr::Closure(block_id),
-                span,
-                ty: Type::Closure,
-                custom_completion: None,
-            },
-            error,
-        )
-    } else {
-        (
-            Expression {
-                expr: Expr::Block(block_id),
-                span,
-                ty: Type::Block,
-                custom_completion: None,
-            },
-            error,
-        )
-    }
+    (
+        Expression {
+            expr: Expr::Closure(block_id),
+            span,
+            ty: Type::Closure,
+            custom_completion: None,
+        },
+        error,
+    )
 }
 
 pub fn parse_value(
