@@ -4,6 +4,15 @@ use crate::{ast::Call, BlockId, Example, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack};
 
+#[derive(Debug)]
+pub enum CommandType {
+    Builtin,
+    Custom,
+    Keyword,
+    Plugin,
+    Other,
+}
+
 pub trait Command: Send + Sync + CommandClone {
     fn name(&self) -> &str;
 
@@ -70,6 +79,21 @@ pub trait Command: Send + Sync + CommandClone {
     // Related terms to help with command search
     fn search_terms(&self) -> Vec<&str> {
         vec![]
+    }
+
+    fn command_type(&self) -> CommandType {
+        match (
+            self.is_builtin(),
+            self.is_custom_command(),
+            self.is_parser_keyword(),
+            self.is_plugin().is_some(),
+        ) {
+            (true, false, false, false) => CommandType::Builtin,
+            (false, true, false, false) => CommandType::Custom,
+            (_, false, true, false) => CommandType::Keyword,
+            (false, false, false, true) => CommandType::Plugin,
+            _ => CommandType::Other,
+        }
     }
 }
 
