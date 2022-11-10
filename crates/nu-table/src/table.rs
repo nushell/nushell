@@ -63,8 +63,11 @@ impl Table {
         }
     }
 
-    pub fn create_cell(text: String, style: TextStyle) -> TCell<CellInfo<'static>, TextStyle> {
-        TCell::new(CellInfo::new(text, CfgWidthFunction::new(4)), style)
+    pub fn create_cell(
+        text: impl Into<String>,
+        style: TextStyle,
+    ) -> TCell<CellInfo<'static>, TextStyle> {
+        TCell::new(CellInfo::new(text.into(), CfgWidthFunction::new(4)), style)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -85,6 +88,10 @@ impl Table {
             let mut table = Builder::custom(self.data.clone()).build();
             load_theme(&mut table, &HashMap::new(), theme, false, false);
             let total = table.total_width();
+
+            // println!("{}", table);
+            // println!("width={:?} total={:?}", width, total);
+
             drop(table);
 
             if total > width {

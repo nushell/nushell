@@ -491,21 +491,9 @@ fn build_expanded_table(
                     }
                 }
                 Value::Record { cols, vals, span } => {
-                    let failed_value = value_to_styled_string(
-                        &Value::Record {
-                            cols: cols.clone(),
-                            vals: vals.clone(),
-                            span,
-                        },
-                        0,
-                        config,
-                        &color_hm,
-                    )
-                    .0;
-
                     let result = build_expanded_table(
-                        cols,
-                        vals,
+                        cols.clone(),
+                        vals.clone(),
                         span,
                         ctrlc.clone(),
                         config,
@@ -520,7 +508,16 @@ fn build_expanded_table(
                             is_expanded = true;
                             result
                         }
-                        None => nu_table::wrap_string(&failed_value, remaining_width),
+                        None => {
+                            let failed_value = value_to_styled_string(
+                                &Value::Record { cols, vals, span },
+                                0,
+                                config,
+                                &color_hm,
+                            );
+
+                            nu_table::wrap_string(&failed_value.0, remaining_width)
+                        }
                     }
                 }
                 val => {
@@ -834,97 +831,98 @@ fn convert_to_table2<'a>(
     flatten_sep: &str,
     available_width: usize,
 ) -> Result<Option<NuTable>, ShellError> {
+    const PADDING_SPACE: usize = 2;
+    const SPLIT_LINE_SPACE: usize = 1;
+    const ADDITIONAL_CELL_SPACE: usize = PADDING_SPACE + SPLIT_LINE_SPACE;
+
     if input.len() == 0 {
         return Ok(None);
     }
 
     let float_precision = config.float_precision as usize;
 
-    let mut headers = get_columns(input.clone());
+    // 2 - split lines
+    let mut available_width = available_width.saturating_sub(2);
+    if available_width == 0 {
+        return Ok(None);
+    }
+
+    let headers = get_columns(input.clone());
+
     let with_index = match config.table_index_mode {
         TableIndexMode::Always => true,
         TableIndexMode::Never => false,
         TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
     };
 
-    if !headers.is_empty() && with_index {
-        headers.insert(0, "#".into());
-    }
-
-    let mut max_columns_width = vec![0; headers.len()];
-    if !headers.is_empty() {
-        for (i, s) in headers.iter().enumerate() {
-            max_columns_width[i] = nu_table::string_width(s);
-        }
-    }
-
     // The header with the INDEX is removed from the table headers since
     // it is added to the natural table index
     let headers: Vec<_> = headers
         .into_iter()
         .filter(|header| header != INDEX_COLUMN_NAME)
-        .map(|text| {
-            NuTable::create_cell(
-                text,
-                TextStyle {
-                    alignment: Alignment::Center,
-                    color_style: Some(color_hm["header"]),
-                },
-            )
-        })
         .collect();
 
     let with_header = !headers.is_empty();
-    let mut count_columns = headers.len();
 
-    let mut data: Vec<Vec<_>> = if headers.is_empty() {
-        Vec::new()
-    } else {
-        vec![headers]
+    let mut data = vec![vec![]; input.len()];
+    if !headers.is_empty() {
+        data.push(vec![]);
     };
 
-    for (row_num, item) in input.into_iter().enumerate() {
-        if let Some(ctrlc) = &ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                return Ok(None);
-            }
+    if with_index {
+        let mut column_width = 0;
+
+        if with_header {
+            data[0].push(NuTable::create_cell("#", header_style(color_hm)));
         }
 
-        if let Value::Error { error } = item {
-            return Err(error.clone());
-        }
+        for (row, item) in input.clone().into_iter().enumerate() {
+            let row = if with_header { row + 1 } else { row };
 
-        let mut used_width = 0;
-
-        let mut row = vec![];
-        if with_index {
-            let text = match &item {
-                Value::Record { .. } => item
-                    .get_data_by_key(INDEX_COLUMN_NAME)
-                    .map(|value| value.into_string("", config)),
-                _ => None,
+            if let Some(ctrlc) = &ctrlc {
+                if ctrlc.load(Ordering::SeqCst) {
+                    return Ok(None);
+                }
             }
-            .unwrap_or_else(|| (row_num + row_offset).to_string());
+
+            if let Value::Error { error } = item {
+                return Err(error.clone());
+            }
+
+            let index = row + row_offset;
+            let text = matches!(item, Value::Record { .. })
+                .then(|| lookup_index_value(item, config).unwrap_or_else(|| index.to_string()))
+                .unwrap_or_else(|| index.to_string());
 
             let value =
                 make_styled_string(text, "string", 0, with_index, color_hm, float_precision);
 
-            if max_columns_width.len() > 0 {
-                let cell_width = nu_table::string_width(&value.0);
-                max_columns_width[0] = max(max_columns_width[0], cell_width);
-
-                let mut cell_space = max_columns_width[0];
-                cell_space += 2; // padding
-                cell_space += 2; // split
-
-                used_width += cell_space;
-            }
+            let width = nu_table::string_width(&value.0);
+            column_width = max(column_width, width);
 
             let value = NuTable::create_cell(value.0, value.1);
-            row.push(value);
+            data[row].push(value);
         }
 
-        if !with_header {
+        if column_width + ADDITIONAL_CELL_SPACE > available_width {
+            available_width = 0;
+        } else {
+            available_width -= column_width + ADDITIONAL_CELL_SPACE;
+        }
+    }
+
+    if !with_header {
+        for (row, item) in input.into_iter().enumerate() {
+            if let Some(ctrlc) = &ctrlc {
+                if ctrlc.load(Ordering::SeqCst) {
+                    return Ok(None);
+                }
+            }
+
+            if let Value::Error { error } = item {
+                return Err(error.clone());
+            }
+
             let value = convert_to_table2_entry(
                 Some(item),
                 config,
@@ -940,148 +938,231 @@ fn convert_to_table2<'a>(
             );
 
             let value = NuTable::create_cell(value.0, value.1);
-            row.push(value);
-        } else {
-            let skip_num = if with_index { 1 } else { 0 };
-            for (col, header) in data[0].iter().enumerate().skip(skip_num) {
-                if used_width + 2 + 2 >= available_width {
-                    // skip the rest of the columns as we will not able to show them any way
-                    // but we need to keep an empty cell at least to preserve some constrains.
-
-                    let value = NuTable::create_cell(String::new(), TextStyle::default());
-                    row.push(value);
-                    continue;
-                }
-
-                // We don't include any separator width as we hope do deal with that using wrap/truncate.
-                let mut estimated_available_width = available_width - used_width;
-                estimated_available_width -= 2; // padding
-                estimated_available_width -= 2; // split
-
-                let mut value = match item {
-                    Value::Record { .. } => {
-                        let val = item.clone().follow_cell_path(
-                            &[PathMember::String {
-                                val: header.as_ref().to_owned(),
-                                span: head,
-                            }],
-                            false,
-                        );
-
-                        match val {
-                            Ok(val) => convert_to_table2_entry(
-                                Some(&val),
-                                config,
-                                &ctrlc,
-                                color_hm,
-                                col,
-                                theme,
-                                with_index,
-                                deep,
-                                flatten,
-                                flatten_sep,
-                                estimated_available_width,
-                            ),
-                            Err(_) => make_styled_string(
-                                item.into_abbreviated_string(config),
-                                &item.get_type().to_string(),
-                                col,
-                                with_index,
-                                color_hm,
-                                float_precision,
-                            ),
-                        }
-                    }
-                    _ => convert_to_table2_entry(
-                        Some(item),
-                        config,
-                        &ctrlc,
-                        color_hm,
-                        col,
-                        theme,
-                        with_index,
-                        deep,
-                        flatten,
-                        flatten_sep,
-                        estimated_available_width,
-                    ),
-                };
-
-                let cell_width = nu_table::string_width(&value.0);
-
-                max_columns_width[col] = max(max_columns_width[col], cell_width);
-
-                let mut cell_space = max_columns_width[col];
-                cell_space += 2; // padding
-                cell_space += 2; // split
-
-                if used_width + cell_space > estimated_available_width {
-                    // So the built cell is not possible to fit in, and cause of that we just do our best backing to the default view of a cell.
-                    value = match item {
-                        Value::Record { .. } => {
-                            let val = item.clone().follow_cell_path(
-                                &[PathMember::String {
-                                    val: header.as_ref().to_owned(),
-                                    span: head,
-                                }],
-                                false,
-                            );
-
-                            match val {
-                                Ok(val) => make_styled_string(
-                                    val.into_abbreviated_string(config),
-                                    &val.get_type().to_string(),
-                                    col,
-                                    with_index,
-                                    color_hm,
-                                    float_precision,
-                                ),
-                                Err(_) => make_styled_string(
-                                    item.into_abbreviated_string(config),
-                                    &item.get_type().to_string(),
-                                    col,
-                                    with_index,
-                                    color_hm,
-                                    float_precision,
-                                ),
-                            }
-                        }
-                        _ => make_styled_string(
-                            item.into_abbreviated_string(config),
-                            &item.get_type().to_string(),
-                            col,
-                            with_index,
-                            color_hm,
-                            float_precision,
-                        ),
-                    };
-
-                    cell_space = nu_table::string_width(&value.0);
-                    cell_space += 2; // padding
-                    cell_space += 2; // split
-                }
-
-                used_width += cell_space;
-
-                let value = NuTable::create_cell(value.0, value.1);
-                row.push(value);
-            }
+            data[row].push(value);
         }
 
-        count_columns = max(count_columns, row.len());
-        data.push(row);
+        let count_columns = with_index.then(|| 2).unwrap_or(1);
+        let size = (data.len(), count_columns);
+        let table = NuTable::new(data, size, usize::MAX, with_header, with_index);
+
+        return Ok(Some(table));
+    }
+
+    let mut count_columns = headers.len();
+    if with_index {
+        count_columns += 1;
+    }
+
+    for (col, header) in headers.into_iter().enumerate() {
+        let mut column_width = nu_table::string_width(&header);
+
+        data[0].push(NuTable::create_cell(&header, header_style(color_hm)));
+
+        for (row, item) in input.clone().into_iter().enumerate() {
+            let row = row + 1;
+
+            if let Some(ctrlc) = &ctrlc {
+                if ctrlc.load(Ordering::SeqCst) {
+                    return Ok(None);
+                }
+            }
+
+            if let Value::Error { error } = item {
+                return Err(error.clone());
+            }
+
+            if available_width == 0 {
+                // skip the rest of the columns as we will not able to show them any way
+                // but we need to keep an empty cell at least to preserve some constrains.
+
+                let value = NuTable::create_cell(String::new(), TextStyle::default());
+                data[row].push(value);
+                continue;
+            }
+
+            let mut value = create_table2_entry(
+                item,
+                &header,
+                head,
+                config,
+                &ctrlc,
+                color_hm,
+                col,
+                theme,
+                with_index,
+                deep,
+                flatten,
+                flatten_sep,
+                available_width,
+                float_precision,
+            );
+
+            let mut value_width = nu_table::string_width(&value.0);
+            if value_width + ADDITIONAL_CELL_SPACE > available_width {
+                // So the built cell is not possible to fit in, and cause of that we just do our best backing to the default view of a cell.
+
+                value = create_table2_entry_basic(
+                    item,
+                    header.as_ref(),
+                    head,
+                    config,
+                    col,
+                    with_index,
+                    color_hm,
+                    float_precision,
+                );
+
+                value.0 = nu_table::wrap_string(
+                    &value.0,
+                    available_width.saturating_sub(ADDITIONAL_CELL_SPACE),
+                );
+
+                value_width = nu_table::string_width(&value.0);
+            }
+
+            column_width = max(column_width, value_width);
+
+            let value = NuTable::create_cell(value.0, value.1);
+            data[row].push(value);
+        }
+
+        available_width = available_width.saturating_sub(column_width + ADDITIONAL_CELL_SPACE);
     }
 
     let count_rows = data.len();
-    let table = NuTable::new(
-        data,
-        (count_rows, count_columns),
-        usize::MAX,
-        with_header,
-        with_index,
-    );
+    let size = (count_rows, count_columns);
+
+    let table = NuTable::new(data, size, usize::MAX, with_header, with_index);
 
     Ok(Some(table))
+}
+
+fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
+    item.get_data_by_key(INDEX_COLUMN_NAME)
+        .map(|value| value.into_string("", config))
+}
+
+fn header_style(color_hm: &HashMap<String, nu_ansi_term::Style>) -> TextStyle {
+    TextStyle {
+        alignment: Alignment::Center,
+        color_style: Some(color_hm["header"]),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn create_table2_entry_basic(
+    item: &Value,
+    header: &str,
+    head: Span,
+    config: &Config,
+    col: usize,
+    with_index: bool,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    float_precision: usize,
+) -> (String, TextStyle) {
+    match item {
+        Value::Record { .. } => {
+            let path = PathMember::String {
+                val: header.to_owned(),
+                span: head,
+            };
+            let val = item.clone().follow_cell_path(&[path], false);
+
+            match val {
+                Ok(val) => make_styled_string(
+                    val.into_abbreviated_string(config),
+                    &val.get_type().to_string(),
+                    col,
+                    with_index,
+                    color_hm,
+                    float_precision,
+                ),
+                Err(_) => make_styled_string(
+                    item.into_abbreviated_string(config),
+                    &item.get_type().to_string(),
+                    col,
+                    with_index,
+                    color_hm,
+                    float_precision,
+                ),
+            }
+        }
+        _ => make_styled_string(
+            item.into_abbreviated_string(config),
+            &item.get_type().to_string(),
+            col,
+            with_index,
+            color_hm,
+            float_precision,
+        ),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn create_table2_entry(
+    item: &Value,
+    header: &str,
+    head: Span,
+    config: &Config,
+    ctrlc: &Option<Arc<AtomicBool>>,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    col: usize,
+    theme: &TableTheme,
+    with_index: bool,
+    deep: Option<usize>,
+    flatten: bool,
+    flatten_sep: &str,
+    available_width: usize,
+    float_precision: usize,
+) -> (String, TextStyle) {
+    match item {
+        Value::Record { .. } => {
+            let val = item.clone().follow_cell_path(
+                &[PathMember::String {
+                    val: header.to_owned(),
+                    span: head,
+                }],
+                false,
+            );
+
+            match val {
+                Ok(val) => convert_to_table2_entry(
+                    Some(&val),
+                    config,
+                    ctrlc,
+                    color_hm,
+                    col,
+                    theme,
+                    with_index,
+                    deep,
+                    flatten,
+                    flatten_sep,
+                    available_width,
+                ),
+                Err(_) => make_styled_string(
+                    item.into_abbreviated_string(config),
+                    &item.get_type().to_string(),
+                    col,
+                    with_index,
+                    color_hm,
+                    float_precision,
+                ),
+            }
+        }
+        _ => convert_to_table2_entry(
+            Some(item),
+            config,
+            ctrlc,
+            color_hm,
+            col,
+            theme,
+            with_index,
+            deep,
+            flatten,
+            flatten_sep,
+            available_width,
+        ),
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
