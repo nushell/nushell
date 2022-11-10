@@ -98,14 +98,7 @@ impl Command for Do {
             ignore_errors || capture_errors,
         );
 
-        if ignore_errors {
-            match result {
-                Ok(x) => Ok(x),
-                Err(_) => Ok(PipelineData::new(call.head)),
-            }
-        } else if capture_errors {
-            // collect stdout and stderr and check exit code.
-            // if exit code is not 0, return back ShellError.
+        if ignore_errors || capture_errors {
             match result {
                 Ok(PipelineData::ExternalStream {
                     stdout,
@@ -144,11 +137,15 @@ impl Command for Do {
                     if let Some(Value::Int { val: code, .. }) = exit_code.last() {
                         // if exit_code is not 0, it indicates error occured, return back Err.
                         if *code != 0 {
-                            return Err(ShellError::ExternalCommand(
-                                "External command runs to failed".to_string(),
-                                stderr_msg,
-                                span,
-                            ));
+                            if ignore_errors {
+                                return Ok(PipelineData::new(call.head));
+                            } else {
+                                return Err(ShellError::ExternalCommand(
+                                    "External command runs to failed".to_string(),
+                                    stderr_msg,
+                                    span,
+                                ));
+                            }
                         }
                     }
                     // construct pipeline data to our caller
@@ -171,8 +168,16 @@ impl Command for Do {
                         metadata,
                     })
                 }
+
                 Ok(other) => Ok(other),
-                Err(e) => Err(e),
+                Err(e) => {
+                    if ignore_errors {
+                        Ok(PipelineData::new(call.head))
+                    } else {
+                        // capture_errors
+                        Err(e)
+                    }
+                }
             }
         } else {
             result

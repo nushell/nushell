@@ -13,6 +13,15 @@ fn capture_errors_works() {
 }
 
 #[test]
+fn ignore_error_should_work_for_external_command() {
+    let actual = nu!(cwd: ".", pipeline(
+        r#"do -i {nu --testbin fail asdf}; echo post"#
+    ));
+
+    assert!(actual.out.contains("post"));
+}
+
+#[test]
 fn capture_errors_works_for_external() {
     let actual = nu!(
         cwd: ".", pipeline(
