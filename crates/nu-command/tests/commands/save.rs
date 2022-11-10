@@ -130,3 +130,22 @@ fn save_stderr_and_stdout_to_diff_file() {
         assert!(!actual.contains("bar"));
     })
 }
+
+#[test]
+fn save_string_and_stream_as_raw() {
+    Playground::setup("save_test_7", |dirs, sandbox| {
+        sandbox.with_files(vec![]);
+        let expected_file = dirs.test().join("temp.html");
+        nu!(
+            cwd: dirs.root(),
+            r#"
+            `<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>` | save save_test_7/temp.html
+            "#,
+        );
+        let actual = file_contents(expected_file);
+        assert_eq!(
+            actual,
+            r#"<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>"#
+        )
+    })
+}
