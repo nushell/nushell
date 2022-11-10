@@ -94,7 +94,7 @@ pub trait Command: Send + Sync + CommandClone {
             (true, true, false, false, false) => CommandType::Custom,
             (true, false, true, false, false) => CommandType::Keyword,
             (false, true, false, true, false) => CommandType::External,
-            (false, false, false, false, true) => CommandType::Plugin,
+            (true, false, false, false, true) => CommandType::Plugin,
             _ => CommandType::Other,
         }
     }
