@@ -54,6 +54,7 @@ impl Expression {
                     Operator::BitOr => 60,
                     Operator::And => 50,
                     Operator::Or => 40,
+                    Operator::Assign => 10,
                 }
             }
             _ => 0,

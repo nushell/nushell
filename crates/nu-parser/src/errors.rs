@@ -88,6 +88,16 @@ pub enum ParseError {
     )]
     LetInPipeline(String, String, #[label("let in pipeline")] Span),
 
+    #[error("Mut statement used in pipeline.")]
+    #[diagnostic(
+        code(nu::parser::unexpected_keyword),
+        url(docsrs),
+        help(
+            "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{1}', use 'mut {1} = ({0} | ...)'."
+        )
+    )]
+    MutInPipeline(String, String, #[label("let in pipeline")] Span),
+
     #[error("Let used with builtin variable name.")]
     #[diagnostic(
         code(nu::parser::let_builtin_var),
@@ -95,6 +105,14 @@ pub enum ParseError {
         help("'{0}' is the name of a builtin Nushell variable. `let` cannot assign to it.")
     )]
     LetBuiltinVar(String, #[label("already a builtin variable")] Span),
+
+    #[error("Mut used with builtin variable name.")]
+    #[diagnostic(
+        code(nu::parser::let_builtin_var),
+        url(docsrs),
+        help("'{0}' is the name of a builtin Nushell variable. `mut` cannot assign to it.")
+    )]
+    MutBuiltinVar(String, #[label("already a builtin variable")] Span),
 
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), url(docsrs), help("{2}"))]
@@ -343,7 +361,9 @@ impl ParseError {
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::LetInPipeline(_, _, s) => *s,
+            ParseError::MutInPipeline(_, _, s) => *s,
             ParseError::LetBuiltinVar(_, s) => *s,
+            ParseError::MutBuiltinVar(_, s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(s) => *s,

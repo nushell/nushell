@@ -59,6 +59,7 @@ pub fn create_default_context() -> EngineState {
             Let,
             Metadata,
             Module,
+            Mut,
             Use,
             Version,
         };

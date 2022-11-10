@@ -105,11 +105,11 @@ impl EngineState {
             files: vec![],
             file_contents: vec![],
             vars: vec![
-                Variable::new(Span::new(0, 0), Type::Any),
-                Variable::new(Span::new(0, 0), Type::Any),
-                Variable::new(Span::new(0, 0), Type::Any),
-                Variable::new(Span::new(0, 0), Type::Any),
-                Variable::new(Span::new(0, 0), Type::Any),
+                Variable::new(Span::new(0, 0), Type::Any, false),
+                Variable::new(Span::new(0, 0), Type::Any, false),
+                Variable::new(Span::new(0, 0), Type::Any, false),
+                Variable::new(Span::new(0, 0), Type::Any, false),
+                Variable::new(Span::new(0, 0), Type::Any, false),
             ],
             decls: vec![],
             aliases: vec![],
@@ -1571,7 +1571,13 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn add_variable(&mut self, mut name: Vec<u8>, span: Span, ty: Type) -> VarId {
+    pub fn add_variable(
+        &mut self,
+        mut name: Vec<u8>,
+        span: Span,
+        ty: Type,
+        mutable: bool,
+    ) -> VarId {
         let next_id = self.next_var_id();
 
         // correct name if necessary
@@ -1581,7 +1587,7 @@ impl<'a> StateWorkingSet<'a> {
 
         self.last_overlay_mut().vars.insert(name, next_id);
 
-        self.delta.vars.push(Variable::new(span, ty));
+        self.delta.vars.push(Variable::new(span, ty, mutable));
 
         next_id
     }

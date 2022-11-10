@@ -1,6 +1,7 @@
 use crate::{
     lex, lite_parse,
     lite_parse::LiteCommand,
+    parse_mut,
     type_check::{math_result_type, type_compatible},
     LiteBlock, ParseError, Token, TokenContents,
 };
@@ -633,7 +634,7 @@ pub fn parse_multispan_value(
         SyntaxShape::VarWithOptType => {
             trace!("parsing: var with opt type");
 
-            let (arg, err) = parse_var_with_opt_type(working_set, spans, spans_idx);
+            let (arg, err) = parse_var_with_opt_type(working_set, spans, spans_idx, false);
             error = error.or(err);
 
             (arg, error)
@@ -2919,6 +2920,7 @@ pub fn parse_var_with_opt_type(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     spans_idx: &mut usize,
+    mutable: bool,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
 
@@ -2953,7 +2955,7 @@ pub fn parse_var_with_opt_type(
                 );
             }
 
-            let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone());
+            let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
 
             (
                 Expression {
@@ -2977,7 +2979,7 @@ pub fn parse_var_with_opt_type(
                 );
             }
 
-            let id = working_set.add_variable(var_name, spans[*spans_idx], Type::Any);
+            let id = working_set.add_variable(var_name, spans[*spans_idx], Type::Any, mutable);
             (
                 Expression {
                     expr: Expr::VarDecl(id),
@@ -3005,6 +3007,7 @@ pub fn parse_var_with_opt_type(
             var_name,
             span(&spans[*spans_idx..*spans_idx + 1]),
             Type::Any,
+            mutable,
         );
 
         (
@@ -3044,7 +3047,7 @@ pub fn parse_row_condition(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
-    let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Any);
+    let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Any, false);
     let (expression, err) =
         parse_math_expression(working_set, spans, Some(var_id), expand_aliases_denylist);
     let span = span(spans);
@@ -3232,7 +3235,7 @@ pub fn parse_signature_helper(
                                 }
 
                                 let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any);
+                                    working_set.add_variable(variable_name, span, Type::Any, false);
 
                                 if flags.len() == 1 {
                                     args.push(Arg::Flag(Flag {
@@ -3282,8 +3285,12 @@ pub fn parse_signature_helper(
                                         })
                                     }
 
-                                    let var_id =
-                                        working_set.add_variable(variable_name, span, Type::Any);
+                                    let var_id = working_set.add_variable(
+                                        variable_name,
+                                        span,
+                                        Type::Any,
+                                        false,
+                                    );
 
                                     if chars.len() == 1 {
                                         args.push(Arg::Flag(Flag {
@@ -3327,7 +3334,7 @@ pub fn parse_signature_helper(
                                 }
 
                                 let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any);
+                                    working_set.add_variable(variable_name, span, Type::Any, false);
 
                                 args.push(Arg::Flag(Flag {
                                     arg: None,
@@ -3394,7 +3401,8 @@ pub fn parse_signature_helper(
                                     })
                                 }
 
-                                let var_id = working_set.add_variable(contents, span, Type::Any);
+                                let var_id =
+                                    working_set.add_variable(contents, span, Type::Any, false);
 
                                 // Positional arg, optional
                                 args.push(Arg::Positional(
@@ -3420,7 +3428,7 @@ pub fn parse_signature_helper(
                                 }
 
                                 let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Any);
+                                    working_set.add_variable(contents_vec, span, Type::Any, false);
 
                                 args.push(Arg::RestPositional(PositionalArg {
                                     desc: String::new(),
@@ -3443,7 +3451,7 @@ pub fn parse_signature_helper(
                                 }
 
                                 let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Any);
+                                    working_set.add_variable(contents_vec, span, Type::Any, false);
 
                                 // Positional arg, required
                                 args.push(Arg::Positional(
@@ -4411,6 +4419,7 @@ pub fn parse_operator(
     let contents = working_set.get_span_contents(span);
 
     let operator = match contents {
+        b"=" => Operator::Assign,
         b"==" => Operator::Equal,
         b"!=" => Operator::NotEqual,
         b"<" => Operator::LessThan,
@@ -4754,6 +4763,28 @@ pub fn parse_expression(
                     spans[0],
                 )),
             ),
+            b"mut" => (
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
+                Some(ParseError::MutInPipeline(
+                    String::from_utf8_lossy(match spans.len() {
+                        1 | 2 | 3 => b"value",
+                        _ => working_set.get_span_contents(spans[3]),
+                    })
+                    .to_string(),
+                    String::from_utf8_lossy(match spans.len() {
+                        1 => b"variable",
+                        _ => working_set.get_span_contents(spans[1]),
+                    })
+                    .to_string(),
+                    spans[0],
+                )),
+            ),
             b"alias" => (
                 parse_call(
                     working_set,
@@ -4968,6 +4999,7 @@ pub fn parse_builtin_commands(
         b"def" | b"def-env" => parse_def(working_set, lite_command, expand_aliases_denylist),
         b"extern" => parse_extern(working_set, lite_command, expand_aliases_denylist),
         b"let" => parse_let(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"mut" => parse_mut(working_set, &lite_command.parts, expand_aliases_denylist),
         b"for" => {
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
             (Pipeline::from_vec(vec![expr]), err)
