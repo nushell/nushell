@@ -1,5 +1,5 @@
 use lscolors::{LsColors, Style};
-use nu_color_config::{get_color_config, style_primitive};
+use nu_color_config::{color_from_hex, get_color_config, style_primitive};
 use nu_engine::{column::get_columns, env_to_string, CallExt};
 use nu_protocol::{
     ast::{Call, PathMember},
@@ -558,6 +558,7 @@ fn handle_row_stream(
     metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, nu_protocol::ShellError> {
     let stream = match metadata {
+        // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
         }) => {
@@ -575,6 +576,7 @@ fn handle_row_stream(
                         let mut idx = 0;
 
                         while idx < cols.len() {
+                            // Only the name column gets special colors, for now
                             if cols[idx] == "name" {
                                 if let Some(Value::String { val, span }) = vals.get(idx) {
                                     let val = render_path_name(val, &config, &ls_colors, *span);
@@ -587,6 +589,46 @@ fn handle_row_stream(
                             idx += 1;
                         }
 
+                        x
+                    }
+                    _ => x,
+                }),
+                ctrlc,
+            )
+        }
+        // Next, `into html -l` sources:
+        Some(PipelineMetadata {
+            data_source: DataSource::HtmlThemes,
+        }) => {
+            let ctrlc = ctrlc.clone();
+
+            ListStream::from_stream(
+                stream.map(move |mut x| match &mut x {
+                    Value::Record { cols, vals, .. } => {
+                        let mut idx = 0;
+                        // Every column in the HTML theme table except 'name' is colored
+                        while idx < cols.len() {
+                            if cols[idx] != "name" {
+                                // Simple routine to grab the hex code, convert to a style,
+                                // then place it in a new Value::String.
+                                if let Some(Value::String { val, span }) = vals.get(idx) {
+                                    let s = match color_from_hex(val) {
+                                        Ok(c) => match c {
+                                            // .normal() just sets the text foreground color.
+                                            Some(c) => c.normal(),
+                                            None => nu_ansi_term::Style::default(),
+                                        },
+                                        Err(_) => nu_ansi_term::Style::default(),
+                                    };
+                                    vals[idx] = Value::String {
+                                        // Apply the style (ANSI codes) to the string
+                                        val: s.paint(val).to_string(),
+                                        span: *span,
+                                    };
+                                }
+                            }
+                            idx += 1;
+                        }
                         x
                     }
                     _ => x,
