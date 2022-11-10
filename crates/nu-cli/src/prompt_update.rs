@@ -106,16 +106,18 @@ pub(crate) fn update_prompt<'prompt>(
 
     let prompt_vi_normal_string =
         get_prompt_string(PROMPT_INDICATOR_VI_NORMAL, config, engine_state, &mut stack);
-    let wrap_left_prompt =
-        if let Some((s1, s2)) = &config.wrap_left_prompt {
-            Some((s1.clone(), s2.clone()))
-        } else if config.shell_integration {
-            // Now that we have the prompt string lets ansify it.
-            // <133 A><prompt><133 B><command><133 C><command output>
-            Some((PRE_PROMPT_MARKER.to_string(), POST_PROMPT_MARKER.to_string()))
-        } else {
-            None
-        };
+    let wrap_left_prompt = if let Some((s1, s2)) = &config.wrap_left_prompt {
+        Some((s1.clone(), s2.clone()))
+    } else if config.shell_integration {
+        // Now that we have the prompt string lets ansify it.
+        // <133 A><prompt><133 B><command><133 C><command output>
+        Some((
+            PRE_PROMPT_MARKER.to_string(),
+            POST_PROMPT_MARKER.to_string(),
+        ))
+    } else {
+        None
+    };
 
     // apply the other indicators
     nu_prompt.update_all_prompt_strings(
