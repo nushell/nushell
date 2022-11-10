@@ -27,7 +27,8 @@ fn get_prompt_string(
     stack: &mut Stack,
 ) -> Option<String> {
     stack
-        .get_env_var(engine_state, prompt)
+        .get_env_var(engine_state, &format!("WRAP_{}", prompt))
+        .or_else(|| stack.get_env_var(engine_state, prompt))
         .and_then(|v| match v {
             Value::Closure {
                 val: block_id,
@@ -119,7 +120,11 @@ pub(crate) fn update_prompt<'prompt>(
 
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
-    let left_prompt_string = if config.shell_integration {
+    let left_prompt_string = if config.shell_integration
+        && stack
+            .get_env_var(engine_state, "WRAP_PROMPT_COMMAND")
+            .is_none()
+    {
         match left_prompt_string {
             Some(prompt_string) => Some(format!(
                 "{}{}{}",
