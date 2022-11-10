@@ -4,7 +4,7 @@ use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, PipelineIterator,
-    Range, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Range, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,6 +17,10 @@ impl Command for DropNth {
 
     fn signature(&self) -> Signature {
         Signature::build("drop nth")
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .required(
                 "row number or row range",
                 // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes

@@ -1,7 +1,7 @@
 use fancy_regex::Regex;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 use std::collections::BTreeMap;
 use std::{fmt, str};
 use unicode_segmentation::UnicodeSegmentation;
@@ -18,7 +18,9 @@ impl Command for Size {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("size").category(Category::Strings)
+        Signature::build("size")
+            .category(Category::Strings)
+            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
     }
 
     fn usage(&self) -> &str {

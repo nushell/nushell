@@ -1,7 +1,7 @@
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 use std::cmp::Ordering;
 
 #[derive(Clone)]
@@ -36,11 +36,19 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math mode").category(Category::Math)
+        Signature::build("math mode")
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Number)),
+                ),
+                (Type::Table(vec![]), Type::Record(vec![])),
+            ])
+            .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Gets the most frequent element(s) from a list of numbers or tables"
+        "Returns the most frequent element(s) from a list of numbers or tables"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -58,14 +66,34 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get the mode(s) of a list of numbers",
-            example: "[3 3 9 12 12 15] | math mode",
-            result: Some(Value::List {
-                vals: vec![Value::test_int(3), Value::test_int(12)],
-                span: Span::test_data(),
-            }),
-        }]
+        vec![
+            Example {
+                description: "Compute the mode(s) of a list of numbers",
+                example: "[3 3 9 12 12 15] | math mode",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(3), Value::test_int(12)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Compute the mode(s) of the columns of a table",
+                example: "[{a: 1 b: 3} {a: 2 b: -1} {a: 1 b: 5}] | math mode",
+                result: Some(Value::Record {
+                    cols: vec!["a".to_string(), "b".to_string()],
+                    vals: vec![
+                        Value::List {
+                            vals: vec![Value::test_int(1)],
+                            span: Span::test_data(),
+                        },
+                        Value::List {
+                            vals: vec![Value::test_int(-1), Value::test_int(3), Value::test_int(5)],
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 

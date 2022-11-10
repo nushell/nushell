@@ -116,7 +116,7 @@ fn command(
             )
         })?
         .into_iter()
-        .filter_map(|val| val.map(|v| v as usize));
+        .flatten();
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;

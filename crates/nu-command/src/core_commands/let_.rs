@@ -1,7 +1,7 @@
 use nu_engine::eval_expression_with_input;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
 pub struct Let;
@@ -17,6 +17,8 @@ impl Command for Let {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("let")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
             .required("var_name", SyntaxShape::VarWithOptType, "variable name")
             .required(
                 "initial_value",
@@ -97,6 +99,8 @@ impl Command for Let {
 
 #[cfg(test)]
 mod test {
+    use nu_protocol::engine::CommandType;
+
     use super::*;
 
     #[test]
@@ -104,5 +108,10 @@ mod test {
         use crate::test_examples;
 
         test_examples(Let {})
+    }
+
+    #[test]
+    fn test_command_type() {
+        assert!(matches!(Let.command_type(), CommandType::Keyword));
     }
 }

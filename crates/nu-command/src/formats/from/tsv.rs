@@ -3,7 +3,9 @@ use super::delimited::{from_delimited_data, trim_from_str};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct FromTsv;
@@ -15,6 +17,7 @@ impl Command for FromTsv {
 
     fn signature(&self) -> Signature {
         Signature::build("from tsv")
+            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
             .switch(
                 "noheaders",
                 "don't treat the first row as column names",
@@ -46,6 +49,21 @@ impl Command for FromTsv {
 
     fn examples(&self) -> Vec<Example> {
         vec![
+            Example {
+                description: "Convert tab-separated data to a table",
+                example: "\"ColA\tColB\n1\t2\" | from tsv",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["ColA".to_string(), "ColB".to_string()],
+                        vals: vec![
+                            Value::test_int(1),
+                            Value::test_int(2),
+                        ],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                })
+            },
             Example {
                 description: "Create a tsv file with header columns and open it",
                 example: r#"$'c1(char tab)c2(char tab)c3(char nl)1(char tab)2(char tab)3' | save tsv-data | open tsv-data | from tsv"#,

@@ -2,7 +2,7 @@ use crate::math::reducers::{reducer_for, Reduce};
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -13,11 +13,13 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math product").category(Category::Math)
+        Signature::build("math product")
+            .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Finds the product of a list of numbers or tables"
+        "Returns the product of a list of numbers or the products of each column of a table"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -36,7 +38,7 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Get the product of a list of numbers",
+            description: "Compute the product of a list of numbers",
             example: "[2 3 3 4] | math product",
             result: Some(Value::test_int(72)),
         }]

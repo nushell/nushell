@@ -4,7 +4,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,6 +17,7 @@ impl Command for WithEnv {
 
     fn signature(&self) -> Signature {
         Signature::build("with-env")
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "variable",
                 SyntaxShape::Any,

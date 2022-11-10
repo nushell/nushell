@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,6 +17,16 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into binary")
+            .input_output_types(vec![
+                (Type::Binary, Type::Binary),
+                (Type::Int, Type::Binary),
+                (Type::Number, Type::Binary),
+                (Type::String, Type::Binary),
+                (Type::Bool, Type::Binary),
+                (Type::Filesize, Type::Binary),
+                (Type::Date, Type::Binary),
+            ])
+            .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

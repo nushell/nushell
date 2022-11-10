@@ -2,7 +2,7 @@ use nu_engine::{eval_block, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +15,7 @@ impl Command for Collect {
 
     fn signature(&self) -> Signature {
         Signature::build("collect")
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),

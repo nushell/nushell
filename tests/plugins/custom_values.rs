@@ -59,7 +59,7 @@ fn fails_if_passing_engine_custom_values_to_plugins() {
     let actual = nu_with_plugins!(
         cwd: "tests/fixtures/formats",
         plugin: ("nu_plugin_custom_values"),
-        "open-db sample.db | custom-value update"
+        "open sample.db | custom-value update"
     );
 
     assert!(actual

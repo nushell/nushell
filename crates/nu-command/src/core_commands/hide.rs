@@ -1,7 +1,7 @@
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,6 +14,7 @@ impl Command for Hide {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("pattern", SyntaxShape::ImportPattern, "import pattern")
             .category(Category::Core)
     }

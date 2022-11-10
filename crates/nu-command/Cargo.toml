@@ -104,7 +104,7 @@ version = "2.1.3"
 optional = true
 
 [dependencies.polars]
-version = "0.23.2"
+version = "0.25.0"
 optional = true
 features = [
 	"arg_where",
@@ -146,8 +146,8 @@ features = [
 trash-support = ["trash"]
 which-support = ["which"]
 plugin = ["nu-parser/plugin"]
-dataframe = ["polars", "num"]
-database = ["sqlparser", "rusqlite"]
+dataframe = ["polars", "num", "sqlparser"]
+database = ["rusqlite"] # TODO: given that rusqlite is included in reedline, should we just always include it?
 
 [build-dependencies]
 shadow-rs = { version = "0.16.1", default-features = false }

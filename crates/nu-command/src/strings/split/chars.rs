@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -13,11 +13,14 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split chars").category(Category::Strings)
+        Signature::build("split chars")
+            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .vectorizes_over_list(true)
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {
-        "Split a string's characters into separate rows"
+        "Split a string into a list of characters"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -26,7 +29,7 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Split the string's characters into separate rows",
+            description: "Split the string into a list of characters",
             example: "'hello' | split chars",
             result: Some(Value::List {
                 vals: vec![

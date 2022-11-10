@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -26,6 +26,10 @@ impl Command for Transpose {
 
     fn signature(&self) -> Signature {
         Signature::build("transpose")
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Table(vec![]), Type::Record(vec![])),
+            ])
             .switch(
                 "header-row",
                 "treat the first row as column names",
@@ -81,7 +85,7 @@ impl Command for Transpose {
         vec![
             Example {
                 description: "Transposes the table contents with default column names",
-                example: "echo [[c1 c2]; [1 2]] | transpose",
+                example: "[[c1 c2]; [1 2]] | transpose",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -100,7 +104,7 @@ impl Command for Transpose {
             },
             Example {
                 description: "Transposes the table contents with specified column names",
-                example: "echo [[c1 c2]; [1 2]] | transpose key val",
+                example: "[[c1 c2]; [1 2]] | transpose key val",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -120,7 +124,7 @@ impl Command for Transpose {
             Example {
                 description:
                     "Transposes the table without column names and specify a new column name",
-                example: "echo [[c1 c2]; [1 2]] | transpose -i val",
+                example: "[[c1 c2]; [1 2]] | transpose -i val",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -139,7 +143,7 @@ impl Command for Transpose {
             },
             Example {
                 description: "Transfer back to record with -d flag",
-                example: "echo {c1: 1, c2: 2} | transpose | transpose -i -r -d",
+                example: "{c1: 1, c2: 2} | transpose | transpose -i -r -d",
                 result: Some(Value::Record {
                     cols: vec!["c1".to_string(), "c2".to_string()],
                     vals: vec![Value::test_int(1), Value::test_int(2)],

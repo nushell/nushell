@@ -410,7 +410,11 @@ impl Value {
                     match &ty {
                         Some(x) => {
                             if &val_ty != x {
-                                ty = Some(Type::Any)
+                                if x.is_numeric() && val_ty.is_numeric() {
+                                    ty = Some(Type::Number)
+                                } else {
+                                    ty = Some(Type::Any)
+                                }
                             }
                         }
                         None => ty = Some(val_ty),
@@ -3228,6 +3232,70 @@ mod tests {
             assert!(!one_column_and_one_cell_value_with_empty_strings.is_empty());
             assert!(!one_column_with_a_string_and_one_cell_value_with_empty_string.is_empty());
             assert!(!one_column_with_empty_string_and_one_value_with_a_string.is_empty());
+        }
+    }
+
+    mod get_type {
+        use crate::Type;
+
+        use super::*;
+
+        #[test]
+        fn test_list() {
+            let list_of_ints = Value::List {
+                vals: vec![Value::Int {
+                    val: 0,
+                    span: Span::unknown(),
+                }],
+                span: Span::unknown(),
+            };
+            let list_of_floats = Value::List {
+                vals: vec![Value::Float {
+                    val: 0.0,
+                    span: Span::unknown(),
+                }],
+                span: Span::unknown(),
+            };
+            let list_of_ints_and_floats = Value::List {
+                vals: vec![
+                    Value::Int {
+                        val: 0,
+                        span: Span::unknown(),
+                    },
+                    Value::Float {
+                        val: 0.0,
+                        span: Span::unknown(),
+                    },
+                ],
+                span: Span::unknown(),
+            };
+            let list_of_ints_and_floats_and_bools = Value::List {
+                vals: vec![
+                    Value::Int {
+                        val: 0,
+                        span: Span::unknown(),
+                    },
+                    Value::Float {
+                        val: 0.0,
+                        span: Span::unknown(),
+                    },
+                    Value::Bool {
+                        val: false,
+                        span: Span::unknown(),
+                    },
+                ],
+                span: Span::unknown(),
+            };
+            assert_eq!(list_of_ints.get_type(), Type::List(Box::new(Type::Int)));
+            assert_eq!(list_of_floats.get_type(), Type::List(Box::new(Type::Float)));
+            assert_eq!(
+                list_of_ints_and_floats_and_bools.get_type(),
+                Type::List(Box::new(Type::Any))
+            );
+            assert_eq!(
+                list_of_ints_and_floats.get_type(),
+                Type::List(Box::new(Type::Number))
+            );
         }
     }
 }

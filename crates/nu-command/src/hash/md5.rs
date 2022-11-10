@@ -12,7 +12,7 @@ impl HashDigest for Md5 {
     fn examples() -> Vec<Example> {
         vec![
             Example {
-                description: "get a hexadecimaly encoded string of the md5 digest of a string",
+                description: "Return the md5 hash of a string, hex-encoded",
                 example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash md5",
                 result: Some(Value::String {
                     val: "c3fcd3d76192e4007dfb496cca67e13b".to_owned(),
@@ -20,7 +20,7 @@ impl HashDigest for Md5 {
                 }),
             },
             Example {
-                description: "get the md5 digest of a string in binary",
+                description: "Return the md5 hash of a string, as binary",
                 example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash md5 --binary",
                 result: Some(Value::Binary {
                     val: vec![
@@ -31,7 +31,7 @@ impl HashDigest for Md5 {
                 }),
             },
             Example {
-                description: "md5 encode a file",
+                description: "Return the md5 hash of a file's contents",
                 example: "open ./nu_0_24_1_windows.zip | hash md5",
                 result: None,
             },

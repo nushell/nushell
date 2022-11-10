@@ -13,7 +13,9 @@ impl Command for ToToml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to toml").category(Category::Formats)
+        Signature::build("to toml")
+            .input_output_types(vec![(Type::Any, Type::String)])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
