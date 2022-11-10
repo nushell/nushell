@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value,
 };
@@ -21,11 +21,7 @@ impl Command for Benchmark {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("benchmark")
-            .required(
-                "block",
-                SyntaxShape::Block(Some(vec![])),
-                "the block to run",
-            )
+            .required("block", SyntaxShape::Block, "the block to run")
             .category(Category::System)
     }
 
@@ -36,7 +32,7 @@ impl Command for Benchmark {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
 
         let redirect_stdout = call.redirect_stdout;

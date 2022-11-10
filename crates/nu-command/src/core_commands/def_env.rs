@@ -19,11 +19,7 @@ impl Command for DefEnv {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("def_name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
-            .required(
-                "block",
-                SyntaxShape::Block(Some(vec![])),
-                "body of the definition",
-            )
+            .required("block", SyntaxShape::Block, "body of the definition")
             .category(Category::Core)
     }
 

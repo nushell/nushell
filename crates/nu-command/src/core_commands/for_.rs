@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, Signature, Span,
     SyntaxShape, Type, Value,
@@ -31,11 +31,7 @@ impl Command for For {
                 SyntaxShape::Keyword(b"in".to_vec(), Box::new(SyntaxShape::Any)),
                 "range of the loop",
             )
-            .required(
-                "block",
-                SyntaxShape::Block(Some(vec![])),
-                "the block to run",
-            )
+            .required("block", SyntaxShape::Block, "the block to run")
             .switch(
                 "numbered",
                 "returned a numbered item ($it.index and $it.item)",
@@ -75,7 +71,7 @@ impl Command for For {
             .expect("internal error: missing keyword");
         let values = eval_expression(engine_state, stack, keyword_expr)?;
 
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 2)?;
+        let capture_block: Closure = call.req(engine_state, stack, 2)?;
 
         let numbered = call.has_flag("numbered");
 

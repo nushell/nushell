@@ -1,7 +1,7 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
     Span, SyntaxShape, Type, Value,
@@ -16,7 +16,7 @@ impl Command for Each {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each row of input"
+        "Run a closure on each row of input"
     }
 
     fn extra_usage(&self) -> &str {
@@ -40,9 +40,9 @@ with 'transpose' first."#
                 Type::List(Box::new(Type::Any)),
             )])
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "the closure to run",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
             .switch("numbered", "iterate with an index", Some('n'))
@@ -127,7 +127,7 @@ with 'transpose' first."#
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let numbered = call.has_flag("numbered");
         let keep_empty = call.has_flag("keep-empty");

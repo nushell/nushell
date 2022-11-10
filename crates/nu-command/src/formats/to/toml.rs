@@ -67,6 +67,11 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
             let code = String::from_utf8_lossy(code).to_string();
             toml::Value::String(code)
         }
+        Value::Closure { span, .. } => {
+            let code = engine_state.get_span_contents(span);
+            let code = String::from_utf8_lossy(code).to_string();
+            toml::Value::String(code)
+        }
         Value::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
         Value::Error { error } => return Err(error.clone()),
         Value::Binary { val, .. } => toml::Value::Array(

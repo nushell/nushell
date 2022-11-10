@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, redirect_env, CallExt};
 use nu_protocol::{
     ast::Call,
-    engine::{CaptureBlock, Command, EngineState, Stack},
+    engine::{Closure, Command, EngineState, Stack},
     Category, Example, PipelineData, Signature, Span, SyntaxShape, Type, Value,
 };
 
@@ -18,7 +18,7 @@ impl Command for ExportEnv {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "block",
-                SyntaxShape::Block(Some(vec![])),
+                SyntaxShape::Block,
                 "the block to run to set the environment",
             )
             .category(Category::Env)
@@ -35,7 +35,7 @@ impl Command for ExportEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let capture_block: CaptureBlock = call.req(engine_state, caller_stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, caller_stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
         let mut callee_stack = caller_stack.captures_to_stack(&capture_block.captures);
 

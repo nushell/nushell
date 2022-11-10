@@ -354,6 +354,7 @@ fn find_with_rest_and_highlight(
                         | Value::Range { .. }
                         | Value::Float { .. }
                         | Value::Block { .. }
+                        | Value::Closure { .. }
                         | Value::Nothing { .. }
                         | Value::Error { .. } => lower_value
                             .eq(span, term, span)
@@ -413,6 +414,7 @@ fn find_with_rest_and_highlight(
                         | Value::Range { .. }
                         | Value::Float { .. }
                         | Value::Block { .. }
+                        | Value::Closure { .. }
                         | Value::Nothing { .. }
                         | Value::Error { .. } => lower_value
                             .eq(span, term, span)

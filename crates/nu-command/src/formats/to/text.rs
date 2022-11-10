@@ -100,6 +100,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             .collect::<Vec<_>>()
             .join(separator),
         Value::Block { val, .. } => format!("<Block {}>", val),
+        Value::Closure { val, .. } => format!("<Closure {}>", val),
         Value::Nothing { .. } => String::new(),
         Value::Error { error } => format!("{:?}", error),
         Value::Binary { val, .. } => format!("{:?}", val),

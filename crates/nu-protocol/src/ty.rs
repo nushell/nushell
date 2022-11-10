@@ -13,6 +13,7 @@ pub enum Type {
     Bool,
     String,
     Block,
+    Closure,
     CellPath,
     Duration,
     Date,
@@ -72,7 +73,8 @@ impl Type {
             Type::Range => SyntaxShape::Range,
             Type::Bool => SyntaxShape::Boolean,
             Type::String => SyntaxShape::String,
-            Type::Block => SyntaxShape::Block(None), // FIXME needs more accuracy
+            Type::Block => SyntaxShape::Block, // FIXME needs more accuracy
+            Type::Closure => SyntaxShape::Closure(None), // FIXME needs more accuracy
             Type::CellPath => SyntaxShape::CellPath,
             Type::Duration => SyntaxShape::Duration,
             Type::Date => SyntaxShape::DateTime,
@@ -96,6 +98,7 @@ impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Type::Block => write!(f, "block"),
+            Type::Closure => write!(f, "closure"),
             Type::Bool => write!(f, "bool"),
             Type::CellPath => write!(f, "cell path"),
             Type::Date => write!(f, "date"),

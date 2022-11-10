@@ -63,6 +63,7 @@ impl Expression {
     pub fn as_block(&self) -> Option<BlockId> {
         match self.expr {
             Expr::Block(block_id) => Some(block_id),
+            Expr::Closure(block_id) => Some(block_id),
             _ => None,
         }
     }
@@ -124,6 +125,22 @@ impl Expression {
             }
             Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
             Expr::Block(block_id) => {
+                let block = working_set.get_block(*block_id);
+
+                if block.captures.contains(&IN_VARIABLE_ID) {
+                    return true;
+                }
+
+                if let Some(pipeline) = block.pipelines.get(0) {
+                    match pipeline.expressions.get(0) {
+                        Some(expr) => expr.has_in_variable(working_set),
+                        None => false,
+                    }
+                } else {
+                    false
+                }
+            }
+            Expr::Closure(block_id) => {
                 let block = working_set.get_block(*block_id);
 
                 if block.captures.contains(&IN_VARIABLE_ID) {
@@ -310,6 +327,37 @@ impl Expression {
                     .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
                     .collect();
             }
+            Expr::Closure(block_id) => {
+                let block = working_set.get_block(*block_id);
+
+                let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
+                    if let Some(expr) = pipeline.expressions.get(0) {
+                        let mut new_expr = expr.clone();
+                        new_expr.replace_in_variable(working_set, new_var_id);
+                        Some(new_expr)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                let block = working_set.get_block_mut(*block_id);
+
+                if let Some(new_expr) = new_expr {
+                    if let Some(pipeline) = block.pipelines.get_mut(0) {
+                        if let Some(expr) = pipeline.expressions.get_mut(0) {
+                            *expr = new_expr
+                        }
+                    }
+                }
+
+                block.captures = block
+                    .captures
+                    .iter()
+                    .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
+                    .collect();
+            }
             Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
@@ -446,6 +494,17 @@ impl Expression {
                 expr.replace_span(working_set, replaced, new_span);
             }
             Expr::Block(block_id) => {
+                let mut block = working_set.get_block(*block_id).clone();
+
+                for pipeline in block.pipelines.iter_mut() {
+                    for expr in pipeline.expressions.iter_mut() {
+                        expr.replace_span(working_set, replaced, new_span)
+                    }
+                }
+
+                *block_id = working_set.add_block(block);
+            }
+            Expr::Closure(block_id) => {
                 let mut block = working_set.get_block(*block_id).clone();
 
                 for pipeline in block.pipelines.iter_mut() {

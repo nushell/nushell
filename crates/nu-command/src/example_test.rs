@@ -14,8 +14,6 @@ mod test_examples {
     };
     use crate::To;
     use itertools::Itertools;
-    use nu_engine;
-    use nu_parser;
     use nu_protocol::{
         ast::Block,
         engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},
@@ -95,7 +93,7 @@ mod test_examples {
         engine_state
     }
 
-    fn check_example_input_and_output_types_match_command_signature<'a>(
+    fn check_example_input_and_output_types_match_command_signature(
         example: &Example,
         cwd: &PathBuf,
         engine_state: &mut Box<EngineState>,
@@ -108,7 +106,7 @@ mod test_examples {
         // Skip tests that don't have results to compare to
         if let Some(example_output) = example.result.as_ref() {
             if let Some(example_input_type) =
-                eval_pipeline_without_terminal_expression(example.example, &cwd, engine_state)
+                eval_pipeline_without_terminal_expression(example.example, cwd, engine_state)
             {
                 let example_input_type = example_input_type.get_type();
                 let example_output_type = example_output.get_type();
@@ -177,19 +175,18 @@ mod test_examples {
                     || example_matches_signature_via_vectorization_over_list
                     || example_matches_signature_via_cell_path_operation)
                 {
-                    assert!(
-                false,
-                "The example `{}` demonstrates a transformation of type {:?} -> {:?}. \
-                However, this does not match the declared signature: {:?}.{} \
-                For this command, `vectorizes_over_list` is {} and `operates_on_cell_paths()` is {}.",
-                example.example,
-                example_input_type,
-                example_output_type,
-                signature_input_output_types,
-                if signature_input_output_types.is_empty() { " (Did you forget to declare the input and output types for the command?)" } else { "" },
-                signature_vectorizes_over_list,
-                signature_operates_on_cell_paths
-            );
+                    panic!(
+                        "The example `{}` demonstrates a transformation of type {:?} -> {:?}. \
+                        However, this does not match the declared signature: {:?}.{} \
+                        For this command, `vectorizes_over_list` is {} and `operates_on_cell_paths()` is {}.",
+                        example.example,
+                        example_input_type,
+                        example_output_type,
+                        signature_input_output_types,
+                        if signature_input_output_types.is_empty() { " (Did you forget to declare the input and output types for the command?)" } else { "" },
+                        signature_vectorizes_over_list,
+                        signature_operates_on_cell_paths
+                    );
                 };
             };
         }
@@ -217,7 +214,7 @@ mod test_examples {
             .expect("Error merging environment");
 
         let empty_input = PipelineData::new(Span::test_data());
-        let result = eval(example.example, empty_input, &cwd, engine_state);
+        let result = eval(example.example, empty_input, cwd, engine_state);
 
         // Note. Value implements PartialEq for Bool, Int, Float, String and Block
         // If the command you are testing requires to compare another case, then
@@ -267,8 +264,8 @@ mod test_examples {
         eval_block(block, input, cwd, engine_state, delta)
     }
 
-    fn parse(contents: &str, engine_state: &Box<EngineState>) -> (Block, StateDelta) {
-        let mut working_set = StateWorkingSet::new(&*engine_state);
+    fn parse(contents: &str, engine_state: &EngineState) -> (Block, StateDelta) {
+        let mut working_set = StateWorkingSet::new(engine_state);
         let (output, err) =
             nu_parser::parse(&mut working_set, None, contents.as_bytes(), false, &[]);
 
@@ -300,7 +297,7 @@ mod test_examples {
             },
         );
 
-        match nu_engine::eval_block(&engine_state, &mut stack, &block, input, true, true) {
+        match nu_engine::eval_block(engine_state, &mut stack, &block, input, true, true) {
             Err(err) => panic!("test eval error in `{}`: {:?}", "TODO", err),
             Ok(result) => result.into_value(Span::test_data()),
         }
@@ -319,7 +316,7 @@ mod test_examples {
 
                 if !block.pipelines[0].expressions.is_empty() {
                     let empty_input = PipelineData::new(Span::test_data());
-                    Some(eval_block(block, empty_input, &cwd, engine_state, delta))
+                    Some(eval_block(block, empty_input, cwd, engine_state, delta))
                 } else {
                     Some(Value::nothing(Span::test_data()))
                 }

@@ -228,7 +228,7 @@ mod test {
                 vals: vec![Value::Bool { val: true, span }],
                 span,
             },
-            Value::Block {
+            Value::Closure {
                 val: 0,
                 captures: HashMap::new(),
                 span,

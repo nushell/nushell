@@ -66,6 +66,10 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             "block not supported".into(),
             span,
         )),
+        Value::Closure { .. } => Err(ShellError::UnsupportedInput(
+            "closure not supported".into(),
+            span,
+        )),
         Value::Bool { val, .. } => {
             if *val {
                 Ok("true".to_string())
