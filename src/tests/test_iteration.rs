@@ -33,11 +33,6 @@ fn row_condition2() -> TestResult {
 }
 
 #[test]
-fn for_loops() -> TestResult {
-    run_test(r#"(for x in [1, 2, 3] { $x + 10 }).1"#, "12")
-}
-
-#[test]
 fn par_each() -> TestResult {
     run_test(
         r#"1..10 | par-each --numbered { |it| ([[index, item]; [$it.index, ($it.item > 5)]]).0 } | where index == 4 | get item.0"#,
