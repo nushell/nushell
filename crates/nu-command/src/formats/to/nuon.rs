@@ -1,6 +1,5 @@
 use core::fmt::Write;
 use fancy_regex::Regex;
-use once_cell::sync::Lazy;
 use nu_engine::get_columns;
 use nu_parser::escape_quote_string;
 use nu_protocol::ast::{Call, RangeInclusion};
@@ -8,6 +7,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
+use once_cell::sync::Lazy;
 
 #[derive(Clone)]
 pub struct ToNuon;
