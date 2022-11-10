@@ -292,6 +292,9 @@ pub fn process(
 
 #[cfg(test)]
 mod test {
+
+    use nu_protocol::engine::CommandType;
+
     use super::*;
 
     #[test]
@@ -299,5 +302,10 @@ mod test {
         use crate::test_examples;
 
         test_examples(Sort {})
+    }
+
+    #[test]
+    fn test_command_type() {
+        assert!(matches!(Sort.command_type(), CommandType::Builtin));
     }
 }
