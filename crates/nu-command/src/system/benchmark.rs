@@ -21,11 +21,7 @@ impl Command for Benchmark {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("benchmark")
-            .required(
-                "block",
-                SyntaxShape::Block,
-                "the block to run",
-            )
+            .required("block", SyntaxShape::Block, "the block to run")
             .category(Category::System)
     }
 

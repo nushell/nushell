@@ -18,11 +18,7 @@ impl Command for Module {
         Signature::build("module")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("module_name", SyntaxShape::String, "module name")
-            .required(
-                "block",
-                SyntaxShape::Block,
-                "body of the module",
-            )
+            .required("block", SyntaxShape::Block, "body of the module")
             .category(Category::Core)
     }
 

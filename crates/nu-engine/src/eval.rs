@@ -505,12 +505,10 @@ pub fn eval_expression(
                 span: expr.span,
             })
         }
-        Expr::Block(block_id) => {
-            Ok(Value::Block {
-                val: *block_id,
-                span: expr.span,
-            })
-        }
+        Expr::Block(block_id) => Ok(Value::Block {
+            val: *block_id,
+            span: expr.span,
+        }),
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {

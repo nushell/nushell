@@ -49,8 +49,7 @@ impl Command for Where {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        if let Ok(Some(capture_block)) = call.get_flag::<Closure>(engine_state, stack, "block")
-        {
+        if let Ok(Some(capture_block)) = call.get_flag::<Closure>(engine_state, stack, "block") {
             let metadata = input.metadata();
             let ctrlc = engine_state.ctrlc.clone();
             let engine_state = engine_state.clone();

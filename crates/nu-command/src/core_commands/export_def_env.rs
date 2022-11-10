@@ -19,11 +19,7 @@ impl Command for ExportDefEnv {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
-            .required(
-                "block",
-                SyntaxShape::Block,
-                "body of the definition",
-            )
+            .required("block", SyntaxShape::Block, "body of the definition")
             .category(Category::Core)
     }
 
