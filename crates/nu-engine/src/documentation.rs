@@ -124,6 +124,18 @@ fn get_documentation(
         }
     }
 
+    if !sig.input_output_types.is_empty() {
+        let _ = writeln!(long_desc, "\n{}Signatures{}:", G, RESET);
+    }
+    for (input_type, output_type) in sig.input_output_types.iter() {
+        let _ = writeln!(
+            long_desc,
+            "  {:?} => {:?}",
+            input_type.to_shape(),
+            output_type.to_shape()
+        );
+    }
+
     if !examples.is_empty() {
         let _ = write!(long_desc, "\n{}Examples{}:", G, RESET);
     }
