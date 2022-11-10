@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
     Value,
@@ -113,7 +113,7 @@ pub fn group_by(
 
     match grouper {
         Some(Value::Block { .. }) => {
-            let block: Option<CaptureBlock> = call.opt(engine_state, stack, 0)?;
+            let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
             let error_key = "error";
 
             for value in values {

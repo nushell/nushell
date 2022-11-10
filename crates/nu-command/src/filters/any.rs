@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
-    engine::{CaptureBlock, Command, EngineState, Stack},
+    engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 
@@ -62,7 +62,7 @@ impl Command for Any {
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
 
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block_id = capture_block.block_id;
 
         let block = engine_state.get_block(block_id);

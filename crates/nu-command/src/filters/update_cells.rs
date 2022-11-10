@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Block, Call};
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineIterator, ShellError, Signature, Span, SyntaxShape, Value,
@@ -124,7 +124,7 @@ impl Command for UpdateCells {
     ) -> Result<PipelineData, ShellError> {
         // the block to run on each cell
         let engine_state = engine_state.clone();
-        let block: CaptureBlock = call.req(&engine_state, stack, 0)?;
+        let block: Closure = call.req(&engine_state, stack, 0)?;
         let mut stack = stack.captures_to_stack(&block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();

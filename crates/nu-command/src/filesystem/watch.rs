@@ -6,7 +6,7 @@ use std::time::Duration;
 use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
 use nu_engine::{current_dir, eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack, StateWorkingSet};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
     Spanned, SyntaxShape, Value,
@@ -82,7 +82,7 @@ impl Command for Watch {
             }
         };
 
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 1)?;
+        let capture_block: Closure = call.req(engine_state, stack, 1)?;
         let block = engine_state
             .clone()
             .get_block(capture_block.block_id)

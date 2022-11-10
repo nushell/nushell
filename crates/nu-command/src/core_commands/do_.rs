@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SyntaxShape,
     Value,
@@ -20,7 +20,7 @@ impl Command for Do {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("do")
-            .required("block", SyntaxShape::Any, "the block to run")
+            .required("closure", SyntaxShape::Any, "the closure to run")
             .switch(
                 "ignore-errors",
                 "ignore shell errors as the block runs",
@@ -42,7 +42,7 @@ impl Command for Do {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let block: Closure = call.req(engine_state, stack, 0)?;
         let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag("ignore-errors");
         let capture_errors = call.has_flag("capture-errors");

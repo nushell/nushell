@@ -7,7 +7,7 @@ use nu_color_config::get_color_config;
 use nu_engine::{env_to_string, eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
-    engine::{CaptureBlock, Command, EngineState, Stack},
+    engine::{Closure, Command, EngineState, Stack},
     Category, Config, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Value,
 };
@@ -147,7 +147,7 @@ impl Command for Find {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let predicate = call.get_flag::<CaptureBlock>(engine_state, stack, "predicate")?;
+        let predicate = call.get_flag::<Closure>(engine_state, stack, "predicate")?;
         let regex = call.get_flag::<String>(engine_state, stack, "regex")?;
 
         match (regex, predicate) {
@@ -228,7 +228,7 @@ fn find_with_regex(
 }
 
 fn find_with_predicate(
-    predicate: CaptureBlock,
+    predicate: Closure,
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -415,6 +415,7 @@ fn find_with_rest_and_highlight(
                         | Value::Range { .. }
                         | Value::Float { .. }
                         | Value::Block { .. }
+                        | Value::Closure { .. }
                         | Value::Nothing { .. }
                         | Value::Error { .. } => lower_value
                             .eq(span, term, span)
@@ -474,6 +475,7 @@ fn find_with_rest_and_highlight(
                         | Value::Range { .. }
                         | Value::Float { .. }
                         | Value::Block { .. }
+                        | Value::Closure { .. }
                         | Value::Nothing { .. }
                         | Value::Error { .. } => lower_value
                             .eq(span, term, span)

@@ -1,7 +1,7 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, SyntaxShape, Value,
@@ -42,7 +42,7 @@ impl Command for Where {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        if let Ok(Some(capture_block)) = call.get_flag::<CaptureBlock>(engine_state, stack, "block")
+        if let Ok(Some(capture_block)) = call.get_flag::<Closure>(engine_state, stack, "block")
         {
             let metadata = input.metadata();
             let ctrlc = engine_state.ctrlc.clone();
@@ -163,7 +163,7 @@ impl Command for Where {
             }
             .map(|x| x.set_metadata(metadata))
         } else {
-            let capture_block: Option<CaptureBlock> = call.opt(engine_state, stack, 0)?;
+            let capture_block: Option<Closure> = call.opt(engine_state, stack, 0)?;
             if let Some(block) = capture_block {
                 let span = call.head;
 

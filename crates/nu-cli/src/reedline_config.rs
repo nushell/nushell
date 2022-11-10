@@ -251,7 +251,7 @@ pub(crate) fn add_columnar_menu(
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
         }
-        Value::Block {
+        Value::Closure {
             val,
             captures,
             span,
@@ -337,7 +337,7 @@ pub(crate) fn add_list_menu(
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
         }
-        Value::Block {
+        Value::Closure {
             val,
             captures,
             span,
@@ -459,7 +459,7 @@ pub(crate) fn add_description_menu(
                 completer,
             }))
         }
-        Value::Block {
+        Value::Closure {
             val,
             captures,
             span,
@@ -477,7 +477,7 @@ pub(crate) fn add_description_menu(
             }))
         }
         _ => Err(ShellError::UnsupportedConfigValue(
-            "block or omitted value".to_string(),
+            "closure or omitted value".to_string(),
             menu.source.into_abbreviated_string(config),
             menu.source.span()?,
         )),

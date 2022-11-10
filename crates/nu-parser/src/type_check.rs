@@ -10,6 +10,7 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
         (Type::Number, Type::Int) => true,
         (Type::Number, Type::Float) => true,
+        (Type::Closure, Type::Block) => true,
         (Type::Any, _) => true,
         (_, Type::Any) => true,
         (lhs, rhs) => lhs == rhs,

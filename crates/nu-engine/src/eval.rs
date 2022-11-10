@@ -492,16 +492,22 @@ pub fn eval_expression(
                     .into_value(expr.span),
             )
         }
-        Expr::RowCondition(block_id) | Expr::Block(block_id) => {
+        Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
             let mut captures = HashMap::new();
             let block = engine_state.get_block(*block_id);
 
             for var_id in &block.captures {
                 captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
             }
-            Ok(Value::Block {
+            Ok(Value::Closure {
                 val: *block_id,
                 captures,
+                span: expr.span,
+            })
+        }
+        Expr::Block(block_id) => {
+            Ok(Value::Block {
+                val: *block_id,
                 span: expr.span,
             })
         }

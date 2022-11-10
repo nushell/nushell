@@ -13,7 +13,7 @@ use nu_protocol::{
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
-    ENV_VARIABLE_ID, IN_VARIABLE_ID, 
+    ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -3051,6 +3051,7 @@ pub fn parse_row_condition(
 
     let block_id = match expression.expr {
         Expr::Block(block_id) => block_id,
+        Expr::Closure(block_id) => block_id,
         _ => {
             // We have an expression, so let's convert this into a block.
             let mut block = Block::new();
@@ -3899,7 +3900,12 @@ pub fn parse_block_expression(
             contents: TokenContents::Pipe,
             span,
         }) => {
-            error = error.or_else(|| Some(ParseError::Expected("block but found closure".into(), *span)));
+            error = error.or_else(|| {
+                Some(ParseError::Expected(
+                    "block but found closure".into(),
+                    *span,
+                ))
+            });
             (None, 0)
         }
         _ => (None, 0),
@@ -3986,7 +3992,7 @@ pub fn parse_closure_expression(
     span: Span,
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
-    trace!("parsing: block expression");
+    trace!("parsing: closure expression");
 
     let bytes = working_set.get_span_contents(span);
     let mut error = None;
@@ -4057,6 +4063,20 @@ pub fn parse_closure_expression(
 
             (Some((signature, signature_span)), amt_to_skip)
         }
+        Some(Token {
+            contents: TokenContents::Item,
+            span,
+        }) => {
+            let contents = working_set.get_span_contents(*span);
+            if contents == b"||" {
+                (
+                    Some((Box::new(Signature::new("closure".to_string())), *span)),
+                    1,
+                )
+            } else {
+                (None, 0)
+            }
+        }
         _ => (None, 0),
     };
 
@@ -4100,6 +4120,8 @@ pub fn parse_closure_expression(
         parse_block(working_set, &output, false, expand_aliases_denylist, false);
     error = error.or(err);
 
+    let has_signature = signature.is_some();
+
     if let Some(signature) = signature {
         output.signature = signature.0;
     } else if let Some(last) = working_set.delta.scope.last() {
@@ -4124,15 +4146,27 @@ pub fn parse_closure_expression(
 
     let block_id = working_set.add_block(output);
 
-    (
-        Expression {
-            expr: Expr::Block(block_id),
-            span,
-            ty: Type::Block,
-            custom_completion: None,
-        },
-        error,
-    )
+    if has_signature {
+        (
+            Expression {
+                expr: Expr::Closure(block_id),
+                span,
+                ty: Type::Closure,
+                custom_completion: None,
+            },
+            error,
+        )
+    } else {
+        (
+            Expression {
+                expr: Expr::Block(block_id),
+                span,
+                ty: Type::Block,
+                custom_completion: None,
+            },
+            error,
+        )
+    }
 }
 
 pub fn parse_value(
@@ -4224,7 +4258,7 @@ pub fn parse_value(
             }
         }
         b'{' => {
-            if !matches!(shape, SyntaxShape::Closure(..)) {
+            if !matches!(shape, SyntaxShape::Closure(..)) && !matches!(shape, SyntaxShape::Block) {
                 if let (expr, None) =
                     parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
                 {
@@ -4882,9 +4916,9 @@ pub fn parse_expression(
                     custom_completion: None,
                 }),
                 Argument::Positional(Expression {
-                    expr: Expr::Block(block_id),
+                    expr: Expr::Closure(block_id),
                     span: span(&spans[pos..]),
-                    ty,
+                    ty: Type::Closure,
                     custom_completion: None,
                 }),
             ];
@@ -4902,7 +4936,7 @@ pub fn parse_expression(
                     expr,
                     custom_completion: None,
                     span: span(spans),
-                    ty: Type::Any,
+                    ty,
                 },
                 err,
             )
@@ -5196,7 +5230,7 @@ pub fn parse_block(
     (block, error)
 }
 
-pub fn discover_captures_in_block(
+pub fn discover_captures_in_closure(
     working_set: &StateWorkingSet,
     block: &Block,
     seen: &mut Vec<VarId>,
@@ -5268,11 +5302,25 @@ pub fn discover_captures_in_expr(
             let result = discover_captures_in_expr(working_set, expr, seen, seen_blocks);
             output.extend(&result);
         }
-        Expr::Block(block_id) => {
+        Expr::Closure(block_id) => {
             let block = working_set.get_block(*block_id);
             let results = {
                 let mut seen = vec![];
-                discover_captures_in_block(working_set, block, &mut seen, seen_blocks)
+                discover_captures_in_closure(working_set, block, &mut seen, seen_blocks)
+            };
+            seen_blocks.insert(*block_id, results.clone());
+            for var_id in results.into_iter() {
+                if !seen.contains(&var_id) {
+                    output.push(var_id)
+                }
+            }
+        }
+        Expr::Block(block_id) => {
+            let block = working_set.get_block(*block_id);
+            // FIXME: is this correct?
+            let results = {
+                let mut seen = vec![];
+                discover_captures_in_closure(working_set, block, &mut seen, seen_blocks)
             };
             seen_blocks.insert(*block_id, results.clone());
             for var_id in results.into_iter() {
@@ -5298,7 +5346,7 @@ pub fn discover_captures_in_expr(
                             let mut seen = vec![];
                             seen_blocks.insert(block_id, output.clone());
 
-                            let result = discover_captures_in_block(
+                            let result = discover_captures_in_closure(
                                 working_set,
                                 block,
                                 &mut seen,
@@ -5422,7 +5470,7 @@ pub fn discover_captures_in_expr(
             let block = working_set.get_block(*block_id);
             let results = {
                 let mut seen = vec![];
-                discover_captures_in_block(working_set, block, &mut seen, seen_blocks)
+                discover_captures_in_closure(working_set, block, &mut seen, seen_blocks)
             };
             seen_blocks.insert(*block_id, results.clone());
             for var_id in results.into_iter() {
@@ -5489,7 +5537,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         let block_id = working_set.add_block(block);
 
         output.push(Argument::Positional(Expression {
-            expr: Expr::Block(block_id),
+            expr: Expr::Closure(block_id),
             span,
             ty: Type::Any,
             custom_completion: None,
@@ -5560,7 +5608,7 @@ pub fn parse(
     let mut seen = vec![];
     let mut seen_blocks = HashMap::new();
 
-    let captures = discover_captures_in_block(working_set, &output, &mut seen, &mut seen_blocks);
+    let captures = discover_captures_in_closure(working_set, &output, &mut seen, &mut seen_blocks);
     output.captures = captures;
 
     // Also check other blocks that might have been imported
@@ -5569,7 +5617,7 @@ pub fn parse(
 
         if !seen_blocks.contains_key(&block_id) {
             let captures =
-                discover_captures_in_block(working_set, block, &mut seen, &mut seen_blocks);
+                discover_captures_in_closure(working_set, block, &mut seen, &mut seen_blocks);
             seen_blocks.insert(block_id, captures);
         }
     }

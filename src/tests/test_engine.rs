@@ -107,7 +107,7 @@ fn missing_flags_are_nothing4() -> TestResult {
 #[test]
 fn proper_variable_captures() -> TestResult {
     run_test(
-        r#"def foo [x] { let y = 100; { $y + $x } }; do (foo 23)"#,
+        r#"def foo [x] { let y = 100; { || $y + $x } }; do (foo 23)"#,
         "123",
     )
 }

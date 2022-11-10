@@ -881,6 +881,23 @@ pub fn eval_hook(
                 None,
             );
         }
+        Value::Closure {
+            val: block_id,
+            span: block_span,
+            ..
+        } => {
+            output = PipelineData::Value(
+                run_hook_block(
+                    engine_state,
+                    stack,
+                    *block_id,
+                    input,
+                    arguments,
+                    *block_span,
+                )?,
+                None,
+            );
+        }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
                 "block, record, or list of records".into(),
