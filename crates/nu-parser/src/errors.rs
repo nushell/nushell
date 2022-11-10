@@ -56,6 +56,10 @@ pub enum ParseError {
         Type,
     ),
 
+    #[error("Capture of mutable variable.")]
+    #[diagnostic(code(nu::parser::expected_keyword), url(docsrs))]
+    CaptureOfMutableVar(#[label("capture of mutable variable")] Span),
+
     #[error("Expected keyword.")]
     #[diagnostic(code(nu::parser::expected_keyword), url(docsrs))]
     ExpectedKeyword(String, #[label("expected {0}")] Span),
@@ -364,6 +368,7 @@ impl ParseError {
             ParseError::MutInPipeline(_, _, s) => *s,
             ParseError::LetBuiltinVar(_, s) => *s,
             ParseError::MutBuiltinVar(_, s) => *s,
+            ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(s) => *s,

@@ -79,8 +79,8 @@ impl Command for Mut {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Set a mutable variable to a value",
-                example: "mut x = 10; x = 12",
+                description: "Set a mutable variable to a value, then update it",
+                example: "mut x = 10; $x = 12",
                 result: None,
             },
             Example {

@@ -1649,6 +1649,15 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn get_variable_if_possible(&self, var_id: VarId) -> Option<&Variable> {
+        let num_permanent_vars = self.permanent_state.num_vars();
+        if var_id < num_permanent_vars {
+            Some(self.permanent_state.get_var(var_id))
+        } else {
+            self.delta.vars.get(var_id - num_permanent_vars)
+        }
+    }
+
     #[allow(clippy::borrowed_box)]
     pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
         let num_permanent_decls = self.permanent_state.num_decls();
