@@ -20,7 +20,7 @@ use crossterm::{
 };
 use nu_ansi_term::{Color as NuColor, Style as NuStyle};
 use nu_color_config::{get_color_config, style_primitive};
-use nu_protocol::{Config, Value};
+use nu_protocol::{Config, Span as NuSpan, Value};
 use nu_table::{string_width, Alignment, TextStyle};
 use reedline::KeyModifiers;
 use tui::{
@@ -53,7 +53,7 @@ pub fn pager(
     ctrlc: CtrlC,
     table: TableConfig,
     style: StyleConfig,
-) -> Result<()> {
+) -> Result<Option<Value>> {
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -89,7 +89,11 @@ pub fn pager(
     result
 }
 
-fn render_ui<B>(terminal: &mut Terminal<B>, ctrlc: CtrlC, mut state: UIState<'_>) -> Result<()>
+fn render_ui<B>(
+    terminal: &mut Terminal<B>,
+    ctrlc: CtrlC,
+    mut state: UIState<'_>,
+) -> Result<Option<Value>>
 where
     B: Backend,
 {
@@ -101,7 +105,7 @@ where
         // handle CTRLC event
         if let Some(ctrlc) = ctrlc.clone() {
             if ctrlc.load(Ordering::SeqCst) {
-                break Ok(());
+                break Ok(None);
             }
         }
 
@@ -141,7 +145,45 @@ where
 
             let exited = handle_events(&events, state, &layout, terminal);
             if exited {
-                break Ok(());
+                let last_value = if state.mode == UIMode::Cursor {
+                    let Position { x: column, y: row } = state.cursor;
+                    let info = layout
+                        .get(row as usize, column as usize)
+                        .expect("must never happen");
+                    let pos = info.data_pos;
+                    let value = &state.data[pos.0][pos.1];
+                    value.clone()
+                } else {
+                    if state.count_rows() < 2 {
+                        let cols = state.columns.to_vec();
+                        let vals = state.data.get(0).map_or(Vec::new(), |row| row.clone());
+
+                        Value::Record {
+                            cols,
+                            vals,
+                            span: NuSpan::unknown(),
+                        }
+                    } else {
+                        let headers = state.columns.to_vec();
+                        let vals = state
+                            .data
+                            .iter()
+                            .cloned()
+                            .map(|vals| Value::Record {
+                                cols: headers.clone(),
+                                vals,
+                                span: NuSpan::unknown(),
+                            })
+                            .collect();
+
+                        Value::List {
+                            vals,
+                            span: NuSpan::unknown(),
+                        }
+                    }
+                };
+
+                break Ok(Some(last_value));
             }
         }
 

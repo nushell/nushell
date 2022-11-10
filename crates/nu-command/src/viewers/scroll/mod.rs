@@ -75,9 +75,15 @@ Press <ESC> to get out of the mode and the inner view.
 
         let (columns, data) = collect_pipeline(input);
 
-        let _ = pager(&columns, &data, config, ctrlc, table_config, style);
-
-        Ok(PipelineData::Value(Value::default(), None))
+        let result = pager(&columns, &data, config, ctrlc, table_config, style);
+        match result {
+            Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
+            Ok(None) => Ok(PipelineData::Value(Value::default(), None)),
+            Err(err) => Ok(PipelineData::Value(
+                Value::Error { error: err.into() },
+                None,
+            )),
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
