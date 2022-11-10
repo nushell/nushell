@@ -35,7 +35,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally matches prefix of text by column paths",
+                "For a data structure input, check strings at the given cell paths, and replace with result",
             )
             .category(Category::Strings)
     }

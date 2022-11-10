@@ -23,7 +23,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally convert text into decimal by column paths",
+                "for a data structure input, convert data at the given cell paths",
             )
     }
 

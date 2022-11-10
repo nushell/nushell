@@ -48,7 +48,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally substring text by column paths",
+                "For a data structure input, turn strings at the given cell paths into substrings",
             )
     }
 

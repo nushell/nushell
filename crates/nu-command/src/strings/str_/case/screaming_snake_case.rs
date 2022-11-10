@@ -21,7 +21,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally convert text to SCREAMING_SNAKE_CASE by column paths",
+                "For a data structure input, convert strings at the given cell paths",
             )
             .category(Category::Strings)
     }

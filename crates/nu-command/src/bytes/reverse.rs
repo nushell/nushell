@@ -21,13 +21,13 @@ impl Command for BytesReverse {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally matches prefix of text by column paths",
+                "for a data structure input, reverse data at the given cell paths",
             )
             .category(Category::Bytes)
     }
 
     fn usage(&self) -> &str {
-        "Reverse every bytes in the pipeline"
+        "Reverse the bytes in the pipeline"
     }
 
     fn search_terms(&self) -> Vec<&str> {

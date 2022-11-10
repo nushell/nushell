@@ -121,7 +121,7 @@ impl Command for BytesAt {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally get bytes by column paths",
+                "for a data structure input, get bytes from data at the given cell paths",
             )
             .category(Category::Bytes)
     }

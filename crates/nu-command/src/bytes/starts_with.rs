@@ -33,7 +33,7 @@ impl Command for BytesStartsWith {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally matches prefix of text by column paths",
+                "for a data structure input, check if bytes at the given cell paths start with the pattern",
             )
             .category(Category::Bytes)
     }

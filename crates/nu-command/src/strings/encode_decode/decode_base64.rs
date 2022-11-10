@@ -34,7 +34,7 @@ impl Command for DecodeBase64 {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally base64 decode data by column paths",
+                "For a data structure input, decode data at the given cell paths",
             )
             .category(Category::Hash)
     }

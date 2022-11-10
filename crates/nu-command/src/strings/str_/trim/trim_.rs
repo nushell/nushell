@@ -44,8 +44,7 @@ impl Command for SubCommand {
         .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally trim text by column paths",
-            )
+                "For a data structure input, trim strings at the given cell paths",            )
             .named(
                 "char",
                 SyntaxShape::String,

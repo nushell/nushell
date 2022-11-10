@@ -40,7 +40,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally check if string contains pattern by column paths",
+                "For a data structure input, pad strings at the given cell paths",
             )
             .category(Category::Strings)
     }

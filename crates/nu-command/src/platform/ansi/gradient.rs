@@ -39,15 +39,15 @@ impl Command for SubCommand {
                 Some('d'),
             )
             .rest(
-                "column path",
+                "cell path",
                 SyntaxShape::CellPath,
-                "optionally, draw gradients using text from column paths",
+                "for a data structure input, add a gradient to strings at the given cell paths",
             )
             .category(Category::Platform)
     }
 
     fn usage(&self) -> &str {
-        "Draw text with a provided start and end code making a gradient"
+        "Add a color gradient (using ANSI color codes) to the given string"
     }
 
     fn run(

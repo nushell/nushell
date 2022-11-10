@@ -36,7 +36,7 @@ impl Command for BytesReplace {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally find and replace text by column paths",
+                "for a data structure input, replace bytes in data at the given cell paths",
             )
             .switch("all", "replace all occurrences of find binary", Some('a'))
             .category(Category::Bytes)

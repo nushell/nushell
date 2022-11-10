@@ -40,7 +40,7 @@ impl Command for SubCommand {
             .named(
                 "columns",
                 SyntaxShape::Table,
-                "Optionally operate by column path",
+                "For a record or table input, join strings at the given columns",
                 Some('c'),
             )
             .rest("append", SyntaxShape::String, "Path to append to the input")

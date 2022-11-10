@@ -41,7 +41,7 @@ impl Command for BytesIndexOf {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally returns index of pattern in string by column paths",
+                "for a data structure input, find the indexes at the given cell paths",
             )
             .switch("all", "returns all matched index", Some('a'))
             .switch("end", "search from the end of the binary", Some('e'))

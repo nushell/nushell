@@ -25,7 +25,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "column paths to convert to filesize (for table input)",
+                "for a data structure input, convert data at the given cell paths",
             )
             .category(Category::Conversions)
     }

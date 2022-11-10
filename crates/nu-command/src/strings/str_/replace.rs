@@ -40,7 +40,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally find and replace text by column paths",
+                "For a data structure input, operate on strings at the given cell paths",
             )
             .switch("all", "replace all occurrences of find string", Some('a'))
             .switch(
