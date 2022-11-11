@@ -206,7 +206,7 @@ Nu is under heavy development and will naturally change as it matures. The chart
 | Functions     |             |           |     |    X    |        | Functions and aliases are supported                                  |
 | Variables     |             |           |     |    X    |        | Nu supports variables and environment variables                      |
 | Completions   |             |           |     |    X    |        | Completions for filepaths                                            |
-| Type-checking |             |           |  X  |         |        | Commands check basic types, but input/output isn't checked           |
+| Type-checking |             |           |     |    x    |        | Commands check basic types, and input/output types                   |
 
 ## Officially Supported By
 
