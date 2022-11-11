@@ -4420,6 +4420,10 @@ pub fn parse_operator(
 
     let operator = match contents {
         b"=" => Operator::Assignment(Assignment::Assign),
+        b"+=" => Operator::Assignment(Assignment::PlusAssign),
+        b"-=" => Operator::Assignment(Assignment::MinusAssign),
+        b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
+        b"/=" => Operator::Assignment(Assignment::DivideAssign),
         b"==" => Operator::Comparison(Comparison::Equal),
         b"!=" => Operator::Comparison(Comparison::NotEqual),
         b"<" => Operator::Comparison(Comparison::LessThan),

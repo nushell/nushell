@@ -47,3 +47,51 @@ fn mut_a_field() {
 
     assert_eq!(actual.out, "456");
 }
+
+#[test]
+fn mut_add_assign() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        mut y = 3; $y += 2; $y
+        "#
+    ));
+
+    assert_eq!(actual.out, "5");
+}
+
+#[test]
+fn mut_minus_assign() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        mut y = 3; $y -= 2; $y
+        "#
+    ));
+
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn mut_multiply_assign() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        mut y = 3; $y *= 2; $y
+        "#
+    ));
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn mut_divide_assign() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        mut y = 8; $y /= 2; $y
+        "#
+    ));
+
+    assert_eq!(actual.out, "4");
+}

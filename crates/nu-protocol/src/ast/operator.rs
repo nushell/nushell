@@ -49,6 +49,10 @@ pub enum Bits {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Assignment {
     Assign,
+    PlusAssign,
+    MinusAssign,
+    MultiplyAssign,
+    DivideAssign,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +68,10 @@ impl Display for Operator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Operator::Assignment(Assignment::Assign) => write!(f, "="),
+            Operator::Assignment(Assignment::PlusAssign) => write!(f, "+="),
+            Operator::Assignment(Assignment::MinusAssign) => write!(f, "-="),
+            Operator::Assignment(Assignment::MultiplyAssign) => write!(f, "*="),
+            Operator::Assignment(Assignment::DivideAssign) => write!(f, "/="),
             Operator::Comparison(Comparison::Equal) => write!(f, "=="),
             Operator::Comparison(Comparison::NotEqual) => write!(f, "!="),
             Operator::Comparison(Comparison::LessThan) => write!(f, "<"),
