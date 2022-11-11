@@ -4412,7 +4412,6 @@ pub fn parse_operator(
     let contents = working_set.get_span_contents(span);
 
     let operator = match contents {
-        // b"=" => Operator::Assign,
         b"==" => Operator::Equal,
         b"!=" => Operator::NotEqual,
         b"<" => Operator::LessThan,
