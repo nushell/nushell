@@ -62,6 +62,7 @@ pub fn create_default_context() -> EngineState {
             Mut,
             Use,
             Version,
+            While,
         };
 
         // Charts

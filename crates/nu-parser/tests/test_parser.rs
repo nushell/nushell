@@ -968,7 +968,6 @@ mod input_types {
             working_set.add_decl(Box::new(GroupBy));
             working_set.add_decl(Box::new(LsTest));
             working_set.add_decl(Box::new(ToCustom));
-            working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(AggMin));
             working_set.add_decl(Box::new(Collect));
             working_set.add_decl(Box::new(WithColumn));
