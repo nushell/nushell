@@ -147,9 +147,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                     span,
                 });
 
-                cols.push("signature".to_string());
+                cols.push("signatures".to_string());
                 vals.push(Value::List {
-                    vals: self.collect_signature_entries(&signature, span),
+                    vals: self.collect_signatures(&signature, span),
                     span,
                 });
 
@@ -266,7 +266,24 @@ impl<'e, 's> ScopeData<'e, 's> {
         commands
     }
 
-    fn collect_signature_entries(&self, signature: &Signature, span: Span) -> Vec<Value> {
+    fn collect_signatures(&self, signature: &Signature, span: Span) -> Vec<Value> {
+        signature
+            .input_output_types
+            .iter()
+            .map(|(input_type, output_type)| Value::List {
+                vals: self.collect_signature_entries(input_type, output_type, signature, span),
+                span,
+            })
+            .collect()
+    }
+
+    fn collect_signature_entries(
+        &self,
+        input_type: &Type,
+        output_type: &Type,
+        signature: &Signature,
+        span: Span,
+    ) -> Vec<Value> {
         let mut sig_records = vec![];
 
         let sig_cols = vec![
@@ -279,6 +296,22 @@ impl<'e, 's> ScopeData<'e, 's> {
             "description".to_string(),
             "custom_completion".to_string(),
         ];
+
+        // input
+        sig_records.push(Value::Record {
+            cols: sig_cols.clone(),
+            vals: vec![
+                Value::string(&signature.name, span),
+                Value::nothing(span),
+                Value::string("input", span),
+                Value::string(input_type.to_shape().to_string(), span),
+                Value::boolean(false, span),
+                Value::nothing(span),
+                Value::nothing(span),
+                Value::nothing(span),
+            ],
+            span,
+        });
 
         // required_positional
         for req in &signature.required_positional {
@@ -392,6 +425,23 @@ impl<'e, 's> ScopeData<'e, 's> {
                 span,
             });
         }
+
+        // output
+        sig_records.push(Value::Record {
+            cols: sig_cols,
+            vals: vec![
+                Value::string(&signature.name, span),
+                Value::nothing(span),
+                Value::string("output", span),
+                Value::string(output_type.to_shape().to_string(), span),
+                Value::boolean(false, span),
+                Value::nothing(span),
+                Value::nothing(span),
+                Value::nothing(span),
+            ],
+            span,
+        });
+
         sig_records
     }
 
