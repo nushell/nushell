@@ -241,7 +241,6 @@ fn eval_external(
     command.run(engine_state, stack, &call, input)
 }
 
-#[inline(never)]
 pub fn eval_expression(
     engine_state: &EngineState,
     stack: &mut Stack,

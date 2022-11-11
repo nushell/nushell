@@ -1,7 +1,19 @@
+# [target.x86_64-pc-windows-msvc]
+# # increase the default windows stack size
+# # statically link the CRT so users don't have to install it
+# rustflags = ["-C", "link-args=-stack:10000000", "-C", "target-feature=+crt-static"]
+
+# 64 bit MSVC
 [target.x86_64-pc-windows-msvc]
-# increase the default windows stack size
-# statically link the CRT so users don't have to install it
-rustflags = ["-C", "link-args=-stack:10000000", "-C", "target-feature=+crt-static"]
+rustflags = [
+	"-C", "link-arg=/STACK:10000000"
+]
+
+# 64 bit Mingw
+[target.x86_64-pc-windows-gnu]
+rustflags = [
+    "-C", "link-arg=-Wl,--stack,10000000"
+]
 
 # keeping this but commentting out in case we need them in the future
 
