@@ -1,7 +1,10 @@
 use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ast::{Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator},
+    ast::{
+        Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
+        PathMember,
+    },
     engine::{EngineState, Stack, Visibility},
     Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
     PipelineData, Range, RawStream, ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId,
@@ -446,15 +449,30 @@ pub fn eval_expression(
                         }
                         Expr::FullCellPath(cell_path) => match &cell_path.head.expr {
                             Expr::Var(var_id) | Expr::VarDecl(var_id) => {
-                                let var_info = engine_state.get_var(*var_id);
-                                if var_info.mutable {
-                                    let mut lhs =
-                                        eval_expression(engine_state, stack, &cell_path.head)?;
-                                    lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
-                                    stack.vars.insert(*var_id, lhs);
+                                if var_id == &ENV_VARIABLE_ID {
+                                    // let mut lhs =
+                                    //     eval_expression(engine_state, stack, &cell_path.head)?;
+                                    //lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
+                                    match &cell_path.tail[0] {
+                                        PathMember::String { val, .. } => {
+                                            stack.add_env_var(val.to_string(), rhs);
+                                        }
+                                        PathMember::Int { val, .. } => {
+                                            stack.add_env_var(val.to_string(), rhs);
+                                        }
+                                    }
                                     Ok(Value::nothing(cell_path.head.span))
                                 } else {
-                                    Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                                    let var_info = engine_state.get_var(*var_id);
+                                    if var_info.mutable {
+                                        let mut lhs =
+                                            eval_expression(engine_state, stack, &cell_path.head)?;
+                                        lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
+                                        stack.vars.insert(*var_id, lhs);
+                                        Ok(Value::nothing(cell_path.head.span))
+                                    } else {
+                                        Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                                    }
                                 }
                             }
                             _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
