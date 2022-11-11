@@ -550,15 +550,15 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Assign => match (&lhs.ty, &rhs.ty) {
-                (x, y) if x == y => (Type::Nothing, None),
-                (Type::Any, _) => (Type::Nothing, None),
-                (_, Type::Any) => (Type::Nothing, None),
-                (x, y) => (
-                    Type::Nothing,
-                    Some(ParseError::Mismatch(x.to_string(), y.to_string(), rhs.span)),
-                ),
-            },
+            // Operator::Assign => match (&lhs.ty, &rhs.ty) {
+            //     (x, y) if x == y => (Type::Nothing, None),
+            //     (Type::Any, _) => (Type::Nothing, None),
+            //     (_, Type::Any) => (Type::Nothing, None),
+            //     (x, y) => (
+            //         Type::Nothing,
+            //         Some(ParseError::Mismatch(x.to_string(), y.to_string(), rhs.span)),
+            //     ),
+            // },
         },
         _ => {
             *op = Expression::garbage(op.span);

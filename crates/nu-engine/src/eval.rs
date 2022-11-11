@@ -506,38 +506,37 @@ pub fn eval_expression(
                     let lhs = eval_expression(engine_state, stack, lhs)?;
                     let rhs = eval_expression(engine_state, stack, rhs)?;
                     lhs.bit_shl(op_span, &rhs, expr.span)
-                }
-                Operator::Assign => {
-                    // let rhs = eval_expression(engine_state, stack, rhs)?;
+                } // Operator::Assign => {
+                  //     // let rhs = eval_expression(engine_state, stack, rhs)?;
 
-                    match &lhs.expr {
-                        Expr::Var(_) | Expr::VarDecl(_) => {
-                            // let var_info = engine_state.get_var(*var_id);
-                            // if var_info.mutable {
-                            //     stack.vars.insert(*var_id, rhs);
-                            //     Ok(Value::nothing(lhs.span))
-                            // } else {
-                            Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
-                            // }
-                        }
-                        Expr::FullCellPath(cell_path) => match &cell_path.head.expr {
-                            Expr::Var(_) | Expr::VarDecl(_) => {
-                                // let var_info = engine_state.get_var(*var_id);
-                                // if var_info.mutable {
-                                //     let mut lhs =
-                                //         eval_expression(engine_state, stack, &cell_path.head)?;
-                                //     lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
-                                //     stack.vars.insert(*var_id, lhs);
-                                //     Ok(Value::nothing(cell_path.head.span))
-                                // } else {
-                                Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
-                                // }
-                            }
-                            _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
-                        },
-                        _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
-                    }
-                }
+                  //     match &lhs.expr {
+                  //         Expr::Var(_) | Expr::VarDecl(_) => {
+                  //             // let var_info = engine_state.get_var(*var_id);
+                  //             // if var_info.mutable {
+                  //             //     stack.vars.insert(*var_id, rhs);
+                  //             //     Ok(Value::nothing(lhs.span))
+                  //             // } else {
+                  //             Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                  //             // }
+                  //         }
+                  //         Expr::FullCellPath(cell_path) => match &cell_path.head.expr {
+                  //             Expr::Var(_) | Expr::VarDecl(_) => {
+                  //                 // let var_info = engine_state.get_var(*var_id);
+                  //                 // if var_info.mutable {
+                  //                 //     let mut lhs =
+                  //                 //         eval_expression(engine_state, stack, &cell_path.head)?;
+                  //                 //     lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
+                  //                 //     stack.vars.insert(*var_id, lhs);
+                  //                 //     Ok(Value::nothing(cell_path.head.span))
+                  //                 // } else {
+                  //                 Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                  //                 // }
+                  //             }
+                  //             _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
+                  //         },
+                  //         _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
+                  //     }
+                  // }
             }
         }
         Expr::Subexpression(block_id) => {
