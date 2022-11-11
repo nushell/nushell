@@ -1,7 +1,7 @@
 use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ast::{Block, Call, Expr, Expression, Operator},
+    ast::{Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator},
     engine::{EngineState, Stack, Visibility},
     Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
     PipelineData, Range, RawStream, ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId,
@@ -358,156 +358,80 @@ pub fn eval_expression(
             let op = eval_operator(op)?;
 
             match op {
-                Operator::And => {
+                Operator::Boolean(boolean) => {
                     let lhs = eval_expression(engine_state, stack, lhs)?;
-                    if lhs.is_false() {
-                        Ok(Value::Bool {
-                            val: false,
-                            span: expr.span,
-                        })
-                    } else {
-                        let rhs = eval_expression(engine_state, stack, rhs)?;
-                        lhs.and(op_span, &rhs, expr.span)
+                    match boolean {
+                        Boolean::And => {
+                            if lhs.is_false() {
+                                Ok(Value::Bool {
+                                    val: false,
+                                    span: expr.span,
+                                })
+                            } else {
+                                let rhs = eval_expression(engine_state, stack, rhs)?;
+                                lhs.and(op_span, &rhs, expr.span)
+                            }
+                        }
+                        Boolean::Or => {
+                            if lhs.is_true() {
+                                Ok(Value::Bool {
+                                    val: true,
+                                    span: expr.span,
+                                })
+                            } else {
+                                let rhs = eval_expression(engine_state, stack, rhs)?;
+                                lhs.or(op_span, &rhs, expr.span)
+                            }
+                        }
                     }
                 }
-                Operator::Or => {
+                Operator::Math(math) => {
                     let lhs = eval_expression(engine_state, stack, lhs)?;
-                    if lhs.is_true() {
-                        Ok(Value::Bool {
-                            val: true,
-                            span: expr.span,
-                        })
-                    } else {
-                        let rhs = eval_expression(engine_state, stack, rhs)?;
-                        lhs.or(op_span, &rhs, expr.span)
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+
+                    match math {
+                        Math::Plus => lhs.add(op_span, &rhs, expr.span),
+                        Math::Minus => lhs.sub(op_span, &rhs, expr.span),
+                        Math::Multiply => lhs.mul(op_span, &rhs, expr.span),
+                        Math::Divide => lhs.div(op_span, &rhs, expr.span),
+                        Math::Append => lhs.append(op_span, &rhs, expr.span),
+                        Math::Modulo => lhs.modulo(op_span, &rhs, expr.span),
+                        Math::FloorDivision => lhs.floor_div(op_span, &rhs, expr.span),
+                        Math::Pow => lhs.pow(op_span, &rhs, expr.span),
                     }
                 }
-                Operator::Plus => {
+                Operator::Comparison(comparison) => {
                     let lhs = eval_expression(engine_state, stack, lhs)?;
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.add(op_span, &rhs, expr.span)
+                    match comparison {
+                        Comparison::LessThan => lhs.lt(op_span, &rhs, expr.span),
+                        Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr.span),
+                        Comparison::GreaterThan => lhs.gt(op_span, &rhs, expr.span),
+                        Comparison::GreaterThanOrEqual => lhs.gte(op_span, &rhs, expr.span),
+                        Comparison::Equal => lhs.eq(op_span, &rhs, expr.span),
+                        Comparison::NotEqual => lhs.ne(op_span, &rhs, expr.span),
+                        Comparison::In => lhs.r#in(op_span, &rhs, expr.span),
+                        Comparison::NotIn => lhs.not_in(op_span, &rhs, expr.span),
+                        Comparison::RegexMatch => lhs.regex_match(op_span, &rhs, false, expr.span),
+                        Comparison::NotRegexMatch => {
+                            lhs.regex_match(op_span, &rhs, true, expr.span)
+                        }
+                        Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
+                        Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
+                    }
                 }
-                Operator::Append => {
+                Operator::Bits(bits) => {
                     let lhs = eval_expression(engine_state, stack, lhs)?;
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.append(op_span, &rhs, expr.span)
+                    match bits {
+                        Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr.span),
+                        Bits::BitOr => lhs.bit_or(op_span, &rhs, expr.span),
+                        Bits::BitXor => lhs.bit_xor(op_span, &rhs, expr.span),
+                        Bits::ShiftLeft => lhs.bit_shl(op_span, &rhs, expr.span),
+                        Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr.span),
+                    }
                 }
-                Operator::Minus => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.sub(op_span, &rhs, expr.span)
-                }
-                Operator::Multiply => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.mul(op_span, &rhs, expr.span)
-                }
-                Operator::Divide => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.div(op_span, &rhs, expr.span)
-                }
-                Operator::LessThan => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.lt(op_span, &rhs, expr.span)
-                }
-                Operator::LessThanOrEqual => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.lte(op_span, &rhs, expr.span)
-                }
-                Operator::GreaterThan => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.gt(op_span, &rhs, expr.span)
-                }
-                Operator::GreaterThanOrEqual => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.gte(op_span, &rhs, expr.span)
-                }
-                Operator::Equal => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.eq(op_span, &rhs, expr.span)
-                }
-                Operator::NotEqual => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.ne(op_span, &rhs, expr.span)
-                }
-                Operator::In => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.r#in(op_span, &rhs, expr.span)
-                }
-                Operator::NotIn => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.not_in(op_span, &rhs, expr.span)
-                }
-                Operator::RegexMatch => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.regex_match(op_span, &rhs, false, expr.span)
-                }
-                Operator::NotRegexMatch => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.regex_match(op_span, &rhs, true, expr.span)
-                }
-                Operator::Modulo => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.modulo(op_span, &rhs, expr.span)
-                }
-                Operator::FloorDivision => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.floor_div(op_span, &rhs, expr.span)
-                }
-                Operator::Pow => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.pow(op_span, &rhs, expr.span)
-                }
-                Operator::StartsWith => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.starts_with(op_span, &rhs, expr.span)
-                }
-                Operator::EndsWith => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.ends_with(op_span, &rhs, expr.span)
-                }
-                Operator::BitOr => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bit_or(op_span, &rhs, expr.span)
-                }
-                Operator::BitXor => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bit_xor(op_span, &rhs, expr.span)
-                }
-                Operator::BitAnd => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bit_and(op_span, &rhs, expr.span)
-                }
-                Operator::ShiftRight => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bit_shr(op_span, &rhs, expr.span)
-                }
-                Operator::ShiftLeft => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bit_shl(op_span, &rhs, expr.span)
-                }
-                Operator::Assign => {
+                Operator::Assignment(Assignment::Assign) => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
 
                     match &lhs.expr {

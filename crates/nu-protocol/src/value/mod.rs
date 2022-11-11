@@ -5,8 +5,8 @@ mod range;
 mod stream;
 mod unit;
 
-use crate::ast::Operator;
-use crate::ast::{CellPath, PathMember};
+use crate::ast::{Bits, Boolean, CellPath, Comparison, PathMember};
+use crate::ast::{Math, Operator};
 use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 use byte_unit::ByteUnit;
@@ -1734,7 +1734,7 @@ impl Value {
             }
 
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Plus, op, rhs)
+                lhs.operation(*span, Operator::Math(Math::Plus), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -1841,7 +1841,7 @@ impl Value {
             }
 
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Minus, op, rhs)
+                lhs.operation(*span, Operator::Math(Math::Minus), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -1927,7 +1927,7 @@ impl Value {
                 })
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Multiply, op, rhs)
+                lhs.operation(*span, Operator::Math(Math::Multiply), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -2064,7 +2064,7 @@ impl Value {
                 }
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Divide, op, rhs)
+                lhs.operation(*span, Operator::Math(Math::Divide), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -2210,7 +2210,7 @@ impl Value {
                 }
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Divide, op, rhs)
+                lhs.operation(*span, Operator::Math(Math::Divide), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -2225,7 +2225,7 @@ impl Value {
 
     pub fn lt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::LessThan, op, rhs);
+            return lhs.operation(*span, Operator::Comparison(Comparison::LessThan), op, rhs);
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
@@ -2252,7 +2252,12 @@ impl Value {
 
     pub fn lte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::LessThanOrEqual, op, rhs);
+            return lhs.operation(
+                *span,
+                Operator::Comparison(Comparison::LessThanOrEqual),
+                op,
+                rhs,
+            );
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
@@ -2279,7 +2284,12 @@ impl Value {
 
     pub fn gt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::GreaterThan, op, rhs);
+            return lhs.operation(
+                *span,
+                Operator::Comparison(Comparison::GreaterThan),
+                op,
+                rhs,
+            );
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
@@ -2306,7 +2316,12 @@ impl Value {
 
     pub fn gte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::GreaterThanOrEqual, op, rhs);
+            return lhs.operation(
+                *span,
+                Operator::Comparison(Comparison::GreaterThanOrEqual),
+                op,
+                rhs,
+            );
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
@@ -2333,7 +2348,7 @@ impl Value {
 
     pub fn eq(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::Equal, op, rhs);
+            return lhs.operation(*span, Operator::Comparison(Comparison::Equal), op, rhs);
         }
 
         match self.partial_cmp(rhs) {
@@ -2358,7 +2373,7 @@ impl Value {
 
     pub fn ne(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::NotEqual, op, rhs);
+            return lhs.operation(*span, Operator::Comparison(Comparison::NotEqual), op, rhs);
         }
 
         match self.partial_cmp(rhs) {
@@ -2426,7 +2441,7 @@ impl Value {
                 })
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::In, op, rhs)
+                lhs.operation(*span, Operator::Comparison(Comparison::In), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2483,7 +2498,7 @@ impl Value {
                 })
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::NotIn, op, rhs)
+                lhs.operation(*span, Operator::Comparison(Comparison::NotIn), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2528,9 +2543,9 @@ impl Value {
             (Value::CustomValue { val: lhs, span }, rhs) => lhs.operation(
                 *span,
                 if invert {
-                    Operator::NotRegexMatch
+                    Operator::Comparison(Comparison::NotRegexMatch)
                 } else {
-                    Operator::RegexMatch
+                    Operator::Comparison(Comparison::RegexMatch)
                 },
                 op,
                 rhs,
@@ -2552,7 +2567,7 @@ impl Value {
                 span,
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::StartsWith, op, rhs)
+                lhs.operation(*span, Operator::Comparison(Comparison::StartsWith), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2571,7 +2586,7 @@ impl Value {
                 span,
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::EndsWith, op, rhs)
+                lhs.operation(*span, Operator::Comparison(Comparison::EndsWith), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2590,7 +2605,7 @@ impl Value {
                 val: *lhs << rhs,
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::ShiftLeft, op, rhs)
+                lhs.operation(*span, Operator::Bits(Bits::ShiftLeft), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2609,7 +2624,7 @@ impl Value {
                 val: *lhs >> rhs,
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::ShiftRight, op, rhs)
+                lhs.operation(*span, Operator::Bits(Bits::ShiftRight), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2628,7 +2643,7 @@ impl Value {
                 val: *lhs | rhs,
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::BitOr, op, rhs)
+                lhs.operation(*span, Operator::Bits(Bits::BitOr), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2647,7 +2662,7 @@ impl Value {
                 val: *lhs ^ rhs,
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::BitXor, op, rhs)
+                lhs.operation(*span, Operator::Bits(Bits::BitXor), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2666,7 +2681,7 @@ impl Value {
                 val: *lhs & rhs,
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::BitAnd, op, rhs)
+                lhs.operation(*span, Operator::Bits(Bits::BitAnd), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2721,7 +2736,7 @@ impl Value {
                 }
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Modulo, op, rhs)
+                lhs.operation(*span, Operator::Math(Math::Modulo), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -2741,7 +2756,7 @@ impl Value {
                 span,
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::And, op, rhs)
+                lhs.operation(*span, Operator::Boolean(Boolean::And), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2760,7 +2775,7 @@ impl Value {
                 span,
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Or, op, rhs)
+                lhs.operation(*span, Operator::Boolean(Boolean::Or), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2797,7 +2812,7 @@ impl Value {
                 span,
             }),
             (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Pow, op, rhs)
+                lhs.operation(*span, Operator::Math(Math::Pow), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {

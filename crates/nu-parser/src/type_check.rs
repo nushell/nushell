@@ -1,6 +1,6 @@
 use crate::ParseError;
 use nu_protocol::{
-    ast::{Expr, Expression, Operator},
+    ast::{Assignment, Bits, Boolean, Comparison, Expr, Expression, Math, Operator},
     engine::StateWorkingSet,
     Type,
 };
@@ -26,7 +26,7 @@ pub fn math_result_type(
     //println!("checking: {:?} {:?} {:?}", lhs, op, rhs);
     match &op.expr {
         Expr::Operator(operator) => match operator {
-            Operator::Plus => match (&lhs.ty, &rhs.ty) {
+            Operator::Math(Math::Plus) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
@@ -69,7 +69,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Append => match (&lhs.ty, &rhs.ty) {
+            Operator::Math(Math::Append) => match (&lhs.ty, &rhs.ty) {
                 (Type::List(a), Type::List(b)) => {
                     if a == b {
                         (Type::List(a.clone()), None)
@@ -98,7 +98,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Minus => match (&lhs.ty, &rhs.ty) {
+            Operator::Math(Math::Minus) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
@@ -126,7 +126,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Multiply => match (&lhs.ty, &rhs.ty) {
+            Operator::Math(Math::Multiply) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
@@ -159,7 +159,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Pow => match (&lhs.ty, &rhs.ty) {
+            Operator::Math(Math::Pow) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
@@ -184,7 +184,8 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Divide | Operator::Modulo => match (&lhs.ty, &rhs.ty) {
+            Operator::Math(Math::Divide) | Operator::Math(Math::Modulo) => match (&lhs.ty, &rhs.ty)
+            {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
@@ -215,7 +216,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::FloorDivision => match (&lhs.ty, &rhs.ty) {
+            Operator::Math(Math::FloorDivision) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Int, None),
                 (Type::Int, Type::Float) => (Type::Int, None),
@@ -243,33 +244,37 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::And | Operator::Or => match (&lhs.ty, &rhs.ty) {
-                (Type::Bool, Type::Bool) => (Type::Bool, None),
+            Operator::Boolean(Boolean::And) | Operator::Boolean(Boolean::Or) => {
+                match (&lhs.ty, &rhs.ty) {
+                    (Type::Bool, Type::Bool) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                    (Type::Custom(a), Type::Custom(b)) if a == b => {
+                        (Type::Custom(a.to_string()), None)
+                    }
+                    (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
 
-                (Type::Any, _) => (Type::Any, None),
-                (_, Type::Any) => (Type::Any, None),
+                    (Type::Any, _) => (Type::Any, None),
+                    (_, Type::Any) => (Type::Any, None),
 
-                // FIX ME. This is added because there is no type output for custom function
-                // definitions. As soon as that syntax is added this should be removed
-                (a, b) if a == b => (Type::Bool, None),
-                _ => {
-                    *op = Expression::garbage(op.span);
-                    (
-                        Type::Any,
-                        Some(ParseError::UnsupportedOperation(
-                            op.span,
-                            lhs.span,
-                            lhs.ty.clone(),
-                            rhs.span,
-                            rhs.ty.clone(),
-                        )),
-                    )
+                    // FIX ME. This is added because there is no type output for custom function
+                    // definitions. As soon as that syntax is added this should be removed
+                    (a, b) if a == b => (Type::Bool, None),
+                    _ => {
+                        *op = Expression::garbage(op.span);
+                        (
+                            Type::Any,
+                            Some(ParseError::UnsupportedOperation(
+                                op.span,
+                                lhs.span,
+                                lhs.ty.clone(),
+                                rhs.span,
+                                rhs.ty.clone(),
+                            )),
+                        )
+                    }
                 }
-            },
-            Operator::LessThan => match (&lhs.ty, &rhs.ty) {
+            }
+            Operator::Comparison(Comparison::LessThan) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Bool, None),
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
@@ -296,7 +301,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::LessThanOrEqual => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::LessThanOrEqual) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Bool, None),
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
@@ -323,7 +328,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::GreaterThan => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::GreaterThan) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Bool, None),
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
@@ -350,7 +355,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::GreaterThanOrEqual => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::GreaterThanOrEqual) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Bool, None),
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
@@ -377,19 +382,19 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Equal => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::Equal) => match (&lhs.ty, &rhs.ty) {
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
 
                 _ => (Type::Bool, None),
             },
-            Operator::NotEqual => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::NotEqual) => match (&lhs.ty, &rhs.ty) {
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
 
                 _ => (Type::Bool, None),
             },
-            Operator::RegexMatch => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::RegexMatch) => match (&lhs.ty, &rhs.ty) {
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -411,7 +416,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::NotRegexMatch => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::NotRegexMatch) => match (&lhs.ty, &rhs.ty) {
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -433,7 +438,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::StartsWith => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::StartsWith) => match (&lhs.ty, &rhs.ty) {
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -455,7 +460,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::EndsWith => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::EndsWith) => match (&lhs.ty, &rhs.ty) {
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -477,7 +482,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::In => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::In) => match (&lhs.ty, &rhs.ty) {
                 (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
                 (Type::Int | Type::Float, Type::Range) => (Type::Bool, None),
                 (Type::String, Type::String) => (Type::Bool, None),
@@ -502,7 +507,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::NotIn => match (&lhs.ty, &rhs.ty) {
+            Operator::Comparison(Comparison::NotIn) => match (&lhs.ty, &rhs.ty) {
                 (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
                 (Type::Int | Type::Float, Type::Range) => (Type::Bool, None),
                 (Type::String, Type::String) => (Type::Bool, None),
@@ -527,11 +532,11 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::ShiftLeft
-            | Operator::ShiftRight
-            | Operator::BitOr
-            | Operator::BitXor
-            | Operator::BitAnd => match (&lhs.ty, &rhs.ty) {
+            Operator::Bits(Bits::ShiftLeft)
+            | Operator::Bits(Bits::ShiftRight)
+            | Operator::Bits(Bits::BitOr)
+            | Operator::Bits(Bits::BitXor)
+            | Operator::Bits(Bits::BitAnd) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
 
                 (Type::Any, _) => (Type::Any, None),
@@ -550,7 +555,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Assign => match (&lhs.ty, &rhs.ty) {
+            Operator::Assignment(Assignment::Assign) => match (&lhs.ty, &rhs.ty) {
                 (x, y) if x == y => (Type::Nothing, None),
                 (Type::Any, _) => (Type::Nothing, None),
                 (_, Type::Any) => (Type::Nothing, None),

@@ -1,5 +1,8 @@
 use super::{operations::Axis, NuDataFrame};
-use nu_protocol::{ast::Operator, span, ShellError, Span, Spanned, Value};
+use nu_protocol::{
+    ast::{Boolean, Comparison, Math, Operator},
+    span, ShellError, Span, Spanned, Value,
+};
 use num::Zero;
 use polars::prelude::{
     BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
@@ -16,7 +19,7 @@ pub(super) fn between_dataframes(
 ) -> Result<Value, ShellError> {
     let operation_span = span(&[left.span()?, right.span()?]);
     match operator.item {
-        Operator::Plus => match lhs.append_df(rhs, Axis::Row, operation_span) {
+        Operator::Math(Math::Plus) => match lhs.append_df(rhs, Axis::Row, operation_span) {
             Ok(df) => Ok(df.into_value(operation_span)),
             Err(e) => Err(e),
         },
@@ -39,25 +42,25 @@ pub(super) fn compute_between_series(
 ) -> Result<Value, ShellError> {
     let operation_span = span(&[left.span()?, right.span()?]);
     match operator.item {
-        Operator::Plus => {
+        Operator::Math(Math::Plus) => {
             let mut res = lhs + rhs;
             let name = format!("sum_{}_{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
-        Operator::Minus => {
+        Operator::Math(Math::Minus) => {
             let mut res = lhs - rhs;
             let name = format!("sub_{}_{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
-        Operator::Multiply => {
+        Operator::Math(Math::Multiply) => {
             let mut res = lhs * rhs;
             let name = format!("mul_{}_{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
-        Operator::Divide => {
+        Operator::Math(Math::Divide) => {
             let res = lhs.checked_div(rhs);
             match res {
                 Ok(mut res) => {
@@ -74,37 +77,37 @@ pub(super) fn compute_between_series(
                 )),
             }
         }
-        Operator::Equal => {
+        Operator::Comparison(Comparison::Equal) => {
             let name = format!("eq_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
-        Operator::NotEqual => {
+        Operator::Comparison(Comparison::NotEqual) => {
             let name = format!("neq_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
-        Operator::LessThan => {
+        Operator::Comparison(Comparison::LessThan) => {
             let name = format!("lt_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
-        Operator::LessThanOrEqual => {
+        Operator::Comparison(Comparison::LessThanOrEqual) => {
             let name = format!("lte_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
-        Operator::GreaterThan => {
+        Operator::Comparison(Comparison::GreaterThan) => {
             let name = format!("gt_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
-        Operator::GreaterThanOrEqual => {
+        Operator::Comparison(Comparison::GreaterThanOrEqual) => {
             let name = format!("gte_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
-        Operator::And => match lhs.dtype() {
+        Operator::Boolean(Boolean::And) => match lhs.dtype() {
             DataType::Boolean => {
                 let lhs_cast = lhs.bool();
                 let rhs_cast = rhs.bool();
@@ -133,7 +136,7 @@ pub(super) fn compute_between_series(
                 operation_span,
             )),
         },
-        Operator::Or => match lhs.dtype() {
+        Operator::Boolean(Boolean::Or) => match lhs.dtype() {
             DataType::Boolean => {
                 let lhs_cast = lhs.bool();
                 let rhs_cast = rhs.bool();
@@ -218,7 +221,7 @@ pub(super) fn compute_series_single_value(
     let lhs = lhs.as_series(lhs_span)?;
 
     match operator.item {
-        Operator::Plus => match &right {
+        Operator::Math(Math::Plus) => match &right {
             Value::Int { val, .. } => {
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::add, lhs_span)
             }
@@ -234,7 +237,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::Minus => match &right {
+        Operator::Math(Math::Minus) => match &right {
             Value::Int { val, .. } => {
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::sub, lhs_span)
             }
@@ -249,7 +252,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::Multiply => match &right {
+        Operator::Math(Math::Multiply) => match &right {
             Value::Int { val, .. } => {
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::mul, lhs_span)
             }
@@ -264,7 +267,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::Divide => match &right {
+        Operator::Math(Math::Divide) => match &right {
             Value::Int { val, span } => {
                 if *val == 0 {
                     Err(ShellError::DivisionByZero(*span))
@@ -287,7 +290,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::Equal => match &right {
+        Operator::Comparison(Comparison::Equal) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::equal, lhs_span),
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::equal, lhs_span)
@@ -307,7 +310,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::NotEqual => match &right {
+        Operator::Comparison(Comparison::NotEqual) => match &right {
             Value::Int { val, .. } => {
                 compare_series_i64(&lhs, *val, ChunkedArray::not_equal, lhs_span)
             }
@@ -328,7 +331,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::LessThan => match &right {
+        Operator::Comparison(Comparison::LessThan) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::lt, lhs_span),
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::lt, lhs_span)
@@ -344,7 +347,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::LessThanOrEqual => match &right {
+        Operator::Comparison(Comparison::LessThanOrEqual) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::lt_eq, lhs_span),
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::lt_eq, lhs_span)
@@ -360,7 +363,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::GreaterThan => match &right {
+        Operator::Comparison(Comparison::GreaterThan) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::gt, lhs_span),
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::gt, lhs_span)
@@ -376,7 +379,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::GreaterThanOrEqual => match &right {
+        Operator::Comparison(Comparison::GreaterThanOrEqual) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::gt_eq, lhs_span),
             Value::Float { val, .. } => {
                 compare_series_decimal(&lhs, *val, ChunkedArray::gt_eq, lhs_span)
@@ -393,7 +396,7 @@ pub(super) fn compute_series_single_value(
             }),
         },
         // TODO: update this to do a regex match instead of a simple contains?
-        Operator::RegexMatch => match &right {
+        Operator::Comparison(Comparison::RegexMatch) => match &right {
             Value::String { val, .. } => contains_series_pat(&lhs, val, lhs_span),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
@@ -403,7 +406,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::StartsWith => match &right {
+        Operator::Comparison(Comparison::StartsWith) => match &right {
             Value::String { val, .. } => {
                 let starts_with_pattern = format!("^{}", fancy_regex::escape(val));
                 contains_series_pat(&lhs, &starts_with_pattern, lhs_span)
@@ -416,7 +419,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span()?,
             }),
         },
-        Operator::EndsWith => match &right {
+        Operator::Comparison(Comparison::EndsWith) => match &right {
             Value::String { val, .. } => {
                 let ends_with_pattern = format!("{}$", fancy_regex::escape(val));
                 contains_series_pat(&lhs, &ends_with_pattern, lhs_span)
