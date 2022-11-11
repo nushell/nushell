@@ -1,6 +1,6 @@
 use crate::ParseError;
 use nu_protocol::{
-    ast::{Assignment, Bits, Boolean, Comparison, Expr, Expression, Math, Operator},
+    ast::{Bits, Boolean, Comparison, Expr, Expression, Math, Operator},
     engine::StateWorkingSet,
     Type,
 };
@@ -555,7 +555,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Assignment(Assignment::Assign) => match (&lhs.ty, &rhs.ty) {
+            Operator::Assignment(_) => match (&lhs.ty, &rhs.ty) {
                 (x, y) if x == y => (Type::Nothing, None),
                 (Type::Any, _) => (Type::Nothing, None),
                 (_, Type::Any) => (Type::Nothing, None),

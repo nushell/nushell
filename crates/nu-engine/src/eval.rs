@@ -434,8 +434,28 @@ pub fn eval_expression(
                         Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr.span),
                     }
                 }
-                Operator::Assignment(Assignment::Assign) => {
+                Operator::Assignment(assignment) => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
+
+                    let rhs = match assignment {
+                        Assignment::Assign => rhs,
+                        Assignment::PlusAssign => {
+                            let lhs = eval_expression(engine_state, stack, lhs)?;
+                            lhs.add(op_span, &rhs, op_span)?
+                        }
+                        Assignment::MinusAssign => {
+                            let lhs = eval_expression(engine_state, stack, lhs)?;
+                            lhs.sub(op_span, &rhs, op_span)?
+                        }
+                        Assignment::MultiplyAssign => {
+                            let lhs = eval_expression(engine_state, stack, lhs)?;
+                            lhs.mul(op_span, &rhs, op_span)?
+                        }
+                        Assignment::DivideAssign => {
+                            let lhs = eval_expression(engine_state, stack, lhs)?;
+                            lhs.div(op_span, &rhs, op_span)?
+                        }
+                    };
 
                     match &lhs.expr {
                         Expr::Var(var_id) | Expr::VarDecl(var_id) => {
