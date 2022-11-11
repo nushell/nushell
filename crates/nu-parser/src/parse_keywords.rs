@@ -2781,12 +2781,8 @@ pub fn parse_let(
                         }
 
                         let mut idx = 0;
-                        let (lvalue, err) = parse_var_with_opt_type(
-                            working_set,
-                            &spans[1..(span.0)],
-                            &mut idx,
-                            false,
-                        );
+                        let (lvalue, err) =
+                            parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx);
                         error = error.or(err);
 
                         let var_name =
@@ -2904,12 +2900,8 @@ pub fn parse_mut(
                         }
 
                         let mut idx = 0;
-                        let (lvalue, err) = parse_var_with_opt_type(
-                            working_set,
-                            &spans[1..(span.0)],
-                            &mut idx,
-                            true,
-                        );
+                        let (lvalue, err) =
+                            parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx);
                         error = error.or(err);
 
                         let var_name =

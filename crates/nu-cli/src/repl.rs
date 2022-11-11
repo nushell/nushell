@@ -801,7 +801,6 @@ pub fn eval_hook(
                                     name.as_bytes().to_vec(),
                                     val.span()?,
                                     Type::Any,
-                                    false,
                                 );
 
                                 vars.push((var_id, val));

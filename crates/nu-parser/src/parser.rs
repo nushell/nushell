@@ -634,7 +634,7 @@ pub fn parse_multispan_value(
         SyntaxShape::VarWithOptType => {
             trace!("parsing: var with opt type");
 
-            let (arg, err) = parse_var_with_opt_type(working_set, spans, spans_idx, false);
+            let (arg, err) = parse_var_with_opt_type(working_set, spans, spans_idx);
             error = error.or(err);
 
             (arg, error)
@@ -2920,7 +2920,6 @@ pub fn parse_var_with_opt_type(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     spans_idx: &mut usize,
-    mutable: bool,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
 
@@ -2955,7 +2954,7 @@ pub fn parse_var_with_opt_type(
                 );
             }
 
-            let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
+            let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone());
 
             (
                 Expression {
@@ -2979,7 +2978,7 @@ pub fn parse_var_with_opt_type(
                 );
             }
 
-            let id = working_set.add_variable(var_name, spans[*spans_idx], Type::Any, mutable);
+            let id = working_set.add_variable(var_name, spans[*spans_idx], Type::Any);
             (
                 Expression {
                     expr: Expr::VarDecl(id),
@@ -3007,7 +3006,6 @@ pub fn parse_var_with_opt_type(
             var_name,
             span(&spans[*spans_idx..*spans_idx + 1]),
             Type::Any,
-            mutable,
         );
 
         (
@@ -3047,7 +3045,7 @@ pub fn parse_row_condition(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
-    let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Any, false);
+    let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Any);
     let (expression, err) =
         parse_math_expression(working_set, spans, Some(var_id), expand_aliases_denylist);
     let span = span(spans);
@@ -3235,7 +3233,7 @@ pub fn parse_signature_helper(
                                 }
 
                                 let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any, false);
+                                    working_set.add_variable(variable_name, span, Type::Any);
 
                                 if flags.len() == 1 {
                                     args.push(Arg::Flag(Flag {
@@ -3285,12 +3283,8 @@ pub fn parse_signature_helper(
                                         })
                                     }
 
-                                    let var_id = working_set.add_variable(
-                                        variable_name,
-                                        span,
-                                        Type::Any,
-                                        false,
-                                    );
+                                    let var_id =
+                                        working_set.add_variable(variable_name, span, Type::Any);
 
                                     if chars.len() == 1 {
                                         args.push(Arg::Flag(Flag {
@@ -3334,7 +3328,7 @@ pub fn parse_signature_helper(
                                 }
 
                                 let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any, false);
+                                    working_set.add_variable(variable_name, span, Type::Any);
 
                                 args.push(Arg::Flag(Flag {
                                     arg: None,
@@ -3401,8 +3395,7 @@ pub fn parse_signature_helper(
                                     })
                                 }
 
-                                let var_id =
-                                    working_set.add_variable(contents, span, Type::Any, false);
+                                let var_id = working_set.add_variable(contents, span, Type::Any);
 
                                 // Positional arg, optional
                                 args.push(Arg::Positional(
@@ -3428,7 +3421,7 @@ pub fn parse_signature_helper(
                                 }
 
                                 let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Any, false);
+                                    working_set.add_variable(contents_vec, span, Type::Any);
 
                                 args.push(Arg::RestPositional(PositionalArg {
                                     desc: String::new(),
@@ -3451,7 +3444,7 @@ pub fn parse_signature_helper(
                                 }
 
                                 let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Any, false);
+                                    working_set.add_variable(contents_vec, span, Type::Any);
 
                                 // Positional arg, required
                                 args.push(Arg::Positional(
