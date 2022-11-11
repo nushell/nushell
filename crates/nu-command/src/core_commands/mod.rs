@@ -28,6 +28,7 @@ mod mut_;
 pub(crate) mod overlay;
 mod use_;
 mod version;
+mod while_;
 
 pub use alias::Alias;
 pub use ast::Ast;
@@ -59,6 +60,7 @@ pub use mut_::Mut;
 pub use overlay::*;
 pub use use_::Use;
 pub use version::Version;
+pub use while_::While;
 #[cfg(feature = "plugin")]
 mod register;
 
