@@ -129,11 +129,6 @@ fn proper_variable_captures_with_nesting() -> TestResult {
 }
 
 #[test]
-fn proper_variable_for() -> TestResult {
-    run_test(r#"for x in 1..3 { if $x == 2 { "bob" } } | get 0"#, "bob")
-}
-
-#[test]
 fn divide_duration() -> TestResult {
     run_test(r#"4ms / 4ms"#, "1")
 }

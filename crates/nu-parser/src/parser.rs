@@ -4741,6 +4741,16 @@ pub fn parse_expression(
                     spans[0],
                 )),
             ),
+            b"for" => (
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                )
+                .0,
+                Some(ParseError::BuiltinCommandInPipeline("for".into(), spans[0])),
+            ),
             b"let" => (
                 parse_call(
                     working_set,
@@ -4897,7 +4907,6 @@ pub fn parse_expression(
                 )),
             ),
 
-            b"for" => parse_for(working_set, spans, expand_aliases_denylist),
             _ => parse_call(
                 working_set,
                 &spans[pos..],
