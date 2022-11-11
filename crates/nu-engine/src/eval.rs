@@ -355,8 +355,8 @@ pub fn eval_expression(
         }
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
-            let lhs = eval_expression(engine_state, stack, lhs)?;
             let op = eval_operator(op)?;
+            let lhs = eval_expression(engine_state, stack, lhs)?;
 
             match op {
                 Operator::And => {
