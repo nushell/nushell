@@ -2781,8 +2781,12 @@ pub fn parse_let(
                         }
 
                         let mut idx = 0;
-                        let (lvalue, err) =
-                            parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx);
+                        let (lvalue, err) = parse_var_with_opt_type(
+                            working_set,
+                            &spans[1..(span.0)],
+                            &mut idx,
+                            false,
+                        );
                         error = error.or(err);
 
                         let var_name =
@@ -2853,6 +2857,129 @@ pub fn parse_let(
         garbage_pipeline(spans),
         Some(ParseError::UnknownState(
             "internal error: let statement unparseable".into(),
+            span(spans),
+        )),
+    )
+}
+
+pub fn parse_mut(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    let name = working_set.get_span_contents(spans[0]);
+
+    if name == b"mut" {
+        if let Some((span, err)) = check_name(working_set, spans) {
+            return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
+        }
+
+        if let Some(decl_id) = working_set.find_decl(b"mut", &Type::Any) {
+            let cmd = working_set.get_decl(decl_id);
+            let call_signature = cmd.signature().call_signature();
+
+            if spans.len() >= 4 {
+                // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
+                // so that the var-id created by the variable isn't visible in the expression that init it
+                for span in spans.iter().enumerate() {
+                    let item = working_set.get_span_contents(*span.1);
+                    if item == b"=" && spans.len() > (span.0 + 1) {
+                        let mut error = None;
+
+                        let mut idx = span.0;
+                        let (rvalue, err) = parse_multispan_value(
+                            working_set,
+                            spans,
+                            &mut idx,
+                            &SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                            expand_aliases_denylist,
+                        );
+                        error = error.or(err);
+
+                        if idx < (spans.len() - 1) {
+                            error = error.or(Some(ParseError::ExtraPositional(
+                                call_signature,
+                                spans[idx + 1],
+                            )));
+                        }
+
+                        let mut idx = 0;
+                        let (lvalue, err) = parse_var_with_opt_type(
+                            working_set,
+                            &spans[1..(span.0)],
+                            &mut idx,
+                            true,
+                        );
+                        error = error.or(err);
+
+                        let var_name =
+                            String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                                .to_string();
+
+                        if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
+                            error =
+                                error.or(Some(ParseError::MutBuiltinVar(var_name, lvalue.span)));
+                        }
+
+                        let var_id = lvalue.as_var();
+                        let rhs_type = rvalue.ty.clone();
+
+                        if let Some(var_id) = var_id {
+                            working_set.set_variable_type(var_id, rhs_type);
+                        }
+
+                        let call = Box::new(Call {
+                            decl_id,
+                            head: spans[0],
+                            arguments: vec![
+                                Argument::Positional(lvalue),
+                                Argument::Positional(rvalue),
+                            ],
+                            redirect_stdout: true,
+                            redirect_stderr: false,
+                        });
+
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: nu_protocol::span(spans),
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            error,
+                        );
+                    }
+                }
+            }
+            let ParsedInternalCall {
+                call,
+                error: err,
+                output,
+            } = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
+
+            return (
+                Pipeline {
+                    expressions: vec![Expression {
+                        expr: Expr::Call(call),
+                        span: nu_protocol::span(spans),
+                        ty: output,
+                        custom_completion: None,
+                    }],
+                },
+                err,
+            );
+        }
+    }
+    (
+        garbage_pipeline(spans),
+        Some(ParseError::UnknownState(
+            "internal error: mut statement unparseable".into(),
             span(spans),
         )),
     )

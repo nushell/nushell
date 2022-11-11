@@ -1,7 +1,10 @@
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
 use super::NuExpression;
-use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Type, Value};
+use nu_protocol::{
+    ast::{Comparison, Math, Operator},
+    CustomValue, ShellError, Span, Type, Value,
+};
 use polars::prelude::Expr;
 
 // CustomValue implementation for NuDataFrame
@@ -95,33 +98,33 @@ fn with_operator(
     op_span: Span,
 ) -> Result<Value, ShellError> {
     match operator {
-        Operator::Plus => apply_arithmetic(left, right, lhs_span, Add::add),
-        Operator::Minus => apply_arithmetic(left, right, lhs_span, Sub::sub),
-        Operator::Multiply => apply_arithmetic(left, right, lhs_span, Mul::mul),
-        Operator::Divide => apply_arithmetic(left, right, lhs_span, Div::div),
-        Operator::Modulo => apply_arithmetic(left, right, lhs_span, Rem::rem),
-        Operator::FloorDivision => apply_arithmetic(left, right, lhs_span, Div::div),
-        Operator::Equal => Ok(left
+        Operator::Math(Math::Plus) => apply_arithmetic(left, right, lhs_span, Add::add),
+        Operator::Math(Math::Minus) => apply_arithmetic(left, right, lhs_span, Sub::sub),
+        Operator::Math(Math::Multiply) => apply_arithmetic(left, right, lhs_span, Mul::mul),
+        Operator::Math(Math::Divide) => apply_arithmetic(left, right, lhs_span, Div::div),
+        Operator::Math(Math::Modulo) => apply_arithmetic(left, right, lhs_span, Rem::rem),
+        Operator::Math(Math::FloorDivision) => apply_arithmetic(left, right, lhs_span, Div::div),
+        Operator::Comparison(Comparison::Equal) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::eq)
             .into_value(lhs_span)),
-        Operator::NotEqual => Ok(left
+        Operator::Comparison(Comparison::NotEqual) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::neq)
             .into_value(lhs_span)),
-        Operator::GreaterThan => Ok(left
+        Operator::Comparison(Comparison::GreaterThan) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::gt)
             .into_value(lhs_span)),
-        Operator::GreaterThanOrEqual => Ok(left
+        Operator::Comparison(Comparison::GreaterThanOrEqual) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::gt_eq)
             .into_value(lhs_span)),
-        Operator::LessThan => Ok(left
+        Operator::Comparison(Comparison::LessThan) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::lt)
             .into_value(lhs_span)),
-        Operator::LessThanOrEqual => Ok(left
+        Operator::Comparison(Comparison::LessThanOrEqual) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::lt_eq)
             .into_value(lhs_span)),

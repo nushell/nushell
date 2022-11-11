@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Expr, Operator};
+use super::Expr;
 use crate::ast::ImportPattern;
 use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
@@ -26,34 +26,36 @@ impl Expression {
     pub fn precedence(&self) -> usize {
         match &self.expr {
             Expr::Operator(operator) => {
+                use super::operator::*;
                 // Higher precedence binds tighter
 
                 match operator {
-                    Operator::Pow => 100,
-                    Operator::Multiply
-                    | Operator::Divide
-                    | Operator::Modulo
-                    | Operator::FloorDivision => 95,
-                    Operator::Plus | Operator::Minus => 90,
-                    Operator::ShiftLeft | Operator::ShiftRight => 85,
-                    Operator::NotRegexMatch
-                    | Operator::RegexMatch
-                    | Operator::StartsWith
-                    | Operator::EndsWith
-                    | Operator::LessThan
-                    | Operator::LessThanOrEqual
-                    | Operator::GreaterThan
-                    | Operator::GreaterThanOrEqual
-                    | Operator::Equal
-                    | Operator::NotEqual
-                    | Operator::In
-                    | Operator::NotIn
-                    | Operator::Append => 80,
-                    Operator::BitAnd => 75,
-                    Operator::BitXor => 70,
-                    Operator::BitOr => 60,
-                    Operator::And => 50,
-                    Operator::Or => 40,
+                    Operator::Math(Math::Pow) => 100,
+                    Operator::Math(Math::Multiply)
+                    | Operator::Math(Math::Divide)
+                    | Operator::Math(Math::Modulo)
+                    | Operator::Math(Math::FloorDivision) => 95,
+                    Operator::Math(Math::Plus) | Operator::Math(Math::Minus) => 90,
+                    Operator::Bits(Bits::ShiftLeft) | Operator::Bits(Bits::ShiftRight) => 85,
+                    Operator::Comparison(Comparison::NotRegexMatch)
+                    | Operator::Comparison(Comparison::RegexMatch)
+                    | Operator::Comparison(Comparison::StartsWith)
+                    | Operator::Comparison(Comparison::EndsWith)
+                    | Operator::Comparison(Comparison::LessThan)
+                    | Operator::Comparison(Comparison::LessThanOrEqual)
+                    | Operator::Comparison(Comparison::GreaterThan)
+                    | Operator::Comparison(Comparison::GreaterThanOrEqual)
+                    | Operator::Comparison(Comparison::Equal)
+                    | Operator::Comparison(Comparison::NotEqual)
+                    | Operator::Comparison(Comparison::In)
+                    | Operator::Comparison(Comparison::NotIn)
+                    | Operator::Math(Math::Append) => 80,
+                    Operator::Bits(Bits::BitAnd) => 75,
+                    Operator::Bits(Bits::BitXor) => 70,
+                    Operator::Bits(Bits::BitOr) => 60,
+                    Operator::Boolean(Boolean::And) => 50,
+                    Operator::Boolean(Boolean::Or) => 40,
+                    Operator::Assignment(Assignment::Assign) => 10,
                 }
             }
             _ => 0,

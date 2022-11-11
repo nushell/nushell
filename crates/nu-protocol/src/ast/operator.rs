@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Operator {
+pub enum Comparison {
     Equal,
     NotEqual,
     LessThan,
@@ -13,20 +13,32 @@ pub enum Operator {
     GreaterThanOrEqual,
     RegexMatch,
     NotRegexMatch,
+    In,
+    NotIn,
+    StartsWith,
+    EndsWith,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Math {
     Plus,
     Append,
     Minus,
     Multiply,
     Divide,
-    In,
-    NotIn,
     Modulo,
     FloorDivision,
+    Pow,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Boolean {
     And,
     Or,
-    Pow,
-    StartsWith,
-    EndsWith,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Bits {
     BitOr,
     BitXor,
     BitAnd,
@@ -34,36 +46,51 @@ pub enum Operator {
     ShiftRight,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Assignment {
+    Assign,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Operator {
+    Comparison(Comparison),
+    Math(Math),
+    Boolean(Boolean),
+    Bits(Bits),
+    Assignment(Assignment),
+}
+
 impl Display for Operator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Operator::Equal => write!(f, "=="),
-            Operator::NotEqual => write!(f, "!="),
-            Operator::LessThan => write!(f, "<"),
-            Operator::GreaterThan => write!(f, ">"),
-            Operator::RegexMatch => write!(f, "=~"),
-            Operator::NotRegexMatch => write!(f, "!~"),
-            Operator::Plus => write!(f, "+"),
-            Operator::Append => write!(f, "++"),
-            Operator::Minus => write!(f, "-"),
-            Operator::Multiply => write!(f, "*"),
-            Operator::Divide => write!(f, "/"),
-            Operator::In => write!(f, "in"),
-            Operator::NotIn => write!(f, "not-in"),
-            Operator::Modulo => write!(f, "mod"),
-            Operator::FloorDivision => write!(f, "fdiv"),
-            Operator::And => write!(f, "&&"),
-            Operator::Or => write!(f, "||"),
-            Operator::Pow => write!(f, "**"),
-            Operator::BitOr => write!(f, "bit-or"),
-            Operator::BitXor => write!(f, "bit-xor"),
-            Operator::BitAnd => write!(f, "bit-and"),
-            Operator::ShiftLeft => write!(f, "bit-shl"),
-            Operator::ShiftRight => write!(f, "bit-shr"),
-            Operator::LessThanOrEqual => write!(f, "<="),
-            Operator::GreaterThanOrEqual => write!(f, ">="),
-            Operator::StartsWith => write!(f, "starts-with"),
-            Operator::EndsWith => write!(f, "ends-with"),
+            Operator::Assignment(Assignment::Assign) => write!(f, "="),
+            Operator::Comparison(Comparison::Equal) => write!(f, "=="),
+            Operator::Comparison(Comparison::NotEqual) => write!(f, "!="),
+            Operator::Comparison(Comparison::LessThan) => write!(f, "<"),
+            Operator::Comparison(Comparison::GreaterThan) => write!(f, ">"),
+            Operator::Comparison(Comparison::RegexMatch) => write!(f, "=~"),
+            Operator::Comparison(Comparison::NotRegexMatch) => write!(f, "!~"),
+            Operator::Comparison(Comparison::LessThanOrEqual) => write!(f, "<="),
+            Operator::Comparison(Comparison::GreaterThanOrEqual) => write!(f, ">="),
+            Operator::Comparison(Comparison::StartsWith) => write!(f, "starts-with"),
+            Operator::Comparison(Comparison::EndsWith) => write!(f, "ends-with"),
+            Operator::Comparison(Comparison::In) => write!(f, "in"),
+            Operator::Comparison(Comparison::NotIn) => write!(f, "not-in"),
+            Operator::Math(Math::Plus) => write!(f, "+"),
+            Operator::Math(Math::Append) => write!(f, "++"),
+            Operator::Math(Math::Minus) => write!(f, "-"),
+            Operator::Math(Math::Multiply) => write!(f, "*"),
+            Operator::Math(Math::Divide) => write!(f, "/"),
+            Operator::Math(Math::Modulo) => write!(f, "mod"),
+            Operator::Math(Math::FloorDivision) => write!(f, "fdiv"),
+            Operator::Math(Math::Pow) => write!(f, "**"),
+            Operator::Boolean(Boolean::And) => write!(f, "&&"),
+            Operator::Boolean(Boolean::Or) => write!(f, "||"),
+            Operator::Bits(Bits::BitOr) => write!(f, "bit-or"),
+            Operator::Bits(Bits::BitXor) => write!(f, "bit-xor"),
+            Operator::Bits(Bits::BitAnd) => write!(f, "bit-and"),
+            Operator::Bits(Bits::ShiftLeft) => write!(f, "bit-shl"),
+            Operator::Bits(Bits::ShiftRight) => write!(f, "bit-shr"),
         }
     }
 }
