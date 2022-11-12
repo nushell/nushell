@@ -148,10 +148,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 });
 
                 cols.push("signatures".to_string());
-                vals.push(Value::List {
-                    vals: self.collect_signatures(&signature, span),
-                    span,
-                });
+                vals.push(self.collect_signatures(&signature, span));
 
                 cols.push("usage".to_string());
                 vals.push(Value::String {
@@ -266,15 +263,36 @@ impl<'e, 's> ScopeData<'e, 's> {
         commands
     }
 
-    fn collect_signatures(&self, signature: &Signature, span: Span) -> Vec<Value> {
-        signature
+    fn collect_signatures(&self, signature: &Signature, span: Span) -> Value {
+        let (cols, vals) = signature
             .input_output_types
             .iter()
-            .map(|(input_type, output_type)| Value::List {
-                vals: self.collect_signature_entries(input_type, output_type, signature, span),
-                span,
+            // For most commands, input types are not repeated in
+            // `input_output_types`, i.e. each input type has only one
+            // associated output type. Furthermore, we want this to always be
+            // true. However, there are currently some exceptions, such as `hash
+            // sha256` which takes in string but may output string or binary
+            // depending on the presence of the --binary flag. In such cases,
+            // the "special case" signature usually comes later in the
+            // input_output_types. We reverse here in order for the special case
+            // signature to be the one that does *not* appear in the record.
+            .rev()
+            .map(|(input_type, output_type)| {
+                (
+                    input_type.to_shape().to_string(),
+                    Value::List {
+                        vals: self.collect_signature_entries(
+                            input_type,
+                            output_type,
+                            signature,
+                            span,
+                        ),
+                        span,
+                    },
+                )
             })
-            .collect()
+            .unzip();
+        Value::Record { cols, vals, span }
     }
 
     fn collect_signature_entries(
