@@ -20,7 +20,7 @@ fn capture_errors_works_for_external() {
         do -c {nu --testbin fail}
         "#
     ));
-    assert!(actual.err.contains("External command runs to failed"));
+    assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 
@@ -32,7 +32,7 @@ fn capture_errors_works_for_external_with_pipeline() {
         do -c {nu --testbin fail} | echo `text`
         "#
     ));
-    assert!(actual.err.contains("External command runs to failed"));
+    assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 
@@ -44,7 +44,7 @@ fn capture_errors_works_for_external_with_semicolon() {
         do -c {nu --testbin fail}; echo `text`
         "#
     ));
-    assert!(actual.err.contains("External command runs to failed"));
+    assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 

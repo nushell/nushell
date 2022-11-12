@@ -149,7 +149,7 @@ impl Command for Do {
                     // if exit_code is not 0, it indicates error occured, return back Err.
                     if *code != 0 {
                         return Err(ShellError::ExternalCommand(
-                            "External command runs to failed".to_string(),
+                            "External command failed".to_string(),
                             stderr_msg,
                             span,
                         ));
