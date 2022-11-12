@@ -65,9 +65,10 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         let example_result_1 = || {
-            let dt = FixedOffset::east(5 * 3600)
-                .ymd(2020, 10, 10)
-                .and_hms(13, 00, 00);
+            let dt = FixedOffset::east_opt(5 * 3600)
+                .unwrap()
+                .with_ymd_and_hms(2020, 10, 10, 13, 00, 00)
+                .unwrap();
             Some(Value::Date {
                 val: dt,
                 span: Span::test_data(),

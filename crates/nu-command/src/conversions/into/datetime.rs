@@ -152,7 +152,7 @@ impl Command for SubCommand {
                 description: "Convert to datetime",
                 example: "'27.02.2021 1:55 pm +0000' | into datetime",
                 result: Some(Value::Date {
-                    val: Utc.timestamp(1614434100, 0).into(),
+                    val: Utc.timestamp_opt(1614434100, 0).unwrap().into(),
                     span: Span::test_data(),
                 }),
             },
@@ -160,7 +160,7 @@ impl Command for SubCommand {
                 description: "Convert to datetime",
                 example: "'2021-02-27T13:55:40+00:00' | into datetime",
                 result: Some(Value::Date {
-                    val: Utc.timestamp(1614434140, 0).into(),
+                    val: Utc.timestamp_opt(1614434140, 0).unwrap().into(),
                     span: Span::test_data(),
                 }),
             },
@@ -168,7 +168,7 @@ impl Command for SubCommand {
                 description: "Convert to datetime using a custom format",
                 example: "'20210227_135540+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
                 result: Some(Value::Date {
-                    val: Utc.timestamp(1614434140, 0).into(),
+                    val: Utc.timestamp_opt(1614434140, 0).unwrap().into(),
                     span: Span::test_data(),
                 }),
             },
@@ -176,7 +176,7 @@ impl Command for SubCommand {
                 description: "Convert timestamp (no larger than 8e+12) to a UTC datetime",
                 example: "1614434140 | into datetime",
                 result: Some(Value::Date {
-                    val: Utc.timestamp(1614434140, 0).into(),
+                    val: Utc.timestamp_opt(1614434140, 0).unwrap().into(),
                     span: Span::test_data(),
                 }),
             },
@@ -191,7 +191,7 @@ impl Command for SubCommand {
                     "Convert timestamps like the sqlite history t",
                 example: "1656165681720 | into datetime",
                 result: Some(Value::Date {
-                    val: Utc.timestamp_millis(1656165681720).into(),
+                    val: Utc.timestamp_millis_opt(1656165681720).unwrap().into(),
                     span: Span::test_data(),
                 }),
             },
@@ -239,8 +239,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 // be able to convert chrono::Utc::now()
                 let dt = match ts.to_string().len() {
                     x if x > 13 => Utc.timestamp_nanos(ts).into(),
-                    x if x > 10 => Utc.timestamp_millis(ts).into(),
-                    _ => Utc.timestamp(ts, 0).into(),
+                    x if x > 10 => Utc.timestamp_millis_opt(ts).unwrap().into(),
+                    _ => Utc.timestamp_opt(ts, 0).unwrap().into(),
                 };
 
                 Value::Date {
@@ -250,24 +250,24 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             }
             Some(Spanned { item, span }) => match item {
                 Zone::Utc => Value::Date {
-                    val: Utc.timestamp(ts, 0).into(),
+                    val: Utc.timestamp_opt(ts, 0).unwrap().into(),
                     span: head,
                 },
                 Zone::Local => Value::Date {
-                    val: Local.timestamp(ts, 0).into(),
+                    val: Local.timestamp_opt(ts, 0).unwrap().into(),
                     span: head,
                 },
                 Zone::East(i) => {
-                    let eastoffset = FixedOffset::east((*i as i32) * HOUR);
+                    let eastoffset = FixedOffset::east_opt((*i as i32) * HOUR).unwrap();
                     Value::Date {
-                        val: eastoffset.timestamp(ts, 0),
+                        val: eastoffset.timestamp_opt(ts, 0).unwrap(),
                         span: head,
                     }
                 }
                 Zone::West(i) => {
-                    let westoffset = FixedOffset::west((*i as i32) * HOUR);
+                    let westoffset = FixedOffset::west_opt((*i as i32) * HOUR).unwrap();
                     Value::Date {
-                        val: westoffset.timestamp(ts, 0),
+                        val: westoffset.timestamp_opt(ts, 0).unwrap(),
                         span: head,
                     }
                 }
@@ -425,7 +425,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::Date {
-            val: Local.timestamp(1614434140, 0).into(),
+            val: Local.timestamp_opt(1614434140, 0).unwrap().into(),
             span: Span::test_data(),
         };
 
@@ -443,7 +443,7 @@ mod tests {
         let actual = action(&date_str, &args, Span::test_data());
 
         let expected = Value::Date {
-            val: Utc.timestamp(1614434140, 0).into(),
+            val: Utc.timestamp_opt(1614434140, 0).unwrap().into(),
             span: Span::test_data(),
         };
 
