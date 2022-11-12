@@ -307,7 +307,6 @@ impl<'e, 's> ScopeData<'e, 's> {
         let mut sig_records = vec![];
 
         let sig_cols = vec![
-            "command".to_string(),
             "parameter_name".to_string(),
             "parameter_type".to_string(),
             "syntax_shape".to_string(),
@@ -321,7 +320,6 @@ impl<'e, 's> ScopeData<'e, 's> {
         sig_records.push(Value::Record {
             cols: sig_cols.clone(),
             vals: vec![
-                Value::string(&signature.name, span),
                 Value::nothing(span),
                 Value::string("input", span),
                 Value::string(input_type.to_shape().to_string(), span),
@@ -336,7 +334,6 @@ impl<'e, 's> ScopeData<'e, 's> {
         // required_positional
         for req in &signature.required_positional {
             let sig_vals = vec![
-                Value::string(&signature.name, span),
                 Value::string(&req.name, span),
                 Value::string("positional", span),
                 Value::string(req.shape.to_string(), span),
@@ -359,7 +356,6 @@ impl<'e, 's> ScopeData<'e, 's> {
         // optional_positional
         for opt in &signature.optional_positional {
             let sig_vals = vec![
-                Value::string(&signature.name, span),
                 Value::string(&opt.name, span),
                 Value::string("positional", span),
                 Value::string(opt.shape.to_string(), span),
@@ -382,7 +378,6 @@ impl<'e, 's> ScopeData<'e, 's> {
         // rest_positional
         if let Some(rest) = &signature.rest_positional {
             let sig_vals = vec![
-                Value::string(&signature.name, span),
                 Value::string(&rest.name, span),
                 Value::string("rest", span),
                 Value::string(rest.shape.to_string(), span),
@@ -429,7 +424,6 @@ impl<'e, 's> ScopeData<'e, 's> {
             };
 
             let sig_vals = vec![
-                Value::string(&signature.name, span),
                 Value::string(&named.long, span),
                 flag_type,
                 shape,
@@ -450,7 +444,6 @@ impl<'e, 's> ScopeData<'e, 's> {
         sig_records.push(Value::Record {
             cols: sig_cols,
             vals: vec![
-                Value::string(&signature.name, span),
                 Value::nothing(span),
                 Value::string("output", span),
                 Value::string(output_type.to_shape().to_string(), span),
