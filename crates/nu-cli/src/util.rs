@@ -265,6 +265,34 @@ pub fn eval_source(
     true
 }
 
+pub fn eval_source2(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    source: &[u8],
+    fname: &str,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let (block, delta) = {
+        let mut working_set = StateWorkingSet::new(engine_state);
+        let (output, err) = parse(
+            &mut working_set,
+            Some(fname), // format!("entry #{}", entry_num)
+            source,
+            false,
+            &[],
+        );
+        if let Some(err) = err {
+            return Err(ShellError::IOError(err.to_string()));
+        }
+
+        (output, working_set.render())
+    };
+
+    engine_state.merge_delta(delta)?;
+
+    eval_block(engine_state, stack, &block, input, false, false)
+}
+
 fn set_last_exit_code(stack: &mut Stack, exit_code: i64) {
     stack.add_env_var(
         "LAST_EXIT_CODE".to_string(),

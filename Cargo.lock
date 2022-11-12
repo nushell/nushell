@@ -2713,6 +2713,7 @@ dependencies = [
  "mime",
  "notify",
  "nu-ansi-term",
+ "nu-cli",
  "nu-color-config",
  "nu-engine",
  "nu-glob",

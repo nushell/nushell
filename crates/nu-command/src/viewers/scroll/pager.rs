@@ -19,8 +19,12 @@ use crossterm::{
     },
 };
 use nu_ansi_term::{Color as NuColor, Style as NuStyle};
+use nu_cli::eval_source2;
 use nu_color_config::{get_color_config, style_primitive};
-use nu_protocol::{Config, Span as NuSpan, Value};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    Config, PipelineData, ShellError, Span as NuSpan, Value,
+};
 use nu_table::{string_width, Alignment, TextStyle};
 use reedline::KeyModifiers;
 use tui::{
@@ -32,6 +36,8 @@ use tui::{
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
     Frame, Terminal,
 };
+
+use super::collect_pipeline;
 
 type NuText = (String, TextStyle);
 
@@ -47,6 +53,7 @@ pub struct TableConfig {
     pub(crate) peek_value: bool,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn pager(
     cols: &[String],
     data: &[Vec<Value>],
@@ -54,6 +61,8 @@ pub fn pager(
     ctrlc: CtrlC,
     table: TableConfig,
     style: StyleConfig,
+    engine_state: &EngineState,
+    stack: &mut Stack,
 ) -> Result<Option<Value>> {
     // setup terminal
     enable_raw_mode()?;
@@ -82,7 +91,7 @@ pub fn pager(
         }
     }
 
-    let result = render_ui(&mut terminal, ctrlc, state);
+    let result = render_ui(&mut terminal, ctrlc, engine_state, stack, state);
 
     // restore terminal
     disable_raw_mode()?;
@@ -94,6 +103,8 @@ pub fn pager(
 fn render_ui<B>(
     terminal: &mut Terminal<B>,
     ctrlc: CtrlC,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     mut state: UIState<'_>,
 ) -> Result<Option<Value>>
 where
@@ -143,12 +154,73 @@ where
                         set_cursor(f, state, &layout);
                     }
                 }
+
+                {
+                    // set a cursor to cmd bar
+                    if state.is_cmd_input {
+                        // todo: deal with a situation where we exeed the bar width
+                        let next_pos = (state.buf_cmd2.len() + 1) as u16;
+                        // 1 skips a ':' char
+                        if next_pos < area.width {
+                            f.set_cursor(next_pos as u16, area.height - 1);
+                        }
+                    } else if state.is_search_input {
+                        // todo: deal with a situation where we exeed the bar width
+                        let next_pos = (state.buf_cmd_input.len() + 1) as u16;
+                        // 1 skips a ':' char
+                        if next_pos < area.width {
+                            f.set_cursor(next_pos as u16, area.height - 1);
+                        }
+                    }
+                }
             })?;
 
             let exited = handle_events(&events, state, &layout, terminal);
             if exited {
                 let val = state.peek_value.then(|| get_last_used_value(state, layout));
                 break Ok(val);
+            }
+        }
+
+        {
+            let state = state_stack.last_mut().unwrap_or(&mut state);
+            if state.run_cmd {
+                let cmd = state.buf_cmd2.clone();
+
+                state.run_cmd = false;
+                state.buf_cmd2 = String::new();
+
+                if let Some(cmd) = cmd.strip_prefix("nu ") {
+                    let value = get_last_used_value(state, Layout::default());
+                    let pipeline = PipelineData::Value(value, None);
+
+                    let pipeline = run_nu_command(engine_state, stack, cmd, pipeline);
+
+                    #[allow(clippy::single_match)]
+                    match pipeline {
+                        Ok(pipeline_data) => {
+                            let (columns, values) = collect_pipeline(pipeline_data);
+
+                            let state = UIState::new(
+                                Cow::from(columns),
+                                Cow::from(values),
+                                state.config,
+                                state.color_hm,
+                                state.show_header,
+                                state.show_index,
+                                state.peek_value,
+                                state.style.clone(),
+                            );
+
+                            state_stack.push(state);
+                        }
+                        Err(_) => {
+                            // todo: ignore for now
+                        }
+                    }
+                }
+
+                continue;
             }
         }
 
@@ -186,6 +258,16 @@ where
             }
         }
     }
+}
+
+fn run_nu_command(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    cmd: &str,
+    current: PipelineData,
+) -> std::result::Result<PipelineData, ShellError> {
+    let mut engine_state = engine_state.clone();
+    eval_source2(&mut engine_state, stack, cmd.as_bytes(), "", current)
 }
 
 fn get_last_used_value(state: &UIState, layout: Layout) -> Value {
@@ -261,6 +343,15 @@ fn render_cmd_bar<B>(f: &mut Frame<B>, area: Rect, _state: &UIState<'_>, _layout
 where
     B: Backend,
 {
+    if _state.is_cmd_input {
+        let prefix = ':';
+        let text = format!("{}{}", prefix, _state.buf_cmd2);
+        let info = String::new();
+
+        f.render_widget(CmdBar::new(&text, &info, _state.style.cmd_bar), area);
+        return;
+    }
+
     if _state.is_search_input || !_state.buf_cmd_input.is_empty() {
         if _state.search_results.is_empty() && !_state.is_search_input {
             let message = format!("Pattern not found: {}", _state.buf_cmd_input);
@@ -441,6 +532,8 @@ where
     let _ = term.hide_cursor();
 }
 
+// eval_source
+
 fn view_mode_key_event<B>(
     key: &KeyEvent,
     state: &mut UIState<'_>,
@@ -451,6 +544,13 @@ fn view_mode_key_event<B>(
 {
     if state.is_search_input {
         let exit = search_input_key_event(key, state, layout);
+        if exit {
+            return;
+        }
+    }
+
+    if state.is_cmd_input {
+        let exit = cmd_input_key_event(key, state, layout);
         if exit {
             return;
         }
@@ -485,6 +585,13 @@ fn view_mode_key_event<B>(
         } => {
             state.buf_cmd_input = String::new();
             state.is_search_input = true;
+        }
+        KeyEvent {
+            code: KeyCode::Char(':'),
+            ..
+        } => {
+            state.buf_cmd2 = String::new();
+            state.is_cmd_input = true;
         }
         KeyEvent {
             code: KeyCode::Char('n'),
@@ -685,6 +792,35 @@ fn search_pattern(data: &[Vec<NuText>], pat: &str, rev: bool) -> Vec<(usize, usi
     matches
 }
 
+fn cmd_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, _layout: &Layout) -> bool {
+    match &key.code {
+        KeyCode::Esc => {
+            state.is_cmd_input = false;
+            state.buf_cmd2 = String::new();
+            true
+        }
+        KeyCode::Enter => {
+            state.is_cmd_input = false;
+            state.run_cmd = true;
+            true
+        }
+        KeyCode::Backspace => {
+            if state.buf_cmd2.is_empty() {
+                state.is_cmd_input = false;
+            } else {
+                state.buf_cmd2.pop();
+            }
+
+            true
+        }
+        KeyCode::Char(c) => {
+            state.buf_cmd2.push(*c);
+            true
+        }
+        _ => false,
+    }
+}
+
 #[derive(Debug, Clone)]
 struct UIState<'a> {
     columns: Cow<'a, [String]>,
@@ -718,6 +854,10 @@ struct UIState<'a> {
     is_search_rev: bool,
     style: StyleConfig,
     peek_value: bool,
+    // only applicable for SEARCH input
+    is_cmd_input: bool,
+    run_cmd: bool,
+    buf_cmd2: String,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -785,6 +925,9 @@ impl<'a> UIState<'a> {
             data_text,
             style,
             peek_value: ret_value,
+            is_cmd_input: false,
+            run_cmd: false,
+            buf_cmd2: String::new(),
         }
     }
 

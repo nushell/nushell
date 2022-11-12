@@ -78,7 +78,16 @@ Press <ESC> to get out of the mode and the inner view.
 
         let (columns, data) = collect_pipeline(input);
 
-        let result = pager(&columns, &data, config, ctrlc, table_config, style);
+        let result = pager(
+            &columns,
+            &data,
+            config,
+            ctrlc,
+            table_config,
+            style,
+            engine_state,
+            stack,
+        );
         match result {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
             Ok(None) => Ok(PipelineData::Value(Value::default(), None)),
@@ -115,7 +124,7 @@ Press <ESC> to get out of the mode and the inner view.
     }
 }
 
-fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
+pub(crate) fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
     match input {
         PipelineData::Value(value, ..) => collect_input(value),
         PipelineData::ListStream(mut stream, ..) => {
@@ -124,8 +133,16 @@ fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
                 records.push(item);
             }
 
-            let cols = get_columns(&records);
+            let mut cols = get_columns(&records);
             let data = convert_records_to_dataset(&cols, records);
+
+            // trying to deal with 'not standart input'
+            if cols.is_empty() && !data.is_empty() {
+                let min_column_length = data.iter().map(|row| row.len()).min().unwrap_or(0);
+                if min_column_length > 0 {
+                    cols = (0..min_column_length).map(|i| i.to_string()).collect();
+                }
+            }
 
             (cols, data)
         }
